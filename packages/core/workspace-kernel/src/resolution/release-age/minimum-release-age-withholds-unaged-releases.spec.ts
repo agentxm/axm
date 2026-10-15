@@ -45,6 +45,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "trustworthy-distribution"],
+  boundaryRationale:
+    "Production release-age configuration reads real project and user settings through native workspace services; candidate time and Registry responses remain controlled.",
+  boundary: "platform",
   methods: ["decision-table", "example"],
   derivedFrom: [],
   supersedes: [],

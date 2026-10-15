@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["actionable-diagnostics", "agent-interoperability"],
   methods: ["example"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "A collision is decided from real agent directories under a project folder and a separate user home on disk; production lint observes both without mutating either.",
   derivedFrom: [],

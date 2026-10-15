@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["machine-automation"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Machine output mode and its channels are adapter concepts, so the lint adapter over a captured Screen is the lowest layer that exercises both clauses; no process is needed to observe what it emitted.",
   methods: ["contract"],

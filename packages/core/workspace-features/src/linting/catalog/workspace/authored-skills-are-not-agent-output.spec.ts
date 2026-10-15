@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "A real workspace holds the source package and overlapping native agent directory; production lint observes its ownership and normal/strict outcomes without mutating it.",
   derivedFrom: [],

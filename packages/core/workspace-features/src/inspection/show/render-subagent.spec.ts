@@ -20,7 +20,7 @@ export const specification = defineSpecification({
     "safe-repetition",
   ],
   methods: ["example", "decision-table"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The query runs with real canonical files and workspace services; complete before/after snapshots observe read-only behavior without process or network effects.",
   derivedFrom: ["cli/type-shows-report-source-and-version"],

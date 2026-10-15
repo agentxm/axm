@@ -17,6 +17,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
+  boundaryRationale:
+    "Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.",
+  boundary: "platform",
   methods: ["decision-table", "example"],
   derivedFrom: ["cli/activation-follows-desired-state"],
   supersedes: [],

@@ -27,6 +27,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["privacy-and-consent"],
+  boundaryRationale:
+    "Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.",
+  boundary: "platform",
   methods: ["decision-table"],
   derivedFrom: ["AgentXM Registry API 0.1.0"],
   supersedes: [],

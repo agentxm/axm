@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { golangDetector, golangReader } from "./golang.js";
 
 const golangType = Schema.decodeUnknownSync(PackageTypeSchema)("golang");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write go.mod, run detector, clean up. */
 const detectInTempDir = (goMod?: string) =>
@@ -35,7 +32,7 @@ describe("golangDetector", () => {
 
   describe("direct dependencies extracted", () => {
     it.effect("extracts direct dependencies from require block", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const goMod = [
             "module example.com/myproject",
@@ -59,7 +56,7 @@ describe("golangDetector", () => {
 
   describe("indirect dependencies filtered", () => {
     it.effect("excludes dependencies marked as indirect", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const goMod = [
             "module example.com/myproject",
@@ -81,7 +78,7 @@ describe("golangDetector", () => {
 
   describe("single-line require directive", () => {
     it.effect("parses single-line require", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const goMod = [
             "module example.com/myproject",
@@ -107,7 +104,7 @@ describe("golangDetector", () => {
 
   describe("module path to purl mapping", () => {
     it.effect("standard module path splits namespace and name", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const goMod = "module m\nrequire github.com/gin-gonic/gin v1.9.1";
           const result = yield* detectInTempDir(goMod);
@@ -125,7 +122,7 @@ describe("golangDetector", () => {
     );
 
     it.effect("v2+ major version suffix removed", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const goMod = "module m\nrequire github.com/foo/bar/v2 v2.1.0";
           const result = yield* detectInTempDir(goMod);
@@ -143,7 +140,7 @@ describe("golangDetector", () => {
     );
 
     it.effect("v3+ major version suffix removed", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const goMod = "module m\nrequire github.com/example/lib/v3 v3.0.0";
           const result = yield* detectInTempDir(goMod);
@@ -161,7 +158,7 @@ describe("golangDetector", () => {
     );
 
     it.effect("standard library style path", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const goMod = "module m\nrequire golang.org/x/sync v0.3.0";
           const result = yield* detectInTempDir(goMod);
@@ -179,7 +176,7 @@ describe("golangDetector", () => {
     );
 
     it.effect("namespace lowercased", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const goMod = "module m\nrequire GitHub.com/Foo/Bar v1.0.0";
           const result = yield* detectInTempDir(goMod);
@@ -193,7 +190,7 @@ describe("golangDetector", () => {
 
   describe("exact versions from require directives", () => {
     it.effect("exact version included", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const goMod = "module m\nrequire github.com/gin-gonic/gin v1.9.1";
           const result = yield* detectInTempDir(goMod);
@@ -203,7 +200,7 @@ describe("golangDetector", () => {
     );
 
     it.effect("pseudo-version included", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const goMod = "module m\nrequire golang.org/x/exp v0.0.0-20231006140011-7918f672742d";
           const result = yield* detectInTempDir(goMod);
@@ -215,7 +212,7 @@ describe("golangDetector", () => {
 
   describe("missing go.mod", () => {
     it.effect("returns empty array when go.mod is missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -226,7 +223,7 @@ describe("golangDetector", () => {
 
   describe("malformed go.mod", () => {
     it.effect("returns empty array and warns on malformed content", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir("{{{{ not valid go.mod content ????");
           expect(result).toEqual([]);
@@ -244,6 +241,7 @@ describe("golangDetector", () => {
 const readInTempGopath = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
   agentExtensionsJsonContent?: string,
+  options: { readonly packagePresent?: boolean } = {},
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -253,16 +251,18 @@ const readInTempGopath = (
     // Set up a fake GOPATH structure
     const gopath = path.join(tmpDir, "gopath");
 
-    if (agentExtensionsJsonContent !== undefined) {
+    if (options.packagePresent !== false) {
       // Reconstruct the module path from purl
       const modulePath = pkgPurl.namespace ? `${pkgPurl.namespace}/${pkgPurl.name}` : pkgPurl.name;
       const version = pkgPurl.version ?? "v0.0.0";
       const modDir = path.join(gopath, "pkg", "mod", `${modulePath}@${version}`);
       yield* fs.makeDirectory(modDir, { recursive: true });
-      yield* fs.writeFileString(
-        path.join(modDir, "agent-extensions.json"),
-        agentExtensionsJsonContent,
-      );
+      if (agentExtensionsJsonContent !== undefined) {
+        yield* fs.writeFileString(
+          path.join(modDir, "agent-extensions.json"),
+          agentExtensionsJsonContent,
+        );
+      }
     }
 
     // Create a source file so the detector source path exists
@@ -291,7 +291,7 @@ describe("golangReader", () => {
 
   describe("valid agent-extensions.json sidecar", () => {
     it.effect("extracts extensions from agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "golang",
@@ -314,7 +314,7 @@ describe("golangReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "golang",
@@ -334,7 +334,7 @@ describe("golangReader", () => {
 
   describe("missing agent-extensions.json", () => {
     it.effect("returns Option.none when agent-extensions.json does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "golang",
@@ -351,7 +351,7 @@ describe("golangReader", () => {
 
   describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "golang",
@@ -368,7 +368,7 @@ describe("golangReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "golang",
@@ -394,7 +394,7 @@ describe("golangReader", () => {
 
   describe("module path reconstruction from purl parts", () => {
     it.effect("reconstructs module path with namespace", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "golang",
@@ -416,7 +416,7 @@ describe("golangReader", () => {
 
   describe("missing module cache", () => {
     it.effect("returns Option.none when module cache does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "golang",
@@ -424,7 +424,7 @@ describe("golangReader", () => {
             name: "gin",
             version: "v1.9.1",
           });
-          const result = yield* readInTempGopath(purl);
+          const result = yield* readInTempGopath(purl, undefined, { packagePresent: false });
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -433,7 +433,7 @@ describe("golangReader", () => {
 
   describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "golang",
@@ -450,7 +450,7 @@ describe("golangReader", () => {
 
   describe("GOPATH defaults to ~/go", () => {
     it.effect("uses ~/go when GOPATH is not set", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "golang",

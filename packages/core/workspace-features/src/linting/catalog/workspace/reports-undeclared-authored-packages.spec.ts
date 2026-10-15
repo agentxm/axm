@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Authored packages, their manifests, and settings are real files; production lint and lint --fix observe them and the settings document on disk.",
   derivedFrom: ["cli/lint/authored-skills-are-not-agent-output"],

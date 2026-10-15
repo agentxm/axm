@@ -23,7 +23,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["knowledge-access", "machine-automation"],
-  boundary: "memory",
+  boundary: "repository",
+  boundaryRationale:
+    "The default execution reads committed generated reference and schema artifacts and compares them with the registered command tree and production generator.",
   methods: ["contract", "example"],
   derivedFrom: ["cli/command-help-is-complete"],
   supersedes: [],

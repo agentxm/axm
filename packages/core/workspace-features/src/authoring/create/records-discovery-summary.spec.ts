@@ -22,6 +22,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "Production authoring reads and changes a native temporary workspace; file snapshots observe source preservation, declarations and realized outputs.",
+  boundary: "platform",
   methods: ["decision-table"],
   derivedFrom: [],
   supersedes: [],

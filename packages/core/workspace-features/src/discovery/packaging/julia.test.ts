@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { juliaDetector, juliaReader } from "./julia.js";
 
 const juliaType = Schema.decodeUnknownSync(PackageTypeSchema)("julia");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write Project.toml, run detector, clean up. */
 const detectInTempDir = (projectToml?: string) =>
@@ -34,7 +31,7 @@ describe("juliaDetector", () => {
 
   describe("dependencies from deps section", () => {
     it.effect("extracts dependencies from [deps]", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const toml = [
             'name = "MyProject"',
@@ -56,7 +53,7 @@ describe("juliaDetector", () => {
 
   describe("all purls are versionless", () => {
     it.effect("dependency produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const toml = ["[deps]", 'JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"'].join("\n");
           const result = yield* detectInTempDir(toml);
@@ -69,7 +66,7 @@ describe("juliaDetector", () => {
 
   describe("compat section does not add versions", () => {
     it.effect("compat section ignored for versioning", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const toml = [
             "[deps]",
@@ -89,7 +86,7 @@ describe("juliaDetector", () => {
 
   describe("compat-only entries ignored", () => {
     it.effect("package in compat but not deps produces nothing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const toml = ["[compat]", 'julia = "1.6"'].join("\n");
           const result = yield* detectInTempDir(toml);
@@ -101,7 +98,7 @@ describe("juliaDetector", () => {
 
   describe("missing Project.toml", () => {
     it.effect("returns empty array when Project.toml is missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -112,7 +109,7 @@ describe("juliaDetector", () => {
 
   describe("no deps section", () => {
     it.effect("returns empty array when no [deps] section", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const toml = ['name = "MyProject"', 'uuid = "12345678-1234-1234-1234-123456789abc"'].join(
             "\n",
@@ -126,7 +123,7 @@ describe("juliaDetector", () => {
 
   describe("malformed Project.toml", () => {
     it.effect("returns empty array on malformed content", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir("{{{{ not valid TOML ????");
           expect(result).toEqual([]);
@@ -187,7 +184,7 @@ describe("juliaReader", () => {
 
   describe("valid agentExtensions field", () => {
     it.effect("extracts extensions from agentExtensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "DataFrames" });
           const toml = [
@@ -207,7 +204,7 @@ describe("juliaReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "SomeLib" });
           const toml = ['name = "SomeLib"', "", "agentExtensions = []"].join("\n");
@@ -223,7 +220,7 @@ describe("juliaReader", () => {
 
   describe("missing [agentExtensions] section", () => {
     it.effect("returns Option.none when no [agentExtensions] section", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "Plots" });
           const toml = ['name = "Plots"', 'uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"'].join(
@@ -238,7 +235,7 @@ describe("juliaReader", () => {
 
   describe("malformed [agentExtensions] section", () => {
     it.effect("returns Option.none on invalid metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "SomeLib" });
           const toml = ['name = "SomeLib"', "", 'agentExtensions = "not-an-array"'].join("\n");
@@ -251,7 +248,7 @@ describe("juliaReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores unknown fields in [agentExtensions]", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "SomeLib" });
           const toml = [
@@ -272,7 +269,7 @@ describe("juliaReader", () => {
 
   describe("missing Julia packages directory", () => {
     it.effect("returns Option.none when packages dir does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "NonExistent" });
           const result = yield* readInTempJulia(purl);

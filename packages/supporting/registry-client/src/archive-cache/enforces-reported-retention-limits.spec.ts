@@ -16,6 +16,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
+  boundaryRationale:
+    "Production cache accounting and pruning observe real archive bytes, timestamps and sparse files in a native temporary cache, including active-entry preservation.",
+  boundary: "platform",
   methods: ["example", "contract"],
   derivedFrom: ["packages/supporting/registry-client/src/archive-cache.ts"],
   supersedes: ["cli/cache/status/reports-usage-and-effective-limits"],

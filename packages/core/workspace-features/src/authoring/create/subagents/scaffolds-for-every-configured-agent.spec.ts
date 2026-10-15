@@ -29,7 +29,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["authoring-and-creation", "agent-interoperability", "safe-repetition"],
   methods: ["example"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Creation is decided and executed inside extension-authoring over the workspace-state services; a real project directory observes the renderings an author would see without running the built CLI.",
   derivedFrom: [

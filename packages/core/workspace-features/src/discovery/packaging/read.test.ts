@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as HashMap from "effect/HashMap";
@@ -19,13 +19,9 @@ const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
 const makeDeclaration = Schema.decodeUnknownSync(AgentExtensionRecommendationSchema);
 const encodePurl = Schema.encodeSync(PackageUrlSchema);
 
-const withNodeContext = <A, E>(
-  effect: Effect.Effect<A, E, import("effect/FileSystem").FileSystem | import("effect/Path").Path>,
-) => effect.pipe(Effect.provide(NodeServices.layer));
-
 describe("readLocalRecommendations", () => {
   it.effect("returns empty HashMap when no readers provided", () =>
-    withNodeContext(
+    withPackagingContext(
       Effect.gen(function* () {
         const pkg: DetectedPackage = {
           purl: makePurl({ type: "npm", name: "lodash" }),
@@ -40,7 +36,7 @@ describe("readLocalRecommendations", () => {
   );
 
   it.effect("returns empty HashMap when reader returns Option.none", () =>
-    withNodeContext(
+    withPackagingContext(
       Effect.gen(function* () {
         const pkg: DetectedPackage = {
           purl: makePurl({ type: "npm", name: "lodash" }),
@@ -60,7 +56,7 @@ describe("readLocalRecommendations", () => {
   );
 
   it.effect("collects refs when reader returns Option.some", () =>
-    withNodeContext(
+    withPackagingContext(
       Effect.gen(function* () {
         const purl = makePurl({ type: "npm", name: "lodash" });
         const pkg: DetectedPackage = {
@@ -91,7 +87,7 @@ describe("readLocalRecommendations", () => {
   );
 
   it.effect("collects results from multiple packages into HashMap", () =>
-    withNodeContext(
+    withPackagingContext(
       Effect.gen(function* () {
         const npmPurl = makePurl({ type: "npm", name: "lodash" });
         const pypiPurl = makePurl({ type: "pypi", name: "requests" });
@@ -135,7 +131,7 @@ describe("readLocalRecommendations", () => {
   );
 
   it.effect("skips packages with no matching reader", () =>
-    withNodeContext(
+    withPackagingContext(
       Effect.gen(function* () {
         const pkg: DetectedPackage = {
           purl: makePurl({ type: "pypi", name: "requests" }),

@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { huggingfaceReader } from "./huggingface.js";
 
 const huggingfaceType = Schema.decodeUnknownSync(PackageTypeSchema)("huggingface");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Helper to set up a temp HF cache for reader tests. */
 const readInTempCache = (
@@ -70,7 +67,7 @@ describe("huggingfaceReader", () => {
 
   describe("valid agentExtensions metadata in YAML frontmatter", () => {
     it.effect("extracts extensions from frontmatter agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "huggingface",
@@ -98,7 +95,7 @@ describe("huggingfaceReader", () => {
 
   describe("model without namespace", () => {
     it.effect("handles models without org namespace", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "huggingface", name: "gpt2" });
           const readme = [
@@ -120,7 +117,7 @@ describe("huggingfaceReader", () => {
 
   describe("missing cache", () => {
     it.effect("returns Option.none when cache does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "huggingface",
@@ -136,7 +133,7 @@ describe("huggingfaceReader", () => {
 
   describe("no YAML frontmatter", () => {
     it.effect("returns Option.none when README has no frontmatter", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "huggingface",
@@ -153,7 +150,7 @@ describe("huggingfaceReader", () => {
 
   describe("no agentExtensions field in frontmatter", () => {
     it.effect("returns Option.none when frontmatter has no agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "huggingface",
@@ -170,7 +167,7 @@ describe("huggingfaceReader", () => {
 
   describe("malformed YAML frontmatter", () => {
     it.effect("returns Option.none on malformed YAML", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "huggingface",
@@ -187,7 +184,7 @@ describe("huggingfaceReader", () => {
 
   describe("invalid agentExtensions metadata structure", () => {
     it.effect("returns Option.none when agentExtensions field has invalid structure", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "huggingface",
@@ -204,7 +201,7 @@ describe("huggingfaceReader", () => {
 
   describe("empty extensions", () => {
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "huggingface",

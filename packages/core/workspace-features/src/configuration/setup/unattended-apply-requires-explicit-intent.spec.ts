@@ -17,6 +17,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation"],
+  boundaryRationale:
+    "Production setup runs against native temporary project and user directories; persisted state and untouched scope are observed on disk.",
+  boundary: "platform",
   methods: ["decision-table"],
   derivedFrom: ["cli/machine-mode-never-prompts"],
   supersedes: [],

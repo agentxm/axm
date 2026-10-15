@@ -44,6 +44,13 @@ export const makeEnvironmentProcessFixture = () => {
   };
 };
 
+interface EnvironmentRequestObservation {
+  readonly method: string | undefined;
+  readonly path: string;
+  readonly userAgent: string | undefined;
+  readonly remoteAddress: string | undefined;
+}
+
 export const withEnvironmentRegistry = async <A>(
   respond: (
     requestPath: string,
@@ -53,12 +60,26 @@ export const withEnvironmentRegistry = async <A>(
     readonly contentType?: string;
     readonly status?: number;
   },
-  use: (origin: string, requests: ReadonlyArray<string>) => Promise<A>,
+  use: (
+    origin: string,
+    requests: ReadonlyArray<string>,
+    observations: ReadonlyArray<EnvironmentRequestObservation>,
+  ) => Promise<A>,
 ): Promise<A> => {
+  // Bind only IPv6 loopback so unrelated IPv4 service probes cannot enter this
+  // controlled origin. Every request reaching the origin enters the journal.
+  const host = "::1";
   const requests: string[] = [];
+  const observations: EnvironmentRequestObservation[] = [];
   const server = http.createServer((request, response) => {
     const requestPath = decodeURI(request.url ?? "/");
     requests.push(requestPath);
+    observations.push({
+      method: request.method,
+      path: requestPath.split("?")[0] ?? "/",
+      userAgent: request.headers["user-agent"],
+      remoteAddress: request.socket.remoteAddress,
+    });
     const result = respond(requestPath, request);
     response.writeHead(result.status ?? 200, {
       "content-type": result.contentType ?? "application/json",
@@ -68,12 +89,12 @@ export const withEnvironmentRegistry = async <A>(
   try {
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
-      server.listen(0, "127.0.0.1", resolve);
+      server.listen(0, host, resolve);
     });
     const address = server.address();
     if (address === null || typeof address === "string")
       throw new Error("Registry fixture has no port");
-    return await use(`http://127.0.0.1:${address.port}`, requests);
+    return await use(`http://[${host}]:${address.port}`, requests, observations);
   } finally {
     if (server.listening)
       await new Promise<void>((resolve, reject) =>

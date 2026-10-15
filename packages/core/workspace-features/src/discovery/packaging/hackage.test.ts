@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { hackageDetector, hackageReader } from "./hackage.js";
 
 const hackageType = Schema.decodeUnknownSync(PackageTypeSchema)("hackage");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write cabal/stack files, run detector, clean up. */
 const detectInTempDir = (files?: Record<string, string>) =>
@@ -36,7 +33,7 @@ describe("hackageDetector", () => {
 
   describe("dependencies from build-depends", () => {
     it.effect("extracts dependencies from build-depends", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cabalContent = [
             "cabal-version: 2.4",
@@ -59,7 +56,7 @@ describe("hackageDetector", () => {
 
   describe("dependencies in library and executable sections", () => {
     it.effect("extracts from both sections", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cabalContent = [
             "cabal-version: 2.4",
@@ -83,7 +80,7 @@ describe("hackageDetector", () => {
 
   describe("version constraints produce versionless purls", () => {
     it.effect("version range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cabalContent = [
             "name: myproject",
@@ -98,7 +95,7 @@ describe("hackageDetector", () => {
     );
 
     it.effect("no version constraint is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cabalContent = ["name: myproject", "library", "  build-depends: text"].join("\n");
           const result = yield* detectInTempDir({ "myproject.cabal": cabalContent });
@@ -111,7 +108,7 @@ describe("hackageDetector", () => {
 
   describe("exact version pin produces versioned purl", () => {
     it.effect("== pin includes version", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cabalContent = [
             "name: myproject",
@@ -130,7 +127,7 @@ describe("hackageDetector", () => {
 
   describe("stack.yaml extra-deps", () => {
     it.effect("extracts from extra-deps list", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const stackYaml = [
             "resolver: lts-21.0",
@@ -148,7 +145,7 @@ describe("hackageDetector", () => {
     );
 
     it.effect("extra-deps inline list", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const stackYaml = "resolver: lts-21.0\nextra-deps: [aeson-2.1.0.0, text-2.0.1]";
           const result = yield* detectInTempDir({ "stack.yaml": stackYaml });
@@ -158,7 +155,7 @@ describe("hackageDetector", () => {
     );
 
     it.effect("extra-deps version included in purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const stackYaml = ["resolver: lts-21.0", "extra-deps:", "  - aeson-2.1.0.0"].join("\n");
           const result = yield* detectInTempDir({ "stack.yaml": stackYaml });
@@ -173,7 +170,7 @@ describe("hackageDetector", () => {
 
   describe("deduplication across sources", () => {
     it.effect("deduplicates when both cabal and stack.yaml list same package", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cabalContent = ["name: myproject", "library", "  build-depends: aeson"].join("\n");
           const stackYaml = ["resolver: lts-21.0", "extra-deps:", "  - aeson-2.1.0.0"].join("\n");
@@ -191,7 +188,7 @@ describe("hackageDetector", () => {
 
   describe("missing cabal files", () => {
     it.effect("returns empty array when no cabal files", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -202,7 +199,7 @@ describe("hackageDetector", () => {
 
   describe("no build-depends fields", () => {
     it.effect("returns empty array when cabal file has no build-depends", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cabalContent = ["cabal-version: 2.4", "name: myproject", "version: 0.1.0.0"].join(
             "\n",
@@ -216,7 +213,7 @@ describe("hackageDetector", () => {
 
   describe("missing stack.yaml", () => {
     it.effect("returns empty array when no stack.yaml", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -227,7 +224,7 @@ describe("hackageDetector", () => {
 
   describe("no extra-deps", () => {
     it.effect("returns empty array when stack.yaml has no extra-deps", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const stackYaml = "resolver: lts-21.0\npackages:\n  - .";
           const result = yield* detectInTempDir({ "stack.yaml": stackYaml });
@@ -320,7 +317,7 @@ describe("hackageReader", () => {
 
   describe("valid x-agentExtensions fields", () => {
     it.effect("extracts extensions from x-agentExtensions fields", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const cabalContent = [
@@ -342,7 +339,7 @@ describe("hackageReader", () => {
 
   describe("missing x-agentExtensions fields", () => {
     it.effect("returns Option.none when no x-agentExtensions fields", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "text", version: "2.0.1" });
           const cabalContent = ["name: text", "version: 2.0.1"].join("\n");
@@ -355,7 +352,7 @@ describe("hackageReader", () => {
 
   describe("malformed x-agent-extensions metadata", () => {
     it.effect("returns Option.none on invalid metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const cabalContent = ["name: aeson", "x-agent-extensions: not-valid-json"].join("\n");
@@ -368,7 +365,7 @@ describe("hackageReader", () => {
 
   describe("extra x-agentExtensions fields tolerated", () => {
     it.effect("ignores unknown x-agentExtensions fields", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const cabalContent = [
@@ -390,7 +387,7 @@ describe("hackageReader", () => {
 
   describe("dist-newstyle location", () => {
     it.effect("reads from dist-newstyle", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const cabalContent = [
@@ -411,7 +408,7 @@ describe("hackageReader", () => {
 
   describe("missing cabal store", () => {
     it.effect("returns Option.none when store does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const result = yield* readInTempCabalStore(purl);

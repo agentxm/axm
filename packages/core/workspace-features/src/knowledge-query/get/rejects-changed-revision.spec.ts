@@ -14,6 +14,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
+  boundaryRationale:
+    "Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: ["apps/cli/help/topics/knowledge.md", "apps/cli-e2e/src/knowledge.e2e.test.ts"],
   supersedes: [],

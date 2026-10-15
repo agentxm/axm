@@ -23,6 +23,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  boundaryRationale:
+    "The production inventory handler reads native workspace state and emits human output through recording streams.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: ["cli/list/ordinary-inventory-is-local", "apps/cli/src/root/list/command.ts"],
   supersedes: ["cli/list/human-inventory-points-to-deprecation-guidance"],

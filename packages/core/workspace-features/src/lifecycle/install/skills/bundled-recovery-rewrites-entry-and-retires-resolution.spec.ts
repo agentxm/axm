@@ -29,6 +29,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition", "actionable-diagnostics"],
+  boundaryRationale:
+    "Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "cli/skills/install/bundled-recovery-converges",

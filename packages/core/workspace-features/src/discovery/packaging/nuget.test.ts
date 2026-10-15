@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { nugetDetector, nugetReader } from "./nuget.js";
 
 const nugetType = Schema.decodeUnknownSync(PackageTypeSchema)("nuget");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 // ──────────────────────────────────────────────────────────────────
 // NuGet Detector tests
@@ -46,7 +43,7 @@ describe("nugetDetector", () => {
 
   describe("csproj parsing", () => {
     it.effect("extracts PackageReference from csproj", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const csproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -63,7 +60,7 @@ describe("nugetDetector", () => {
     );
 
     it.effect("PackageReference without version produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const csproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -80,7 +77,7 @@ describe("nugetDetector", () => {
 
   describe("fsproj parsing", () => {
     it.effect("extracts PackageReference from fsproj", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const fsproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -99,7 +96,7 @@ describe("nugetDetector", () => {
 
   describe("vbproj parsing", () => {
     it.effect("extracts PackageReference from vbproj", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const vbproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -118,7 +115,7 @@ describe("nugetDetector", () => {
 
   describe("case-insensitive name normalization", () => {
     it.effect("mixed case normalized to lowercase", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const csproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -132,7 +129,7 @@ describe("nugetDetector", () => {
     );
 
     it.effect("all uppercase normalized to lowercase", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const csproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -148,7 +145,7 @@ describe("nugetDetector", () => {
 
   describe("Directory.Packages.props parsing", () => {
     it.effect("extracts PackageVersion from Directory.Packages.props", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const props = `<Project>
   <ItemGroup>
@@ -167,7 +164,7 @@ describe("nugetDetector", () => {
     );
 
     it.effect("missing Directory.Packages.props returns empty from props", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -178,7 +175,7 @@ describe("nugetDetector", () => {
 
   describe("packages.config parsing", () => {
     it.effect("extracts package from packages.config", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const config = `<?xml version="1.0" encoding="utf-8"?>
 <packages>
@@ -194,7 +191,7 @@ describe("nugetDetector", () => {
     );
 
     it.effect("missing packages.config returns empty", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -205,7 +202,7 @@ describe("nugetDetector", () => {
 
   describe("exact versions vs ranges", () => {
     it.effect("exact version produces versioned purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const csproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -219,7 +216,7 @@ describe("nugetDetector", () => {
     );
 
     it.effect("version range produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const csproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -234,7 +231,7 @@ describe("nugetDetector", () => {
     );
 
     it.effect("floating version produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const csproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -251,7 +248,7 @@ describe("nugetDetector", () => {
 
   describe("deduplication across files", () => {
     it.effect("deduplicates across csproj and Directory.Packages.props", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const csproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -273,7 +270,7 @@ describe("nugetDetector", () => {
     );
 
     it.effect("deduplicates across csproj and packages.config", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const csproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -295,7 +292,7 @@ describe("nugetDetector", () => {
 
   describe("missing project files", () => {
     it.effect("returns empty array when no project files exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -306,7 +303,7 @@ describe("nugetDetector", () => {
 
   describe("malformed project file", () => {
     it.effect("returns empty array and warns on malformed csproj", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir([
             { name: "MyApp.csproj", content: "{{{{ not valid xml ????" },
@@ -319,7 +316,7 @@ describe("nugetDetector", () => {
 
   describe("multiple project files", () => {
     it.effect("collects from multiple project files", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const csproj = `<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
@@ -395,7 +392,7 @@ describe("nugetReader", () => {
 
   describe("valid agent-extensions.json", () => {
     it.effect("extracts extensions from agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "nuget",
@@ -419,7 +416,7 @@ describe("nugetReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "nuget",
@@ -438,7 +435,7 @@ describe("nugetReader", () => {
 
   describe("missing agent-extensions.json", () => {
     it.effect("returns Option.none when agent-extensions.json does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "nuget",
@@ -454,7 +451,7 @@ describe("nugetReader", () => {
 
   describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "nuget",
@@ -473,7 +470,7 @@ describe("nugetReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "nuget",
@@ -498,7 +495,7 @@ describe("nugetReader", () => {
 
   describe("package ID lowercased in folder path", () => {
     it.effect("uses lowercased package ID for path lookup", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           // Name already lowercased by detector, but test the reader path
           const purl = makePurl({
@@ -520,7 +517,7 @@ describe("nugetReader", () => {
 
   describe("NUGET_PACKAGES environment variable", () => {
     it.effect("uses NUGET_PACKAGES when set", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "nuget",
@@ -540,7 +537,7 @@ describe("nugetReader", () => {
     );
 
     it.effect("defaults to ~/.nuget/packages when NUGET_PACKAGES is not set", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "nuget",
@@ -567,7 +564,7 @@ describe("nugetReader", () => {
 
   describe("missing packages folder", () => {
     it.effect("returns Option.none when packages folder does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "nuget",
@@ -598,7 +595,7 @@ describe("nugetReader", () => {
 
   describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "nuget",
@@ -614,7 +611,7 @@ describe("nugetReader", () => {
 
   describe("version from purl used for directory lookup", () => {
     it.effect("uses exact version for directory lookup", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "nuget",

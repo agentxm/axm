@@ -19,6 +19,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["trustworthy-distribution", "extension-adoption"],
+  boundaryRationale:
+    "Production source discovery reads authored packages from native temporary workspace roots and observes their selected paths.",
+  boundary: "platform",
   methods: ["example", "decision-table"],
   derivedFrom: ["extension-discovery/all-manifest-kinds-from-git-and-path"],
   supersedes: [],

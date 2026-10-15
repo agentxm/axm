@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics", "machine-automation"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The finding's fact fields are fields of the feature's own machine document; the envelope that carries it to a consumer is the CLI's concern, not this rule's.",
   methods: ["contract"],

@@ -23,7 +23,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Authorship is settings-authoritative: the declaration, the manifest, and the absence of an accepted resolution are all decided by the creation use case over the workspace-state services.",
   derivedFrom: ["cli/packs/authored-packs-expand-membership"],

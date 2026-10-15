@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The compatibility block is a field of the feature's own machine document, decided from the workspace's declaration and canonical package; the envelope that carries it is the CLI's concern, not this rule's.",
   methods: ["decision-table"],

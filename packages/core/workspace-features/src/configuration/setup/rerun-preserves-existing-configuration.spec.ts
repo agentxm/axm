@@ -22,6 +22,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  boundaryRationale:
+    "Production setup runs against native temporary project and user directories; persisted state and untouched scope are observed on disk.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: ["cli/setup/initializes-selected-workspace"],
   supersedes: [],

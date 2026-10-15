@@ -34,6 +34,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "safe-repetition"],
+  boundaryRationale:
+    "Production Registry mutation handlers share native temporary workspace settlement and recorded service ports; persisted state and transition outcomes are observed together.",
+  boundary: "platform",
   methods: ["contract", "decision-table"],
   derivedFrom: ["apps/cli/src/machine-output-contracts.ts"],
   supersedes: [],

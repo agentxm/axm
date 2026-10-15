@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "safe-repetition"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The production exporter and native importer run on an isolated filesystem, observing source bytes, exported protocol fields, destination collisions and unchanged preview state.",
   methods: ["example", "decision-table"],

@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Ownership is decided from the link a real agent directory entry carries into a canonical root, so a real workspace directory is the whole evidence this rule needs.",
   methods: ["example"],

@@ -16,6 +16,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
+  boundaryRationale:
+    "Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: ["cli/agents/membership-changes-realize-affected-outputs"],
   supersedes: ["cli/agents/membership-changes-realize-affected-outputs"],

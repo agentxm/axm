@@ -19,6 +19,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "trustworthy-distribution"],
+  boundaryRationale:
+    "Production source discovery traverses native temporary workspace directories; real cache and authored roots distinguish which content is visited.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: ["extension-discovery/all-manifest-kinds-from-git-and-path"],
   supersedes: [],

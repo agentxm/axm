@@ -14,26 +14,24 @@ const scheduleCallback = (url: string) => {
     readonly cacheControl: string | undefined;
     readonly body: string;
   }>((resolve, reject) => {
-    setTimeout(() => {
-      const request = NodeHttp.get(url, (response) => {
-        let body = "";
-        response.setEncoding("utf8");
-        response.on("data", (chunk) => {
-          body += String(chunk);
-        });
-        response.on("end", () =>
-          resolve({
-            statusCode: response.statusCode,
-            cacheControl:
-              typeof response.headers["cache-control"] === "string"
-                ? response.headers["cache-control"]
-                : undefined,
-            body,
-          }),
-        );
+    const request = NodeHttp.get(url, (response) => {
+      let body = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        body += String(chunk);
       });
-      request.on("error", reject);
-    }, 10);
+      response.on("end", () =>
+        resolve({
+          statusCode: response.statusCode,
+          cacheControl:
+            typeof response.headers["cache-control"] === "string"
+              ? response.headers["cache-control"]
+              : undefined,
+          body,
+        }),
+      );
+    });
+    request.on("error", reject);
   });
 };
 

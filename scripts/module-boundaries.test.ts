@@ -16,7 +16,6 @@
  * (see `specifications/disposition-ledger.json`).
  */
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,6 +23,7 @@ import { ESLint } from "eslint";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { readProductionPackages } from "./production-packages.js";
+import { readWorkspacePackageDirectories } from "./workspace-packages.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
@@ -106,24 +106,20 @@ describe("production package dependency structure", () => {
     );
   });
 
-  it("the module-boundary and manifest-fidelity gates stay armed for every project", () => {
-    const nxConfig: unknown = JSON.parse(fs.readFileSync(path.join(repoRoot, "nx.json"), "utf8"));
-    if (typeof nxConfig !== "object" || nxConfig === null || !("plugins" in nxConfig)) {
-      throw new Error("nx.json must register plugins");
+  it("resolves active boundary and manifest rules for every workspace package", async () => {
+    const eslint = new ESLint({ cwd: repoRoot });
+    const directories = readWorkspacePackageDirectories(repoRoot);
+    expect(directories.length).toBeGreaterThan(0);
+    for (const directory of directories) {
+      for (const [file, ruleName] of [
+        [`${directory}/src/index.ts`, "@nx/enforce-module-boundaries"],
+        [`${directory}/package.json`, "@nx/dependency-checks"],
+      ] as const) {
+        const config = await eslint.calculateConfigForFile(file);
+        const rule = config?.rules?.[ruleName];
+        expect(Array.isArray(rule) ? rule[0] : rule, `${file}: ${ruleName}`).toBe(2);
+      }
     }
-    const registeredPlugins = Array.isArray(nxConfig.plugins)
-      ? nxConfig.plugins.flatMap((entry: unknown) =>
-          typeof entry === "object" && entry !== null && "plugin" in entry
-            ? typeof entry.plugin === "string"
-              ? [entry.plugin]
-              : []
-            : [],
-        )
-      : [];
-    expect(registeredPlugins).toContain("@nx/eslint/plugin");
-    const eslintConfig = fs.readFileSync(path.join(repoRoot, "eslint.config.mjs"), "utf8");
-    expect(eslintConfig).toContain("@nx/enforce-module-boundaries");
-    expect(eslintConfig).toContain("@nx/dependency-checks");
   });
 });
 

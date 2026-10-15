@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The omission is decided while the instructions file is projected and is reported on the unit that projected it; running a real removal over a real workspace shows both the file that was written and the report that accompanied it.",
   methods: ["example"],

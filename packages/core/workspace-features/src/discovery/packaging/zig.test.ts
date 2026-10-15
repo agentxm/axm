@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { zigDetector, zigReader } from "./zig.js";
 
 const zigType = Schema.decodeUnknownSync(PackageTypeSchema)("zig");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write build.zig.zon, run detector, clean up. */
 const detectInTempDir = (buildZigZon?: string) =>
@@ -34,7 +31,7 @@ describe("zigDetector", () => {
 
   describe("dependencies extracted from build.zig.zon", () => {
     it.effect("extracts dependency names from .dependencies field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const zon = `.{
     .name = "my-project",
@@ -60,7 +57,7 @@ describe("zigDetector", () => {
     );
 
     it.effect("produces pkg:zig purls", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const zon = `.{
     .dependencies = .{
@@ -80,7 +77,7 @@ describe("zigDetector", () => {
 
   describe("quoted dependency names", () => {
     it.effect("handles @-quoted dependency names", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const zon = `.{
     .dependencies = .{
@@ -100,7 +97,7 @@ describe("zigDetector", () => {
 
   describe("missing build.zig.zon", () => {
     it.effect("returns empty array when build.zig.zon is missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -111,7 +108,7 @@ describe("zigDetector", () => {
 
   describe("malformed build.zig.zon", () => {
     it.effect("returns empty array on malformed content", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir("{{{{ not valid zon ????");
           expect(result).toEqual([]);
@@ -122,7 +119,7 @@ describe("zigDetector", () => {
 
   describe("no dependencies field", () => {
     it.effect("returns empty array when no .dependencies field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const zon = `.{
     .name = "my-project",
@@ -137,7 +134,7 @@ describe("zigDetector", () => {
 
   describe("URL and hash not encoded in purl", () => {
     it.effect("dependency URL and hash are not part of the purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const zon = `.{
     .dependencies = .{
@@ -219,7 +216,7 @@ describe("zigReader", () => {
 
   describe("valid agent-extensions.json in cache", () => {
     it.effect("extracts extensions from agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
@@ -239,7 +236,7 @@ describe("zigReader", () => {
 
   describe("missing agent-extensions.json", () => {
     it.effect("returns Option.none when no agent-extensions.json exists", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(purl);
@@ -251,7 +248,7 @@ describe("zigReader", () => {
 
   describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none on malformed metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
@@ -266,7 +263,7 @@ describe("zigReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
@@ -287,7 +284,7 @@ describe("zigReader", () => {
 
   describe("missing Zig cache", () => {
     it.effect("returns Option.none when Zig cache does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
           // readInTempZigCache without agentExtensionsJsonContent won't create the cache dir
@@ -300,7 +297,7 @@ describe("zigReader", () => {
 
   describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(purl, "{ not valid json }");

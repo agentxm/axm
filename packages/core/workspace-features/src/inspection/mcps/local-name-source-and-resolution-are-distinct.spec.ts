@@ -18,6 +18,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "agent-interoperability"],
+  boundaryRationale:
+    "Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.",
+  boundary: "platform",
   methods: ["example", "contract"],
   derivedFrom: [
     "packages/core/workspace-features/src/inspection/type-list/mcp-servers.ts",

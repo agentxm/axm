@@ -30,6 +30,9 @@ export const specification = defineSpecification({
   class: "external-conformance",
   role: "interface",
   goals: ["trustworthy-distribution"],
+  boundaryRationale:
+    "Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.",
+  boundary: "platform",
   methods: ["example", "contract"],
   derivedFrom: ["AgentXM Registry API 0.1.0", "apps/cli/src/root/publish/command.test.ts"],
   supersedes: ["cli/publish/uploads-the-reviewed-publication-set"],

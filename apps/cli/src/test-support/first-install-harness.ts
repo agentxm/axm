@@ -7,6 +7,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -97,6 +98,12 @@ export const useFirstInstallProject = () => {
         Layer.merge(
           Layer.provide(WorkspaceInitializationInteractionLive, screen.layer),
           context.fullLayer,
+        ).pipe(
+          Layer.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromEnv({ env: { AXM_USER_HOME: path.join(tempDir, "home") } }),
+            ),
+          ),
         ),
       ),
     );

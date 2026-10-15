@@ -23,7 +23,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Selection is decided by the publish use case over the workspace's authored records; running it against a real file Registry shows exactly which archives the selection distributed.",
   methods: ["decision-table", "example"],

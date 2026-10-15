@@ -28,6 +28,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
+  boundaryRationale:
+    "Production credential selection reads real token files under temporary directories; controlled environment, workload and saved-session ports establish precedence without host credentials.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "packages/supporting/registry-access/src/credentials/token-resolution.ts",

@@ -21,6 +21,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  boundaryRationale:
+    "Production settings persistence reads and rewrites a native settings document; exact authored bytes establish formatting and unrelated-content preservation.",
+  boundary: "platform",
   methods: ["golden-output", "example"],
   derivedFrom: [],
   supersedes: [],

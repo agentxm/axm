@@ -14,6 +14,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  boundaryRationale:
+    "Production acquisition resolves physical source and destination paths in native temporary directories; alias overlap refusal and unchanged bytes are observed on disk.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { dockerDetector, dockerReader } from "./docker.js";
 
 const dockerType = Schema.decodeUnknownSync(PackageTypeSchema)("docker");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write files, run detector, clean up. */
 const detectInTempDir = (files?: Record<string, string>) =>
@@ -36,7 +33,7 @@ describe("dockerDetector", () => {
 
   describe("Dockerfile FROM directives", () => {
     it.effect("simple FROM directive", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({
             Dockerfile: "FROM node:18-alpine",
@@ -50,7 +47,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("multi-stage build", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const dockerfile = [
             "FROM node:18 AS builder",
@@ -68,7 +65,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("FROM with AS alias", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({
             Dockerfile: "FROM python:3.11 AS base",
@@ -82,7 +79,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("missing Dockerfile returns empty", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({});
           expect(result).toEqual([]);
@@ -93,7 +90,7 @@ describe("dockerDetector", () => {
 
   describe("docker-compose files", () => {
     it.effect("images from docker-compose.yml", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const compose = [
             "version: '3'",
@@ -113,7 +110,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("docker-compose.yaml variant", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const compose = ["services:", "  app:", "    image: myapp:latest"].join("\n");
           const result = yield* detectInTempDir({ "docker-compose.yaml": compose });
@@ -125,7 +122,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("missing compose files returns empty", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({});
           expect(result).toEqual([]);
@@ -136,7 +133,7 @@ describe("dockerDetector", () => {
 
   describe("image name parsing", () => {
     it.effect("official image without namespace", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({
             Dockerfile: "FROM nginx:alpine",
@@ -150,7 +147,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("organization-scoped image", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({
             Dockerfile: "FROM library/nginx:1.25",
@@ -168,7 +165,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("custom registry image", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({
             Dockerfile: "FROM ghcr.io/org/myapp:latest",
@@ -187,7 +184,7 @@ describe("dockerDetector", () => {
 
   describe("tags as versions", () => {
     it.effect("exact tag produces versioned purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({
             Dockerfile: "FROM node:18.17.0",
@@ -200,7 +197,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("named tag produces versioned purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({
             Dockerfile: "FROM node:18-alpine",
@@ -213,7 +210,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("latest tag produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({
             Dockerfile: "FROM nginx:latest",
@@ -224,7 +221,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("no tag produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({
             Dockerfile: "FROM nginx",
@@ -237,7 +234,7 @@ describe("dockerDetector", () => {
 
   describe("variable references", () => {
     it.effect("variable without default is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const dockerfile = ["ARG BASE_IMAGE", "FROM ${BASE_IMAGE}"].join("\n");
           const result = yield* detectInTempDir({ Dockerfile: dockerfile });
@@ -247,7 +244,7 @@ describe("dockerDetector", () => {
     );
 
     it.effect("variable with default is resolved", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const dockerfile = ["ARG BASE_IMAGE=node:18", "FROM ${BASE_IMAGE}"].join("\n");
           const result = yield* detectInTempDir({ Dockerfile: dockerfile });
@@ -306,7 +303,7 @@ describe("dockerReader", () => {
 
   describe("valid agentExtensions annotation", () => {
     it.effect("extracts extensions from annotation file", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "docker", name: "nginx", version: "alpine" });
           const result = yield* readInTempDir(
@@ -326,7 +323,7 @@ describe("dockerReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "docker", name: "postgres", version: "16" });
           const result = yield* readInTempDir(
@@ -344,7 +341,7 @@ describe("dockerReader", () => {
 
   describe("missing annotations", () => {
     it.effect("returns Option.none when no annotation file", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "docker", name: "redis" });
           const result = yield* readInTempDir(purl);
@@ -356,7 +353,7 @@ describe("dockerReader", () => {
 
   describe("malformed metadata", () => {
     it.effect("returns Option.none on malformed annotation", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "docker", name: "myimage", version: "1.0" });
           const result = yield* readInTempDir(
@@ -373,7 +370,7 @@ describe("dockerReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in annotation", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "docker", name: "myimage", version: "1.0" });
           const result = yield* readInTempDir(

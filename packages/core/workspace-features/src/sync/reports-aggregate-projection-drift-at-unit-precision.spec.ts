@@ -26,6 +26,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics", "machine-automation", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.",
+  boundary: "platform",
   methods: ["decision-table", "contract", "example"],
   derivedFrom: [],
   supersedes: [],

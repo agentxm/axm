@@ -28,6 +28,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "safe-repetition"],
+  boundaryRationale:
+    "Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "cli/update/advances-resolution-within-intent",

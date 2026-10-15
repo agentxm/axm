@@ -23,6 +23,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  boundaryRationale:
+    "Production copy ownership captures native directory identity and creation receipts; edits, replacements and retirement are observed against actual filesystem entries.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

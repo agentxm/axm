@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Creating the settings document and lockfile belongs to the configuration feature while the bundled official skill travels with the executable, so the application layer that composes both is the lowest layer at which one initialization produces all three; the artifacts it writes are files in a real directory.",
   methods: ["example"],

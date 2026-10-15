@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { bazelDetector, bazelReader } from "./bazel.js";
 
 const bazelType = Schema.decodeUnknownSync(PackageTypeSchema)("bazel");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write MODULE.bazel, run detector, clean up. */
 const detectInTempDir = (files?: Record<string, string>) =>
@@ -37,7 +34,7 @@ describe("bazelDetector", () => {
 
   describe("dependencies from bazel_dep", () => {
     it.effect("extracts from bazel_dep directives", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const moduleBazel = [
             'module(name = "myproject")',
@@ -57,7 +54,7 @@ describe("bazelDetector", () => {
 
   describe("versioned bazel_dep produces versioned purl", () => {
     it.effect("version attribute included", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const moduleBazel = 'bazel_dep(name = "rules_go", version = "0.41.0")';
           const result = yield* detectInTempDir({ "MODULE.bazel": moduleBazel });
@@ -72,7 +69,7 @@ describe("bazelDetector", () => {
 
   describe("bazel_dep without version", () => {
     it.effect("produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const moduleBazel = 'bazel_dep(name = "rules_go")';
           const result = yield* detectInTempDir({ "MODULE.bazel": moduleBazel });
@@ -85,7 +82,7 @@ describe("bazelDetector", () => {
 
   describe("missing MODULE.bazel", () => {
     it.effect("returns empty array when no MODULE.bazel", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -96,7 +93,7 @@ describe("bazelDetector", () => {
 
   describe("no bazel_dep directives", () => {
     it.effect("returns empty array when no bazel_dep calls", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const moduleBazel = 'module(name = "myproject")';
           const result = yield* detectInTempDir({ "MODULE.bazel": moduleBazel });
@@ -115,51 +112,37 @@ describe("bazelDetector", () => {
 const readInTempBazel = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
   agentExtensionsJsonContent?: string,
+  options: { readonly packagePresent?: boolean } = {},
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const tmpDir = yield* fs.makeTempDirectoryScoped();
-
-    const pkgName = pkgPurl.name;
-
-    // Set up project directory
     const projectDir = path.join(tmpDir, "project");
     yield* fs.makeDirectory(projectDir, { recursive: true });
     yield* fs.writeFileString(path.join(projectDir, "MODULE.bazel"), 'module(name = "myproject")');
-
-    if (agentExtensionsJsonContent !== undefined) {
-      const outputBase = path.join(tmpDir, "output_base");
-      const externalDir = path.join(outputBase, "external", pkgName);
+    const outputBase = path.join(tmpDir, "output_base");
+    const externalDir = path.join(outputBase, "external", pkgPurl.name);
+    if (options.packagePresent !== false) {
       yield* fs.makeDirectory(externalDir, { recursive: true });
-      yield* fs.writeFileString(
-        path.join(externalDir, "agent-extensions.json"),
-        agentExtensionsJsonContent,
-      );
-
-      // Set BAZEL_OUTPUT_BASE
-      const detected = {
+      if (agentExtensionsJsonContent !== undefined) {
+        yield* fs.writeFileString(
+          path.join(externalDir, "agent-extensions.json"),
+          agentExtensionsJsonContent,
+        );
+      }
+    }
+    return yield* bazelReader
+      .read({
         purl: pkgPurl,
         type: bazelType,
         source: path.join(projectDir, "MODULE.bazel"),
-      };
-      return yield* bazelReader
-        .read(detected)
-        .pipe(
-          Effect.provide(
-            ConfigProvider.layer(
-              ConfigProvider.fromEnv({ env: { BAZEL_OUTPUT_BASE: outputBase } }),
-            ),
-          ),
-        );
-    }
-
-    const detected = {
-      purl: pkgPurl,
-      type: bazelType,
-      source: path.join(projectDir, "MODULE.bazel"),
-    };
-    return yield* bazelReader.read(detected);
+      })
+      .pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromEnv({ env: { BAZEL_OUTPUT_BASE: outputBase } })),
+        ),
+      );
   }).pipe(Effect.scoped);
 
 describe("bazelReader", () => {
@@ -169,7 +152,7 @@ describe("bazelReader", () => {
 
   describe("valid agent-extensions.json in external repository", () => {
     it.effect("extracts extensions from agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "com_google_protobuf" });
           const result = yield* readInTempBazel(
@@ -189,7 +172,7 @@ describe("bazelReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
           const result = yield* readInTempBazel(purl, JSON.stringify({ agentExtensions: [] }));
@@ -204,7 +187,7 @@ describe("bazelReader", () => {
 
   describe("missing agent-extensions.json", () => {
     it.effect("returns Option.none when agent-extensions.json does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
           const result = yield* readInTempBazel(purl);
@@ -216,7 +199,7 @@ describe("bazelReader", () => {
 
   describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none on invalid metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
           const result = yield* readInTempBazel(purl, JSON.stringify({ agentExtensions: 42 }));
@@ -228,7 +211,7 @@ describe("bazelReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
           const result = yield* readInTempBazel(
@@ -249,7 +232,7 @@ describe("bazelReader", () => {
 
   describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
           const result = yield* readInTempBazel(purl, "{ not valid json }");
@@ -261,10 +244,10 @@ describe("bazelReader", () => {
 
   describe("missing output base", () => {
     it.effect("returns Option.none when output base does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
-          const result = yield* readInTempBazel(purl);
+          const result = yield* readInTempBazel(purl, undefined, { packagePresent: false });
           expect(Option.isNone(result)).toBe(true);
         }),
       ),

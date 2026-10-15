@@ -36,6 +36,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.",
+  boundary: "platform",
   methods: ["example", "decision-table"],
   derivedFrom: [
     "cli/mcps/adopt/adoption-reaches-every-configured-agent",

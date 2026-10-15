@@ -18,6 +18,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "packages/core/workspace-features/src/configuration/instructions/manage-instructions.ts",

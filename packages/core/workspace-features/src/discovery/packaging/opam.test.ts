@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { opamDetector, opamReader } from "./opam.js";
 
 const opamType = Schema.decodeUnknownSync(PackageTypeSchema)("opam");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write opam/dune files, run detector, clean up. */
 const detectInTempDir = (files?: Record<string, string>) =>
@@ -36,7 +33,7 @@ describe("opamDetector", () => {
 
   describe("dependencies from depends field", () => {
     it.effect("extracts dependencies from opam depends", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const opamContent = [
             'opam-version: "2.0"',
@@ -60,7 +57,7 @@ describe("opamDetector", () => {
 
   describe("skip build tooling", () => {
     it.effect("ocaml excluded", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const opamContent = [
             'opam-version: "2.0"',
@@ -77,7 +74,7 @@ describe("opamDetector", () => {
     );
 
     it.effect("dune excluded", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const opamContent = [
             'opam-version: "2.0"',
@@ -94,7 +91,7 @@ describe("opamDetector", () => {
     );
 
     it.effect("only build tooling returns empty", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const opamContent = [
             'opam-version: "2.0"',
@@ -112,7 +109,7 @@ describe("opamDetector", () => {
 
   describe("version constraints", () => {
     it.effect("version range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const opamContent = ['opam-version: "2.0"', 'depends: [ "lwt" {>= "5.0"} ]'].join("\n");
           const result = yield* detectInTempDir({ "mylib.opam": opamContent });
@@ -123,7 +120,7 @@ describe("opamDetector", () => {
     );
 
     it.effect("exact version produces versioned purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const opamContent = ['opam-version: "2.0"', 'depends: [ "lwt" {= "5.7.0"} ]'].join("\n");
           const result = yield* detectInTempDir({ "mylib.opam": opamContent });
@@ -136,7 +133,7 @@ describe("opamDetector", () => {
     );
 
     it.effect("no constraint is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const opamContent = ['opam-version: "2.0"', 'depends: [ "yojson" ]'].join("\n");
           const result = yield* detectInTempDir({ "mylib.opam": opamContent });
@@ -149,7 +146,7 @@ describe("opamDetector", () => {
 
   describe("dune-project depends", () => {
     it.effect("extracts from dune-project depends s-expression", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const duneContent = [
             "(lang dune 3.0)",
@@ -172,7 +169,7 @@ describe("opamDetector", () => {
 
   describe("deduplication across sources", () => {
     it.effect("deduplicates between opam and dune-project", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const opamContent = ['opam-version: "2.0"', 'depends: [ "lwt" {>= "5.0"} ]'].join("\n");
           const duneContent = ["(lang dune 3.0)", "(depends", "  (lwt (>= 5.0)))"].join("\n");
@@ -189,7 +186,7 @@ describe("opamDetector", () => {
 
   describe("missing opam files", () => {
     it.effect("returns empty array when no opam files", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -200,7 +197,7 @@ describe("opamDetector", () => {
 
   describe("no depends field", () => {
     it.effect("returns empty array when no depends field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const opamContent = ['opam-version: "2.0"', 'name: "mylib"', 'version: "1.0.0"'].join(
             "\n",
@@ -214,7 +211,7 @@ describe("opamDetector", () => {
 
   describe("missing dune-project", () => {
     it.effect("returns empty array when no dune-project", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -275,7 +272,7 @@ describe("opamReader", () => {
 
   describe("valid x-agentExtensions fields", () => {
     it.effect("extracts extensions from x-agentExtensions fields", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "lwt" });
           const opamContent = [
@@ -295,7 +292,7 @@ describe("opamReader", () => {
 
   describe("missing x-agentExtensions fields", () => {
     it.effect("returns Option.none when no x-agentExtensions fields", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "core" });
           const opamContent = ['opam-version: "2.0"', 'name: "core"'].join("\n");
@@ -308,7 +305,7 @@ describe("opamReader", () => {
 
   describe("malformed x-agent-extensions metadata", () => {
     it.effect("returns Option.none on invalid metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "lwt" });
           const opamContent = ['opam-version: "2.0"', "x-agent-extensions: not-valid-json"].join(
@@ -323,7 +320,7 @@ describe("opamReader", () => {
 
   describe("extra x-agentExtensions fields tolerated", () => {
     it.effect("ignores unknown x-agentExtensions fields", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "lwt" });
           const opamContent = [
@@ -343,7 +340,7 @@ describe("opamReader", () => {
 
   describe("missing opam switch", () => {
     it.effect("returns Option.none when switch does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "lwt" });
           const result = yield* readInTempOpam(purl);

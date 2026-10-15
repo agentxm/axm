@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { cranDetector, cranReader } from "./cran.js";
 
 const cranType = Schema.decodeUnknownSync(PackageTypeSchema)("cran");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write DESCRIPTION file, run detector, clean up. */
 const detectInTempDir = (description?: string) =>
@@ -35,7 +32,7 @@ describe("cranDetector", () => {
 
   describe("Depends field", () => {
     it.effect("extracts packages from Depends field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const desc = [
             "Package: mypackage",
@@ -55,7 +52,7 @@ describe("cranDetector", () => {
 
   describe("Imports field", () => {
     it.effect("extracts packages from Imports field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const desc = ["Package: mypackage", "Version: 1.0.0", "Imports: tidyr, stringr"].join(
             "\n",
@@ -72,7 +69,7 @@ describe("cranDetector", () => {
 
   describe("Suggests field", () => {
     it.effect("extracts packages from Suggests field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const desc = ["Package: mypackage", "Version: 1.0.0", "Suggests: testthat, knitr"].join(
             "\n",
@@ -89,7 +86,7 @@ describe("cranDetector", () => {
 
   describe("all dependency fields combined", () => {
     it.effect("collects from Depends, Imports, and Suggests", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const desc = [
             "Package: mypackage",
@@ -111,7 +108,7 @@ describe("cranDetector", () => {
 
   describe("continuation lines", () => {
     it.effect("handles continuation lines in DESCRIPTION", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const desc = [
             "Package: mypackage",
@@ -133,7 +130,7 @@ describe("cranDetector", () => {
 
   describe("version constraints", () => {
     it.effect("packages with version constraints produce versionless purls", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const desc = ["Package: mypackage", "Imports: dplyr (>= 1.0.0)"].join("\n");
           const result = yield* detectInTempDir(desc);
@@ -146,7 +143,7 @@ describe("cranDetector", () => {
 
   describe("deduplication", () => {
     it.effect("deduplicates packages across fields", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const desc = ["Package: mypackage", "Depends: dplyr", "Imports: dplyr"].join("\n");
           const result = yield* detectInTempDir(desc);
@@ -158,7 +155,7 @@ describe("cranDetector", () => {
 
   describe("R filtered out", () => {
     it.effect("filters out R itself from Depends", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const desc = "Package: mypackage\nDepends: R (>= 4.0)\n";
           const result = yield* detectInTempDir(desc);
@@ -170,7 +167,7 @@ describe("cranDetector", () => {
 
   describe("missing DESCRIPTION", () => {
     it.effect("returns empty array when DESCRIPTION is missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -181,7 +178,7 @@ describe("cranDetector", () => {
 
   describe("no dependency fields", () => {
     it.effect("returns empty array when no dependency fields exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const desc = "Package: mypackage\nVersion: 1.0.0\n";
           const result = yield* detectInTempDir(desc);
@@ -241,7 +238,7 @@ describe("cranReader", () => {
 
   describe("valid Config/agentExtensions field", () => {
     it.effect("extracts extensions from Config/agentExtensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
           const desc = [
@@ -263,7 +260,7 @@ describe("cranReader", () => {
 
   describe("missing Config/agentExtensions field", () => {
     it.effect("returns Option.none when no Config/agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
           const desc = "Package: dplyr\nVersion: 1.1.4\n";
@@ -276,7 +273,7 @@ describe("cranReader", () => {
 
   describe("missing installed package", () => {
     it.effect("returns Option.none when package is not installed", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
           const result = yield* readInTempLib(purl);
@@ -288,7 +285,7 @@ describe("cranReader", () => {
 
   describe("malformed Config/agentExtensions JSON", () => {
     it.effect("returns Option.none on malformed JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
           const desc = "Package: dplyr\nConfig/agentExtensions: {not valid json}\n";
@@ -301,7 +298,7 @@ describe("cranReader", () => {
 
   describe("invalid agentExtensions metadata structure", () => {
     it.effect("returns Option.none when agentExtensions metadata fails schema validation", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
           const desc = 'Package: dplyr\nConfig/agentExtensions: "not-an-array"\n';

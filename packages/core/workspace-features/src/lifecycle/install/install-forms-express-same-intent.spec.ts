@@ -23,6 +23,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["extension-adoption"],
+  boundaryRationale:
+    "Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.",
+  boundary: "platform",
   methods: ["model"],
   derivedFrom: ["cli/install/reinstall-is-idempotent"],
   supersedes: ["cli/install/root-and-type-forms-express-same-intent"],

@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { mavenDetector, mavenReader } from "./maven.js";
 
 const mavenType = Schema.decodeUnknownSync(PackageTypeSchema)("maven");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 // ──────────────────────────────────────────────────────────────────
 // Maven Detector tests
@@ -45,7 +42,7 @@ describe("mavenDetector", () => {
 
   describe("pom.xml parsing", () => {
     it.effect("extracts standard Maven dependency", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pomXml = `<?xml version="1.0"?>
 <project>
@@ -72,7 +69,7 @@ describe("mavenDetector", () => {
     );
 
     it.effect("dependency without version produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pomXml = `<project>
   <dependencies>
@@ -92,7 +89,7 @@ describe("mavenDetector", () => {
     );
 
     it.effect("test-scoped dependency included", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pomXml = `<project>
   <dependencies>
@@ -112,7 +109,7 @@ describe("mavenDetector", () => {
     );
 
     it.effect("missing pom.xml returns empty array", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -121,7 +118,7 @@ describe("mavenDetector", () => {
     );
 
     it.effect("malformed pom.xml returns empty array", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir([
             { name: "pom.xml", content: "{{{{ not valid xml ????" },
@@ -132,7 +129,7 @@ describe("mavenDetector", () => {
     );
 
     it.effect("property reference resolves version", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pomXml = `<project>
   <properties>
@@ -161,7 +158,7 @@ describe("mavenDetector", () => {
     );
 
     it.effect("unresolvable property reference produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pomXml = `<project>
   <dependencies>
@@ -182,7 +179,7 @@ describe("mavenDetector", () => {
     );
 
     it.effect("version range produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pomXml = `<project>
   <dependencies>
@@ -205,7 +202,7 @@ describe("mavenDetector", () => {
 
   describe("build.gradle parsing", () => {
     it.effect("extracts Groovy DSL dependency", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gradle = `
 dependencies {
@@ -226,7 +223,7 @@ dependencies {
     );
 
     it.effect("extracts Kotlin DSL dependency from build.gradle.kts", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gradle = `
 dependencies {
@@ -247,7 +244,7 @@ dependencies {
     );
 
     it.effect("extracts multiple configuration types", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gradle = `
 dependencies {
@@ -264,7 +261,7 @@ dependencies {
     );
 
     it.effect("dependency without version in Gradle", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gradle = `
 dependencies {
@@ -280,7 +277,7 @@ dependencies {
     );
 
     it.effect("missing Gradle build files returns empty array", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -291,7 +288,7 @@ dependencies {
 
   describe("gradle version catalog parsing", () => {
     it.effect("module shorthand syntax", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const toml = `[libraries]
 spring-core = { module = "org.springframework:spring-core", version = "6.1.0" }
@@ -313,7 +310,7 @@ spring-core = { module = "org.springframework:spring-core", version = "6.1.0" }
     );
 
     it.effect("separate group and name keys", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const toml = `[libraries]
 guava = { group = "com.google.guava", name = "guava", version = "32.0.0-jre" }
@@ -335,7 +332,7 @@ guava = { group = "com.google.guava", name = "guava", version = "32.0.0-jre" }
     );
 
     it.effect("version reference from [versions] section", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const toml = `[versions]
 spring = "6.1.0"
@@ -360,7 +357,7 @@ spring-core = { module = "org.springframework:spring-core", version.ref = "sprin
     );
 
     it.effect("missing version catalog returns empty array", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -371,7 +368,7 @@ spring-core = { module = "org.springframework:spring-core", version.ref = "sprin
 
   describe("deps.edn parsing", () => {
     it.effect("extracts root :deps Maven dependency", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const depsEdn = `{:deps {ai.agentxm.examples/tinyflags {:mvn/version "0.1.0"}}}
 `;
@@ -390,7 +387,7 @@ spring-core = { module = "org.springframework:spring-core", version.ref = "sprin
     );
 
     it.effect("extracts alias :extra-deps Maven dependency", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const depsEdn = `{:deps {}
  :aliases
@@ -412,7 +409,7 @@ spring-core = { module = "org.springframework:spring-core", version.ref = "sprin
     );
 
     it.effect("ignores deps.edn entries without :mvn/version", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const depsEdn = `{:deps {local/lib {:local/root "../lib"}
                 git/lib {:git/url "https://example.com/lib.git"
@@ -427,7 +424,7 @@ spring-core = { module = "org.springframework:spring-core", version.ref = "sprin
 
   describe("deduplication across build files", () => {
     it.effect("deduplicates same dependency from pom.xml and build.gradle", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pomXml = `<project>
   <dependencies>
@@ -630,7 +627,7 @@ describe("mavenReader", () => {
 
   describe("valid META-INF/agent-extensions.json in JAR", () => {
     it.effect("extracts extensions from META-INF/agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "maven",
@@ -653,7 +650,7 @@ describe("mavenReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "maven",
@@ -676,7 +673,7 @@ describe("mavenReader", () => {
 
   describe("JAR without META-INF/agent-extensions.json", () => {
     it.effect("returns Option.none when JAR has no agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "maven",
@@ -696,7 +693,7 @@ describe("mavenReader", () => {
 
   describe("missing JAR", () => {
     it.effect("returns Option.none when no JAR exists", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "maven",
@@ -713,7 +710,7 @@ describe("mavenReader", () => {
 
   describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "maven",
@@ -733,7 +730,7 @@ describe("mavenReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "maven",
@@ -759,7 +756,7 @@ describe("mavenReader", () => {
 
   describe("groupId path conversion", () => {
     it.effect("converts dots in groupId to path separators", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "maven",
@@ -786,7 +783,7 @@ describe("mavenReader", () => {
 
   describe("missing repository", () => {
     it.effect("returns Option.none when .m2/repository does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem;
           const tmpDir = yield* fs.makeTempDirectoryScoped();

@@ -1,5 +1,5 @@
 /**
- * Records authentic lifecycle event logs by driving real in-memory
+ * Records authentic lifecycle event logs by driving real in-process
  * operations through the CLI test context and snapshotting what the Screen
  * observed. The logs under `recorded/` are the conformance suite's replay
  * material; regenerate them by deleting a snapshot and rerunning.
@@ -23,10 +23,19 @@ import { writeWorkspaceFiles } from "../test-stubs.js";
 
 const decodeLog = Schema.decodeUnknownSync(Schema.Array(OperationEventSchema));
 
-/** Rebase wall-clock times on the first event so a recording is deterministic. */
+/** Preserve relative time and ID relationships without depending on another recording. */
 const normalize = (events: ReadonlyArray<OperationEvent>): ReadonlyArray<OperationEvent> => {
   const base = events[0]?.atMs ?? 0;
-  return events.map((event) => ({ ...event, atMs: event.atMs - base }));
+  const operationIds = new Map<string, string>();
+  return events.map((event) => {
+    if (event._tag !== "OperationStarted") return { ...event, atMs: event.atMs - base };
+    let operationId = operationIds.get(event.operationId);
+    if (operationId === undefined) {
+      operationId = `operation-${operationIds.size + 1}`;
+      operationIds.set(event.operationId, operationId);
+    }
+    return { ...event, atMs: event.atMs - base, operationId };
+  });
 };
 
 const writeLocalSkillPackage = (root: string, name: string): string => {
@@ -83,8 +92,10 @@ describe("recorded lifecycle event logs", () => {
 
   const record = (name: string, events: ReadonlyArray<OperationEvent>) =>
     Effect.promise(async () => {
+      // Validate the producer's original payload before normalizing opaque values.
+      const wire: unknown = JSON.parse(JSON.stringify(events));
+      expect(decodeLog(wire)).toEqual(wire);
       const normalized = normalize(events);
-      expect(decodeLog(JSON.parse(JSON.stringify(normalized)))).toEqual(normalized);
       await expect(`${JSON.stringify(normalized, null, 2)}\n`).toMatchFileSnapshot(
         `./recorded/${name}.json`,
       );

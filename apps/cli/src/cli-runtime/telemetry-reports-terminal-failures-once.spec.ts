@@ -63,6 +63,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["privacy-and-consent", "safe-repetition"],
+  boundaryRationale:
+    "Production invocation boundaries read native workspace configuration and settle faults over captured output and HTTP ports; temporary files establish configuration failure and unchanged state.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "system/security/telemetry-consent-and-precedence",

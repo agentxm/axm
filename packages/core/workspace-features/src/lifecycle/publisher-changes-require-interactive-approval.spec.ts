@@ -47,6 +47,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.",
+  boundary: "platform",
   methods: ["example", "decision-table"],
   derivedFrom: [
     "cli/update/preview-is-pure",

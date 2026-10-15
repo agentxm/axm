@@ -57,13 +57,10 @@ const makeNativeFileStore = (): SpecFileStore => ({
   realPath: fs.realpathSync,
   remove: (target) => void fs.rmSync(target, { recursive: true, force: true }),
   type: (target) => {
-    try {
-      const entry = fs.lstatSync(target);
-      if (entry.isSymbolicLink()) return "symlink";
-      return entry.isDirectory() ? "directory" : "file";
-    } catch {
-      return undefined;
-    }
+    const entry = fs.lstatSync(target, { throwIfNoEntry: false });
+    if (entry === undefined) return undefined;
+    if (entry.isSymbolicLink()) return "symlink";
+    return entry.isDirectory() ? "directory" : "file";
   },
   writeFile: fs.writeFileSync,
 });

@@ -1,11 +1,10 @@
 /**
  * Fast specification suite performance budget.
  *
- * The in-memory specification suite must stay fast enough to run on every
- * change. The budget binds total reported vitest execution time of every
- * specification file across the owner projects' JUnit output — deterministic
- * per run and independent of Nx cache effects. Raising the budget is a
- * deliberate decision recorded in
+ * This existing binding sums reported Vitest file times for every specification
+ * in the selected owners' JUnit output, including native evidence. It is not
+ * elapsed developer feedback time; cached output retains an earlier run's
+ * measurements. Revising the binding is a deliberate decision recorded in
  * `docs/architecture/decisions/colocated-specifications.md`, never a
  * drive-by edit.
  */
@@ -13,7 +12,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-/** Total wall-clock seconds the fast specification suite may report. */
+/** Maximum sum of reported specification-file seconds under the existing binding. */
 export const SPECIFICATION_SUITE_BUDGET_SECONDS = 360;
 
 export type BudgetResult =

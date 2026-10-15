@@ -29,7 +29,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "extension-adoption", "actionable-diagnostics"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The composition root reads real project and user settings through the production document loaders; built-CLI authentication, non-Registry commands, and publish rows are bound evidence for the process boundary.",
   methods: ["example", "decision-table"],

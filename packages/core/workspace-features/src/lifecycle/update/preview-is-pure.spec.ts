@@ -27,6 +27,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.",
+  boundary: "platform",
   methods: ["example", "decision-table"],
   derivedFrom: [
     "cli/update/advances-resolution-within-intent",

@@ -32,6 +32,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
+  boundaryRationale:
+    "Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

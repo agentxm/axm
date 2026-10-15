@@ -25,6 +25,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "safe-repetition"],
+  boundaryRationale:
+    "The startup wrapper reads and writes the real update cache under an isolated native home while controlled HTTP and reporting ports observe requests and notifications.",
+  boundary: "platform",
   methods: ["decision-table", "example"],
   derivedFrom: [],
   supersedes: [],

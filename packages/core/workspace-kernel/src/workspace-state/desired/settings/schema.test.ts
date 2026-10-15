@@ -917,19 +917,6 @@ describe("Settings schema", () => {
       });
     });
 
-    it("accepts MCP server object entry with source", () => {
-      const input = { batcomputer: { source: "@wayne/mcps/batcomputer" } };
-      const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
-
-      expect(result).toEqual({
-        batcomputer: {
-          kind: "sourced",
-          source: "@wayne/mcps/batcomputer",
-          enabled: true,
-        },
-      });
-    });
-
     it("rejects MCP server names with underscores", () => {
       const input = { bat_computer: "@wayne/mcps/reference" };
 

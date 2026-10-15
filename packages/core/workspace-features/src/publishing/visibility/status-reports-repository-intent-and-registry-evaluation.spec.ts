@@ -19,6 +19,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "machine-automation"],
+  boundaryRationale:
+    "Production visibility reads authored manifests and settings from native temporary directories; the HTTP service port records Registry requests without a live service.",
+  boundary: "platform",
   methods: ["decision-table", "contract"],
   derivedFrom: [
     "apps/cli/src/root/visibility/handler.ts",

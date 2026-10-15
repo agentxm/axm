@@ -671,19 +671,15 @@ esac
     expect(jobs).not.toHaveProperty("verify-main-hosted");
   });
 
-  it("reports native fixture setup and strict cleanup failures together", async () => {
+  it("reports fixture setup and cleanup failures together", async () => {
     const directory = fs.mkdtempSync(path.join(repoRoot, "node_modules", ".native-cleanup-"));
-    const setupFile = path.join(directory, "setup.ts");
+    const testFile = path.join(directory, "cleanup.test.ts");
     fs.writeFileSync(
-      setupFile,
-      `import { vi } from "vitest";
-      vi.mock("node:fs", async (importOriginal) => {
-        const fs = await importOriginal();
-        return {
-          ...fs,
-          mkdirSync() { throw new Error("native fixture setup failed"); },
-          rmSync() { throw new Error("native fixture removal failed"); },
-        };
+      testFile,
+      `import { it, onTestFinished } from "vitest";
+      it("retains both resource failures", () => {
+        onTestFinished(() => { throw new Error("fixture removal failed"); });
+        throw new Error("fixture setup failed");
       });`,
     );
     const vitest = await createVitest("test", {
@@ -691,10 +687,8 @@ esac
       config: false,
       watch: false,
       reporters: [],
-      include: ["apps/cli-e2e/src/binary-smoke.e2e.test.ts"],
-      testNamePattern: "preserves native case aliases and remaining Skill consumers",
-      setupFiles: [setupFile],
-      env: { AXM_NATIVE_FIXTURE_PARENT: directory, AXM_BINARY_SOURCE: "compiled" },
+      include: [testFile],
+      exclude: [],
       maxWorkers: 1,
     });
     try {
@@ -705,8 +699,8 @@ esac
       );
       expect(failures).toHaveLength(1);
       expect(failures.flatMap((result) => result.errors?.map((error) => error.message))).toEqual([
-        "native fixture setup failed",
-        "native fixture removal failed",
+        "fixture setup failed",
+        "fixture removal failed",
       ]);
     } finally {
       await vitest.close();

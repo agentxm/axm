@@ -15,6 +15,9 @@ export const specification = defineSpecification({
   class: "constraint",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
+  boundaryRationale:
+    "Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

@@ -53,6 +53,15 @@ catalog can read it without executing tests.
 - Boundary execution and static checks bind to the same requirement identity;
   they do not establish a second requirement.
 
+`boundary` describes the default evidence's actual observation boundary. Use
+`platform` when production services read or mutate native filesystem state,
+including an in-process workspace fixture. Running without a child process does
+not make that evidence `memory`. Pure decisions and service-port recordings
+remain `memory`; loading example input from disk alone does not change that
+classification. Checks of committed generated artifacts use `repository`.
+Name the observed property in `boundaryRationale`, preserve material substitute
+limitations, and bind additional process or installation evidence separately.
+
 Within the owning project, import the subject through its public root or slice
 entry by relative path. Import other packages by package name and their declared
 entries; test support from another package uses its `./testing` or

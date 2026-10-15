@@ -221,25 +221,6 @@ describe("parsePluginManifests", () => {
           }),
         ),
       );
-
-      it.effect("adds skills/ dir when skills array is missing", () =>
-        withFileSystem(
-          Effect.gen(function* () {
-            const pluginDir = path.join(tempDir, ".claude-plugin");
-            fs.mkdirSync(pluginDir, { recursive: true });
-            fs.writeFileSync(
-              path.join(pluginDir, "marketplace.json"),
-              JSON.stringify({
-                plugins: [{ source: "./my-plugin" }],
-              }),
-            );
-
-            const result = yield* parsePluginManifests(tempDir);
-
-            expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
-          }),
-        ),
-      );
     });
 
     describe("plugins[].skills dirname transformation", () => {

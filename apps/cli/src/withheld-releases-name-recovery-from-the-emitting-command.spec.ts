@@ -23,6 +23,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics"],
+  boundaryRationale:
+    "The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

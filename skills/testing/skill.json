@@ -1,0 +1,15 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@agentxm",
+  "type": "skill",
+  "name": "testing",
+  "version": "0.1.0",
+  "description": "Fast tests, authoritative specifications, distinct boundary evidence, and coverage of consequential failures.",
+  "keywords": ["testing", "specifications", "coverage", "e2e", "feedback"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm",
+    "directory": "skills/testing"
+  },
+  "license": "FSL-1.1-MIT"
+}

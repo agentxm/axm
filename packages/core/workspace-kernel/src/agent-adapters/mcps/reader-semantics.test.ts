@@ -51,24 +51,30 @@ describe("native MCP transport interpretation", () => {
     expect(literal).not.toEqual(reference);
   });
 
-  it("represents documented remote autodetection without claiming one selected transport", () => {
-    expect(
-      interpretNativeMcpEntry({
-        entry: remote,
-        config: dialect("cursor"),
-        transports: ["http", "sse"],
-      }),
-    ).toEqual(
-      Option.some({
-        transport: "http-or-sse",
-        url: remote.url,
-        headers: remote.headers,
-        bearer: null,
-        envHeaders: {},
-        enabled: true,
-      }),
-    );
-  });
+  it.each([
+    { id: "cursor", entry: remote },
+    { id: "antigravity", entry: { serverUrl: remote.url, headers: remote.headers } },
+  ])(
+    "represents $id remote autodetection without claiming one selected transport",
+    ({ id, entry }) => {
+      expect(
+        interpretNativeMcpEntry({
+          entry,
+          config: dialect(id),
+          transports: ["http", "sse"],
+        }),
+      ).toEqual(
+        Option.some({
+          transport: "http-or-sse",
+          url: remote.url,
+          headers: remote.headers,
+          bearer: null,
+          envHeaders: {},
+          enabled: true,
+        }),
+      );
+    },
+  );
 
   it("refuses an undocumented ambiguous remote transport", () => {
     const config = dialect("cursor");

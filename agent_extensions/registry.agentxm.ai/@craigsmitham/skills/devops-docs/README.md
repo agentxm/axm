@@ -77,7 +77,7 @@ and verifies effective discovery and link resolution.
 The canonical AXM package is `@craigsmitham/skills/devops-docs`, version 0.5.1.
 `src/` is the portable runtime payload. README is package documentation.
 This package has no executable helpers or mandatory runtime sibling dependencies.
-When available, `author-docs` contributes documentation craft and `author-okf`
+When available, `docs` contributes documentation craft and `okf`
 contributes OKF authoring and base validation. Their absence leaves manual checks
 available and automated-check limitations explicit.
 
@@ -91,6 +91,12 @@ or successful exercise.
 The profile is an application convention over OKF v0.2, not an OKF extension
 standard. Profile review is manual. Base validation, profile consistency,
 source support, and actual use evidence are distinct results.
+
+## Changes in 0.5.2
+
+Release notes no longer refer to a deferred behavioral evaluation suite; the
+package does not plan one. Behavior, routing, and profile 0.5.0 are unchanged,
+and no corpus migration is required.
 
 ## Changes in 0.5.1
 
@@ -118,8 +124,7 @@ rollback of migrated records also restores their tables and prior declaration.
 
 Templates and the connected example use the new representation. Routing and
 authority boundaries are unchanged. Package, YAML/example, link, and manual
-profile checks cover the representation; the behavioral evaluation suite
-remains deferred during design.
+profile checks cover the representation.
 
 ## Changes in 0.4.1
 
@@ -129,8 +134,7 @@ and its answer-format requirements are removed. Setup, author, maintain, and
 their authority boundaries are unchanged. Profile 0.4.0 still applies; no corpus
 migration is required. Version 0.4.0 remains available for rollback.
 
-Package and manual routing checks cover this simplification; the behavioral
-evaluation suite remains deferred during design.
+Package and manual routing checks cover this simplification.
 
 ## Changes in 0.4.0
 
@@ -150,8 +154,7 @@ Review operations-only descriptions and older pointers during normal maintenance
 The `/devops/` root convention and fixed type folders are unchanged. Documentation
 work does not authorize software implementation or procedure execution. The
 previous 0.3.0 release remains available if adoption of this revision is deferred.
-Package, link, and manual consistency checks do not establish behavioral proof;
-the evaluation suite remains deferred during design.
+Package, link, and manual consistency checks do not establish behavioral proof.
 
 ## Changes in 0.3.0
 
@@ -175,7 +178,7 @@ structure migration is deferred; installing 0.3.0 does not perform it.
 The reported motivating case was setup retaining existing locations while
 revising content in an established repository. The revised contract requires a
 migration proposal for that case. Package and manual consistency checks are
-distinct from behavioral proof; the evaluation suite remains deferred during design.
+distinct from behavioral proof.
 
 ## Changes in 0.2.0
 
@@ -191,7 +194,6 @@ upgrade does not itself migrate an adopting repository. Keep the prior skill
 and declared profile at 0.1.0 if that review is deferred.
 
 Routing and authority are unchanged: setup and maintain propose; author applies
-authorized changes. Validation covers package structure and manual consistency;
-the package's behavioral evaluation suite remains deferred during design.
+authorized changes. Validation covers package structure and manual consistency.
 
 License: CC-BY-SA-4.0. Examples are fictional.

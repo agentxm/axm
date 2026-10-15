@@ -126,10 +126,10 @@ tree = "sha256-tree-v2:9b3f9fe7a1f39e168f2de5e4215ab89661c0d42cb3243f6e3abfe397c
 [[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/devops-docs"
 source = { registry = "https://registry.agentxm.ai" }
-version = "0.5.1"
-archive = "sha512-MQwjv+BmFluMYKQELQh6rIWORRdMpoqRhUHPJS4gqXLeb8I842yOjJD56BwT+VMCQmYY/sSN95RvRoPeXP/HoQ=="
+version = "0.5.2"
+archive = "sha512-Hl62kTzNkZuoFVP2P9DKXK+KE7RjrCJa8z1xprUz9AgPn3rELlgHiXMvxRdg3LKOAp0PwDdC3J5V+EV2uYIkHw=="
 publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
-tree = "sha256-tree-v2:7a572c7048b5e43d563ed8f8e740567177720f09cf890125fb18c62002c290ad"
+tree = "sha256-tree-v2:fb20e75d7ecb948f4baf4c8a2c5837e0d61422f13065c5bec0220b2a0ca4f8d6"
 
 [[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/docs"

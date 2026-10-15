@@ -27,7 +27,10 @@ period; changing a definition must not rewrite earlier assessments.
 An SLI is a measure used for service quality; KPI describes decision use, not a
 new type. A query link alone does not create an OKF Attested Computation.
 Inline service indicators follow this contract but may inherit service ownership
-and omit separate frontmatter. Common draft-gap allowances apply.
+and omit separate frontmatter. When a specification defines the quantity, such as
+a quality requirement's measure, a Measure MAY identify its meaning and definition by
+linking to that specification, and records implementation, coverage,
+interpretation, and any divergence without restating the definition. Common draft-gap allowances apply.
 
 ## Gather evidence
 

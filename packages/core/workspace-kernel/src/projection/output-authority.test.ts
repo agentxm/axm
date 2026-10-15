@@ -17,7 +17,7 @@ describe("selected skill output authority", () => {
         skills: { review: "workspace", other: "workspace" },
       });
       const acceptedResolutions = yield* decodedLockfile({
-        lockfileVersion: 12,
+        lockfileVersion: 1,
         skills: {
           review: {
             source: { type: "registry", url: "https://registry.example/" },

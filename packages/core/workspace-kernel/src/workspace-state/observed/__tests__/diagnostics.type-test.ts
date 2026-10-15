@@ -28,7 +28,7 @@ const _withRequiredOnly: Warning = { source: "settings", message: "required only
 const _withOptionalPath: Warning = {
   source: "lockfile",
   message: "with path",
-  path: "/ws/axm-lock.yaml",
+  path: "/ws/axm.lock",
 };
 const _withOptionalCode: Warning = {
   source: "scanner",

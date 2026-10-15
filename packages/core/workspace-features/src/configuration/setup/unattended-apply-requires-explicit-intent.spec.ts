@@ -89,7 +89,7 @@ describe("Unattended setup intent", () => {
             expect(fixture.promptState().selectAgentsCalls).toEqual([]);
             expect(fixture.promptState().confirmSetupPlanCalls).toEqual([]);
             expect(fixture.exists("axm.json")).toBe(false);
-            expect(fixture.exists("axm-lock.yaml")).toBe(false);
+            expect(fixture.exists("axm.lock")).toBe(false);
             expect(fixture.exists(".axm")).toBe(false);
             expect(fixture.exists("AGENTS.md")).toBe(false);
           }),
@@ -120,7 +120,7 @@ describe("Unattended setup intent", () => {
           expect(fixture.promptState().selectAgentsCalls).toEqual([]);
           expect(fixture.promptState().confirmSetupPlanCalls).toEqual([]);
           expect(fixture.exists("axm.json")).toBe(true);
-          expect(fixture.exists("axm-lock.yaml")).toBe(true);
+          expect(fixture.exists("axm.lock")).toBe(true);
           expect(JSON.parse(fixture.readFile("axm.json"))).toMatchObject({
             agents: ["claude-code"],
           });

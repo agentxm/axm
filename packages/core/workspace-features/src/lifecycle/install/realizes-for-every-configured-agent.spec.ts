@@ -219,7 +219,7 @@ describe("Install realizes the extension for configured agents", () => {
             expect(deriveOperationOutcome(initial)).toBe("applied");
             expect(workspace.exists("CLAUDE.md")).toBe(true);
             const instructions = workspace.readFile("AGENTS.md");
-            const accepted = workspace.readFile("axm-lock.yaml");
+            const accepted = workspace.readFile("axm.lock");
             fs.unlinkSync(path.join(workspace.root, "CLAUDE.md"));
             const before = workspace.snapshot();
             const inventory = yield* (yield* WorkspaceRecords).getExtensionInventory(row.type, {});
@@ -286,7 +286,7 @@ describe("Install realizes the extension for configured agents", () => {
               expect(workspace.readFile("CLAUDE.md")).toContain(instructions);
             }
             expect(workspace.readFile("AGENTS.md")).toBe(instructions);
-            expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+            expect(workspace.readFile("axm.lock")).toBe(accepted);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

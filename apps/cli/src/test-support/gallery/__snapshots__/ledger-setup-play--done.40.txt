@@ -13,7 +13,7 @@ Setting up AXM in ~/code/storefront
 
      Target              Status
  +   axm.json            created
- +   axm-lock.yaml       created
+ +   axm.lock            created
  ~   .gitignore          updated
  =   AGENTS.md           already current
  +   CLAUDE.md           created

@@ -3,7 +3,7 @@
  * and projections via the shared helper.
  *
  * Declared hooks come from `settings.hooks`; resolved hooks come from
- * `axm-lock.yaml` `hooks`. Actual occurrences come exclusively from the
+ * `axm.lock` `hooks`. Actual occurrences come exclusively from the
  * canonical-extensions scanner (`type === "hook"`), which enumerates
  * project-authored `hooks/<name>/src`, project-acquired
  * `agent_extensions/<family>/<owner>/hooks/<name>`, and user-scope packages.

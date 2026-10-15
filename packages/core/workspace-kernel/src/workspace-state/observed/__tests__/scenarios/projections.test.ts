@@ -87,7 +87,7 @@ const packMemberBinding = (name: string, pack: string, enabled = true): PackMemb
 });
 
 const lockfileWithSkill = (skillName: string): object => ({
-  lockfileVersion: 12,
+  lockfileVersion: 1,
   skills: {
     [skillName]: {
       source: {
@@ -398,7 +398,7 @@ describe("projection: packs are not installed as pack members", () => {
           lockfile: {
             _tag: "valid",
             contents: {
-              lockfileVersion: 12,
+              lockfileVersion: 1,
               skills: {},
               packs: {
                 // nested-pack is in the lockfile but not declared in settings;

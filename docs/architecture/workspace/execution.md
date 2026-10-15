@@ -204,8 +204,8 @@ prove container cleanup; they carry no command intent or workspace authority.
 
 | State                                     | Placement and lifecycle                                                                                                                      |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Durable project workspace authority       | Root `axm.json`, `axm-lock.yaml`, authored roots, and `agent_extensions/`                                                                    |
-| Durable user workspace authority          | `~/.axm/workspace/{axm.json,axm-lock.yaml,agent_extensions/}`                                                                                |
+| Durable project workspace authority       | Root `axm.json`, `axm.lock`, authored roots, and `agent_extensions/`                                                                         |
+| Durable user workspace authority          | `~/.axm/workspace/{axm.json,axm.lock,agent_extensions/}`                                                                                     |
 | Project-local scratch                     | Unique children of `.axm/tmp/`; the workspace mutex is `.axm/tmp/workspace-transition.lock`                                                  |
 | Active physical-boundary claims           | OS account home’s `.axm-runtime/physical-boundaries/`; invocation leases and active metadata retire after settlement or stale-owner recovery |
 | Invocation scratch and rollback snapshots | Uniquely prefixed directories in the operating-system temporary directory                                                                    |

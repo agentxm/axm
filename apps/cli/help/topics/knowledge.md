@@ -179,7 +179,7 @@ not.
 
 `axm knowledge install <source>` (or the generic `axm install`) materializes
 the bundle under `agent_extensions/registry.agentxm.ai/<owner>/knowledge/<name>/`, records it in
-`axm-lock.yaml`, and refreshes the local concept index.
+`axm.lock`, and refreshes the local concept index.
 
 ```bash
 axm knowledge install @acme/knowledge/platform
@@ -305,7 +305,7 @@ axm knowledge concepts related '@acme/knowledge/platform#auth/session-management
 ## Configuration
 
 Installed bundles are tracked in `axm.json` under the `knowledge` map
-(name → entry) and locked in `axm-lock.yaml`. An entry is a source string,
+(name → entry) and locked in `axm.lock`. An entry is a source string,
 or an object with `source` plus optional flags:
 
 ```jsonc

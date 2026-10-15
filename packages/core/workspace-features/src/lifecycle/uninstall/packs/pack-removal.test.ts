@@ -95,7 +95,7 @@ describe("pack removal", () => {
           const result = yield* removePack("toolkit");
           expect(deriveOperationOutcome(result), JSON.stringify(result)).toBe("applied");
           expect(workspace.readFile(".mcp.json")).toBe(native);
-          expect(workspace.readFile("axm-lock.yaml")).not.toContain("context");
+          expect(workspace.readFile("axm.lock")).not.toContain("context");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -142,13 +142,13 @@ describe("pack removal", () => {
         .provide(
           Effect.gen(function* () {
             yield* installPack("@acme/packs/toolkit");
-            expect(workspace.readFile("axm-lock.yaml")).toContain("toolkit");
+            expect(workspace.readFile("axm.lock")).toContain("toolkit");
 
             const resolution = yield* removePack(selector);
 
             expect(deriveOperationOutcome(resolution)).toBe("applied");
             expect(JSON.stringify(readSettings(workspace))).not.toContain("toolkit");
-            const lockfile = workspace.readFile("axm-lock.yaml");
+            const lockfile = workspace.readFile("axm.lock");
             expect(lockfile).not.toContain("toolkit");
             // The member had no other route, so it goes with the pack.
             expect(lockfile).not.toContain("member");
@@ -254,7 +254,7 @@ describe("pack removal", () => {
 
           yield* removePack("acme-*");
 
-          const lockfile = workspace.readFile("axm-lock.yaml");
+          const lockfile = workspace.readFile("axm.lock");
           expect(lockfile).not.toContain("acme-tools");
           expect(lockfile).not.toContain("acme-utils");
           expect(lockfile).toContain("other-pack");
@@ -302,7 +302,7 @@ describe("pack removal", () => {
 
           yield* removePack("pack-a");
 
-          const lockfile = workspace.readFile("axm-lock.yaml");
+          const lockfile = workspace.readFile("axm.lock");
           expect(lockfile).not.toContain("pack-a");
           expect(lockfile).toContain("shared");
         }),
@@ -353,7 +353,7 @@ describe("pack removal", () => {
           const directAfter = JSON.stringify(readSettings(workspace));
           expect(directAfter).toContain("promoted");
           expect(directAfter.includes('"enabled":false')).toBe(!enabled);
-          expect(workspace.readFile("axm-lock.yaml")).toContain("promoted");
+          expect(workspace.readFile("axm.lock")).toContain("promoted");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -383,7 +383,7 @@ describe("pack removal", () => {
           expect(deriveOperationOutcome(resolution)).toBe("blocked");
           expect(resolution.blocking).toMatchObject({ class: "stale-candidate" });
           expect(JSON.stringify(readSettings(workspace))).toContain("toolkit");
-          expect(workspace.snapshot()["axm-lock.yaml"]).toBe(before["axm-lock.yaml"]);
+          expect(workspace.snapshot()["axm.lock"]).toBe(before["axm.lock"]);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

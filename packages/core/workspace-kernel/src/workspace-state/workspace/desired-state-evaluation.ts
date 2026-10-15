@@ -25,7 +25,10 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
+import {
+  LOCKFILE_NAME,
+  SETTINGS_FILENAME,
+} from "@agentxm/extension-model/unstable/workspace-files";
 import {
   normalizeVersionRequest,
   versionSatisfiesRequest,
@@ -424,7 +427,7 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
       const authorization = authorizeExternalPackRoutes({
         node: packNode,
         accepted: acceptedPack,
-        declarationLocation: document?.relativePath ?? `axm-lock.yaml#packs.${settingsName}`,
+        declarationLocation: document?.relativePath ?? `${LOCKFILE_NAME}#packs.${settingsName}`,
       });
       if (!authorization.authorized) {
         if (packEnabled) problems.push(authorization.problem);

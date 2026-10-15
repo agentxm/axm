@@ -6,7 +6,6 @@ import * as Layer from "effect/Layer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import YAML from "yaml";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -29,6 +28,7 @@ import {
   writeLocalSubagentPackage,
 } from "../../testing/local-packages.js";
 
+import { parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 export const specification = defineSpecification({
   requirement: "cli/install/selects-requested-source-extensions",
   title: "Installation selects the requested extensions from what a source offers",
@@ -105,7 +105,7 @@ const snapshotDirectory = (root: string): Readonly<Record<string, string>> => {
 };
 
 const acceptedSkillResolutions = (world: InstallWorld): Readonly<Record<string, unknown>> => {
-  const lockfile: unknown = YAML.parse(world.workspace.readFile("axm-lock.yaml"));
+  const lockfile: unknown = parseLockfileToml(world.workspace.readFile("axm.lock"));
   if (typeof lockfile !== "object" || lockfile === null || !("skills" in lockfile))
     throw new Error("Expected a skill resolution map");
   const skills = lockfile.skills;
@@ -496,7 +496,7 @@ describe("Select extensions from a supplied source", () => {
             expect(declared(created, "rules")).toEqual(["style"]);
             // The Pack brought its member; nobody chose it directly.
             expect(declared(created, "skills")).toEqual([]);
-            expect(created.workspace.readFile("axm-lock.yaml")).toContain("review");
+            expect(created.workspace.readFile("axm.lock")).toContain("review");
           }),
         ),
         Effect.provide(NodeServices.layer),
@@ -521,7 +521,7 @@ describe("Select extensions from a supplied source", () => {
             expect(declared(created, "packs")).toEqual(["kit"]);
             expect(declared(created, "skills")).toEqual(["lint"]);
             expect(declared(created, "rules")).toEqual(["style"]);
-            expect(created.workspace.readFile("axm-lock.yaml")).not.toContain("audit");
+            expect(created.workspace.readFile("axm.lock")).not.toContain("audit");
           }),
         ),
         Effect.provide(NodeServices.layer),

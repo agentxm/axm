@@ -10,10 +10,10 @@ depends-on:
 
 # Lockfile
 
-Project-root `axm-lock.yaml` is AXM's generated, committed authority for
+Project-root `axm.lock` is AXM's generated, committed authority for
 accepted external resolutions and their provenance, and the record of
 projection generation currency and last-written digests. User scope keeps the same
-authority in `~/.axm/workspace/axm-lock.yaml`. It is a reproducible-resolution snapshot
+authority in `~/.axm/workspace/axm.lock`. It is a reproducible-resolution snapshot
 used by planning, materialization, update, reinstall, and cleanup.
 
 Settings establish desired roots and activation. Workspace-authored manifests
@@ -32,12 +32,27 @@ the accepted content from another result at the same mutable source:
 - a Git commit and tree identity; or
 - a path content identity.
 
-The current strict version is version 12. Its `packages` map records each
-retained package once: the self-describing source locator, immutable resolved
-snapshot, and integrity of the complete retained tree. Per-kind maps bind
-selected extension identities and component paths to that package. Package keys
-identify stable source boundaries; revisions and artifact digests identify the
-accepted snapshot separately.
+The current strict version is version 1 of `axm.lock`, a TOML document. Each
+`[[package]]` record describes one retained package once: its `id`, the
+self-describing `source` locator, the immutable resolved snapshot, and the
+integrity of the complete retained tree. The `id` is the retained directory's
+source address, computed by the same function that places the directory, so a
+record and its directory cannot disagree; reading recomputes it from `source`
+and refuses a mismatch. Per-kind binding tables bind a selected extension's
+declared `name`, its Git revision `spec` when there is one, and its component
+paths to that record. Record ids identify stable source boundaries; revisions
+and artifact digests identify the accepted snapshot separately. The
+[TOML lockfile decision](../decisions/toml-lockfile-with-labeled-records.md)
+records why the file has this shape.
+
+AXM writes the whole file in one canonical layout: a `#:schema` header,
+`version`, the records sorted by `id`, the `[skills]` table, the MCP rows, the
+remaining binding tables, the projection tables, and any `[tool.<name>]`
+tables, with keys and rows in code-point order. Identical accepted state yields
+identical bytes on every machine, and hand edits or comments do not survive the
+next write. `[tool.<name>]` tables belong to other tools; AXM never reads them
+and rewrites them from their parsed values on every write, so any TOML value a
+tool stores there survives while its formatting and comments do not.
 
 The retained directory follows the actual source address, as described in
 [canonical extension content](overview.md#canonical-extension-content).
@@ -54,9 +69,10 @@ HTTP locators preserve the logical URL, source kind, selected index entry, and
 accepted artifact manifest needed for exact replay. Configured Registry names
 and version constraints remain desired-state input rather than package identity.
 
-Most extension maps are keyed by workspace extension name. MCP bindings use
-source identity independently of local connection aliases. These bindings refer
-to the same package record when their components share its retained boundary.
+Binding tables are keyed by workspace extension name. MCP selections are
+`[[mcp]]` rows identified by package and declared name, independently of local
+connection names, which settings own. These bindings refer to the same package
+record when their components share its retained boundary.
 
 Exact fields and the strict lockfile version remain executable contracts owned
 by schemas and behavior tests. The architectural requirement is that the row
@@ -65,11 +81,12 @@ rematerialization where the source can still reproduce it.
 
 ### Projection currency
 
-The optional `projections` section records, per projection kind (`rules`,
-`knowledge`, `instructions`, `subagents`), a `contract` version and one row per
-unit keyed by its scope-relative path: `gen`, the input-only generation digest,
-and `output`, the digest of the bytes AXM last wrote. Keys are sorted; absolute
-or escaping paths are rejected on read. A changed `contract` strips `gen` from
+The optional projection tables record, per projection kind (`rules`,
+`knowledge`, `instructions`, `subagents`), a `contract` version in
+`[projections.<kind>]` and one row per unit in `[projections.<kind>.units]`,
+keyed by its scope-relative path: `gen`, the input-only generation digest, and
+`output`, the digest of the bytes AXM last wrote. Keys are sorted by code point;
+absolute or escaping paths are rejected on read. A changed `contract` strips `gen` from
 that kind's rows and keeps `output`, so the units are stale but their deletion
 evidence survives. Rows are written by every command that writes the
 projection and withdrawn with the unit, inside the same closure, and a failed
@@ -108,7 +125,7 @@ version ranges and explicit Registry authorities, alongside its manifest version
 and semantic content identity. A configured Pack that matches that row derives
 its dependency edges from this declaration even when installed files are absent
 or changed. Git and path rows retain the source root used by inherited members.
-Selected member bindings remain in their own per-kind maps. Updating a package
+Selected member bindings remain in their own per-kind tables. Updating a package
 advances every selected binding to that package together, including disabled
 selections and members reached through multiple Packs. An owning Pack at a
 different package boundary retains its accepted resolution. Inline MCP definitions,
@@ -165,11 +182,11 @@ automatic migration or cleanup, aliases, or downgrade mode.
 
 Every ordinary workspace-loading command validates a present lockfile during
 workspace construction, before command-specific reads, planning, Registry
-access, or mutation. `--force` does not bypass this authority gate. IO, YAML
+access, or mutation. `--force` does not bypass this authority gate. IO, TOML
 parse, schema decode, and unsupported-version failures remain distinct so the
 diagnosis names the path and a recovery appropriate to the observed state.
 
-An unsupported positive-integer `lockfileVersion` reports the observed and
+An unsupported positive-integer `version` reports the observed and
 supported versions and whether the lockfile is older or newer than the running
 AXM. Machine output carries those same facts in a structured problem. If the
 lockfile is newer, the only safe route is to upgrade AXM; the CLI does not
@@ -183,6 +200,12 @@ paths before previewing fresh resolution. Apply only after reviewing the preview
 accepted format is not read. A workspace containing only workspace-authored
 content may correctly finish with no lockfile.
 
+The superseded YAML lockfile, `axm-lock.yaml`, is such an older lockfile. Its
+presence in either scope is refused before `axm.lock` is read, whether or not
+`axm.lock` exists, with the version it declares (or 0) as the observed version
+and the older-lockfile recovery. AXM reads nothing else from it and migrates
+nothing.
+
 ## Persistence and failure
 
 An external materialization and its lock-row change belong to the same semantic
@@ -193,7 +216,8 @@ failure mode.
 
 Under the workspace mutation lock, AXM revalidates the lock preimage and every
 other material authoritative input. A stale plan performs no writes. The
-lockfile publishes through atomic replacement, preserving unrelated rows.
+lockfile publishes the whole canonical document through atomic replacement,
+carrying forward unrelated rows and `[tool.<name>]` tables.
 
 ## Specifications
 

@@ -101,7 +101,7 @@ axm instructions adopt knowledge
 axm sync --preview
 ```
 
-Adoption records the region's current generation and bytes in `axm-lock.yaml`.
+Adoption records the region's current generation and bytes in `axm.lock`.
 It changes no file, settings, or accepted resolution. It refuses an absent or
 malformed region and bytes that change after planning. A later input change
 still replaces the region.
@@ -127,7 +127,7 @@ reconciling setting. Use `axm sync --preview` to inspect reconciliation, then
 `axm sync` to restore configured state.
 
 A symlink that resolves to the canonical source proves an alias is AXM's. A
-copied alias carries no marker: it is AXM's when `axm-lock.yaml` records it, or
+copied alias carries no marker: it is AXM's when `axm.lock` records it, or
 when its bytes equal the copy AXM would write, which AXM then records. Anything
 else at a target path is an unowned collision: `axm instructions status` reports
 it as `unowned`, `axm lint` names it, and reconciliation refuses until you move

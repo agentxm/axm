@@ -189,10 +189,7 @@ describe("root publish", () => {
         agents: [],
       }),
     );
-    fs.writeFileSync(
-      path.join(tempDir, "axm-lock.yaml"),
-      "lockfileVersion: 12\npackages: {}\nskills: {}\n",
-    );
+    fs.writeFileSync(path.join(tempDir, "axm.lock"), "version = 1\n");
   });
 
   afterEach(() => {

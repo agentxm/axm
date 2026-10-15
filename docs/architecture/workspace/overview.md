@@ -141,7 +141,7 @@ AXM never invents a suffix to hide a collision. Unknown content is preserved,
 including after lock loss. The ignored `.axm/` directory is runtime state, not
 project configuration or canonical package inventory.
 User scope mirrors the project workspace contract under `~/.axm/workspace/`:
-`axm.json`, `axm-lock.yaml`, `agent_extensions/`, and `.axm/` runtime state.
+`axm.json`, `axm.lock`, `agent_extensions/`, and `.axm/` runtime state.
 It has no authored type roots; user-authored `workspace` sources and authoring
 commands are project-only. The bundled AXM skill uses an internal static
 package, not a user-authored root. Agent-native user projections remain under

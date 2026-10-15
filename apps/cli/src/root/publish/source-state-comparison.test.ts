@@ -94,10 +94,7 @@ describe("publish source-state comparison scheduling", () => {
         skills: { review: "workspace" },
       }),
     );
-    fs.writeFileSync(
-      path.join(tempDir, "axm-lock.yaml"),
-      "lockfileVersion: 12\npackages: {}\nskills: {}\n",
-    );
+    fs.writeFileSync(path.join(tempDir, "axm.lock"), "version = 1\n");
     const skillDir = path.join(tempDir, "skills", "review");
     fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
     fs.writeFileSync(

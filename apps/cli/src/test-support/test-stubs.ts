@@ -9,14 +9,14 @@ import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
-import YAML from "yaml";
 import {
-  TreeIntegritySchema,
   computePackageContentHash,
   computePackManifestContentIdentity,
-  type TreeIntegrity,
+  emitLockfileToml,
   type RegistryPackLockEntry,
   type SkillLockEntry,
+  type TreeIntegrity,
+  TreeIntegritySchema,
   type WorkspaceLayout,
   type WorkspaceLocationService,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -102,7 +102,7 @@ export const makeWorkspaceLocationMock = (
       workspaceRoot: absolute(),
       projectRoot: absolute(),
       settingsPath: absolute("axm.json"),
-      lockPath: absolute("axm-lock.yaml"),
+      lockPath: absolute("axm.lock"),
       runtimeDir: decodeAbsolutePathSync(axmDir),
       acquiredRoot: absolute("agent_extensions"),
       authoredRoot: (type) => absolute(type === "mcp-server" ? "mcps" : `${type}s`),
@@ -116,7 +116,7 @@ export const makeWorkspaceLocationMock = (
       userRuntimeDir: axmDir,
       runtimeDir: axmDir,
       settingsPath: path.join(baseDir, "axm.json"),
-      lockPath: path.join(baseDir, "axm-lock.yaml"),
+      lockPath: path.join(baseDir, "axm.lock"),
       layout: yield* Ref.make<WorkspaceLayout>(layout),
       builtInSources: [],
       nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
@@ -369,7 +369,7 @@ export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {})
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 12,
+    lockfileVersion: 1,
     skills: normalizeTestLockMap(opts.lockfileSkills, "skill", sourceEndpoints),
     ...(hasEntries(opts.lockfileRules) && {
       rules: normalizeTestLockMap(opts.lockfileRules, "rule", sourceEndpoints),
@@ -393,7 +393,7 @@ export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {})
 
   return {
     settings: JSON.stringify(settings),
-    lockfile: YAML.stringify(storedLockfileFixture(lockfile)),
+    lockfile: emitLockfileToml(storedLockfileFixture(lockfile)),
   };
 };
 
@@ -404,7 +404,7 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
 
   const workspaceRoot = scope === "user" ? path.join(runtimeDir, "workspace") : projectRoot;
   const settingsPath = path.join(workspaceRoot, "axm.json");
-  const lockPath = path.join(workspaceRoot, "axm-lock.yaml");
+  const lockPath = path.join(workspaceRoot, "axm.lock");
   fs.mkdirSync(path.join(workspaceRoot, ".axm"), { recursive: true });
   fs.writeFileSync(settingsPath, contents.settings);
   fs.writeFileSync(lockPath, contents.lockfile);

@@ -3,7 +3,7 @@
  * composition, and projections via the shared helper.
  *
  * Declared bundles come from `settings.knowledge`; resolved bundles come from
- * `axm-lock.yaml` `knowledge`. Actual occurrences come exclusively from the
+ * `axm.lock` `knowledge`. Actual occurrences come exclusively from the
  * canonical-extensions scanner (`type === "knowledge"`), which enumerates
  * project-authored `knowledge/<name>/src`, project-acquired
  * `agent_extensions/<family>/<owner>/knowledge/<name>`, and user-scope packages.

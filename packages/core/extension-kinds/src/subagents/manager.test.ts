@@ -177,7 +177,7 @@ const makeTestLayer = (overrides?: {
   });
 
   const lockfile: Lockfile = {
-    lockfileVersion: 12,
+    lockfileVersion: 1,
     skills: {},
     subagents: overrides?.lockedSubagents ?? {},
   };

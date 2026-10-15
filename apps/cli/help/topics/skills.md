@@ -158,7 +158,7 @@ authored content. Folder hashes are never interpreted as historical commits.
 
 AXM records accepted immutable resolution for externally sourced skills:
 
-- **`integrity`** — the SRI sha512 of the published archive. AXM verifies it against the downloaded bytes before extracting, every time it fetches. This is the supply-chain guarantee: a tampered or corrupted download fails the install.
+- **`archive`** — the SRI sha512 of the published archive. AXM verifies it against the downloaded bytes before extracting, every time it fetches. This is the supply-chain guarantee: a tampered or corrupted download fails the install.
 - **Git identity** — source URL, optional selected path and revision, plus immutable commit and tree identities.
 - **Local-source identity** — workspace-relative locator and immutable tree identity for an accepted local source.
 - **HTTPS artifact identity** — exact downloaded SHA-256 digests, separate from
@@ -166,8 +166,8 @@ AXM records accepted immutable resolution for externally sourced skills:
   explicit update resolves the source again.
 
 After install, remote-source canonical files under `agent_extensions/` are
-observed materialization. Lockfile v12 records each retained package snapshot once and binds selected
-components to it. Its strict `treeIntegrity` covers the complete package tree. If any
+observed materialization. `axm.lock` records each retained package snapshot once, as a `[[package]]` record, and binds selected
+components to it. Its strict `tree` integrity covers the complete package tree. If any
 path or byte changes locally, AXM preserves the
 drift and blocks affected lint, inspection, reconciliation, projection, and
 lifecycle work until reinstall, update, or fork resolves it. Workspace-authored

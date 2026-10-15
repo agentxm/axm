@@ -11,4 +11,4 @@
 export const SETTINGS_FILENAME = "axm.json";
 
 /** The workspace lock file. */
-export const LOCKFILE_NAME = "axm-lock.yaml";
+export const LOCKFILE_NAME = "axm.lock";

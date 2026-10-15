@@ -214,8 +214,8 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
             expect(world.workspace.exists(`${root}/skills/exclusive`)).toBe(false);
             expect(world.workspace.exists(`${root}/skills/shared`)).toBe(true);
             expect(world.workspace.exists(`${root}/skills/direct`)).toBe(true);
-            expect(world.workspace.readFile("axm-lock.yaml")).not.toContain("toolkit:");
-            expect(world.workspace.readFile("axm-lock.yaml")).toContain("sibling:");
+            expect(world.workspace.readFile("axm.lock")).not.toMatch(/^toolkit = /mu);
+            expect(world.workspace.readFile("axm.lock")).toMatch(/^sibling = /mu);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -259,7 +259,7 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
 
             expect(deriveOperationOutcome(resolution)).toBe("applied");
             expect(JSON.stringify(readSettings(workspace))).not.toContain(target.name);
-            expect(workspace.readFile("axm-lock.yaml")).not.toContain(target.name);
+            expect(workspace.readFile("axm.lock")).not.toContain(target.name);
             // Content whose manifest could not be read is never deleted.
             expect(contentUnder(workspace, packDirectory(world, target))).toEqual(packageBefore);
           }),

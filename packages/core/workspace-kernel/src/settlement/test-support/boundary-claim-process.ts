@@ -62,7 +62,7 @@ const result = await Effect.runPromise(runWorkspaceTransaction({
 }).pipe(
   Effect.provide(Layer.merge(WorkspaceTransactionScopeLive({
     workspaceDir: path.join(options.owner, ".axm"), settingsPath: settings,
-    lockPath: path.join(options.owner, "axm-lock.yaml"), nativeRoots: [options.owner, options.nativeRoot],
+    lockPath: path.join(options.owner, "axm.lock"), nativeRoots: [options.owner, options.nativeRoot],
   }), WorkspaceFileWriteLocksLive).pipe(options.namespace === undefined ? layer => layer : Layer.provide(WorkspaceBoundaryClaimsTest(options.namespace)))),
   Effect.provide(NodeServices.layer), Effect.result,
 ));

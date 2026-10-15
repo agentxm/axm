@@ -60,7 +60,7 @@ const fixture = Effect.gen(function* () {
         nativeRoots: [home, external],
         workspaceDir,
         settingsPath: path.join(home, "axm.json"),
-        lockPath: path.join(home, "axm-lock.yaml"),
+        lockPath: path.join(home, "axm.lock"),
       });
       return yield* scope.run({
         claimDefaultTargets: false,

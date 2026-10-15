@@ -10,6 +10,7 @@ import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
 import * as Option from "effect/Option";
 import { LOCKFILE_VERSION, type SkillLockEntry } from "../desired/lockfile/schema.js";
+import { emitLockfileToml } from "../desired/lockfile/toml.js";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { exactVersion, extensionName, handle, storedLockfileFixture } from "../testing.js";
@@ -60,8 +61,8 @@ describe("accepted canonical source transitions", () => {
       } satisfies SkillLockEntry;
       nodeFs.writeFileSync(nodePath.join(root, "axm.json"), "{}\n");
       nodeFs.writeFileSync(
-        nodePath.join(root, "axm-lock.yaml"),
-        JSON.stringify(
+        nodePath.join(root, "axm.lock"),
+        emitLockfileToml(
           storedLockfileFixture({
             lockfileVersion: LOCKFILE_VERSION,
             skills: { review: accepted },

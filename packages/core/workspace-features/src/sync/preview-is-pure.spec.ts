@@ -489,7 +489,7 @@ describe("Sync preview purity", () => {
             expect(JSON.stringify(failure)).toContain("ghost");
             expect(workspace.snapshot()).toEqual(before);
             expect(workspace.exists(".claude/skills/ghost")).toBe(false);
-            expect(workspace.readFile("axm-lock.yaml")).not.toContain("ghost");
+            expect(workspace.readFile("axm.lock")).not.toContain("ghost");
             expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
           }),
         )

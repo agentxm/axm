@@ -62,7 +62,7 @@ describe("First setup plan and migration", () => {
         .sort();
       expect(planned).toContain(".agents/skills/axm");
       expect(planned).toContain(".claude/skills/axm");
-      expect(planned).toContain("axm-lock.yaml");
+      expect(planned).toContain("axm.lock");
       expect(planned).toContain("nested/CLAUDE.md");
       const human = await fixture.run([...args, "--preview"]);
       expect(human.exitCode, human.stdout + human.stderr).toBe(0);

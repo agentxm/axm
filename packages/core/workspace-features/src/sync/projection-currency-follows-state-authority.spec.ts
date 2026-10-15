@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
-import YAML from "yaml";
+import * as Schema from "effect/Schema";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as PlatformError from "effect/PlatformError";
@@ -11,7 +11,12 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  emitLockfileToml,
+  LockfileSchema,
+  parseLockfileToml,
+  WorkspaceRecords,
+} from "@agentxm/workspace-kernel/workspace-state";
 import {
   deriveOperationOutcome,
   operationNativeLocations,
@@ -87,10 +92,11 @@ const writeAuthoredSubagent = (workspaceRoot: string, body: string): void => {
 
 /** The lockfile with its whole `projections` section removed. */
 const withoutProjectionRows = (lockfile: string): string => {
-  const document = YAML.parseDocument(lockfile);
-  if (!document.has("projections")) throw new Error("Expected recorded projection rows");
-  document.delete("projections");
-  return document.toString();
+  const { projections, ...accepted } = Schema.decodeUnknownSync(LockfileSchema)(
+    parseLockfileToml(lockfile),
+  );
+  if (projections === undefined) throw new Error("Expected recorded projection rows");
+  return emitLockfileToml(Schema.encodeSync(LockfileSchema)(accepted));
 };
 
 const replaceRegionBody = (content: string, body: string): string => {
@@ -330,7 +336,7 @@ describe("Generated document projection currency", () => {
             expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
             const recovered = {
               instructions: workspace.readFile("AGENTS.md"),
-              lockfile: workspace.readFile("axm-lock.yaml"),
+              lockfile: workspace.readFile("axm.lock"),
             };
             expect(fs.readlinkSync(aliasPath)).toBe(link);
 
@@ -358,7 +364,7 @@ describe("Generated document projection currency", () => {
             ).toBeUndefined();
             expect(deriveOperationOutcome(applied)).toBe("applied");
             expect(workspace.readFile("AGENTS.md")).toBe(recovered.instructions);
-            expect(workspace.readFile("axm-lock.yaml")).toBe(recovered.lockfile);
+            expect(workspace.readFile("axm.lock")).toBe(recovered.lockfile);
             expect(fs.readlinkSync(aliasPath)).toBe(link);
             expectNothingToReconcile(yield* applySync());
           }),
@@ -573,16 +579,16 @@ describe("Generated document projection currency", () => {
             yield* applySync();
 
             const generated = workspace.readFile("AGENTS.md");
-            const recorded = workspace.readFile("axm-lock.yaml");
-            expect(recorded).toContain("projections:");
+            const recorded = workspace.readFile("axm.lock");
+            expect(recorded).toContain("[projections.");
             const withoutGeneration = withoutProjectionRows(recorded);
-            workspace.writeFile("axm-lock.yaml", withoutGeneration);
+            workspace.writeFile("axm.lock", withoutGeneration);
 
             expectReconciliationPlanned(yield* previewSync());
-            expect(workspace.readFile("axm-lock.yaml")).toBe(withoutGeneration);
+            expect(workspace.readFile("axm.lock")).toBe(withoutGeneration);
 
             yield* applySync();
-            expect(workspace.readFile("axm-lock.yaml")).toContain("projections:");
+            expect(workspace.readFile("axm.lock")).toContain("[projections.");
             const reconciled = workspace.readFile("AGENTS.md");
             expect(reconciled).toBe(generated);
             expect(reconciled).toContain("First authoritative guidance.");
@@ -648,7 +654,7 @@ describe("Generated document projection currency", () => {
             const generated = workspace.readFile(projection);
             // The file carries no AXM text; its currency is the lockfile row.
             expect(generated).not.toContain("axm:");
-            expect(YAML.parse(workspace.readFile("axm-lock.yaml"))).toMatchObject({
+            expect(parseLockfileToml(workspace.readFile("axm.lock"))).toMatchObject({
               projections: {
                 subagents: {
                   contract: 1,

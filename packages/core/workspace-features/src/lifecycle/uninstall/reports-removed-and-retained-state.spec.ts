@@ -186,7 +186,7 @@ describe("Uninstall effect reporting", () => {
           });
           const targets = preview.units.flatMap((unit) => unit.artifact?.targets ?? []);
           expect(
-            targets.some((target) => target.path === canonical || target.path === "axm-lock.yaml"),
+            targets.some((target) => target.path === canonical || target.path === "axm.lock"),
           ).toBe(false);
           expect(targets).toContainEqual({
             path: ".mcp.json",

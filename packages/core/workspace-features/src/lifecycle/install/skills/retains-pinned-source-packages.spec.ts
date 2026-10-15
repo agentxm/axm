@@ -160,14 +160,14 @@ describe("Pinned retained source layouts", () => {
             expect(
               fs.readdirSync(path.join(world.workspace.root, ".claude/skills")).sort(),
             ).toEqual([...selectedNames].sort());
-            const acceptedBytes = world.workspace.readFile("axm-lock.yaml");
+            const acceptedBytes = world.workspace.readFile("axm.lock");
             fs.rmSync(retained, { recursive: true });
             yield* Ref.set(acquisitions, 0);
             yield* applySync({ target: Option.none(), types: ["skill"] }).pipe(
               Effect.provideService(SourceHostProviders, counted),
             );
             expect(yield* Ref.get(acquisitions)).toBe(1);
-            expect(world.workspace.readFile("axm-lock.yaml")).toBe(acceptedBytes);
+            expect(world.workspace.readFile("axm.lock")).toBe(acceptedBytes);
             assertPayload();
             for (const [index, name] of selectedNames.entries()) {
               const candidate = yield* UninstallExtensions.prepare({

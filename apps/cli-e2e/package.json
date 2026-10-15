@@ -17,6 +17,7 @@
     "effect": "catalog:",
     "fflate": "catalog:",
     "prettier": "catalog:",
+    "smol-toml": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"

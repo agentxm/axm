@@ -36,7 +36,7 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   "settings-schema": "JSON Schema for AXM workspace settings",
   mcps: "How MCP server extensions work and how AXM installs and manages them",
   "mcp-schema": "JSON Schema for an MCP server manifest",
-  "axm-lock-schema": "JSON Schema for the AXM lockfile",
+  "axm-lock-schema": "JSON Schema for the data model of the axm.lock TOML lockfile",
   "agent-extensions-schema": "JSON Schema for portable agentExtensions package metadata",
   "exit-codes": "Exit codes returned by AXM commands and what each one means",
   upgrade: "How AXM selects, verifies, delegates, and rolls back CLI upgrades",

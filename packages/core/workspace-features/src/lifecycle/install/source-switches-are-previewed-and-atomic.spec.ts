@@ -257,7 +257,7 @@ describe("install source switches", () => {
 
             const appliedRegistry = yield* resolveInstall(toRegistry);
             expect(appliedRegistry.units.every((unit) => unit.state === "committed")).toBe(true);
-            expect(workspace.readFile("axm-lock.yaml")).toContain("type: registry");
+            expect(workspace.readFile("axm.lock")).toContain("{ registry = ");
             expect(workspace.readFile("axm.json")).toContain('"enabled": false');
             expect(workspace.readFile("axm.json")).toContain('"distribute": false');
 
@@ -278,7 +278,7 @@ describe("install source switches", () => {
                 lost: expect.arrayContaining(["publisher epoch", "yank filtering"]),
               },
             });
-            expect(workspace.readFile("axm-lock.yaml")).toContain("type: git");
+            expect(workspace.readFile("axm.lock")).toContain("{ git = ");
             expect(workspace.readFile("axm.json")).toContain('"enabled": false');
             expect(workspace.readFile("axm.json")).toContain('"distribute": false');
           }),

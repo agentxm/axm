@@ -190,7 +190,7 @@ describe("An interrupted workspace change", () => {
       expect(fs.existsSync(canonical)).toBe(true);
       const priorTree = fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf-8");
       const settingsBefore = fs.readFileSync(path.join(workspace.path, "axm.json"), "utf-8");
-      const lockBefore = fs.readFileSync(path.join(workspace.path, "axm-lock.yaml"), "utf-8");
+      const lockBefore = fs.readFileSync(path.join(workspace.path, "axm.lock"), "utf-8");
 
       // The state a process killed between the two renames leaves behind: the
       // prior tree is in the sibling backup, a half-filled staging directory
@@ -209,7 +209,7 @@ describe("An interrupted workspace change", () => {
       expect(fs.existsSync(`${canonical}.axm-staging`)).toBe(false);
       expect(fs.existsSync(`${canonical}.axm-backup`)).toBe(false);
       expect(fs.readFileSync(path.join(workspace.path, "axm.json"), "utf-8")).toBe(settingsBefore);
-      expect(fs.readFileSync(path.join(workspace.path, "axm-lock.yaml"), "utf-8")).toBe(lockBefore);
+      expect(fs.readFileSync(path.join(workspace.path, "axm.lock"), "utf-8")).toBe(lockBefore);
     } finally {
       workspace.cleanup();
       await registry.close();

@@ -122,7 +122,7 @@ export const sharedMemberOutsidePinFact = (args: {
       `settings range=${args.pin} location=axm.json`,
       ...SHARED_MEMBER_PACKS.map(
         (pack) =>
-          `${pack.fqn} range=${pack.range} location=axm-lock.yaml#packs.${pack.name}.dependencies[${JSON.stringify(SHARED_MEMBER.fqn)}]`,
+          `${pack.fqn} range=${pack.range} location=axm.lock#packs.${pack.name}.dependencies[${JSON.stringify(SHARED_MEMBER.fqn)}]`,
       ),
     ].join(", ")}`,
     `accepted version=${args.acceptedVersion}`,

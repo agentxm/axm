@@ -55,8 +55,8 @@ describe("Workspace initialization", () => {
           agents: ["claude-code"],
           skills: { axm: { source: "workspace", origin: "bundled" } },
         });
-        expect(fs.readFileSync(path.join(workspaceRoot, "axm-lock.yaml"), "utf8")).toContain(
-          "lockfileVersion:",
+        expect(fs.readFileSync(path.join(workspaceRoot, "axm.lock"), "utf8")).toContain(
+          "version = 1\n",
         );
         expect(
           fs.existsSync(

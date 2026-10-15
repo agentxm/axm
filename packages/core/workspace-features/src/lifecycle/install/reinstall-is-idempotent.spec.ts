@@ -46,7 +46,7 @@ export const specification = defineSpecification({
 /** Everything a repeated install must leave as it found it. */
 const durableState = (world: InstallWorld) => ({
   settings: JSON.stringify(readSettings(world.workspace)),
-  lock: world.workspace.readFile("axm-lock.yaml"),
+  lock: world.workspace.readFile("axm.lock"),
   canonical: entriesUnder(world.workspace, "agent_extensions"),
   claude: entriesUnder(world.workspace, ".claude"),
   agents: entriesUnder(world.workspace, ".agents"),
@@ -369,7 +369,7 @@ describe("Repeat installs are safe", () => {
         Effect.gen(function* () {
           yield* applyInstall(request);
           const accepted = workspace.readFile(canonicalBody);
-          const lockAfterFirst = workspace.readFile("axm-lock.yaml");
+          const lockAfterFirst = workspace.readFile("axm.lock");
           workspace.writeFile(canonicalBody, `${accepted}\nlocal edit\n`);
 
           const repeated = yield* applyInstall(request);
@@ -378,7 +378,7 @@ describe("Repeat installs are safe", () => {
           // the install acquires it again; the accepted resolution is unchanged.
           expect(deriveOperationOutcome(repeated)).toBe("applied");
           expect(workspace.readFile(canonicalBody)).toBe(accepted);
-          expect(workspace.readFile("axm-lock.yaml")).toBe(lockAfterFirst);
+          expect(workspace.readFile("axm.lock")).toBe(lockAfterFirst);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -405,7 +405,7 @@ describe("Repeat installs are safe", () => {
             ).toBe(sourceContent);
             expect(workspace.readFile(".claude/skills/code-review/SKILL.md")).toBe(sourceContent);
             expect(workspace.readFile(".agents/skills/code-review/SKILL.md")).toBe(sourceContent);
-            expect(workspace.readFile("axm-lock.yaml")).toContain("code-review");
+            expect(workspace.readFile("axm.lock")).toContain("code-review");
             const before = workspace.snapshot();
 
             const previewed = yield* previewInstall(request);

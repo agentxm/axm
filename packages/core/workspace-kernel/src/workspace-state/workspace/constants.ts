@@ -1,7 +1,9 @@
 /** Canonical AXM application-home and workspace names. */
 
 export const USER_WORKSPACE_DIRECTORY = "workspace";
-export const LOCK_FILENAME = "axm-lock.yaml";
+export const LOCK_FILENAME = "axm.lock";
+/** The superseded YAML lockfile, refused wherever it sits beside {@link LOCK_FILENAME}. */
+export const LEGACY_LOCK_FILENAME = "axm-lock.yaml";
 export const ACQUIRED_EXTENSIONS_DIR = "agent_extensions";
 
 /** AXM's own interrupted replacement directories beside a canonical package. */

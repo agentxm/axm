@@ -61,6 +61,7 @@ export {
 export {
   ACQUIRED_EXTENSIONS_DIR,
   isInstallRootStagingName,
+  LEGACY_LOCK_FILENAME,
   LOCK_FILENAME,
 } from "./workspace/constants.js";
 export {
@@ -480,6 +481,7 @@ export {
   LockfileIoError,
   LockfileParseError,
   LockfileVersionUnsupported,
+  lockfileRequiresNewerAxm,
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,

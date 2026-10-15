@@ -142,7 +142,7 @@ describe("Pack member source authority", () => {
             const beta = yield* applyInstall(packRequest(sharedView, "beta"));
             expect(deriveOperationOutcome(beta)).toBe("applied");
             expect(beta.riskConditions ?? []).toEqual([]);
-            const lockfile = workspace.readFile("axm-lock.yaml");
+            const lockfile = workspace.readFile("axm.lock");
             expect(lockfile).toContain("alpha");
             expect(lockfile).toContain("beta");
             expect(lockfile).toContain("beta-only");
@@ -302,7 +302,7 @@ describe("Pack member source authority", () => {
             const beta = yield* applyInstall(packRequest(served.url, "beta"));
             expect(deriveOperationOutcome(beta)).toBe("applied");
             expect(beta.riskConditions ?? []).toEqual([]);
-            const lockfile = workspace.readFile("axm-lock.yaml");
+            const lockfile = workspace.readFile("axm.lock");
             expect(lockfile).toContain("alpha");
             expect(lockfile).toContain("beta");
             expect(lockfile).toContain("beta-only");

@@ -79,7 +79,7 @@ const stateWithDesiredSkill = () => {
     agents: ["claude-code"],
     skills: { "my-skill": { source: "@examples/skills/my-skill@1.0.0" } },
   };
-  state.lockfile = { lockfileVersion: 12, skills: { "my-skill": resolution } };
+  state.lockfile = { lockfileVersion: 1, skills: { "my-skill": resolution } };
   return state;
 };
 

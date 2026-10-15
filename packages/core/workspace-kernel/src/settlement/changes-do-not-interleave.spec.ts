@@ -68,7 +68,7 @@ const makeContendedWorkspace = () => {
     paths: {
       workspaceDir: nodePath.join(root, ".axm"),
       settingsPath: nodePath.join(root, "axm.json"),
-      lockPath: nodePath.join(root, "axm-lock.yaml"),
+      lockPath: nodePath.join(root, "axm.lock"),
     },
     cleanup: () => nodeFs.rmSync(root, { recursive: true, force: true }),
   };

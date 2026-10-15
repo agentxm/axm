@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "./e2e/utils.js";
+import { EMPTY_LOCKFILE } from "./test-support/lockfile.js";
 
 const readJson = (filePath: string): Record<string, unknown> =>
   JSON.parse(fs.readFileSync(filePath, "utf-8"));
@@ -87,8 +88,8 @@ describe("axm mcps new", () => {
         context: { source: "workspace" },
       });
 
-      const lockfile = fs.readFileSync(path.join(temp.path, "axm-lock.yaml"), "utf-8");
-      expect(lockfile).toBe("lockfileVersion: 12\npackages: {}\nskills: {}\n");
+      const lockfile = fs.readFileSync(path.join(temp.path, "axm.lock"), "utf-8");
+      expect(lockfile).toBe(EMPTY_LOCKFILE);
       expect(result.stdout + result.stderr).toContain("Edit `mcps/context/mcp.json`");
     } finally {
       temp.cleanup();
@@ -170,7 +171,7 @@ describe("axm mcps new", () => {
         },
       }));
 
-      const protectedPaths = ["axm.json", "axm-lock.yaml", "mcps/context/mcp.json", ".mcp.json"];
+      const protectedPaths = ["axm.json", "axm.lock", "mcps/context/mcp.json", ".mcp.json"];
       const beforeSync = protectedPaths.map((file) =>
         fs.readFileSync(path.join(temp.path, file), "utf8"),
       );

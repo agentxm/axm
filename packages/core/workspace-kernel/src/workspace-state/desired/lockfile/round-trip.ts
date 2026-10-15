@@ -1,25 +1,20 @@
 import * as Equal from "effect/Equal";
-import YAML from "yaml";
 import { prepareDocumentRoundTrip, type DocumentRoundTripContext } from "../document-round-trip.js";
 import { LOCKFILE_VERSION } from "./schema.js";
 import { PROJECTION_KINDS } from "./projections.js";
 import { LockfileWriteError } from "./errors.js";
+import { parseLockfileToml } from "./toml.js";
 
-const maps = [
-  "packages",
-  "skills",
-  "mcpServers",
-  "subagents",
-  "rules",
-  "hooks",
-  "knowledge",
-  "packs",
-];
+/** Binding tables keyed by local alias. */
+const tables = ["skills", "subagents", "rules", "hooks", "knowledge", "packs"];
+/** Array tables, dropped when empty so an empty array equals an absent one. */
+const arrays = ["package", "mcp"];
+
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const parse = (raw: string): Record<string, unknown> | undefined => {
   try {
-    const value: unknown = YAML.parse(raw);
+    const value = parseLockfileToml(raw);
     return record(value) ? value : undefined;
   } catch {
     return undefined;
@@ -36,9 +31,28 @@ const projectionUnits = (
 const normalize = (document: Record<string, unknown>): Record<string, unknown> =>
   Object.fromEntries(
     Object.entries(document).filter(
-      ([key, value]) => !maps.includes(key) || !record(value) || Object.keys(value).length > 0,
+      ([key, value]) =>
+        !(tables.includes(key) && record(value) && Object.keys(value).length === 0) &&
+        !(arrays.includes(key) && Array.isArray(value) && value.length === 0),
     ),
   );
+
+/**
+ * The selected units a document records: one per alias-keyed binding, and
+ * one per MCP binding identified by its package and declared name.
+ */
+const bindingUnits = (document: Record<string, unknown>): ReadonlySet<string> => {
+  const units = new Set<string>();
+  for (const table of tables)
+    for (const alias of Object.keys(entries(document, table)))
+      units.add(JSON.stringify(["lockfile", table, alias]));
+  const mcp = document["mcp"];
+  if (Array.isArray(mcp))
+    for (const binding of mcp)
+      if (record(binding))
+        units.add(JSON.stringify(["lockfile", "mcp", binding["package"], binding["name"]]));
+  return units;
+};
 
 export const prepareLockfileRoundTrip = (args: {
   readonly context: DocumentRoundTripContext;
@@ -46,24 +60,17 @@ export const prepareLockfileRoundTrip = (args: {
   readonly before: string | undefined;
   readonly after: string;
 }) => {
-  const before =
-    args.before === undefined
-      ? { lockfileVersion: LOCKFILE_VERSION, skills: {} }
-      : parse(args.before);
+  const before = args.before === undefined ? { version: LOCKFILE_VERSION } : parse(args.before);
   const after = parse(args.after);
   const insertions: string[] = [];
   const withdrawals: string[] = [];
-  if (before !== undefined && after !== undefined)
-    for (const map of maps) {
-      // Package records are derived from bindings; eligibility belongs to the selected units.
-      if (map === "packages") continue;
-      const prior = entries(before, map);
-      const next = entries(after, map);
-      for (const name of Object.keys(next))
-        if (!Object.hasOwn(prior, name)) insertions.push(JSON.stringify(["lockfile", map, name]));
-      for (const name of Object.keys(prior))
-        if (!Object.hasOwn(next, name)) withdrawals.push(JSON.stringify(["lockfile", map, name]));
-    }
+  // Package records are derived from bindings; eligibility belongs to the selected units.
+  if (before !== undefined && after !== undefined) {
+    const prior = bindingUnits(before);
+    const next = bindingUnits(after);
+    for (const unit of next) if (!prior.has(unit)) insertions.push(unit);
+    for (const unit of prior) if (!next.has(unit)) withdrawals.push(unit);
+  }
   // Projection rows follow the extension resolutions that render them, as
   // package records do: a write that introduces or withdraws a resolution is
   // that one unit, rows included. Only a write that changes rows alone treats
@@ -92,7 +99,7 @@ export const prepareLockfileRoundTrip = (args: {
     insertions,
     withdrawals,
     acceptAbsent:
-      after !== undefined && Equal.equals(normalize(after), { lockfileVersion: LOCKFILE_VERSION }),
+      after !== undefined && Equal.equals(normalize(after), { version: LOCKFILE_VERSION }),
     acceptRestored: (raw) => {
       const restored = parse(raw);
       return (
@@ -106,81 +113,4 @@ export const prepareLockfileRoundTrip = (args: {
         ? cause
         : new LockfileWriteError({ path: target, step: "write-temp", cause }),
   });
-};
-
-/**
- * Update projection rows in place. A kind whose unit set changes is rewritten
- * whole so its units stay sorted; otherwise only the changed rows and the
- * contract are set.
- */
-const renderProjectionsUpdate = (
-  document: YAML.Document,
-  prior: Record<string, unknown>,
-  encoded: Record<string, unknown>,
-): void => {
-  const next = encoded["projections"];
-  if (Equal.equals(prior["projections"], next)) return;
-  if (!record(next)) {
-    document.delete("projections");
-    return;
-  }
-  if (!record(prior["projections"])) {
-    document.set("projections", next);
-    return;
-  }
-  const previous = prior["projections"];
-  for (const kind of PROJECTION_KINDS) {
-    const before = previous[kind];
-    const after = next[kind];
-    if (Equal.equals(before, after)) continue;
-    if (!record(after)) {
-      document.deleteIn(["projections", kind]);
-      continue;
-    }
-    const priorUnits = projectionUnits(prior, kind);
-    const nextUnits = projectionUnits(encoded, kind);
-    if (!record(before) || !Equal.equals(Object.keys(priorUnits), Object.keys(nextUnits))) {
-      document.setIn(["projections", kind], after);
-      continue;
-    }
-    if (!Equal.equals(before["contract"], after["contract"]))
-      document.setIn(["projections", kind, "contract"], after["contract"]);
-    for (const [path, row] of Object.entries(nextUnits))
-      if (!Equal.equals(priorUnits[path], row))
-        document.setIn(["projections", kind, "units", path], row);
-  }
-};
-
-/** YAML owns comments and anchors; update only the changed authoritative keys. */
-export const renderLockfileUpdate = (before: string, encoded: Record<string, unknown>): string => {
-  const document = YAML.parseDocument(before, { keepSourceTokens: true });
-  if (document.errors.length > 0) throw new Error("Invalid lockfile YAML");
-  const prior: unknown = document.toJS();
-  if (!record(prior)) throw new Error("Lockfile root must be a mapping");
-  for (const map of maps) {
-    const previous = entries(prior, map);
-    const next = entries(encoded, map);
-    for (const key of Object.keys(previous))
-      if (!Object.hasOwn(next, key)) document.deleteIn([map, key]);
-    for (const [key, value] of Object.entries(next))
-      if (!Equal.equals(previous[key], value)) document.setIn([map, key], value);
-    if (encoded[map] === undefined && Object.hasOwn(prior, map)) document.delete(map);
-    else if (!Object.hasOwn(prior, map) && record(encoded[map]) && Object.keys(next).length === 0)
-      document.set(map, {});
-  }
-  renderProjectionsUpdate(document, prior, encoded);
-  if (!Equal.equals(prior["lockfileVersion"], encoded["lockfileVersion"]))
-    document.set("lockfileVersion", encoded["lockfileVersion"]);
-  const expected: Record<string, unknown> = { ...prior, ...encoded };
-  for (const map of maps) if (encoded[map] === undefined) delete expected[map];
-  if (encoded["projections"] === undefined) delete expected["projections"];
-  const actual: unknown = document.toJS();
-  if (!Equal.equals(expected, actual))
-    throw new Error("Lockfile update would change unrelated aliased values");
-  if (Equal.equals(prior, actual)) return before;
-  const eol = before.includes("\r\n") ? "\r\n" : "\n";
-  return (
-    document.toString({ lineWidth: 0 }).trimEnd().replaceAll("\n", eol) +
-    (before.match(/\s*$/)?.[0] ?? "")
-  );
 };

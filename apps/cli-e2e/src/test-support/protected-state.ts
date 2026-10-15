@@ -7,6 +7,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { EMPTY_LOCKFILE, LOCKFILE_NAME } from "./lockfile.js";
 
 export interface WorkspaceStateOptions {
   readonly scope?: "project" | "user";
@@ -16,7 +17,7 @@ export interface WorkspaceStateOptions {
 
 /**
  * Write an initialized workspace: settings naming the owner and configured
- * agents, and an empty v7 lockfile. `runtimeDir` is the project root, or the
+ * agents, and an empty lockfile. `runtimeDir` is the project root, or the
  * application `.axm` directory when writing user scope.
  */
 export const writeWorkspaceState = (
@@ -38,10 +39,7 @@ export const writeWorkspaceState = (
       2,
     )}\n`,
   );
-  fs.writeFileSync(
-    path.join(workspaceRoot, "axm-lock.yaml"),
-    "lockfileVersion: 12\npackages: {}\nskills: {}\n",
-  );
+  fs.writeFileSync(path.join(workspaceRoot, LOCKFILE_NAME), EMPTY_LOCKFILE);
 };
 
 export interface AuthoredSkillFixture {

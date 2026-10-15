@@ -1,6 +1,7 @@
 /** Per-source tagged error families for WorkspaceReadModel source-backed cells. */
 
 import * as Data from "effect/Data";
+import { LEGACY_LOCK_FILENAME } from "../workspace/constants.js";
 
 /** Settings file IO failure (unreadable, permission denied, lower-level error). */
 export class SettingsIoError extends Data.TaggedError("SettingsIoError")<{
@@ -31,7 +32,7 @@ export class LockfileIoError extends Data.TaggedError("LockfileIoError")<{
   readonly cause: unknown;
 }> {}
 
-/** Lockfile YAML parse failure; `raw` carries the unparsed text. */
+/** Lockfile TOML parse failure; `raw` carries the unparsed text. */
 export class LockfileParseError extends Data.TaggedError("LockfileParseError")<{
   readonly path: string;
   readonly raw: string;
@@ -51,6 +52,19 @@ export class LockfileVersionUnsupported extends Data.TaggedError("LockfileVersio
   readonly observedVersion: number;
   readonly supportedVersion: number;
 }> {}
+
+/**
+ * Whether a refused lockfile requires a newer AXM. A legacy YAML lockfile
+ * declares a larger number in a superseded format; it is older, and takes the
+ * re-acceptance route.
+ */
+export const lockfileRequiresNewerAxm = (error: LockfileVersionUnsupported): boolean => {
+  const separator = Math.max(error.path.lastIndexOf("/"), error.path.lastIndexOf("\\"));
+  return (
+    error.observedVersion > error.supportedVersion &&
+    error.path.slice(separator + 1) !== LEGACY_LOCK_FILENAME
+  );
+};
 
 /** Lockfile-read failure union (IO, parse, decode, unsupported version). */
 export type LockfileReadError =

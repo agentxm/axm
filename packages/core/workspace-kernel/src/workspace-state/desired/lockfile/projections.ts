@@ -12,6 +12,7 @@
 
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
+import { compareCodePoints } from "./compare-code-points.js";
 
 export const PROJECTION_KINDS = ["rules", "knowledge", "instructions", "subagents"] as const;
 export type ProjectionKind = (typeof PROJECTION_KINDS)[number];
@@ -87,7 +88,7 @@ const sortedUnits = (
   const sorted: Record<ProjectionUnitPath, ProjectionRow> = {};
   const keys = Object.keys(units)
     .map((key) => ProjectionUnitPathSchema.make(key))
-    .sort((left, right) => left.localeCompare(right, "en"));
+    .sort(compareCodePoints);
   for (const key of keys) {
     const row = units[key];
     if (row !== undefined) sorted[key] = row;

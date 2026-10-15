@@ -17,11 +17,11 @@
  *   fail the builder with `PathEscapeError`. This makes the upcoming
  *   Phase 9 `WorkspaceRootEscape` test a separate, deliberate scenario and
  *   eliminates the chance of a leaky test fixture corrupting the host fs.
- * - Settings and lockfile files are serialized through `JSON.stringify` and
- *   `YAML.stringify` respectively when their `_tag === "valid"`. For
- *   `byteCorrupt`, the literal bytes are written verbatim. For
- *   `schemaInvalid`, the JSON/YAML serialization of the spec object is
- *   written so the parser accepts it but the schema decoder rejects it.
+ * - Settings files are serialized through `JSON.stringify`; a valid lockfile
+ *   is encoded and emitted as canonical TOML. For `byteCorrupt`, the literal
+ *   bytes are written verbatim. For `schemaInvalid`, the JSON/TOML
+ *   serialization of the spec object is written so the parser accepts it but
+ *   the schema decoder rejects it.
  * - The builder NEVER constructs the live `WorkspaceReadModel` itself. The
  *   sibling `test-layer.ts` exposes a `WorkspaceReadModelTest` layer that
  *   composes the builder output with the real (Phase 9) Live layer; in
@@ -35,12 +35,16 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
+import { stringify as stringifyTomlDocument } from "smol-toml";
 import YAML from "yaml";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { Settings } from "../../desired/settings/schema.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { storedLockfileFixture } from "./decoders.js";
+import { emitLockfileToml } from "../../desired/lockfile/toml.js";
+import { LOCK_FILENAME } from "../../workspace/constants.js";
+import { LOCKFILE_VERSION } from "../../desired/lockfile/schema.js";
 import {
   resolveProjectWorkspaceLayout,
   resolveUserWorkspaceLayout,
@@ -63,8 +67,9 @@ export type FileSpec =
       /**
        * Object content for files with a known structure (axm.json,
        * lockfile, .mcp.json). The builder serializes through `JSON.stringify`
-       * for JSON files and `YAML.stringify` for YAML files. Pass a string
-       * literal to bypass serialization.
+       * for JSON files, `YAML.stringify` for YAML files, and the canonical
+       * lockfile emitter for the lockfile. Pass a string literal to bypass
+       * serialization.
        */
       readonly contents: object | string;
     }
@@ -72,9 +77,9 @@ export type FileSpec =
   | {
       readonly _tag: "schemaInvalid";
       /**
-       * Object content that serializes cleanly as JSON/YAML but fails the
+       * Object content that serializes cleanly as JSON/TOML but fails the
        * relevant Schema decoder. The builder writes the serialized form so
-       * `JSON.parse` / `YAML.parse` succeed.
+       * the parser succeeds.
        */
       readonly contents: object;
     };
@@ -166,6 +171,16 @@ const stringifyJson = (value: object | string): string =>
 
 const stringifyYaml = (value: object | string): string =>
   typeof value === "string" ? value : YAML.stringify(value);
+
+const stringifyToml = (value: object | string): string =>
+  typeof value === "string" ? value : stringifyTomlDocument(value);
+
+const serialize = (value: object | string, format: "json" | "yaml" | "toml"): string =>
+  format === "json"
+    ? stringifyJson(value)
+    : format === "yaml"
+      ? stringifyYaml(value)
+      : stringifyToml(value);
 
 const validateRelativePath = (
   relative: string,
@@ -368,7 +383,7 @@ const writeFileSpec = (
   files: Map<string, string>,
   absolutePath: string,
   spec: FileSpec,
-  format: "json" | "yaml",
+  format: "json" | "yaml" | "toml",
 ): void => {
   switch (spec._tag) {
     case "absent": {
@@ -376,9 +391,7 @@ const writeFileSpec = (
       return;
     }
     case "valid": {
-      const serialized =
-        format === "json" ? stringifyJson(spec.contents) : stringifyYaml(spec.contents);
-      files.set(absolutePath, serialized);
+      files.set(absolutePath, serialize(spec.contents, format));
       return;
     }
     case "byteCorrupt": {
@@ -388,9 +401,7 @@ const writeFileSpec = (
     case "schemaInvalid": {
       // Use the format's serializer so the parser succeeds but the decoder
       // rejects.
-      const serialized =
-        format === "json" ? stringifyJson(spec.contents) : stringifyYaml(spec.contents);
-      files.set(absolutePath, serialized);
+      files.set(absolutePath, serialize(spec.contents, format));
       return;
     }
   }
@@ -437,8 +448,8 @@ const writeScope = (
       options.scope === "project" ? join(scopeRoot, "axm.json") : join(stateRoot, "axm.json");
     const lockfilePath = options.includeLockfile
       ? options.scope === "project"
-        ? join(scopeRoot, "axm-lock.yaml")
-        : join(stateRoot, "axm-lock.yaml")
+        ? join(scopeRoot, LOCK_FILENAME)
+        : join(stateRoot, LOCK_FILENAME)
       : null;
     const mcpJsonPath = join(scopeRoot, ".mcp.json");
 
@@ -450,9 +461,12 @@ const writeScope = (
         files,
         lockfilePath,
         scope.lockfile._tag === "valid" && typeof scope.lockfile.contents !== "string"
-          ? { ...scope.lockfile, contents: storedLockfileFixture(scope.lockfile.contents) }
+          ? {
+              ...scope.lockfile,
+              contents: emitLockfileToml(storedLockfileFixture(scope.lockfile.contents)),
+            }
           : scope.lockfile,
-        "yaml",
+        "toml",
       );
     }
     if (scope.axmExtensions !== undefined) {
@@ -535,7 +549,7 @@ const validSettingsContents = {
 };
 
 const validLockfileContents = {
-  lockfileVersion: 12,
+  lockfileVersion: LOCKFILE_VERSION,
   skills: {
     "managed-tool": {
       source: {

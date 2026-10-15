@@ -88,7 +88,7 @@ describe("Configured reconciliation preflight the complete selected aggregate co
               expect(workspace.exists(fileRegistryPackagePath(registry, row.plural, name))).toBe(
                 true,
               );
-              expect(workspace.readFile("axm-lock.yaml")).toContain(name);
+              expect(workspace.readFile("axm.lock")).toContain(name);
               expect(workspace.readFile(row.native)).toContain(name);
             }
           }),

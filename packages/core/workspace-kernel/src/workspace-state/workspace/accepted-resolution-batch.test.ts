@@ -36,7 +36,7 @@ describe("accepted-state closure batching", () => {
   it.effect(requirement, () =>
     Effect.gen(function* () {
       const initial: Lockfile = {
-        lockfileVersion: 12,
+        lockfileVersion: 1,
         skills: {
           first: acceptedSkill("first"),
           second: acceptedSkill("second"),

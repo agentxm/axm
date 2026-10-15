@@ -279,7 +279,7 @@ describe("agents add.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     const axmDir = path.join(tempDir, ".axm");
     writeWorkspaceFiles(axmDir, { agents: [] });
-    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: []\n");
+    fs.writeFileSync(path.join(tempDir, "axm.lock"), "lockfileVersion: 4\nskills: []\n");
 
     return Effect.gen(function* () {
       const error = yield* provide(
@@ -293,7 +293,7 @@ describe("agents add.handler", () => {
 
       expect(getAppError(error).code).toBe("validation");
       expect(rendererState.results).toEqual([]);
-      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
+      expect(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")).toBe(
         "lockfileVersion: 4\nskills: []\n",
       );
     });

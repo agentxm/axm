@@ -138,9 +138,7 @@ export const makeAuthoringWorkspace = (
       fs.writeFileSync(absolute("axm.json"), `${JSON.stringify(settings, null, 2)}\n`);
     },
     lockfileText: () =>
-      fs.existsSync(absolute("axm-lock.yaml"))
-        ? fs.readFileSync(absolute("axm-lock.yaml"), "utf-8")
-        : "",
+      fs.existsSync(absolute("axm.lock")) ? fs.readFileSync(absolute("axm.lock"), "utf-8") : "",
     tree: () => [...walk(root, root)].sort(),
     snapshot,
     cleanup: () => {

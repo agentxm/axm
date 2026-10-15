@@ -1,15 +1,11 @@
 /** Stable source-package identity and portable placement conflicts. */
 import * as Result from "effect/Result";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
-import {
-  installableExtensionTypes,
-  type InstallableExtensionType,
-} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   packageSourceForEntry,
-  retainedPackageKey,
-  type RetainedPackage,
+  type RetainedPackageSource,
   type Lockfile,
 } from "../desired/lockfile/schema.js";
 import { lockEntries } from "./entry-accessors.js";
@@ -17,25 +13,46 @@ import { acquiredPackageRelativePath } from "./extension-paths.js";
 import { extensionPathSourceFromLockEntry } from "./lock-entry.js";
 import { decodeSourceSegment, SourceAddressInvalid } from "./source-address.js";
 
-const lockMapNames = {
-  skill: "skills",
-  subagent: "subagents",
-  "mcp-server": "mcpServers",
-  rule: "rules",
-  hook: "hooks",
-  knowledge: "knowledge",
-  pack: "packs",
-} as const satisfies Record<InstallableExtensionType, keyof Lockfile>;
+/**
+ * Stable in-memory package identity. It excludes selectors, accepted snapshots
+ * and transport context, and distinguishes source formats at one boundary.
+ */
+const retainedPackageKey = (source: RetainedPackageSource): string => {
+  switch (source.type) {
+    case "registry":
+      return JSON.stringify([
+        source.type,
+        source.url.href,
+        source.owner,
+        source.extensionType,
+        source.name,
+      ]);
+    case "git":
+      return JSON.stringify([source.type, source.url.href, source.path, source.format]);
+    case "path":
+      return JSON.stringify([source.type, source.path, source.format]);
+    case "http":
+      return JSON.stringify([
+        source.type,
+        source.url.href,
+        source.kind,
+        source.entry ?? null,
+        source.path,
+        source.portable,
+        source.format,
+      ]);
+  }
+};
 
 export const retainedPackageSourceForRef = (
   ref: Exclude<ExtensionRef, { readonly refType: "workspace" }>,
-): RetainedPackage["source"] => {
+): RetainedPackageSource => {
   if (ref.refType === "registry")
     return {
       type: "registry",
       url: ref.source.location,
       owner: ref.owner,
-      extensionType: lockMapNames[ref.type],
+      extensionType: toExtensionTypePlural(ref.type),
       name: ref.name,
     };
   const format = ref.distribution?.format ?? "native";
@@ -79,7 +96,7 @@ export const retainedPackageBindings = (lockfile: Lockfile) =>
       type,
       key,
       entry,
-      packageKey: retainedPackageKey(packageSourceForEntry(lockMapNames[type], entry)),
+      packageKey: retainedPackageKey(packageSourceForEntry(toExtensionTypePlural(type), entry)),
     })),
   );
 

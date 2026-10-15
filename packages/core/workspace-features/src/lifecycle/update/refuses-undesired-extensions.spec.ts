@@ -89,7 +89,7 @@ describe("Update an extension the workspace does not desire", () => {
       .provide(
         Effect.gen(function* () {
           const settingsBefore = JSON.stringify(readSettings(workspace));
-          const lockfileBefore = workspace.readFile("axm-lock.yaml");
+          const lockfileBefore = workspace.readFile("axm.lock");
 
           const resolution = expectResolved(
             yield* applyUpdate(targetedUpdateRequest({ source: "@acme/skills/absent" })),
@@ -99,7 +99,7 @@ describe("Update an extension the workspace does not desire", () => {
           expect(resolution.blocking).toMatchObject({ class: "precondition-unmet" });
           expect(resolution.units).toEqual([]);
           expect(JSON.stringify(readSettings(workspace))).toBe(settingsBefore);
-          expect(workspace.readFile("axm-lock.yaml")).toBe(lockfileBefore);
+          expect(workspace.readFile("axm.lock")).toBe(lockfileBefore);
           expect(workspace.exists("agent_extensions")).toBe(false);
         }),
       )

@@ -46,14 +46,14 @@ describe("closure settlement", () => {
     root = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-closure-"));
     workspaceDir = nodePath.join(root, ".axm");
     settingsPath = nodePath.join(root, "axm.json");
-    lockPath = nodePath.join(root, "axm-lock.yaml");
+    lockPath = nodePath.join(root, "axm.lock");
     canonicalFile = nodePath.join(root, "agent_extensions", "acme", "skills", "alpha", "SKILL.md");
     projectionPath = nodePath.join(root, ".claude", "skills", "alpha", "SKILL.md");
     nodeFs.mkdirSync(workspaceDir, { recursive: true });
     nodeFs.mkdirSync(nodePath.dirname(canonicalFile), { recursive: true });
     nodeFs.mkdirSync(nodePath.dirname(projectionPath), { recursive: true });
     nodeFs.writeFileSync(settingsPath, '{"skills":{}}\n');
-    nodeFs.writeFileSync(lockPath, "lockfileVersion: 12\npackages: {}\nskills: {}\n");
+    nodeFs.writeFileSync(lockPath, "version = 1\n");
     nodeFs.writeFileSync(canonicalFile, "# alpha v1\n");
     nodeFs.writeFileSync(projectionPath, "# projected v1\n");
   });
@@ -137,7 +137,10 @@ describe("closure settlement", () => {
             yield* withWorkspaceClosure("alpha")(write(settingsPath, '{"skills":{"alpha":1}}\n'));
             yield* settleWorkspaceClosure("alpha");
             const result = yield* withWorkspaceClosure("beta")(
-              write(lockPath, "lockfileVersion: 12\npackages: {}\nskills: { beta: {} }\n").pipe(
+              write(
+                lockPath,
+                'version = 1\n\n[skills]\nbeta = { package = "_local/project/skills/beta", name = "beta" }\n',
+              ).pipe(
                 Effect.andThen(write(canonicalFile, "# beta\n")),
                 Effect.andThen(write(projectionPath, "# projected beta\n")),
                 Effect.result,
@@ -150,7 +153,7 @@ describe("closure settlement", () => {
         });
         expect(outcome._tag).toBe("Failure");
         expect(read(settingsPath)).toBe('{"skills":{"alpha":1}}\n');
-        expect(read(lockPath)).toBe("lockfileVersion: 12\npackages: {}\nskills: {}\n");
+        expect(read(lockPath)).toBe("version = 1\n");
         expect(read(canonicalFile)).toBe("# alpha v1\n");
         expect(read(projectionPath)).toBe("# projected v1\n");
       }).pipe(

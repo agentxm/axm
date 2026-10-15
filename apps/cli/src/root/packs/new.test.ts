@@ -9,9 +9,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
@@ -28,6 +28,7 @@ import {
 } from "../../test-support/test-helpers.js";
 import { handlePacksNew, type PacksNewHandlerArgs } from "./new.js";
 
+import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -121,8 +122,8 @@ describe("packs-new.handler", () => {
           expect(settings.packs).toBeDefined();
           expect(settings.packs["frontend-tools"]).toBe("workspace");
 
-          const lockfile = YAML.parse(
-            fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8"),
+          const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
+            parseLockfileToml(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf-8")),
           );
           expect(lockfile.packs?.["frontend-tools"]).toBeUndefined();
 

@@ -29,7 +29,7 @@ describe("handled failure identity", () => {
       detail: SENTINEL,
       problem: {
         code: "workspace-lockfile-version-unsupported",
-        path: `/home/${SENTINEL}/axm-lock.yaml`,
+        path: `/home/${SENTINEL}/axm.lock`,
         observedVersion: 3,
         supportedVersion: 2,
         direction: "newer",

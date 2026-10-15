@@ -555,7 +555,7 @@ describe("main CLI help", () => {
       );
       expect(setup.exitCode).toBe(0);
       const settingsPath = path.join(workspace.path, "axm.json");
-      const lockfilePath = path.join(workspace.path, "axm-lock.yaml");
+      const lockfilePath = path.join(workspace.path, "axm.lock");
       const before = {
         settings: fs.readFileSync(settingsPath, "utf8"),
         lockfile: fs.readFileSync(lockfilePath, "utf8"),

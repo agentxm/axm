@@ -5,12 +5,11 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import YAML from "yaml";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 import { readSettings } from "./test-helpers.js";
 import {
   applyInstall,
@@ -153,7 +152,7 @@ describe("Pack and MCP shared source resolution", () => {
             const resolutions = (): ReadonlyArray<string> =>
               Object.keys(
                 Schema.decodeUnknownSync(LockfileSchema)(
-                  YAML.parse(created.workspace.readFile("axm-lock.yaml")),
+                  parseLockfileToml(created.workspace.readFile("axm.lock")),
                 ).mcpServers ?? {},
               );
             const accepted = `registry:${encodeURIComponent(created.registry.endpoint.href)}:@acme/mcps/context`;

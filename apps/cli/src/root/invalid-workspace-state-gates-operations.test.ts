@@ -18,7 +18,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
+import { LEGACY_LOCK_FILENAME, LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
 import { getAppError } from "../test-support/test-helpers.js";
 import { handleUpdate } from "./update/handler.js";
 import { handleInstall } from "./install/handler.js";
@@ -41,8 +41,8 @@ const projectSettingsPath = (workspace: SpecWorkspace): string =>
 
 const lockPathFor = (workspace: SpecWorkspace, scope: WorkspaceScope): string =>
   scope === "project"
-    ? path.join(workspace.root, "axm-lock.yaml")
-    : path.join(workspace.userHome, ".axm", "workspace", "axm-lock.yaml");
+    ? path.join(workspace.root, "axm.lock")
+    : path.join(workspace.userHome, ".axm", "workspace", "axm.lock");
 
 const initializeUserSettings = (workspace: SpecWorkspace): void => {
   fs.mkdirSync(path.dirname(userSettingsPath(workspace)), { recursive: true });
@@ -125,21 +125,27 @@ const settingsRows: ReadonlyArray<FaultRow> = (["project", "user"] as const).fla
 const lockfileVersionRows: ReadonlyArray<FaultRow> = (["older", "newer"] as const).flatMap(
   (direction) =>
     (["project", "user"] as const).map((scope): FaultRow => {
-      const observedVersion = direction === "older" ? LOCKFILE_VERSION - 1 : LOCKFILE_VERSION + 1;
+      // An older lockfile is a legacy YAML lockfile beside the expected one.
+      const observedVersion = direction === "older" ? 12 : LOCKFILE_VERSION + 1;
       return {
         fault: `an ${direction} ${scope} lockfile version`,
         code: "validation",
         scope,
         arrange: (workspace) => {
           if (scope === "user") initializeUserSettings(workspace);
-          return replaceFile(lockPathFor(workspace, scope), (lockPath) =>
-            fs.writeFileSync(lockPath, `lockfileVersion: ${observedVersion}\nskills: {}\n`),
-          );
+          const lockPath = lockPathFor(workspace, scope);
+          return direction === "older"
+            ? replaceFile(path.join(path.dirname(lockPath), LEGACY_LOCK_FILENAME), (legacyPath) =>
+                fs.writeFileSync(legacyPath, `lockfileVersion: ${observedVersion}\nskills: {}\n`),
+              )
+            : replaceFile(lockPath, (target) =>
+                fs.writeFileSync(target, `version = ${observedVersion}\n`),
+              );
         },
         expectDiagnosis: (error, lockPath) => {
           expect(error.title).toBe("Unsupported workspace lockfile version");
           expect(error.detail).toContain(String(observedVersion));
-          expect(error.detail).toContain(String(LOCKFILE_VERSION));
+          expect(error.detail).toContain(`version ${LOCKFILE_VERSION}.`);
           expect(error.problem).toEqual({
             code: "workspace-lockfile-version-unsupported",
             path: lockPath,
@@ -169,15 +175,15 @@ const lockfileContentRows: ReadonlyArray<FaultRow> = [
     title: "Workspace lockfile unreadable",
   },
   {
-    fault: "a project lockfile that is not valid YAML",
-    write: (lockPath: string) => fs.writeFileSync(lockPath, "lockfileVersion: [\n"),
-    diagnostic: "not valid YAML",
-    recovery: /YAML syntax|known-good/i,
+    fault: "a project lockfile that is not valid TOML",
+    write: (lockPath: string) => fs.writeFileSync(lockPath, "version = [\n"),
+    diagnostic: "not valid TOML",
+    recovery: /TOML syntax|known-good/i,
     code: "validation" as const,
   },
   {
     fault: "a schema-invalid project lockfile",
-    write: (lockPath: string) => fs.writeFileSync(lockPath, 'lockfileVersion: "six"\nskills: {}\n'),
+    write: (lockPath: string) => fs.writeFileSync(lockPath, 'version = "six"\n'),
     diagnostic: "Invalid workspace lockfile",
     recovery: /invalid values|supported format/i,
     code: "validation" as const,

@@ -10,9 +10,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
@@ -28,6 +28,7 @@ import {
 } from "../../../test-support/test-helpers.js";
 import { handleSubagentsNew, type SubagentsNewHandlerArgs } from "./handler.js";
 
+import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
@@ -129,8 +130,10 @@ describe("subagents-new.handler", () => {
           expect(settings.subagents["my-subagent"]).toBe("workspace");
 
           // Authored workspace content is desired authority and has no lock row.
-          const lockfilePath = path.join(tempDir, "axm-lock.yaml");
-          const lockfile = YAML.parse(fs.readFileSync(lockfilePath, "utf-8"));
+          const lockfilePath = path.join(tempDir, "axm.lock");
+          const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
+            parseLockfileToml(fs.readFileSync(lockfilePath, "utf-8")),
+          );
           expect(lockfile.subagents?.["my-subagent"]).toBeUndefined();
 
           expect(logs.success).toEqual(["Created 1 subagent"]);

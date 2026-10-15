@@ -88,10 +88,10 @@ preflight, lint, inventory, or state commands; hand the work to its owner.
 3. Resolve project or user scope, the fully qualified extension identity,
    source authority, and canonical path. Use local inventory and workspace
    facts before a network lookup. In project scope, treat `axm.json` as desired
-   state, `axm-lock.yaml` as accepted external resolution, authored type roots
+   state, `axm.lock` as accepted external resolution, authored type roots
    and `agent_extensions/` as canonical package content, and `.axm/` as ignored
    runtime state. User scope mirrors this installed-state contract under
-   `~/.axm/workspace/`: `axm.json`, `axm-lock.yaml`, `agent_extensions/`, and
+   `~/.axm/workspace/`: `axm.json`, `axm.lock`, `agent_extensions/`, and
    an inner `.axm/` runtime directory. Agent-native files remain projections
    in their native user roots.
    When required local desired, lock, or canonical state is missing or

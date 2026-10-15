@@ -21,6 +21,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createTempDir, runCli } from "../../e2e/utils.js";
+import { EMPTY_LOCKFILE } from "../../test-support/lockfile.js";
 
 const writeJson = (file: string, value: unknown): void => {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
@@ -96,10 +97,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           agents: [],
           skills: {},
         });
-        fs.writeFileSync(
-          path.join(temp.path, "axm-lock.yaml"),
-          "lockfileVersion: 12\npackages: {}\nskills: {}\n",
-        );
+        fs.writeFileSync(path.join(temp.path, "axm.lock"), EMPTY_LOCKFILE);
 
         const machine = await runCli(["lint", "--json"], { cwd: temp.path, env });
         expect(machine.exitCode, `${machine.stderr}\n${machine.stdout}`).toBe(0);
@@ -276,7 +274,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         writeJson(settingsPath, settings);
 
         // Simulate a stale workspace where the lockfile was wiped.
-        fs.rmSync(path.join(temp.path, "axm-lock.yaml"), { force: true });
+        fs.rmSync(path.join(temp.path, "axm.lock"), { force: true });
 
         const result = await runCli(["lint", "--json"], { cwd: temp.path });
         expect(result.exitCode).toBe(1);
@@ -444,7 +442,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         settings.skills = { ...settings.skills, demo: "@acme/skills/demo" };
         settings.lint = { rules: isolatedMissingLockfileRules("warn") };
         writeJson(settingsPath, settings);
-        fs.rmSync(path.join(temp.path, "axm-lock.yaml"));
+        fs.rmSync(path.join(temp.path, "axm.lock"));
 
         const normal = await runCli(["lint", "--json"], { cwd: temp.path, env });
         expect(normal.exitCode, `${normal.stderr}\n${normal.stdout}`).toBe(0);
@@ -511,7 +509,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         settings.skills = { ...settings.skills, demo: "@acme/skills/demo" };
         settings.lint = { rules: isolatedMissingLockfileRules("info") };
         writeJson(settingsPath, settings);
-        fs.rmSync(path.join(workspaceRoot, "axm-lock.yaml"));
+        fs.rmSync(path.join(workspaceRoot, "axm.lock"));
 
         const result = await runCli(["lint", "--scope", "user", "--strict", "--json"], {
           cwd: userHome.path,

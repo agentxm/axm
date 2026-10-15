@@ -116,7 +116,9 @@ directory. The last retired receipt removes its local metadata file.
 A Pack introduction can publish several lockfile entries in one closure. Its
 receipt follows those publications under the same explicit graph identity,
 then permits the corresponding complete withdrawal to recover the original
-document. A later command changing the source or other document intent expires
+document. The lockfile is rewritten canonically, so that recovery is byte-exact
+for a lockfile AXM last wrote; hand edits and comments in it do not survive. A
+later command changing the source or other document intent expires
 that baseline; it cannot extend or recreate the introduction's proof.
 
 ## Region fences
@@ -176,12 +178,13 @@ before publishing help or bundled content.
 
 ## Projection currency
 
-The lockfile's `projections` section records one row per projected unit, keyed
+The lockfile's `projections` tables record one row per projected unit, keyed
 by its scope-relative path under the kinds `rules`, `knowledge`,
 `instructions` (the alias region and instruction copies), and `subagents`. A row
 holds `gen`, a digest of the unit's canonical structured inputs, and `output`, a
 digest of the bytes AXM last wrote. Each kind also records a projection
-`contract` version. Rendered bytes are never an input to `gen`.
+`contract` version in its `[projections.<kind>]` table, with the rows in
+`[projections.<kind>.units]`. Rendered bytes are never an input to `gen`.
 
 A unit is current when its row's `gen` and its kind's `contract` match the
 expected values; AXM then does not inspect, normalize, or rewrite the body. This

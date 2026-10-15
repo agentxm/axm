@@ -1,10 +1,13 @@
 import * as Schema from "effect/Schema";
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  emitLockfileToml,
+  LockfileSchema,
+  parseLockfileToml,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import { fileRegistryPackagePath } from "../testing/install-world.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import YAML from "yaml";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -147,7 +150,7 @@ describe("Sync realizes desired workspace state", () => {
             expect(
               workspace.exists(fileRegistryPackagePath(registry, "subagents", "planner")),
             ).toBe(false);
-            expect(workspace.readFile("axm-lock.yaml")).not.toContain("subagents/planner");
+            expect(workspace.readFile("axm.lock")).not.toContain("subagents/planner");
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -245,7 +248,7 @@ describe("Sync realizes desired workspace state", () => {
                 if (type === "hook" && enabled) {
                   expect((yield* applySync())._tag).toBe("AlreadyReconciled");
                   expect(workspace.exists(canonical)).toBe(true);
-                  expect(workspace.readFile("axm-lock.yaml")).toContain('"review"');
+                  expect(workspace.readFile("axm.lock")).toMatch(/^review = /mu);
                   expect(workspace.readFile(".claude/settings.json")).toBe(retainedNative?.raw);
                   // A bounded manual cleanup of the sole fixture registration releases its code.
                   workspace.writeFile(".claude/settings.json", "{}\n");
@@ -255,7 +258,7 @@ describe("Sync realizes desired workspace state", () => {
                 expect(workspace.exists(canonical)).toBe(false);
                 if (type === "mcp-server" && retainedNative !== undefined)
                   expect(workspace.readFile(retainedNative.file)).toBe(retainedNative.raw);
-                expect(workspace.readFile("axm-lock.yaml")).not.toContain('"review"');
+                expect(workspace.readFile("axm.lock")).not.toMatch(/^review = /mu);
                 expect((yield* applySync())._tag).toBe("AlreadyReconciled");
               }),
             )
@@ -361,7 +364,7 @@ describe("Sync realizes desired workspace state", () => {
             // longer serve it, so its closure cannot resolve this run. It is
             // still desired: the Pack still declares it.
             const lock = Schema.decodeUnknownSync(LockfileSchema)(
-              YAML.parse(workspace.readFile("axm-lock.yaml")),
+              parseLockfileToml(workspace.readFile("axm.lock")),
             );
             if (typeof lock !== "object" || lock === null || !("mcpServers" in lock)) {
               throw new Error("Expected the lockfile to hold the accepted MCP row");
@@ -369,8 +372,8 @@ describe("Sync realizes desired workspace state", () => {
             const { mcpServers: _accepted, ...withoutMember } = lock;
             void _accepted;
             workspace.writeFile(
-              "axm-lock.yaml",
-              YAML.stringify(Schema.encodeSync(LockfileSchema)(withoutMember)),
+              "axm.lock",
+              emitLockfileToml(Schema.encodeSync(LockfileSchema)(withoutMember)),
             );
             workspace.remove(fileRegistryPackagePath(registry, "mcps", "context"));
             fs.rmSync(path.join(registry.root, "extensions", "@acme", "mcps"), {

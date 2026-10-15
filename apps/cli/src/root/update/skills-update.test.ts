@@ -153,7 +153,7 @@ describe("skills update route", () => {
         ]),
       );
       expect(workspace.logs.warn).toEqual([]);
-      expect(workspace.readLockfileText()).toContain("version: 2.0.0");
+      expect(workspace.readLockfileText()).toContain('version = "2.0.0"');
     }),
   );
 });

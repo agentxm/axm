@@ -14,11 +14,11 @@ import { WorkspaceLocation } from "../../workspace/location.js";
 import { AcceptedResolutionWriter } from "../../workspace/accepted-resolution-writer.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import * as Schema from "effect/Schema";
-import YAML from "yaml";
 import { TreeIntegritySchema } from "../../workspace/materialized-tree.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
-import { LockfileSchema, type Lockfile, type SkillLockEntry } from "./schema.js";
+import { LOCKFILE_VERSION, LockfileSchema, type Lockfile, type SkillLockEntry } from "./schema.js";
+import { parseLockfileToml } from "./toml.js";
 import { LockfileDecodeError, LockfileVersionUnsupported } from "../../observed/errors.js";
 import {
   applyLockfileUpdates,
@@ -63,22 +63,22 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const lockfile: Lockfile = {
-          lockfileVersion: 12,
+          lockfileVersion: LOCKFILE_VERSION,
           skills: { review: localEntry("/sources/sources/review") },
         };
         yield* writeLockfile(axmDir, lockfile);
 
-        const parsed: unknown = YAML.parse(
-          fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
+        const parsed: unknown = parseLockfileToml(
+          fs.readFileSync(path.join(axmDir, "axm.lock"), "utf8"),
         );
         expect(Schema.decodeUnknownSync(LockfileSchema)(parsed)).toEqual(lockfile);
-        expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml.lock"))).toBe(false);
+        expect(fs.existsSync(path.join(axmDir, "axm.lock.lock"))).toBe(false);
       }),
     ),
   );
 
   it("applies pure updates in order", () => {
-    const base: Lockfile = { lockfileVersion: 12, skills: {} };
+    const base: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
     const result = applyLockfileUpdates(base, [
       (lockfile) => ({ ...lockfile, skills: { review: localEntry("/sources/one") } }),
       (lockfile) => ({
@@ -92,9 +92,9 @@ describe("lockfile", () => {
   it.effect("commits updates against the latest on-disk state", () =>
     run(
       Effect.gen(function* () {
-        const base: Lockfile = { lockfileVersion: 12, skills: {} };
+        const base: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 12,
+          lockfileVersion: LOCKFILE_VERSION,
           skills: { existing: localEntry("/sources/existing", "existing") },
         });
         const result = yield* commitLockfileUpdates(axmDir, base, [
@@ -112,18 +112,18 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const base: Lockfile = {
-          lockfileVersion: 12,
+          lockfileVersion: LOCKFILE_VERSION,
           skills: { review: localEntry("/sources/old") },
         };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 12,
+          lockfileVersion: LOCKFILE_VERSION,
           skills: {
             ...base.skills,
             independent: localEntry("/sources/independent", "independent"),
           },
         });
         const next: Lockfile = {
-          lockfileVersion: 12,
+          lockfileVersion: LOCKFILE_VERSION,
           skills: { review: localEntry("/sources/new") },
         };
         const result = yield* commitLockfileSnapshotUpdate(axmDir, base, next);
@@ -138,24 +138,68 @@ describe("lockfile", () => {
   it.effect.each([
     {
       fault: "an unrecognised key",
-      raw: "lockfileVersion: 12\npackages: {}\nskills: {}\nextra: 1\n",
+      raw: "version = 1\nextra = 1\n",
       error: LockfileDecodeError,
     },
     {
       fault: "an unsupported version",
-      raw: "lockfileVersion: 13\nskills: {}\n",
+      raw: "version = 2\n",
       error: LockfileVersionUnsupported,
     },
   ])("refuses a commit reread with $fault without changing the file", ({ raw, error }) =>
     run(
       Effect.gen(function* () {
-        const target = path.join(root, "axm-lock.yaml");
-        const base: Lockfile = { lockfileVersion: 12, skills: {} };
+        const target = path.join(root, "axm.lock");
+        const base: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
         fs.writeFileSync(target, raw);
 
         const failure = yield* Effect.flip(commitLockfileSnapshotUpdateAtPath(target, base, base));
         expect(failure).toBeInstanceOf(error);
         expect(fs.readFileSync(target, "utf8")).toBe(raw);
+      }),
+    ),
+  );
+
+  it.effect("refuses a legacy YAML lockfile beside the expected lockfile", () =>
+    run(
+      Effect.gen(function* () {
+        const legacy = path.join(root, "axm-lock.yaml");
+        const raw = "lockfileVersion: 12\npackages: {}\nskills: {}\n";
+        fs.writeFileSync(legacy, raw);
+        const base: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
+
+        const failure = yield* Effect.flip(
+          commitLockfileSnapshotUpdateAtPath(path.join(root, "axm.lock"), base, base),
+        );
+        expect(failure).toBeInstanceOf(LockfileVersionUnsupported);
+        expect(failure).toMatchObject({ path: legacy, observedVersion: 12, supportedVersion: 1 });
+        expect(fs.readFileSync(legacy, "utf8")).toBe(raw);
+        expect(fs.existsSync(path.join(root, "axm.lock"))).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("keeps tool tables and drops comments when it rewrites the file", () =>
+    run(
+      Effect.gen(function* () {
+        const target = path.join(root, "axm.lock");
+        fs.writeFileSync(
+          target,
+          '# hand-written note\nversion = 1\n\n[tool.example]\nanything = "kept"\nnested = { b = 2, a = [1, 2] }\n',
+        );
+        const base: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
+        yield* commitLockfileSnapshotUpdateAtPath(target, base, {
+          ...base,
+          skills: { review: localEntry("/sources/review") },
+        });
+        const written = fs.readFileSync(target, "utf8");
+        expect(written).not.toContain("hand-written note");
+        expect(
+          written.endsWith('\n[tool.example]\nanything = "kept"\nnested = { a = [1, 2], b = 2 }\n'),
+        ).toBe(true);
+        expect(
+          Object.keys(Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(written)).skills),
+        ).toEqual(["review"]);
       }),
     ),
   );
@@ -194,7 +238,7 @@ describe("lockfile", () => {
         const target = Context.get(first, WorkspaceLocation).lockPath;
         expect((yield* Ref.get(calls)).filter((call) => call === target)).toEqual([target, target]);
         const written = Schema.decodeUnknownSync(LockfileSchema)(
-          YAML.parse(fs.readFileSync(target, "utf8")),
+          parseLockfileToml(fs.readFileSync(target, "utf8")),
         );
         expect(Object.keys(written.skills).sort()).toEqual(["first", "second"]);
       }).pipe(Effect.scoped),

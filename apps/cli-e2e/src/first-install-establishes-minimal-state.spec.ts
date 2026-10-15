@@ -70,7 +70,7 @@ describe("First install", () => {
         expect(settings).not.toHaveProperty("instructionFiles");
         expect(settings).toHaveProperty("skills.review");
         expect(settings).not.toHaveProperty("skills.axm");
-        expect(fs.existsSync(path.join(workspace, "axm-lock.yaml"))).toBe(true);
+        expect(fs.existsSync(path.join(workspace, "axm.lock"))).toBe(true);
         expect(fs.existsSync(path.join(workspace, "AGENTS.md"))).toBe(false);
         expect(fs.existsSync(path.join(workspace, "CLAUDE.md"))).toBe(false);
         expect(fs.readFileSync(path.join(source, "SKILL.md"), "utf8")).toBe(payload);
@@ -191,8 +191,8 @@ describe("First install", () => {
       try {
         const source = writeSource(fixture.root);
         const settingsPath = path.join(fixture.invoking, "axm.json");
-        const lockPath = path.join(fixture.invoking, "axm-lock.yaml");
-        if (condition === "malformed-lock") fs.writeFileSync(lockPath, "skills: [");
+        const lockPath = path.join(fixture.invoking, "axm.lock");
+        if (condition === "malformed-lock") fs.writeFileSync(lockPath, "skills = [");
         const native = path.join(fixture.invoking, ".claude", "skills", "review");
         if (condition === "malformed-settings")
           fs.writeFileSync(settingsPath, "{ invalid settings");
@@ -216,7 +216,7 @@ describe("First install", () => {
         if (condition === "preview") expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         else expect(result.exitCode, result.stdout + result.stderr).not.toBe(0);
         if (condition === "malformed-lock")
-          expect(fs.readFileSync(lockPath, "utf8")).toBe("skills: [");
+          expect(fs.readFileSync(lockPath, "utf8")).toBe("skills = [");
         else expect(fs.existsSync(lockPath)).toBe(false);
         if (condition === "malformed-settings")
           expect(fs.readFileSync(settingsPath, "utf8")).toBe("{ invalid settings");

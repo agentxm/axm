@@ -152,7 +152,7 @@ describe("Forking a managed package", () => {
         expect(created.settings()).toMatchObject({
           [row.settingsKey]: { custom: { source: "workspace", enabled: false } },
         });
-        expect(created.lockfileText()).not.toContain("custom:");
+        expect(created.lockfileText()).not.toMatch(/^custom = /mu);
         if (row.type === "subagent") {
           expect(created.read("subagents/custom/src/original.md")).toBe(
             fs.readFileSync(nodePath.join(original, "src/original.md"), "utf8"),

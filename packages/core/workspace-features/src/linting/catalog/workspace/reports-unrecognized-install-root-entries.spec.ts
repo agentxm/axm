@@ -11,6 +11,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { lintProject, lintServices } from "../../test-helpers.js";
 import { isolatedLintRules, makeLintWorkspace } from "../../testing.js";
+import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/reports-unrecognized-install-root-entries",
@@ -45,7 +46,7 @@ describe("Unrecognized install root entries", () => {
         lint: { rules: isolatedLintRules("workspace/install-root-entries-recognized", undefined) },
       },
       files: {
-        "axm-lock.yaml": JSON.stringify(
+        "axm.lock": emitLockfileToml(
           storedLockfileFixture({
             skills: {
               review: makeRegistrySkillLockEntry({

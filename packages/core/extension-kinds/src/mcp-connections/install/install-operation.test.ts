@@ -115,7 +115,7 @@ const acceptedCanonicalTrees = (
         };
       }
     }
-    return { lockfileVersion: 12, skills: {}, mcpServers } as const satisfies AcceptedResolutions;
+    return { lockfileVersion: 1, skills: {}, mcpServers } as const satisfies AcceptedResolutions;
   }).pipe(Effect.provide(NodeServices.layer));
 
 const withServices = (
@@ -199,7 +199,7 @@ const makeServices = (
         }),
         Layer.mock(AcceptedResolutionWriter, {
           setAccepted: (type, key, entry) =>
-            recordFootprint({ path: path.join(axmDir, "axm-lock.yaml"), change: "modified" }).pipe(
+            recordFootprint({ path: path.join(axmDir, "axm.lock"), change: "modified" }).pipe(
               Effect.andThen(
                 Effect.suspend(() => {
                   if (type !== "mcp-server") return Effect.void;

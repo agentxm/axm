@@ -90,7 +90,7 @@ const grounded = <A, E>(
           WorkspaceTransactionScopeTest({
             workspaceDir: nodePath.join(transactionDir, ".axm"),
             settingsPath: nodePath.join(transactionDir, "axm.json"),
-            lockPath: nodePath.join(transactionDir, "axm-lock.yaml"),
+            lockPath: nodePath.join(transactionDir, "axm.lock"),
           }),
           NativeWriteAuthorityPermissive,
           FootprintRecorderTest,

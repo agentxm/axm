@@ -10,10 +10,10 @@ import type * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import YAML from "yaml";
 
 import {
   LockfileSchema,
+  parseLockfileToml,
   ProjectionUnitPathSchema,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { readContainerReceipts } from "@agentxm/workspace-kernel/locations";
@@ -252,9 +252,7 @@ describe("Publisher changes", () => {
           interactiveOnlyApply,
         ),
       );
-      expect(workspace.readFile("axm-lock.yaml")).toContain(
-        `publisherBindingId: ${ACCEPTED_BINDING}`,
-      );
+      expect(workspace.readFile("axm.lock")).toContain(`publisher = "${ACCEPTED_BINDING}"`);
       registry.writeSkill(SKILL, [SECOND, FIRST]);
       republishUnderBinding(registry, "skills", SKILL, REPUBLISHED_BINDING);
       const before = workspace.snapshot();
@@ -273,9 +271,7 @@ describe("Publisher changes", () => {
         expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
         expect(deriveOperationOutcome(resolution)).toBe("previewed");
         expect(resolution.riskConditions).toEqual(expect.arrayContaining([publisherCondition]));
-        expect(workspace.readFile("axm-lock.yaml")).toContain(
-          `publisherBindingId: ${ACCEPTED_BINDING}`,
-        );
+        expect(workspace.readFile("axm.lock")).toContain(`publisher = "${ACCEPTED_BINDING}"`);
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -299,9 +295,7 @@ describe("Publisher changes", () => {
         });
         // No route that can accept a publisher change offers advance approval.
         expect(JSON.stringify(resolution.blocking)).not.toContain("--yes");
-        expect(workspace.readFile("axm-lock.yaml")).toContain(
-          `publisherBindingId: ${ACCEPTED_BINDING}`,
-        );
+        expect(workspace.readFile("axm.lock")).toContain(`publisher = "${ACCEPTED_BINDING}"`);
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -317,12 +311,8 @@ describe("Publisher changes", () => {
 
         expect(workspace.interactionState().confirmApplyChangesCalls).toHaveLength(1);
         expect(deriveOperationOutcome(resolution)).toBe("applied");
-        expect(workspace.readFile("axm-lock.yaml")).toContain(
-          `publisherBindingId: ${REPUBLISHED_BINDING}`,
-        );
-        expect(workspace.readFile("axm-lock.yaml")).not.toContain(
-          `publisherBindingId: ${ACCEPTED_BINDING}`,
-        );
+        expect(workspace.readFile("axm.lock")).toContain(`publisher = "${REPUBLISHED_BINDING}"`);
+        expect(workspace.readFile("axm.lock")).not.toContain(`publisher = "${ACCEPTED_BINDING}"`);
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -352,10 +342,8 @@ describe("Publisher changes", () => {
       expect(deriveOperationOutcome(resolution)).toBe("applied");
       expect(countUnitStates(resolution.units).committed).toBe(1);
       expect(JSON.stringify(resolution.riskConditions ?? [])).not.toContain(CONDITION);
-      expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
-      expect(workspace.readFile("axm-lock.yaml")).toContain(
-        `publisherBindingId: ${ACCEPTED_BINDING}`,
-      );
+      expect(workspace.readFile("axm.lock")).toContain('version = "2.0.0"');
+      expect(workspace.readFile("axm.lock")).toContain(`publisher = "${ACCEPTED_BINDING}"`);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -381,9 +369,7 @@ describe("Publisher changes", () => {
       expect(deriveOperationOutcome(resolution)).toBe("applied");
       expect(countUnitStates(resolution.units).committed).toBe(1);
       expect(JSON.stringify(resolution.riskConditions ?? [])).not.toContain(CONDITION);
-      expect(workspace.readFile("axm-lock.yaml")).toContain(
-        `publisherBindingId: ${ACCEPTED_BINDING}`,
-      );
+      expect(workspace.readFile("axm.lock")).toContain(`publisher = "${ACCEPTED_BINDING}"`);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });
@@ -433,7 +419,7 @@ const outsideSubagentUpdate = (
 ): ReadonlyArray<readonly [string, string]> =>
   Object.entries(snapshot).filter(
     ([relative]) =>
-      relative !== "axm-lock.yaml" &&
+      relative !== "axm.lock" &&
       relative !== ".axm/projection-containers.json" &&
       relative !== subagentCanonical(registry) &&
       !relative.startsWith(`${subagentCanonical(registry)}/`) &&
@@ -485,7 +471,7 @@ describe("Publisher changes through typed Subagent update", () => {
       expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
       expectSubagentContent(registry, workspace, SUBAGENT, FIRST);
       expectSubagentContent(registry, workspace, UNRELATED_SUBAGENT, UNRELATED);
-      const lockBefore = yield* decodeLockfile(YAML.parse(workspace.readFile("axm-lock.yaml")));
+      const lockBefore = yield* decodeLockfile(parseLockfileToml(workspace.readFile("axm.lock")));
       expect(lockBefore.subagents?.[SUBAGENT]).toMatchObject({
         source: { type: "registry" },
         identity: { owner: "@acme", name: SUBAGENT },
@@ -506,7 +492,7 @@ describe("Publisher changes through typed Subagent update", () => {
       pending.run = () => {
         expectSubagentContent(registry, workspace, SUBAGENT, FIRST);
         const currentLock = Schema.decodeUnknownSync(LockfileSchema)(
-          YAML.parse(workspace.readFile("axm-lock.yaml")),
+          parseLockfileToml(workspace.readFile("axm.lock")),
         );
         expect(currentLock).toMatchObject({
           subagents: { [SUBAGENT]: { resolved: { publisherBindingId: ACCEPTED_BINDING } } },
@@ -530,7 +516,7 @@ describe("Publisher changes through typed Subagent update", () => {
         const resolution = yield* updateSubagent(workspace);
 
         expect(workspace.snapshot()).toEqual(before);
-        expect(yield* decodeLockfile(YAML.parse(workspace.readFile("axm-lock.yaml")))).toEqual(
+        expect(yield* decodeLockfile(parseLockfileToml(workspace.readFile("axm.lock")))).toEqual(
           lockBefore,
         );
         expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
@@ -559,7 +545,7 @@ describe("Publisher changes through typed Subagent update", () => {
 
         expect(workspace.interactionState().confirmApplyChangesCalls).toHaveLength(1);
         expect(deriveOperationOutcome(resolution)).toBe("applied");
-        const lockAfter = yield* decodeLockfile(YAML.parse(workspace.readFile("axm-lock.yaml")));
+        const lockAfter = yield* decodeLockfile(parseLockfileToml(workspace.readFile("axm.lock")));
         expect(lockAfter.subagents?.[SUBAGENT]).toMatchObject({
           source: { type: "registry" },
           identity: { owner: "@acme", name: SUBAGENT },

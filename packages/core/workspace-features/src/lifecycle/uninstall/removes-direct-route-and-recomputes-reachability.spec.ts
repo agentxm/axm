@@ -241,7 +241,7 @@ describe("Uninstall a directly desired extension", () => {
               false,
             );
             expect(JSON.stringify(readSettings(workspace))).not.toContain("alias-review");
-            expect(workspace.readFile("axm-lock.yaml")).not.toContain("alias-review");
+            expect(workspace.readFile("axm.lock")).not.toContain("alias-review");
             const after = workspace.snapshot();
             expect(deriveOperationOutcome(yield* applyUninstall(request))).toBe("no-op");
             expect(workspace.snapshot()).toEqual(after);
@@ -330,7 +330,7 @@ describe("Uninstall a directly desired extension", () => {
           yield* applyUninstall(uninstallRequest({ selector: "@acme/skills/code-review" }));
 
           expect(JSON.stringify(readSettings(workspace))).not.toContain("code-review");
-          expect(workspace.readFile("axm-lock.yaml")).not.toContain("code-review");
+          expect(workspace.readFile("axm.lock")).not.toContain("code-review");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -374,7 +374,7 @@ describe("Uninstall a directly desired extension", () => {
           expect(readSettings(workspace)).toMatchObject({
             skills: { "release-notes": "./vendor/release-notes" },
           });
-          expect(workspace.readFile("axm-lock.yaml")).toContain("release-notes");
+          expect(workspace.readFile("axm.lock")).toContain("release-notes");
           expect(workspace.readFile(".claude/skills/release-notes/SKILL.md")).toBe(projectedBefore);
           expect(
             workspace.exists("agent_extensions/_local/project/vendor/release-notes/src/SKILL.md"),
@@ -418,7 +418,7 @@ describe("Uninstall a directly desired extension", () => {
             });
             const canonicalBefore = contentUnder(workspace, canonical);
             const projectedBefore = contentUnder(workspace, projection);
-            const lockBefore = workspace.readFile("axm-lock.yaml");
+            const lockBefore = workspace.readFile("axm.lock");
 
             const resolution = yield* applyUninstall(
               uninstallRequest({ selector: "@acme/skills/review-helper" }),
@@ -430,7 +430,7 @@ describe("Uninstall a directly desired extension", () => {
             expect(settingsText).toContain("review-pack");
             // The pack still reaches the skill, so its resolution, canonical
             // content, and projection all survive the direct route's removal.
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+            expect(workspace.readFile("axm.lock")).toBe(lockBefore);
             expect(contentUnder(workspace, canonical)).toEqual(canonicalBefore);
             expect(contentUnder(workspace, projection)).toEqual(projectedBefore);
             expect(canonicalBefore.length).toBeGreaterThan(0);
@@ -579,7 +579,7 @@ describe("Uninstall a directly desired extension", () => {
           expect(readSettings(workspace)).not.toMatchObject({
             [row.settingsKey]: { [name]: expect.anything() },
           });
-          expect(workspace.readFile("axm-lock.yaml")).not.toContain(name);
+          expect(workspace.readFile("axm.lock")).not.toContain(name);
           expect(workspace.exists(`agent_extensions/_local/project/vendor/${name}`)).toBe(false);
           row.expectUnrealized(workspace, name);
         }),

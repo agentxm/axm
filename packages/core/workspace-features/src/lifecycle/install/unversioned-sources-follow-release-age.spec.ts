@@ -118,8 +118,8 @@ describe("Unversioned Registry sources", () => {
               );
               expect(world.workspace.snapshot()).toEqual(before);
               yield* InstallExtensions.previewOrApply(eligible, preapprovedPlanExecution);
-              expect(world.workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
-              expect(world.workspace.readFile("axm-lock.yaml")).not.toContain("version: 2.0.0");
+              expect(world.workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
+              expect(world.workspace.readFile("axm.lock")).not.toContain('version = "2.0.0"');
             }),
           );
         }).pipe(Effect.provide(NodeServices.layer));

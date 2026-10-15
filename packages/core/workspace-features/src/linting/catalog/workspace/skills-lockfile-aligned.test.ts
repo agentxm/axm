@@ -106,7 +106,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: {} };
       state.lockfile = {
-        lockfileVersion: 12,
+        lockfileVersion: 1,
         skills: {
           review: {
             source: {
@@ -138,7 +138,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       Effect.gen(function* () {
         const state = emptyWorkspaceState();
         state.settings = { agents: ["claude-code"], skills: {} };
-        state.lockfile = { lockfileVersion: 12, skills: { review: registryResolution("1.0.0") } };
+        state.lockfile = { lockfileVersion: 1, skills: { review: registryResolution("1.0.0") } };
 
         const findings = yield* runCheck(
           state,
@@ -164,7 +164,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const source = "@acme/skills/reviewer@^0.1.0";
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
-      state.lockfile = { lockfileVersion: 12, skills: {} };
+      state.lockfile = { lockfileVersion: 1, skills: {} };
 
       const findings = yield* runCheck(
         state,
@@ -185,7 +185,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
       state.lockfile = {
-        lockfileVersion: 12,
+        lockfileVersion: 1,
         skills: { reviewer: registryResolution("1.0.0") },
       };
 

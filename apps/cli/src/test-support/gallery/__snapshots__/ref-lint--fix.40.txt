@@ -1,8 +1,7 @@
 Fixing  in this project
 
      Finding        Location       Fix
- ~   Lockfi…stale   axm-lock.yam   fixed
-                    l
+ ~   Lockfi…stale   axm.lock       fixed
  ✖   Descri…ssing   skills/
                     triage/
                     SKILL.md

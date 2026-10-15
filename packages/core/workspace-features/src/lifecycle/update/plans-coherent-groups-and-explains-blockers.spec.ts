@@ -60,7 +60,7 @@ const publishPack = (
 };
 
 const lockContains = (workspace: InstallWorld["workspace"], text: string): boolean =>
-  workspace.readFile("axm-lock.yaml").includes(text);
+  workspace.readFile("axm.lock").includes(text);
 
 const installPack = (name: string) =>
   applyInstall(
@@ -122,8 +122,8 @@ describe("A workspace update plans coherent groups", () => {
             );
 
             expect(deriveOperationOutcome(resolution)).toBe("applied");
-            expect(lockContains(workspace, "version: 1.1.0")).toBe(true);
-            expect(lockContains(workspace, "version: 1.0.0")).toBe(false);
+            expect(lockContains(workspace, 'version = "1.1.0"')).toBe(true);
+            expect(lockContains(workspace, 'version = "1.0.0"')).toBe(false);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -185,9 +185,9 @@ describe("A workspace update plans coherent groups", () => {
           expect(counts.blocked).toBeGreaterThan(0);
           expect(counts.committed).toBeGreaterThan(0);
           // The independent group settled and stays committed.
-          expect(lockContains(workspace, "version: 1.1.0")).toBe(true);
+          expect(lockContains(workspace, 'version = "1.1.0"')).toBe(true);
           // The refused group wrote nothing.
-          expect(lockContains(workspace, "version: 2.0.0")).toBe(false);
+          expect(lockContains(workspace, 'version = "2.0.0"')).toBe(false);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -221,7 +221,7 @@ describe("A workspace update plans coherent groups", () => {
             { version: "1.0.0", body: "Alpha one." },
             { version: "2.0.0", body: "Alpha two." },
           ]);
-          const lockBefore = workspace.readFile("axm-lock.yaml");
+          const lockBefore = workspace.readFile("axm.lock");
 
           const resolution = expectResolved(yield* applyUpdate(configuredUpdateRequest({})));
 
@@ -235,7 +235,7 @@ describe("A workspace update plans coherent groups", () => {
             expect(unit.message).toContain("@acme/packs/alpha-pack range=^1.0.0");
           }
           expect(countUnitStates(resolution.units).committed).toBe(0);
-          expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+          expect(workspace.readFile("axm.lock")).toBe(lockBefore);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -290,7 +290,7 @@ describe("A workspace update plans coherent groups", () => {
             // Every contributor is named: the direct declaration and the Pack.
             expect(reason).toContain("settings range=^1.0.0");
             expect(reason).toContain("@acme/packs/alpha-pack range=^2.0.0");
-            expect(lockContains(workspace, "version: 2.0.0")).toBe(false);
+            expect(lockContains(workspace, 'version = "2.0.0"')).toBe(false);
           }
         }),
       )

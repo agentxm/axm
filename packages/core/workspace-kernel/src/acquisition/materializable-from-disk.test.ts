@@ -31,7 +31,7 @@ const makeEnv = (fs: FileSystem.FileSystem, path: Path.Path, baseDir: string) =>
     workspaceRoot: decodeAbsolutePathSync(path.resolve(baseDir)),
     projectRoot: decodeAbsolutePathSync(path.resolve(baseDir)),
     settingsPath: decodeAbsolutePathSync(path.resolve(baseDir, "axm.json")),
-    lockPath: decodeAbsolutePathSync(path.resolve(baseDir, "axm-lock.yaml")),
+    lockPath: decodeAbsolutePathSync(path.resolve(baseDir, "axm.lock")),
     runtimeDir: decodeAbsolutePathSync(path.resolve(baseDir, ".axm")),
     acquiredRoot: decodeAbsolutePathSync(path.resolve(baseDir, "agent_extensions")),
     authoredRoot: (

@@ -64,7 +64,7 @@ describe("authorizeExternalPackRoutes", () => {
       authorizeExternalPackRoutes({
         node: externalPackNode,
         accepted: undefined,
-        declarationLocation: "axm-lock.yaml#packs.toolkit",
+        declarationLocation: "axm.lock#packs.toolkit",
       }),
     ).toEqual({
       authorized: false,
@@ -77,7 +77,7 @@ describe("authorizeExternalPackRoutes", () => {
       authorizeExternalPackRoutes({
         node: externalPackNode,
         accepted: accepted(),
-        declarationLocation: "axm-lock.yaml#packs.toolkit",
+        declarationLocation: "axm.lock#packs.toolkit",
       }),
     ).toEqual({
       authorized: true,
@@ -88,7 +88,7 @@ describe("authorizeExternalPackRoutes", () => {
     expect(
       authorizeExternalPackRoutes({
         node: externalPackNode,
-        declarationLocation: "axm-lock.yaml#packs.toolkit",
+        declarationLocation: "axm.lock#packs.toolkit",
         accepted: { ...accepted(), identity: { owner, name: decodeExtensionNameSync("other") } },
       }),
     ).toEqual({
@@ -109,7 +109,7 @@ describe("authorizeExternalPackRoutes", () => {
           },
         },
         accepted: accepted(),
-        declarationLocation: "axm-lock.yaml#packs.toolkit",
+        declarationLocation: "axm.lock#packs.toolkit",
       }),
     ).toEqual({
       authorized: false,

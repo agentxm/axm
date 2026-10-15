@@ -9,7 +9,11 @@ import { afterEach } from "vitest";
 
 import { JsonErrorEnvelopeSchema, classifyError } from "./index.js";
 import { RegistryOperationUnsupported, RegistrySourceUnknown } from "@agentxm/registry-client";
-import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  LEGACY_LOCK_FILENAME,
+  LOCK_FILENAME,
+  LOCKFILE_VERSION,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { PlanResolutionDocumentSchema, emitOperationResolution } from "../operation-output.js";
 import { makeOperationResolution, StepFailure } from "@agentxm/workspace-kernel/operations";
 import { withOperationLifecycle } from "../operation-lifecycle.js";
@@ -219,47 +223,64 @@ describe("Machine error envelope", () => {
   );
 
   it.effect.each([
-    { direction: "older", observedVersion: LOCKFILE_VERSION - 1 },
-    { direction: "newer", observedVersion: LOCKFILE_VERSION + 1 },
-  ])(
-    "an $direction lockfile rejection carries its structured problem inside the stable envelope",
-    (row) =>
-      Effect.gen(function* () {
-        const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
-        cleanups.push(workspace.cleanup);
-        const lockPath = path.join(workspace.root, "axm-lock.yaml");
-        fs.writeFileSync(lockPath, `lockfileVersion: ${row.observedVersion}\nskills: {}\n`);
+    {
+      label: "a legacy YAML",
+      direction: "older",
+      file: LEGACY_LOCK_FILENAME,
+      contents: "lockfileVersion: 12\nskills: {}\n",
+      observedVersion: 12,
+    },
+    {
+      label: "an unversioned legacy YAML",
+      direction: "older",
+      file: LEGACY_LOCK_FILENAME,
+      contents: "skills: {}\n",
+      observedVersion: 0,
+    },
+    {
+      label: "a newer",
+      direction: "newer",
+      file: LOCK_FILENAME,
+      contents: `version = ${LOCKFILE_VERSION + 1}\n`,
+      observedVersion: LOCKFILE_VERSION + 1,
+    },
+  ])("$label lockfile rejection carries its structured problem inside the stable envelope", (row) =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
+      cleanups.push(workspace.cleanup);
+      const lockPath = path.join(workspace.root, row.file);
+      fs.writeFileSync(lockPath, row.contents);
 
-        const failure = yield* workspace
-          .provide(handleList({ types: [], outdated: false, deprecated: false }))
-          .pipe(Effect.flip);
-        const classified = classifyError(failure, "json");
+      const failure = yield* workspace
+        .provide(handleList({ types: [], outdated: false, deprecated: false }))
+        .pipe(Effect.flip);
+      const classified = classifyError(failure, "json");
 
-        expect(classified.exitCode).toBe(9);
-        expect(classified.stdout).toBeDefined();
-        const parsed: unknown = JSON.parse(classified.stdout ?? "");
-        expect(parsed).not.toHaveProperty("diagnostic");
-        const envelope = yield* decodeEnvelope(parsed);
-        expect(envelope).toMatchObject({
-          ok: false,
-          code: "validation",
-          title: "Unsupported workspace lockfile version",
-          problem: {
-            code: "workspace-lockfile-version-unsupported",
-            path: lockPath,
-            observedVersion: row.observedVersion,
-            supportedVersion: LOCKFILE_VERSION,
-            direction: row.direction,
-          },
-        });
-        const commands = envelope.suggestions?.flatMap((suggestion) =>
-          suggestion.cmd === undefined ? [] : [suggestion.cmd],
-        );
-        expect(commands).toEqual(
-          row.direction === "older" ? ["axm sync --preview", "axm sync"] : ["axm upgrade"],
-        );
-        expect(JSON.stringify(envelope)).not.toContain("commandScope");
-      }),
+      expect(classified.exitCode).toBe(9);
+      expect(classified.stdout).toBeDefined();
+      const parsed: unknown = JSON.parse(classified.stdout ?? "");
+      expect(parsed).not.toHaveProperty("diagnostic");
+      const envelope = yield* decodeEnvelope(parsed);
+      expect(envelope).toMatchObject({
+        ok: false,
+        code: "validation",
+        title: "Unsupported workspace lockfile version",
+        problem: {
+          code: "workspace-lockfile-version-unsupported",
+          path: lockPath,
+          observedVersion: row.observedVersion,
+          supportedVersion: LOCKFILE_VERSION,
+          direction: row.direction,
+        },
+      });
+      const commands = envelope.suggestions?.flatMap((suggestion) =>
+        suggestion.cmd === undefined ? [] : [suggestion.cmd],
+      );
+      expect(commands).toEqual(
+        row.direction === "older" ? ["axm sync --preview", "axm sync"] : ["axm upgrade"],
+      );
+      expect(JSON.stringify(envelope)).not.toContain("commandScope");
+    }),
   );
 
   it.effect.each([

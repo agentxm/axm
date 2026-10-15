@@ -109,7 +109,7 @@ for (const source of corpus.sources) {
             const active = path.join(world.workspace.root, ".claude", "skills", name);
             assertPayload(active);
             const canonical = fs.realpathSync(active);
-            const before = world.workspace.readFile("axm-lock.yaml");
+            const before = world.workspace.readFile("axm.lock");
             if (journey === "update") {
               const next = Buffer.concat([original, Buffer.from("\nUpstream revision.\n")]);
               fs.writeFileSync(path.join(upstream, selected, "SKILL.md"), next);
@@ -129,7 +129,7 @@ for (const source of corpus.sources) {
                 );
               }
               assertPayload(active);
-              expect(world.workspace.readFile("axm-lock.yaml")).toBe(before);
+              expect(world.workspace.readFile("axm.lock")).toBe(before);
             }
             yield* world.workspace.provide(
               Effect.gen(function* () {

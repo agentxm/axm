@@ -30,10 +30,7 @@ const initWorkspace = (root: string, registryRoot: string) => {
       ],
     }),
   );
-  fs.writeFileSync(
-    path.join(root, "axm-lock.yaml"),
-    "lockfileVersion: 12\npackages: {}\nskills: {}\n",
-  );
+  fs.writeFileSync(path.join(root, "axm.lock"), "version = 1\n");
 };
 
 const writeIndex = (registryRoot: string, deprecation: unknown = null) => {

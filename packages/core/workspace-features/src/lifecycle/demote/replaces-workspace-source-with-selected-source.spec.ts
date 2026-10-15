@@ -223,8 +223,8 @@ describe("Demoting workspace authorship", () => {
                 expect(yield* lockfile.entry("skill", NEIGHBOR)).toEqual(neighborLockBefore);
                 expect(neighborDeclaration(workspace)).toEqual(neighborSettingsBefore);
 
-                expect(workspace.readFile("axm-lock.yaml")).toContain(
-                  registry !== undefined ? "version: 2.0.0" : `${REVIEW}:`,
+                expect(workspace.readFile("axm.lock")).toContain(
+                  registry !== undefined ? 'version = "2.0.0"' : `${REVIEW} = `,
                 );
               }),
             )
@@ -284,9 +284,9 @@ describe("Demoting workspace authorship", () => {
             });
 
             expect(deriveOperationOutcome(resolution)).toBe("applied");
-            const lockfile = workspace.readFile("axm-lock.yaml");
-            expect(lockfile).toContain("version: 1.2.0");
-            expect(lockfile).not.toContain("version: 2.0.0");
+            const lockfile = workspace.readFile("axm.lock");
+            expect(lockfile).toContain('version = "1.2.0"');
+            expect(lockfile).not.toContain('version = "2.0.0"');
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

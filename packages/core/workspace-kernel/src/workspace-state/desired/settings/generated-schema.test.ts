@@ -236,13 +236,13 @@ describe("generated schemas", () => {
   it("publishes only the canonical lockfile version", () => {
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
     const lockfile = getDefinition(lockSchema, "LockfileEncoded");
-    const lockfileVersion = getProperty(lockfile, "lockfileVersion");
+    const version = getProperty(lockfile, "version");
 
     expect(lockSchema["$ref"]).toBe("#/definitions/LockfileEncoded");
-    expect(lockfileVersion["type"]).toBe("number");
-    expect(lockfileVersion["enum"]).toEqual([12]);
-    expect(lockfileVersion["default"]).toBe(12);
-    expect(lockfile["required"]).toEqual(["lockfileVersion", "packages", "skills"]);
+    expect(version["type"]).toBe("number");
+    expect(version["enum"]).toEqual([1]);
+    expect(version["default"]).toBe(1);
+    expect(lockfile["required"]).toEqual(["version"]);
   });
 
   it("publishes exactly the canonical settings keys at the top level", () => {
@@ -403,19 +403,24 @@ describe("generated schemas", () => {
     expect(propertyNames["$ref"]).toBe("#/definitions/NonPackExtensionFqn");
 
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
-    const packMap = getProperty(getDefinition(lockSchema, "LockfileEncoded"), "packs");
-    const variants = packMap["anyOf"];
-    if (!Array.isArray(variants) || !variants.every(isRecord)) {
-      throw new Error("Expected an optional Pack binding map.");
+    const lockfile = getDefinition(lockSchema, "LockfileEncoded");
+    const records = getRecord(getProperty(lockfile, "package"), "items")["anyOf"];
+    if (!Array.isArray(records) || !records.every(isRecord)) {
+      throw new Error("Expected package record variants.");
     }
-    const map = variants.find((variant) => variant["type"] === "object");
-    if (map === undefined) throw new Error("Expected Pack binding map.");
-    const binding = getRecord(map, "additionalProperties");
-    expect(getRecord(binding, "properties")).toHaveProperty("manifestContentIdentity");
-    expect(getRecord(binding, "properties")).toHaveProperty("dependencies");
-    expect(getRecord(binding, "properties")).not.toHaveProperty("resolvedSkills");
-    expect(getPropertyNamesSchema(getProperty(binding, "dependencies"), lockSchema)["$ref"]).toBe(
-      "#/definitions/NonPackExtensionFqn",
+    const registryRecord = records.find((variant) =>
+      Object.hasOwn(getRecord(getProperty(variant, "source"), "properties"), "registry"),
     );
+    if (registryRecord === undefined) throw new Error("Expected a Registry package record.");
+    expect(getRecord(registryRecord, "properties")).toHaveProperty("manifest-identity");
+    expect(getRecord(registryRecord, "properties")).not.toHaveProperty("resolvedSkills");
+    const declared = getRecord(getProperty(registryRecord, "dependencies"), "items")["anyOf"];
+    if (!Array.isArray(declared) || !declared.every(isRecord)) {
+      throw new Error("Expected Pack dependency variants.");
+    }
+    for (const dependency of declared)
+      expect(getProperty(dependency, "name")["$ref"]).toBe("#/definitions/NonPackExtensionFqn");
+    const bindings = getRecord(getProperty(lockfile, "packs"), "additionalProperties");
+    expect(getRecord(bindings, "properties")).not.toHaveProperty("manifest-identity");
   });
 });

@@ -78,9 +78,9 @@ const makeWorkspace = (prefix: string) =>
     const workspaceDir = path.join(root, ".axm");
     yield* fs.makeDirectory(workspaceDir, { recursive: true });
     const settingsPath = path.join(root, "axm.json");
-    const lockPath = path.join(root, "axm-lock.yaml");
+    const lockPath = path.join(root, "axm.lock");
     yield* fs.writeFileString(settingsPath, '{\n  "skills": {\n    "alpha": "workspace"\n  }\n}\n');
-    yield* fs.writeFileString(lockPath, "lockfileVersion: 12\npackages: {}\nskills: {}\n");
+    yield* fs.writeFileString(lockPath, "version = 1\n");
     return { root, workspaceDir, settingsPath, lockPath };
   });
 
@@ -129,7 +129,7 @@ const context = (
           WorkspaceTransactionScopeLive({
             workspaceDir,
             settingsPath: path.join(path.dirname(workspaceDir), "axm.json"),
-            lockPath: path.join(path.dirname(workspaceDir), "axm-lock.yaml"),
+            lockPath: path.join(path.dirname(workspaceDir), "axm.lock"),
           }),
         ),
       ),
@@ -309,7 +309,7 @@ describe("A workspace change that cannot complete", () => {
                   );
                   yield* write(
                     workspace.lockPath,
-                    "lockfileVersion: 12\npackages: {}\nskills:\n  alpha: 1.1.0\n",
+                    'version = 1\n\n[skills]\nalpha = { package = "_local/project/skills/alpha", name = "alpha" }\n',
                   );
                   yield* write(path.join(canonical, "SKILL.md"), "# alpha 1.1.0\n");
                   yield* write(projection, "# alpha 1.1.0\n");

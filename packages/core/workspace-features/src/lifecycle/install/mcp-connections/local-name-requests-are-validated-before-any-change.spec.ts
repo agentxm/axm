@@ -61,7 +61,7 @@ describe("Validate locally named MCP install requests", () => {
   /** Settings and the accepted resolutions, as the workspace holds them now. */
   const recordedState = (world: InstallWorld) => ({
     settings: world.workspace.readFile("axm.json"),
-    lockfile: world.workspace.readFile("axm-lock.yaml"),
+    lockfile: world.workspace.readFile("axm.lock"),
   });
 
   /** The sentence the refusal names the violated rule in. */

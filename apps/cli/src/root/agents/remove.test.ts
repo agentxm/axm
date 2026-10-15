@@ -41,7 +41,7 @@ const writeWorkspace = (
       2,
     ),
   );
-  fs.writeFileSync(path.join(projectRoot, "axm-lock.yaml"), options.lockfile);
+  fs.writeFileSync(path.join(projectRoot, "axm.lock"), options.lockfile);
 };
 
 /** A workspace-authored skill the desired graph can resolve. */
@@ -137,7 +137,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers();
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 12\npackages: {}\nskills: {}\n",
+      lockfile: "version = 1\n",
     });
 
     return provide(
@@ -161,7 +161,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 12\npackages: {}\nskills: {}\n",
+      lockfile: "version = 1\n",
     });
 
     return provide(
@@ -189,7 +189,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 12\npackages: {}\nskills: {}\n",
+      lockfile: "version = 1\n",
     });
 
     return provide(
@@ -229,7 +229,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 12\npackages: {}\nskills: {}\n",
+      lockfile: "version = 1\n",
       skills: { axm: "workspace" },
     });
     const sourceDir = writeAuthoredSkill(tempDir, "axm");
@@ -273,7 +273,7 @@ describe("agents remove.handler", () => {
     });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["claude-code", "opencode"],
-      lockfile: "lockfileVersion: 12\npackages: {}\nskills: {}\n",
+      lockfile: "version = 1\n",
       skills: { "code-review": { source: "workspace", enabled: true } },
     });
     const sourceDir = writeAuthoredSkill(tempDir, "code-review");
@@ -309,7 +309,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["claude-code"],
-      lockfile: "lockfileVersion: 12\npackages: {}\nskills: {}\n",
+      lockfile: "version = 1\n",
     });
 
     return provide(

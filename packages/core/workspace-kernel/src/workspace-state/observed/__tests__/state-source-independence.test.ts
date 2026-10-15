@@ -9,7 +9,7 @@ import { storedLockfileFixture } from "../__fixtures__/decoders.js";
  *
  * This file verifies that contract three ways:
  *
- * 1. With a corrupt `axm-lock.yaml`, `state.settings` succeeds with the
+ * 1. With a corrupt `axm.lock`, `state.settings` succeeds with the
  *    decoded settings.
  * 2. With a corrupt `axm.json`, `state.lockfile` succeeds with the
  *    decoded lockfile.
@@ -26,6 +26,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
+import { emitLockfileToml } from "../../desired/lockfile/toml.js";
 import { LockfileParseError, SettingsParseError } from "../errors.js";
 import { makeScopedStateApi, type ScopedStateLoaders } from "../state.js";
 
@@ -45,7 +46,7 @@ const VALID_SETTINGS_JSON = JSON.stringify({
   skills: { "review-tool": { source: "github:owner/repo", enabled: true } },
 });
 
-const VALID_LOCKFILE_YAML = JSON.stringify(
+const VALID_LOCKFILE_TOML = emitLockfileToml(
   storedLockfileFixture({
     skills: {
       "review-tool": {
@@ -59,8 +60,8 @@ const VALID_LOCKFILE_YAML = JSON.stringify(
 );
 
 const CORRUPT_SETTINGS_JSON = "{ this is not json";
-// YAML mid-document break the parser deterministically rejects.
-const CORRUPT_LOCKFILE_YAML = "lockfileVersion: [oh: no\nbroken: !! tags";
+// An unterminated array the TOML parser deterministically rejects.
+const CORRUPT_LOCKFILE_TOML = "version = [oh\nbroken";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -106,7 +107,7 @@ describe("source independence (Decision 2)", () => {
     Effect.gen(function* () {
       const fs = buildFs({
         [SETTINGS_PATH]: VALID_SETTINGS_JSON,
-        [LOCKFILE_PATH]: CORRUPT_LOCKFILE_YAML,
+        [LOCKFILE_PATH]: CORRUPT_LOCKFILE_TOML,
       });
       const api = yield* makeApi(fs);
 
@@ -122,7 +123,7 @@ describe("source independence (Decision 2)", () => {
       });
 
       // Lockfile cell SHALL fail with `LockfileParseError` (deterministic
-      // YAML rejection on the unterminated-flow corruption above).
+      // TOML rejection on the unterminated-array corruption above).
       const lockfileErr = yield* Effect.flip(api.lockfile);
       expect(lockfileErr).toBeInstanceOf(LockfileParseError);
     }),
@@ -132,7 +133,7 @@ describe("source independence (Decision 2)", () => {
     Effect.gen(function* () {
       const fs = buildFs({
         [SETTINGS_PATH]: CORRUPT_SETTINGS_JSON,
-        [LOCKFILE_PATH]: VALID_LOCKFILE_YAML,
+        [LOCKFILE_PATH]: VALID_LOCKFILE_TOML,
       });
       const api = yield* makeApi(fs);
 
@@ -140,7 +141,7 @@ describe("source independence (Decision 2)", () => {
       const lockfile = yield* api.lockfile;
       expect(Option.isSome(lockfile)).toBe(true);
       const lf = Option.getOrThrow(lockfile);
-      expect(lf.lockfileVersion).toBe(12);
+      expect(lf.lockfileVersion).toBe(1);
       expect(Object.keys(lf.skills)).toContain("review-tool");
 
       // Settings cell SHALL fail with `SettingsParseError` (corrupt JSON).
@@ -154,7 +155,7 @@ describe("source independence (Decision 2)", () => {
       // Baseline: both sources valid.
       const fsBaseline = buildFs({
         [SETTINGS_PATH]: VALID_SETTINGS_JSON,
-        [LOCKFILE_PATH]: VALID_LOCKFILE_YAML,
+        [LOCKFILE_PATH]: VALID_LOCKFILE_TOML,
       });
       const baselineApi = yield* makeApi(fsBaseline);
       const baselineSettings = yield* baselineApi.settings;
@@ -163,7 +164,7 @@ describe("source independence (Decision 2)", () => {
       // Variation 1: corrupt lockfile only — settings SHALL be identical.
       const fsCorruptLockfile = buildFs({
         [SETTINGS_PATH]: VALID_SETTINGS_JSON,
-        [LOCKFILE_PATH]: CORRUPT_LOCKFILE_YAML,
+        [LOCKFILE_PATH]: CORRUPT_LOCKFILE_TOML,
       });
       const corruptLockfileApi = yield* makeApi(fsCorruptLockfile);
       const settingsWithCorruptLock = yield* corruptLockfileApi.settings;
@@ -179,7 +180,7 @@ describe("source independence (Decision 2)", () => {
       // Variation 2: corrupt settings only — lockfile SHALL be identical.
       const fsCorruptSettings = buildFs({
         [SETTINGS_PATH]: CORRUPT_SETTINGS_JSON,
-        [LOCKFILE_PATH]: VALID_LOCKFILE_YAML,
+        [LOCKFILE_PATH]: VALID_LOCKFILE_TOML,
       });
       const corruptSettingsApi = yield* makeApi(fsCorruptSettings);
       const lockfileWithCorruptSettings = yield* corruptSettingsApi.lockfile;

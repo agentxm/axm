@@ -76,9 +76,9 @@ describe("Update a shared MCP source closure", () => {
           expect(deriveOperationOutcome(resolution)).toBe("applied");
           expect(countUnitStates(resolution.units).committed).toBe(1);
           // One shared source, one accepted resolution: it advanced once.
-          const lock = workspace.readFile("axm-lock.yaml");
-          expect(lock).toContain("version: 2.0.0");
-          expect(lock).not.toContain("version: 1.0.0");
+          const lock = workspace.readFile("axm.lock");
+          expect(lock).toContain('version = "2.0.0"');
+          expect(lock).not.toContain('version = "1.0.0"');
           const projection = workspace.readFile(".mcp.json");
           expect(projection).toContain(NAMED);
           expect(projection).toContain(SIBLING);

@@ -1,9 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import YAML from "yaml";
 import { createTempDir, runCli } from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
+import { boundPackage, readLockfile } from "../../../test-support/lockfile.js";
 
 const LIVE_SMOKE_ENV = "AXM_RUN_GITHUB_SKILL_INSTALL_LIVE_SMOKE";
 const QUALITY_MD_SOURCE = "https://github.com/qualitymd/quality.md";
@@ -103,19 +103,12 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
       const settingsSkills = expectRecord(settings["skills"], "settings.skills");
       expect(settingsSkills["quality"]).toBe("github:qualitymd/quality.md");
 
-      const lockPath = path.join(temp.path, "axm-lock.yaml");
-      const lock = expectRecord(YAML.parse(fs.readFileSync(lockPath, "utf8")), "lockfile");
-      const lockSkills = expectRecord(lock["skills"], "lockfile.skills");
-      const lockEntry = expectRecord(lockSkills["quality"], "lockfile.skills.quality");
-      const packages = expectRecord(lock["packages"], "lockfile.packages");
-      const packageKey = lockEntry["package"];
-      if (typeof packageKey !== "string") throw new Error("Expected package binding");
-      const retained = expectRecord(packages[packageKey], "retained package");
-      const source = expectRecord(retained["source"], "package source");
-      const resolved = expectRecord(retained["resolved"], "package resolution");
-      expect(source["type"]).toBe("git");
-      expect(source["url"]).toMatch(/^https:\/\/github\.com\/qualitymd\/quality\.md(?:\.git)?$/);
-      expect(resolved["tree"]).toMatch(/^[0-9a-f]{40}$/);
+      const lockPath = path.join(temp.path, "axm.lock");
+      const retained = boundPackage(readLockfile(lockPath), "skills", "quality");
+      expect(retained.source["git"]).toMatch(
+        /^https:\/\/github\.com\/qualitymd\/quality\.md(?:\.git)?$/,
+      );
+      expect(retained["git-tree"]).toMatch(/^[0-9a-f]{40}$/);
 
       const secondInstall = await runCli(["skills", "install", QUALITY_MD_SOURCE, "--json"], {
         cwd: temp.path,

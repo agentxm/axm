@@ -133,10 +133,10 @@ describe("Install records direct workspace intent", () => {
                 `${SHARED_MEMBER.fqn}@${SHARED_MEMBER_PIN.inside}`,
               ),
             });
-            expect(workspace.readFile("axm-lock.yaml")).toContain(
-              `version: ${SHARED_MEMBER_PIN.inside}`,
+            expect(workspace.readFile("axm.lock")).toContain(
+              `version = "${SHARED_MEMBER_PIN.inside}"`,
             );
-            expect(workspace.readFile("axm-lock.yaml")).not.toContain("version: 1.2.0");
+            expect(workspace.readFile("axm.lock")).not.toContain('version = "1.2.0"');
             expect(workspace.readFile(`.claude/skills/${SHARED_MEMBER.name}/SKILL.md`)).toContain(
               sharedMemberBody(SHARED_MEMBER_PIN.inside),
             );
@@ -163,7 +163,7 @@ describe("Install records direct workspace intent", () => {
             // Both Packs accept the newest member version they admit, then the
             // person pins the member directly to an older one.
             yield* applySync();
-            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.2.0");
+            expect(workspace.readFile("axm.lock")).toContain('version = "1.2.0"');
             workspace.writeFile(
               "axm.json",
               `${JSON.stringify(
@@ -208,8 +208,8 @@ describe("Install records direct workspace intent", () => {
             // The named route accepts the pinned version, after which the
             // configured Packs replay it.
             yield* applyUpdate(targetedUpdateRequest({ source: SHARED_MEMBER.fqn }));
-            expect(workspace.readFile("axm-lock.yaml")).toContain(
-              `version: ${SHARED_MEMBER_PIN.inside}`,
+            expect(workspace.readFile("axm.lock")).toContain(
+              `version = "${SHARED_MEMBER_PIN.inside}"`,
             );
             const replayed = yield* applyInstall(
               installRequest({

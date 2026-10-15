@@ -204,3 +204,81 @@ export const localSourceCoordinates = (
   }
   return Result.map(encodeSourcePath(coordinates), () => coordinates);
 };
+
+/**
+ * The coordinates that place one retained package, independent of its
+ * accepted snapshot, selectors, and source format. The `path` of a Git, HTTP,
+ * or local package is its complete package root.
+ */
+export type RetainedPackageLocation =
+  | {
+      readonly type: "registry";
+      readonly url: { readonly href: string };
+      readonly owner: string;
+      /** The route plural of the published extension's type. */
+      readonly extensionType: string;
+      readonly name: string;
+    }
+  | { readonly type: "git"; readonly url: URL; readonly path: string }
+  | { readonly type: "path"; readonly path: string }
+  | {
+      readonly type: "http";
+      readonly url: URL;
+      readonly kind: "skill-md" | "archive" | "index";
+      readonly entry?: string | undefined;
+      readonly path: string;
+    };
+
+const boundarySegments = (boundary: string): ReadonlyArray<string> =>
+  boundary === "." || boundary === "" ? [] : boundary.split("/");
+
+const localPackageId = (
+  coordinates: Result.Result<ReadonlyArray<string>, SourceAddressInvalid>,
+  boundary: ReadonlyArray<string> = [],
+): Result.Result<string, SourceAddressInvalid> =>
+  Result.flatMap(coordinates, (local) =>
+    Result.map(encodeSourcePath([...local, ...boundary]), (path) => `_local/${path}`),
+  );
+
+/**
+ * The retained package id: the package's directory beneath the acquired
+ * extensions root, and the `id` its lockfile record carries. The lockfile and
+ * the directory layout both derive it here, so they never disagree.
+ */
+export const retainedPackageId = (
+  location: RetainedPackageLocation,
+): Result.Result<string, SourceAddressInvalid> => {
+  if (location.type === "path") return localPackageId(localSourceCoordinates(location.path));
+  const url = location.type === "registry" ? new URL(location.url.href) : location.url;
+  if (location.type !== "http" && url.protocol === "file:")
+    return localPackageId(
+      fileSourceCoordinates(url),
+      location.type === "registry"
+        ? [location.owner, location.extensionType, location.name]
+        : boundarySegments(location.path),
+    );
+  const address = sourceUrlCoordinates(url);
+  if (Result.isFailure(address)) return Result.fail(address.failure);
+  const segments = [...address.success];
+  switch (location.type) {
+    case "registry":
+      return encodeSourcePath([...segments, location.owner, location.extensionType, location.name]);
+    case "git": {
+      if (segments.length < 2) return invalid("Git source address requires a repository path");
+      const last = segments.length - 1;
+      const repository = segments[last];
+      if (repository?.endsWith(".git")) segments[last] = repository.slice(0, -4);
+      return encodeSourcePath([...segments, ...boundarySegments(location.path)]);
+    }
+    case "http": {
+      if (location.kind === "skill-md" && segments[segments.length - 1] === "SKILL.md")
+        segments.pop();
+      const entry =
+        location.kind === "index" && location.entry !== undefined
+          ? boundarySegments(location.entry)
+          : [];
+      const boundary = location.kind === "skill-md" ? [] : boundarySegments(location.path);
+      return encodeSourcePath([...segments, ...entry, ...boundary]);
+    }
+  }
+};

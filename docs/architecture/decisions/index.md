@@ -64,6 +64,11 @@ specifications, never in these records.
   AXM marks only regions it writes inside human-authored files, with name-only
   fences, and records projection currency and last-written digests in the
   lockfile
+- [TOML lockfile with labeled records](toml-lockfile-with-labeled-records.md) —
+  accepted resolution is a TOML `axm.lock` with one record per retained package
+  whose id is its directory, one-line bindings, projection tables with their own
+  contract, a preserved tool namespace, and one canonical whole-file writer; the
+  YAML lockfile is refused, not migrated
 - [Shared desired-state reconciliation](shared-desired-state-reconciliation.md) — shared realization policy belongs below peer command features and above canonical and projection mechanics
 - [Node runtime floor is Node 24](node-runtime-floor.md) — the development
   pin, the published `engines.node` range, and the `@types/node` ceiling are

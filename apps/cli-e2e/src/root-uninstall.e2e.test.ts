@@ -2,9 +2,10 @@ import { configuredRegistryFixturePath } from "./test-support/retained-paths.js"
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import YAML from "yaml";
+import { parse as parseToml } from "smol-toml";
 import { createTempDir, normalizeWorkspacePaths, runCli } from "./e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
+import { lockfilePath, readLockfile as readLockDocument } from "./test-support/lockfile.js";
 
 /**
  * Binds this file's evidence to the requirement identities it executes at the
@@ -264,11 +265,11 @@ const readSettings = (workspacePath: string, scope: "project" | "user" = "projec
 
 const readLockfile = (workspacePath: string, scope: "project" | "user" = "project"): unknown =>
   normalizeJsonValue(
-    YAML.parse(
+    parseToml(
       fs.readFileSync(
         scope === "project"
-          ? path.join(workspacePath, "axm-lock.yaml")
-          : path.join(workspacePath, ".axm", "workspace", "axm-lock.yaml"),
+          ? path.join(workspacePath, "axm.lock")
+          : path.join(workspacePath, ".axm", "workspace", "axm.lock"),
         "utf-8",
       ),
     ),
@@ -360,7 +361,7 @@ const expectUninstallFootprint = (result: JsonCommandResult) => {
   expect(result.result["footprint"]).toEqual(
     expect.arrayContaining([
       { path: "axm.json", change: "modified" },
-      { path: "axm-lock.yaml", change: "modified" },
+      { path: "axm.lock", change: "modified" },
     ]),
   );
 };
@@ -595,9 +596,7 @@ describe("axm uninstall", () => {
 
       for (const [index, workspacePath] of [rootWorkspace.path, typedWorkspace.path].entries()) {
         const settings = JSON.parse(fs.readFileSync(path.join(workspacePath, "axm.json"), "utf-8"));
-        const lockfile = YAML.parse(
-          fs.readFileSync(path.join(workspacePath, "axm-lock.yaml"), "utf-8"),
-        );
+        const lockfile = readLockDocument(lockfilePath(workspacePath));
         expect(settings.packs?.[name]).toBeUndefined();
         expect(lockfile.packs?.[name]).toBeUndefined();
         // Content whose manifest could not be read survives the uninstall.

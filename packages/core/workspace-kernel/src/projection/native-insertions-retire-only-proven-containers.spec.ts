@@ -205,7 +205,7 @@ describe("native insertion receipts", () => {
             WorkspaceTransactionScopeTest({
               workspaceDir: path.join(root, ".axm"),
               settingsPath: path.join(root, "axm.json"),
-              lockPath: path.join(root, "axm-lock.yaml"),
+              lockPath: path.join(root, "axm.lock"),
             }),
           ),
           Effect.result,

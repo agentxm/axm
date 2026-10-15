@@ -48,7 +48,7 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
   // (HandleSchema, ExtensionNameSchema, VersionSchema,
   // ExtensionFqnSchema) carry the correct brands.
   decodedLockfile({
-    lockfileVersion: 12,
+    lockfileVersion: 1,
     skills: {},
     packs: {
       [packName]: {

@@ -137,10 +137,7 @@ describe("withWorkspace settings gate", () => {
     fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
     fs.mkdirSync(path.join(userHome, ".axm"), { recursive: true });
     fs.writeFileSync(path.join(projectDir, "axm.json"), JSON.stringify({ agents: [] }));
-    fs.writeFileSync(
-      path.join(projectDir, "axm-lock.yaml"),
-      "lockfileVersion: 12\npackages: {}\nskills: {}\n",
-    );
+    fs.writeFileSync(path.join(projectDir, "axm.lock"), "version = 1\n");
     process.chdir(projectDir);
     process.env["HOME"] = userHome;
   });

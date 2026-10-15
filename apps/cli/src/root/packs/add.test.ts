@@ -164,12 +164,16 @@ const initWorkspace = (
           plural,
           packageName,
         );
+        const treeIntegrity = computeMaterializedTreeIntegritySync(packageDir);
+        // A path package's accepted tree is its tree integrity.
+        const pathSource = isRecord(raw["source"]) && raw["source"]["type"] === "path";
         return [
           workspaceName,
           {
             ...raw,
             ...(raw["type"] === "registry" ? { endpoint: "file:///tmp/test-registry" } : {}),
-            treeIntegrity: computeMaterializedTreeIntegritySync(packageDir),
+            ...(pathSource ? { resolved: { tree: treeIntegrity } } : {}),
+            treeIntegrity,
           },
         ];
       }),

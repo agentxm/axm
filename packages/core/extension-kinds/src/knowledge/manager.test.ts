@@ -135,7 +135,7 @@ const desiredHandbookReadFacts = (
 ): Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> => ({
   settings: { knowledge: { handbook: { source: "./source", enabled: true } } },
   acceptedResolutions: Effect.sync(() => ({
-    lockfileVersion: 12 as const,
+    lockfileVersion: 1 as const,
     skills: {},
     knowledge: {
       handbook: {
@@ -371,7 +371,7 @@ describe("KnowledgeManager", () => {
               read: {
                 ...desiredHandbookReadFacts(workspaceRoot),
                 acceptedResolutions: Effect.succeed({
-                  lockfileVersion: 12,
+                  lockfileVersion: 1,
                   skills: {},
                   knowledge: {
                     handbook: {
@@ -805,7 +805,7 @@ describe("KnowledgeManager", () => {
                   },
                 },
               },
-              lockfile: { lockfileVersion: 12, skills: {}, knowledge: locked },
+              lockfile: { lockfileVersion: 1, skills: {}, knowledge: locked },
               graph: {
                 packMembership: [],
                 nodes: ["healthy", "unavailable"].map((name) => ({

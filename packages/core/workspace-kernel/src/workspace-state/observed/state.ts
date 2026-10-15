@@ -1,13 +1,14 @@
 import * as SchemaIssue from "effect/SchemaIssue";
-/** Cached scoped state-source loaders for `axm.json` and `axm-lock.yaml`. */
+/** Cached scoped state-source loaders for `axm.json` and `axm.lock`. */
 
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import YAML from "yaml";
 import { LOCKFILE_VERSION, LockfileSchema, type Lockfile } from "../desired/lockfile/schema.js";
+import { parseLockfileToml } from "../desired/lockfile/toml.js";
+import { LEGACY_LOCK_FILENAME } from "../workspace/constants.js";
 import { formatSchemaIssuesToLines } from "@agentxm/extension-model/unstable/schema-issues";
 import { SettingsSchema, type Settings } from "../desired/settings/schema.js";
 import {
@@ -30,7 +31,7 @@ import type { Scope } from "./types.js";
 /** Decoded `axm.json` payload exposed by the settings cell. */
 export type DecodedSettings = Settings;
 
-/** Decoded `axm-lock.yaml` payload exposed by the lockfile cell. */
+/** Decoded `axm.lock` payload exposed by the lockfile cell. */
 export type DecodedLockfile = Lockfile;
 
 /** Raw bytes of a workspace source file (path + literal content). */
@@ -44,7 +45,10 @@ export interface ScopedStateLoaders {
   readonly settings: Effect.Effect<Option.Option<DecodedSettings>, SettingsReadError>;
   readonly lockfile: Effect.Effect<Option.Option<DecodedLockfile>, LockfileReadError>;
   readonly settingsRaw: Effect.Effect<Option.Option<RawSourceBytes>, SettingsIoError>;
-  readonly lockfileRaw: Effect.Effect<Option.Option<RawSourceBytes>, LockfileIoError>;
+  readonly lockfileRaw: Effect.Effect<
+    Option.Option<RawSourceBytes>,
+    LockfileIoError | LockfileVersionUnsupported
+  >;
 }
 
 /** Construction inputs captured and threaded into every cached loader. */
@@ -74,10 +78,42 @@ const loadRawSettingsBytes = Effect.fn("workspace.read-model.state.settings.raw"
   return Option.some<RawSourceBytes>({ path: settingsPath, bytes });
 });
 
+/** The lockfile version a legacy YAML lockfile declares, or `0` when it declares none. */
+const legacyLockfileVersion = (bytes: string): number => {
+  const declared = /^lockfileVersion:\s*(\d+)/mu.exec(bytes)?.[1];
+  return declared === undefined ? 0 : Number.parseInt(declared, 10);
+};
+
+/**
+ * Refuse a legacy `axm-lock.yaml` beside the expected lockfile. Its format is
+ * not read, so its presence is the existing unsupported-version recovery.
+ */
+const refuseLegacyLockfile = Effect.fnUntraced(function* (
+  fs: FileSystem.FileSystem,
+  lockfilePath: string,
+) {
+  const separator = Math.max(lockfilePath.lastIndexOf("/"), lockfilePath.lastIndexOf("\\"));
+  const legacyPath = `${lockfilePath.slice(0, separator + 1)}${LEGACY_LOCK_FILENAME}`;
+  if (legacyPath === lockfilePath) return;
+  const legacyExists = yield* fs
+    .exists(legacyPath)
+    .pipe(Effect.mapError((cause) => new LockfileIoError({ path: legacyPath, cause })));
+  if (!legacyExists) return;
+  const legacy = yield* fs
+    .readFileString(legacyPath)
+    .pipe(Effect.mapError((cause) => new LockfileIoError({ path: legacyPath, cause })));
+  return yield* new LockfileVersionUnsupported({
+    path: legacyPath,
+    observedVersion: legacyLockfileVersion(legacy),
+    supportedVersion: LOCKFILE_VERSION,
+  });
+});
+
 export const readLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.raw")(function* (
   fs: FileSystem.FileSystem,
   lockfilePath: string,
 ) {
+  yield* refuseLegacyLockfile(fs, lockfilePath);
   const exists = yield* fs
     .exists(lockfilePath)
     .pipe(Effect.mapError((cause) => new LockfileIoError({ path: lockfilePath, cause })));
@@ -148,16 +184,16 @@ const loadSettings = (
 export const decodeLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.decode")(
   function* (path: string, bytes: string) {
     const parsed = yield* Effect.try({
-      try: (): unknown => YAML.parse(bytes),
+      try: (): unknown => parseLockfileToml(bytes),
       catch: (cause): LockfileParseError => new LockfileParseError({ path, raw: bytes, cause }),
     });
     if (
       typeof parsed === "object" &&
       parsed !== null &&
       !Array.isArray(parsed) &&
-      Object.hasOwn(parsed, "lockfileVersion")
+      Object.hasOwn(parsed, "version")
     ) {
-      const observedVersion: unknown = Reflect.get(parsed, "lockfileVersion");
+      const observedVersion: unknown = Reflect.get(parsed, "version");
       if (
         typeof observedVersion === "number" &&
         Number.isSafeInteger(observedVersion) &&
@@ -190,7 +226,7 @@ export const decodeLockfileBytes = Effect.fn("workspace.read-model.state.lockfil
 
 /** Decode lockfile from cached raw bytes. Source-independent (Decision 2). */
 const loadLockfile = (
-  rawCell: Effect.Effect<Option.Option<RawSourceBytes>, LockfileIoError>,
+  rawCell: ScopedStateLoaders["lockfileRaw"],
 ): Effect.Effect<Option.Option<DecodedLockfile>, LockfileReadError> =>
   Effect.gen(function* () {
     const rawOpt = yield* rawCell;

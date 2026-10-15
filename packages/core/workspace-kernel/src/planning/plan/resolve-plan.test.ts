@@ -134,7 +134,7 @@ const releaseAge = {
 const transactionPaths = (path: Path.Path, workspaceDir: string) => ({
   workspaceDir,
   settingsPath: path.join(path.dirname(workspaceDir), "axm.json"),
-  lockPath: path.join(path.dirname(workspaceDir), "axm-lock.yaml"),
+  lockPath: path.join(path.dirname(workspaceDir), "axm.lock"),
 });
 
 /** The production scope — process lock on disk — for one workspace directory. */
@@ -1370,14 +1370,14 @@ describe("previewOrApply", () => {
       };
       const withoutEvidence = yield* makeExecutionCandidate(base, {
         settingsPath: "/tmp/axm-candidate/axm.json",
-        lockPath: "/tmp/axm-candidate/axm-lock.yaml",
+        lockPath: "/tmp/axm-candidate/axm.lock",
         baseDir: "/tmp",
       });
       const withEvidence = yield* makeExecutionCandidate(
         { ...base, releaseAge },
         {
           settingsPath: "/tmp/axm-candidate/axm.json",
-          lockPath: "/tmp/axm-candidate/axm-lock.yaml",
+          lockPath: "/tmp/axm-candidate/axm.lock",
           baseDir: "/tmp",
         },
       );
@@ -1396,7 +1396,7 @@ describe("previewOrApply", () => {
       };
       const paths = {
         settingsPath: "/tmp/axm-candidate/axm.json",
-        lockPath: "/tmp/axm-candidate/axm-lock.yaml",
+        lockPath: "/tmp/axm-candidate/axm.lock",
         baseDir: "/tmp",
       };
       const before = yield* makeExecutionCandidate(plan, {
@@ -1488,7 +1488,7 @@ describe("previewOrApply", () => {
           makeExecutionCandidate(makePlan(baseDir, reference), {
             baseDir,
             settingsPath: path.join(baseDir, "axm.json"),
-            lockPath: path.join(baseDir, "axm-lock.yaml"),
+            lockPath: path.join(baseDir, "axm.lock"),
           });
         const first = yield* candidateAt(left, "first");
         const relocated = yield* candidateAt(right, "first");
@@ -1529,7 +1529,7 @@ describe("previewOrApply", () => {
       };
       const paths = {
         settingsPath: path.join(directory, "axm.json"),
-        lockPath: path.join(directory, "axm-lock.yaml"),
+        lockPath: path.join(directory, "axm.lock"),
         baseDir: directory,
       };
       const original = yield* makeExecutionCandidate(plan, paths);
@@ -1548,9 +1548,9 @@ describe("previewOrApply", () => {
       const fs = yield* FileSystem.FileSystem;
       const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-layout-material-" });
       const settingsPath = `${directory}/axm.json`;
-      const lockPath = `${directory}/axm-lock.yaml`;
+      const lockPath = `${directory}/axm.lock`;
       yield* fs.writeFileString(settingsPath, "{}");
-      yield* fs.writeFileString(lockPath, "lockfileVersion: 12\npackages: {}\nskills: {}\n");
+      yield* fs.writeFileString(lockPath, "version = 1\n");
       const plan: Plan = {
         _tag: "Plan",
         name: "Layout material",
@@ -1588,7 +1588,7 @@ describe("previewOrApply", () => {
         };
         const paths = {
           settingsPath: path.join(directory, "axm.json"),
-          lockPath: path.join(directory, "axm-lock.yaml"),
+          lockPath: path.join(directory, "axm.lock"),
           baseDir: directory,
         };
 

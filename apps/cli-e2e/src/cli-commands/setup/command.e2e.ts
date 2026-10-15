@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../e2e/utils.js";
+import { LOCKFILE_VERSION, readLockfile } from "../../test-support/lockfile.js";
 
 // Process evidence for this module is bound by the init.e2e.test.ts Vitest entrypoint.
 
@@ -133,9 +134,10 @@ describe("axm setup", () => {
 
         expect(result.exitCode).toBe(0);
 
-        // Should create axm-lock.yaml
-        const lockfilePath = path.join(temp.path, "axm-lock.yaml");
+        // Should create axm.lock
+        const lockfilePath = path.join(temp.path, "axm.lock");
         expect(fs.existsSync(lockfilePath)).toBe(true);
+        expect(readLockfile(lockfilePath).version).toBe(LOCKFILE_VERSION);
       } finally {
         temp.cleanup();
       }

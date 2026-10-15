@@ -61,7 +61,7 @@ export const lockfileValidConformance: WorkspaceRuleConformanceCase = {
   expectedFindings: [
     {
       message: "Accepted external-resolution state is missing for desired external content.",
-      location: { file: "axm-lock.yaml" },
+      location: { file: "axm.lock" },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: { _tag: "absent" } }),

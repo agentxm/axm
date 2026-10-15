@@ -67,6 +67,7 @@ import { allCatalogRuleIds } from "./catalog/index.js";
 import type { LintWorkspaceRequirements } from "./run/lint-workspace.js";
 
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 /** The severities a workspace may configure a catalog rule at. */
 export type ConfiguredLintSeverity = "off" | "info" | "warn" | "error";
 
@@ -468,7 +469,7 @@ const arrangeOfficialSkill = (state: OfficialAxmSkillState): OfficialSkillArrang
       const { acceptedVersion: _accepted, ...unaccepted } = registryAccepted(
         FIXTURE_CLI_VERSION,
         FIXTURE_CLI_VERSION_RANGE,
-        { "axm-lock.yaml": "lockfileVersion: 12\npackages: {}\nskills: {}\n" },
+        { "axm.lock": "version = 1\n" },
       );
       return unaccepted;
     }
@@ -554,10 +555,10 @@ export const makeOfficialAxmSkillWorkspace = (
       resolvedVersion: decodeVersionSync(arrangement.acceptedVersion),
     });
     fixture.writeFile(
-      "axm-lock.yaml",
-      `${JSON.stringify(
+      "axm.lock",
+      `${emitLockfileToml(
         storedLockfileFixture({
-          lockfileVersion: 12,
+          lockfileVersion: 1,
           skills: {
             axm: fixture.exists(OFFICIAL_AXM_SKILL_PACKAGE_ROOT)
               ? {

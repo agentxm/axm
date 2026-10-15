@@ -150,7 +150,7 @@ describe("Advance approval", () => {
           });
           expect(workspace.readSettings()).toMatchObject({ skills: { [SKILL]: "workspace" } });
           expect(workspace.exists(`skills/${SKILL}/skill.json`)).toBe(true);
-          expect(workspace.readLockfileText()).not.toContain(`publisherBindingId`);
+          expect(workspace.readLockfileText()).not.toContain("publisher = ");
         }),
     );
 
@@ -166,7 +166,7 @@ describe("Advance approval", () => {
           result: { outcome: "applied", counts: { committed: 1 } },
         });
         expect(workspace.readSettings()).toMatchObject({ skills: { [SKILL]: `test:${FQN}` } });
-        expect(workspace.readLockfileText()).toContain("version: 1.0.0");
+        expect(workspace.readLockfileText()).toContain('version = "1.0.0"');
         expect(workspace.exists(`skills/${SKILL}`)).toBe(false);
       }),
     );
@@ -233,7 +233,7 @@ describe("Advance approval", () => {
           expect(context.promptState.selectAgentsCalls).toEqual([]);
           expect(context.promptState.confirmSetupPlanCalls).toEqual([]);
           expect(context.exists("axm.json")).toBe(true);
-          expect(context.exists("axm-lock.yaml")).toBe(true);
+          expect(context.exists("axm.lock")).toBe(true);
         }),
     );
   });

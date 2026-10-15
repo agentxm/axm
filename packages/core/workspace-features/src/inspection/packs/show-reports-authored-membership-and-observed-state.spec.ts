@@ -1,4 +1,8 @@
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  emitLockfileToml,
+  LockfileSchema,
+  parseLockfileToml,
+} from "@agentxm/workspace-kernel/workspace-state";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -226,20 +230,20 @@ describe("Pack state inspection", () => {
               `${fixture.root}/agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/mcps/context`,
             );
             const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-              JSON.parse(fixture.readFile("axm-lock.yaml")),
+              parseLockfileToml(fixture.readFile("axm.lock")),
             );
             const accepted = lockfile.mcpServers?.[resolutionKey];
             if (accepted === undefined) throw new Error("Expected accepted MCP");
             fixture.writeFile(
-              "axm-lock.yaml",
-              JSON.stringify(
+              "axm.lock",
+              emitLockfileToml(
                 Schema.encodeSync(LockfileSchema)({
                   ...lockfile,
                   mcpServers: { [resolutionKey]: { ...accepted, treeIntegrity } },
                 }),
               ),
             );
-            const lockBefore = fixture.readFile("axm-lock.yaml");
+            const lockBefore = fixture.readFile("axm.lock");
 
             const result = yield* ShowPack.query({ target: "toolkit" });
             expect(result.desiredDependencies).toEqual([
@@ -274,7 +278,7 @@ describe("Pack state inspection", () => {
             ]);
             expect(JSON.stringify(result)).not.toContain(resolutionKey);
             // Inspection invents no accepted row.
-            expect(fixture.readFile("axm-lock.yaml")).toBe(lockBefore);
+            expect(fixture.readFile("axm.lock")).toBe(lockBefore);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));

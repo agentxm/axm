@@ -9,7 +9,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import YAML from "yaml";
+import { stringify as stringifyToml } from "smol-toml";
 
 import { decodeLockfileBytes } from "../../observed/state.js";
 import { WorkspaceFileWriteLocks } from "../../../settlement/index.js";
@@ -30,6 +30,7 @@ import {
   type Projections,
 } from "./projections.js";
 import { LOCKFILE_VERSION, LockfileSchema, type Lockfile } from "./schema.js";
+import { emitLockfileToml, parseLockfileToml } from "./toml.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/lockfile/records-projection-currency",
@@ -52,8 +53,8 @@ export const specification = defineSpecification({
 const digest = (character: string) => ProjectionDigestSchema.make(`sha256:${character.repeat(64)}`);
 const unit = (path: string) => ProjectionUnitPathSchema.make(path);
 const empty: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
-const encodeYaml = (lockfile: Lockfile) =>
-  YAML.stringify(Schema.encodeSync(LockfileSchema)(lockfile));
+const encodeToml = (lockfile: Lockfile) =>
+  emitLockfileToml(Schema.encodeSync(LockfileSchema)(lockfile));
 const decode = (document: unknown) => Schema.decodeUnknownExit(LockfileSchema)(document);
 const platform = WorkspaceFileWriteLocksLive.pipe(Layer.provideMerge(NodeServices.layer));
 
@@ -100,7 +101,7 @@ describe("projection rows in the lockfile", () => {
 
   it("round-trips rows through the stored document", () => {
     const lockfile: Lockfile = { ...empty, projections: { rules: rulesState(1) } };
-    const decoded = decode(YAML.parse(encodeYaml(lockfile)));
+    const decoded = decode(parseLockfileToml(encodeToml(lockfile)));
     expect(Exit.isSuccess(decoded) ? decoded.value.projections : undefined).toEqual({
       rules: rulesState(1),
     });
@@ -129,15 +130,8 @@ describe("projection rows in the lockfile", () => {
   ] as const) {
     it.effect(`rejects ${label}`, () =>
       Effect.gen(function* () {
-        const document = {
-          lockfileVersion: LOCKFILE_VERSION,
-          packages: {},
-          skills: {},
-          projections,
-        };
-        const exit = yield* Effect.exit(
-          decodeLockfileBytes("axm-lock.yaml", YAML.stringify(document)),
-        );
+        const document = { version: LOCKFILE_VERSION, projections };
+        const exit = yield* Effect.exit(decodeLockfileBytes("axm.lock", stringifyToml(document)));
         expect(Exit.isFailure(exit)).toBe(true);
       }),
     );
@@ -145,11 +139,11 @@ describe("projection rows in the lockfile", () => {
 
   it.effect("refuses a newer lockfile version before any projection row is read", () =>
     Effect.gen(function* () {
-      const newer = encodeYaml({ ...empty, projections: { rules: rulesState(1) } }).replace(
-        `lockfileVersion: ${LOCKFILE_VERSION}`,
-        `lockfileVersion: ${LOCKFILE_VERSION + 1}`,
+      const newer = encodeToml({ ...empty, projections: { rules: rulesState(1) } }).replace(
+        `version = ${LOCKFILE_VERSION}`,
+        `version = ${LOCKFILE_VERSION + 1}`,
       );
-      const exit = yield* Effect.exit(decodeLockfileBytes("axm-lock.yaml", newer));
+      const exit = yield* Effect.exit(decodeLockfileBytes("axm.lock", newer));
       expect(Exit.isFailure(exit)).toBe(true);
     }),
   );
@@ -362,17 +356,17 @@ describe("staging projection rows", () => {
 describe("restoring projection rows", () => {
   for (const before of [
     undefined,
-    `# authored\nlockfileVersion: ${LOCKFILE_VERSION}\npackages: {}\nskills: {}\n`,
+    emitLockfileToml({ version: LOCKFILE_VERSION, tool: { example: { kept: true } } }),
   ]) {
     it.effect(
-      `restores the prior bytes after a row is introduced and withdrawn (${before === undefined ? "absent" : "authored"})`,
+      `restores the prior bytes after a row is introduced and withdrawn (${before === undefined ? "absent" : "present"})`,
       () =>
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem;
           const path = yield* Path.Path;
           const root = yield* fs.makeTempDirectoryScoped();
           const runtimeDir = path.join(root, ".axm");
-          const target = path.join(root, "axm-lock.yaml");
+          const target = path.join(root, "axm.lock");
           yield* fs.makeDirectory(runtimeDir);
           if (before !== undefined) yield* fs.writeFileString(target, before);
           const context = {
@@ -394,7 +388,7 @@ describe("restoring projection rows", () => {
           };
           yield* writeLockfileAtPath(target, introduced, context);
           const written = yield* fs.readFileString(target);
-          expect(written).toContain(".claude/agents/researcher.md:");
+          expect(written).toContain('".claude/agents/researcher.md" = {');
           yield* writeLockfileAtPath(target, empty, { ...context, eligible: false });
           if (before === undefined) expect(yield* fs.exists(target)).toBe(false);
           else expect(yield* fs.readFileString(target)).toBe(before);
@@ -402,31 +396,42 @@ describe("restoring projection rows", () => {
     );
   }
 
-  it.effect("edits rows in place and keeps unit keys sorted when one is added", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      const target = path.join(root, "axm-lock.yaml");
-      const first: Lockfile = { ...empty, projections: { rules: rulesState(1) } };
-      yield* writeLockfileAtPath(target, first);
-      yield* fs.writeFileString(target, `# kept\n${yield* fs.readFileString(target)}`);
-      yield* writeLockfileAtPath(target, {
-        ...empty,
-        projections: {
-          rules: {
-            contract: 1,
-            units: {
-              ...rulesState(1).units,
-              [unit("CLAUDE.md")]: { gen: digest("e"), output: digest("f") },
+  it.effect(
+    "rewrites the whole file canonically and keeps unit keys sorted when one is added",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const target = path.join(root, "axm.lock");
+        const first: Lockfile = { ...empty, projections: { rules: rulesState(1) } };
+        yield* writeLockfileAtPath(target, first);
+        yield* fs.writeFileString(target, `# kept\n${yield* fs.readFileString(target)}`);
+        yield* writeLockfileAtPath(target, {
+          ...empty,
+          projections: {
+            rules: {
+              contract: 1,
+              units: {
+                ...rulesState(1).units,
+                [unit("CLAUDE.md")]: { gen: digest("e"), output: digest("f") },
+              },
             },
           },
-        },
-      });
-      const written = yield* fs.readFileString(target);
-      expect(written.startsWith("# kept\n")).toBe(true);
-      const keys = Object.keys(YAML.parse(written).projections.rules.units);
-      expect(keys).toEqual(["AGENTS.md", "CLAUDE.md", "docs/AGENTS.md"]);
-    }).pipe(Effect.scoped, Effect.provide(platform)),
+        });
+        const written = yield* fs.readFileString(target);
+        expect(written).not.toContain("# kept");
+        expect(written.startsWith("#:schema https://axm.sh/schemas/axm-lock.schema.json\n")).toBe(
+          true,
+        );
+        const rows = Schema.decodeUnknownSync(LockfileSchema)(
+          parseLockfileToml(written),
+        ).projections;
+        expect(Object.keys(rows?.rules?.units ?? {})).toEqual([
+          "AGENTS.md",
+          "CLAUDE.md",
+          "docs/AGENTS.md",
+        ]);
+      }).pipe(Effect.scoped, Effect.provide(platform)),
   );
 });

@@ -40,7 +40,6 @@ const unsupportedCapability = {
   },
   axm: {
     status: "unsupported",
-    lastVerified: null,
     writer: null,
   },
 } as const;
@@ -49,7 +48,6 @@ const unsupportedHookCapability = {
   axm: {
     status: "unsupported",
     writer: null,
-    lastVerified: null,
   },
 } as const;
 const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
@@ -67,7 +65,6 @@ const makeCapabilitiesInput = (overrides: Record<string, unknown> = {}) => ({
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-05-16",
       writer: null,
     },
   },
@@ -254,8 +251,6 @@ describe("agent capability catalog", () => {
       agentId: "sample-agent",
       capability: "skill",
       status: "supported",
-      legacyLastVerified: "2026-05-16",
-      legacyAgeDays: 1,
       reviewedAt: null,
       reviewAgeDays: null,
       reviewMissing: true,
@@ -390,7 +385,6 @@ describe("agent capability catalog", () => {
               },
               axm: {
                 status: "supported",
-                lastVerified: "2026-05-16",
                 writer: null,
               },
             },
@@ -416,7 +410,6 @@ describe("agent capability catalog", () => {
               },
               axm: {
                 status: "supported",
-                lastVerified: "2026-05-16",
                 writer: null,
               },
             },
@@ -446,7 +439,6 @@ describe("agent capability catalog", () => {
             },
             axm: {
               status: "supported",
-              lastVerified: "2026-05-16",
               writer: null,
             },
           },
@@ -473,7 +465,6 @@ describe("agent capability catalog", () => {
               },
               axm: {
                 status: "supported",
-                lastVerified: "2026-05-16",
                 writer: null,
               },
             },
@@ -503,7 +494,6 @@ describe("agent capability catalog", () => {
             },
             axm: {
               status: "supported",
-              lastVerified: "2026-05-16",
               writer: null,
             },
           },
@@ -533,7 +523,6 @@ describe("agent capability catalog", () => {
             },
             axm: {
               status: "supported",
-              lastVerified: "2026-05-18",
               writer: null,
             },
           },
@@ -563,7 +552,6 @@ describe("agent capability catalog", () => {
             },
             axm: {
               status: "supported",
-              lastVerified: "2026-05-16",
               writer: null,
             },
           },
@@ -616,7 +604,6 @@ describe("agent capability catalog", () => {
               },
               axm: {
                 status: "supported",
-                lastVerified: "2026-05-18",
                 writer: {
                   config: {
                     locationIds: ["project-0"],

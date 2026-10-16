@@ -44,7 +44,6 @@ export const commandCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -157,7 +156,6 @@ export const commandCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-09-29",
         writer: {
           config: {
             locationIds: ["project", "user"],
@@ -210,7 +208,6 @@ export const commandCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -232,7 +229,6 @@ export const commandCodeAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM has not implemented a Command Code hook writer.",
       },
     },
@@ -265,7 +261,6 @@ export const commandCodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -325,7 +320,6 @@ export const commandCodeAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a Command Code permission grant writer.",
     },

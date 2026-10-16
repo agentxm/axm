@@ -52,7 +52,7 @@ export const onaAgent = {
           },
         ],
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: { status: "supported", writer: null },
     },
     "mcp-server": {
       native: {
@@ -73,7 +73,6 @@ export const onaAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "AXM has not implemented Ona's mcp-config.json dialect or hosted integration delivery.",
@@ -88,7 +87,7 @@ export const onaAgent = {
         docs: [],
         sources: [],
       },
-      axm: { status: "unsupported", lastVerified: null, writer: null },
+      axm: { status: "unsupported", writer: null },
     },
     hook: {
       native: {
@@ -99,7 +98,7 @@ export const onaAgent = {
         docs: [],
         sources: [],
       },
-      axm: { status: "unsupported", writer: null, lastVerified: null },
+      axm: { status: "unsupported", writer: null },
     },
   },
   instructions: {
@@ -128,7 +127,7 @@ export const onaAgent = {
       nestedDiscovery: true,
       importSyntax: null,
     },
-    axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+    axm: { status: "supported", writer: null },
   },
   permissions: {
     native: {
@@ -147,7 +146,6 @@ export const onaAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "Ona guardrails are managed through the organization administration surface.",
     },

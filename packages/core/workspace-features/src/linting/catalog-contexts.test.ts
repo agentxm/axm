@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  LINT_CATALOGS,
   LIVE_ONLY_LINT_CATALOGS,
   REPOSITORY_LINT_CATALOGS,
   lintCatalogsForView,
@@ -27,6 +26,5 @@ describe("lint catalog views", () => {
     expect(liveOnlyRuleIds).toHaveLength(new Set(liveOnlyRuleIds).size);
     expect(repositoryRuleIds.some((id) => liveOnlyRuleIds.includes(id))).toBe(false);
     expect(repositoryRuleIds.length + liveOnlyRuleIds.length).toBe(workspaceRules.length);
-    expect(LINT_CATALOGS).toEqual(lintCatalogsForView("filesystem"));
   });
 });

@@ -1,4 +1,3 @@
-import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   acquiredRootDisplayPath,
@@ -16,7 +15,6 @@ import {
 
 export const mcpConfigSurface = (scope: WorkspaceScope): string =>
   `${settingsDisplayPath(scope)} / ${lockfileDisplayPath(scope)}`;
-export const MCP_AGENT_CONFIG_SURFACE = ".mcp.json";
 
 export const mcpServerSourcePath = (scope: WorkspaceScope, entry: McpServerLockEntry): string =>
   acquiredExtensionDisplayPathFromLockEntry(
@@ -25,18 +23,6 @@ export const mcpServerSourcePath = (scope: WorkspaceScope, entry: McpServerLockE
     "mcps",
     entry.identity.name,
   );
-
-export const agentConfigTarget = (
-  change: JobStepArtifactTarget["change"],
-  agentIds: ReadonlyArray<MaterializationTargetId>,
-): JobStepArtifactTarget | undefined =>
-  agentIds.length === 0
-    ? undefined
-    : {
-        path: MCP_AGENT_CONFIG_SURFACE,
-        change,
-        agentIds,
-      };
 
 export interface AgentMcpConfigOutcome {
   readonly agentId: string;

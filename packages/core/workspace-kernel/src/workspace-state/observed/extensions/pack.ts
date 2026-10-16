@@ -46,8 +46,7 @@ import {
 // Detection origin
 // ---------------------------------------------------------------------------
 
-export type PackDetectionOrigin =
-  { readonly _tag: "canonical-axm-pack" } | { readonly _tag: "external-axm-pack" };
+export type PackDetectionOrigin = { readonly _tag: "canonical-axm-pack" };
 
 // ---------------------------------------------------------------------------
 // Payloads
@@ -127,11 +126,10 @@ const resolvedFromLockfile = (lockfile: Lockfile): ResolvedPacks => {
 };
 
 const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualPack => {
-  const isExternal = occ.origin === "external-axm";
   const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "pack", name: occ.name },
-    origin: isExternal ? { _tag: "external-axm-pack" } : { _tag: "canonical-axm-pack" },
+    origin: { _tag: "canonical-axm-pack" },
     contentRoot: occ.contentLocation,
     packageRoot,
   };

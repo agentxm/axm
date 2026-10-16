@@ -44,7 +44,6 @@ import {
 
 export type RuleDetectionOrigin =
   | { readonly _tag: "canonical-axm-rule" }
-  | { readonly _tag: "external-axm-rule" }
   | { readonly _tag: "agent-rule-dir"; readonly agentId: MaterializationTargetId };
 
 // ---------------------------------------------------------------------------
@@ -94,11 +93,10 @@ export interface UnmanagedRule {
 // ---------------------------------------------------------------------------
 
 const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualRule => {
-  const isExternal = occ.origin === "external-axm";
   const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "rule", name: occ.name },
-    origin: isExternal ? { _tag: "external-axm-rule" } : { _tag: "canonical-axm-rule" },
+    origin: { _tag: "canonical-axm-rule" },
     contentRoot: occ.contentLocation,
     packageRoot,
   };

@@ -284,7 +284,6 @@ export const makeInstalledSkillFixture = (
         review: makeRegistrySkillLockEntry({
           owner: decodeHandleSync("@acme"),
           name: "review",
-          sourceName: "company",
           endpoint: decodeRegistryEndpointSync(inspectionRegistryUrl),
         }),
       },

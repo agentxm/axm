@@ -109,24 +109,3 @@ export const requireForeignGitRoot = (
   if (commonRelative.startsWith("..") || isAbsolute(commonRelative))
     throw new Error(`Foreign Git common directory escapes ${expected}: ${common}.`);
 };
-
-export const tryCapture = (
-  command: string,
-  args: readonly string[],
-  env?: NodeJS.ProcessEnv,
-): { ok: true; stdout: string } | { ok: false; stderr: string } => {
-  try {
-    return {
-      ok: true,
-      stdout: capture(command, args, env),
-    };
-  } catch (error) {
-    const stderr =
-      error instanceof Error && "stderr" in error && typeof error.stderr === "string"
-        ? error.stderr.trim()
-        : error instanceof Error
-          ? error.message
-          : String(error);
-    return { ok: false, stderr };
-  }
-};

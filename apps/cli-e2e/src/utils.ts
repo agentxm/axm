@@ -54,7 +54,7 @@ export const writeDefaultRegistrySettings = (settingsPath: string, location: str
 export const writeUserDefaultRegistry = (home: string, location: string): void =>
   writeDefaultRegistrySettings(path.join(home, ".axm", "workspace", "axm.json"), location);
 
-export const FIXTURES_PATH = fileURLToPath(new URL("./fixtures/", import.meta.url));
+const FIXTURES_PATH = fileURLToPath(new URL("./fixtures/", import.meta.url));
 const skillsRepoFixtureSource = path.join(FIXTURES_PATH, "skills-repo");
 
 // Give each Vitest worker its own mutable copy so parallel E2E files cannot interfere.
@@ -65,5 +65,3 @@ process.once("exit", () => {
 });
 
 export const SKILLS_REPO_FIXTURE = sharedSkillsRepoFixture.path;
-
-export const copySkillsRepoFixture = () => copyFixture(skillsRepoFixtureSource);

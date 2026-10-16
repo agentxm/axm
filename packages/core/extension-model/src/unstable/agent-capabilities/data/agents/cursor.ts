@@ -133,7 +133,6 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -235,7 +234,6 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: {
           config: {
             locationIds: ["project", "user"],
@@ -289,7 +287,6 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -528,7 +525,6 @@ export const cursorAgent = {
           locationIds: ["project", "user"],
           eventMap: "native.events",
         },
-        lastVerified: null,
       },
     },
   },
@@ -582,7 +578,6 @@ export const cursorAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -717,7 +712,6 @@ export const cursorAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

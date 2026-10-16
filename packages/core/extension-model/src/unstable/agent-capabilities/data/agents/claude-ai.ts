@@ -77,7 +77,6 @@ export const claudeAiAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -103,7 +102,6 @@ export const claudeAiAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         reason: "Claude connector setup is hosted and UI-mediated.",
         writer: null,
       },
@@ -130,7 +128,6 @@ export const claudeAiAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -157,7 +154,6 @@ export const claudeAiAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -175,7 +171,6 @@ export const claudeAiAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },
@@ -193,7 +188,6 @@ export const claudeAiAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

@@ -8,7 +8,7 @@ const unreviewed = {
     docs: [],
     sources: ["https://code.visualstudio.com/docs/agents/reference/mcp-configuration"],
   },
-  axm: { status: "unsupported", writer: null, lastVerified: null },
+  axm: { status: "unsupported", writer: null },
 } as const;
 
 export const vscodeAgent = {
@@ -133,7 +133,6 @@ export const vscodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: { config: { locationIds: ["project", "user"] } },
       },
     },

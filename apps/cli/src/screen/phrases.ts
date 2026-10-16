@@ -248,14 +248,6 @@ export const blockingClass = (value: BlockingClass): string => {
 export const systemWaitStatus = (value: BlockingClass): string =>
   `Waiting - ${blockingClass(value)}`;
 
-/**
- * What stopping a system wait costs, where that is known. Contention for the
- * workspace is decided before anything is written, so leaving it changes
- * nothing.
- */
-export const systemWaitHint = (value: BlockingClass): string | undefined =>
-  value === "resource-conflict" ? "ctrl-c stops waiting; nothing has been changed" : undefined;
-
 export const interruptionPhrase = (
   signal: "SIGINT" | "SIGTERM",
   disposition: UnitDisposition,

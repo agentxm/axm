@@ -134,7 +134,6 @@ export const githubCopilotCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -269,7 +268,6 @@ export const githubCopilotCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: {
           config: {
             locationIds: ["user", "project"],
@@ -326,7 +324,6 @@ export const githubCopilotCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -360,7 +357,6 @@ export const githubCopilotCliAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM has not implemented a GitHub Copilot CLI hook writer.",
       },
     },
@@ -414,7 +410,6 @@ export const githubCopilotCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -528,7 +523,6 @@ export const githubCopilotCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

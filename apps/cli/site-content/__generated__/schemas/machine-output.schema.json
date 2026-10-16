@@ -5035,20 +5035,6 @@
                 "enum": ["skill", "mcp-server", "subagent", "hook", "rule", "permissions"]
               },
               "status": { "$ref": "#/$defs/AxmSupport" },
-              "legacyLastVerified": {
-                "anyOf": [{ "$ref": "#/$defs/LastVerifiedDate" }, { "type": "null" }]
-              },
-              "legacyAgeDays": {
-                "anyOf": [
-                  {
-                    "anyOf": [
-                      { "type": "number" },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
-                  { "type": "null" }
-                ]
-              },
               "reviewedAt": {
                 "anyOf": [{ "$ref": "#/$defs/LastVerifiedDate" }, { "type": "null" }]
               },
@@ -5098,8 +5084,6 @@
               "agentId",
               "capability",
               "status",
-              "legacyLastVerified",
-              "legacyAgeDays",
               "reviewedAt",
               "reviewAgeDays",
               "reviewMissing",
@@ -5214,14 +5198,11 @@
                           { "type": "string", "enum": ["writer"] }
                         ]
                       },
-                      "legacyLastVerified": {
-                        "anyOf": [{ "$ref": "#/$defs/LastVerifiedDate" }, { "type": "null" }]
-                      },
                       "verification": {
                         "anyOf": [{ "$ref": "#/$defs/AxmVerification" }, { "type": "null" }]
                       }
                     },
-                    "required": ["status", "legacyLastVerified", "verification"],
+                    "required": ["status", "verification"],
                     "additionalProperties": false
                   },
                   "installability": {
@@ -5258,20 +5239,6 @@
                         "enum": ["skill", "mcp-server", "subagent", "hook", "rule", "permissions"]
                       },
                       "status": { "$ref": "#/$defs/AxmSupport" },
-                      "legacyLastVerified": {
-                        "anyOf": [{ "$ref": "#/$defs/LastVerifiedDate" }, { "type": "null" }]
-                      },
-                      "legacyAgeDays": {
-                        "anyOf": [
-                          {
-                            "anyOf": [
-                              { "type": "number" },
-                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                            ]
-                          },
-                          { "type": "null" }
-                        ]
-                      },
                       "reviewedAt": {
                         "anyOf": [{ "$ref": "#/$defs/LastVerifiedDate" }, { "type": "null" }]
                       },
@@ -5321,8 +5288,6 @@
                       "agentId",
                       "capability",
                       "status",
-                      "legacyLastVerified",
-                      "legacyAgeDays",
                       "reviewedAt",
                       "reviewAgeDays",
                       "reviewMissing",

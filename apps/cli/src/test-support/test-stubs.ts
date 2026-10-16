@@ -8,12 +8,10 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   computePackageContentHash,
   computePackManifestContentIdentity,
   emitLockfileToml,
-  type RegistryPackLockEntry,
   type SkillLockEntry,
   type TreeIntegrity,
   TreeIntegritySchema,
@@ -30,7 +28,6 @@ import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/workspace-kernel/materi
 import {
   ExtensionDependencyConstraintMapSchema,
   PackMemberConstraintMapSchema,
-  type PackMemberConstraintMap,
   decodeExtensionNameSync,
   type ExtensionDependencyConstraintMap,
   type ExtensionName,
@@ -141,7 +138,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Accept concise fixture shapes useful to command tests, but publish only
- * valid v12 accepted resolutions to the workspace under test.
+ * current accepted resolutions to the workspace under test.
  * Authored workspace packages deliberately have no lock row.
  */
 const normalizeTestLockMap = (
@@ -458,9 +455,6 @@ export const makeLocalSkillLockEntry = (opts?: {
   readonly owner?: Handle;
   readonly name?: ExtensionName;
   readonly path?: string;
-  readonly agents?: ReadonlyArray<string>;
-  readonly installedAt?: unknown;
-  readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   source: { type: "path", path: opts?.path ?? "installed" },
   identity: {
@@ -476,12 +470,8 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly name: ExtensionName;
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
-  readonly sourceName?: string;
   readonly endpoint?: RegistryEndpoint;
   readonly publisherBindingId?: string;
-  readonly agents?: ReadonlyArray<string>;
-  readonly installedAt?: unknown;
-  readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   source: {
     type: "registry",
@@ -494,45 +484,4 @@ export const makeRegistrySkillLockEntry = (opts: {
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
   },
   treeIntegrity: TEST_TREE_INTEGRITY,
-});
-
-export const makeRegistryPackLockEntry = (opts: {
-  readonly owner: Handle;
-  readonly name: ExtensionName;
-  readonly resolvedVersion?: Version;
-  readonly integrity?: string;
-  readonly sourceName?: string;
-  readonly endpoint?: RegistryEndpoint;
-  readonly publisherBindingId?: string;
-  readonly sourceHash?: string;
-  readonly dependencies?: PackMemberConstraintMap;
-  readonly resolvedSkills?: Readonly<Record<string, unknown>>;
-  readonly resolvedMcpServers?: Readonly<Record<string, unknown>>;
-  readonly resolvedSubagents?: Readonly<Record<string, unknown>>;
-  readonly installedAt?: unknown;
-  readonly updatedAt?: unknown;
-}): RegistryPackLockEntry => ({
-  source: {
-    type: "registry",
-    url: opts.endpoint ?? decodeRegistryEndpointSync("https://registry.agentxm.ai"),
-  },
-  identity: { owner: normalizeHandle(opts.owner), name: extensionName(opts.name) },
-  resolved: {
-    version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-    integrity: opts.integrity ?? `sha512-${"A".repeat(86)}==`,
-    publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
-  },
-  treeIntegrity: TEST_TREE_INTEGRITY,
-  manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-  manifestContentIdentity:
-    opts.sourceHash === undefined
-      ? computePackManifestContentIdentity({
-          owner: normalizeHandle(opts.owner),
-          type: "pack",
-          name: opts.name,
-          version: opts.resolvedVersion ?? "1.0.0",
-          dependencies: opts.dependencies ?? {},
-        })
-      : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
-  dependencies: opts.dependencies ?? {},
 });

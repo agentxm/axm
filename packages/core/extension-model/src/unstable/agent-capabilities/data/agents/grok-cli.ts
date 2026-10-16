@@ -112,7 +112,6 @@ export const grokCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -141,7 +140,6 @@ export const grokCliAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented a Grok CLI MCP config writer.",
       },
@@ -195,7 +193,6 @@ export const grokCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -219,7 +216,6 @@ export const grokCliAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM has not implemented a Grok CLI hooks writer.",
       },
     },
@@ -261,7 +257,6 @@ export const grokCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -322,7 +317,6 @@ export const grokCliAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented Grok CLI permission grant writing.",
     },

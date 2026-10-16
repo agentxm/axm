@@ -113,7 +113,6 @@ export const mimoCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: null,
         verification: {
           verifiedAt: "2026-10-01",
@@ -160,7 +159,6 @@ export const mimoCodeAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "AXM has no verified writer for this native configuration dialect.",
       },
@@ -224,7 +222,6 @@ export const mimoCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: null,
         verification: {
           verifiedAt: "2026-10-01",
@@ -250,7 +247,6 @@ export const mimoCodeAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "No verified native extension target or AXM projection is recorded.",
       },
@@ -270,7 +266,6 @@ export const mimoCodeAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "No verified native extension target or AXM projection is recorded.",
     },
@@ -310,7 +305,6 @@ export const mimoCodeAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has no verified permission-grant adapter for this target.",
     },

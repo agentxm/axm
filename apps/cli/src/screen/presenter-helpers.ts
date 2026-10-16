@@ -2,13 +2,6 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import type { SuggestionOptions } from "./output.js";
 import type { LedgerColumn, Span } from "./doc.js";
 
-const ANSI_RESET = "\u001b[0m";
-
-export const annotate = (text: string, styles: ReadonlyArray<string>): string =>
-  styles.length === 0 ? text : `${styles.join("")}${text}${ANSI_RESET}`;
-
-export const repeat = (value: string, count: number): string => value.repeat(Math.max(0, count));
-
 export const ensureNewline = (content: string): string =>
   content.length === 0 || content.endsWith("\n") ? content : `${content}\n`;
 

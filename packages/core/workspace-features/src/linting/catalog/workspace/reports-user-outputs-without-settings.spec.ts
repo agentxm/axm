@@ -64,7 +64,6 @@ describe("User outputs without settings", () => {
               review: makeRegistrySkillLockEntry({
                 owner: decodeHandleSync("@acme"),
                 name: "review",
-                sourceName: "agentxm",
               }),
             },
           }),

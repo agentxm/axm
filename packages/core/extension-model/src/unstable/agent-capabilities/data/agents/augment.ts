@@ -127,7 +127,6 @@ export const augmentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -208,7 +207,6 @@ export const augmentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: {
           config: {
             locationIds: ["user"],
@@ -265,7 +263,6 @@ export const augmentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -417,7 +414,6 @@ export const augmentAgent = {
 
           eventMap: "native.events",
         },
-        lastVerified: "2026-08-05",
       },
     },
   },
@@ -449,7 +445,6 @@ export const augmentAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -510,7 +505,6 @@ export const augmentAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

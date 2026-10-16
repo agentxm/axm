@@ -229,28 +229,15 @@ export const mapNetworkError = (
 // -----------------------------------------------------------------------------
 
 /**
- * Map an input Schema encode error to a typed registry failure.
- */
-export const mapInputSchemaError = (error: unknown, message: string): RegistryRequestFailed =>
-  new RegistryRequestFailed({
-    reason: "transport",
-    category: "validation",
-    detail: message,
-    cause: error,
-  });
-
-/**
  * Map a response Schema decode error to a typed registry failure.
  */
-export const mapResponseSchemaError = (error: unknown, message: string): RegistryRequestFailed =>
+export const mapSchemaError = (error: unknown, message: string): RegistryRequestFailed =>
   new RegistryRequestFailed({
     reason: "transport",
     category: "internal",
     detail: message,
     cause: error,
   });
-
-export const mapSchemaError = mapResponseSchemaError;
 
 // -----------------------------------------------------------------------------
 // Generic Error Mapping

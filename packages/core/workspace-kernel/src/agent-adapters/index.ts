@@ -66,13 +66,6 @@ export {
 // Constants (path helpers)
 export { getConfigHome } from "./constants.js";
 
-// Catalog-derived agent path helpers
-export {
-  agentSkillsProjectDir,
-  agentSubagentsProjectDir,
-  agentSubagentsProjectDirOptional,
-} from "./descriptor-paths.js";
-
 // Scope wording
 export { userScopeRefusal, type UserScopedExtension } from "./scope-refusal.js";
 
@@ -168,7 +161,6 @@ export {
   removeAgentMcpConfig,
   retireAgentMcpConfig,
   validateAgentMcpConfigWrite,
-  validateAgentMcpConfigRemoval,
   validateAgentMcpConfigRemovals,
   removeAgentMcpConfigs,
   type RemoveAgentMcpConfigsArgs,
@@ -248,7 +240,6 @@ export { reconcileNativeHookConfig, type NativeHookConfigArgs } from "./hooks/na
 export {
   isDeclaredHookEntry,
   declaredHookUnits,
-  readDeclaredHookCommands,
   readDeclaredHookUnits,
   readDeclaredHookGroups,
   selectDeclaredHookGroups,
@@ -286,7 +277,6 @@ export {
   McpDistributionSchema,
   McpBindingSchema,
   normalizeMcpValue,
-  mcpValueHasReference,
   isMcpCredentialName,
   validateMcpConnection,
   type McpValue,

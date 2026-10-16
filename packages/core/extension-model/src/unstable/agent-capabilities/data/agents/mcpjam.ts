@@ -55,7 +55,6 @@ export const mcpjamAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -78,7 +77,6 @@ export const mcpjamAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "AXM does not manage MCPJam's inspector config file — the --config path is arbitrary with no stable writable project location.",
@@ -95,7 +93,6 @@ export const mcpjamAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -111,7 +108,6 @@ export const mcpjamAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -126,7 +122,6 @@ export const mcpjamAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },
@@ -141,7 +136,6 @@ export const mcpjamAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

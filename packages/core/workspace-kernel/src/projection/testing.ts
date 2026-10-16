@@ -31,7 +31,6 @@ import {
   type ProjectionParticipantsService,
   type SubagentProjectionObserver,
 } from "./participants.js";
-import { WorkspaceInvariantFacts, type ProjectionInvariantFact } from "./invariant-facts.js";
 
 /** Apply an already observed snapshot to exercise the freshness boundary. */
 export { applyInstructionProjection } from "./instructions/instructions.js";
@@ -56,10 +55,6 @@ export const codingAgentRepositoryLayer = (
 ): Layer.Layer<CodingAgentRepository> =>
   Layer.succeed(CodingAgentRepository, makeCodingAgentRepository(configuredAgentIds));
 
-/** A workspace with shared location policy and no configured agents. */
-export const EmptyCodingAgentRepository: Layer.Layer<CodingAgentRepository> =
-  codingAgentRepositoryLayer([]);
-
 /** A participant registry with the owners a test declares, and no others. */
 export const makeProjectionParticipants = (args: {
   readonly aggregates?: ReadonlyArray<ProjectionParticipant>;
@@ -69,24 +64,8 @@ export const makeProjectionParticipants = (args: {
   subagents: args.subagents === undefined ? Option.none() : Option.some(args.subagents),
 });
 
-/** Layer form of {@link makeProjectionParticipants}. */
-export const projectionParticipantsLayer = (args: {
-  readonly aggregates?: ReadonlyArray<ProjectionParticipant>;
-  readonly subagents?: SubagentProjectionObserver;
-}): Layer.Layer<ProjectionParticipants> =>
-  Layer.succeed(ProjectionParticipants, makeProjectionParticipants(args));
-
 /** No owners: every projection fact comes from workspace state alone. */
 export const NoProjectionParticipants: Layer.Layer<ProjectionParticipants> = Layer.succeed(
   ProjectionParticipants,
   emptyProjectionParticipants,
 );
-
-/** Facts a test states outright, for consumers that only read them. */
-export const workspaceInvariantFactsLayer = (
-  facts: ReadonlyArray<ProjectionInvariantFact>,
-): Layer.Layer<WorkspaceInvariantFacts> =>
-  Layer.succeed(WorkspaceInvariantFacts, {
-    projectionFacts: Effect.succeed(facts),
-    projectionFactsForGraph: () => Effect.succeed(facts),
-  });

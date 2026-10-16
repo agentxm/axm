@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   requirement: "cli/agents/capabilities/describes-native-support-and-axm-integration",
   title: "Agent capabilities distinguish native support from AXM integration",
   statement:
-    "When a person inspects a coding agent’s capabilities, AXM shall report native availability separately from AXM integration and qualified installability, distinguish scoped source review from attributable execution verification and legacy record dates, expose missing evidence and its age against the quarterly review budget for every capability, preserve declared native locations and conditions, and report the agent’s lifecycle rather than treating a retired agent as unknown.",
+    "When a person inspects a coding agent’s capabilities, AXM shall report native availability separately from AXM integration and qualified installability, distinguish scoped source review from attributable execution verification, expose missing evidence and its age against the quarterly review budget for every capability, preserve declared native locations and conditions, and report the agent’s lifecycle rather than treating a retired agent as unknown.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "actionable-diagnostics"],
@@ -71,7 +71,6 @@ describe("Coding-agent capability reports", () => {
       // exists only because AXM writes it.
       const skill = report.items.find((item) => item.type === "skill");
       expect(skill).toMatchObject({ native: "native", axm: "supported" });
-      expect(skill?.assessment.axm).toHaveProperty("legacyLastVerified");
       expect(skill?.assessment.axm).toHaveProperty("verification");
       expect(skill?.assessment.native).toHaveProperty("review");
       expect(skill?.assessment.installability).toHaveProperty("conditions");

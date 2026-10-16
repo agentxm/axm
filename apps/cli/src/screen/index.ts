@@ -96,7 +96,6 @@ export {
   CurrentScreenOperationId,
   ScreenLive,
   ScreenMachine,
-  emitSuggestionEvents,
   type ResultOptions,
   type ScreenLogRecord,
 } from "./screen.js";

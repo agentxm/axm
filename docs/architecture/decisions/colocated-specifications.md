@@ -34,8 +34,7 @@ project owns it.
   to the nearest project root above it. A `*.spec.ts` is accepted only when
   its owner ships runtime code (`domain:*` or `role:application`) or is an
   end-to-end project (`role:e2e`, boundary specifications beside their
-  execution bindings); it must sit under the owner's source root or its
-  `specifications/` directory. Nothing is a hand-maintained inventory of
+  execution bindings); it must sit under the owner's source root. Nothing is a hand-maintained inventory of
   areas, packages, or directories. A Git ref is read the same way from
   `git ls-tree`, so both sides of a verdict resolve ownership identically
   across layouts.
@@ -80,11 +79,10 @@ project owns it.
 The central `specifications` project tied identity to path, ran every
 specification through one harness, and grouped the catalog by directory. As
 packages are classified by domain and role and the corpus moves beside its
-owners, the verification tooling had to stop assuming one root, one project,
+owners, the verification tooling stopped assuming one root, one project,
 and one directory-derived identity, and it had to distinguish a move from a
-removal plus an addition. The corpus itself moves separately; this decision
-makes every piece of infrastructure work for a specification located in any
-authored project first.
+removal plus an addition. The corpus is now colocated, and discovery rejects
+specifications outside their owner's source root.
 
 ## Alternatives considered
 

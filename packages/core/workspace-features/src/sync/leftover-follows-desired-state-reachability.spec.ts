@@ -52,7 +52,7 @@ const installedSkill = (name: string) => ({
 });
 
 const acceptedSkill = (name: string) =>
-  makeRegistrySkillLockEntry({ owner: decodeHandleSync("@acme"), name, sourceName: "agentxm" });
+  makeRegistrySkillLockEntry({ owner: decodeHandleSync("@acme"), name });
 
 const cases = [
   {

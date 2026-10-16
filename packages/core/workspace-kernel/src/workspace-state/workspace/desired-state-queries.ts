@@ -81,10 +81,6 @@ export const unresolvedPackRoutes = (
 ): ReadonlyArray<DesiredPackMembership> =>
   graph.packMembership.filter((membership) => membership.enabled && membership.routes !== "active");
 
-/** Whether every configured Pack's declared membership is known, active or not. */
-export const desiredMembershipKnown = (graph: Pick<DesiredStateGraph, "packMembership">): boolean =>
-  graph.packMembership.every((membership) => membership.declared.status === "known");
-
 /** Stable text naming each unresolved Pack and why its routes are unresolved. */
 export const unresolvedPackRoutesText = (routes: ReadonlyArray<DesiredPackMembership>): string =>
   routes

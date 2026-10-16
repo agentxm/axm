@@ -94,7 +94,6 @@ export const deepagentsAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -152,7 +151,6 @@ export const deepagentsAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "Deep Agents natively supports MCP servers, but the exact config file path, servers key, and serialization dialect are unverified; no AXM writer is defined to avoid fabricating an install path.",
@@ -211,7 +209,6 @@ export const deepagentsAgent = {
       axm: {
         status: "unsupported",
         reason: "Native nested AGENTS.md profile writing is unverified.",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -260,7 +257,6 @@ export const deepagentsAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -338,7 +334,6 @@ export const deepagentsAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -370,7 +365,6 @@ export const deepagentsAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

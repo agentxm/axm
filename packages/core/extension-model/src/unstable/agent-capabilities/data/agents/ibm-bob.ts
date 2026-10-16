@@ -44,7 +44,6 @@ export const ibmBobAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -138,7 +137,6 @@ export const ibmBobAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: {
           config: {
             locationIds: ["user", "project"],
@@ -189,7 +187,6 @@ export const ibmBobAgent = {
       axm: {
         status: "unsupported",
         reason: "Native ownership is unverified.",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -205,7 +202,6 @@ export const ibmBobAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -247,7 +243,6 @@ export const ibmBobAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -306,7 +301,6 @@ export const ibmBobAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented an IBM Bob custom-modes permission writer.",
     },

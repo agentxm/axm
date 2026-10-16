@@ -56,7 +56,6 @@ export const replitAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -79,7 +78,6 @@ export const replitAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "Replit Agent MCP is UI-managed (Integrations pane / install-links) with no AXM-writable config file.",
@@ -96,7 +94,6 @@ export const replitAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -112,7 +109,6 @@ export const replitAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -127,7 +123,6 @@ export const replitAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },
@@ -142,7 +137,6 @@ export const replitAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

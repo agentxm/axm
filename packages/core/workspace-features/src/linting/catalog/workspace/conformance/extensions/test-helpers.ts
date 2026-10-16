@@ -186,7 +186,6 @@ const canonicalReviewer: ActualSkill = {
   sourcePath: "/workspace/agent_extensions/registry.agentxm.ai/@acme/skills/reviewer/src/SKILL.md",
   packageRoot: "/workspace/agent_extensions/registry.agentxm.ai/@acme/skills/reviewer",
   hasSkillMd: true,
-  hasSkillJson: true,
 };
 
 const skillIntegrityContext = (canonicalPresent: boolean) =>

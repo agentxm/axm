@@ -75,7 +75,6 @@ export const piAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -161,7 +160,6 @@ export const piAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: { config: { locationIds: ["project", "user"] } },
       },
     },
@@ -224,7 +222,6 @@ export const piAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -246,7 +243,6 @@ export const piAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM has not implemented Pi extension hook writers.",
       },
     },
@@ -280,7 +276,6 @@ export const piAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -295,7 +290,6 @@ export const piAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

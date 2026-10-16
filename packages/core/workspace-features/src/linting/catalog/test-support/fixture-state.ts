@@ -1,10 +1,6 @@
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
-import type {
-  FileSpec,
-  FixtureSpec,
-  ScopeFiles,
-} from "@agentxm/workspace-kernel/workspace-state/testing";
+import type { FileSpec, ScopeFiles } from "@agentxm/workspace-kernel/workspace-state/testing";
 import type { WorkspaceState } from "./interpret-ops.js";
 
 const pathSegments = (relativePath: string): ReadonlyArray<string> =>
@@ -96,12 +92,6 @@ export const scopeFilesFromWorkspaceState = (state: WorkspaceState): ScopeFiles 
       addTreeFile(axmExtensions, relativePath.slice(acquiredPrefix.length));
       return;
     }
-    const axmPrefix = "agent_extensions/";
-    if (relativePath.startsWith(axmPrefix)) {
-      addTreeFile(axmExtensions, relativePath.slice(axmPrefix.length));
-      return;
-    }
-
     for (const agent of agents) {
       if (
         agent.skills?.locations.some(
@@ -140,19 +130,5 @@ export const scopeFilesFromWorkspaceState = (state: WorkspaceState): ScopeFiles 
     ...(Object.keys(axmExtensions).length === 0 ? {} : { axmExtensions }),
     ...(Object.keys(agentDirs).length === 0 ? {} : { agentDirs }),
     ...(Object.keys(agentSettings).length === 0 ? {} : { agentSettings }),
-  };
-};
-
-export const fixtureSpecFromWorkspaceState = (
-  state: WorkspaceState,
-  scope: "project" | "user",
-  roots: { readonly workspaceRoot: string; readonly userHome: string },
-): FixtureSpec => {
-  const scopeFiles = scopeFilesFromWorkspaceState(state);
-  return {
-    workspaceRoot: roots.workspaceRoot,
-    userHome: roots.userHome,
-    ...(scope === "project" ? { project: scopeFiles } : {}),
-    ...(scope === "user" ? { user: scopeFiles } : {}),
   };
 };

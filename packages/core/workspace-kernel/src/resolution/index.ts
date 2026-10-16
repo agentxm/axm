@@ -45,13 +45,8 @@ export {
   namedRegistryCandidates,
 } from "./named-registry-resolution.js";
 
-// The operator's posture for one invocation, and the bound on how long
-// resolving one configured entry may take.
+// The operator's posture for one invocation.
 export { ReleaseAgePosture, type ReleaseAgePostureValue } from "./release-age-posture.js";
-export {
-  CONFIGURED_ENTRY_RESOLUTION_TIMEOUT,
-  withConfiguredEntryResolutionTimeout,
-} from "./resolution-timeout.js";
 
 // Which source may supply a configured extension.
 export {

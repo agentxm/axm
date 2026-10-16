@@ -78,7 +78,7 @@ export const antigravityCliAgent = {
           },
         ],
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: { status: "supported", writer: null },
     },
     "mcp-server": {
       native: {
@@ -98,7 +98,6 @@ export const antigravityCliAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "The Antigravity CLI shares product configuration with the desktop surface; AXM avoids a second writer until shared-target ownership is explicit.",
@@ -150,7 +149,6 @@ export const antigravityCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: null,
         verification: {
           verifiedAt: "2026-10-01",
@@ -179,7 +177,6 @@ export const antigravityCliAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "Antigravity's named hook bundles require a serializer AXM does not implement.",
       },
     },
@@ -220,7 +217,7 @@ export const antigravityCliAgent = {
       nestedDiscovery: true,
       importSyntax: null,
     },
-    axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+    axm: { status: "supported", writer: null },
   },
   permissions: {
     native: {
@@ -260,7 +257,6 @@ export const antigravityCliAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM does not yet implement Antigravity CLI permission-rule patches.",
     },

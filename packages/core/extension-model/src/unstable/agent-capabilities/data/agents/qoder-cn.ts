@@ -47,7 +47,7 @@ export const qoderCnAgent = {
           },
         ],
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: { status: "supported", writer: null },
     },
     "mcp-server": {
       native: {
@@ -68,7 +68,6 @@ export const qoderCnAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "AXM has not verified the Qoder CN CLI dialect independently from global Qoder.",
       },
@@ -94,7 +93,7 @@ export const qoderCnAgent = {
           },
         ],
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: { status: "supported", writer: null },
     },
     hook: {
       native: {
@@ -114,7 +113,6 @@ export const qoderCnAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason:
           "The regional CLI hook dialect requires a separate vendor-doc verification before AXM writes it.",
       },
@@ -146,7 +144,7 @@ export const qoderCnAgent = {
       nestedDiscovery: true,
       importSyntax: null,
     },
-    axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+    axm: { status: "supported", writer: null },
   },
   permissions: {
     native: {
@@ -208,7 +206,6 @@ export const qoderCnAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented regional Qoder permission settings.",
     },

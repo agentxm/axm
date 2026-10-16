@@ -281,7 +281,6 @@ export const listCapabilities = (agent: Agent): ReadonlyArray<CapabilityListing>
     if (
       capability.axm.status !== "unsupported" ||
       capability.axm.writer !== null ||
-      capability.axm.lastVerified !== null ||
       capability.native.availability.via !== "none" ||
       capability.native.sources.length > 0 ||
       capability.native.docs.length > 0 ||

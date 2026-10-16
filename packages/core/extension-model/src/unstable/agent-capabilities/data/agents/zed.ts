@@ -70,7 +70,7 @@ export const zedAgent = {
           claimScope: "Built-in Zed Agent skill roots and trust boundary",
         },
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: { status: "supported", writer: null },
     },
     "mcp-server": {
       native: {
@@ -91,7 +91,6 @@ export const zedAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented a Zed settings writer for context servers.",
       },
@@ -105,7 +104,7 @@ export const zedAgent = {
         docs: [],
         sources: [],
       },
-      axm: { status: "unsupported", lastVerified: null, writer: null },
+      axm: { status: "unsupported", writer: null },
     },
     hook: {
       native: {
@@ -116,7 +115,7 @@ export const zedAgent = {
         docs: [],
         sources: [],
       },
-      axm: { status: "unsupported", writer: null, lastVerified: null },
+      axm: { status: "unsupported", writer: null },
     },
   },
   instructions: {
@@ -145,7 +144,7 @@ export const zedAgent = {
       nestedDiscovery: true,
       importSyntax: null,
     },
-    axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+    axm: { status: "supported", writer: null },
   },
   permissions: {
     native: {
@@ -164,7 +163,6 @@ export const zedAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented Zed tool-permission settings.",
     },

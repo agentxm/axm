@@ -66,7 +66,6 @@ export {
   makeVerbosityLayer,
   verbosityToLogLevel,
 } from "./verbosity.js";
-export { whenDebug, whenNotQuiet, whenVerbose } from "./verbosity-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Per-command flag definitions — import and include in Command.make() flags

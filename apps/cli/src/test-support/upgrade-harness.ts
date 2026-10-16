@@ -18,7 +18,6 @@ import { type InstallMethodType, Homebrew } from "@agentxm/cli-maintenance/self-
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
@@ -43,7 +42,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { ExecutionDirectory } from "../execution-directory.js";
-import { UpgradeDocumentSchema, handleUpgrade } from "../root/upgrade/handler.js";
+import { handleUpgrade } from "../root/upgrade/handler.js";
 import {
   humanScreenLayer,
   machineScreenLayer,
@@ -169,7 +168,3 @@ export const runUpgradeCommand = (options?: UpgradeCommandOptions) =>
       exitCode: outcome.exitCode,
     } satisfies UpgradeCommandRun;
   });
-
-/** Decode the assessment document a machine-mode run emitted. */
-export const upgradeDocument = (run: UpgradeCommandRun) =>
-  Schema.decodeUnknownEffect(UpgradeDocumentSchema)(run.document);

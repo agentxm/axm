@@ -136,13 +136,15 @@ describe("discoverSpecifications", () => {
       ]),
     ).toEqual([
       ["cli/process/boundary", "cli-e2e", "apps/cli-e2e/src/process.spec.ts"],
-      ["model/legacy", "model", "packages/core/model/specifications/legacy.spec.ts"],
       ["model/area/rule", "model", "packages/core/model/src/area/rule.spec.ts"],
     ]);
     const messages = discovered.issues.map((issue) => `${issue.source}: ${issue.message}`);
     expect(messages).toEqual([
       expect.stringContaining(
         "packages/core/model/docs/misplaced.spec.ts: specification lives outside",
+      ),
+      expect.stringContaining(
+        "packages/core/model/specifications/legacy.spec.ts: specification lives outside",
       ),
       expect.stringContaining(
         "packages/core/model/src/area/sibling.spec.ts: duplicate requirement identity `model/area/rule` (also declared in packages/core/model/src/area/rule.spec.ts)",

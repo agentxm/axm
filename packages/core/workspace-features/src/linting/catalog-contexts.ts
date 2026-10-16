@@ -10,7 +10,7 @@ import type * as Config from "effect/Config";
  * publish gate but never by `axm lint`.
  *
  * Now every catalog is a key of {@link CatalogRuleContexts} and a row of
- * {@link LINT_CATALOGS}. Because the table is checked against
+ * {@link REPOSITORY_LINT_CATALOGS}. Because the table is checked against
  * `Record<ExtensionType | "workspace", ...>`, adding an extension type to
  * `EXTENSION_TYPE_TABLE` fails compile here until its catalog is decided, and
  * deleting a key from `CatalogRuleContexts` fails compile at the row that
@@ -126,9 +126,6 @@ export const lintCatalogsForView = (
   ...REPOSITORY_LINT_CATALOGS,
   workspace: view === "filesystem" ? workspaceRules : REPOSITORY_LINT_CATALOGS.workspace,
 });
-
-/** Complete workspace catalog retained for callers that do not select a view. */
-export const LINT_CATALOGS = lintCatalogsForView("filesystem");
 
 /**
  * Catalog evaluation and rendering order.

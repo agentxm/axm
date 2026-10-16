@@ -535,7 +535,7 @@ export const CatalogReviewSchema = Schema.Struct({
 
 export type CatalogReview = Schema.Schema.Type<typeof CatalogReviewSchema>;
 
-/** Execution evidence is never inferred from documentation or a legacy date. */
+/** Execution evidence is never inferred from documentation. */
 export const AxmVerificationSchema = Schema.Struct({
   verifiedAt: LastVerifiedDateSchema,
   boundary: Schema.Literals(["configuration", "vendor-runtime"]),
@@ -584,33 +584,10 @@ const CapabilityNotesSchema = Schema.NullOr(Schema.NonEmptyString);
 const CapabilityDocsSchema = Schema.Array(DocLinkSchema);
 const CapabilitySourcesSchema = Schema.Array(UrlSchema);
 
-const provenanceFields = <SourcesSchema extends Schema.Top, VerifiedSchema extends Schema.Top>(
-  sources: SourcesSchema,
-  lastVerified: VerifiedSchema,
-) => ({
-  sources,
-  lastVerified,
-});
-
-const NullableProvenanceFields = provenanceFields(
-  CapabilitySourcesSchema,
-  Schema.NullOr(LastVerifiedDateSchema),
-);
-
-const VerifiedProvenanceFields = provenanceFields(
-  Schema.NonEmptyArray(UrlSchema),
-  LastVerifiedDateSchema,
-);
-
-/** @experimental This API is unstable and may change without notice. */
-export const ProvenanceSchema = Schema.Struct(NullableProvenanceFields).annotate({
-  identifier: "Provenance",
-  title: "Provenance",
-  description: "Source URLs and verification date for a catalog capability claim.",
-});
-
-/** @experimental This API is unstable and may change without notice. */
-export type Provenance = Schema.Schema.Type<typeof ProvenanceSchema>;
+const VerifiedProvenanceFields = {
+  sources: Schema.NonEmptyArray(UrlSchema),
+  lastVerified: LastVerifiedDateSchema,
+};
 
 const UnavailableNativeCapabilityFields = {
   availability: Schema.Union([NoneAvailabilitySchema, UnknownAvailabilitySchema]),
@@ -642,7 +619,7 @@ const AvailableSpecTrackedNativeCapabilityFields = {
 };
 
 const axmCapabilityStateDescription =
-  "AXM integration state. lastVerified is a legacy record date with no recorded method; only verification carries attributable execution evidence. Neither is a vendor research review.";
+  "AXM integration state. Verification carries attributable execution evidence, separately from vendor research review.";
 
 const axmCapabilityStateSchema = <WriterSchema extends Schema.Top>(
   writerSchema: WriterSchema,
@@ -650,7 +627,6 @@ const axmCapabilityStateSchema = <WriterSchema extends Schema.Top>(
 ) =>
   Schema.Struct({
     status: AxmSupportSchema,
-    lastVerified: Schema.NullOr(LastVerifiedDateSchema),
     verification: Schema.optionalKey(Schema.NullOr(AxmVerificationSchema)),
     reason: Schema.optionalKey(Schema.NonEmptyString),
     writer: Schema.NullOr(writerSchema),

@@ -279,12 +279,8 @@ export const isSpecificationPath = (filePath: string): boolean =>
   filePath.endsWith(".spec.ts") && !isFixturePath(filePath);
 
 /** Whether a specification sits where its owner keeps authored source. */
-export const isAuthoredSpecificationPlacement = (
-  project: WorkspaceProject,
-  filePath: string,
-): boolean =>
-  isUnder(filePath, project.sourceRoot) ||
-  isUnder(filePath, project.root === "" ? "specifications" : `${project.root}/specifications`);
+const isAuthoredSpecificationPlacement = (project: WorkspaceProject, filePath: string): boolean =>
+  isUnder(filePath, project.sourceRoot);
 
 export interface SpecificationDiscovery {
   readonly specifications: readonly SpecificationSource[];
@@ -322,7 +318,7 @@ export const discoverSpecifications = (workspace: Workspace): SpecificationDisco
       issues.push({
         severity: "error",
         source: file,
-        message: `specification lives outside its owner's authored source (\`${project.sourceRoot}/\` or \`${project.root === "" ? "" : `${project.root}/`}specifications/\`)`,
+        message: `specification lives outside its owner's authored source (\`${project.sourceRoot}/\`)`,
       });
       continue;
     }

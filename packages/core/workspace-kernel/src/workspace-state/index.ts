@@ -94,7 +94,7 @@ export {
   type MaterializedTreeIntegrityOptions,
   type TreeIntegrity,
 } from "./workspace/materialized-tree.js";
-export { sanitizeName, normalizeExtensionName } from "./workspace/extension-name.js";
+export { sanitizeName } from "./workspace/extension-name.js";
 export { computePackPathsForLayout, type PackDirPath } from "./workspace/pack-paths.js";
 export { computePackManifestContentIdentity } from "./workspace/pack-manifest-content-identity.js";
 export {
@@ -170,7 +170,6 @@ export {
 } from "./workspace/paths.js";
 
 // Managed filesystem primitives
-export { removeIfExists } from "./workspace/remove-if-exists.js";
 export { createSymlink, type SymlinkResult } from "./workspace/create-symlink.js";
 
 // Read-model record rows + lifecycle views
@@ -197,7 +196,6 @@ export {
   settleDesiredConstraint,
   settleDesiredNodeConstraint,
   UNCONSTRAINED_DESIRED_NODE,
-  isInlineDesiredExtension,
   isRequiredByAnotherOrigin,
   isSourcedDesiredExtension,
   originsOutsidePacks,
@@ -228,7 +226,6 @@ export { evaluateDesiredState } from "./workspace/desired-state-evaluation.js";
 export {
   contributorSetBlockers,
   contributorSetComplete,
-  desiredMembershipKnown,
   desiredProblemSubject,
   desiredReachability,
   desiredStateIdentity,
@@ -341,7 +338,6 @@ export { McpSourceIdentity, McpSourceKey } from "./workspace/mcp-source-identity
 
 // Workspace read model
 export {
-  READ_MODEL_EXTENSION_FAMILY_BY_TYPE,
   makeWorkspaceReadModel,
   WorkspaceReadModelConfig,
   type RawSourceBytes,

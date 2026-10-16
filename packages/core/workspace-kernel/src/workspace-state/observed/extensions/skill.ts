@@ -10,7 +10,7 @@
  *   (`DeclaredSkills`, `ResolvedSkills`, `ActualSkills`);
  * - the subject-specific origin union (`SkillDetectionOrigin`) and
  *   skill-specific facts (`contentRoot`, `sourcePath`, `packageRoot`,
- *   `hasSkillMd`, `hasSkillJson`);
+ *   `hasSkillMd`);
  * - scanner composition (canonical-extensions + agent-dir × skill-rendering
  *   agents);
  * - the `installed` / `active` / `unmanaged` projections, wired
@@ -99,10 +99,7 @@ export type ResolvedSkills = ReadonlyArray<ResolvedSkill>;
  *   `contentRoot` (`SKILL.md`); equal to `null` if the file does not exist;
  * - `packageRoot` — for canonical/external AXM, the registry-publish package
  *   root (parent of `src/<name>/`); `null` for agent-rendered skills;
- * - `hasSkillMd` — convenience boolean derived from `sourcePath`;
- * - `hasSkillJson` — placeholder for the optional `skill.json` companion file
- *   (left `false` in v1; Phase 9 wiring will flip when `agent-settings` or a
- *   future scanner detects it).
+ * - `hasSkillMd` — convenience boolean derived from `sourcePath`.
  */
 export interface ActualSkill {
   readonly key: ExtensionKey<"skill">;
@@ -111,7 +108,6 @@ export interface ActualSkill {
   readonly sourcePath: string | null;
   readonly packageRoot: string | null;
   readonly hasSkillMd: boolean;
-  readonly hasSkillJson: boolean;
 }
 
 /** Actual skills payload — array of observed materialization occurrences. */
@@ -165,8 +161,8 @@ const resolvedFromLockfile = (lockfile: Lockfile): ResolvedSkills => {
 const canonicalToActualSkill = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualSkill => {
   const isExternal = occ.origin === "external-axm";
   // canonical-axm contentLocation ends in `<package>/src` for authored and
-  // owner-qualified packages; external-axm contentLocation is the legacy
-  // user-scope external package root.
+  // owner-qualified packages; external-axm contentLocation is the standalone
+  // Skill package root.
   const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "skill", name: occ.name },
@@ -175,9 +171,6 @@ const canonicalToActualSkill = (occ: CanonicalExtensionOccurrence, scope: Scope)
     sourcePath: Option.getOrNull(occ.subjectFile),
     packageRoot,
     hasSkillMd: occ.subjectFileExists,
-    // Scanner does not probe `skill.json` yet; keep `false` until a future
-    // scanner emission carries it.
-    hasSkillJson: false,
   };
 };
 
@@ -188,9 +181,6 @@ const agentDirToActualSkill = (occ: AgentDirOccurrence, scope: Scope): ActualSki
   sourcePath: Option.getOrNull(occ.subjectFile),
   packageRoot: null,
   hasSkillMd: occ.subjectFileExists,
-  // Scanner does not probe `skill.json` yet; keep `false` until a future
-  // scanner emission carries it.
-  hasSkillJson: false,
 });
 
 // ---------------------------------------------------------------------------

@@ -123,7 +123,6 @@ export const claudeCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -232,7 +231,6 @@ export const claudeCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: {
           config: {
             locationIds: ["project", "user"],
@@ -286,7 +284,6 @@ export const claudeCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -569,7 +566,6 @@ export const claudeCodeAgent = {
           locationIds: ["user", "project", "project-additional-1"],
           eventMap: "native.events",
         },
-        lastVerified: "2026-08-05",
       },
     },
   },
@@ -628,7 +624,6 @@ export const claudeCodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -713,7 +708,6 @@ export const claudeCodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

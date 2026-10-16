@@ -44,7 +44,6 @@ export const kiroCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -124,7 +123,6 @@ export const kiroCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: {
           config: {
             locationIds: ["project", "user"],
@@ -190,7 +188,6 @@ export const kiroCliAgent = {
       axm: {
         status: "unsupported",
         reason: "Native ownership is unverified.",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -224,7 +221,6 @@ export const kiroCliAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM has not implemented a Kiro CLI hooks writer.",
       },
     },
@@ -258,7 +254,6 @@ export const kiroCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -321,7 +316,6 @@ export const kiroCliAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a Kiro CLI custom-agent permission grant writer.",
     },

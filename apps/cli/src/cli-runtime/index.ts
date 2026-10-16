@@ -55,7 +55,6 @@ export {
 export { processOutcome, isProcessOutcome, type ProcessOutcome } from "./process-outcome.js";
 export {
   hasExplicitJsonFlag,
-  optionArgs,
   hasPlainFlag,
   resolveFormatFromArgv,
   resolveFormat,

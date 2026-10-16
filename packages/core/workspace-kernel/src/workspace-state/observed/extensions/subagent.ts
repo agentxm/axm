@@ -42,7 +42,6 @@ import {
 
 export type SubagentDetectionOrigin =
   | { readonly _tag: "canonical-axm-subagent" }
-  | { readonly _tag: "external-axm-subagent" }
   | { readonly _tag: "agent-subagent-dir"; readonly agentId: MaterializationTargetId };
 
 // ---------------------------------------------------------------------------
@@ -109,11 +108,10 @@ const resolvedFromLockfile = (lockfile: Lockfile): ResolvedSubagents => {
 };
 
 const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualSubagent => {
-  const isExternal = occ.origin === "external-axm";
   const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "subagent", name: occ.name },
-    origin: isExternal ? { _tag: "external-axm-subagent" } : { _tag: "canonical-axm-subagent" },
+    origin: { _tag: "canonical-axm-subagent" },
     contentRoot: occ.contentLocation,
     sourcePath: Option.getOrNull(occ.subjectFile),
     packageRoot,

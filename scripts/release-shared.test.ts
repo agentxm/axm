@@ -254,7 +254,7 @@ describe("release CI producer provenance", () => {
 });
 
 describe("bundled skill release stamps", () => {
-  it("updates the manifest and transitions an exact compatibility range", () => {
+  it("updates the manifest and transitions the managed compatibility range", () => {
     const directory = mkdtempSync(join(tmpdir(), "axm-release-skill-"));
     temporaryDirectories.push(directory);
     const manifestPath = join(directory, "skill.json");
@@ -267,7 +267,7 @@ describe("bundled skill release stamps", () => {
     );
     writeFileSync(
       documentPath,
-      '---\nname: axm\ndescription: AXM test skill.\nmetadata:\n  axm.sh/cli-version: "0.2.8"\n  axm.sh/cli-version-range: "0.2.8"\n---\n\n# AXM\n',
+      '---\nname: axm\ndescription: AXM test skill.\nmetadata:\n  axm.sh/cli-version: "0.2.8"\n  axm.sh/cli-version-range: ">=0.2.0 <0.3.0"\n---\n\n# AXM\n',
       "utf8",
     );
 
@@ -284,11 +284,7 @@ describe("bundled skill release stamps", () => {
     });
   });
 
-  it("widens an exact pin into the release minor band", () => {
-    expect(
-      transitionSkillCompatibility({ cliVersion: "0.27.9", cliVersionRange: "0.27.9" }, "0.27.11"),
-    ).toEqual({ cliVersion: "0.27.11", cliVersionRange: ">=0.27.0 <0.28.0" });
-
+  it("retains the managed minor band for a patch release", () => {
     // A patch release no longer strands workspaces still holding the previous
     // patch's skill.
     expect(
@@ -315,6 +311,10 @@ describe("bundled skill release stamps", () => {
         "1.2.4",
       ),
     ).toEqual({ cliVersion: "1.2.4", cliVersionRange: ">=1.2.0 <1.3.0" });
+
+    expect(() =>
+      transitionSkillCompatibility({ cliVersion: "1.2.3", cliVersionRange: "1.2.3" }, "1.2.4"),
+    ).toThrow("skill-release-range-mismatch");
 
     expect(() =>
       transitionSkillCompatibility(

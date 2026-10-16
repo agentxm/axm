@@ -118,10 +118,6 @@ export const UNCONSTRAINED_DESIRED_NODE: DesiredExtensionNode["constraint"] = Re
   contributors: [],
 });
 
-export const isInlineDesiredExtension = <N extends SettledExtensionNode>(
-  node: N,
-): node is N & { readonly authority: "inline" } => node.authority === "inline";
-
 export const isSourcedDesiredExtension = <N extends SettledExtensionNode>(
   node: N,
 ): node is N & { readonly source: string } => node.authority !== "inline";

@@ -49,8 +49,7 @@ import {
 // Detection origin
 // ---------------------------------------------------------------------------
 
-export type KnowledgeDetectionOrigin =
-  { readonly _tag: "canonical-axm-knowledge" } | { readonly _tag: "external-axm-knowledge" };
+export type KnowledgeDetectionOrigin = { readonly _tag: "canonical-axm-knowledge" };
 
 // ---------------------------------------------------------------------------
 // Payloads
@@ -102,11 +101,10 @@ const canonicalToActual = (
   occ: CanonicalExtensionOccurrence,
   scope: Scope,
 ): ActualKnowledgeBundle => {
-  const isExternal = occ.origin === "external-axm";
   const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "knowledge", name: occ.name },
-    origin: isExternal ? { _tag: "external-axm-knowledge" } : { _tag: "canonical-axm-knowledge" },
+    origin: { _tag: "canonical-axm-knowledge" },
     contentRoot: occ.contentLocation,
     packageRoot,
   };

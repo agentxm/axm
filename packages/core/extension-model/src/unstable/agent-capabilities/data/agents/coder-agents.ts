@@ -95,7 +95,6 @@ export const coderAgentsAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: null,
         verification: {
           verifiedAt: "2026-10-01",
@@ -198,7 +197,6 @@ export const coderAgentsAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: {
           config: {
             locationIds: ["project"],
@@ -230,7 +228,6 @@ export const coderAgentsAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "No verified native extension target or AXM projection is recorded.",
       },
@@ -249,7 +246,6 @@ export const coderAgentsAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "No verified native extension target or AXM projection is recorded.",
       },
@@ -269,7 +265,6 @@ export const coderAgentsAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "No verified native extension target or AXM projection is recorded.",
     },
@@ -288,7 +283,6 @@ export const coderAgentsAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "No verified native extension target or AXM projection is recorded.",
     },

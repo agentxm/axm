@@ -44,7 +44,6 @@ export const kodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -67,7 +66,6 @@ export const kodeAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "Native MCP config uses .mcp.json (mcpServers key), but the exact writer dialect is not documented; leaving the AXM MCP writer unbuilt pending an AXM product decision.",
@@ -96,7 +94,6 @@ export const kodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -112,7 +109,6 @@ export const kodeAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -171,7 +167,6 @@ export const kodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -200,7 +195,6 @@ export const kodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },

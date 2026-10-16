@@ -19,8 +19,8 @@ description: >-
   for merely using an installed extension.
 license: FSL-1.1-MIT; https://github.com/agentxm/axm/blob/main/LICENSE
 metadata:
-  axm.sh/cli-version: "0.47.2"
-  axm.sh/cli-version-range: ">=0.47.0 <0.48.0"
+  axm.sh/cli-version: "0.48.0"
+  axm.sh/cli-version-range: ">=0.48.0 <0.49.0"
 ---
 
 # AXM

@@ -5,6 +5,7 @@
 import { pathToFileURL } from "node:url";
 
 import * as Effect from "effect/Effect";
+import * as ConfigProvider from "effect/ConfigProvider";
 import type * as FileSystem from "effect/FileSystem";
 import * as HttpClient from "effect/http/HttpClient";
 import type * as Path from "effect/Path";
@@ -34,7 +35,7 @@ import {
 } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 
 import type { RegistryClient } from "./client.js";
-import { makeRegistryClientFactory } from "./registry-client-factory.js";
+import { makeRegistryClientFactory } from "./index.js";
 import { passThroughRegistryAuthorization } from "./testing.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);
@@ -89,3 +90,29 @@ export const localRegistryClient = (
       authorization: passThroughRegistryAuthorization,
     }).forEndpoint(decodeRegistryEndpointSync(pathToFileURL(root).href)),
   );
+
+/** Build a remote client through its public factory with isolated cache configuration. */
+export const remoteRegistryClient = (
+  httpClient: HttpClient.HttpClient,
+  fileSystem: FileSystem.FileSystem,
+  path: Path.Path,
+  userHome: string,
+) =>
+  makeRegistryClientFactory({
+    httpClient,
+    fileSystem,
+    path,
+    authorization: passThroughRegistryAuthorization,
+  })
+    .forEndpoint(decodeRegistryEndpointSync("https://registry.example.test"), {
+      requestPolicy: {
+        requestTimeout: "1 second",
+        totalDeadline: "2 seconds",
+        maxAttempts: 3,
+        initialBackoff: "0 millis",
+        maxBackoff: "0 millis",
+      },
+    })
+    .pipe(
+      Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ AXM_USER_HOME: userHome }))),
+    );

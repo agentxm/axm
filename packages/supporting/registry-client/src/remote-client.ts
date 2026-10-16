@@ -13,7 +13,7 @@ import { RegistryRequestAttempt } from "./request-attempt.js";
 
 import * as Headers from "effect/http/Headers";
 import * as HttpClient from "effect/http/HttpClient";
-import type * as HttpClientError from "effect/http/HttpClientError";
+import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
@@ -51,7 +51,12 @@ import {
   ExtensionIndexSchema,
   type ExtensionIndex,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
-import { DiscoverPackagesResponseSchema } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
+import {
+  DiscoverPackagesResponseSchema,
+  MAX_DISCOVERY_DECLARED_EXTENSIONS,
+  MAX_DISCOVERY_PACKAGES,
+  MAX_DISCOVERY_REQUEST_BYTES,
+} from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import {
   ResolutionMetadataResponseSchema,
   type ResolutionMetadataRequest,
@@ -378,8 +383,8 @@ const contentLength = (response: HttpClientResponse.HttpClientResponse): number 
 
 /**
  * Stream one archive body into memory, reporting received bytes per chunk and
- * zero bytes when a retry attempt begins. Non-2xx statuses fail as `HttpClientError` so
- * the caller's mapping keeps the response evidence.
+ * zero bytes when a retry attempt begins. Only a complete 200 representation is
+ * admitted; typed failures retain the response evidence for the caller.
  */
 const downloadArchive = (
   http: HttpClient.HttpClient,
@@ -399,6 +404,15 @@ const downloadArchive = (
       yield* report({ done: 0, attempt: attempt.value });
     }
     const response = yield* HttpClient.filterStatusOk(http).execute(HttpClientRequest.get(path));
+    if (response.status !== 200) {
+      return yield* new HttpClientError.HttpClientError({
+        reason: new HttpClientError.DecodeError({
+          request: response.request,
+          response,
+          description: "An unconditional archive download requires a complete 200 response",
+        }),
+      });
+    }
     const total = contentLength(response);
     if (total !== undefined && total > MAX_BUFFERED_ARCHIVE_BYTES) {
       return yield* new RegistryOperationFailed({
@@ -551,15 +565,28 @@ export const createRemoteRegistryClient = (
           undefined,
         )
         .pipe(
-          Effect.map((response) =>
-            Option.some({
-              owner: decodeHandleSync(response.owner),
-              type: narrowExtensionType(response.type),
-              name: decodeExtensionNameSync(response.name),
-              version: decodeVersionSync(response.version),
-              integrity: response.integrity,
-            } satisfies ExactExtensionVersion),
-          ),
+          Effect.flatMap((response) => {
+            if (response === undefined) {
+              return Effect.fail(
+                new RegistryRequestFailed({
+                  reason: "response-decode",
+                  category: "internal",
+                  detail: "Remote Registry returned exact version metadata without a body",
+                }),
+              );
+            }
+            return Effect.try({
+              try: () =>
+                Option.some({
+                  owner: decodeHandleSync(response.owner),
+                  type: narrowExtensionType(response.type),
+                  name: decodeExtensionNameSync(response.name),
+                  version: decodeVersionSync(response.version),
+                  integrity: response.integrity,
+                } satisfies ExactExtensionVersion),
+              catch: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
+            });
+          }),
           Effect.catch((error) =>
             isRegistryClientError("ExtensionsGetVersion404")(error)
               ? Effect.succeed(Option.none<ExactExtensionVersion>())
@@ -903,12 +930,10 @@ export const createRemoteRegistryClient = (
       // Step 3: Download archive, streaming the body so the caller observes
       // progress as bytes arrive; the transport never decides how often.
       const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${pluralizeType(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
+      const archiveHttpClient =
+        args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient;
       const fetchArchive = executeRemoteRequest(
-        downloadArchive(
-          args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient,
-          archivePath,
-          args.onProgress,
-        ),
+        downloadArchive(archiveHttpClient, archivePath, args.onProgress),
         {
           operation: "download package archive",
           method: "GET",
@@ -917,35 +942,61 @@ export const createRemoteRegistryClient = (
           mapError: mapArchiveFetchError,
         },
       );
-      const validateCached =
-        args.exact === undefined || args.usagePurpose === "verification"
-          ? undefined
-          : Effect.gen(function* () {
-              const outcomes = yield* getResolutionMetadata({
-                schemaVersion: 1,
-                selectionPolicyVersion: "1",
-                items: [
-                  {
-                    key: "exact",
-                    identity: { owner: args.owner, type: args.type, name: args.name },
-                    purpose: "restore-exact",
-                    expectedPublisherBinding: selected.publisherBindingId,
-                    accepted: { version: selected.version, integrity: selected.integrity },
-                  },
-                ],
-              });
-              const outcome = outcomes[0];
-              if (
-                outcome?.outcome !== "metadata" ||
-                outcome.page.publisherBindingId !== selected.publisherBindingId
-              ) {
-                return yield* new RegistryOperationFailed({
-                  category: "conflict",
-                  detail:
-                    "Cached archive no longer has current Registry authorization or exact version evidence.",
-                });
-              }
+      const validateCached = Effect.gen(function* () {
+        if (args.exact !== undefined) {
+          const outcomes = yield* getResolutionMetadata({
+            schemaVersion: 1,
+            selectionPolicyVersion: "1",
+            items: [
+              {
+                key: "exact",
+                identity: { owner: args.owner, type: args.type, name: args.name },
+                purpose: "restore-exact",
+                expectedPublisherBinding: selected.publisherBindingId,
+                accepted: { version: selected.version, integrity: selected.integrity },
+              },
+            ],
+          });
+          const outcome = outcomes[0];
+          if (
+            outcome?.outcome !== "metadata" ||
+            outcome.page.publisherBindingId !== selected.publisherBindingId
+          ) {
+            return yield* new RegistryOperationFailed({
+              category: "conflict",
+              detail:
+                "Cached archive no longer has matching Registry publisher and exact version evidence.",
             });
+          }
+        }
+        // Public metadata is not archive download authorization. HEAD applies
+        // current content access and lifecycle policy without downloading or
+        // counting another delivery, using the same credentials as GET.
+        yield* executeRemoteRequest(
+          Effect.gen(function* () {
+            const response = yield* HttpClient.filterStatusOk(archiveHttpClient).execute(
+              HttpClientRequest.head(archivePath),
+            );
+            if (response.status !== 200 || response.headers["x-integrity"] !== selected.integrity) {
+              return yield* new HttpClientError.HttpClientError({
+                reason: new HttpClientError.DecodeError({
+                  request: response.request,
+                  response,
+                  description:
+                    "Cached archive validation requires a 200 response with matching integrity",
+                }),
+              });
+            }
+          }),
+          {
+            operation: "validate cached package archive",
+            method: "HEAD",
+            path: archivePath,
+            replaySafety: safe,
+            mapError: mapArchiveFetchError,
+          },
+        );
+      });
       const archive = yield* archiveCache === undefined
         ? fetchArchive
         : archiveCache.load(
@@ -1282,31 +1333,83 @@ export const createRemoteRegistryClient = (
     import("@agentxm/registry-protocol/unstable/registry/discover-schema").DiscoverPackagesResponse,
     RegistryClientFailure
   > => {
-    const payload = {
-      client: { axmVersion: "0.0.0" },
-      packages: args.packages.map((pkg) => ({
-        purl: encodePackageUrl(packageIdentity(pkg.purl)),
-        version: pkg.version,
-        declaredExtensions: pkg.declaredExtensions.flatMap((entry) => {
-          const ref = extensionDeclarationToDiscoveryRef(entry);
-          return ref === undefined ? [] : [ref];
-        }),
-      })),
-    };
+    const packages = args.packages.map((pkg) => ({
+      purl: encodePackageUrl(packageIdentity(pkg.purl)),
+      version: pkg.version,
+      declaredExtensions: pkg.declaredExtensions.flatMap((entry) => {
+        const ref = extensionDeclarationToDiscoveryRef(entry);
+        return ref === undefined ? [] : [ref];
+      }),
+    }));
 
-    return executeRemoteRequest(
-      client
-        .DiscoveryPostDiscovery({ payload, config: undefined })
-        .pipe(Effect.flatMap(Schema.decodeUnknownEffect(DiscoverPackagesResponseSchema))),
-      {
-        operation: "discover packages",
-        method: "POST",
-        path: "/v1/discovery",
-        replaySafety: safe,
-        mapError: (error, nowMillis) =>
-          mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
-      },
-    );
+    return Effect.gen(function* () {
+      const clientMetadata = { axmVersion: "0.0.0" };
+      const encoder = new TextEncoder();
+      // The generated transport sends compact JSON. Count the envelope once,
+      // then each complete package and its separating comma in UTF-8 bytes.
+      const envelopeBytes = encoder.encode(
+        JSON.stringify({ client: clientMetadata, packages: [] }),
+      ).byteLength;
+      const batches: Array<typeof packages> = [];
+      let batch: typeof packages = [];
+      let batchBytes = envelopeBytes;
+      let batchDeclarations = 0;
+      for (const pkg of packages) {
+        const declarations = pkg.declaredExtensions.length;
+        if (declarations > MAX_DISCOVERY_DECLARED_EXTENSIONS) {
+          return yield* new RegistryOperationFailed({
+            category: "validation",
+            detail: `One package has ${declarations} declared extensions; a discovery request permits at most ${MAX_DISCOVERY_DECLARED_EXTENSIONS}. Reduce that package's declarations.`,
+          });
+        }
+        const packageBytes = encoder.encode(JSON.stringify(pkg)).byteLength;
+        if (envelopeBytes + packageBytes > MAX_DISCOVERY_REQUEST_BYTES) {
+          return yield* new RegistryOperationFailed({
+            category: "validation",
+            detail: `One package's discovery metadata requires ${envelopeBytes + packageBytes} encoded bytes; the request limit is ${MAX_DISCOVERY_REQUEST_BYTES} bytes. Reduce that package's metadata.`,
+          });
+        }
+        if (
+          batch.length > 0 &&
+          (batch.length === MAX_DISCOVERY_PACKAGES ||
+            batchDeclarations + declarations > MAX_DISCOVERY_DECLARED_EXTENSIONS ||
+            batchBytes + 1 + packageBytes > MAX_DISCOVERY_REQUEST_BYTES)
+        ) {
+          batches.push(batch);
+          batch = [];
+          batchBytes = envelopeBytes;
+          batchDeclarations = 0;
+        }
+        batchBytes += packageBytes + (batch.length === 0 ? 0 : 1);
+        batchDeclarations += declarations;
+        batch.push(pkg);
+      }
+      if (batch.length > 0 || packages.length === 0) batches.push(batch);
+
+      return yield* Effect.forEach(
+        batches,
+        (batch) =>
+          executeRemoteRequest(
+            client
+              .DiscoveryPostDiscovery({
+                payload: { client: clientMetadata, packages: batch },
+                config: undefined,
+              })
+              .pipe(Effect.flatMap(Schema.decodeUnknownEffect(DiscoverPackagesResponseSchema))),
+            {
+              operation: "discover packages",
+              method: "POST",
+              path: "/v1/discovery",
+              replaySafety: safe,
+              mapError: (error, nowMillis) =>
+                mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+            },
+          ),
+        { concurrency: 1 },
+      ).pipe(
+        Effect.map((responses) => ({ results: responses.flatMap((response) => response.results) })),
+      );
+    });
   };
 
   return {

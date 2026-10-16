@@ -22,6 +22,27 @@ describe("discover-schema", () => {
     packageVersionInRange: true,
   };
 
+  it.each([500, 501])(
+    "limits the total declaration count across packages to 500 (received %s)",
+    (count) => {
+      const declaration = {
+        ref: "@acme/skills/example",
+        source: { type: "registry", url: "https://registry.example.test" },
+      };
+      const payload = {
+        client: { axmVersion: "0.32.0" },
+        packages: [250, count - 250].map((length, index) => ({
+          purl: `pkg:npm/example-${index}`,
+          version: "1.0.0",
+          declaredExtensions: Array.from({ length }, () => declaration),
+        })),
+      };
+      const decode = () => Schema.decodeUnknownSync(DiscoverPackagesRequestSchema)(payload);
+      if (count === 500) expect(decode).not.toThrow();
+      else expect(decode).toThrow();
+    },
+  );
+
   it("accepts a resolved extension result", () => {
     const result = Schema.decodeUnknownSync(DiscoveryExtensionResultSchema)(validExtension);
 

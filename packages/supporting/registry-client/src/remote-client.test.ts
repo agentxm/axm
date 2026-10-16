@@ -830,12 +830,15 @@ describe("ownerExists", () => {
 // =============================================================================
 
 describe("getExtensionPackage", () => {
-  it.effect("validates a warm exact archive online before reusing its bytes", () =>
+  it.effect("validates a warm exact archive outside the first metadata history page", () =>
     Effect.gen(function* () {
       const cachedArchive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
       const requestedUrls: Array<string> = [];
       const httpClient = makeMockHttpClient((request) => {
         requestedUrls.push(request.url);
+        if (request.method === "HEAD") {
+          return new Response(null, { status: 200, headers: { "x-integrity": "sha512-selected" } });
+        }
         return new Response(
           JSON.stringify({
             schemaVersion: 1,
@@ -855,12 +858,12 @@ describe("getExtensionPackage", () => {
                   validUntil: "2026-09-22T00:00:30.000Z",
                   versions: [
                     {
-                      version: "1.0.0",
+                      version: "2.0.0",
                       published: "2026-09-22T00:00:00.000Z",
                       integrity: "sha512-selected",
                     },
                   ],
-                  continuation: null,
+                  continuation: "next-history-page",
                 },
               },
             ],
@@ -899,7 +902,10 @@ describe("getExtensionPackage", () => {
 
       expect(Array.from(result.archive)).toEqual(Array.from(cachedArchive));
       expect(result.warnings).toEqual(["Previously selected version is deprecated"]);
-      expect(requestedUrls).toEqual([`${BASE_URL}/v1/resolutions/metadata`]);
+      expect(requestedUrls).toEqual([
+        `${BASE_URL}/v1/resolutions/metadata`,
+        `${BASE_URL}/v1/extensions/%40acme/skills/test-skill/1.0.0/archive`,
+      ]);
     }),
   );
 
@@ -1666,6 +1672,32 @@ describe("previewExtensionPublishes", () => {
 // =============================================================================
 
 describe("getExactExtensionVersion", () => {
+  it.effect("rejects an unsolicited not-modified response without retrying", () =>
+    Effect.gen(function* () {
+      let requests = 0;
+      const client = createRemoteRegistryClient(
+        BASE_URL,
+        makeMockHttpClient((request) => {
+          requests += 1;
+          expect(request.headers["if-none-match"]).toBeUndefined();
+          return new Response(null, {
+            status: 304,
+            headers: { "x-request-id": "fc9c43e7-e99a-46ee-a55c-c0e8ef747c63" },
+          });
+        }),
+      );
+      const failure = yield* client
+        .getExactExtensionVersion({ ...makeIndexArgs(), version: exactVersion("1.0.0") })
+        .pipe(Effect.flip);
+      expect(failure).toMatchObject({ _tag: "RegistryRequestFailed", reason: "response-decode" });
+      expect(failure.metadata?.response).toMatchObject({
+        status: 304,
+        requestId: "fc9c43e7-e99a-46ee-a55c-c0e8ef747c63",
+      });
+      expect(requests).toBe(1);
+    }),
+  );
+
   it.effect("returns an exact digest without a credential of its own", () =>
     Effect.gen(function* () {
       let authorization: string | undefined;

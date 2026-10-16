@@ -851,6 +851,7 @@ describe("TokenExchange.exchangeWorkloadToken", () => {
             expires_in: 900,
             expires_at: "2099-01-01T00:15:00.000Z",
             scope: "extensions:publish:version",
+            future_token_metadata: { issuer_revision: 2 },
           }),
           { status: 200, headers: { "content-type": "application/json" } },
         ),
@@ -925,6 +926,11 @@ describe("TokenExchange.revokeToken", () => {
     const layer = exchangeLayer((req) => {
       expect(req.url).toContain("/v1/auth/revoke");
       expect(req.method).toBe("POST");
+      expect(req.body._tag).toBe("Uint8Array");
+      if (req.body._tag === "Uint8Array") {
+        const payload = new URLSearchParams(new TextDecoder().decode(req.body.body));
+        expect(payload.get("token_type_hint")).toBe("refresh_token");
+      }
       return new Response("", { status: 200 });
     });
 
@@ -1204,6 +1210,37 @@ describe("AuthClient tokens on the wire", () => {
     }).pipe(Effect.provide(layer));
   });
 
+  it.effect("preserves an invalid opaque cursor as a permanent 400 failure", () => {
+    let requests = 0;
+    const requestId = "fc9c43e7-e99a-46ee-a55c-c0e8ef747c64";
+    const layer = makeTestLayer(() => {
+      requests += 1;
+      return Response.json(
+        {
+          type: "https://registry.agentxm.ai/problems/invalid_cursor",
+          title: "Invalid cursor",
+          status: 400,
+          code: "invalid_cursor",
+          detail: "Start again without a cursor.",
+        },
+        { status: 400, headers: { "x-request-id": requestId } },
+      );
+    });
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const failure = asRegistryFailure(
+        yield* client.listTokens(ENDPOINT, { cursor: "malformed" }).pipe(Effect.flip),
+      );
+      expect(failure.category).toBe("validation");
+      expect(failure.metadata?.response).toMatchObject({
+        status: 400,
+        requestId,
+        problemCode: "invalid_cursor",
+      });
+      expect(requests).toBe(1);
+    }).pipe(Effect.provide(layer));
+  });
+
   it.effect("lists tokens by cursor and reads the camelCase page", () => {
     const queries: Array<Record<string, string>> = [];
     const layer = makeTestLayer((request) => {
@@ -1221,18 +1258,21 @@ describe("AuthClient tokens on the wire", () => {
             lastUsedAt: null,
           },
         ],
-        cursor: "next-page",
+        cursor: "eyJ2IjoxLCJpZCI6Im5leHQifQ._-signature",
         hasMore: true,
       });
     });
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const page = yield* client.listTokens(ENDPOINT, { limit: 10, cursor: "this-page" });
+      const page = yield* client.listTokens(ENDPOINT, {
+        limit: 10,
+        cursor: "eyJ2IjoxLCJpZCI6ImZpcnN0In0._-signature",
+      });
 
-      expect(queries).toEqual([{ limit: "10", cursor: "this-page" }]);
+      expect(queries).toEqual([{ limit: "10", cursor: "eyJ2IjoxLCJpZCI6ImZpcnN0In0._-signature" }]);
       expect(page.hasMore).toBe(true);
-      expect(page.cursor).toBe("next-page");
+      expect(page.cursor).toBe("eyJ2IjoxLCJpZCI6Im5leHQifQ._-signature");
       expect(page.tokens.map((token) => token.name)).toEqual(["ci"]);
       expect(page.tokens[0]?.lastUsedAt).toBeNull();
     }).pipe(Effect.provide(layer));

@@ -111,7 +111,6 @@ export const openclawAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -143,7 +142,6 @@ export const openclawAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -174,7 +172,6 @@ export const openclawAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -206,7 +203,6 @@ export const openclawAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -253,7 +249,6 @@ export const openclawAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },
@@ -286,7 +281,6 @@ export const openclawAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

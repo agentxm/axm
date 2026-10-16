@@ -6,7 +6,6 @@ export type { WorkspaceRuleContext, WorkspaceSubject } from "./workspace-context
 export {
   CATALOG_GROUP_ORDER,
   LIVE_ONLY_LINT_CATALOGS,
-  LINT_CATALOGS,
   REPOSITORY_LINT_CATALOGS,
   emptyCatalogRuleContexts,
   lintCatalogsForView,

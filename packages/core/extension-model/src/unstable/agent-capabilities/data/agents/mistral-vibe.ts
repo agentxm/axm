@@ -44,7 +44,6 @@ export const mistralVibeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -70,7 +69,6 @@ export const mistralVibeAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "Mistral Vibe stores MCP servers as repeated [[mcp_servers]] TOML array-of-table entries. AXM's generic MCP writer currently serializes keyed server maps and cannot represent that shape without corrupting the configuration.",
@@ -126,7 +124,6 @@ export const mistralVibeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -213,7 +210,6 @@ export const mistralVibeAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -245,7 +241,6 @@ export const mistralVibeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -306,7 +301,6 @@ export const mistralVibeAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

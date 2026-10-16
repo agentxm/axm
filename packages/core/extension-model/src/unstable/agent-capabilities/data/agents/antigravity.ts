@@ -102,7 +102,6 @@ export const antigravityAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -188,7 +187,6 @@ export const antigravityAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: {
           config: {
             locationIds: ["user", "project"],
@@ -242,7 +240,6 @@ export const antigravityAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: null,
         verification: {
           verifiedAt: "2026-10-01",
@@ -363,7 +360,6 @@ export const antigravityAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason:
           "Antigravity namespaces each hook bundle under its own top-level name in hooks.json; AXM's writer targets a single settings key and cannot express that nesting.",
       },
@@ -407,7 +403,6 @@ export const antigravityAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -453,7 +448,6 @@ export const antigravityAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

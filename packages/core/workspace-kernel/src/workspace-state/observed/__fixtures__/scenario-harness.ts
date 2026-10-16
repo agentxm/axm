@@ -9,8 +9,6 @@
  *   from either scope, and runs `body` with the result.
  * - `expectFirst(arr)` asserts the array is non-empty and returns its first
  *   element, replacing the silent `if (entry === undefined) return` pattern.
- * - `expectDiagnostics(ctx, scope, predicate)` reads the scoped diagnostics
- *   buffer once and asserts at least one warning matches `predicate`.
  * - `tagsOf(cause)` extracts the tagged-error `_tag` set from an `Effect.Cause`
  *   so the ≤3-tag assertion in 10.2 stays compact.
  *
@@ -25,7 +23,6 @@ import * as Result from "effect/Result";
 import type { WorkspaceReadModelTestOptions } from "./test-layer.js";
 import { WorkspaceReadModelTest } from "./test-layer.js";
 import type { FixtureSpec, PathEscapeError } from "./builder.js";
-import type { Warning } from "../diagnostics.js";
 import type { WorkspaceRootEscape } from "../errors.js";
 import { makeWorkspaceReadModel, type WorkspaceReadModel } from "../service.js";
 import type { Scope } from "../types.js";
@@ -111,18 +108,6 @@ export const expectSuccess = <A, E>(result: Result.Result<A, E>, message?: strin
   return result.success;
 };
 
-/**
- * Assert that `result` is a `Result.Failure` and return its failure value.
- * Replaces `expect(result._tag).toBe("Failure"); if (result._tag === ...)`
- * narrowing chains.
- */
-export const expectFailure = <A, E>(result: Result.Result<A, E>, message?: string): E => {
-  if (!Result.isFailure(result)) {
-    throw new Error(message ?? `expectFailure: result is Success`);
-  }
-  return result.failure;
-};
-
 const hasStringTag = (value: unknown): value is { readonly _tag: string } => {
   if (typeof value !== "object" || value === null) return false;
   if (!("_tag" in value)) return false;
@@ -147,31 +132,3 @@ export const tagsOf = <E>(cause: Cause.Cause<E>): ReadonlySet<string> => {
   }
   return tags;
 };
-
-/**
- * Read the scoped diagnostics buffer once and assert at least one warning
- * matches `predicate`. Returns the matching warnings so callers can chain
- * additional assertions.
- */
-export const expectDiagnostics = (
-  ctx: WorkspaceReadModelScenarioCtx,
-  scope: Scope,
-  predicate: (warning: Warning) => boolean,
-): Effect.Effect<ReadonlyArray<Warning>> =>
-  Effect.gen(function* () {
-    const warnings = yield* ctx.scope(scope).diagnostics;
-    const matches = warnings.filter(predicate);
-    if (matches.length === 0) {
-      throw new Error("expected at least one warning matching predicate");
-    }
-    return matches;
-  });
-
-/**
- * Snapshot the scoped diagnostics buffer without asserting. Useful when a
- * scenario wants to verify the absence of a warning class.
- */
-export const readDiagnostics = (
-  ctx: WorkspaceReadModelScenarioCtx,
-  scope: Scope,
-): Effect.Effect<ReadonlyArray<Warning>> => ctx.scope(scope).diagnostics;

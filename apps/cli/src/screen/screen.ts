@@ -519,16 +519,6 @@ export const ScreenMachine = (options?: {
     }),
   );
 
-export const emitSuggestionEvents = (
-  screen: typeof OutputStreams.Service,
-  suggestions: ReadonlyArray<SuggestedAction>,
-): Effect.Effect<void, OutputWriteFailed> =>
-  Effect.forEach(
-    suggestions,
-    (suggestion) => screen.stderr(encodeMachineEvent(suggestionEvent(suggestion))),
-    { concurrency: 1 },
-  ).pipe(Effect.asVoid);
-
 /** Select the output projection once; machine mode never evaluates a human view. */
 export const emitResult = <S extends Schema.Top>(
   data: Schema.Schema.Type<S>,

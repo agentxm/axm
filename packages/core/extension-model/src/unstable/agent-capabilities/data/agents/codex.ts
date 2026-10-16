@@ -133,7 +133,6 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -237,7 +236,6 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: {
           config: {
             locationIds: ["project", "user"],
@@ -292,7 +290,6 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -529,7 +526,6 @@ export const codexAgent = {
           locationIds: ["user", "project"],
           eventMap: "native.events",
         },
-        lastVerified: "2026-08-05",
       },
     },
   },
@@ -602,7 +598,6 @@ export const codexAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -687,7 +682,6 @@ export const codexAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

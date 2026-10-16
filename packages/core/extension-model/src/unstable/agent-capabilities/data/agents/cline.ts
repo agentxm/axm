@@ -111,7 +111,6 @@ export const clineAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -208,7 +207,6 @@ export const clineAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: {
           config: {
             locationIds: ["user"],
@@ -230,7 +228,6 @@ export const clineAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -254,7 +251,6 @@ export const clineAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM has not implemented a Cline hook script directory writer.",
       },
     },
@@ -295,7 +291,6 @@ export const clineAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -323,7 +318,6 @@ export const clineAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a Cline permission grant writer.",
     },

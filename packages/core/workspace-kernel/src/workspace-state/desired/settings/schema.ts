@@ -14,7 +14,6 @@ import {
   McpBindingSchema,
   validateMcpConnection,
 } from "../../../agent-adapters/index.js";
-import * as Duration from "effect/Duration";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
@@ -24,7 +23,6 @@ import {
   EXTENSION_NAME_PATTERN,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions/fqn-pattern";
-import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
 import { RegistryEndpointFromString } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { HookConfigurationValuesSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
@@ -350,9 +348,6 @@ export type MinimumReleaseAge = Schema.Schema.Type<typeof MinimumReleaseAgeSchem
  * @experimental
  */
 export const DEFAULT_MINIMUM_RELEASE_AGE = "24h";
-
-/** The same default as a duration, for policy that compares against a clock. */
-export const DEFAULT_MINIMUM_RELEASE_AGE_DURATION = Duration.hours(24);
 
 /** @experimental */
 export type MinimumReleaseAgeExclude = ReadonlyArray<typeof ReleaseAgeExcludePatternSchema.Type>;
@@ -1069,10 +1064,6 @@ export const isSourcedMcpServerEntry = (
 ): entry is McpServerEntry & { readonly source: string } =>
   entry.kind !== "inline" && entry.kind !== "configuration";
 
-export const isInlineMcpServerEntry = (
-  entry: McpServerEntry,
-): entry is Extract<McpServerEntry, { readonly kind: "inline" }> => entry.kind === "inline";
-
 /**
  * MCP servers map - maps MCP server names to MCP server entries.
  *
@@ -1340,25 +1331,6 @@ export const WorkspacePublishOptionsSchema = Schema.Struct({
 
 /** @experimental This API is unstable and may change without notice. */
 export type WorkspacePublishOptions = Schema.Schema.Type<typeof WorkspacePublishOptionsSchema>;
-
-/**
- * Each catalog extension type's feature-level config schema, or `null` where
- * none exists yet.
- *
- * Total by construction: a new extension type fails compile here until its
- * settings coverage is decided. The parity conformance suite reads this map,
- * and every `null` must be matched by a ledger row.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
-  skill: SkillsConfigSchema,
-  "mcp-server": McpServersConfigSchema,
-  subagent: SubagentsConfigSchema,
-  rule: RulesConfigSchema,
-  hook: HooksConfigSchema,
-  knowledge: KnowledgeConfigSchema,
-} as const satisfies Record<CatalogExtensionType, Schema.Top | null>;
 
 /**
  * Canonical key order for settings properties.

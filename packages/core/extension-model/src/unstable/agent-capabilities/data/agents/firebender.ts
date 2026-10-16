@@ -99,7 +99,6 @@ export const firebenderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -126,7 +125,6 @@ export const firebenderAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -170,7 +168,6 @@ export const firebenderAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -311,7 +308,6 @@ export const firebenderAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -345,7 +341,6 @@ export const firebenderAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },
@@ -360,7 +355,6 @@ export const firebenderAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

@@ -47,8 +47,7 @@ import {
 // Detection origin
 // ---------------------------------------------------------------------------
 
-export type HookDetectionOrigin =
-  { readonly _tag: "canonical-axm-hook" } | { readonly _tag: "external-axm-hook" };
+export type HookDetectionOrigin = { readonly _tag: "canonical-axm-hook" };
 
 // ---------------------------------------------------------------------------
 // Payloads
@@ -97,11 +96,10 @@ export interface UnmanagedHook {
 // ---------------------------------------------------------------------------
 
 const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): ActualHook => {
-  const isExternal = occ.origin === "external-axm";
   const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "hook", name: occ.name },
-    origin: isExternal ? { _tag: "external-axm-hook" } : { _tag: "canonical-axm-hook" },
+    origin: { _tag: "canonical-axm-hook" },
     contentRoot: occ.contentLocation,
     packageRoot,
   };

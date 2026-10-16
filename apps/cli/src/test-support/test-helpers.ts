@@ -216,12 +216,6 @@ export const recordingFileSystemLayer = (
     }),
   );
 
-export interface AppErrorResult {
-  readonly error: true;
-  readonly message: string;
-  readonly guidance: string;
-}
-
 export const expectDefined = <T>(
   value: T | null | undefined,
   message = "Expected value to be defined",
@@ -235,36 +229,6 @@ export const expectDefined = <T>(
 
 export const at = <T>(values: ReadonlyArray<T>, index: number, message?: string): T =>
   expectDefined(values[index], message ?? `Expected value at index ${index}`);
-
-export const recordEntry = <T>(
-  value: Readonly<Record<string, T>> | Partial<Record<string, T>> | undefined,
-  key: string,
-  message?: string,
-): T => expectDefined(value?.[key], message ?? `Expected record entry for ${key}`);
-
-export const firstCall = <T>(
-  calls: ReadonlyArray<ReadonlyArray<T>>,
-  message = "Expected mock to be called",
-): ReadonlyArray<T> => at(calls, 0, message);
-
-export const firstCallArg = <T>(
-  calls: ReadonlyArray<ReadonlyArray<T>>,
-  index = 0,
-  message?: string,
-): T =>
-  at(
-    firstCall(calls, message),
-    index,
-    message ?? `Expected argument ${index} from first mock call`,
-  );
-
-export const expectSome = <T>(value: Option.Option<T>, message = "Expected Option.some"): T =>
-  Option.match(value, {
-    onNone: () => {
-      throw new Error(message);
-    },
-    onSome: (item) => item,
-  });
 
 export const expectRecord = (
   value: unknown,
@@ -450,30 +414,6 @@ export const expectNoPlanEnvelope = (value: unknown): void => {
   }
 };
 
-export const stringProperty = (value: unknown, key: string, message?: string): string => {
-  const field = property(value, key, message);
-
-  if (typeof field !== "string") {
-    throw new Error(message ?? `Expected string property ${key}`);
-  }
-
-  return field;
-};
-
-export const stringArrayProperty = (
-  value: unknown,
-  key: string,
-  message?: string,
-): ReadonlyArray<string> => {
-  const field = property(value, key, message);
-
-  if (!Array.isArray(field) || field.some((entry) => typeof entry !== "string")) {
-    throw new Error(message ?? `Expected string[] property ${key}`);
-  }
-
-  return field;
-};
-
 export const getAppError = (error: unknown): AppError => {
   if (error instanceof AppError) {
     return error;
@@ -483,25 +423,6 @@ export const getAppError = (error: unknown): AppError => {
     return toAppError(error);
   }
   throw new Error("Expected AppError", { cause: error });
-};
-
-export const getErrorResult = (result: unknown): AppErrorResult => {
-  if (
-    typeof result !== "object" ||
-    result === null ||
-    !("error" in result) ||
-    result.error !== true ||
-    !("message" in result) ||
-    typeof result.message !== "string"
-  ) {
-    throw new Error("Expected caught AppError result");
-  }
-
-  return {
-    error: true,
-    message: result.message,
-    guidance: "guidance" in result && typeof result.guidance === "string" ? result.guidance : "",
-  };
 };
 
 export const makeCliTestContext = (opts?: {

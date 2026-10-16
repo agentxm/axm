@@ -47,11 +47,10 @@ Keep three clocks separate:
   primary sources, with `claimScope`, conditions and limitations.
 - `axm.verification` records an exercised boundary (`configuration` or
   `vendor-runtime`), date, evidence references and limitations. Projection tests
-  do not prove execution by a vendor. `axm.lastVerified` is a historical date
-  whose method was not recorded; do not renew it from document research.
+  do not prove execution by a vendor.
 
 `capabilityVerificationAgeReport` exposes source review age and execution age
-independently, plus the historical date. Missing or expired evidence is visible;
+independently. Missing or expired evidence is visible;
 a newer profile review never resets a capability clock. All capability slots have a 90-day reporting budget. The existing catalog
 test gates overdue recorded Skill reviews at 90 days. Run the owning catalog
 test and inspect the report during each refresh; investigate missing evidence
@@ -111,7 +110,6 @@ Use an inactive AXM status entry for unsupported or unknown AXM behavior:
   },
   axm: {
     status: "unsupported",
-    lastVerified: null,
     writer: null,
   },
 }

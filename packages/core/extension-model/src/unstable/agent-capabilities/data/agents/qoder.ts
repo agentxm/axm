@@ -55,7 +55,6 @@ export const qoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -161,7 +160,6 @@ export const qoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-09-29",
         writer: {
           config: {
             locationIds: ["user", "project"],
@@ -192,7 +190,6 @@ export const qoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -370,7 +367,6 @@ export const qoderAgent = {
 
           eventMap: "native.events",
         },
-        lastVerified: "2026-08-05",
       },
     },
   },
@@ -402,7 +398,6 @@ export const qoderAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -475,7 +470,6 @@ export const qoderAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

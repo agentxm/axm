@@ -60,7 +60,6 @@ export const codebuddyAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -171,7 +170,6 @@ export const codebuddyAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: {
           config: {
             locationIds: ["project", "user"],
@@ -202,7 +200,6 @@ export const codebuddyAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -378,7 +375,6 @@ export const codebuddyAgent = {
 
           eventMap: "native.events",
         },
-        lastVerified: "2026-08-05",
       },
     },
   },
@@ -421,7 +417,6 @@ export const codebuddyAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -507,7 +502,6 @@ export const codebuddyAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

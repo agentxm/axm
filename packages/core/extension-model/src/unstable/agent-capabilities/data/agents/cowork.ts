@@ -81,7 +81,6 @@ export const coworkAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -108,7 +107,6 @@ export const coworkAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         reason: "Cowork connector setup is hosted and UI-mediated.",
         writer: null,
       },
@@ -140,7 +138,6 @@ export const coworkAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         reason: "Cowork plugin installation is hosted and UI-mediated.",
         writer: null,
       },
@@ -175,7 +172,6 @@ export const coworkAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         reason: "Cowork plugin hooks have no AXM writer.",
         writer: null,
       },
@@ -195,7 +191,6 @@ export const coworkAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },
@@ -213,7 +208,6 @@ export const coworkAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

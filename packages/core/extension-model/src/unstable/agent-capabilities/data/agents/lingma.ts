@@ -52,7 +52,7 @@ export const lingmaAgent = {
           },
         ],
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: { status: "supported", writer: null },
     },
     "mcp-server": {
       native: {
@@ -78,7 +78,6 @@ export const lingmaAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented the legacy Lingma IDE settings dialect.",
       },
@@ -97,7 +96,7 @@ export const lingmaAgent = {
         docs: [],
         sources: [],
       },
-      axm: { status: "unsupported", lastVerified: null, writer: null },
+      axm: { status: "unsupported", writer: null },
     },
     hook: {
       native: {
@@ -121,7 +120,6 @@ export const lingmaAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM has not implemented the Lingma IDE hook dialect.",
       },
     },
@@ -140,7 +138,7 @@ export const lingmaAgent = {
       docs: [],
       sources: [],
     },
-    axm: { status: "unsupported", lastVerified: null, writer: null },
+    axm: { status: "unsupported", writer: null },
   },
   permissions: {
     native: {
@@ -164,7 +162,6 @@ export const lingmaAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM cannot write UI-only Lingma Auto-Run settings.",
     },

@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 
 import { parseSkillMd } from "@agentxm/extension-content";
 
-import { capture, run, tryCapture } from "./release-command.js";
+import { capture, run } from "./release-command.js";
 import {
   readPackageVersion,
   readPackageVersionAtRef,
@@ -221,9 +221,8 @@ const minorBandRange = (version: string): string => {
 };
 
 /**
- * An exact pin widens to the release's minor band. A previously managed minor
- * band rolls forward when the release crosses that boundary. Any other range
- * is an intentional declaration and is preserved verbatim — the compatibility
+ * A managed minor band rolls forward when the release crosses that boundary.
+ * Any other range is an intentional declaration and is preserved verbatim — the compatibility
  * guard then fails the release when it no longer covers the release version.
  */
 export const transitionSkillCompatibility = (
@@ -235,7 +234,7 @@ export const transitionSkillCompatibility = (
   const next = {
     cliVersion: releaseVersion,
     cliVersionRange:
-      current.cliVersionRange === current.cliVersion || current.cliVersionRange === currentMinorBand
+      current.cliVersionRange === currentMinorBand
         ? minorBandRange(releaseVersion)
         : current.cliVersionRange,
   } satisfies AxmSkillCompatibilityDeclaration;
@@ -273,32 +272,10 @@ export const fetchOriginMain = () => {
   run("git", ["fetch", "origin", "main"]);
 };
 
-export const requireMainBranch = () => {
-  const branch = git("rev-parse", "--abbrev-ref", "HEAD");
-  if (branch !== "main") {
-    fail(`Must be on main branch (currently on ${branch})`);
-  }
-};
-
 export const requireCleanWorkingTree = () => {
   const status = git("status", "--porcelain");
   if (status.length > 0) {
     fail("Working tree is not clean. Commit or stash changes first.");
-  }
-};
-
-export const requireNotBehindOriginMain = () => {
-  const behind = git("rev-list", "--count", "HEAD..origin/main");
-  if (behind !== "0") {
-    fail(`Local main is ${behind} commit(s) behind origin/main. Pull first.`);
-  }
-};
-
-export const requireHeadAtOriginMain = () => {
-  const head = git("rev-parse", "HEAD");
-  const remoteHead = git("rev-parse", "origin/main");
-  if (head !== remoteHead) {
-    fail(`HEAD (${head}) must match origin/main (${remoteHead}) before publishing the release.`);
   }
 };
 
@@ -378,14 +355,6 @@ export const requireMatchingReleasePackageVersionsAtRef = (ref: string): string 
       ref,
     ),
   );
-
-export const requireReleaseCommitMessage = (tag: string) => {
-  const subject = git("log", "-1", "--pretty=%s");
-  const expected = `release: ${tag}`;
-  if (subject !== expected) {
-    fail(`HEAD commit must be "${expected}" before publishing (found "${subject}").`);
-  }
-};
 
 export const currentHeadSha = (): string => git("rev-parse", "HEAD");
 
@@ -589,11 +558,4 @@ export const requireCiArtifacts = (
       );
   }
   return artifacts;
-};
-
-export const requireNoExistingGitHubRelease = (tag: string) => {
-  const result = tryCapture("gh", ["release", "view", tag, "--repo", RELEASE_REPO]);
-  if (result.ok) {
-    fail(`GitHub release ${tag} already exists.`);
-  }
 };

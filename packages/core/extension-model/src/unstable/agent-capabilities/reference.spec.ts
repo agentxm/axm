@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "agents/catalog/preserves-qualified-support-and-evidence",
   title: "Agent catalog claims preserve uncertainty, conditions, and evidence boundaries",
   statement:
-    "When publishing agent capability claims, AXM shall distinguish unknown native availability from documented absence, qualify conditional and manual installation, preserve the scope of product and edition research, and report source review separately from attributable execution verification without treating historical record dates as execution evidence.",
+    "When publishing agent capability claims, AXM shall distinguish unknown native availability from documented absence, qualify conditional and manual installation, preserve the scope of product and edition research, and report source review separately from attributable execution verification.",
   class: "functional",
   role: "interface",
   goals: ["agent-interoperability", "actionable-diagnostics"],
@@ -52,7 +52,7 @@ const unavailable = {
     docs: [],
     sources: [],
   },
-  axm: { status: "unsupported", lastVerified: null, writer: null },
+  axm: { status: "unsupported", writer: null },
 };
 
 const baseAgent: Agent = Schema.decodeUnknownSync(AgentSchema)({
@@ -90,7 +90,7 @@ const baseAgent: Agent = Schema.decodeUnknownSync(AgentSchema)({
           },
         ],
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: { status: "supported", writer: null },
     },
     "mcp-server": unavailable,
     subagent: unavailable,
@@ -117,7 +117,6 @@ const knownNative = {
 
 const supportedAxm = {
   status: "supported",
-  lastVerified: "2026-08-05",
   writer: null,
 };
 
@@ -148,7 +147,7 @@ describe("qualified agent catalog claims", () => {
             scopes: [],
             locations: [],
           },
-          axm: { status: "supported", lastVerified: null, writer: null },
+          axm: { status: "supported", writer: null },
         },
       },
     });
@@ -167,14 +166,14 @@ describe("qualified agent catalog claims", () => {
       docs: [],
       sources: [],
     };
-    const inactive = { status: "unknown", lastVerified: null, writer: null };
+    const inactive = { status: "unknown", writer: null };
     const unknown = agentWithSkill({ ...absentNative, availability: { via: "unknown" } }, inactive);
     const absent = agentWithSkill(absentNative, { ...inactive, status: "unsupported" });
     expect(isCapabilitySupported(unknown.capabilities.skill)).toBe(false);
     expect(
       isCapabilitySupported({
         ...unknown.capabilities.skill,
-        axm: { status: "supported", lastVerified: "2026-09-30", writer: null },
+        axm: { status: "supported", writer: null },
       }),
     ).toBe(false);
     expect(skillReport(unknown).native.status).toBe("unknown");
@@ -182,11 +181,10 @@ describe("qualified agent catalog claims", () => {
     expect(skillReport(absent).installability.status).toBe("unsupported");
   });
 
-  it("does not turn a source review or historical date into execution evidence", () => {
+  it("does not turn a source review into execution evidence", () => {
     const agent = agentWithSkill(knownNative, supportedAxm);
     const report = skillReport(agent);
     expect(report.native.review?.reviewedAt).toBe("2026-09-30");
-    expect(report.axm.legacyLastVerified).toBe("2026-08-05");
     expect(report.axm.verification).toBeNull();
     const age = capabilityVerificationAgeReport([agent], "2026-09-30").find(
       (entry) => entry.capability === "skill",

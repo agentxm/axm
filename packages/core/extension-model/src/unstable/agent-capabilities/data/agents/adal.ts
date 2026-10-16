@@ -44,7 +44,6 @@ export const adalAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -85,7 +84,6 @@ export const adalAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented an AdaL MCP writer for the CLI-managed MCP store.",
       },
@@ -101,7 +99,6 @@ export const adalAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -152,7 +149,6 @@ export const adalAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -184,7 +180,6 @@ export const adalAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -205,7 +200,6 @@ export const adalAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason:
         "AXM has not implemented an AdaL permission writer for the interactive /permissions surface.",

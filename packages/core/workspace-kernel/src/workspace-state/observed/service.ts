@@ -13,7 +13,6 @@ import type { WorkspaceLayoutError } from "../workspace/errors.js";
 import { AgentPresenceProbe } from "../../agent-adapters/index.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
-import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { Settings, SourceHostConfig } from "../desired/settings/schema.js";
 import {
@@ -127,26 +126,6 @@ export interface WorkspaceReadModel {
   /** The resolved storage layout, or none when the layout could not be resolved. */
   readonly layout: Option.Option<WorkspaceLayout>;
 }
-
-/**
- * The read-model family that carries each catalog extension type, or `null`
- * where no family exists yet.
- *
- * Total by construction: a new extension type fails compile here until its
- * read-model coverage is decided. The parity conformance suite reads this map
- * to check the read-model obligation, and every `null` must be matched by a
- * ledger row.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const READ_MODEL_EXTENSION_FAMILY_BY_TYPE = {
-  skill: "skills",
-  "mcp-server": "mcpServers",
-  subagent: "subagents",
-  rule: "rules",
-  hook: "hooks",
-  knowledge: "knowledge",
-} as const satisfies Record<CatalogExtensionType, keyof WorkspaceReadModel | null>;
 
 // ---------------------------------------------------------------------------
 // Factory configuration

@@ -140,7 +140,6 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -231,7 +230,6 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: {
           config: {
             locationIds: ["project", "user"],
@@ -285,7 +283,6 @@ export const geminiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -554,7 +551,6 @@ export const geminiCliAgent = {
           locationIds: ["user", "project"],
           eventMap: "native.events",
         },
-        lastVerified: "2026-08-05",
       },
     },
   },
@@ -613,7 +609,6 @@ export const geminiCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -698,7 +693,6 @@ export const geminiCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

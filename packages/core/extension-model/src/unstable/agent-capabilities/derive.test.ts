@@ -44,7 +44,6 @@ const unsupportedCapability = {
   },
   axm: {
     status: "unsupported",
-    lastVerified: null,
     writer: null,
   },
 } as const;
@@ -53,7 +52,6 @@ const unsupportedHookCapability = {
   axm: {
     status: "unsupported",
     writer: null,
-    lastVerified: null,
   },
 } as const;
 const baseAgent = {
@@ -82,7 +80,6 @@ const baseAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-05-16",
         writer: null,
       },
     },
@@ -304,7 +301,6 @@ describe("agent capability derivation", () => {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     } satisfies Agent["capabilities"]["subagent"];
@@ -329,7 +325,6 @@ describe("agent capability derivation", () => {
         ...native,
         axm: {
           status: "planned",
-          lastVerified: "2026-05-16",
           writer: null,
         },
       }),
@@ -338,7 +333,6 @@ describe("agent capability derivation", () => {
         ...unsupportedCapability,
         axm: {
           status: "unknown",
-          lastVerified: null,
           writer: null,
         },
       }),
@@ -471,7 +465,6 @@ describe("agent capability derivation", () => {
             },
             axm: {
               status: "supported",
-              lastVerified: "2026-05-16",
               writer: null,
             },
           },
@@ -493,7 +486,6 @@ describe("agent capability derivation", () => {
           },
           axm: {
             status: "supported",
-            lastVerified: "2026-05-16",
             writer: null,
           },
         },
@@ -546,7 +538,6 @@ describe("agent capability derivation", () => {
             },
             axm: {
               status: "supported",
-              lastVerified: "2026-05-16",
               writer: null,
             },
           },
@@ -576,7 +567,7 @@ describe("agent capability derivation", () => {
         ...baseAgent.capabilities,
         skill: {
           ...baseAgent.capabilities.skill,
-          axm: { status: "unsupported", lastVerified: null, writer: null },
+          axm: { status: "unsupported", writer: null },
         },
       },
     });
@@ -744,7 +735,6 @@ describe("agent capability derivation", () => {
             },
             axm: {
               status: "supported",
-              lastVerified: "2026-05-16",
               writer: {
                 config: {
                   locationIds: ["project-0", "user-1"],
@@ -798,7 +788,6 @@ describe("agent capability derivation", () => {
           },
           axm: {
             status: "supported",
-            lastVerified: "2026-05-16",
             writer: null,
           },
         },
@@ -832,7 +821,6 @@ describe("agent capability derivation", () => {
           },
           axm: {
             status: "supported",
-            lastVerified: "2026-05-16",
             writer: null,
           },
         },

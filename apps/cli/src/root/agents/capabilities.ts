@@ -91,7 +91,6 @@ const AgentCapabilityColumns = [
     value: (row: AgentCapabilityItem) => {
       const review = row.assessment.native.review;
       const verification = row.assessment.axm.verification;
-      const legacy = row.assessment.axm.legacyLastVerified;
       const age = row.freshness;
       return [
         review === null
@@ -100,7 +99,6 @@ const AgentCapabilityColumns = [
         verification === null
           ? "Execution verification missing"
           : `${verification.boundary} verified ${verification.verifiedAt} (${age?.verificationAgeDays ?? "?"} days${age?.verificationOverdue === true ? ", overdue" : ""})`,
-        ...(legacy === null ? [] : [`Legacy record ${legacy} (method unrecorded)`]),
       ].join("; ");
     },
   },

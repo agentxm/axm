@@ -73,7 +73,6 @@ export const codeartsAgentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -172,7 +171,6 @@ export const codeartsAgentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: {
           config: {
             locationIds: ["project", "user"],
@@ -206,7 +204,6 @@ export const codeartsAgentAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -228,7 +225,6 @@ export const codeartsAgentAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM does not serialize CodeArts Agent JavaScript or TypeScript plugins.",
       },
     },
@@ -262,7 +258,6 @@ export const codeartsAgentAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -306,7 +301,6 @@ export const codeartsAgentAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a CodeArts Agent permission-list writer.",
     },

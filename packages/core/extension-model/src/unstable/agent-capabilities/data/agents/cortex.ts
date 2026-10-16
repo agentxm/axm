@@ -60,7 +60,6 @@ export const cortexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -94,7 +93,6 @@ export const cortexAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -132,7 +130,6 @@ export const cortexAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -273,7 +270,6 @@ export const cortexAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -306,7 +302,6 @@ export const cortexAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },
@@ -383,7 +378,6 @@ export const cortexAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

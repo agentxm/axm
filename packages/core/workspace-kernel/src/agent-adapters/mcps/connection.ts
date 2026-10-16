@@ -32,10 +32,6 @@ export const normalizeMcpValue = (value: McpValue): McpValue => {
   return first === undefined ? "" : { template: [first, ...segments.slice(1)] };
 };
 
-export const mcpValueHasReference = (value: McpValue): boolean =>
-  typeof value !== "string" &&
-  ("env" in value || value.template.some((segment) => typeof segment !== "string"));
-
 /** Credentials are wholly symbolic; only a conventional authentication scheme may be literal. */
 export const isSymbolicMcpCredential = (raw: McpValue): boolean => {
   const value = normalizeMcpValue(raw);

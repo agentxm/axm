@@ -801,7 +801,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/agents/capabilities/describes-native-support-and-axm-integration`
 - Owner: `cli`
-- Statement: When a person inspects a coding agent’s capabilities, AXM shall report native availability separately from AXM integration and qualified installability, distinguish scoped source review from attributable execution verification and legacy record dates, expose missing evidence and its age against the quarterly review budget for every capability, preserve declared native locations and conditions, and report the agent’s lifecycle rather than treating a retired agent as unknown.
+- Statement: When a person inspects a coding agent’s capabilities, AXM shall report native availability separately from AXM integration and qualified installability, distinguish scoped source review from attributable execution verification, expose missing evidence and its age against the quarterly review budget for every capability, preserve declared native locations and conditions, and report the agent’s lifecycle rather than treating a retired agent as unknown.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `actionable-diagnostics`
@@ -5504,7 +5504,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `agents/catalog/preserves-qualified-support-and-evidence`
 - Owner: `extension-model`
-- Statement: When publishing agent capability claims, AXM shall distinguish unknown native availability from documented absence, qualify conditional and manual installation, preserve the scope of product and edition research, and report source review separately from attributable execution verification without treating historical record dates as execution evidence.
+- Statement: When publishing agent capability claims, AXM shall distinguish unknown native availability from documented absence, qualify conditional and manual installation, preserve the scope of product and edition research, and report source review separately from attributable execution verification.
 - Class: functional
 - Role: interface
 - Product goals: `agent-interoperability`, `actionable-diagnostics`

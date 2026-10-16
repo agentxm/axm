@@ -42,7 +42,7 @@ export const iflowCliAgent = {
           },
         ],
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: { status: "supported", writer: null },
     },
     "mcp-server": {
       native: {
@@ -63,7 +63,6 @@ export const iflowCliAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "The vendor docs name both settings and legacy MCP files; AXM has not verified one lossless writer dialect across them.",
@@ -90,7 +89,7 @@ export const iflowCliAgent = {
           },
         ],
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: { status: "supported", writer: null },
     },
     hook: {
       native: {
@@ -110,7 +109,6 @@ export const iflowCliAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM has not implemented the iFlow hook dialect.",
       },
     },
@@ -141,7 +139,7 @@ export const iflowCliAgent = {
       nestedDiscovery: true,
       importSyntax: null,
     },
-    axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+    axm: { status: "supported", writer: null },
   },
   permissions: {
     native: {
@@ -162,7 +160,6 @@ export const iflowCliAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM does not emit broad bypass flags as permission grants.",
     },

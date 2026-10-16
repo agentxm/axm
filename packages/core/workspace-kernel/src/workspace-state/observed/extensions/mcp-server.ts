@@ -46,7 +46,6 @@ import {
 
 export type McpServerDetectionOrigin =
   | { readonly _tag: "canonical-axm-mcp-server" }
-  | { readonly _tag: "external-axm-mcp-server" }
   | { readonly _tag: "workspace-mcp-config" }
   | { readonly _tag: "agent-mcp-config"; readonly agentId: MaterializationTargetId };
 
@@ -115,7 +114,6 @@ const declaredFromSettings = (settings: Settings): DeclaredMcpServers => {
 const resolvedFromState = (settings: Settings, lockfile: Lockfile): ResolvedMcpServers => {
   const locked = Object.values(lockfile.mcpServers ?? {});
   const resolved: ResolvedMcpServer[] = [];
-  const names = new Set<string>();
   for (const [localName, entry] of Object.entries(settings.mcpServers ?? {})) {
     // Inline connections define themselves; configuration-only entries name no
     // source. Neither resolves through a shared source identity.
@@ -143,7 +141,6 @@ const resolvedFromState = (settings: Settings, lockfile: Lockfile): ResolvedMcpS
       return printSourceParams(lockEntryToSourceParams(candidate)) === entry.source;
     });
     if (lockEntry === undefined) continue;
-    names.add(localName);
     resolved.push({ name: decodeExtensionNameSync(localName), lockEntry });
   }
   return resolved;
@@ -157,10 +154,7 @@ const canonicalToActual = (
   const packageRoot = canonicalAxmPackageRoot(occ);
   return {
     key: { scope, type: "mcp-server", name: localName },
-    origin:
-      occ.origin === "canonical-axm"
-        ? { _tag: "canonical-axm-mcp-server" }
-        : { _tag: "external-axm-mcp-server" },
+    origin: { _tag: "canonical-axm-mcp-server" },
     contentRoot: occ.contentLocation,
     packageRoot,
     configFile: null,

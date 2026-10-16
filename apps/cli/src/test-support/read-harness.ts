@@ -1,15 +1,11 @@
 /** Actual discovery and inspection handlers over workspace files and a controlled Registry HTTP port. */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
-import * as Layer from "effect/Layer";
-import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Deferred from "effect/Deferred";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import { ExecutionDirectory } from "../execution-directory.js";
-import { makeWorkspaceHandlerTestContext } from "./test-helpers.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { makeSpecWorkspace, type SpecWorkspaceOptions } from "./install-harness.js";
 
@@ -120,28 +116,4 @@ export const readExtensionIndex = {
       integrity: `sha512-${"A".repeat(86)}==`,
     },
   ],
-};
-
-/** The command-layer allowance for read-only inventory before setup, over isolated user state. */
-export const makeUninitializedReadSpecContext = () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-read-uninitialized-"));
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "axm-read-home-"));
-  const context = makeWorkspaceHandlerTestContext({
-    machine: true,
-    wsOptions: { projectRoot: root, scope: "project", allowUninitialized: true },
-  });
-  for (const file of ["axm.json", "axm.lock"]) fs.rmSync(path.join(root, file), { force: true });
-  const layer = Layer.provide(
-    context.fullLayer,
-    ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),
-  );
-  return {
-    ...context,
-    root,
-    provide: Effect.provide(layer),
-    cleanup: () => {
-      fs.rmSync(root, { recursive: true, force: true });
-      fs.rmSync(home, { recursive: true, force: true });
-    },
-  };
 };

@@ -101,7 +101,7 @@ describe("native delegation without a custom configuration contract", () => {
         scopes: [],
         locations: [],
       },
-      axm: { status: "unsupported", writer: null, lastVerified: null },
+      axm: { status: "unsupported", writer: null },
     };
     expect(
       Schema.decodeUnknownSync(SubagentsExtensionCapabilitySchema, {
@@ -171,7 +171,6 @@ const activeMcpCapability = {
   },
   axm: {
     status: "supported",
-    lastVerified: "2026-06-05",
     writer: {
       config: {
         locationIds: ["project-0"],
@@ -194,7 +193,7 @@ describe("MCP capability schema", () => {
         locations: [],
         entryDialect: null,
       },
-      axm: { status: "unsupported", lastVerified: null, writer: null },
+      axm: { status: "unsupported", writer: null },
     };
     expect(
       Schema.decodeUnknownSync(McpExtensionCapabilitySchema, { onExcessProperty: "error" })(
@@ -215,7 +214,6 @@ describe("MCP capability schema", () => {
         axm: {
           status: "unsupported",
           writer: null,
-          lastVerified: null,
           reason: "No safe native writer yet.",
         },
       }).native,
@@ -333,7 +331,6 @@ describe("MCP capability schema", () => {
         },
         axm: {
           status: "supported",
-          lastVerified: "2026-06-05",
           writer: null,
         },
       }),
@@ -416,7 +413,6 @@ describe("Hooks capability schema", () => {
         axm: {
           status: "unsupported",
           writer: null,
-          lastVerified: null,
         },
       }),
     ).toThrow("unique nativeName");
@@ -439,7 +435,6 @@ describe("Hooks capability schema", () => {
         axm: {
           status: "unsupported",
           writer: null,
-          lastVerified: null,
           reason: "In-process plugin writers are not implemented.",
         },
       }),

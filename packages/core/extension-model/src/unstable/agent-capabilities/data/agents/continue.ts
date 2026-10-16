@@ -84,7 +84,6 @@ export const continueAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -116,7 +115,6 @@ export const continueAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented a Continue MCP config writer.",
       },
@@ -135,7 +133,6 @@ export const continueAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -364,7 +361,6 @@ export const continueAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason:
           "Continue's hook surface is only described in tracking issues, not published reference docs, so the settings key and handler shape are not stable enough to write.",
       },
@@ -406,7 +402,6 @@ export const continueAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -467,7 +462,6 @@ export const continueAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason:
         "permissions.yaml is owned by the Continue TUI and AXM has no writer for its YAML permission grammar.",

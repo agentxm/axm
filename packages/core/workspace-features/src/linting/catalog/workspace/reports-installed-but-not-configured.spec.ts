@@ -41,7 +41,7 @@ const installed = (name: string) => ({
   [`${ROOT}/${name}/src/SKILL.md`]: skill(name),
 });
 const lockRow = (name: string) =>
-  makeRegistrySkillLockEntry({ owner: decodeHandleSync("@acme"), name, sourceName: "agentxm" });
+  makeRegistrySkillLockEntry({ owner: decodeHandleSync("@acme"), name });
 
 describe("Installed but not configured", () => {
   const cleanups: Array<() => void> = [];

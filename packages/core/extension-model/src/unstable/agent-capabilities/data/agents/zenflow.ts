@@ -92,7 +92,7 @@ export const zenflowAgent = {
           claimScope: "Canonical shared skill roots and deprecated vendor directory",
         },
       },
-      axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
+      axm: { status: "supported", writer: null },
     },
     "mcp-server": {
       native: {
@@ -120,7 +120,6 @@ export const zenflowAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "AXM has not implemented a managed installation target for the documented native surface.",
@@ -153,7 +152,6 @@ export const zenflowAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "AXM has not implemented a managed installation target for the documented native surface.",
@@ -168,7 +166,7 @@ export const zenflowAgent = {
         docs: [],
         sources: [],
       },
-      axm: { status: "unsupported", writer: null, lastVerified: null },
+      axm: { status: "unsupported", writer: null },
     },
   },
   instructions: {
@@ -180,7 +178,7 @@ export const zenflowAgent = {
       docs: [],
       sources: ["https://docs.zencoder.ai/clis/overview"],
     },
-    axm: { status: "unsupported", lastVerified: null, writer: null },
+    axm: { status: "unsupported", writer: null },
   },
   permissions: {
     native: {
@@ -209,7 +207,7 @@ export const zenflowAgent = {
           "Saved agent presets select the coding runtime, model and permission mode, including execution and tool access.",
       },
     },
-    axm: { status: "unsupported", lastVerified: null, writer: null },
+    axm: { status: "unsupported", writer: null },
   },
 
   profile: {

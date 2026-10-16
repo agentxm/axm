@@ -2,12 +2,6 @@ import { booleanOptionFromArgv } from "../cli-flags/argv-boolean.js";
 import * as Option from "effect/Option";
 import type { OutputFormat } from "./output-mode.js";
 
-/** Only arguments before `--` can be options. */
-export const optionArgs = (args: ReadonlyArray<string>): ReadonlyArray<string> => {
-  const end = args.indexOf("--");
-  return end === -1 ? args : args.slice(0, end);
-};
-
 export const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean => {
   return Option.getOrElse(booleanOptionFromArgv(args, ["--json", "-j"]), () => false);
 };

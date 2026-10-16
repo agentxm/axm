@@ -215,16 +215,6 @@ export const readDeclaredHookUnits = (
     return isRecord(parsed) ? declaredHookUnits(parsed[settingsKey], declarations) : [];
   });
 
-export const readDeclaredHookCommands = (
-  configPath: string,
-  settingsKey: string,
-  raw: string,
-  declarations: ReadonlyArray<HookNativeDeclaration>,
-) =>
-  readDeclaredHookUnits(configPath, settingsKey, raw, declarations).pipe(
-    Effect.map((units) => units.flatMap(({ command }) => (command === undefined ? [] : [command]))),
-  );
-
 export const selectDeclaredHookGroups = (
   hooks: unknown,
   declarations: ReadonlyArray<HookNativeDeclaration>,

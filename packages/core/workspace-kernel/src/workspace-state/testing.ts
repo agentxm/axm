@@ -35,7 +35,6 @@ import { WorkspaceTransactionScope, type WorkspaceTransitionLock } from "../sett
 import { WorkspaceTransactionScopeTest } from "../settlement/testing.js";
 import { ConfiguredAgentOutcomesProvider } from "./workspace/configured-agent-outcomes-provider.js";
 import { LOCK_FILENAME } from "./workspace/constants.js";
-import { WorkspaceLocation } from "./workspace/location.js";
 import {
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,
@@ -207,33 +206,6 @@ export const treeIntegrityOf = (
 export const treeIntegrityOfSync = (root: string): TreeIntegrity =>
   // eslint-disable-next-line no-restricted-syntax -- fixture setup outside any Effect: tests record a package's integrity while writing its lock entry
   Effect.runSync(treeIntegrityOf(root));
-
-/**
- * A transaction scope over the located workspace with the given admission —
- * one invocation of a memory transition-lock world from
- * `@agentxm/workspace-kernel/settlement/testing`, so no lock file is created and
- * waits use Effect time. Compose beside `WorkspaceStateLive` from `./live`
- * in place of the production scope.
- */
-export const MemoryWorkspaceTransactionScope = (
-  lock: WorkspaceTransitionLock,
-): Layer.Layer<
-  WorkspaceTransactionScope,
-  never,
-  WorkspaceLocation | FileSystem.FileSystem | Path.Path
-> =>
-  Layer.unwrap(
-    Effect.map(WorkspaceLocation, (location) =>
-      WorkspaceTransactionScopeTest(
-        {
-          workspaceDir: location.runtimeDir,
-          settingsPath: location.settingsPath,
-          lockPath: location.lockPath,
-        },
-        { lock },
-      ),
-    ),
-  );
 
 /**
  * A transaction scope over an explicit workspace runtime directory. It places

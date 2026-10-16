@@ -109,7 +109,3 @@ export const rendered = (
   state: TestScreenState,
   style: PaintStyle = { width: 80, colors: false },
 ): string => state.docs.flatMap((entry) => paintText(entry.doc, style)).join("\n");
-
-/** Labels of the units an observed operation started, in order. */
-export const startedUnitLabels = (events: ReadonlyArray<OperationEvent>): ReadonlyArray<string> =>
-  events.flatMap((event) => (event._tag === "UnitStarted" ? [event.label] : []));

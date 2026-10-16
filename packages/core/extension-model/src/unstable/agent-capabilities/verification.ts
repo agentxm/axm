@@ -25,8 +25,6 @@ export const CapabilityVerificationAgeSchema = Schema.Struct({
   agentId: Schema.String,
   capability: Schema.Literals(["skill", "mcp-server", "subagent", "hook", "rule", "permissions"]),
   status: AxmSupportSchema,
-  legacyLastVerified: Schema.NullOr(LastVerifiedDateSchema),
-  legacyAgeDays: Schema.NullOr(Schema.Number),
   reviewedAt: Schema.NullOr(LastVerifiedDateSchema),
   reviewAgeDays: Schema.NullOr(Schema.Number),
   reviewMissing: Schema.Boolean,
@@ -63,8 +61,8 @@ const ageInDays = (lastVerified: string, asOf: string): number => {
 };
 
 /**
- * Reports source review, execution verification and historical record age
- * independently. Missing evidence stays missing, even after a profile review.
+ * Reports source review and execution verification age independently.
+ * Missing evidence stays missing, even after a profile review.
  * Pass an ISO date explicitly so maintenance tooling is reproducible.
  *
  * @experimental This API is unstable and may change without notice.
@@ -76,8 +74,6 @@ export const capabilityVerificationAgeReport = (
   agents.flatMap((agent) =>
     capabilitySlots(agent).map(([capabilityName, capability]) => {
       const budgetDays = CAPABILITY_VERIFICATION_BUDGET_DAYS[capabilityName];
-      const legacyAgeDays =
-        capability.axm.lastVerified === null ? null : ageInDays(capability.axm.lastVerified, asOf);
       const reviewedAt = capability.native.review?.reviewedAt ?? null;
       const verifiedAt = capability.axm.verification?.verifiedAt ?? null;
       const reviewAgeDays = reviewedAt === null ? null : ageInDays(reviewedAt, asOf);
@@ -86,8 +82,6 @@ export const capabilityVerificationAgeReport = (
         agentId: agent.id,
         capability: capabilityName,
         status: capability.axm.status,
-        legacyLastVerified: capability.axm.lastVerified,
-        legacyAgeDays,
         reviewedAt,
         reviewAgeDays,
         reviewMissing: reviewedAt === null,

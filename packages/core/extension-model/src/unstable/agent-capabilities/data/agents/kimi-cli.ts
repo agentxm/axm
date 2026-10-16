@@ -88,7 +88,6 @@ export const kimiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -200,7 +199,6 @@ export const kimiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: {
           config: {
             locationIds: ["project", "user"],
@@ -240,7 +238,6 @@ export const kimiCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -409,7 +406,6 @@ export const kimiCliAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM's grouped hook serializer cannot emit Kimi Code's flat TOML hook arrays.",
       },
     },
@@ -451,7 +447,6 @@ export const kimiCliAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -508,7 +503,6 @@ export const kimiCliAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM does not serialize ordered TOML array-of-table permission rules.",
     },

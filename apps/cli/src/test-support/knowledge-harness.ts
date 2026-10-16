@@ -1,15 +1,10 @@
 /** Real source capture and query handlers over project-authored Knowledge bundles. */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { KnowledgeConceptQueryPageSchema } from "@agentxm/workspace-features/knowledge-query";
 import { makeSpecWorkspace } from "./install-harness.js";
-
-export const knowledgeBundle = "@acme/knowledge/platform";
 export const knowledgeQueryOptions = {
   fields: [],
   properties: [],
@@ -92,31 +87,3 @@ export const makeKnowledgeSpecWorkspace = (
       ),
   };
 };
-
-/** Each capture read sees another version through the production filesystem port. */
-export const withChangingKnowledgeReads = <A, E, R>(program: Effect.Effect<A, E, R>) =>
-  Effect.gen(function* () {
-    const filesystem = yield* FileSystem.FileSystem;
-    const reads = yield* Ref.make(0);
-    return yield* program.pipe(
-      Effect.provideService(FileSystem.FileSystem, {
-        ...filesystem,
-        readFile: (filename) =>
-          filesystem
-            .readFile(filename)
-            .pipe(
-              Effect.flatMap((bytes) =>
-                filename.endsWith(".md")
-                  ? Ref.getAndUpdate(reads, (count) => count + 1).pipe(
-                      Effect.map((count) =>
-                        new TextEncoder().encode(
-                          `${new TextDecoder().decode(bytes)}\nCapture version ${count}\n`,
-                        ),
-                      ),
-                    )
-                  : Effect.succeed(bytes),
-              ),
-            ),
-      }),
-    );
-  });

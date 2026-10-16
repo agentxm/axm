@@ -9,7 +9,6 @@ import {
   CatalogReviewSchema,
   DocLinkSchema,
   HookMechanismFamilySchema,
-  LastVerifiedDateSchema,
   ScopeSchema,
   UrlSchema,
   VendorStatusSchema,
@@ -57,7 +56,6 @@ export const AgentCatalogCapabilitySchema = Schema.Struct({
   }),
   axm: Schema.Struct({
     status: Schema.Union([AxmSupportSchema, Schema.Literal("writer")]),
-    legacyLastVerified: Schema.NullOr(LastVerifiedDateSchema),
     verification: Schema.NullOr(AxmVerificationSchema),
   }),
   installability: AgentInstallabilitySchema,
@@ -136,9 +134,7 @@ export const capabilityInstallability = (
     ...(capability.axm.reason === undefined ? [] : [capability.axm.reason]),
     ...(review === undefined ? ["No scoped native capability review is recorded."] : []),
     ...(verification === undefined || verification === null
-      ? [
-          "No attributable AXM execution verification is recorded; a legacy date does not establish execution.",
-        ]
+      ? ["No attributable AXM execution verification is recorded."]
       : verification.boundary === "configuration"
         ? [
             "Configuration output was verified; vendor runtime behavior was not established by that evidence.",
@@ -191,7 +187,6 @@ export const makeAgentCatalogCapability = (
   },
   axm: {
     status: axmIntegrationStatus(capability),
-    legacyLastVerified: capability.axm.lastVerified,
     verification: capability.axm.verification ?? null,
   },
   installability: capabilityInstallability(agent, capability),

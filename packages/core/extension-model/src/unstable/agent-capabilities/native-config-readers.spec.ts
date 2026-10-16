@@ -29,7 +29,6 @@ describe("independent native configuration readers", () => {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "The current writer cannot preserve this configuration.",
       },
     });
@@ -70,7 +69,6 @@ describe("independent native configuration readers", () => {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "Native location is not verified.",
       },
     });
@@ -87,7 +85,6 @@ describe("independent native configuration readers", () => {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "Native reading remains known independently of this writer.",
       },
     });

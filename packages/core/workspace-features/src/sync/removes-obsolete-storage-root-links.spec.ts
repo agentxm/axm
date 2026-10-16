@@ -53,7 +53,6 @@ const recordAcceptedSource = (workspace: SyncFixture, name: string): void =>
           [name]: makeRegistrySkillLockEntry({
             owner: decodeHandleSync("@acme"),
             name,
-            sourceName: "agentxm",
           }),
         },
       }),

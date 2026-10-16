@@ -116,7 +116,6 @@ export const gooseAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -142,7 +141,6 @@ export const gooseAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented a Goose YAML extension config writer.",
       },
@@ -254,7 +252,6 @@ export const gooseAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -286,7 +283,6 @@ export const gooseAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -360,7 +356,6 @@ export const gooseAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },
@@ -381,7 +376,6 @@ export const gooseAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a Goose permission grant writer.",
     },

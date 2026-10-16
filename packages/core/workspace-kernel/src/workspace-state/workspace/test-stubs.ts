@@ -125,41 +125,6 @@ export const configuredRow = (args: {
   classification: { kind: "lifecycle", lifecycle: "configured" },
 });
 
-/** Build an `implicit` read-model row (pack member or lockfile-only entry). */
-export const implicitRow = (args: {
-  readonly type: InstallableExtensionType;
-  readonly name: string;
-  readonly source?: string;
-}): WorkspaceRecordRow => ({
-  scope: "project",
-  type: args.type,
-  name: args.name,
-  ...(args.source === undefined ? {} : { source: args.source }),
-  enabled: true,
-  installed: true,
-  agents: [],
-  origins: [],
-  paths: [],
-  classification: { kind: "lifecycle", lifecycle: "implicit" },
-});
-
-/** Build an `unmanaged` read-model row (observed on disk, unclaimed). */
-export const unmanagedRow = (args: {
-  readonly type: InstallableExtensionType;
-  readonly name: string;
-  readonly paths?: ReadonlyArray<string>;
-}): WorkspaceRecordRow => ({
-  scope: "project",
-  type: args.type,
-  name: args.name,
-  enabled: null,
-  installed: true,
-  paths: args.paths ?? [],
-  agents: [],
-  origins: [],
-  classification: { kind: "lifecycle", lifecycle: "unmanaged" },
-});
-
 /**
  * Build a `records.rows` stub from per-type row lists. Types absent from the
  * map yield an empty array, matching the real reader's totality.
@@ -324,17 +289,11 @@ export const WorkspaceReadTest = (
     }),
   );
 
-export const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
 export const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v2:${"0".repeat(64)}`,
 );
 
-export const makeLocalSkillLockEntry = (opts?: {
-  readonly path?: string;
-  readonly agents?: ReadonlyArray<string>;
-  readonly installedAt?: unknown;
-  readonly updatedAt?: unknown;
-}): SkillLockEntry => ({
+export const makeLocalSkillLockEntry = (opts?: { readonly path?: string }): SkillLockEntry => ({
   source: { type: "path", path: decodeRelativePathSync(opts?.path ?? "installed") },
   identity: {
     owner: decodeHandleSync("@test"),
@@ -349,12 +308,8 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly name: string;
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
-  readonly sourceName?: string;
   readonly endpoint?: RegistryEndpoint;
   readonly publisherBindingId?: string;
-  readonly agents?: ReadonlyArray<string>;
-  readonly installedAt?: unknown;
-  readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
   source: {
     type: "registry",
@@ -374,11 +329,8 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   readonly name: string;
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
-  readonly sourceName?: string;
   readonly endpoint?: RegistryEndpoint;
   readonly publisherBindingId?: string;
-  readonly installedAt?: unknown;
-  readonly updatedAt?: unknown;
 }): McpServerLockEntry => ({
   source: {
     type: "registry",
@@ -398,16 +350,10 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly name: string;
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
-  readonly sourceName?: string;
   readonly endpoint?: RegistryEndpoint;
   readonly publisherBindingId?: string;
   readonly sourceHash?: string;
   readonly dependencies?: PackManifest["dependencies"];
-  readonly resolvedSkills?: Readonly<Record<string, unknown>>;
-  readonly resolvedMcpServers?: Readonly<Record<string, unknown>>;
-  readonly resolvedSubagents?: Readonly<Record<string, unknown>>;
-  readonly installedAt?: unknown;
-  readonly updatedAt?: unknown;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
     source: {

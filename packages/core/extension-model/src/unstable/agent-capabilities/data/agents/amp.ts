@@ -132,7 +132,6 @@ export const ampAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -159,7 +158,6 @@ export const ampAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "Amp's native configuration locations and server entry dialect have not been verified in the catalog; an AXM writer requires those declarations.",
@@ -205,7 +203,6 @@ export const ampAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "AXM has not implemented Amp plugin/subagent materialization.",
       },
@@ -228,7 +225,6 @@ export const ampAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM has not implemented Amp plugin or declarative-action hook writers.",
       },
     },
@@ -307,7 +303,6 @@ export const ampAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -372,7 +367,6 @@ export const ampAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },

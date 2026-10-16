@@ -102,7 +102,6 @@ export const zencoderAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -128,7 +127,6 @@ export const zencoderAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "AXM cannot yet model the dotted zencoder.mcpServers VS Code settings key, and the previous standalone .zencoder/mcp.json target was not vendor-documented.",
@@ -145,7 +143,6 @@ export const zencoderAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason: "AXM has no delivery path for Zencoder's UI-managed custom agents.",
       },
@@ -162,7 +159,6 @@ export const zencoderAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
       },
     },
   },
@@ -194,7 +190,6 @@ export const zencoderAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -215,7 +210,6 @@ export const zencoderAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a Zencoder permission grant writer.",
     },

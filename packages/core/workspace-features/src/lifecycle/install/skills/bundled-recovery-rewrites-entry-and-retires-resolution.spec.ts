@@ -112,7 +112,6 @@ describe("Bundled official-skill recovery", () => {
               axm: makeRegistrySkillLockEntry({
                 owner: decodeHandleSync("@agentxm"),
                 name: "axm",
-                sourceName: "agentxm",
                 publisherBindingId: "hbnd_agentxm",
               }),
             },

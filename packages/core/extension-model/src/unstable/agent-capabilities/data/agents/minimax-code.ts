@@ -82,7 +82,6 @@ export const minimaxCodeAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: "2026-08-05",
         writer: null,
         reason:
           "AXM has not implemented a managed installation target for the documented native surface.",
@@ -139,7 +138,6 @@ export const minimaxCodeAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "AXM has not implemented a managed installation target for the documented native surface.",
@@ -174,7 +172,6 @@ export const minimaxCodeAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "AXM has not implemented a managed installation target for the documented native surface.",
@@ -205,7 +202,7 @@ export const minimaxCodeAgent = {
             "MiniMax-format plugins register hook documents through their manifest hooks array; synchronous command hooks can return TUI systemMessage notices.",
         },
       },
-      axm: { status: "unsupported", writer: null, lastVerified: null },
+      axm: { status: "unsupported", writer: null },
     },
   },
   instructions: {
@@ -249,7 +246,7 @@ export const minimaxCodeAgent = {
         claimScope: "mcode init creates or updates AGENTS.md project guidance.",
       },
     },
-    axm: { status: "unsupported", lastVerified: null, writer: null },
+    axm: { status: "unsupported", writer: null },
   },
   permissions: {
     native: {
@@ -276,7 +273,7 @@ export const minimaxCodeAgent = {
         claimScope: "The CLI exposes execution permission modes, local rules and sandboxing.",
       },
     },
-    axm: { status: "unsupported", lastVerified: null, writer: null },
+    axm: { status: "unsupported", writer: null },
   },
 
   profile: {

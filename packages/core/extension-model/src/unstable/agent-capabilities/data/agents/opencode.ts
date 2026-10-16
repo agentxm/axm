@@ -129,7 +129,6 @@ export const opencodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -269,7 +268,6 @@ export const opencodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: null,
         writer: { config: { locationIds: ["project", "user"] } },
       },
     },
@@ -309,7 +307,6 @@ export const opencodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -331,7 +328,6 @@ export const opencodeAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason:
           "OpenCode hooks are in-process JavaScript plugin exports, not declarative config; AXM's command-stdin serializer has no way to emit them.",
       },
@@ -399,7 +395,6 @@ export const opencodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -463,7 +458,6 @@ export const opencodeAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: {
         grants: {
           shell: {

@@ -602,9 +602,6 @@ export const validateAgentMcpConfigRemovals = (args: RemoveAgentMcpConfigsArgs) 
     return yield* renderMcpRemovals(args, configPath, yield* readExisting(configPath));
   });
 
-export const validateAgentMcpConfigRemoval = (args: RemoveAgentMcpConfigArgs) =>
-  validateAgentMcpConfigRemovals({ ...args, serverNames: [args.serverName] });
-
 /** Publish one physical file after every selected owned key has been prepared. */
 export const removeAgentMcpConfigs = (
   args: RemoveAgentMcpConfigsArgs,

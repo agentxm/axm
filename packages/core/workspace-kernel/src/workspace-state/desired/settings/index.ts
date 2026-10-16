@@ -36,7 +36,6 @@ export type {
 } from "./schema.js";
 export {
   DEFAULT_MINIMUM_RELEASE_AGE,
-  DEFAULT_MINIMUM_RELEASE_AGE_DURATION,
   HookEntryObjectSchema,
   HookEntrySchema,
   HooksMapSchema,

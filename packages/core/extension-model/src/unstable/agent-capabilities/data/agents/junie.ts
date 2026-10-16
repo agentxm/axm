@@ -84,7 +84,6 @@ export const junieAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -173,7 +172,6 @@ export const junieAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: {
           config: {
             locationIds: ["project", "user"],
@@ -212,7 +210,6 @@ export const junieAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -239,7 +236,6 @@ export const junieAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason: "AXM has no trusted project hook writer target for Junie CLI hooks.",
       },
     },
@@ -284,7 +280,6 @@ export const junieAgent = {
     },
     axm: {
       status: "supported",
-      lastVerified: "2026-08-05",
       writer: null,
     },
   },
@@ -352,7 +347,6 @@ export const junieAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason: "AXM has not implemented a Junie Action Allowlist writer.",
     },

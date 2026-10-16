@@ -250,27 +250,3 @@ export const writeAuthoredPack = (workspaceRoot: string, fixture: AuthoredPackFi
     )}\n`,
   );
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-/**
- * Adds a workspace lint severity override to `axm.json`, the configurable
- * local lint policy that `axm lint` honors and the fixed publication gate
- * must ignore.
- */
-export const setWorkspaceLintRule = (
-  workspaceRoot: string,
-  ruleId: string,
-  severity: "off" | "info" | "warn" | "error",
-): void => {
-  const settingsPath = path.join(workspaceRoot, "axm.json");
-  const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-  if (!isRecord(settings)) {
-    throw new Error("Expected axm.json to contain a settings object");
-  }
-  fs.writeFileSync(
-    settingsPath,
-    JSON.stringify({ ...settings, lint: { rules: { [ruleId]: severity } } }),
-  );
-};

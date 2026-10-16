@@ -78,7 +78,6 @@ export const aiderDeskAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
         writer: null,
       },
     },
@@ -101,7 +100,6 @@ export const aiderDeskAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
         reason:
           "AiderDesk's MCP client config dialect (exact file path, servers key, and transport-specific shape under .aider-desk) is not documented, so AXM has no MCP writer.",
@@ -134,7 +132,6 @@ export const aiderDeskAgent = {
       },
       axm: {
         status: "unsupported",
-        lastVerified: null,
         writer: null,
       },
     },
@@ -156,7 +153,6 @@ export const aiderDeskAgent = {
       axm: {
         status: "unsupported",
         writer: null,
-        lastVerified: null,
         reason:
           "AiderDesk hooks are in-process JS/TS callbacks with no command-stdin serialization dialect, and its 30+ native events are not canonically mapped, so AXM has no hook writer.",
       },
@@ -205,7 +201,6 @@ export const aiderDeskAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
     },
   },
@@ -238,7 +233,6 @@ export const aiderDeskAgent = {
     },
     axm: {
       status: "unsupported",
-      lastVerified: null,
       writer: null,
       reason:
         "AXM has not implemented a managed installation target for the documented native surface.",

@@ -226,10 +226,12 @@ export const ExtensionName = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$", "u")).annotate({
-      expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-      identifier: "ExtensionName",
-    }),
+    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])", "u")).annotate(
+      {
+        expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])",
+        identifier: "ExtensionName",
+      },
+    ),
   );
 export type TelemetryEvent = {
   readonly eventId: string;
@@ -1653,6 +1655,8 @@ export type ErrorsIngest200 = TelemetryErrorReceipt;
 export const ErrorsIngest200 = TelemetryErrorReceipt;
 export type ErrorsIngest400 = DecodeErrorResponse;
 export const ErrorsIngest400 = DecodeErrorResponse;
+export type ErrorsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
+export const ErrorsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
 
 export interface OperationConfig {
   /**
@@ -1810,6 +1814,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(ErrorsIngest200),
             "400": decodeError("ErrorsIngest400", ErrorsIngest400),
+            "413": decodeError("ErrorsIngest413", ErrorsIngest413),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1922,7 +1927,7 @@ export interface TelemetryClient {
     >;
   };
   /**
-   * Validates a JSON batch and registers bounded best-effort forwarding. The 200 receipt does not imply durable storage or provider ingestion. Content-Type must be application/json. Ingress limits are owned by the edge.
+   * Validates a JSON batch and registers bounded best-effort forwarding. The 200 receipt does not imply durable storage or provider ingestion. Content-Type must be application/json and the body at most 64 KiB; a larger body is refused with 413 payload_too_large before it is decoded. Request rates are limited at the edge.
    */
   readonly EventsIngest: {
     <Config extends OperationConfig | undefined = undefined>(options: {
@@ -1967,6 +1972,10 @@ export interface TelemetryClient {
    * and AXM-owned source locations verified by the reporting build. They carry
    * no messages, raw stacks, arguments, absolute paths, source excerpts,
    * variables, or extension code.
+   *
+   * **Ingress bounds.** Content-Type must be application/json and the body at
+   * most 64 KiB; a larger body is refused with `413 payload_too_large` before
+   * it is decoded.
    */
   readonly ErrorsIngest: {
     <Config extends OperationConfig | undefined = undefined>(options: {
@@ -1977,6 +1986,7 @@ export interface TelemetryClient {
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"ErrorsIngest400", typeof ErrorsIngest400.Type>
+      | TelemetryClientError<"ErrorsIngest413", typeof ErrorsIngest413.Type>
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof ErrorsIngestRequestJson.Encoded;
@@ -1986,6 +1996,7 @@ export interface TelemetryClient {
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"ErrorsIngest400", typeof ErrorsIngest400.Type>
+      | TelemetryClientError<"ErrorsIngest413", typeof ErrorsIngest413.Type>
     >;
   };
 }

@@ -83,6 +83,15 @@ const admin =
 
 const ref = { owner: "@acme", type: "skills", name: "review" };
 
+describe("Generated extension names match the complete wire value", () => {
+  it.each(["review\n", "review\r", "review\u2028", "review\u2029"])(
+    "rejects a trailing line terminator in %j",
+    (name) => {
+      expect(() => strictly(Generated.ExtensionName, name)).toThrow();
+    },
+  );
+});
+
 describe("Mutating Registry calls send bodies the contract accepts strictly", () => {
   it.effect("visibility mutation", () =>
     Effect.gen(function* () {

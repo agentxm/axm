@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AgentXM Registry API",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "description": "Public machine-client API for AgentXM auth, discovery, extension reads, publishing, and user-initiated lifecycle operations."
   },
   "paths": {
@@ -6311,7 +6311,7 @@
       "ExtensionName": {
         "type": "string",
         "minLength": 1,
-        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])",
         "title": "Extension Name",
         "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
         "examples": [

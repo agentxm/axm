@@ -4,6 +4,7 @@ import * as nodePath from "node:path";
 
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientError from "effect/http/HttpClientError";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -14,6 +15,7 @@ import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
@@ -31,6 +33,7 @@ import {
   TelemetryErrorReport,
   TelemetryEventsRequest,
   TelemetryReportingClient,
+  make as makeTelemetryApiClient,
 } from "./__generated__/telemetry-client.js";
 import {
   TELEMETRY_SHUTDOWN_BUDGET,
@@ -39,7 +42,7 @@ import {
   type TelemetryClientOptions,
   type TelemetryClientService,
 } from "./client.js";
-import { reportingClientFacts, type TelemetryFailureReport } from "./payloads.js";
+import { buildErrorReport, reportingClientFacts, type TelemetryFailureReport } from "./payloads.js";
 
 const INSTALLATION_ID = "00000000-0000-4000-8000-000000000001";
 const EVENT_ID = "00000000-0000-4000-8000-000000000002";
@@ -147,6 +150,48 @@ const decodeReport = Schema.decodeUnknownSync(TelemetryErrorReport);
 const decodeEvents = Schema.decodeUnknownSync(TelemetryEventsRequest);
 
 describe("TelemetryClientLive", () => {
+  it.effect("retains a declared oversized error report refusal", () =>
+    Effect.gen(function* () {
+      const client = HttpClient.make((request) =>
+        Effect.succeed(
+          HttpClientResponse.fromWeb(
+            request,
+            Response.json(
+              {
+                kind: "TelemetryPayloadTooLargeError",
+                type: "https://t.agentxm.ai/problems/payload_too_large",
+                title: "Payload Too Large",
+                status: 413,
+                detail: "Error reports must be at most 64 KiB.",
+                code: "payload_too_large",
+              },
+              { status: 413, headers: { "content-type": "application/problem+json" } },
+            ),
+          ),
+        ),
+      );
+      const refusal = yield* makeTelemetryApiClient(
+        client.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl("https://t.agentxm.ai"))),
+      )
+        .ErrorsIngest({
+          payload: buildErrorReport({
+            eventId: EVENT_ID,
+            invocationId: "00000000-0000-4000-8000-000000000003",
+            occurredAt: "2026-10-16T00:00:00.000Z",
+            installationId: Option.none(),
+            client: reportingClientFacts({ name: "cli", version: "1.2.3" }, false),
+            failure,
+          }),
+        })
+        .pipe(Effect.flip);
+      expect(refusal).toMatchObject({
+        _tag: "ErrorsIngest413",
+        cause: { code: "payload_too_large", status: 413 },
+        response: { status: 413 },
+      });
+    }),
+  );
+
   it.effect.each(["VITEST", "CI", "AXM_TELEMETRY_BASE_URL", "AXM_USER_HOME"])(
     "sends no usage event and writes no identity when %s configuration fails",
     (key) =>

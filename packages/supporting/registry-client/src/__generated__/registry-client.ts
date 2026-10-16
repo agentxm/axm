@@ -512,10 +512,12 @@ export const ExtensionName = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$", "u")).annotate({
-      expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-      identifier: "ExtensionName",
-    }),
+    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])", "u")).annotate(
+      {
+        expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])",
+        identifier: "ExtensionName",
+      },
+    ),
   );
 export type Handle = string;
 export const Handle = Schema.String.annotate({

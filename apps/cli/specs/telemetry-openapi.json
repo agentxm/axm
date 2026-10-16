@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AgentXM Telemetry Ingest API",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "description": "Telemetry ingest API for product-analytics events and error reports."
   },
   "paths": {
@@ -554,7 +554,7 @@
             }
           }
         },
-        "description": "Validates a JSON batch and registers bounded best-effort forwarding. The 200 receipt does not imply durable storage or provider ingestion. Content-Type must be application/json. Ingress limits are owned by the edge.",
+        "description": "Validates a JSON batch and registers bounded best-effort forwarding. The 200 receipt does not imply durable storage or provider ingestion. Content-Type must be application/json and the body at most 64 KiB; a larger body is refused with 413 payload_too_large before it is decoded. Request rates are limited at the edge.",
         "summary": "Ingest batched telemetry events",
         "requestBody": {
           "content": {
@@ -594,9 +594,19 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "TelemetryPayloadTooLargeError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryPayloadTooLargeErrorEncoded"
+                }
+              }
+            }
           }
         },
-        "description": "Receives one bounded, allowlisted failure report from a consent-controlled client invocation.\n\n**Receipt.** A `200` response is a synchronous receipt: the report passed\nvalidation and its forwarding was registered as bounded, best-effort\nbackground work of the receiving invocation. The receipt is not durable\nacceptance, provider ingestion, or issue creation, and the service stores\nnothing. Forwarding may be dropped when a provider fails or the invocation's\nbackground deadline passes; no exactly-once delivery is promised.\n\n**Report identity.** Resubmitting the same report keeps its `eventId`. The\nservice carries that identity into the provider insert and event\nidentities, but provider deduplication is not an end-to-end guarantee.\n\n**Declared fields only.** Only the declared, bounded fields are accepted.\nA report with an undeclared field is refused with `400 invalid_request`,\nand its `errors` entry points at the field. Reports identify a failure kind\nand operation and may carry bounded request evidence, batch outcomes, operation history,\nand AXM-owned source locations verified by the reporting build. They carry\nno messages, raw stacks, arguments, absolute paths, source excerpts,\nvariables, or extension code.",
+        "description": "Receives one bounded, allowlisted failure report from a consent-controlled client invocation.\n\n**Receipt.** A `200` response is a synchronous receipt: the report passed\nvalidation and its forwarding was registered as bounded, best-effort\nbackground work of the receiving invocation. The receipt is not durable\nacceptance, provider ingestion, or issue creation, and the service stores\nnothing. Forwarding may be dropped when a provider fails or the invocation's\nbackground deadline passes; no exactly-once delivery is promised.\n\n**Report identity.** Resubmitting the same report keeps its `eventId`. The\nservice carries that identity into the provider insert and event\nidentities, but provider deduplication is not an end-to-end guarantee.\n\n**Declared fields only.** Only the declared, bounded fields are accepted.\nA report with an undeclared field is refused with `400 invalid_request`,\nand its `errors` entry points at the field. Reports identify a failure kind\nand operation and may carry bounded request evidence, batch outcomes, operation history,\nand AXM-owned source locations verified by the reporting build. They carry\nno messages, raw stacks, arguments, absolute paths, source excerpts,\nvariables, or extension code.\n\n**Ingress bounds.** Content-Type must be application/json and the body at\nmost 64 KiB; a larger body is refused with `413 payload_too_large` before\nit is decoded.",
         "summary": "Receive a client error report",
         "requestBody": {
           "content": {
@@ -658,6 +668,35 @@
         "additionalProperties": false,
         "title": "Decode Error Problem Details",
         "description": "RFC 9457 Problem Details for a request that failed schema decoding; each `errors` entry points at one offending location."
+      },
+      "TelemetryPayloadTooLargeErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["TelemetryPayloadTooLargeError"]
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": ["kind", "type", "title", "status", "detail", "code"],
+        "additionalProperties": false
       },
       "TelemetryErrorReceipt": {
         "type": "object",
@@ -1142,35 +1181,6 @@
         "title": "ISO Date-Time String",
         "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
         "format": "date-time"
-      },
-      "TelemetryPayloadTooLargeErrorEncoded": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": ["TelemetryPayloadTooLargeError"]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer"
-          },
-          "detail": {
-            "type": "string"
-          },
-          "instance": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          }
-        },
-        "required": ["kind", "type", "title", "status", "detail", "code"],
-        "additionalProperties": false
       },
       "TelemetryEventsReceipt": {
         "type": "object",
@@ -1771,7 +1781,7 @@
       "ExtensionName": {
         "type": "string",
         "minLength": 1,
-        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])",
         "title": "Extension Name",
         "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
         "examples": ["my-skill", "code-review", "prettier"]

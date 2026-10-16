@@ -27,6 +27,15 @@ const detectInTempDir = (files?: Record<string, string>) =>
   }).pipe(Effect.scoped);
 
 describe("opamDetector", () => {
+  it.effect("returns no packages when the project has no package manifests", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const result = yield* detectInTempDir();
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
+
   it("has type opam", () => {
     expect(opamDetector.type).toBe(opamType);
   });
@@ -184,17 +193,6 @@ describe("opamDetector", () => {
     );
   });
 
-  describe("missing opam files", () => {
-    it.effect("returns empty array when no opam files", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-  });
-
   describe("no depends field", () => {
     it.effect("returns empty array when no depends field", () =>
       withPackagingContext(
@@ -203,17 +201,6 @@ describe("opamDetector", () => {
             "\n",
           );
           const result = yield* detectInTempDir({ "mylib.opam": opamContent });
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-  });
-
-  describe("missing dune-project", () => {
-    it.effect("returns empty array when no dune-project", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
           expect(result).toEqual([]);
         }),
       ),

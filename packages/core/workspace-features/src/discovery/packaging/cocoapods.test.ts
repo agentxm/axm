@@ -27,6 +27,15 @@ const detectInTempDir = (files?: Record<string, string>) =>
   }).pipe(Effect.scoped);
 
 describe("cocoapodsDetector", () => {
+  it.effect("returns no packages when the project has no package manifests", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const result = yield* detectInTempDir({});
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
+
   it("has type cocoapods", () => {
     expect(cocoapodsDetector.type).toBe(cocoapodsType);
   });
@@ -51,15 +60,6 @@ describe("cocoapodsDetector", () => {
         }),
       ),
     );
-
-    it.effect("missing Podfile returns empty", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir({});
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
   });
 
   describe("podspec dependency directives", () => {
@@ -79,15 +79,6 @@ describe("cocoapodsDetector", () => {
           const names = result.map((r) => r.purl.name);
           expect(names).toContain("Alamofire");
           expect(names).toContain("SwiftyJSON");
-        }),
-      ),
-    );
-
-    it.effect("no podspec files returns empty", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir({});
-          expect(result).toEqual([]);
         }),
       ),
     );

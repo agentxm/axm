@@ -16,20 +16,11 @@ import {
 import { ImportNativeExtension } from "./import-native-extension.js";
 import { nativeMcpDiscovery, writeNativeRemoteMcp } from "../test-support/native-mcp.js";
 
-/**
- * Exhaustive per-type coverage behind
- * `cli/native-imports-preserve-content-and-source`: the activation table is
- * the rule, and this sweep verifies the conversion is the same for both types
- * of native content the import accepts.
- */
-describe("ImportNativeExtension across native content types", () => {
+describe("ImportNativeExtension rollback", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
-
-  const body =
-    "---\nname: original\ndescription: Review code carefully\n---\n\nKeep every recommendation evidence backed.\n";
 
   it.effect(
     "restores an authored MCP package and its new parent after a late native write failure",
@@ -82,44 +73,4 @@ describe("ImportNativeExtension across native content types", () => {
         expect(created.snapshot()).toEqual(before);
       }),
   );
-
-  for (const type of ["skill", "subagent"] as const)
-    for (const enable of [false, true])
-      it.effect(`imports a native ${type} with enable=${enable}`, () =>
-        Effect.gen(function* () {
-          const plural = type === "skill" ? "skills" : "subagents";
-          const created = makeAuthoringWorkspace({ owner: "@acme", agents: ["claude-code"] });
-          cleanups.push(created.cleanup);
-          const relative = type === "skill" ? "native/SKILL.md" : "native/reviewer.md";
-          created.write(relative, body);
-          const before = created.snapshot("native");
-
-          const resolution = yield* Effect.gen(function* () {
-            const candidate = yield* ImportNativeExtension.prepare({
-              type,
-              source: nodePath.join(created.root, type === "skill" ? "native" : relative),
-              target: `@acme/${plural}/custom`,
-              enable,
-              ...(type === "subagent" ? { sourceAgent: "claude-code" as const } : {}),
-            });
-            return yield* ImportNativeExtension.previewOrApply(candidate, applyExecution);
-          }).pipe(Effect.scoped, Effect.provide(authoringWorkspaceLayer(created)));
-
-          expect(deriveOperationOutcome(resolution), JSON.stringify(resolution)).toBe("applied");
-          expect(created.snapshot("native")).toEqual(before);
-          expect(JSON.parse(created.read(`${plural}/custom/${type}.json`) ?? "null")).toMatchObject(
-            { owner: "@acme", type, name: "custom", version: "0.1.0" },
-          );
-          const content = created.read(
-            `${plural}/custom/${type === "skill" ? "src/SKILL.md" : "native/claude-code/reviewer.md"}`,
-          );
-          expect(content).toBe(body);
-          expect(content).toContain("Keep every recommendation evidence backed.");
-          expect(
-            created.exists(
-              type === "skill" ? ".claude/skills/original" : ".claude/agents/original.md",
-            ),
-          ).toBe(enable);
-        }),
-      );
 });

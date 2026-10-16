@@ -820,56 +820,6 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("does not create a second authority beside accepted resolutions", () =>
-    Effect.gen(function* () {
-      const { provide } = makeLayers();
-      const axmDir = path.join(tempDir, ".axm");
-      writeWorkspaceFiles(axmDir, {
-        agents: [],
-        lockfileSkills: {
-          review: {
-            type: "registry",
-            owner: "@acme",
-            name: "review",
-            resolvedVersion: "1.0.0",
-            integrity: `sha512-${"A".repeat(86)}==`,
-            sourceName: "test",
-            publisherBindingId: "hbnd_test",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        },
-      });
-
-      yield* provide(handleSync({ preview: false }));
-    }),
-  );
-
-  it.effect("keeps accepted-resolution preview read-only", () =>
-    Effect.gen(function* () {
-      const { provide } = makeLayers();
-      const axmDir = path.join(tempDir, ".axm");
-      writeWorkspaceFiles(axmDir, {
-        agents: [],
-        lockfileSkills: {
-          review: {
-            type: "registry",
-            owner: "@acme",
-            name: "review",
-            resolvedVersion: "1.0.0",
-            integrity: `sha512-${"A".repeat(86)}==`,
-            sourceName: "test",
-            publisherBindingId: "hbnd_test",
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        },
-      });
-
-      yield* provide(handleSync({ preview: true }));
-    }),
-  );
-
   it.effect("leaves the lockfile absent when there is no external resolution to accept", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();

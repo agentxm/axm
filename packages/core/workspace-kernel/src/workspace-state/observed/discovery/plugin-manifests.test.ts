@@ -302,16 +302,6 @@ describe("parsePluginManifests", () => {
   });
 
   describe("missing manifests", () => {
-    it.effect("returns empty array when no manifests exist", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const result = yield* parsePluginManifests(tempDir);
-
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-
     it.effect("returns empty array when .claude-plugin directory is missing", () =>
       withFileSystem(
         Effect.gen(function* () {

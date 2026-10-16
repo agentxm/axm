@@ -81,6 +81,8 @@ interface PreviewRow {
   }) => SeedEffect;
   /** What must still be true after a preview: the accepted state, unchanged. */
   readonly expectUnadvanced: (workspace: LifecycleFixture) => void;
+  /** Selected rows also prove that applying the previewed advance changes the content. */
+  readonly expectAdvanced?: (workspace: LifecycleFixture) => void;
 }
 
 const REVIEW = "code-review";
@@ -110,6 +112,10 @@ const rows: ReadonlyArray<PreviewRow> = [
       expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
       expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain("First guidance.");
     },
+    expectAdvanced: (workspace) => {
+      expect(workspace.readFile("axm.lock")).toContain('version = "2.0.0"');
+      expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain("Second guidance.");
+    },
   },
   {
     label: "subagent",
@@ -131,6 +137,12 @@ const rows: ReadonlyArray<PreviewRow> = [
       expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
       expect(workspace.readFile(`.claude/agents/${RESEARCHER}.md`)).toContain(
         "Research carefully.",
+      );
+    },
+    expectAdvanced: (workspace) => {
+      expect(workspace.readFile("axm.lock")).toContain('version = "2.0.0"');
+      expect(workspace.readFile(`.claude/agents/${RESEARCHER}.md`)).toContain(
+        "Research thoroughly.",
       );
     },
   },
@@ -296,6 +308,15 @@ describe("Update preview purity", () => {
             expect(workspace.snapshot()).toEqual(before);
             row.expectUnadvanced(workspace);
             expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
+            if (row.expectAdvanced !== undefined) {
+              const applied = expectResolved(
+                yield* applyUpdate(
+                  configuredUpdateRequest({ type: row.type, planName: `Update ${row.label}` }),
+                ),
+              );
+              expect(deriveOperationOutcome(applied)).toBe("applied");
+              row.expectAdvanced(workspace);
+            }
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -400,51 +421,6 @@ describe("Update preview purity", () => {
             expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
               "Second guidance.",
             );
-          }),
-        )
-        .pipe(Effect.provide(NodeServices.layer));
-    },
-  );
-
-  it.effect.each([
-    {
-      label: "skill",
-      type: "skill",
-      projection: `.claude/skills/${REVIEW}/SKILL.md`,
-      advanced: "Second guidance.",
-    },
-    {
-      label: "subagent",
-      type: "subagent",
-      projection: `.claude/agents/${RESEARCHER}.md`,
-      advanced: "Research thoroughly.",
-    },
-  ] as const)(
-    "the previewed $label sweep is real: applying it afterwards advances what the preview left alone",
-    ({ type, projection, advanced }) => {
-      const row = rows.find((candidate) => candidate.type === type);
-      if (row === undefined) throw new Error(`No preview row for ${type}`);
-      const { workspace, registry } = world();
-      return workspace
-        .provide(
-          Effect.gen(function* () {
-            yield* row.seed({ workspace, registry });
-            const before = workspace.snapshot();
-
-            const previewed = expectResolved(
-              yield* previewUpdate(configuredUpdateRequest({ type, planName: `Update ${type}` })),
-            );
-
-            expect(deriveOperationOutcome(previewed)).toBe("previewed");
-            expect(workspace.snapshot()).toEqual(before);
-
-            const applied = expectResolved(
-              yield* applyUpdate(configuredUpdateRequest({ type, planName: `Update ${type}` })),
-            );
-
-            expect(deriveOperationOutcome(applied)).toBe("applied");
-            expect(workspace.readFile("axm.lock")).toContain('version = "2.0.0"');
-            expect(workspace.readFile(projection)).toContain(advanced);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

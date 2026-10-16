@@ -36,6 +36,15 @@ const detectInTempDir = (
   }).pipe(Effect.scoped);
 
 describe("mavenDetector", () => {
+  it.effect("returns no packages when the project has no package manifests", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const result = yield* detectInTempDir();
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
+
   it("has type maven", () => {
     expect(mavenDetector.type).toBe(mavenType);
   });
@@ -104,15 +113,6 @@ describe("mavenDetector", () => {
           const result = yield* detectInTempDir([{ name: "pom.xml", content: pomXml }]);
           expect(result).toHaveLength(1);
           expect(result[0]?.purl.name).toBe("junit");
-        }),
-      ),
-    );
-
-    it.effect("missing pom.xml returns empty array", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
-          expect(result).toEqual([]);
         }),
       ),
     );
@@ -275,15 +275,6 @@ dependencies {
         }),
       ),
     );
-
-    it.effect("missing Gradle build files returns empty array", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
   });
 
   describe("gradle version catalog parsing", () => {
@@ -352,15 +343,6 @@ spring-core = { module = "org.springframework:spring-core", version.ref = "sprin
               version: "6.1.0",
             }),
           );
-        }),
-      ),
-    );
-
-    it.effect("missing version catalog returns empty array", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
-          expect(result).toEqual([]);
         }),
       ),
     );

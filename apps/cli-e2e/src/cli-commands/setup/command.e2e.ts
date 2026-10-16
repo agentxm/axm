@@ -55,6 +55,11 @@ describe("axm setup", () => {
             ),
           ),
         ).toBe(true);
+        expect(Array.isArray(settings.agents)).toBe(true);
+        const lockfilePath = path.join(temp.path, "axm.lock");
+        expect(fs.existsSync(lockfilePath)).toBe(true);
+        expect(readLockfile(lockfilePath).version).toBe(LOCKFILE_VERSION);
+        expect(result.stdout + result.stderr).toMatch(/^Set up AXM for 1 agent {2}\d+ created/m);
       } finally {
         temp.cleanup();
       }
@@ -107,75 +112,9 @@ describe("axm setup", () => {
         temp.cleanup();
       }
     });
-
-    it("creates axm.json with detected agents", async () => {
-      const temp = createTempDir();
-      try {
-        const result = await runCli(approvedProjectSetup, { cwd: temp.path });
-
-        expect(result.exitCode).toBe(0);
-
-        // Verify axm.json structure
-        const settingsPath = path.join(temp.path, "axm.json");
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-
-        // Should have agents array (may be empty if no agents detected in test env)
-        expect(settings).toHaveProperty("agents");
-        expect(Array.isArray(settings.agents)).toBe(true);
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("creates lockfile", async () => {
-      const temp = createTempDir();
-      try {
-        const result = await runCli(approvedProjectSetup, { cwd: temp.path });
-
-        expect(result.exitCode).toBe(0);
-
-        // Should create axm.lock
-        const lockfilePath = path.join(temp.path, "axm.lock");
-        expect(fs.existsSync(lockfilePath)).toBe(true);
-        expect(readLockfile(lockfilePath).version).toBe(LOCKFILE_VERSION);
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("outputs initialization message", async () => {
-      const temp = createTempDir();
-      try {
-        const result = await runCli(approvedProjectSetup, { cwd: temp.path });
-
-        expect(result.exitCode).toBe(0);
-        // The settled record ends on the verdict naming what setup did
-        expect(result.stdout + result.stderr).toMatch(/^Set up AXM for 1 agent {2}\d+ created/m);
-      } finally {
-        temp.cleanup();
-      }
-    });
   });
 
   describe("on initialized workspace", () => {
-    it("succeeds when running setup again", async () => {
-      const temp = createTempDir();
-      try {
-        // First setup
-        await runCli(approvedProjectSetup, { cwd: temp.path });
-
-        // Second setup should succeed
-        const result = await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).toBe(0);
-      } finally {
-        temp.cleanup();
-      }
-    });
-
     it("does not modify settings when already initialized", async () => {
       const temp = createTempDir();
       try {
@@ -191,10 +130,12 @@ describe("axm setup", () => {
         await new Promise((resolve) => setTimeout(resolve, 50));
 
         // Second setup
-        await runCli(
+        const result = await runCli(
           ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
           { cwd: temp.path },
         );
+
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
 
         // Settings should not be modified
         const newContent = fs.readFileSync(settingsPath, "utf-8");

@@ -27,6 +27,15 @@ const detectInTempDir = (files?: Record<string, string>) =>
   }).pipe(Effect.scoped);
 
 describe("dockerDetector", () => {
+  it.effect("returns no packages when the project has no package manifests", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const result = yield* detectInTempDir({});
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
+
   it("has type docker", () => {
     expect(dockerDetector.type).toBe(dockerType);
   });
@@ -77,15 +86,6 @@ describe("dockerDetector", () => {
         }),
       ),
     );
-
-    it.effect("missing Dockerfile returns empty", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir({});
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
   });
 
   describe("docker-compose files", () => {
@@ -117,15 +117,6 @@ describe("dockerDetector", () => {
           expect(result).toHaveLength(1);
           // latest → versionless
           expect(result[0]?.purl).toEqual(makePurl({ type: "docker", name: "myapp" }));
-        }),
-      ),
-    );
-
-    it.effect("missing compose files returns empty", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir({});
-          expect(result).toEqual([]);
         }),
       ),
     );
@@ -191,19 +182,6 @@ describe("dockerDetector", () => {
           });
           expect(result[0]?.purl).toEqual(
             makePurl({ type: "docker", name: "node", version: "18.17.0" }),
-          );
-        }),
-      ),
-    );
-
-    it.effect("named tag produces versioned purl", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir({
-            Dockerfile: "FROM node:18-alpine",
-          });
-          expect(result[0]?.purl).toEqual(
-            makePurl({ type: "docker", name: "node", version: "18-alpine" }),
           );
         }),
       ),

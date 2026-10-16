@@ -29,6 +29,15 @@ const detectInTempDir = (files?: Record<string, string>) =>
   }).pipe(Effect.scoped);
 
 describe("condaDetector", () => {
+  it.effect("returns no packages when the project has no package manifests", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const result = yield* detectInTempDir({});
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
+
   it("has type conda", () => {
     expect(condaDetector.type).toBe(condaType);
   });
@@ -50,15 +59,6 @@ describe("condaDetector", () => {
           expect(names).toContain("numpy");
           expect(names).toContain("pandas");
           expect(names).toContain("scikit-learn");
-        }),
-      ),
-    );
-
-    it.effect("missing environment.yml returns empty", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir({});
-          expect(result).toEqual([]);
         }),
       ),
     );
@@ -97,15 +97,6 @@ describe("condaDetector", () => {
           expect(names).toContain("python");
           expect(names).toContain("numpy");
           expect(names).toContain("pandas");
-        }),
-      ),
-    );
-
-    it.effect("missing meta.yaml returns empty", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir({});
-          expect(result).toEqual([]);
         }),
       ),
     );

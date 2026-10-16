@@ -1,3 +1,13 @@
+## 0.49.1 (2026-10-16)
+
+### 🩹 Fixes
+
+- Refresh the Registry API client and batch discovery within package, declaration, and payload limits. Require complete archive responses, recheck authorization before reusing cached archives, and preserve Registry error responses. ([af3cc17ef](https://github.com/agentxm/axm/commit/af3cc17ef))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.49.0 (2026-10-16)
 
 ### 🩹 Fixes

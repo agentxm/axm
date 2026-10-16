@@ -1,3 +1,14 @@
+## 0.47.2 (2026-10-16)
+
+### 🩹 Fixes
+
+- Preserve tool-owned TOML values across lockfile updates, reject ambiguous declarations and malformed immutable identifiers, and emit readable deterministic binding and projection tables. ([7ca9d9ac1](https://github.com/agentxm/axm/commit/7ca9d9ac1))
+- Recover sign-in after expired or revoked credentials and retain HTTP evidence when Registry response decoding fails. ([79def0d9a](https://github.com/agentxm/axm/commit/79def0d9a))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.47.1 (2026-10-15)
 
 ### 🩹 Fixes

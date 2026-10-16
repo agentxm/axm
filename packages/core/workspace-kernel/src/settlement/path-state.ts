@@ -21,7 +21,7 @@ export const observeAncestorRoute = (fs: FileSystem.FileSystem, path: Path.Path,
       } else {
         const info = observed.success;
         const physical = yield* fs.realPath(parent);
-        const inode = yield* nativeInode(parent, info);
+        const inode = yield* nativeInode(info);
         route.set(
           parent,
           info.type !== "Directory" || Option.isNone(inode) || Option.isNone(info.birthtime)
@@ -47,7 +47,7 @@ export const observePathState = (
     if (info._tag === "Failure") {
       return new Map([["", info.failure.reason._tag === "NotFound" ? "absent" : "unreadable"]]);
     }
-    const inode = yield* nativeInode(target, info.success);
+    const inode = yield* nativeInode(info.success);
     if (Option.isNone(inode) || Option.isNone(info.success.birthtime))
       return new Map([["", "unreadable"]]);
     const identity = `${info.success.dev}:${inode.value}:${info.success.birthtime.value.getTime()}:${info.success.mode}`;

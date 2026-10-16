@@ -636,6 +636,24 @@ export default [
     },
   },
   {
+    // string-argv 0.4 publishes import-only exports. Nx 23 resolves npm
+    // package manifests through require conditions and cannot distinguish it
+    // from Effect CLI's transitive 0.3 copy. This sole consumer declares the
+    // 0.4 dependency directly and runs as ESM; keep the exception local.
+    files: ["apps/cli/src/command-help-is-complete.spec.ts"],
+    rules: {
+      "@nx/enforce-module-boundaries": [
+        "error",
+        {
+          ...moduleBoundaryOptions,
+          allow: [...moduleBoundaryOptions.allow, "^string-argv$"],
+          enforceBuildableLibDependency: false,
+          depConstraints: moduleBoundaryConstraints({ production: false }),
+        },
+      ],
+    },
+  },
+  {
     // Manifest fidelity: build inputs and each buildable package's
     // package.json must agree. Missing, obsolete, and mismatched entries
     // fail lint instead of surfacing at publish time.

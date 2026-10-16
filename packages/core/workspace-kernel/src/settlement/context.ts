@@ -160,7 +160,7 @@ export const protectInContext = (
           cause: "native-alias-changed",
         });
       }
-      if (address.kind === "file" && (address.links ?? 1) > 1) {
+      if (address.kind === "file" && BigInt(address.links ?? "1") > 1n) {
         return yield* new WorkspaceSnapshotError({
           target,
           step: "inspect-target",

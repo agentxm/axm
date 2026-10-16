@@ -219,7 +219,7 @@ export const copyExtensionDirectory = (
         return yield* new NativeLocationError({ target, reason: "source-overlap" });
       // Excluded package members are still source-owned bytes. An existing
       // hardlink could reach one of them without appearing in the read set.
-      if ((destination.links ?? 1) > 1)
+      if (BigInt(destination.links ?? "1") > 1n)
         return yield* new NativeLocationError({ target, reason: "hardlink" });
     }
     for (const { target } of links) {

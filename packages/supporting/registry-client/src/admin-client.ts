@@ -206,7 +206,10 @@ export const makeRegistryLifecycleClient = (
   const yankExtensionVersion = (
     ref: RegistryExtensionVersionReference,
     input: { readonly category?: YankCategory; readonly message?: string },
-  ) =>
+  ): Effect.Effect<
+    typeof GeneratedRegistryClient.ExtensionsYankVersion200.Type,
+    RegistryClientFailure
+  > =>
     runAdminCall(
       client.ExtensionsYankVersion(ref.owner, ref.type, ref.name, ref.version, {
         payload: {
@@ -225,7 +228,10 @@ export const makeRegistryLifecycleClient = (
   const yankAvailableExtensionVersions = (
     ref: RegistryExtensionReference,
     input: { readonly category?: YankCategory; readonly message?: string },
-  ) =>
+  ): Effect.Effect<
+    typeof GeneratedRegistryClient.ExtensionsYankAvailableVersions200.Type,
+    RegistryClientFailure
+  > =>
     runAdminCall(
       client.ExtensionsYankAvailableVersions(ref.owner, ref.type, ref.name, {
         payload: {
@@ -242,7 +248,12 @@ export const makeRegistryLifecycleClient = (
       },
     );
 
-  const unyankExtensionVersion = (ref: RegistryExtensionVersionReference) =>
+  const unyankExtensionVersion = (
+    ref: RegistryExtensionVersionReference,
+  ): Effect.Effect<
+    typeof GeneratedRegistryClient.ExtensionsUnyankVersion200.Type,
+    RegistryClientFailure
+  > =>
     runAdminCall(
       client.ExtensionsUnyankVersion(ref.owner, ref.type, ref.name, ref.version, undefined),
       {

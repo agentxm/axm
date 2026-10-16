@@ -25,6 +25,7 @@ import { expect } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
+import * as Redacted from "effect/Redacted";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import {
@@ -695,7 +696,8 @@ export const makeRegistryManagementWorld = (
   const httpClient = HttpClient.make((request) =>
     Effect.sync(() => {
       const url = new URL(request.url);
-      for (const [key, value] of request.urlParams) url.searchParams.append(key, value);
+      for (const [key, value] of request.urlParams)
+        url.searchParams.append(key, Redacted.isRedacted(value) ? Redacted.value(value) : value);
       const observed: RegistryManagementRequest = {
         method: request.method,
         url,

@@ -90,7 +90,7 @@ it.effect(
       const host = yield* FileSystem.FileSystem;
       const temporary = yield* host.makeTempDirectoryScoped();
       // Synthetic paths require synthetic identity, even when the host omits its numeric inode.
-      const info = { ...(yield* host.stat(temporary)), ino: Option.some(1) };
+      const info = { ...(yield* host.stat(temporary)), ino: Option.some(1n) };
       const calls = yield* Ref.make<ReadonlyArray<string>>([]);
       const fs = FileSystem.makeNoop({
         realPath: (target) =>

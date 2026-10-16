@@ -106,16 +106,16 @@ export const makeMemoryFileSystem = (): MemoryFileSystem => {
       mtime: Option.some(stat.mtime),
       atime: Option.some(stat.atime),
       birthtime: Option.some(stat.birthtime),
-      dev: Number(stat.dev),
-      ino: Option.some(Number(stat.ino)),
+      dev: BigInt(stat.dev),
+      ino: Option.some(BigInt(stat.ino)),
       mode: Number(stat.mode),
-      nlink: Option.some(Number(stat.nlink)),
+      nlink: Option.some(BigInt(stat.nlink)),
       uid: Option.some(Number(stat.uid)),
       gid: Option.some(Number(stat.gid)),
-      rdev: Option.some(Number(stat.rdev)),
+      rdev: Option.some(BigInt(stat.rdev)),
       size: ByteSize.bytes(stat.size),
       blksize: Option.some(ByteSize.bytes(stat.blksize)),
-      blocks: Option.some(Number(stat.blocks)),
+      blocks: Option.some(BigInt(stat.blocks)),
     };
   };
   const fileSystem = FileSystem.make({

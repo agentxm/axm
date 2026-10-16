@@ -16,7 +16,7 @@ import {
 import { nativeInode } from "./native-inode.js";
 
 const EntryIdentity = Schema.Struct({
-  device: Schema.Number,
+  device: Schema.String,
   inode: Schema.String,
   birthtime: Schema.Number,
   mode: Schema.Number,
@@ -91,7 +91,7 @@ export interface ContainerIdentityContext {
 
 const identityOf = (target: string, info: FileSystem.File.Info) =>
   Effect.gen(function* () {
-    const inode = yield* nativeInode(target, info);
+    const inode = yield* nativeInode(info);
     if (
       Option.isNone(inode) ||
       Option.isNone(info.birthtime) ||
@@ -106,7 +106,7 @@ const identityOf = (target: string, info: FileSystem.File.Info) =>
       );
     }
     return {
-      device: info.dev,
+      device: info.dev.toString(),
       inode: inode.value,
       birthtime: info.birthtime.value.getTime(),
       mode: info.mode,

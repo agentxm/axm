@@ -38,34 +38,39 @@ export const specification = defineSpecification({
 });
 
 describe("container receipt continuity", () => {
-  it.effect("keeps exact inode identity when platform stat cannot represent it as a number", () =>
+  it.effect("keeps exact inode identity above the safe integer range", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
       const target = path.join(root, "config.json");
       yield* fs.writeFileString(target, "{}");
-      const withoutNumericInodes = {
+      const preciseInodes = {
         ...fs,
         stat: (entry: string) =>
-          fs.stat(entry).pipe(Effect.map((info) => ({ ...info, ino: Option.none<number>() }))),
+          fs.stat(entry).pipe(
+            Effect.map((info) => ({
+              ...info,
+              ino: Option.map(info.ino, (inode) => inode + 9007199254740993n),
+            })),
+          ),
       };
       const context = { nativeRoot: root, target };
       const identity = yield* captureContainerIdentity(context).pipe(
-        Effect.provideService(FileSystem.FileSystem, withoutNumericInodes),
+        Effect.provideService(FileSystem.FileSystem, preciseInodes),
       );
       const raw = yield* Effect.promise(() => stat(target, { bigint: true }));
-      expect(identity.entry.inode).toBe(raw.ino.toString());
+      expect(identity.entry.inode).toBe((raw.ino + 9007199254740993n).toString());
       expect(
         yield* verifyContainerIdentity(identity, context).pipe(
-          Effect.provideService(FileSystem.FileSystem, withoutNumericInodes),
+          Effect.provideService(FileSystem.FileSystem, preciseInodes),
         ),
       ).toBe(true);
       yield* fs.rename(target, path.join(root, "original"));
       yield* fs.writeFileString(target, "{}");
       expect(
         yield* verifyContainerIdentity(identity, context).pipe(
-          Effect.provideService(FileSystem.FileSystem, withoutNumericInodes),
+          Effect.provideService(FileSystem.FileSystem, preciseInodes),
         ),
       ).toBe(false);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),

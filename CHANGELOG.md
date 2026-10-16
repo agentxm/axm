@@ -1,3 +1,17 @@
+## 0.49.0 (2026-10-16)
+
+### 🩹 Fixes
+
+- Consolidate redundant first-party test coverage while preserving accepted requirements and shipped-artifact checks. ([2c54e5ec7](https://github.com/agentxm/axm/commit/2c54e5ec7))
+
+### ⚠️ Breaking Changes
+
+- Refresh runtimes, Effect and build tooling; upgrade the native keyring and report credential deletion failures. Preserve bigint filesystem identities as decimal strings in native addresses and cleanup receipts. ([285d36d80](https://github.com/agentxm/axm/commit/285d36d80))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.48.0 (2026-10-16)
 
 ### ⚠️ Breaking Changes

@@ -281,20 +281,8 @@ export const TelemetryEvent = Schema.Struct({
     Schema.Record(
       Schema.String,
       Schema.Union([
-        Schema.Union([
-          Schema.String,
-          Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
-          Schema.Boolean,
-          Schema.Null,
-        ]),
-        Schema.Array(
-          Schema.Union([
-            Schema.String,
-            Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
-            Schema.Boolean,
-            Schema.Null,
-          ]),
-        ),
+        Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]),
+        Schema.Array(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null])),
       ]).annotate({
         title: "User Property Value",
         description:
@@ -308,20 +296,8 @@ export const TelemetryEvent = Schema.Struct({
         Schema.Record(
           Schema.String,
           Schema.Union([
-            Schema.Union([
-              Schema.String,
-              Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
-              Schema.Boolean,
-              Schema.Null,
-            ]),
-            Schema.Array(
-              Schema.Union([
-                Schema.String,
-                Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
-                Schema.Boolean,
-                Schema.Null,
-              ]),
-            ),
+            Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]),
+            Schema.Array(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null])),
           ]).annotate({
             title: "User Property Value",
             description:
@@ -333,20 +309,8 @@ export const TelemetryEvent = Schema.Struct({
         Schema.Record(
           Schema.String,
           Schema.Union([
-            Schema.Union([
-              Schema.String,
-              Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
-              Schema.Boolean,
-              Schema.Null,
-            ]),
-            Schema.Array(
-              Schema.Union([
-                Schema.String,
-                Schema.Number.check(Schema.isFinite().annotate({ expected: "a finite number" })),
-                Schema.Boolean,
-                Schema.Null,
-              ]),
-            ),
+            Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]),
+            Schema.Array(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null])),
           ]).annotate({
             title: "User Property Value",
             description:
@@ -1536,9 +1500,7 @@ export const HealthGetDeepHealth200 = Schema.Struct({
             componentType: Schema.Literals(["datastore", "system", "component"]),
             measurementName: Schema.String,
             status: Schema.Literals(["pass", "warn", "fail"]),
-            observedValue: Schema.Number.check(
-              Schema.isFinite().annotate({ expected: "a finite number" }),
-            ),
+            observedValue: Schema.Finite,
             observedUnit: Schema.String,
             time: IsoDateTimeString,
             output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -1831,18 +1793,14 @@ export interface TelemetryClient {
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly config: Config;
     }): Effect.Effect<
-      WithOptionalResponse<typeof MetaGet200.Type, Config>,
-      | HttpClientError.HttpClientError
-      | SchemaError
-      | TelemetryClientError<"MetaGet400", typeof MetaGet400.Type>
+      WithOptionalResponse<MetaGet200, Config>,
+      HttpClientError.HttpClientError | SchemaError | TelemetryClientError<"MetaGet400", MetaGet400>
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
-      WithOptionalResponse<typeof MetaGet200.Type, Config | undefined>,
-      | HttpClientError.HttpClientError
-      | SchemaError
-      | TelemetryClientError<"MetaGet400", typeof MetaGet400.Type>
+      WithOptionalResponse<MetaGet200, Config | undefined>,
+      HttpClientError.HttpClientError | SchemaError | TelemetryClientError<"MetaGet400", MetaGet400>
     >;
   };
   /**
@@ -1852,18 +1810,18 @@ export interface TelemetryClient {
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly config: Config;
     }): Effect.Effect<
-      WithOptionalResponse<typeof HealthGetShallowHealth200.Type, Config>,
+      WithOptionalResponse<HealthGetShallowHealth200, Config>,
       | HttpClientError.HttpClientError
       | SchemaError
-      | TelemetryClientError<"HealthGetShallowHealth400", typeof HealthGetShallowHealth400.Type>
+      | TelemetryClientError<"HealthGetShallowHealth400", HealthGetShallowHealth400>
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
-      WithOptionalResponse<typeof HealthGetShallowHealth200.Type, Config | undefined>,
+      WithOptionalResponse<HealthGetShallowHealth200, Config | undefined>,
       | HttpClientError.HttpClientError
       | SchemaError
-      | TelemetryClientError<"HealthGetShallowHealth400", typeof HealthGetShallowHealth400.Type>
+      | TelemetryClientError<"HealthGetShallowHealth400", HealthGetShallowHealth400>
     >;
   };
   /**
@@ -1874,10 +1832,10 @@ export interface TelemetryClient {
       readonly params?: typeof HealthGetDeepHealthParams.Encoded | undefined;
       readonly config: Config;
     }): Effect.Effect<
-      WithOptionalResponse<typeof HealthGetDeepHealth200.Type, Config>,
+      WithOptionalResponse<HealthGetDeepHealth200, Config>,
       | HttpClientError.HttpClientError
       | SchemaError
-      | TelemetryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
+      | TelemetryClientError<"HealthGetDeepHealth400", HealthGetDeepHealth400>
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options:
@@ -1887,10 +1845,10 @@ export interface TelemetryClient {
           }
         | undefined,
     ): Effect.Effect<
-      WithOptionalResponse<typeof HealthGetDeepHealth200.Type, Config | undefined>,
+      WithOptionalResponse<HealthGetDeepHealth200, Config | undefined>,
       | HttpClientError.HttpClientError
       | SchemaError
-      | TelemetryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
+      | TelemetryClientError<"HealthGetDeepHealth400", HealthGetDeepHealth400>
     >;
   };
   /**
@@ -1901,12 +1859,12 @@ export interface TelemetryClient {
       readonly params?: typeof HealthGetObservabilityVerificationParams.Encoded | undefined;
       readonly config: Config;
     }): Effect.Effect<
-      WithOptionalResponse<typeof HealthGetObservabilityVerification200.Type, Config>,
+      WithOptionalResponse<HealthGetObservabilityVerification200, Config>,
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<
           "HealthGetObservabilityVerification400",
-          typeof HealthGetObservabilityVerification400.Type
+          HealthGetObservabilityVerification400
         >
     >;
     <Config extends OperationConfig | undefined = undefined>(
@@ -1917,12 +1875,12 @@ export interface TelemetryClient {
           }
         | undefined,
     ): Effect.Effect<
-      WithOptionalResponse<typeof HealthGetObservabilityVerification200.Type, Config | undefined>,
+      WithOptionalResponse<HealthGetObservabilityVerification200, Config | undefined>,
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<
           "HealthGetObservabilityVerification400",
-          typeof HealthGetObservabilityVerification400.Type
+          HealthGetObservabilityVerification400
         >
     >;
   };
@@ -1934,21 +1892,21 @@ export interface TelemetryClient {
       readonly payload: typeof EventsIngestRequestJson.Encoded;
       readonly config: Config;
     }): Effect.Effect<
-      WithOptionalResponse<typeof EventsIngest200.Type, Config>,
+      WithOptionalResponse<EventsIngest200, Config>,
       | HttpClientError.HttpClientError
       | SchemaError
-      | TelemetryClientError<"EventsIngest400", typeof EventsIngest400.Type>
-      | TelemetryClientError<"EventsIngest413", typeof EventsIngest413.Type>
+      | TelemetryClientError<"EventsIngest400", EventsIngest400>
+      | TelemetryClientError<"EventsIngest413", EventsIngest413>
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof EventsIngestRequestJson.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
-      WithOptionalResponse<typeof EventsIngest200.Type, Config | undefined>,
+      WithOptionalResponse<EventsIngest200, Config | undefined>,
       | HttpClientError.HttpClientError
       | SchemaError
-      | TelemetryClientError<"EventsIngest400", typeof EventsIngest400.Type>
-      | TelemetryClientError<"EventsIngest413", typeof EventsIngest413.Type>
+      | TelemetryClientError<"EventsIngest400", EventsIngest400>
+      | TelemetryClientError<"EventsIngest413", EventsIngest413>
     >;
   };
   /**
@@ -1982,21 +1940,21 @@ export interface TelemetryClient {
       readonly payload: typeof ErrorsIngestRequestJson.Encoded;
       readonly config: Config;
     }): Effect.Effect<
-      WithOptionalResponse<typeof ErrorsIngest200.Type, Config>,
+      WithOptionalResponse<ErrorsIngest200, Config>,
       | HttpClientError.HttpClientError
       | SchemaError
-      | TelemetryClientError<"ErrorsIngest400", typeof ErrorsIngest400.Type>
-      | TelemetryClientError<"ErrorsIngest413", typeof ErrorsIngest413.Type>
+      | TelemetryClientError<"ErrorsIngest400", ErrorsIngest400>
+      | TelemetryClientError<"ErrorsIngest413", ErrorsIngest413>
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof ErrorsIngestRequestJson.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
-      WithOptionalResponse<typeof ErrorsIngest200.Type, Config | undefined>,
+      WithOptionalResponse<ErrorsIngest200, Config | undefined>,
       | HttpClientError.HttpClientError
       | SchemaError
-      | TelemetryClientError<"ErrorsIngest400", typeof ErrorsIngest400.Type>
-      | TelemetryClientError<"ErrorsIngest413", typeof ErrorsIngest413.Type>
+      | TelemetryClientError<"ErrorsIngest400", ErrorsIngest400>
+      | TelemetryClientError<"ErrorsIngest413", ErrorsIngest413>
     >;
   };
 }

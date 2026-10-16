@@ -1,6 +1,6 @@
 [tools]
-node = "24.21.0"
-pnpm = "12.9.1"
-bun = "1.4.2"
+node = "24.22.0"
+pnpm = "12.14.0"
+bun = "1.4.3"
 gitleaks = "8.30.1"
 "aqua:rhysd/actionlint" = "1.7.12"

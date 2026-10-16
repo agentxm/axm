@@ -23,7 +23,7 @@ const credentials = {
 const keychainFixture = Effect.gen(function* () {
   const fixture = yield* credentialFileFixture;
   const entries = new Map<string, string>();
-  const unavailable = new Set<"read" | "write">();
+  const unavailable = new Set<"read" | "write" | "delete">();
   class Entry {
     constructor(
       readonly service: string,
@@ -38,7 +38,8 @@ const keychainFixture = Effect.gen(function* () {
       entries.set(this.account, value);
     }
     deletePassword() {
-      entries.delete(this.account);
+      if (unavailable.has("delete")) throw new Error("native keychain unavailable");
+      return entries.delete(this.account);
     }
   }
   const hostFs: FileSystem.FileSystem = {
@@ -138,6 +139,54 @@ describe("Credential keychain and restricted-file ownership", () => {
           expect(Option.isSome(yield* store.load(origin))).toBe(true);
       }).pipe(Effect.provide(fixture.nativeLayer));
       expect((yield* fixture.fs.stat(fixture.file)).mode & 0o777).toBe(0o600);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.live("reports a failed keychain deletion and preserves fallback credentials", () =>
+    Effect.gen(function* () {
+      const fixture = yield* keychainFixture;
+      yield* Effect.flatMap(CredentialStore, (store) =>
+        store.save(registry, handle, credentials),
+      ).pipe(Effect.provide(fixture.nativeLayer));
+      yield* Effect.flatMap(CredentialStore, (store) =>
+        store.save(otherRegistry, handle, credentials),
+      ).pipe(Effect.provide(fixture.layer));
+      const committedFile = yield* fixture.fs.readFileString(fixture.file);
+      const committedKeychain = fixture.entries.get(`registry:${registry}`);
+      fixture.unavailable.add("delete");
+      const error = yield* Effect.flatMap(CredentialStore, (store) => store.clear(registry)).pipe(
+        Effect.provide(fixture.nativeLayer),
+        Effect.flip,
+      );
+      expect(error).toMatchObject({
+        _tag: "RegistryAccessFailed",
+        category: "auth",
+        detail: "Failed to delete OS keychain credentials",
+      });
+      expect(fixture.entries.get(`registry:${registry}`)).toBe(committedKeychain);
+      expect(yield* fixture.fs.readFileString(fixture.file)).toBe(committedFile);
+      fixture.unavailable.delete("delete");
+      yield* Effect.gen(function* () {
+        const store = yield* CredentialStore;
+        yield* store.clear(registry);
+        expect(Option.isNone(yield* store.load(registry))).toBe(true);
+        expect(Option.isSome(yield* store.load(otherRegistry))).toBe(true);
+      }).pipe(Effect.provide(fixture.nativeLayer));
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.live("clears file credentials when the keychain entry is already absent", () =>
+    Effect.gen(function* () {
+      const fixture = yield* keychainFixture;
+      yield* Effect.flatMap(CredentialStore, (store) =>
+        store.save(registry, handle, credentials),
+      ).pipe(Effect.provide(fixture.layer));
+      yield* Effect.gen(function* () {
+        const store = yield* CredentialStore;
+        yield* store.clear(registry);
+        yield* store.clear(registry);
+        expect(Option.isNone(yield* store.load(registry))).toBe(true);
+      }).pipe(Effect.provide(fixture.nativeLayer));
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

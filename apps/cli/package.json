@@ -95,7 +95,7 @@
     "ajv": "8.20.0",
     "fflate": "catalog:",
     "semver": "catalog:",
-    "string-argv": "0.3.2",
+    "string-argv": "0.4.0",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"

@@ -17,6 +17,7 @@ import * as nodePath from "node:path";
 
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
+import * as Redacted from "effect/Redacted";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as HttpClient from "effect/http/HttpClient";
@@ -105,7 +106,8 @@ export const makeVisibilityWorld = (
   const transport = HttpClient.make((request) =>
     Effect.sync(() => {
       const url = new URL(request.url);
-      for (const [key, value] of request.urlParams) url.searchParams.append(key, value);
+      for (const [key, value] of request.urlParams)
+        url.searchParams.append(key, Redacted.isRedacted(value) ? Redacted.value(value) : value);
       const observed: VisibilityRequest = {
         method: request.method,
         url,

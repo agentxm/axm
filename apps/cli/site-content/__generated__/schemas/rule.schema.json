@@ -358,6 +358,8 @@
           "anyOf": [
             {
               "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
               "description": "Ordering priority for instruction injection. Lower values render earlier.",
               "default": 100
             },

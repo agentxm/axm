@@ -29,9 +29,9 @@ export interface NativeEntryAddress {
   readonly referentPath: string | undefined;
   readonly kind: "absent" | "symlink" | "file" | "directory" | "other";
   readonly linkTarget: string | undefined;
-  readonly device: number | undefined;
+  readonly device: string | undefined;
   readonly inode: string | undefined;
-  readonly links: number | undefined;
+  readonly links: string | undefined;
 }
 
 const notFound = (error: PlatformError.PlatformError): boolean => error.reason._tag === "NotFound";
@@ -80,7 +80,7 @@ const existingNativeSpelling = (target: string) =>
       }
       const supplied = path.join(current, name);
       const info = yield* fs.stat(supplied);
-      const inode = yield* nativeInode(supplied, info);
+      const inode = yield* nativeInode(info);
       if (Option.isNone(inode))
         return yield* new NativeLocationError({ target, reason: "unreadable" });
       const folded = entries.filter((entry) => entry.toLowerCase() === name.toLowerCase());
@@ -91,7 +91,7 @@ const existingNativeSpelling = (target: string) =>
         Effect.gen(function* () {
           const candidate = path.join(current, entry);
           const observed = yield* fs.stat(candidate);
-          const observedInode = yield* nativeInode(candidate, observed);
+          const observedInode = yield* nativeInode(observed);
           return Option.isSome(observedInode) &&
             observed.dev === info.dev &&
             observedInode.value === inode.value &&
@@ -181,7 +181,7 @@ export const resolveNativeEntry = (
         const referentPath = yield* resolveNativeReferent(lexicalPath);
         // Aliases must still admit reads through their physical spelling.
         if (referentPath === lexicalPath) {
-          const inode = yield* nativeInode(lexicalPath, info.value);
+          const inode = yield* nativeInode(info.value);
           return {
             lexicalPath,
             entryPath: referentPath,
@@ -193,9 +193,9 @@ export const resolveNativeEntry = (
                   ? "directory"
                   : "other",
             linkTarget: undefined,
-            device: info.value.dev,
+            device: info.value.dev.toString(),
             inode: Option.getOrUndefined(inode),
-            links: Option.getOrUndefined(info.value.nlink),
+            links: Option.getOrUndefined(Option.map(info.value.nlink, String)),
           };
         }
       }
@@ -243,9 +243,7 @@ export const resolveNativeEntry = (
       : Option.isSome(link)
         ? undefined
         : entryPath;
-    const inode = Option.isSome(info)
-      ? yield* nativeInode(entryPath, info.value)
-      : Option.none<string>();
+    const inode = Option.isSome(info) ? yield* nativeInode(info.value) : Option.none<string>();
     return {
       lexicalPath,
       // Referent resolution supplies observed spelling for existing non-links, including case aliases.
@@ -261,9 +259,11 @@ export const resolveNativeEntry = (
               ? "directory"
               : "other",
       linkTarget: Option.getOrUndefined(link),
-      device: Option.isSome(info) ? info.value.dev : undefined,
+      device: Option.isSome(info) ? info.value.dev.toString() : undefined,
       inode: Option.getOrUndefined(inode),
-      links: Option.isSome(info) ? Option.getOrUndefined(info.value.nlink) : undefined,
+      links: Option.isSome(info)
+        ? Option.getOrUndefined(Option.map(info.value.nlink, String))
+        : undefined,
     };
   });
 
@@ -364,7 +364,11 @@ export const assertResolvedNativeMutationWithin = (args: {
       return yield* new NativeLocationError({ target, reason: "dangling-leaf" });
     if (!contains(path, physicalRoot, boundary))
       return yield* new NativeLocationError({ target, reason: "escape" });
-    if (mutation === "content" && address.kind !== "directory" && (address.links ?? 1) > 1) {
+    if (
+      mutation === "content" &&
+      address.kind !== "directory" &&
+      BigInt(address.links ?? "1") > 1n
+    ) {
       return yield* new NativeLocationError({ target, reason: "hardlink" });
     }
     let parent = path.dirname(boundary);

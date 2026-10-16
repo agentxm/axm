@@ -28,7 +28,18 @@
               "valueName": { "type": "string" },
               "variadic": {
                 "type": "object",
-                "properties": { "min": { "type": "integer" }, "max": { "type": "integer" } },
+                "properties": {
+                  "min": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "max": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
                 "additionalProperties": false
               },
               "choices": {
@@ -89,7 +100,18 @@
               "valueName": { "type": "string" },
               "variadic": {
                 "type": "object",
-                "properties": { "min": { "type": "integer" }, "max": { "type": "integer" } },
+                "properties": {
+                  "min": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "max": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
                 "additionalProperties": false
               },
               "choices": {
@@ -150,7 +172,18 @@
               "valueName": { "type": "string" },
               "variadic": {
                 "type": "object",
-                "properties": { "min": { "type": "integer" }, "max": { "type": "integer" } },
+                "properties": {
+                  "min": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "max": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
                 "additionalProperties": false
               },
               "choices": {

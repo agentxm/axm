@@ -86,7 +86,7 @@ export interface PtyRunOptions {
 export interface PtyRunResult {
   /** Null when the subject had to be killed for overrunning its budget. */
   readonly exitCode: number | null;
-  readonly signal: string | null;
+  readonly signal: string | number | null;
   readonly timedOut: boolean;
   /** Everything the terminal emitted, escape sequences intact. */
   readonly output: string;
@@ -117,7 +117,7 @@ const PtyDriverRequestSchema = Schema.Struct({
 
 const PtyDriverResultSchema = Schema.Struct({
   exitCode: Schema.NullOr(Schema.Number),
-  signal: Schema.NullOr(Schema.String),
+  signal: Schema.NullOr(Schema.Union([Schema.String, Schema.Int])),
   timedOut: Schema.Boolean,
   output: Schema.String,
   actions: Schema.Array(PtyActionOutcomeSchema),

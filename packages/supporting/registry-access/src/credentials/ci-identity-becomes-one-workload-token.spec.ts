@@ -6,6 +6,7 @@ import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Redacted from "effect/Redacted";
 import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
   RegistryHttpClient,
@@ -84,7 +85,8 @@ const json = (status: number, body: unknown) =>
 /** The URL a request reaches, with the query parameters the client keeps apart. */
 const fullUrl = (request: HttpClientRequest.HttpClientRequest): string => {
   const url = new URL(request.url);
-  for (const [key, value] of request.urlParams) url.searchParams.append(key, value);
+  for (const [key, value] of request.urlParams)
+    url.searchParams.append(key, Redacted.isRedacted(value) ? Redacted.value(value) : value);
   return url.href;
 };
 

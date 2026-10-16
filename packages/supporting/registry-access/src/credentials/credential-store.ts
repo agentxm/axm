@@ -497,8 +497,13 @@ const deleteKeychainCredentialFile = (
         const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
         entry.deletePassword();
       },
-      catch: (error) => new KeyringUnavailable({ cause: error }),
-    }).pipe(Effect.catchTag("KeyringUnavailable", () => Effect.void));
+      catch: (cause) =>
+        new RegistryAccessFailed({
+          category: "auth",
+          detail: "Failed to delete OS keychain credentials",
+          cause,
+        }),
+    });
   });
 
 // -----------------------------------------------------------------------------

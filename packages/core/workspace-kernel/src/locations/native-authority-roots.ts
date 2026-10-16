@@ -47,7 +47,7 @@ const directoryIdentity = (target: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const info = yield* fs.stat(target);
-    const inode = yield* nativeInode(target, info);
+    const inode = yield* nativeInode(info);
     if (info.type !== "Directory" || Option.isNone(inode) || Option.isNone(info.birthtime)) {
       return yield* new NativeLocationError({
         target,
@@ -56,7 +56,7 @@ const directoryIdentity = (target: string) =>
       });
     }
     return {
-      device: info.dev,
+      device: info.dev.toString(),
       inode: inode.value,
       birthtime: info.birthtime.value.getTime(),
       mode: info.mode,
@@ -71,14 +71,14 @@ export interface NativeAuthorityRootWitness {
     readonly linkTarget: string | undefined;
     readonly anchorPath: string;
     readonly anchor: {
-      readonly device: number;
+      readonly device: string;
       readonly inode: string;
       readonly birthtime: number;
       readonly mode: number;
     };
     readonly parentPath: string;
     readonly parent: {
-      readonly device: number;
+      readonly device: string;
       readonly inode: string;
       readonly birthtime: number;
       readonly mode: number;

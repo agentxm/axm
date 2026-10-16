@@ -631,7 +631,7 @@
                 {
                   "type": "object",
                   "properties": {
-                    "contract": { "type": "integer", "minimum": 1 },
+                    "contract": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
                     "units": {
                       "type": "object",
                       "patternProperties": {
@@ -667,7 +667,7 @@
                 {
                   "type": "object",
                   "properties": {
-                    "contract": { "type": "integer", "minimum": 1 },
+                    "contract": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
                     "units": {
                       "type": "object",
                       "patternProperties": {
@@ -703,7 +703,7 @@
                 {
                   "type": "object",
                   "properties": {
-                    "contract": { "type": "integer", "minimum": 1 },
+                    "contract": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
                     "units": {
                       "type": "object",
                       "patternProperties": {
@@ -739,7 +739,7 @@
                 {
                   "type": "object",
                   "properties": {
-                    "contract": { "type": "integer", "minimum": 1 },
+                    "contract": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
                     "units": {
                       "type": "object",
                       "patternProperties": {

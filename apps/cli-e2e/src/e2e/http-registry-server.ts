@@ -1044,6 +1044,16 @@ export const startHttpRegistry = async (
           sendProblem(response, 404, `No archive for ${plural}/${name}@${version}`);
           return;
         }
+        const headers = {
+          "content-type": "application/zip",
+          "content-length": String(stored.archive.byteLength),
+          "x-integrity": stored.integrity,
+        };
+        if (request.method === "HEAD") {
+          response.writeHead(200, headers);
+          response.end();
+          return;
+        }
         options.onArchiveRequest?.(`${plural}/${name}`);
         if (hangingArchives.has(`${plural}/${name}`)) {
           // Accepted and never answered: the download stays in flight so the
@@ -1051,10 +1061,7 @@ export const startHttpRegistry = async (
           notifyHungArchive(`${plural}/${name}`);
           return;
         }
-        response.writeHead(200, {
-          "content-type": "application/zip",
-          "content-length": String(stored.archive.byteLength),
-        });
+        response.writeHead(200, headers);
         response.end(stored.archive);
         return;
       }

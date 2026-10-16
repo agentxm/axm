@@ -57,6 +57,26 @@
                   "$ref": "#/components/schemas/DeviceCodeResponse"
                 }
               }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
+              }
             }
           },
           "400": {
@@ -115,7 +135,12 @@
                 "required": [
                   "client_id"
                 ],
-                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                ],
                 "description": "OAuth 2.0 device authorization request (RFC 8628). Parameter names are protocol-defined snake_case and exempt from the Registry's camelCase rule."
               }
             }
@@ -140,6 +165,26 @@
                 "schema": {
                   "$ref": "#/components/schemas/TokenResponse"
                 }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
               }
             }
           },
@@ -353,7 +398,12 @@
                 "required": [
                   "grant_type"
                 ],
-                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                ],
                 "description": "OAuth 2.0 token request. Parameter names are protocol-defined snake_case (RFC 6749, RFC 8628, RFC 8693) and exempt from the Registry's camelCase rule."
               }
             }
@@ -411,11 +461,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": [
-                          "refresh_token",
-                          "access_token"
-                        ],
-                        "description": "Optional RFC 7009 token type hint. Revocation remains non-enumerating."
+                        "description": "Optional RFC 7009 token type hint. Unknown hints are ignored; revocation remains non-enumerating."
                       },
                       {
                         "type": "null"
@@ -426,7 +472,12 @@
                 "required": [
                   "token"
                 ],
-                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                ],
                 "description": "OAuth 2.0 token revocation request (RFC 7009). Parameter names are protocol-defined snake_case and exempt from the Registry's camelCase rule."
               }
             }
@@ -455,6 +506,26 @@
                 "schema": {
                   "$ref": "#/components/schemas/AuthMeResponse"
                 }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
               }
             }
           },
@@ -563,14 +634,41 @@
                   "$ref": "#/components/schemas/TokenListResponse"
                 }
               }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
+              }
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  ]
                 }
               }
             }
@@ -645,6 +743,26 @@
                 "schema": {
                   "$ref": "#/components/schemas/CreateTokenResponse"
                 }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
               }
             }
           },
@@ -1214,10 +1332,44 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "public, max-age=300",
+                    "public, no-cache, must-revalidate",
                     "private, no-store"
                   ],
-                  "description": "`public, max-age=300` for a public extension; `private, no-store` when the representation depends on the caller's credential."
+                  "description": "`public, no-cache, must-revalidate` requires revalidation before every public extension reuse; `private, no-store` when the representation depends on the caller's credential."
+                },
+                "required": true
+              },
+              "vary": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Accept",
+                    "Accept, Authorization"
+                  ],
+                  "description": "`Accept, Authorization` whenever the representation depends on the caller's credential."
+                },
+                "required": true
+              },
+              "etag": {
+                "schema": {
+                  "type": "string",
+                  "description": "Strong entity tag of the representation."
+                },
+                "required": true
+              }
+            }
+          },
+          "304": {
+            "description": "<No Content>",
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "public, no-cache, must-revalidate",
+                    "private, no-store"
+                  ],
+                  "description": "`public, no-cache, must-revalidate` requires revalidation before every public extension reuse; `private, no-store` when the representation depends on the caller's credential."
                 },
                 "required": true
               },
@@ -1526,10 +1678,10 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "public, max-age=300",
+                    "public, no-cache, must-revalidate",
                     "private, no-store"
                   ],
-                  "description": "`public, max-age=300` for a public extension; `private, no-store` when the representation depends on the caller's credential."
+                  "description": "`public, no-cache, must-revalidate` requires revalidation before every public extension reuse; `private, no-store` when the representation depends on the caller's credential."
                 },
                 "required": true
               },
@@ -1560,10 +1712,10 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "public, max-age=300",
+                    "public, no-cache, must-revalidate",
                     "private, no-store"
                   ],
-                  "description": "`public, max-age=300` for a public extension; `private, no-store` when the representation depends on the caller's credential."
+                  "description": "`public, no-cache, must-revalidate` requires revalidation before every public extension reuse; `private, no-store` when the representation depends on the caller's credential."
                 },
                 "required": true
               },
@@ -1709,6 +1861,26 @@
                 "schema": {
                   "$ref": "#/components/schemas/VisibilityMutationResult"
                 }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
               }
             }
           },
@@ -2060,10 +2232,44 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "public, max-age=300",
+                    "public, no-cache, must-revalidate",
                     "private, no-store"
                   ],
-                  "description": "`public, max-age=300` for a public extension; `private, no-store` when the representation depends on the caller's credential."
+                  "description": "`public, no-cache, must-revalidate` requires revalidation before every public extension reuse; `private, no-store` when the representation depends on the caller's credential."
+                },
+                "required": true
+              },
+              "vary": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Accept",
+                    "Accept, Authorization"
+                  ],
+                  "description": "`Accept, Authorization` whenever the representation depends on the caller's credential."
+                },
+                "required": true
+              },
+              "etag": {
+                "schema": {
+                  "type": "string",
+                  "description": "Strong entity tag of the representation."
+                },
+                "required": true
+              }
+            }
+          },
+          "304": {
+            "description": "<No Content>",
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "public, no-cache, must-revalidate",
+                    "private, no-store"
+                  ],
+                  "description": "`public, no-cache, must-revalidate` requires revalidation before every public extension reuse; `private, no-store` when the representation depends on the caller's credential."
                 },
                 "required": true
               },
@@ -2619,10 +2825,10 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "public, max-age=300",
+                    "public, no-cache, must-revalidate",
                     "private, no-store"
                   ],
-                  "description": "`public, max-age=300` for a public extension; `private, no-store` when the representation depends on the caller's credential."
+                  "description": "`public, no-cache, must-revalidate` requires revalidation before every public extension reuse; `private, no-store` when the representation depends on the caller's credential."
                 },
                 "required": true
               },
@@ -2653,10 +2859,113 @@
                 },
                 "required": true
               },
+              "repr-digest": {
+                "schema": {
+                  "type": "string",
+                  "description": "RFC 9530 SHA-256 digest of the complete archive representation."
+                },
+                "required": true
+              },
+              "x-integrity": {
+                "schema": {
+                  "type": "string",
+                  "description": "Subresource-integrity string of the complete archive."
+                },
+                "required": true
+              },
+              "x-agentxm-yanked": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true"
+                  ],
+                  "description": "Present when this exact version has been yanked."
+                },
+                "required": false
+              },
+              "warning": {
+                "schema": {
+                  "type": "string",
+                  "description": "A `299` warning present when the version is yanked."
+                },
+                "required": false
+              },
+              "x-agentxm-yank-category": {
+                "schema": {
+                  "type": "string",
+                  "description": "The yank category, when the version is yanked."
+                },
+                "required": false
+              },
               "content-digest": {
                 "schema": {
                   "type": "string",
-                  "description": "RFC 9530 SHA-256 digest of the complete archive."
+                  "description": "RFC 9530 SHA-256 digest of the complete response content."
+                },
+                "required": true
+              },
+              "content-length": {
+                "schema": {
+                  "type": "string",
+                  "description": "Archive length in bytes."
+                },
+                "required": true
+              }
+            }
+          },
+          "206": {
+            "description": "Success",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "public, no-cache, must-revalidate",
+                    "private, no-store"
+                  ],
+                  "description": "`public, no-cache, must-revalidate` requires revalidation before every public extension reuse; `private, no-store` when the representation depends on the caller's credential."
+                },
+                "required": true
+              },
+              "vary": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Accept",
+                    "Accept, Authorization"
+                  ],
+                  "description": "`Accept, Authorization` whenever the representation depends on the caller's credential."
+                },
+                "required": true
+              },
+              "etag": {
+                "schema": {
+                  "type": "string",
+                  "description": "Strong entity tag of the representation."
+                },
+                "required": true
+              },
+              "accept-ranges": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "bytes"
+                  ]
+                },
+                "required": true
+              },
+              "repr-digest": {
+                "schema": {
+                  "type": "string",
+                  "description": "RFC 9530 SHA-256 digest of the complete archive representation."
                 },
                 "required": true
               },
@@ -2693,8 +3002,14 @@
               },
               "content-length": {
                 "schema": {
+                  "type": "string"
+                },
+                "required": true
+              },
+              "content-range": {
+                "schema": {
                   "type": "string",
-                  "description": "Archive length in bytes."
+                  "description": "The returned byte range and complete archive length."
                 },
                 "required": true
               }
@@ -2707,10 +3022,10 @@
                 "schema": {
                   "type": "string",
                   "enum": [
-                    "public, max-age=300",
+                    "public, no-cache, must-revalidate",
                     "private, no-store"
                   ],
-                  "description": "`public, max-age=300` for a public extension; `private, no-store` when the representation depends on the caller's credential."
+                  "description": "`public, no-cache, must-revalidate` requires revalidation before every public extension reuse; `private, no-store` when the representation depends on the caller's credential."
                 },
                 "required": true
               },
@@ -2741,10 +3056,10 @@
                 },
                 "required": true
               },
-              "content-digest": {
+              "repr-digest": {
                 "schema": {
                   "type": "string",
-                  "description": "RFC 9530 SHA-256 digest of the complete archive."
+                  "description": "RFC 9530 SHA-256 digest of the complete archive representation."
                 },
                 "required": true
               },
@@ -2825,6 +3140,42 @@
                 "schema": {
                   "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
                 }
+              }
+            }
+          },
+          "416": {
+            "description": "<No Content>",
+            "headers": {
+              "accept-ranges": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "bytes"
+                  ]
+                },
+                "required": true
+              },
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                },
+                "required": true
+              },
+              "vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": true
+              },
+              "content-range": {
+                "schema": {
+                  "type": "string",
+                  "description": "The complete archive length, in the form bytes */length."
+                },
+                "required": true
               }
             }
           },
@@ -2946,6 +3297,26 @@
                 "schema": {
                   "$ref": "#/components/schemas/VisibilityEvaluation"
                 }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
               }
             }
           },
@@ -3073,6 +3444,26 @@
                   "$ref": "#/components/schemas/ArchivalManagementView"
                 }
               }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
+              }
             }
           },
           "400": {
@@ -3197,6 +3588,26 @@
                 "schema": {
                   "$ref": "#/components/schemas/ArchivalTransition"
                 }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
               }
             }
           },
@@ -3359,6 +3770,26 @@
                 "schema": {
                   "$ref": "#/components/schemas/ArchivalTransition"
                 }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
               }
             }
           },
@@ -4055,6 +4486,26 @@
                   "additionalProperties": false
                 }
               }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
+              }
             }
           },
           "400": {
@@ -4254,6 +4705,26 @@
                   "additionalProperties": false
                 }
               }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
+              }
             }
           },
           "400": {
@@ -4435,6 +4906,26 @@
                   ],
                   "additionalProperties": false
                 }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
               }
             }
           },
@@ -5045,18 +5536,11 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    },
-                    {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/DecodeErrorResponse"
                 }
               }
             }
@@ -5078,6 +5562,26 @@
               }
             }
           },
+          "413": {
+            "description": "PayloadTooLargeError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UnsupportedMediaTypeError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "500": {
             "description": "InternalError",
             "content": {
@@ -5089,7 +5593,7 @@
             }
           }
         },
-        "description": "Persists submitted package metadata and resolves package and extension attestations.",
+        "description": "Persists submitted package metadata and resolves package and extension attestations. Accepts at most 500 packages, 500 total declared extension references, and 1048576 encoded JSON bytes per request.",
         "summary": "Discover companion extensions for packages",
         "requestBody": {
           "content": {
@@ -5200,7 +5704,7 @@
                               "versionRange": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "$ref": "#/components/schemas/VersionRange"
                                   },
                                   {
                                     "type": "null"
@@ -5213,7 +5717,8 @@
                               "source"
                             ],
                             "additionalProperties": false
-                          }
+                          },
+                          "maxItems": 500
                         }
                       },
                       "required": [
@@ -5222,7 +5727,8 @@
                         "declaredExtensions"
                       ],
                       "additionalProperties": false
-                    }
+                    },
+                    "maxItems": 500
                   }
                 },
                 "required": [
@@ -5425,6 +5931,31 @@
                                 "time": {
                                   "$ref": "#/components/schemas/IsoDateTimeString"
                                 },
+                                "timeoutMs": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "outcome": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "success",
+                                        "error",
+                                        "timeout"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "output": {
                                   "anyOf": [
                                     {
@@ -5471,6 +6002,17 @@
                   "additionalProperties": false
                 }
               }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              }
             }
           },
           "400": {
@@ -5480,6 +6022,219 @@
                 "schema": {
                   "$ref": "#/components/schemas/DecodeErrorResponse"
                 }
+              }
+            }
+          },
+          "403": {
+            "description": "<No Content>",
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pass",
+                        "warn",
+                        "fail"
+                      ]
+                    },
+                    "serviceId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "releaseId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "commit": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "environment": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "region": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "checks": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "componentName": {
+                                  "type": "string"
+                                },
+                                "componentType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "datastore",
+                                    "system",
+                                    "component"
+                                  ]
+                                },
+                                "measurementName": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "pass",
+                                    "warn",
+                                    "fail"
+                                  ]
+                                },
+                                "observedValue": {
+                                  "type": "number"
+                                },
+                                "observedUnit": {
+                                  "type": "string"
+                                },
+                                "time": {
+                                  "$ref": "#/components/schemas/IsoDateTimeString"
+                                },
+                                "timeoutMs": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "outcome": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "success",
+                                        "error",
+                                        "timeout"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "output": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "componentName",
+                                "componentType",
+                                "measurementName",
+                                "status",
+                                "observedValue",
+                                "observedUnit",
+                                "time"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
               }
             }
           }
@@ -5982,6 +6737,20 @@
         ],
         "additionalProperties": false
       },
+      "VersionRange": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
+        "title": "Version Range",
+        "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
+        "examples": [
+          "^1.0.0",
+          "~2.4",
+          ">=1 <3",
+          "1.2.3",
+          "*"
+        ]
+      },
       "ExtensionFqn": {
         "type": "string",
         "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
@@ -6293,20 +7062,6 @@
         ],
         "additionalProperties": false,
         "description": "A self-describing Registry locator for one Pack member."
-      },
-      "VersionRange": {
-        "type": "string",
-        "minLength": 1,
-        "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
-        "title": "Version Range",
-        "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
-        "examples": [
-          "^1.0.0",
-          "~2.4",
-          ">=1 <3",
-          "1.2.3",
-          "*"
-        ]
       },
       "ExtensionName": {
         "type": "string",

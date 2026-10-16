@@ -6794,6 +6794,48 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, decision-table
 - Source: [`packages/core/extension-content/src/packaging/filtered-package-validation.spec.ts`](../packages/core/extension-content/src/packaging/filtered-package-validation.spec.ts)
 
+##### Cached archives retain current Registry content authorization
+
+- Requirement: `registry-client/cached-archives-require-current-authorization`
+- Owner: `registry-client`
+- Statement: When reusing a Registry archive from its cache, AXM shall validate current archive download authorization and matching integrity before returning the bytes, retaining exact-version publisher binding evidence and applying the same checks to verification-purpose acquisitions.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A real temporary archive cache and controlled Registry responses expose whether a later acquisition returns bytes after access is withdrawn.
+- Methods: contract, decision-table
+- Derived from: `packages/supporting/registry-client/specs/registry-openapi.json`
+- Source: [`packages/supporting/registry-client/src/cached-archives-require-current-authorization.spec.ts`](../packages/supporting/registry-client/src/cached-archives-require-current-authorization.spec.ts)
+
+##### Large workspace discovery respects the Registry request contract
+
+- Requirement: `registry-client/discovery-respects-request-limits`
+- Owner: `registry-client`
+- Statement: AXM shall divide package discovery into requests within the Registry's package, declared-extension, and encoded JSON byte limits, preserve each package's complete normalized declarations and version ranges, refuse a package that cannot fit alone before sending any request, and return all results in input order only when every request succeeds.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Recorded HTTP bytes and responses expose all request bounds, package integrity, ordering, and partial-failure handling through the public client factory.
+- Methods: contract, example
+- Derived from: `packages/supporting/registry-client/specs/registry-openapi.json`
+- Source: [`packages/supporting/registry-client/src/discovery-respects-request-limits.spec.ts`](../packages/supporting/registry-client/src/discovery-respects-request-limits.spec.ts)
+
+##### Unconditional archive acquisition requires a complete response
+
+- Requirement: `registry-client/remote-archives-require-complete-responses`
+- Owner: `registry-client`
+- Statement: For an unconditional Registry archive GET, AXM shall accept only a complete 200 response, refuse partial or bodyless success responses before admitting archive bytes, and preserve response evidence without retrying a permanent refusal.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Controlled HTTP responses expose admission, attempts, and failure metadata through the public client factory.
+- Methods: contract, decision-table
+- Derived from: `packages/supporting/registry-client/specs/registry-openapi.json`
+- Source: [`packages/supporting/registry-client/src/remote-archives-require-complete-responses.spec.ts`](../packages/supporting/registry-client/src/remote-archives-require-complete-responses.spec.ts)
+
 #### Constraints
 
 ##### Publication-set digests follow versioned conformance vectors

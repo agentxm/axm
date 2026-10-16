@@ -27,6 +27,15 @@ const detectInTempDir = (files?: Record<string, string>) =>
   }).pipe(Effect.scoped);
 
 describe("hackageDetector", () => {
+  it.effect("returns no packages when the project has no package manifests", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const result = yield* detectInTempDir();
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
+
   it("has type hackage", () => {
     expect(hackageDetector.type).toBe(hackageType);
   });
@@ -186,17 +195,6 @@ describe("hackageDetector", () => {
     );
   });
 
-  describe("missing cabal files", () => {
-    it.effect("returns empty array when no cabal files", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-  });
-
   describe("no build-depends fields", () => {
     it.effect("returns empty array when cabal file has no build-depends", () =>
       withPackagingContext(
@@ -205,17 +203,6 @@ describe("hackageDetector", () => {
             "\n",
           );
           const result = yield* detectInTempDir({ "myproject.cabal": cabalContent });
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-  });
-
-  describe("missing stack.yaml", () => {
-    it.effect("returns empty array when no stack.yaml", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
           expect(result).toEqual([]);
         }),
       ),

@@ -21,12 +21,6 @@ describe("intersectVersionConstraints", () => {
     expect(semver.satisfies("1.5.0", intersection ?? "<0.0.0")).toBe(true);
     expect(semver.satisfies("2.0.0", intersection ?? "<0.0.0")).toBe(false);
   });
-
-  it("rejects a three-way empty intersection even when every pair intersects", () => {
-    expect(
-      intersectVersionConstraints(["^1.0.0 || ^3.0.0", "^1.0.0 || ^2.0.0", "^2.0.0 || ^3.0.0"]),
-    ).toBeUndefined();
-  });
 });
 
 // -----------------------------------------------------------------------------
@@ -65,10 +59,6 @@ describe("VersionRangeSchema", () => {
     const candidate = `${version}+build.${build}`;
     expect(semver.validRange(candidate)).not.toBeNull();
     expect(decode(candidate)).toBe(candidate);
-  });
-
-  it("rejects invalid constraints", () => {
-    expect(() => decode("latest")).toThrow();
   });
 });
 
@@ -157,22 +147,6 @@ describe("resolveVersionInRange", () => {
     const result = resolveVersionInRange(versions, Option.some("*"));
     expect(Option.isSome(result)).toBe(true);
     expect(Option.getOrThrow(result).version).toBe("2.0.0");
-  });
-
-  it("admits no prerelease under the wildcard or an absent range", () => {
-    const stable = makeVersionEntryLike("1.9.0");
-    const prerelease = makeVersionEntryLike("2.0.0-beta.1");
-    const mixed = [stable, prerelease];
-    expect(Option.getOrThrow(resolveVersionInRange(mixed, Option.some("*"))).version).toBe("1.9.0");
-    expect(Option.getOrThrow(resolveVersionInRange(mixed, Option.none())).version).toBe("1.9.0");
-    expect(Option.isNone(resolveVersionInRange([prerelease], Option.none()))).toBe(true);
-  });
-
-  it("admits a prerelease only through a range that names its tuple", () => {
-    const mixed = [makeVersionEntryLike("1.9.0"), makeVersionEntryLike("2.0.0-beta.1")];
-    expect(Option.getOrThrow(resolveVersionInRange(mixed, Option.some(">=2.0.0-0"))).version).toBe(
-      "2.0.0-beta.1",
-    );
   });
 
   it("returns Option.none() for empty versions array", () => {

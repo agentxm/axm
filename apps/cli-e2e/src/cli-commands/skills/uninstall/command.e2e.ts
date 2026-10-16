@@ -36,6 +36,10 @@ describe("axm skills uninstall", () => {
         const canonicalSkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
+        expect(
+          fs.lstatSync(path.join(temp.path, ".claude", "skills", "my-skill")).isSymbolicLink(),
+        ).toBe(true);
+
         // Uninstall the skill
         const result = await runCli(["skills", "uninstall", "my-skill"], {
           cwd: temp.path,
@@ -72,34 +76,6 @@ describe("axm skills uninstall", () => {
         temp.cleanup();
       }
     });
-
-    it("removes symlink from agent directory", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        // Verify symlink exists before uninstall
-        const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
-        expect(fs.existsSync(agentSkillDir)).toBe(true);
-        expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
-
-        // Uninstall
-        await runCli(["skills", "uninstall", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        // Verify symlink is removed
-        expect(fs.existsSync(agentSkillDir)).toBe(false);
-      } finally {
-        temp.cleanup();
-      }
-    });
   });
 
   describe("skill not found", () => {
@@ -124,27 +100,6 @@ describe("axm skills uninstall", () => {
         temp.cleanup();
       }
     });
-
-    it("exits successfully with no-op for nonexistent skill", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        const result = await runCli(["skills", "uninstall", "nonexistent"], {
-          cwd: temp.path,
-        });
-
-        // Per spec: no-op plan, exits 0
-        expect(result.exitCode).toBe(0);
-      } finally {
-        temp.cleanup();
-      }
-    });
   });
 
   describe("--preview flag", () => {
@@ -161,6 +116,11 @@ describe("axm skills uninstall", () => {
 
         const canonicalSkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
 
+        const lockPath = path.join(temp.path, "axm.lock");
+        const settingsPath = path.join(temp.path, "axm.json");
+        const originalLock = fs.readFileSync(lockPath, "utf8");
+        const originalSettings = fs.readFileSync(settingsPath, "utf8");
+
         const result = await runCli(
           ["skills", "uninstall", "my-skill", "--preview", "--non-interactive"],
           {
@@ -176,158 +136,9 @@ describe("axm skills uninstall", () => {
 
         const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
         expect(fs.existsSync(agentSkillDir)).toBe(true);
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("does not modify lockfile or settings", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        // Get original file contents
-        const lockPath = path.join(temp.path, "axm.lock");
-        const settingsPath = path.join(temp.path, "axm.json");
-        const originalLock = fs.readFileSync(lockPath, "utf-8");
-        const originalSettings = fs.readFileSync(settingsPath, "utf-8");
-
-        // Run preview
-        await runCli(["skills", "uninstall", "my-skill", "--preview", "--non-interactive"], {
-          cwd: temp.path,
-        });
-
-        // Verify files unchanged
-        expect(fs.readFileSync(lockPath, "utf-8")).toBe(originalLock);
-        expect(fs.readFileSync(settingsPath, "utf-8")).toBe(originalSettings);
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("shows uninstall plan with skill and agents", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(
-          ["skills", "uninstall", "my-skill", "--preview", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toContain("my-skill");
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("shows summary with count", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(
-          ["skills", "uninstall", "my-skill", "--preview", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        expect(result.exitCode).toBe(0);
+        expect(fs.readFileSync(lockPath, "utf8")).toBe(originalLock);
+        expect(fs.readFileSync(settingsPath, "utf8")).toBe(originalSettings);
         expect(getOutput(result)).toMatch(/Would uninstall \d+ skills?/);
-      } finally {
-        temp.cleanup();
-      }
-    });
-  });
-
-  describe("unattended apply", () => {
-    it("applies without a confirmation prompt", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        const canonicalSkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
-
-        // An explicit uninstall carries no confirmable risk and applies without input
-        const result = await runCli(["skills", "uninstall", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        expect(result.exitCode).toBe(0);
-
-        // Skill should be removed
-        expect(fs.existsSync(canonicalSkillDir)).toBe(false);
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("proceeds directly to uninstall", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
-          cwd: temp.path,
-        });
-
-        const mySkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
-        const anotherSkillDir = installedCanonicalSkillDir(temp.path, "another-skill");
-
-        const result = await runCli(["skills", "uninstall", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        expect(result.exitCode).toBe(0);
-
-        // Only my-skill should be removed, another-skill should remain
-        expect(fs.existsSync(mySkillDir)).toBe(false);
-        expect(fs.existsSync(anotherSkillDir)).toBe(true);
       } finally {
         temp.cleanup();
       }
@@ -386,34 +197,6 @@ describe("axm skills uninstall", () => {
         const lock = readLockfile(lockPath);
         expect(lock.skills?.["my-skill"]).toBeUndefined();
         expect(lock.skills?.["another-skill"]).toBeDefined();
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("cleans up empty skills directory", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        // Install one skill
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        const canonicalSkillDir = installedCanonicalSkillDir(temp.path, "my-skill");
-
-        // Uninstall the only skill
-        await runCli(["skills", "uninstall", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        expect(fs.existsSync(canonicalSkillDir)).toBe(false);
       } finally {
         temp.cleanup();
       }

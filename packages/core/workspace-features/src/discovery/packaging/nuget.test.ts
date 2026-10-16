@@ -37,6 +37,15 @@ const detectInTempDir = (
   }).pipe(Effect.scoped);
 
 describe("nugetDetector", () => {
+  it.effect("returns no packages when the project has no package manifests", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const result = yield* detectInTempDir();
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
+
   it("has type nuget", () => {
     expect(nugetDetector.type).toBe(nugetType);
   });
@@ -162,15 +171,6 @@ describe("nugetDetector", () => {
         }),
       ),
     );
-
-    it.effect("missing Directory.Packages.props returns empty from props", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
   });
 
   describe("packages.config parsing", () => {
@@ -186,15 +186,6 @@ describe("nugetDetector", () => {
           expect(result[0]?.purl).toEqual(
             makePurl({ type: "nuget", name: "newtonsoft.json", version: "13.0.3" }),
           );
-        }),
-      ),
-    );
-
-    it.effect("missing packages.config returns empty", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
-          expect(result).toEqual([]);
         }),
       ),
     );
@@ -285,17 +276,6 @@ describe("nugetDetector", () => {
             { name: "packages.config", content: config },
           ]);
           expect(result).toHaveLength(1);
-        }),
-      ),
-    );
-  });
-
-  describe("missing project files", () => {
-    it.effect("returns empty array when no project files exist", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
-          expect(result).toEqual([]);
         }),
       ),
     );

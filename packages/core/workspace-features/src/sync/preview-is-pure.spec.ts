@@ -419,7 +419,7 @@ describe("Sync preview purity", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("a previewed reconciliation changes no protected state", () => {
+  it.effect("a preview preserves protected state until the reconciliation is applied", () => {
     const workspace = fixture();
     return workspace
       .provide(
@@ -448,33 +448,15 @@ describe("Sync preview purity", () => {
             ]),
           );
           expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
+
+          const applied = expectResolved(yield* applySync());
+
+          expect(deriveOperationOutcome(applied)).toBe("applied");
+          expect(workspace.exists(PROJECTION)).toBe(true);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
-
-  it.effect(
-    "the previewed reconciliation is real: applying it afterwards restores what the preview left missing",
-    () => {
-      const workspace = fixture();
-      return workspace
-        .provide(
-          Effect.gen(function* () {
-            yield* driftedWorkspace(workspace);
-            const before = workspace.snapshot();
-
-            expectResolved(yield* previewSync());
-            expect(workspace.snapshot()).toEqual(before);
-
-            const applied = expectResolved(yield* applySync());
-
-            expect(deriveOperationOutcome(applied)).toBe("applied");
-            expect(workspace.exists(PROJECTION)).toBe(true);
-          }),
-        )
-        .pipe(Effect.provide(NodeServices.layer));
-    },
-  );
 
   it.effect(
     "a previewed reconciliation of a desired extension whose source is missing reports it and changes nothing",

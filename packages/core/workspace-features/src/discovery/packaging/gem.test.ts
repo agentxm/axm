@@ -34,6 +34,15 @@ const detectInTempDir = (opts?: {
   }).pipe(Effect.scoped);
 
 describe("gemDetector", () => {
+  it.effect("returns no packages when the project has no package manifests", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const result = yield* detectInTempDir();
+        expect(result).toEqual([]);
+      }),
+    ),
+  );
+
   it("has type gem", () => {
     expect(gemDetector.type).toBe(gemType);
   });
@@ -219,26 +228,6 @@ describe("gemDetector", () => {
         Effect.gen(function* () {
           const gemfile = "gem 'my-lib', github: 'org/my-lib'";
           const result = yield* detectInTempDir({ gemfile });
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-  });
-
-  describe("missing files", () => {
-    it.effect("returns empty array when Gemfile is missing", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-
-    it.effect("returns empty array when no gemspec files exist", () =>
-      withPackagingContext(
-        Effect.gen(function* () {
-          const result = yield* detectInTempDir();
           expect(result).toEqual([]);
         }),
       ),

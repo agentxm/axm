@@ -66,33 +66,7 @@ describe("axm skills install", () => {
           path.join(fs.realpathSync(temp.path), "agent_extensions", "_local") + path.sep;
         expect(fs.realpathSync(claudeSkillsDir).startsWith(localRoot)).toBe(true);
         expect(fs.realpathSync(anotherClaudeSkillsDir).startsWith(localRoot)).toBe(true);
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("includes immutable content identity in lockfile entries", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
-          cwd: temp.path,
-        });
-
-        const lockPath = path.join(temp.path, "axm.lock");
-        const lock = readLockfile(lockPath);
-
-        // Verify lockfile structure
         expect(lock.version).toBe(LOCKFILE_VERSION);
-        expect(lock.skills).toBeDefined();
-
-        // Each skill entry should carry a self-describing source and immutable resolution.
         for (const skillName of ["my-skill", "another-skill"]) {
           const entry = lock.skills?.[skillName];
           expect(entry).toBeDefined();
@@ -103,6 +77,13 @@ describe("axm skills install", () => {
           expect(entry).not.toHaveProperty("agents");
           expect(entry).not.toHaveProperty("installedAt");
           expect(entry).not.toHaveProperty("updatedAt");
+
+          const agentSkillDir = path.join(temp.path, ".claude", "skills", skillName);
+          expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
+          const linkTarget = fs.readlinkSync(agentSkillDir);
+          const resolvedLink = path.resolve(path.dirname(agentSkillDir), linkTarget);
+          expect(fs.realpathSync(resolvedLink)).toBe(fs.realpathSync(agentSkillDir));
+          expect(fs.realpathSync(resolvedLink).startsWith(localRoot)).toBe(true);
         }
       } finally {
         temp.cleanup();
@@ -137,6 +118,31 @@ describe("axm skills install", () => {
         expect(output).not.toContain("Resolution:");
         expect(output).not.toContain("skill(s)");
         expect(output).not.toContain("https://");
+        const settingsPath = path.join(temp.path, "axm.json");
+        const lockPath = path.join(temp.path, "axm.lock");
+        const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
+        expect(fs.existsSync(settingsPath)).toBe(true);
+        expect(fs.existsSync(lockPath)).toBe(true);
+        expect(fs.existsSync(agentSkillDir)).toBe(true);
+        expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
+        const canonicalSkillSrc = fs.realpathSync(agentSkillDir);
+        expect(fs.existsSync(path.dirname(canonicalSkillSrc))).toBe(true);
+        expect(fs.existsSync(path.join(canonicalSkillSrc, "SKILL.md"))).toBe(true);
+        const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        expect(settings).toMatchObject({ agents: expect.arrayContaining(["claude-code"]) });
+
+        const lock = readLockfile(lockPath);
+        expect(lock.version).toBe(LOCKFILE_VERSION);
+        expect(lock.skills).toBeDefined();
+        const entry = lock.skills?.["my-skill"];
+        expect(entry).toBeDefined();
+        const record = boundPackage(lock, "skills", "my-skill");
+        expect(Object.keys(record.source).sort()).toEqual(["format", "path"]);
+        expect(record.source["path"]).toBeDefined();
+        expect(record.tree).toMatch(/^sha256-tree-v2:[a-f0-9]{64}$/);
+        expect(entry).not.toHaveProperty("agents");
+        expect(entry).not.toHaveProperty("installedAt");
+        expect(entry).not.toHaveProperty("updatedAt");
       } finally {
         temp.cleanup();
       }
@@ -324,143 +330,6 @@ describe("axm skills install", () => {
     });
   });
 
-  describe("file system state verification", () => {
-    it("creates expected directory structure", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        // Expected structure:
-        // axm.json
-        // axm.lock
-        // agent_extensions/_local/project/vendor/my-skill/
-        //     src/SKILL.md
-        // .claude/
-        //   skills/
-        //     my-skill -> symlink to canonical (symlink)
-
-        const settingsPath = path.join(temp.path, "axm.json");
-        const lockPath = path.join(temp.path, "axm.lock");
-        const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
-        const canonicalSkillSrc = fs.realpathSync(agentSkillDir);
-        const canonicalSkillDir = path.dirname(canonicalSkillSrc);
-        const canonicalSkillMd = path.join(canonicalSkillSrc, "SKILL.md");
-
-        expect(fs.existsSync(settingsPath)).toBe(true);
-        expect(fs.existsSync(lockPath)).toBe(true);
-        expect(fs.existsSync(canonicalSkillDir)).toBe(true);
-        expect(fs.existsSync(canonicalSkillMd)).toBe(true);
-
-        // Verify symlink in agent directory (.claude/skills for claude-code)
-        expect(fs.existsSync(agentSkillDir)).toBe(true);
-        expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
-
-        // Verify symlink target resolves correctly
-        const resolvedTarget = fs.realpathSync(agentSkillDir);
-        expect(resolvedTarget).toBe(fs.realpathSync(canonicalSkillSrc));
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("axm.json preserves agents after installation", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        const settingsPath = path.join(temp.path, "axm.json");
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-
-        // Settings should still have agents
-        expect(settings).toHaveProperty("agents");
-        expect(settings.agents).toContain("claude-code");
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("axm.lock contains lock entry for installed skill with new schema", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill"], {
-          cwd: temp.path,
-        });
-
-        const lockPath = path.join(temp.path, "axm.lock");
-        const lock = readLockfile(lockPath);
-
-        // Verify new lockfile structure
-        expect(lock.version).toBe(LOCKFILE_VERSION);
-        expect(lock.skills).toBeDefined();
-        expect(lock.skills?.["my-skill"]).toBeDefined();
-
-        const entry = lock.skills?.["my-skill"];
-        const record = boundPackage(lock, "skills", "my-skill");
-        expect(Object.keys(record.source).sort()).toEqual(["format", "path"]);
-        expect(record.source["path"]).toBeDefined();
-        expect(record.tree).toMatch(/^sha256-tree-v2:[a-f0-9]{64}$/);
-        expect(entry).not.toHaveProperty("agents");
-        expect(entry).not.toHaveProperty("installedAt");
-        expect(entry).not.toHaveProperty("updatedAt");
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("symlinks point to canonical skill directory", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all"], {
-          cwd: temp.path,
-        });
-
-        for (const skillName of ["my-skill", "another-skill"]) {
-          // claude-code skillsDir is ".claude/skills"
-          const agentSkillDir = path.join(temp.path, ".claude", "skills", skillName);
-          expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
-
-          // Read the symlink and verify it points to the canonical location
-          const linkTarget = fs.readlinkSync(agentSkillDir);
-          // Resolve relative symlink
-          const resolvedLink = path.resolve(path.dirname(agentSkillDir), linkTarget);
-          expect(fs.realpathSync(resolvedLink)).toBe(fs.realpathSync(agentSkillDir));
-          expect(
-            fs
-              .realpathSync(resolvedLink)
-              .startsWith(
-                path.join(fs.realpathSync(temp.path), "agent_extensions", "_local") + path.sep,
-              ),
-          ).toBe(true);
-        }
-      } finally {
-        temp.cleanup();
-      }
-    });
-  });
-
   describe("conflict detection", () => {
     it("repairs already installed local skill (local sources always update)", async () => {
       const temp = createTempDir();
@@ -563,28 +432,7 @@ describe("axm skills install", () => {
         // Verify no files were created
         const localExtensionsRoot = path.join(temp.path, "agent_extensions", "_local");
         expect(fs.existsSync(localExtensionsRoot)).toBe(false);
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("shows summary with counts", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          {
-            cwd: temp.path,
-          },
-        );
-
-        const result = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--preview", "--non-interactive"],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toMatch(/Would install \d+ skills?/);
+        expect(output).toMatch(/Would install \d+ skills?/);
       } finally {
         temp.cleanup();
       }

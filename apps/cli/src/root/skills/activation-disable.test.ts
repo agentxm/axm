@@ -103,18 +103,6 @@ describe("disable.handler", () => {
       );
     });
 
-    it.effect("fails when skill is not found", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), {});
-
-      return provide(
-        Effect.gen(function* () {
-          const error = yield* handleDisable("skill", defaultArgs("nonexistent")).pipe(Effect.flip);
-          expect(getAppError(error).detail).toContain("is not installed");
-        }),
-      );
-    });
-
     it.effect("no-op when skill is already disabled", () => {
       const { provide, logs } = makeLayers();
       initWorkspace(

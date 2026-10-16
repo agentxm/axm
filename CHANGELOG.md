@@ -1,3 +1,13 @@
+## 0.48.0 (2026-10-16)
+
+### ⚠️ Breaking Changes
+
+- Regenerate the Registry and Telemetry clients against API 0.5.0 and 0.7.0 with strict end-of-input extension names. ([5c7ce5d4c](https://github.com/agentxm/axm/commit/5c7ce5d4c))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.47.2 (2026-10-16)
 
 ### 🩹 Fixes

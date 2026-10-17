@@ -1,7 +1,7 @@
 # Getting started
 
 Use this when the current workspace has never been managed by AXM before. It
-walks through first-time setup. Once `.axm/` exists, switch to
+walks through first-time setup. After setup succeeds and the selected scope has valid `axm.json`, switch to
 `axm help basic-usage`.
 
 <!-- axm:extension-type-list -->
@@ -36,8 +36,9 @@ axm setup
 
 Setup is initialization-only. When the selected scope has no settings, it
 detects project and workstation signals separately, presents the proposed agent
-set and file plan, and asks for confirmation before it creates `.axm/` and the
-initial agent membership. Project signals are preselected for project setup;
+set and file plan, and asks for confirmation before it writes `axm.json` and the
+initial agent membership. Ignored `.axm/` runtime state is created on demand;
+its absence after setup is valid. Project signals are preselected for project setup;
 workstation-only availability remains visible without being treated as project
 intent. If no agent is detected, setup offers a small catalog-driven starter
 set that you can revise before confirming. Running setup again is a no-op, even

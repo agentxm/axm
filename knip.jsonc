@@ -75,9 +75,6 @@
       // Pin the published Effect runtime cohort despite its transitive import.
       "ignoreDependencies": ["@effect/platform-node-shared"],
     },
-    "packages/supporting/registry-access": {
-      "ignoreDependencies": ["@napi-rs/keyring"],
-    },
     "tools/extension-type-parity": {
       "entry": ["scripts/generate-e2e-extension-matrix.ts"],
     },

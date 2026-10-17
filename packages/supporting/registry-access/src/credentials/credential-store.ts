@@ -119,22 +119,16 @@ type KeyringEntry = {
 
 type KeyringEntryConstructor = new (service: string, account: string) => KeyringEntry;
 
-type KeyringModule = {
-  readonly Entry: KeyringEntryConstructor;
-};
-
-const keyringModuleSpecifier = ["@napi-rs", "keyring"].join("/");
-
-class KeyringUnavailable extends Data.TaggedError("KeyringUnavailable")<{
-  readonly cause: unknown;
+export class KeyringUnavailable extends Data.TaggedError("KeyringUnavailable")<{
+  readonly reason: "module-load-failed" | "keychain-access-failed";
 }> {}
 
 const nativeKeyringEntry = Effect.tryPromise({
   try: async () => {
-    const keyring: KeyringModule = await import(keyringModuleSpecifier);
+    const keyring = await import("@napi-rs/keyring");
     return keyring.Entry;
   },
-  catch: (error) => new KeyringUnavailable({ cause: error }),
+  catch: () => new KeyringUnavailable({ reason: "module-load-failed" }),
 });
 
 /** Native-module boundary for the owning adapter's deterministic tests. */
@@ -434,7 +428,7 @@ const readKeychainCredentialFile = (
         const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
         return entry.getPassword();
       },
-      catch: (error) => new KeyringUnavailable({ cause: error }),
+      catch: () => new KeyringUnavailable({ reason: "keychain-access-failed" }),
     });
     if (content === null) return Option.none<CredentialFile>();
     return yield* decodeCredentialFileFromJsonString(content).pipe(
@@ -473,7 +467,7 @@ const writeKeychainCredentialFile = (
         const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
         entry.setPassword(content);
       },
-      catch: (error) => new KeyringUnavailable({ cause: error }),
+      catch: () => new KeyringUnavailable({ reason: "keychain-access-failed" }),
     });
   });
 
@@ -484,10 +478,10 @@ const deleteKeychainCredentialFile = (
   Effect.gen(function* () {
     const Entry = yield* loadKeyringEntry.pipe(
       Effect.mapError(
-        ({ cause }) =>
+        (cause) =>
           new RegistryAccessFailed({
             category: "auth",
-            detail: "OS keychain module could not be loaded",
+            detail: `OS keychain module could not be loaded (${cause.reason})`,
             cause,
           }),
       ),
@@ -497,11 +491,11 @@ const deleteKeychainCredentialFile = (
         const entry = new Entry(KEYCHAIN_SERVICE, keychainAccount(registryUrl));
         entry.deletePassword();
       },
-      catch: (cause) =>
+      catch: () =>
         new RegistryAccessFailed({
           category: "auth",
           detail: "Failed to delete OS keychain credentials",
-          cause,
+          cause: new KeyringUnavailable({ reason: "keychain-access-failed" }),
         }),
     });
   });
@@ -607,9 +601,9 @@ export const CredentialStoreLive = Layer.effect(
             Effect.flatMap((existing) =>
               Option.isSome(existing) ? Effect.succeed(existing) : readFile(),
             ),
-            Effect.catchTag("KeyringUnavailable", () =>
+            Effect.catchTag("KeyringUnavailable", ({ reason }) =>
               Effect.logDebug(
-                "OS keychain unavailable; reading the restricted credential file.",
+                `OS keychain unavailable (${reason}); reading the restricted credential file.`,
               ).pipe(Effect.flatMap(readFile)),
             ),
           )
@@ -623,13 +617,18 @@ export const CredentialStoreLive = Layer.effect(
     // is worth stating when the fallback first changes where credentials live
     // — the restricted file did not exist before this write — and is a debug
     // fact on every write after that.
-    const noteKeychainFallback = readStoredFile().pipe(
-      Effect.flatMap((existing) =>
-        Option.isSome(existing)
-          ? Effect.logDebug("OS keychain unavailable; using restricted credential file.")
-          : Effect.logWarning("OS keychain unavailable; using restricted credential file."),
-      ),
-    );
+    const noteKeychainFallback = (reason: KeyringUnavailable["reason"]) =>
+      readStoredFile().pipe(
+        Effect.flatMap((existing) =>
+          Option.isSome(existing)
+            ? Effect.logDebug(
+                `OS keychain unavailable (${reason}); using restricted credential file.`,
+              )
+            : Effect.logWarning(
+                `OS keychain unavailable (${reason}); using restricted credential file.`,
+              ),
+        ),
+      );
     const saveCredentialFile = (registryUrl: string, accounts: RegistryAccounts) => {
       const writeFallback = Effect.gen(function* () {
         const existing = yield* readStoredFile();
@@ -646,8 +645,11 @@ export const CredentialStoreLive = Layer.effect(
             keyringEntry,
           ).pipe(
             Effect.as("keychain" as const),
-            Effect.catchTag("KeyringUnavailable", () =>
-              noteKeychainFallback.pipe(Effect.andThen(writeFallback), Effect.as("file" as const)),
+            Effect.catchTag("KeyringUnavailable", ({ reason }) =>
+              noteKeychainFallback(reason).pipe(
+                Effect.andThen(writeFallback),
+                Effect.as("file" as const),
+              ),
             ),
           )
         : writeFallback.pipe(Effect.as("file" as const));

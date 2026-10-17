@@ -7542,6 +7542,23 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 AXM works on every supported operating system, runtime, shell, and filesystem.
 
+#### Functional
+
+##### Standalone Apple desktop credentials use the native keychain with diagnosable fallback
+
+- Requirement: `cli/credentials/native-keychain-packaging`
+- Owner: `registry-access`
+- Statement: Supported standalone Apple desktop binaries shall write, read, and delete credentials through an accessible OS keychain without file fallback, while module-load and keychain-access failures shall carry distinct sanitized reasons and preserve restricted-file fallback integrity.
+- Class: functional
+- Role: supporting
+- Product goals: `platform-reach`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The adapter examples use a real restricted credential file and an injected native entry loader; binary-bound examples exercise the packaged native addon against a disposable macOS keychain.
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/credentials/credential-store.ts`
+- Additional evidence: binary via [`apps/cli-e2e/src/binary-keychain.e2e.test.ts`](../apps/cli-e2e/src/binary-keychain.e2e.test.ts) — Runs the selected Darwin artifact outside the repository with synthetic Registry credentials and a disposable default keychain, verifies persistence across processes without fallback, and restores the previous keychain settings.
+- Source: [`packages/supporting/registry-access/src/credentials/credential-store-native.spec.ts`](../packages/supporting/registry-access/src/credentials/credential-store-native.spec.ts)
+
 #### Quality
 
 ##### Every supported platform and shell receives release-blocking verification

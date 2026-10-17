@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Data from "effect/Data";
@@ -10,11 +11,31 @@ import * as ChildProcess from "effect/process/ChildProcess";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 
 export const compileTargets = [
-  { target: "bun-darwin-arm64", output: "axm-darwin-arm64" },
-  { target: "bun-darwin-x64", output: "axm-darwin-x64" },
-  { target: "bun-linux-arm64", output: "axm-linux-arm64" },
-  { target: "bun-linux-x64", output: "axm-linux-x64" },
-  { target: "bun-windows-x64", output: "axm-windows-x64.exe" },
+  {
+    target: "bun-darwin-arm64",
+    nativeAddon: "@napi-rs/keyring-darwin-arm64",
+    output: "axm-darwin-arm64",
+  },
+  {
+    target: "bun-darwin-x64",
+    nativeAddon: "@napi-rs/keyring-darwin-x64",
+    output: "axm-darwin-x64",
+  },
+  {
+    target: "bun-linux-arm64",
+    nativeAddon: "@napi-rs/keyring-linux-arm64-gnu",
+    output: "axm-linux-arm64",
+  },
+  {
+    target: "bun-linux-x64",
+    nativeAddon: "@napi-rs/keyring-linux-x64-gnu",
+    output: "axm-linux-x64",
+  },
+  {
+    target: "bun-windows-x64",
+    nativeAddon: "@napi-rs/keyring-win32-x64-msvc",
+    output: "axm-windows-x64.exe",
+  },
 ] as const;
 
 class CompileError extends Data.TaggedError("CompileError")<{ readonly message: string }> {}
@@ -106,7 +127,7 @@ export const compile = Effect.gen(function* () {
   if (request.cleanDirectory) yield* fs.remove(outputDir, { recursive: true, force: true });
   yield* fs.makeDirectory(outputDir, { recursive: true });
   // Sequential compilation keeps Bun's peak memory bounded. Nx controls target concurrency.
-  for (const { target, output } of request.targets) {
+  for (const { target, output, nativeAddon } of request.targets) {
     const outfile = path.join(outputDir, output);
     // Never delete sibling release outputs owned by another target.
     yield* fs.remove(outfile, { force: true });
@@ -115,6 +136,27 @@ export const compile = Effect.gen(function* () {
       yield* Effect.logInfo(`Staged ${output} from its platform producer`);
       continue;
     }
+    // The wrapper contains literal requires for each platform. Reject a missing
+    // optional addon here rather than shipping a binary that can only fall back.
+    yield* Effect.try({
+      try: () => {
+        const cliRequire = createRequire(path.join(packageDir, "package.json"));
+        const registryRequire = createRequire(
+          cliRequire.resolve("@agentxm/registry-access/credentials"),
+        );
+        const keyringRequire = createRequire(registryRequire.resolve("@napi-rs/keyring"));
+        return keyringRequire.resolve(nativeAddon);
+      },
+      catch: () =>
+        new CompileError({
+          message: `Missing ${nativeAddon} for ${target}; install workspace dependencies with the declared supportedArchitectures before compiling.`,
+        }),
+    });
+    if (target.startsWith("bun-darwin-") && process.platform !== "darwin")
+      return yield* new CompileError({
+        message:
+          "Darwin executable producers require macOS codesign to finalize and verify the compiled signature.",
+      });
     yield* Effect.logInfo(`Compiling ${output} (${target})`);
     const code = yield* processes.exitCode(
       ChildProcess.make(
@@ -138,6 +180,23 @@ export const compile = Effect.gen(function* () {
     );
     if (code !== 0)
       return yield* new CompileError({ message: `bun build failed for ${target} (exit ${code})` });
+    if (target.startsWith("bun-darwin-")) {
+      // Bun's x64 output can retain the upstream executable's invalid signature.
+      // Give the finished artifact its own ad-hoc identity before keychain access.
+      // Verification belongs to the producer, before any artifact can be cached.
+      for (const args of [
+        ["--force", "--sign", "-", "--identifier", "ai.agentxm.axm", "--timestamp=none", outfile],
+        ["--verify", "--strict", outfile],
+      ]) {
+        const signatureCode = yield* processes.exitCode(
+          ChildProcess.make("/usr/bin/codesign", args, { stdout: "inherit", stderr: "inherit" }),
+        );
+        if (signatureCode !== 0)
+          return yield* new CompileError({
+            message: `Could not finalize ${output} code signature (exit ${signatureCode})`,
+          });
+      }
+    }
   }
   yield* Effect.logInfo(
     `Compiled ${request.targets.length} binaries (version ${version}) to ${path.relative(packageDir, outputDir)}`,

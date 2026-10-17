@@ -417,9 +417,9 @@
       "dependsOn": ["build"],
       "executor": "nx:run-commands",
       "inputs": [
-        "production",
+        "default",
+        "!{projectRoot}/dist/**",
         "^production",
-        "{projectRoot}/scripts/compile.ts",
         "hostPlatform",
         "toolchain",
         {
@@ -441,9 +441,9 @@
       "dependsOn": ["build"],
       "executor": "nx:run-commands",
       "inputs": [
-        "production",
+        "default",
+        "!{projectRoot}/dist/**",
         "^production",
-        "{projectRoot}/scripts/compile.ts",
         "hostPlatform",
         "toolchain",
         {
@@ -465,9 +465,9 @@
       "dependsOn": ["build"],
       "executor": "nx:run-commands",
       "inputs": [
-        "production",
+        "default",
+        "!{projectRoot}/dist/**",
         "^production",
-        "{projectRoot}/scripts/compile.ts",
         "hostPlatform",
         "toolchain",
         {
@@ -489,9 +489,9 @@
       "dependsOn": ["build"],
       "executor": "nx:run-commands",
       "inputs": [
-        "production",
+        "default",
+        "!{projectRoot}/dist/**",
         "^production",
-        "{projectRoot}/scripts/compile.ts",
         "hostPlatform",
         "toolchain",
         {
@@ -513,9 +513,9 @@
       "dependsOn": ["build"],
       "executor": "nx:run-commands",
       "inputs": [
-        "production",
+        "default",
+        "!{projectRoot}/dist/**",
         "^production",
-        "{projectRoot}/scripts/compile.ts",
         "hostPlatform",
         "toolchain",
         {
@@ -535,7 +535,8 @@
     "build:diagnostic-sources": {
       "cache": true,
       "inputs": [
-        "production",
+        "default",
+        "!{projectRoot}/dist/**",
         "^production",
         "!{projectRoot}/src/__generated__/diagnostic-sources.ts",
         "{projectRoot}/scripts/generate-diagnostic-sources.ts",

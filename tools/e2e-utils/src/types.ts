@@ -6,7 +6,8 @@ export interface CliResult {
 
 export interface RunCliOptions {
   readonly cwd?: string;
-  readonly env?: Readonly<Record<string, string>>;
+  /** Undefined removes an inherited variable from the child environment. */
+  readonly env?: Readonly<Record<string, string | undefined>>;
   readonly timeout?: number;
   /** Keep output exactly as written, including its final newline. */
   readonly exactOutput?: boolean;

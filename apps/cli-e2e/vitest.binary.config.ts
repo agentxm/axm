@@ -8,7 +8,7 @@ export default defineConfig({
   root: projectRoot,
   test: {
     ...makeTestReporting({ project: "cli-e2e", suite: "cli-e2e-binary" }),
-    include: ["src/binary-smoke.e2e.test.ts"],
+    include: ["src/binary-smoke.e2e.test.ts", "src/binary-keychain.e2e.test.ts"],
     setupFiles: [purposeSetupFile],
     testTimeout: 30000,
   },

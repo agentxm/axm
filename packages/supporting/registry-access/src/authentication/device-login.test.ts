@@ -28,15 +28,11 @@ const REGISTRY = decodeHttpRegistryEndpointSync(REGISTRY_URL);
 const makeLayers = (opts?: {
   readonly browserOpens?: boolean;
   readonly getMeFails?: boolean;
-  readonly machine?: boolean;
   readonly deviceCodeExpired?: boolean;
   readonly deviceLoginDenied?: boolean;
   readonly abandonWaits?: boolean;
 }) => {
-  // Machine mode mirrors the CLI Live: the pending document is consumed and
-  // the human path is skipped.
   const presenter = AuthLoginPresenterTest({
-    ...(opts?.machine ? { tryEmitPendingDeviceLogin: () => Effect.succeed(true) } : {}),
     ...(opts?.abandonWaits ? { abandonWaits: true } : {}),
   });
   const deviceAuthorizations: Array<string> = [];
@@ -110,7 +106,7 @@ describe("runDeviceLogin", () => {
 
     return runDeviceLogin(REGISTRY).pipe(
       Effect.provide(layer),
-      Effect.map(() => {
+      Effect.map((result) => {
         // Nothing reaches the clipboard unless the person asks during the wait.
         expect(interactionState.copyToClipboardCalls).toEqual([]);
         expect(interactionState.openBrowserCalls).toEqual([
@@ -126,9 +122,11 @@ describe("runDeviceLogin", () => {
             browserOpened: true,
           },
         ]);
-        expect(presenterState.loginSuccesses).toEqual([
-          { status: "logged-in", registryHost: "registry.agentxm.ai", handle: "@alice" },
-        ]);
+        expect(result).toEqual({
+          status: "logged-in",
+          registryHost: "registry.agentxm.ai",
+          handle: "@alice",
+        });
       }),
     );
   });
@@ -199,17 +197,15 @@ describe("runDeviceLogin", () => {
   });
 
   it.effect("persists placeholder credentials and reports generic success when /me fails", () => {
-    const { layer, presenterState } = makeLayers({ getMeFails: true });
+    const { layer } = makeLayers({ getMeFails: true });
 
     return Effect.gen(function* () {
-      yield* runDeviceLogin(REGISTRY).pipe(Effect.provide(layer));
+      const result = yield* runDeviceLogin(REGISTRY);
 
       const store = yield* CredentialStore;
       const stored = yield* store.load(credentialKey(REGISTRY));
 
-      expect(presenterState.loginSuccesses).toEqual([
-        { status: "logged-in", registryHost: "registry.agentxm.ai" },
-      ]);
+      expect(result).toEqual({ status: "logged-in", registryHost: "registry.agentxm.ai" });
       expect(stored._tag).toBe("Some");
       if (stored._tag === "Some") {
         expect(stored.value.handle).toBe("@unknown");
@@ -220,13 +216,12 @@ describe("runDeviceLogin", () => {
 });
 
 describe("resumable device login", () => {
-  it.effect("emits the pending document before any side effect in machine mode", () => {
-    const { layer, presenterState, interactionState } = makeLayers({ machine: true });
+  it.effect("returns pending authorization without opening a browser or waiting", () => {
+    const { layer, presenterState, interactionState } = makeLayers();
 
     return Effect.gen(function* () {
       const result = yield* initiateDeviceLogin(REGISTRY);
       expect(result.status).toBe("pending-human");
-      expect(presenterState.pendingEmissions).toHaveLength(1);
       expect(interactionState.openBrowserCalls).toEqual([]);
       expect(interactionState.copyToClipboardCalls).toEqual([]);
       expect(presenterState.handoffs).toEqual([]);
@@ -234,31 +229,13 @@ describe("resumable device login", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("opens a browser and notes approval on the human path", () => {
-    const { layer, presenterState, interactionState } = makeLayers({ browserOpens: true });
-
-    return Effect.gen(function* () {
-      const result = yield* initiateDeviceLogin(REGISTRY);
-      expect(result.status).toBe("pending-human");
-      expect(presenterState.pendingEmissions).toHaveLength(1);
-      expect(interactionState.copyToClipboardCalls).toEqual([]);
-      expect(interactionState.openBrowserCalls).toEqual([
-        "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-      ]);
-      // Nothing will wait on this sign-in, so the approval note is the whole
-      // presentation and no handoff wait opens.
-      expect(presenterState.handoffs).toEqual([]);
-      expect(presenterState.pendingApprovals).toHaveLength(1);
-    }).pipe(Effect.provide(layer));
-  });
-
   it.effect(
     "starts without polling and emits complete and fallback URLs plus separate code",
     () => {
-      const { layer } = makeLayers({ machine: true });
+      const { layer } = makeLayers();
 
       return Effect.gen(function* () {
-        const result = yield* initiateDeviceLogin(REGISTRY, { openBrowser: false });
+        const result = yield* initiateDeviceLogin(REGISTRY);
         expect(result).toMatchObject({
           status: "pending-human",
           blockedOn: "human",

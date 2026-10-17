@@ -11,7 +11,6 @@ import {
   authEmail,
   authRegistryHost,
   deviceLoginRequest,
-  machineOutputPresenter,
   makeAuthPorts,
   authSelectedRegistry,
   authKey,
@@ -48,7 +47,6 @@ const ports = (options: {
   makeAuthPorts({
     credentials: authCredentialFile,
     presenter: {
-      ...(options.machineOutput ? machineOutputPresenter : {}),
       ...(options.sessionReplacement === undefined
         ? {}
         : {
@@ -88,7 +86,7 @@ describe("Login preapproval over a valid session", () => {
   it.effect("an interactive session with preapproval signs in again without asking", () => {
     const context = ports({ machineOutput: false, sessionReplacement: "replace" });
     return Effect.gen(function* () {
-      yield* login(
+      const outcome = yield* login(
         deviceLoginRequest({ yes: true, unattended: false, canAsk: true, machineOutput: false }),
         authSelectedRegistry,
       );
@@ -97,16 +95,22 @@ describe("Login preapproval over a valid session", () => {
       expect(context.presenterState.existingSessions).toEqual(["@alice"]);
       expect(context.deviceAuthorizations).toHaveLength(1);
       expect(yield* storedAccessToken).toEqual(Option.some("fixture-new-access"));
-      expect(context.presenterState.loginSuccesses).toEqual([
-        { status: "logged-in", registryHost: authRegistryHost, handle: "@alice", email: authEmail },
-      ]);
+      expect(outcome).toMatchObject({
+        _tag: "SignedIn",
+        result: {
+          status: "logged-in",
+          registryHost: authRegistryHost,
+          handle: "@alice",
+          email: authEmail,
+        },
+      });
     }).pipe(Effect.provide(context.layer));
   });
 
   it.effect("machine output with preapproval signs in again and reports the new session", () => {
     const context = ports({ machineOutput: true });
     return Effect.gen(function* () {
-      yield* login(
+      const outcome = yield* login(
         deviceLoginRequest({
           yes: true,
           unattended: false,
@@ -118,11 +122,14 @@ describe("Login preapproval over a valid session", () => {
 
       expect(context.deviceAuthorizations).toHaveLength(1);
       expect(yield* storedAccessToken).toEqual(Option.some("fixture-new-access"));
-      expect(context.presenterState.loginSuccesses.at(-1)).toEqual({
-        status: "logged-in",
-        registryHost: authRegistryHost,
-        handle: "@alice",
-        email: authEmail,
+      expect(outcome).toMatchObject({
+        _tag: "SignedIn",
+        result: {
+          status: "logged-in",
+          registryHost: authRegistryHost,
+          handle: "@alice",
+          email: authEmail,
+        },
       });
     }).pipe(Effect.provide(context.layer));
   });
@@ -132,13 +139,16 @@ describe("Login preapproval over a valid session", () => {
     () => {
       const context = ports({ machineOutput: true });
       return Effect.gen(function* () {
-        yield* login(deviceLoginRequest({ yes: true }), authSelectedRegistry);
+        const outcome = yield* login(deviceLoginRequest({ yes: true }), authSelectedRegistry);
 
         expect(context.deviceAuthorizations).toHaveLength(1);
-        expect(context.presenterState.pendingEmissions.at(-1)).toMatchObject({
-          status: "pending-human",
-          userCode: "ABCD-1234",
-          resume: "axm login --device-code --wait-for-human 300 --json",
+        expect(outcome).toMatchObject({
+          _tag: "PendingApproval",
+          result: {
+            status: "pending-human",
+            userCode: "ABCD-1234",
+            resume: "axm login --device-code --wait-for-human 300 --json",
+          },
         });
         // The existing session stays until the pending sign-in is approved.
         expect(yield* storedAccessToken).toEqual(Option.some("fixture-stored-access"));

@@ -1,9 +1,7 @@
-import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { AuthLoginPresenter } from "./login-presenter.js";
 
 export const LoginResultSchema = Schema.Struct({
   status: Schema.Literal("logged-in"),
@@ -44,9 +42,3 @@ export const makeLoginResult = (
     }),
   });
 };
-
-export const emitLoginSuccess = (registryUrl: string, identity: Option.Option<LoginIdentity>) =>
-  Effect.gen(function* () {
-    const presenter = yield* AuthLoginPresenter;
-    yield* presenter.emitLoginSuccess(makeLoginResult(registryUrl, identity));
-  });

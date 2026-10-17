@@ -2375,6 +2375,20 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
 - Source: [`packages/supporting/registry-access/src/authentication/reuses-pending-authorization.spec.ts`](../packages/supporting/registry-access/src/authentication/reuses-pending-authorization.spec.ts)
 
+##### Login settles and drains progress before delivering its terminal result
+
+- Requirement: `cli/login/settles-before-terminal-result`
+- Owner: `cli`
+- Statement: For retained sessions, successful approval, pending initiation, elapsed or stopped waits, and terminal authorization failures, login shall settle its operation and drain its progress before invoking its single terminal result writer.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `apps/cli/src/root/auth/login.ts`, `apps/cli/src/operation-lifecycle.ts`
+- Assumptions: The Screen service records writer invocation; independent OS pipe scheduling is not an ordering assertion.
+- Source: [`apps/cli/src/root/auth/login-settles-before-result.spec.ts`](../apps/cli/src/root/auth/login-settles-before-result.spec.ts)
+
 ##### Unattended device sign-in returns the human action
 
 - Requirement: `cli/login/starts-resumable-device-sign-in`
@@ -2386,7 +2400,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
-- Assumptions: Machine output is the presenter consuming the pending device-login document; the application's renderer-backed presenter implements that port contract.
+- Assumptions: The application renders the returned pending payload after its operation settles.
 - Additional evidence: process via [`apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
 - Source: [`packages/supporting/registry-access/src/authentication/starts-resumable-device-sign-in.spec.ts`](../packages/supporting/registry-access/src/authentication/starts-resumable-device-sign-in.spec.ts)
 

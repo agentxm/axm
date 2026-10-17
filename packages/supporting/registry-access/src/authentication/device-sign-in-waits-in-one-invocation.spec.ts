@@ -12,7 +12,6 @@ import {
   authEmail,
   authRegistryHost,
   deviceLoginRequest,
-  machineOutputPresenter,
   makeAuthPorts,
   resumeLoginRequest,
   authSelectedRegistry,
@@ -52,16 +51,21 @@ describe("Single-invocation device sign-in", () => {
   });
 
   it.effect("starts, waits, and saves credentials without an intermediate result", () => {
-    const ports = makeAuthPorts({ presenter: machineOutputPresenter });
+    const ports = makeAuthPorts();
     return Effect.gen(function* () {
-      yield* login(resumeLoginRequest(), authSelectedRegistry);
+      const outcome = yield* login(resumeLoginRequest(), authSelectedRegistry);
 
       expect(ports.deviceAuthorizations).toEqual(["fixture-device-secret-1"]);
       expect(ports.polledCodes).toEqual(["fixture-device-secret-1"]);
-      expect(ports.presenterState.pendingEmissions).toEqual([]);
-      expect(ports.presenterState.loginSuccesses).toEqual([
-        { status: "logged-in", registryHost: authRegistryHost, handle: "@alice", email: authEmail },
-      ]);
+      expect(outcome).toEqual({
+        _tag: "SignedIn",
+        result: {
+          status: "logged-in",
+          registryHost: authRegistryHost,
+          handle: "@alice",
+          email: authEmail,
+        },
+      });
       expect(Option.isSome(yield* (yield* CredentialStore).load(authKey))).toBe(true);
       expect(ports.deviceInteractionState.openBrowserCalls).toEqual([]);
       expect(ports.deviceInteractionState.copyToClipboardCalls).toEqual([]);
@@ -69,7 +73,7 @@ describe("Single-invocation device sign-in", () => {
   });
 
   it.effect("a bounded wait selects device-code sign-in without naming it", () => {
-    const ports = makeAuthPorts({ presenter: machineOutputPresenter });
+    const ports = makeAuthPorts();
     return Effect.gen(function* () {
       yield* login(resumeLoginRequest({ deviceCode: false }), authSelectedRegistry);
 
@@ -80,7 +84,7 @@ describe("Single-invocation device sign-in", () => {
   });
 
   it.effect("reuses the pending authorization an earlier invocation started", () => {
-    const ports = makeAuthPorts({ presenter: machineOutputPresenter });
+    const ports = makeAuthPorts();
     return Effect.gen(function* () {
       yield* login(deviceLoginRequest(), authSelectedRegistry);
       yield* login(resumeLoginRequest(), authSelectedRegistry);
@@ -92,7 +96,6 @@ describe("Single-invocation device sign-in", () => {
 
   it.effect("an elapsed bound leaves the authorization resumable", () => {
     const ports = makeAuthPorts({
-      presenter: machineOutputPresenter,
       auth: { pollDeviceToken: () => Effect.never },
     });
     return Effect.gen(function* () {

@@ -11,7 +11,6 @@ import {
   authEmail,
   authRegistryHost,
   deviceLoginRequest,
-  machineOutputPresenter,
   makeAuthPorts,
   resumeLoginRequest,
   authSelectedRegistry,
@@ -35,10 +34,10 @@ export const specification = defineSpecification({
 
 describe("Approved authorization", () => {
   it.effect("uses the saved device code and exposes the new session afterward", () => {
-    const ports = makeAuthPorts({ presenter: machineOutputPresenter });
+    const ports = makeAuthPorts();
     return Effect.gen(function* () {
       yield* login(deviceLoginRequest(), authSelectedRegistry);
-      yield* login(resumeLoginRequest(), authSelectedRegistry);
+      const outcome = yield* login(resumeLoginRequest(), authSelectedRegistry);
 
       const stored = yield* (yield* CredentialStore).load(authKey);
       expect(Option.getOrThrow(stored)).toMatchObject({
@@ -48,9 +47,15 @@ describe("Approved authorization", () => {
       });
       expect(Option.isNone(yield* (yield* PendingDeviceLoginStore).load())).toBe(true);
       expect(ports.polledCodes).toEqual(["fixture-device-secret-1"]);
-      expect(ports.presenterState.loginSuccesses).toEqual([
-        { status: "logged-in", registryHost: authRegistryHost, handle: "@alice", email: authEmail },
-      ]);
+      expect(outcome).toEqual({
+        _tag: "SignedIn",
+        result: {
+          status: "logged-in",
+          registryHost: authRegistryHost,
+          handle: "@alice",
+          email: authEmail,
+        },
+      });
 
       // The established session is what a subsequent command presents.
       expect(yield* currentToken(authSelectedRegistry)).toBe("fixture-new-access");

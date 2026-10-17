@@ -13,7 +13,6 @@ import {
   authRegistry,
   deviceLoginRequest,
   resumeLoginRequest,
-  machineOutputPresenter,
   makeAuthPorts,
   authSelectedRegistry,
   authKey,
@@ -31,7 +30,7 @@ export const specification = defineSpecification({
   derivedFrom: ["packages/supporting/registry-access/src/authentication/device-login.ts"],
   supersedes: [],
   assumptions: [
-    "Machine output is the presenter consuming the pending device-login document; the application's renderer-backed presenter implements that port contract.",
+    "The application renders the returned pending payload after its operation settles.",
   ],
   openQuestions: [],
 });
@@ -41,7 +40,7 @@ describe("Unattended device sign-in", () => {
     it.effect(
       `a Registry mismatch offers the original Registry recovery (wait=${String(wait)})`,
       () => {
-        const ports = makeAuthPorts({ presenter: machineOutputPresenter });
+        const ports = makeAuthPorts();
         return Effect.gen(function* () {
           yield* login(deviceLoginRequest(), authSelectedRegistry);
           const before = yield* (yield* PendingDeviceLoginStore).load();
@@ -69,9 +68,9 @@ describe("Unattended device sign-in", () => {
   }
 
   it.effect("returns the action without credentials or polling", () => {
-    const ports = makeAuthPorts({ presenter: machineOutputPresenter });
+    const ports = makeAuthPorts();
     return Effect.gen(function* () {
-      yield* login(deviceLoginRequest(), authSelectedRegistry);
+      const outcome = yield* login(deviceLoginRequest(), authSelectedRegistry);
 
       const pending = yield* (yield* PendingDeviceLoginStore).load();
       expect(Option.isSome(pending)).toBe(true);
@@ -83,8 +82,9 @@ describe("Unattended device sign-in", () => {
       expect(ports.presenterState.handoffs).toEqual([]);
       expect(ports.presenterState.pendingApprovals).toEqual([]);
 
-      expect(ports.presenterState.pendingEmissions).toHaveLength(1);
-      const emitted = ports.presenterState.pendingEmissions[0];
+      expect(outcome._tag).toBe("PendingApproval");
+      if (outcome._tag !== "PendingApproval") return;
+      const emitted = outcome.result;
       expect(Schema.encodeUnknownSync(DeviceLoginPendingResultSchema)(emitted)).toMatchObject({
         status: "pending-human",
         blockedOn: "human",
@@ -95,9 +95,7 @@ describe("Unattended device sign-in", () => {
         expiresAt: "1970-01-01T00:01:00.000Z",
         resume: "axm login --device-code --wait-for-human 300 --json",
       });
-      expect(JSON.stringify(ports.presenterState.pendingEmissions)).not.toContain(
-        "fixture-device-secret",
-      );
+      expect(JSON.stringify(outcome)).not.toContain("fixture-device-secret");
     }).pipe(Effect.provide(ports.layer));
   });
 });

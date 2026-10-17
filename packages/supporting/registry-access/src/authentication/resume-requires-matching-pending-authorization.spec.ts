@@ -10,7 +10,6 @@ import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import {
   authSelectedRegistry,
   authFailureCategory,
-  machineOutputPresenter,
   makeAuthPorts,
   resumeLoginRequest,
   authEndpoint,
@@ -36,11 +35,9 @@ export const specification = defineSpecification({
 
 describe("Resume eligibility", () => {
   it.effect("refuses another Registry's pending authorization", () => {
-    const ports = makeAuthPorts({ presenter: machineOutputPresenter });
+    const ports = makeAuthPorts();
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authEndpoint, {
-        openBrowser: false,
-      });
+      yield* initiateDeviceLogin(authEndpoint);
       const pending = yield* PendingDeviceLoginStore;
       const before = yield* pending.load();
 

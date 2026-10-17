@@ -1,3 +1,4 @@
+import * as path from "node:path";
 import {
   WorkspaceTransactionScopesLive,
   WorkspaceFileWriteLocksLive,
@@ -20,7 +21,10 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  AgentExecutableResolver,
+  AgentDetectionRoots,
+} from "@agentxm/workspace-kernel/agent-adapters";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   ResolvePlanInteractionTest,
@@ -85,9 +89,16 @@ export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = 
     installedExecutables: options.installedExecutables,
     ports: Layer.mergeAll(interaction.layer, participants, refusingSourceProviders),
   });
-  const services = withKindManagers(
+  const servicesWithoutDetectionRoots = withKindManagers(
     Layer.provideMerge(WorkspaceInvariantFactsLive, world.projection),
   ).pipe(Layer.provideMerge(WorkspaceFileWriteLocksLive));
+  const services = Layer.merge(
+    servicesWithoutDetectionRoots,
+    Layer.succeed(AgentDetectionRoots, {
+      home: world.home,
+      configHome: path.join(world.home, ".config"),
+    }),
+  );
   const {
     root,
     home,
@@ -181,6 +192,7 @@ export const makeSetupFixture = (options: SetupFixtureOptions = {}) => {
   const installedExecutables = new Set(options.installedExecutables ?? []);
   const services = Layer.mergeAll(
     WorkspaceFileWriteLocksLive,
+    Layer.succeed(AgentDetectionRoots, { home, configHome: path.join(home, ".config") }),
     WorkspaceTransactionScopesLive.pipe(
       Layer.provide(WorkspaceBoundaryClaimsTest(directories.boundaryClaimsDirectory)),
     ),

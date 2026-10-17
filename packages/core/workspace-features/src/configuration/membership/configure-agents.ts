@@ -25,7 +25,10 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { detectAgentsForScope } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  detectAgentsForScope,
+  detectAgentScopeResults,
+} from "@agentxm/workspace-kernel/agent-adapters";
 import {
   AGENT_IDS,
   AGENTS_BY_ID,
@@ -598,7 +601,8 @@ const ConfiguredAgentRowSchema = Schema.Struct({
   name: Schema.String,
   kind: Schema.Literals(["configurable", "hosted"]),
   configured: Schema.Boolean,
-  detected: Schema.Boolean,
+  projectDetected: Schema.Boolean,
+  userDetected: Schema.Boolean,
   /** Instruction-projection health, manual management, or no configured membership. */
   instructions: Schema.NullOr(Schema.Union([InstructionHealthSchema, Schema.Literal("manual")])),
   /** Whether the vendor still maintains the agent: active, deprecated, retired. */
@@ -640,8 +644,10 @@ export const listConfiguredAgents = (
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const configured = yield* settings.configuredAgents;
-    const detected = yield* detectAgentsForScope(location.baseDir, location.scope).pipe(
-      Effect.map((agents) => agents.map((agent) => agent.id)),
+    const detections = yield* detectAgentScopeResults(location.baseDir);
+    const detected = detections.map(({ agent }) => agent.id);
+    const detectionById = new Map<string, (typeof detections)[number]>(
+      detections.map((entry) => [entry.agent.id, entry]),
     );
     const configuredSet = new Set(configured);
     const detectedSet = new Set<string>(detected);
@@ -676,7 +682,8 @@ export const listConfiguredAgents = (
         name: AGENTS_BY_ID[id].name,
         kind: "installTarget" in AGENTS_BY_ID[id] ? "hosted" : "configurable",
         configured: configuredSet.has(id),
-        detected: detectedSet.has(id),
+        projectDetected: detectionById.get(id)?.project ?? false,
+        userDetected: detectionById.get(id)?.user ?? false,
         instructions: configuredSet.has(id) ? (instructionHealth.get(id) ?? "manual") : null,
         lifecycle: agentLifecycle(id).state,
       }));

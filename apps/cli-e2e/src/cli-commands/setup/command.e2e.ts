@@ -215,7 +215,16 @@ describe("axm setup", () => {
       const temp = createTempDir();
       try {
         const result = await runCli(
-          ["setup", "--preview", "--scope", "project", "--json", "--non-interactive"],
+          [
+            "setup",
+            "--preview",
+            "--scope",
+            "project",
+            "--agent",
+            "claude-code",
+            "--json",
+            "--non-interactive",
+          ],
           { cwd: temp.path },
         );
 

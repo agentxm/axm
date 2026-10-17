@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "cli/setup/preview-resolves-inputs-without-prompts",
   title: "A setup preview resolves every input it would otherwise ask about, and says how",
   statement:
-    "When setup runs in preview mode, it shall resolve every input an interactive run would ask about — the coding agents to configure and the instruction source to use — without raising a prompt, shall present the same candidate whether or not the request preapproved it, and shall name how each default was chosen.",
+    "When setup runs in preview mode, it shall resolve evidence-backed inputs and disclose when an agent choice is still required among the inputs an interactive run would ask about — the coding agents to configure and the instruction source to use — without raising a prompt, shall present the same candidate whether or not the request preapproved it, and shall name how each default was chosen.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -182,8 +182,59 @@ describe("Setup preview input resolution", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
+  for (const scope of ["project", "user"] as const) {
+    it.effect(
+      `${scope} preview suggests workstation evidence when project evidence is absent`,
+      () => {
+        const created = makeSetupFixture({ installedExecutables: ["gemini"] });
+        cleanups.push(created.cleanup);
+        return created
+          .provide(
+            Effect.gen(function* () {
+              const before = created.snapshot();
+              const settled = yield* runSetup(request(created, { scope }));
+              expect(settled.outcome).toMatchObject({
+                agents: [{ id: "gemini-cli", name: "Gemini CLI" }],
+                previewDefaults: { agents: "detected" },
+                agentCandidates: expect.arrayContaining([
+                  expect.objectContaining({
+                    id: "gemini-cli",
+                    projectDetected: false,
+                    userDetected: true,
+                    selectionReason: "user-detected",
+                  }),
+                ]),
+              });
+              expect(created.snapshot()).toEqual(before);
+              expectNoPrompt(created);
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      },
+    );
+  }
+
+  it.effect("project evidence takes precedence over workstation suggestions", () => {
+    const created = makeSetupFixture({ installedExecutables: ["gemini"] });
+    cleanups.push(created.cleanup);
+    fs.mkdirSync(path.join(created.root, ".claude"));
+    return created
+      .provide(
+        Effect.gen(function* () {
+          const settled = yield* runSetup(request(created));
+          expect(settled.outcome.agents.map((agent) => agent.id)).toEqual(["claude-code"]);
+          expect(settled.outcome.agentCandidates).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ id: "gemini-cli", state: "available", userDetected: true }),
+            ]),
+          );
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
   it.effect(
-    "the preview discloses the catalog suggestion when nothing is detected, and no instruction default for user scope",
+    "the preview requires a choice when nothing is detected, and no instruction default for user scope",
     () => {
       const project = fixture();
       const user = fixture();
@@ -195,11 +246,12 @@ describe("Setup preview input resolution", () => {
         expect(projectSettled).toMatchObject({
           outcome: {
             status: "preview",
+            agents: [],
+            previewDefaults: { agents: "choice-required" },
             agentCandidates: expect.arrayContaining([
               expect.objectContaining({
                 id: "claude-code",
-                state: "selected",
-                selectionReason: "catalog-suggestion",
+                state: "available",
               }),
             ]),
             instructions: { enabled: true, fileName: "AGENTS.md" },

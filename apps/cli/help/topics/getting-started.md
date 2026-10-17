@@ -39,9 +39,9 @@ detects project and workstation signals separately, presents the proposed agent
 set and file plan, and asks for confirmation before it writes `axm.json` and the
 initial agent membership. Ignored `.axm/` runtime state is created on demand;
 its absence after setup is valid. Project signals are preselected for project setup;
-workstation-only availability remains visible without being treated as project
-intent. If no agent is detected, setup offers a small catalog-driven starter
-set that you can revise before confirming. Running setup again is a no-op, even
+when no project evidence exists, workstation detections are suggested for
+approval. With no evidence, setup offers all available agents with none
+preselected and asks you to choose. Running setup again is a no-op, even
 when different `--agent` flags are supplied, with one exception described
 below. Read `axm help basic-usage` to learn what those files do and which ones
 must be checked in.
@@ -103,7 +103,11 @@ only the outcomes that are not `supported`, with their reasons; the JSON matrix
 carries every outcome.
 
 After setup, use `axm agents list` to inspect configured and detected coding
-agents. If you adopt another coding agent later, run `axm agents add <id>`;
+agents. The `Configured`, `Project`, and `Workstation` columns distinguish
+membership from evidence. Machine rows use `projectDetected` and `userDetected`;
+`userDetected` means workstation evidence, not user-scope AXM membership or
+proof of installation. `--detected` selects either kind of evidence, including
+when combined with `--available`. If you adopt another coding agent later, run `axm agents add <id>`;
 use `axm agents remove <id>` when retiring one. Do not rerun setup or hand-edit
 `settings.agents`, because the membership commands also create or remove the
 owned per-agent artifacts for installed extensions atomically.

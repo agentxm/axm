@@ -34,13 +34,6 @@ const cursorRow = (frame: string): string => {
   return row.trim();
 };
 
-/** The `◉` or `◯` mark on the Claude Code row of the last frame. */
-const claudeCodeMark = (frame: string): string => {
-  const mark = [...frame.matchAll(/([◉◯]) Claude Code\b/gu)].at(-1)?.[1];
-  if (mark === undefined) throw new Error(`No Claude Code row in frame:\n${frame}`);
-  return mark;
-};
-
 describe.skipIf(!ptyIsSupported)("pseudo-terminal harness", () => {
   it("gives the subject a terminal of the requested size", async () => {
     const result = await runUnderPty(
@@ -239,6 +232,7 @@ describe.skipIf(!ptyIsSupported)("axm prompts under a pseudo-terminal", () => {
       const result = await runCliUnderPty(["setup", "--scope", "project"], {
         home: tempDir("axm-pty-home-"),
         cwd: tempDir("axm-pty-workspace-"),
+        env: { PATH: tempDir("axm-pty-path-") },
         columns,
         rows: 30,
         actions: [
@@ -265,13 +259,16 @@ describe.skipIf(!ptyIsSupported)("axm prompts under a pseudo-terminal", () => {
       if (columns >= 80) expect(filtered?.emitted).toContain("esc clears the filter");
 
       // Space toggles the row the cursor sits on.
-      expect(claudeCodeMark(toggled?.emitted ?? "")).not.toBe(
-        claudeCodeMark(filtered?.emitted ?? ""),
+      const beforeToggle = cursorRow(filtered?.emitted ?? "");
+      expect(beforeToggle).toMatch(/[◉◯]/u);
+      expect(cursorRow(toggled?.emitted ?? "")).toBe(
+        beforeToggle.replace(/[◉◯]/u, (mark) => (mark === "◉" ? "◯" : "◉")),
       );
 
       // Clearing the filter works even when the narrow footer abbreviates its hint.
-      expect(cleared?.emitted).toContain("Codex");
+      expect(cleared?.emitted).toContain("Agents  type to filter");
       expect(cleared?.emitted).not.toContain("Agents  clau");
+      expect(cleared?.emitted).not.toMatch(/\d+ shown/u);
 
       // Raw mode suppresses SIGINT, so the interrupt is the prompt's own quit
       // and the terminal has to come back from it.

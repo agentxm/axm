@@ -234,8 +234,8 @@ const previewDefaultPhrase = (result: SetupOutcome): string | undefined => {
   switch (result.previewDefaults?.agents) {
     case "detected":
       return "using agents found here";
-    case "suggested":
-      return "using recommended agents";
+    case "choice-required":
+      return "choose coding agents before applying";
     case "explicit":
     case undefined:
       return undefined;

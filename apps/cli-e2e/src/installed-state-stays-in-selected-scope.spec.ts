@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/installed-state-stays-in-selected-scope",
   title: "Installed extensions, coding agents, and instruction files stay in the selected scope",
   statement:
-    "Installed-extension operations, coding-agent listing and membership changes, and instruction-file inspection, enablement, and disablement shall use the selected project or user workspace and its native files for workspace results and changes, default to project scope when no workspace scope is selected, name only selected-scope native files in any permission guidance they emit, and preserve the other scope's workspace and native files.",
+    "Installed-extension operations, coding-agent configured membership and membership changes, and instruction-file inspection, enablement, and disablement shall use the selected project or user workspace and its native files for workspace results and changes, default to project scope when no workspace scope is selected, name only selected-scope native files in any permission guidance they emit, and preserve the other scope's workspace and native files.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -248,8 +248,7 @@ describe("Agent membership and instruction files stay in the selected scope", ()
         const parsed: unknown = JSON.parse(listed.stdout);
         const list = decodeAgentScopeResult(parsed).result;
         expect(list.configured).toEqual(fixture.expectedSettings.agents);
-        if (fixture.scope === "user") expect(list.detected).toContain("gemini-cli");
-        else expect(list.detected).not.toContain("gemini-cli");
+        expect(list.detected).toContain("gemini-cli");
         expect(snapshotTree(fixture.selectedNative)).toEqual(selectedBefore);
         expect(snapshotTree(fixture.otherNative)).toEqual(otherBefore);
 

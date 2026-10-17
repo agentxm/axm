@@ -19,6 +19,7 @@ export { parseNativeConfigRoot } from "./native-config-syntax.js";
 export { preflightNativeConfigReaders, type NativeConfigReader } from "./native-config-readers.js";
 export {
   AgentExecutableResolver,
+  AgentDetectionRoots,
   detectAgent,
   detectAgentInRoot,
   detectAgentScopeResults,

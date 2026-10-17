@@ -155,13 +155,7 @@ export const WorkspaceInitializationInteractionTest = (overrides?: {
       Effect.gen(function* () {
         state.selectAgentsCalls.push(options);
         return yield* overrides?.selectAgents?.(options) ??
-          Effect.succeed([
-            ...new Set([
-              ...options.configuredIds,
-              ...options.projectDetectedIds,
-              ...options.suggestedIds,
-            ]),
-          ]);
+          Effect.succeed([...new Set([...options.configuredIds, ...options.suggestedIds])]);
       }),
     confirmInstructionSync: (options) =>
       Effect.gen(function* () {

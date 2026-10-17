@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/agents/list/reports-configured-detected-and-available-agents",
   title: "Agent inventory distinguishes configuration from detection",
   statement:
-    "When a person lists coding agents, AXM shall distinguish configured membership from detected installations, identify their catalog lifecycle using the published lifecycle vocabulary, report instruction health from the shared instruction-status vocabulary or manual management for configured agents and null for unconfigured agents, show their union by default, and restrict the results to detected agents or include every catalog agent and distinguish configurable from hosted agents when the respective selection is requested.",
+    "When a person lists coding agents, AXM shall distinguish configured membership from project and workstation evidence, identify their catalog lifecycle using the published lifecycle vocabulary, report instruction health from the shared instruction-status vocabulary or manual management for configured agents and null for unconfigured agents, show their union by default, and restrict the results to detected agents or include every catalog agent and distinguish configurable from hosted agents when the respective selection is requested; combined filters shall show detected agents from the whole catalog.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -28,9 +28,7 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "The combination of --detected and --available has no separately established user-facing meaning; precedence is not specified here.",
-  ],
+  openQuestions: [],
 });
 
 describe("Agent inventory selection", () => {
@@ -72,7 +70,8 @@ describe("Agent inventory selection", () => {
               expect(inventory.items.find((item) => item.id === "chatgpt")).toMatchObject({
                 kind: "hosted",
                 configured: false,
-                detected: false,
+                projectDetected: false,
+                userDetected: false,
                 instructions: null,
               });
               expect(inventory.items.find((item) => item.id === "codex")).toMatchObject({
@@ -81,13 +80,15 @@ describe("Agent inventory selection", () => {
             }
             expect(inventory.items.find((item) => item.id === "cursor")).toMatchObject({
               configured: false,
-              detected: true,
+              projectDetected: true,
+              userDetected: false,
               instructions: null,
             });
             if (selection !== "detected")
               expect(inventory.items.find((item) => item.id === "claude-code")).toMatchObject({
                 configured: true,
-                detected: false,
+                projectDetected: false,
+                userDetected: false,
                 instructions: "manual",
               });
             expect(fixture.snapshot()).toEqual(before);
@@ -95,6 +96,35 @@ describe("Agent inventory selection", () => {
         )
         .pipe(Effect.provide(NodeServices.layer));
     });
+
+  it.effect("keeps workstation evidence independent of generated project directories", () => {
+    const fixture = makeConfigurationFixture({
+      settings: { agents: ["claude-code"] },
+      installedExecutables: ["gemini"],
+    });
+    cleanups.push(fixture.cleanup);
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const before = yield* listConfiguredAgents({ available: true, detected: true });
+          expect(before.items.find((row) => row.id === "gemini-cli")).toMatchObject({
+            configured: false,
+            projectDetected: false,
+            userDetected: true,
+          });
+          expect(before.items.some((row) => row.id === "opencode")).toBe(false);
+          fs.mkdirSync(path.join(fixture.root, ".opencode"));
+          const after = yield* listConfiguredAgents();
+          expect(after.items.find((row) => row.id === "opencode")).toMatchObject({
+            projectDetected: true,
+            userDetected: false,
+          });
+          expect(after.detected).toContain("gemini-cli");
+          expect(after.detected).toContain("opencode");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   // The setup guidance an empty inventory carries is rendering, and is
   // observed beside the renderer in apps/cli/src/root/agents/list.test.ts.
@@ -155,7 +185,12 @@ describe("Agent inventory selection", () => {
 
             expect(specificEvidence.detected).toEqual(["claude-code"]);
             expect(specificEvidence.items).toEqual([
-              expect.objectContaining({ id: "claude-code", configured: false, detected: true }),
+              expect.objectContaining({
+                id: "claude-code",
+                configured: false,
+                projectDetected: true,
+                userDetected: false,
+              }),
             ]);
             expect(fixture.snapshot()).toEqual(corroborated);
           }),

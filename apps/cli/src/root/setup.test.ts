@@ -266,20 +266,14 @@ describe("setup.handler", () => {
       );
     });
 
-    it.effect("uses a small catalog suggestion set when no agents are detected", () => {
+    it.effect("does not invent membership when no agents are detected", () => {
       const { handleSetup, provide } = makeSetupTestContext({ flags: { nonInteractive: true } });
 
       return provide(
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          expect(readJson(path.join(tempDir, "axm.json")).agents).toEqual([
-            "claude-code",
-            "codex",
-            "cursor",
-            "github-copilot-cli",
-            "opencode",
-          ]);
+          expect(readJson(path.join(tempDir, "axm.json")).agents).toEqual([]);
         }),
       );
     });
@@ -294,13 +288,7 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          expect(readJson(path.join(tempDir, "axm.json")).agents).toEqual([
-            "claude-code",
-            "codex",
-            "cursor",
-            "github-copilot-cli",
-            "opencode",
-          ]);
+          expect(readJson(path.join(tempDir, "axm.json")).agents).toEqual([]);
           // The retired-agent warning wording lives in the CLI Live; the
           // kernel reports the retirement through the interaction port.
           expect(
@@ -827,7 +815,7 @@ describe("setup.handler", () => {
           suggested.handleSetup({ scope: "project", scopeExplicit: true, preview: true }),
         );
         expect(suggested.rendererState.results[0]?.data).toMatchObject({
-          result: { previewDefaults: { agents: "suggested" } },
+          result: { previewDefaults: { agents: "choice-required" } },
         });
       });
     });
@@ -1103,7 +1091,7 @@ describe("setup.handler", () => {
       );
     });
 
-    it.effect("offers catalog suggestions when preview finds no agents", () => {
+    it.effect("requires an agent choice when preview finds no agents", () => {
       const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true, nonInteractive: true },
         renderer: "machine",
@@ -1115,35 +1103,17 @@ describe("setup.handler", () => {
 
           expect(rendererState.results[0]?.data).toMatchObject({
             result: {
-              agents: [
-                { id: "claude-code", name: "Claude Code" },
-                { id: "codex", name: "Codex" },
-                { id: "cursor", name: "Cursor" },
-                { id: "github-copilot-cli", name: "GitHub Copilot CLI" },
-                { id: "opencode", name: "OpenCode" },
-              ],
+              agents: [],
+              previewDefaults: { agents: "choice-required" },
               agentCandidates: expect.arrayContaining([
-                expect.objectContaining({
-                  id: "claude-code",
-                  state: "selected",
-                  selectionReason: "catalog-suggestion",
-                }),
-              ]),
-              scopeSupport: expect.arrayContaining([
-                expect.objectContaining({
-                  type: "skill",
-                  outcomes: expect.arrayContaining([
-                    expect.objectContaining({ agentId: "claude-code" }),
-                    expect.objectContaining({ agentId: "codex" }),
-                  ]),
-                }),
+                expect.objectContaining({ id: "claude-code", state: "available" }),
               ]),
             },
           });
           expect(rendererState.suggestions).toEqual([
             {
-              description: "Apply setup",
-              cmd: "axm setup --yes --scope project --agent claude-code --agent codex --agent cursor --agent github-copilot-cli --agent opencode",
+              description: "Choose coding agents",
+              cmd: "axm setup --scope project",
             },
           ]);
         }),

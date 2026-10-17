@@ -5,11 +5,12 @@ import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/regi
 import { undetectedAgentOffer } from "./initialization.js";
 
 describe("undetectedAgentOffer", () => {
-  it("suggests the popular agents when the workstation has none either", () => {
+  it("offers agents without suggestions when no evidence exists", () => {
     const offer = undetectedAgentOffer([]);
 
     expect(offer.userDetectedIds).toEqual([]);
-    expect(offer.suggestedIds).toContain("claude-code");
+    expect(offer.suggestedIds).toEqual([]);
+    expect(offer.allAgents.length).toBeGreaterThan(0);
     expect(offer.allAgents.slice(0, offer.suggestedIds.length).map((agent) => agent.id)).toEqual(
       offer.suggestedIds,
     );

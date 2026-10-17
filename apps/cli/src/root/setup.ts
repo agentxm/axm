@@ -8,8 +8,8 @@ import { agentFlag, jsonFlag, replaceUnrecordedFlag, Verbosity } from "../cli-fl
 import { emitResult, Screen, errorDoc } from "../screen/index.js";
 import { processOutcome, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { resolveTelemetryMode } from "../telemetry/index.js";
-import { envOption } from "@agentxm/host-primitives";
+import type { TelemetryMode } from "../telemetry/index.js";
+import { setupTelemetryMode, setupTelemetryNotice } from "./setup/telemetry-notice.js";
 import { ExitCode } from "../app-error/index.js";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import * as Effect from "effect/Effect";
@@ -65,7 +65,7 @@ const setupSuggestions = (args: {
   readonly agentCount: number;
   readonly agentIds: ReadonlyArray<string>;
   readonly scope: WorkspaceScope;
-  readonly telemetryEnabled: boolean;
+  readonly telemetryMode: TelemetryMode;
   /** This run settled the instruction choice of a workspace that already existed. */
   readonly completed: boolean;
   /** The workspace exists and has never settled its instruction choice. */
@@ -144,9 +144,7 @@ const setupSuggestions = (args: {
   }
 
   suggestions.push({
-    description: args.telemetryEnabled
-      ? "AXM collects usage, public skill installs, and errors by default; disable with AXM_TELEMETRY=0"
-      : "Telemetry is off; environment help lists all controls",
+    description: setupTelemetryNotice(args.telemetryMode),
   });
 
   return suggestions;
@@ -168,14 +166,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
   const json = yield* jsonFlag;
   const machineOutput = Option.getOrElse(json, () => false);
   const nonInteractive = !(yield* screen.canAsk);
-  const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");
-  const disableTelemetryOpt = yield* envOption("DISABLE_TELEMETRY");
-  const axmTelemetryOpt = yield* envOption("AXM_TELEMETRY");
-  const telemetryMode = resolveTelemetryMode({
-    doNotTrack: Option.getOrUndefined(doNotTrackOpt),
-    disableTelemetry: Option.getOrUndefined(disableTelemetryOpt),
-    telemetry: Option.getOrUndefined(axmTelemetryOpt),
-  });
+  const telemetryMode = yield* setupTelemetryMode;
   const telemetryEnabled = telemetryMode !== "off";
 
   const prepared = yield* SetupWorkspace.prepare({
@@ -221,6 +212,10 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
     );
   }
 
+  if (args.preview === true && !machineOutput && verbosity.level !== "quiet") {
+    yield* screen.note([{ _tag: "paragraph", text: setupTelemetryNotice(telemetryMode) }]);
+  }
+
   // The bundled AXM skill is a lifecycle installation, not a configuration
   // decision, so the application supplies it; setup applies it inside the
   // initialization closure so a skill that cannot be installed leaves no
@@ -258,7 +253,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
         agentCount: result.agents.length,
         agentIds: result.agents.map((agent) => agent.id),
         scope: transition.location.scope,
-        telemetryEnabled,
+        telemetryMode,
         completed: transition.completed,
         instructionChoiceOpen:
           result.status === "already-initialized" &&

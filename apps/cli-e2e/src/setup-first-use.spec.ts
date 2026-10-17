@@ -45,6 +45,42 @@ const targets = (stdout: string) =>
   );
 
 describe("First setup plan and migration", () => {
+  it("sets up signed out without Git while reporting leftover links and preserving lazy state", async () => {
+    const fixture = makeEnvironmentProcessFixture();
+    try {
+      const missingTarget = path.join(fixture.root, "removed-skill");
+      const leftover = path.join(fixture.applicationHome, ".claude/skills/axm");
+      fs.mkdirSync(path.dirname(leftover), { recursive: true });
+      fs.symlinkSync(missingTarget, leftover, "dir");
+      const args = ["setup", "--scope", "project", "--agent", "claude-code", "--non-interactive"];
+      const human = await fixture.run([...args, "--preview"], { AXM_TELEMETRY: "off" });
+      expect(human.exitCode, human.stdout + human.stderr).toBe(0);
+      expect(human.stdout + human.stderr).toContain("Telemetry: off.");
+      expect(human.stdout + human.stderr).toContain("Remove only this link");
+      expect(fs.existsSync(path.join(fixture.invoking, "axm.json"))).toBe(false);
+      const applied = await fixture.run([...args, "--yes", "--json"], { AXM_TELEMETRY: "off" });
+      expect(applied.exitCode, applied.stderr).toBe(0);
+      expect(JSON.parse(applied.stdout)).toMatchObject({
+        result: { status: "initialized", telemetryEnabled: false },
+      });
+      for (const line of applied.stderr.trim().split("\n").filter(Boolean)) {
+        expect(() => JSON.parse(line)).not.toThrow();
+      }
+      const settings: unknown = JSON.parse(
+        fs.readFileSync(path.join(fixture.invoking, "axm.json"), "utf8"),
+      );
+      expect(settings).toMatchObject({ instructionFiles: { fileName: "AGENTS.md" } });
+      expect(JSON.stringify(settings)).not.toContain("gitignoreAliases");
+      expect(fs.existsSync(path.join(fixture.invoking, ".gitignore"))).toBe(false);
+      expect(fs.existsSync(path.join(fixture.invoking, ".axm"))).toBe(false);
+      expect(fs.readlinkSync(leftover)).toBe(missingTarget);
+      const help = await fixture.run(["help", "basic-usage"]);
+      expect(help.exitCode, help.stderr).toBe(0);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("shows every target and migrates a tracked seed without changing the index", async () => {
     const fixture = makeEnvironmentProcessFixture();
     try {

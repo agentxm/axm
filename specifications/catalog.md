@@ -4915,6 +4915,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `packages/core/workspace-features/src/configuration/setup/initialization.ts`
 - Source: [`packages/core/workspace-features/src/configuration/setup/agent-membership-is-a-set.spec.ts`](../packages/core/workspace-features/src/configuration/setup/agent-membership-is-a-set.spec.ts)
 
+##### Setup discloses effective telemetry before changes
+
+- Requirement: `cli/setup/discloses-effective-telemetry`
+- Owner: `cli`
+- Statement: Human setup previews and final interactive confirmation shall disclose effective all, errors-only, or off telemetry before applying workspace changes, following existing environment precedence without persisting a separate consent setting.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The application preview runs against a real temporary workspace and the production confirmation adapter exposes its disclosure through the screen question seam.
+- Methods: example
+- Derived from: `system/security/telemetry-consent-and-precedence`
+- Source: [`apps/cli/src/root/setup/discloses-effective-telemetry.spec.ts`](../apps/cli/src/root/setup/discloses-effective-telemetry.spec.ts)
+
 ##### First setup describes its writes and preserves instruction content
 
 - Requirement: `cli/setup/first-use-plan-and-migration`

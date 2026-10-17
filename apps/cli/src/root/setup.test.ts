@@ -50,7 +50,7 @@ const readLockfile = (filePath: string) =>
   );
 const telemetrySuggestion = {
   description:
-    "AXM collects usage, public skill installs, and errors by default; disable with AXM_TELEMETRY=0",
+    "Telemetry: all. AXM collects usage, public skill installs, and errors; set AXM_TELEMETRY=errors for errors only or AXM_TELEMETRY=0 to turn it off.",
 };
 const projectSetupSuggestions = [
   { description: "Inspect configured agents", cmd: "axm agents list" },
@@ -580,7 +580,6 @@ describe("setup.handler", () => {
           expect(settings.agents).toEqual(["claude-code"]);
           expect(settings.instructionFiles).toEqual({
             fileName: "AGENTS.md",
-            gitignoreAliases: true,
           });
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(true);
           expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(true);
@@ -1494,7 +1493,8 @@ describe("setup.handler", () => {
           Effect.gen(function* () {
             yield* handleSetup({ scope: "project" });
             expect(rendererState.suggestions).toContainEqual({
-              description: "Telemetry is off; environment help lists all controls",
+              description:
+                "Telemetry: off. AXM does not collect usage, public skill installs, or errors.",
             });
           }),
         );
@@ -1540,8 +1540,12 @@ describe("setup.handler", () => {
             {
               _tag: "headline",
               tone: "neutral",
-              text: [{ text: `Setting up AXM in ${fs.realpathSync(tempDir)}`, bold: true }],
-              aside: [{ text: "for this project" }],
+              text: [
+                {
+                  text: `Setting up AXM in ${fs.realpathSync(tempDir)} for this project`,
+                  bold: true,
+                },
+              ],
             },
           ]);
         }),

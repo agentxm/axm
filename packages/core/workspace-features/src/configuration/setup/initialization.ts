@@ -817,7 +817,6 @@ const configureProjectWorkspace = (args: {
       instructionFiles: instructionSetup.enabled
         ? {
             fileName: instructionSetup.fileName,
-            gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE,
           }
         : false,
     };

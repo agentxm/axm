@@ -1,5 +1,19 @@
 # Install AXM
 
+## Before the first AXM command
+
+Disclose telemetry before invoking AXM, including `axm --version`: by default
+AXM collects command usage, public skill installs, and errors. Surface the
+preference and carry any chosen override through subsequent commands:
+`AXM_TELEMETRY=1` for all collection, `AXM_TELEMETRY=errors` for errors only,
+or `AXM_TELEMETRY=off` for off. A nonempty `DO_NOT_TRACK` or `DISABLE_TELEMETRY`
+overrides that choice and turns collection off. Preserve those overrides.
+
+Set the chosen value in the shell used for every subsequent AXM command
+(`export AXM_TELEMETRY=errors` in POSIX shells, or
+`$env:AXM_TELEMETRY = "errors"` in PowerShell, for example). This uses the
+existing environment controls; setup does not save a separate consent setting.
+
 **DONE WHEN:** `axm --version` succeeds and (if the user chose workspace
 setup) `axm setup` has completed.
 

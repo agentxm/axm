@@ -1,3 +1,13 @@
+## 0.49.3 (2026-10-17)
+
+### 🩹 Fixes
+
+- Make setup usable while signed out with evidence-based agent selection, native-output health checks, accurate telemetry disclosure, and minimal settings. Preserve human login waits outside a TTY, settle operations before JSON results, and bundle native keychain dependencies with sanitized fallback diagnostics. ([5b5667f3f](https://github.com/agentxm/axm/commit/5b5667f3f))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.49.2 (2026-10-17)
 
 ### 🩹 Fixes

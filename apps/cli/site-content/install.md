@@ -7,28 +7,17 @@ setup) `axm setup` has completed.
 
 1. Probe for existing install → upgrade or install.
 2. Verify `axm --version`.
-3. Probe sign-in → ask the user → optionally hand off `axm login`.
-4. Preview setup, summarize its exact agent and file candidate, and get the
+3. Preview setup, summarize its exact agent and file candidate, and get the
    user's approval.
-5. Apply the approved candidate with explicit scope and agent flags.
-6. Read `agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/src/SKILL.md`, then load
+4. Apply the approved candidate with explicit scope and agent flags.
+5. Read `agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/src/SKILL.md`, then load
    `axm help getting-started` and `axm help basic-usage`.
 
 ## Invariants
 
-- **Probes exit 0.** `axm --version` and `axm whoami --json` have expected
-  non-zero exit paths ("not installed", "not signed in") that are part of
-  the flow. Always invoke them via the wrappers below and branch on stdout,
-  not the exit code.
 - **Explain before asking.** Every stop-and-ask and command handoff states
   what it does, why it's needed, and what the user should do next. Bare
   yes/no prompts are non-conforming.
-- **Guide sign-in, do not execute it.** Never run `axm login` without
-  explicit consent; never paste an `AXM_TOKEN` the user has not shared.
-- **Resume, do not restart.** If the user completes sign-in out-of-band,
-  skip to **Workspace setup** — do not re-ask which option they picked.
-- **Option 2 (defer sign-in) is legitimate, not a fallback.** Do not
-  re-prompt later in the flow.
 
 ---
 
@@ -36,7 +25,7 @@ setup) `axm setup` has completed.
 
 ```bash
 # macOS / Linux
-command -v axm >/dev/null 2>&1 && axm --version || echo "NOT_INSTALLED"
+if command -v axm >/dev/null 2>&1; then axm --version; else echo "NOT_INSTALLED"; fi
 ```
 
 ```powershell
@@ -48,7 +37,8 @@ Branch on stdout:
 
 - **`X.Y.Z`** → installed. Run `axm upgrade` (auto-detects the install
   method and upgrades script, Homebrew, and npm installs). Skip to **§3**.
-- **`NOT_INSTALLED`** or anything else → continue to **§2**.
+- **`NOT_INSTALLED`** → continue to **§2**.
+- **An installed executable fails** → diagnose that failure before reinstalling.
 
 ## 2. Install
 
@@ -80,20 +70,25 @@ it later.** Frame the choice that way, then ask the user to pick one:
    packages. Pick this if most CLIs are managed with brew.
 3. **npm** — `npm install -g axm.sh`, alongside other global npm packages.
    Pick this if AXM is part of a Node.js-heavy environment. Requires Node.js
-   ≥24.21.0. If `node --version` reports an older release, upgrade Node first
-   or pick option 1 or 2 instead.
+   as specified under **npm prerequisite** below.
 
 Wait for the user's choice before running an installer.
 
+### npm prerequisite
+
+npm installation requires Node.js ≥24.21.0. If `node --version` reports an
+older release, upgrade Node first or use a standalone installer. The install
+scripts and Homebrew installation do not require Node.js.
+
 ### Run the installer
 
-| Option | Platform                  | Command                                                               |
-| ------ | ------------------------- | --------------------------------------------------------------------- |
-| A      | macOS / Linux             | `curl -fsSL https://axm.sh/install.sh \| sh`                          |
-| B      | Windows (PS)              | `irm https://axm.sh/install.ps1 \| iex`                               |
-| C      | Windows (CMD)             | `curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd` |
-| D      | Homebrew                  | `brew install agentxm/tap/axm`                                        |
-| E      | npm (any OS, Node ≥24.19) | `npm install -g axm.sh`                                               |
+| Option | Platform                     | Command                                                               |
+| ------ | ---------------------------- | --------------------------------------------------------------------- |
+| A      | macOS / Linux                | `curl -fsSL https://axm.sh/install.sh \| sh`                          |
+| B      | Windows (PS)                 | `irm https://axm.sh/install.ps1 \| iex`                               |
+| C      | Windows (CMD)                | `curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd` |
+| D      | Homebrew                     | `brew install agentxm/tap/axm`                                        |
+| E      | npm (see prerequisite above) | `npm install -g axm.sh`                                               |
 
 Install locations: `~/.axm/bin/axm` (script, macOS/Linux);
 `%USERPROFILE%\.axm\bin\axm.exe` (script, Windows).
@@ -105,71 +100,12 @@ Re-run the probe from **§1**. Expect `X.Y.Z`. If `axm` is not found, see
 
 ---
 
-## 3. Check sign-in state
+## 3. Workspace setup
 
-```bash
-# macOS / Linux
-axm whoami --json 2>/dev/null || echo '{"type":"error","code":"AUTH_LOGIN_REQUIRED"}'
-```
-
-```powershell
-# Windows (PowerShell)
-try { axm whoami --json } catch { '{"type":"error","code":"AUTH_LOGIN_REQUIRED"}' }
-```
-
-Branch on the JSON `type` field:
-
-- **Not `"error"`** (identity payload) → signed in. Skip to **§5**.
-- **`"error"`** (typically `code` = `AUTH_LOGIN_REQUIRED`) → continue to **§4**.
-
-## 4. Ask the user about sign-in
-
-Tell the user _why_ the choice matters: signing in is only needed to publish
-extensions or install private extensions; the workspace can still be set up
-without it. Then ask them to pick:
-
-1. **Sign up or log in to AgentXM.ai** (recommended if publishing or
-   installing private extensions).
-2. **Proceed to workspace setup** (can sign in later with `axm login`).
-
-**Do not run `axm login`, `axm setup`, or any signed-in command until the
-user has picked.** Wait for the response, then:
-
-- Option 1 → continue with **Sign in** below, then **§5**.
-- Option 2 → skip to **§5**.
-
-### Sign in
-
-If the user has no AgentXM.ai account, point them to
-https://agentxm.ai/signup — explain that signup happens through the web and
-AXM can't create the account on their behalf. Wait for confirmation, then
-continue.
-
-Before handing off `axm login`, explain what it does: it proves the machine
-belongs to their account and stores a local token so subsequent `axm`
-commands can reach the registry. Offer both paths:
-
-- **Interactive (recommended):** ask the user to run `axm login` in their
-  terminal. It opens a browser for a one-time authorization flow; AXM can't
-  run it on their behalf because the browser step requires the user. Over SSH
-  without a display, in CI or Codespaces, on Linux with none of `DISPLAY`,
-  `WAYLAND_DISPLAY`, or `BROWSER` set (WSL excepted), or with `--device-code`,
-  AXM uses a five-minute device-code flow instead. The CLI emits a complete
-  authorization link and a separate clean fallback URL plus code. A retry re-emits the same unexpired request;
-  `--restart` explicitly replaces it.
-- **Non-interactive:** ask the user to place a pre-generated token in a
-  restrictive, readable file and export `AXM_TOKEN_FILE` with that path in the
-  environment where AXM will run. `AXM_TOKEN` remains supported but is easier
-  to leak through process environments. Never paste or print a token the user
-  has not shared with you. Run `axm help environment` for precedence and
-  security details.
-
-After the user confirms, re-run the probe from **§3**. If `type` is still
-`"error"`, ask them to retry the same path or switch paths.
-
----
-
-## 5. Workspace setup
+Public installation and local setup work while signed out. Sign in when you
+need private extensions or publishing; `axm login --help` owns the available
+sign-in flows. See `axm help machine-output` for automation's result and error
+contracts.
 
 First preview setup without writing:
 
@@ -184,14 +120,16 @@ from the project and which came only from the workstation. Each scope outcome
 is `supported`, `project-only`, `unsupported`, or `refused` and includes a
 stable `reasonCode`. Never reinterpret a user-scope `project-only` or `refused`
 outcome as permission to write project scope. Tell the user that applying the
-candidate will create root `axm.json`, `axm.lock`, `agent_extensions/`,
-and ignored `.axm/` runtime state; install default extensions
+candidate will create root `axm.json`, `axm.lock`, and `agent_extensions/`;
+install default extensions
 (including `@agentxm/skills/axm`), and register the listed agent artifacts.
 In a Git-managed project, setup may also add AXM runtime and package-transaction
 entries to `.gitignore`. It never edits `.gitattributes` or formatter
 configuration; the consuming repository must exclude acquired
 `agent_extensions/` content from mutating tools.
-Wait for approval of that exact agent set and scope.
+Successful setup and valid `axm.json` in the selected scope establish
+initialization. Ignored `.axm/` runtime state is created on demand; its absence
+after setup is valid. Wait for approval of that exact agent set and scope.
 
 After approval, repeat every `result.agents[*].id` as an explicit `--agent`
 flag and apply without prompts. For example:

@@ -141,12 +141,7 @@ const SetupAgentCandidateSchema = Schema.Struct({
   userDetected: Schema.Boolean,
   state: Schema.Literals(["selected", "suggested", "available", "retired"] as const),
   selectionReason: Schema.optional(
-    Schema.Literals([
-      "explicit",
-      "project-detected",
-      "user-detected",
-      "catalog-suggestion",
-    ] as const),
+    Schema.Literals(["explicit", "project-detected", "user-detected"] as const),
   ),
 });
 
@@ -178,7 +173,7 @@ const SetupScopeSupportCategorySchema = Schema.Struct({
  * How a preview chose the answers an interactive setup would have asked for.
  */
 const SetupPreviewDefaultsSchema = Schema.Struct({
-  agents: Schema.Literals(["explicit", "detected", "suggested"] as const),
+  agents: Schema.Literals(["explicit", "detected", "choice-required"] as const),
   instructions: Schema.optional(
     Schema.Struct({ enabled: Schema.Boolean, fileName: Schema.String }),
   ),
@@ -484,7 +479,7 @@ const artifactChange = (status: SetupStatus, hasChange: boolean) =>
 /**
  * How a preview chose its membership candidate: the explicit request when one
  * was given, otherwise detection where it produced a strong signal, otherwise
- * the catalog suggestion set.
+ * an unresolved choice when there is no evidence.
  */
 export const previewAgentDefault = (
   candidates: ReadonlyArray<SetupAgentCandidate>,
@@ -498,7 +493,7 @@ export const previewAgentDefault = (
   if (reasons.some((reason) => reason === "project-detected" || reason === "user-detected")) {
     return "detected";
   }
-  return "suggested";
+  return "choice-required";
 };
 
 const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>

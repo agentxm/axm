@@ -35,7 +35,8 @@ const AgentListColumns = [
   { header: "Kind", value: (row: AgentListItem) => row.kind },
   { header: "Agent", value: (row: AgentListItem) => row.name },
   { header: "Configured", value: (row: AgentListItem) => (row.configured ? "yes" : "no") },
-  { header: "Detected", value: (row: AgentListItem) => (row.detected ? "yes" : "no") },
+  { header: "Project", value: (row: AgentListItem) => (row.projectDetected ? "yes" : "no") },
+  { header: "Workstation", value: (row: AgentListItem) => (row.userDetected ? "yes" : "no") },
   {
     header: "Rules",
     priority: "optional",

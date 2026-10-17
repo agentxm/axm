@@ -71,6 +71,9 @@ const setupSuggestions = (args: {
   /** The workspace exists and has never settled its instruction choice. */
   readonly instructionChoiceOpen: boolean;
 }): ReadonlyArray<SuggestedAction> => {
+  if (args.status === "preview" && args.agentCount === 0) {
+    return [{ description: "Choose coding agents", cmd: `axm setup --scope ${args.scope}` }];
+  }
   if (args.status === "preview") {
     const agentFlags = args.agentIds.map((id) => ` --agent ${id}`).join("");
     return [

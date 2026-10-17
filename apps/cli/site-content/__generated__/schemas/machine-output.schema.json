@@ -5381,7 +5381,8 @@
               "name": { "type": "string" },
               "kind": { "type": "string", "enum": ["configurable", "hosted"] },
               "configured": { "type": "boolean" },
-              "detected": { "type": "boolean" },
+              "projectDetected": { "type": "boolean" },
+              "userDetected": { "type": "boolean" },
               "instructions": {
                 "anyOf": [
                   {
@@ -5400,7 +5401,8 @@
               "name",
               "kind",
               "configured",
-              "detected",
+              "projectDetected",
+              "userDetected",
               "instructions",
               "lifecycle"
             ],
@@ -8899,12 +8901,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "enum": [
-                              "explicit",
-                              "project-detected",
-                              "user-detected",
-                              "catalog-suggestion"
-                            ]
+                            "enum": ["explicit", "project-detected", "user-detected"]
                           },
                           { "type": "null" }
                         ]
@@ -9015,7 +9012,10 @@
                 {
                   "type": "object",
                   "properties": {
-                    "agents": { "type": "string", "enum": ["explicit", "detected", "suggested"] },
+                    "agents": {
+                      "type": "string",
+                      "enum": ["explicit", "detected", "choice-required"]
+                    },
                     "instructions": {
                       "anyOf": [
                         {

@@ -49,7 +49,7 @@ describe("Coding-agent membership", () => {
   it.effect("offers each agent once when detection and suggestion name the same agent", () => {
     // Workstation evidence with no project evidence is the case that makes the
     // sources overlap: the agent is detected on the workstation and is also
-    // named by the catalog suggestion the empty project falls back to.
+    // suggested to the empty project from that workstation evidence.
     const fixture = makeSetupFixture({
       selectAgents: ["claude-code"],
       installedExecutables: ["claude"],

@@ -4079,7 +4079,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/agents/list/reports-configured-detected-and-available-agents`
 - Owner: `workspace-features`
-- Statement: When a person lists coding agents, AXM shall distinguish configured membership from detected installations, identify their catalog lifecycle using the published lifecycle vocabulary, report instruction health from the shared instruction-status vocabulary or manual management for configured agents and null for unconfigured agents, show their union by default, and restrict the results to detected agents or include every catalog agent and distinguish configurable from hosted agents when the respective selection is requested.
+- Statement: When a person lists coding agents, AXM shall distinguish configured membership from project and workstation evidence, identify their catalog lifecycle using the published lifecycle vocabulary, report instruction health from the shared instruction-status vocabulary or manual management for configured agents and null for unconfigured agents, show their union by default, and restrict the results to detected agents or include every catalog agent and distinguish configurable from hosted agents when the respective selection is requested; combined filters shall show detected agents from the whole catalog.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
@@ -4087,7 +4087,6 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/configuration/membership/configure-agents.ts`
-- Open questions: The combination of --detected and --available has no separately established user-facing meaning; precedence is not specified here.
 - Source: [`packages/core/workspace-features/src/configuration/membership/reports-configured-detected-and-available-agents.spec.ts`](../packages/core/workspace-features/src/configuration/membership/reports-configured-detected-and-available-agents.spec.ts)
 
 ##### Removing a coding agent never removes agent-native content without AXM ownership proof
@@ -4279,7 +4278,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/installed-state-stays-in-selected-scope`
 - Owner: `cli-e2e`
-- Statement: Installed-extension operations, coding-agent listing and membership changes, and instruction-file inspection, enablement, and disablement shall use the selected project or user workspace and its native files for workspace results and changes, default to project scope when no workspace scope is selected, name only selected-scope native files in any permission guidance they emit, and preserve the other scope's workspace and native files.
+- Statement: Installed-extension operations, coding-agent configured membership and membership changes, and instruction-file inspection, enablement, and disablement shall use the selected project or user workspace and its native files for workspace results and changes, default to project scope when no workspace scope is selected, name only selected-scope native files in any permission guidance they emit, and preserve the other scope's workspace and native files.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -4907,7 +4906,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/setup/preview-resolves-inputs-without-prompts`
 - Owner: `workspace-features`
-- Statement: When setup runs in preview mode, it shall resolve every input an interactive run would ask about — the coding agents to configure and the instruction source to use — without raising a prompt, shall present the same candidate whether or not the request preapproved it, and shall name how each default was chosen.
+- Statement: When setup runs in preview mode, it shall resolve evidence-backed inputs and disclose when an agent choice is still required among the inputs an interactive run would ask about — the coding agents to configure and the instruction source to use — without raising a prompt, shall present the same candidate whether or not the request preapproved it, and shall name how each default was chosen.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`

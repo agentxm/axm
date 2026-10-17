@@ -43,6 +43,21 @@ export class AgentExecutableResolver extends ServiceMap.Service<
   AgentExecutableResolverService
 >()("@agentxm/workspace-kernel/agent-adapters/detection/AgentExecutableResolver") {}
 
+/** Workstation roots observed by detection, independent of AXM's storage home. */
+export class AgentDetectionRoots extends ServiceMap.Service<
+  AgentDetectionRoots,
+  { readonly home: string; readonly configHome: string }
+>()("@agentxm/workspace-kernel/agent-adapters/detection/AgentDetectionRoots") {}
+
+const detectionHome = Effect.gen(function* () {
+  const roots = yield* Effect.serviceOption(AgentDetectionRoots);
+  return Option.isSome(roots) ? roots.value.home : yield* osHomeDirectory;
+});
+const detectionConfigHome = Effect.gen(function* () {
+  const roots = yield* Effect.serviceOption(AgentDetectionRoots);
+  return Option.isSome(roots) ? roots.value.configHome : yield* getConfigHome;
+});
+
 const hasPathSeparator = (command: string): boolean =>
   command.includes("/") || command.includes("\\");
 
@@ -123,13 +138,13 @@ const detectAgentInRootRaw = (agent: AgentDescriptor, rootDir: string) =>
 const resolveUserDetectionPath = (marker: string) =>
   Effect.gen(function* () {
     const p = yield* Path.Path;
-    if (marker === "$XDG_CONFIG_HOME") return yield* getConfigHome;
+    if (marker === "$XDG_CONFIG_HOME") return yield* detectionConfigHome;
     if (marker.startsWith("$XDG_CONFIG_HOME/")) {
-      const configHome = yield* getConfigHome;
+      const configHome = yield* detectionConfigHome;
       return p.join(configHome, marker.slice("$XDG_CONFIG_HOME/".length));
     }
 
-    const home = yield* osHomeDirectory;
+    const home = yield* detectionHome;
     if (marker === "~") return home;
     if (marker.startsWith("~/")) return p.join(home, marker.slice("~/".length));
     return p.join(home, marker);
@@ -225,7 +240,7 @@ export interface AgentScopeDetection {
 /** Detect project and user evidence independently for one agent. */
 export const detectAgentScopes = (agent: AgentDescriptor, projectDir: string) =>
   Effect.gen(function* () {
-    const home = yield* osHomeDirectory;
+    const home = yield* detectionHome;
     const [project, user] = yield* Effect.all(
       [detectAgentInRootRaw(agent, projectDir), detectScopeRaw(agent.detection.user, home, "user")],
       // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed two-way join of project and user scopes

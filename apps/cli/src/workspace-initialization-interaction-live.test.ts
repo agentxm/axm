@@ -48,7 +48,7 @@ const selectAgents = (options: {
       detectedIds: options.projectDetectedIds ?? [],
       projectDetectedIds: options.projectDetectedIds ?? [],
       userDetectedIds: [],
-      suggestedIds: [],
+      suggestedIds: options.projectDetectedIds ?? [],
       configuredIds: options.configuredIds ?? [],
     });
   });
@@ -119,7 +119,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
       expect(asked?._tag).toBe("Pick");
       expect(asked?.question).toBe("Select agents to configure");
       expect(agentOptions(asked)).toEqual([
-        ["Claude Code", "detected in project · skills: .claude/skills", true],
+        ["Claude Code", "detected in project · suggested · skills: .claude/skills", true],
         ["Codex", "skills: .agents/skills", false],
       ]);
     }),

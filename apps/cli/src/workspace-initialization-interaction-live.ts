@@ -73,9 +73,7 @@ export const selectAgentsAsk = (facts: AgentFacts): PickAsk<ReadonlyArray<string
                 .join(", ") || "location unverified"
             }`,
       ],
-      ...(facts.configuredIds.includes(agent.id) ||
-      facts.projectDetectedIds.includes(agent.id) ||
-      facts.suggestedIds.includes(agent.id)
+      ...(facts.configuredIds.includes(agent.id) || facts.suggestedIds.includes(agent.id)
         ? { selected: true }
         : {}),
     })),

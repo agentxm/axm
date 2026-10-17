@@ -80,13 +80,6 @@ const SELECT_AGENTS_PROMPT_MISSING = new WorkspaceConfigurationFailed({
 
 const DEFAULT_INSTRUCTIONS_FILE = "AGENTS.md";
 const DEFAULT_INSTRUCTIONS_GITIGNORE = true;
-const POPULAR_AGENT_IDS = [
-  "claude-code",
-  "codex",
-  "cursor",
-  "github-copilot-cli",
-  "opencode",
-] as const;
 
 export interface SetupAgentCandidate {
   readonly id: ConfigurableAgentId;
@@ -94,8 +87,7 @@ export interface SetupAgentCandidate {
   readonly projectDetected: boolean;
   readonly userDetected: boolean;
   readonly state: "selected" | "suggested" | "available" | "retired";
-  readonly selectionReason?:
-    "explicit" | "project-detected" | "user-detected" | "catalog-suggestion";
+  readonly selectionReason?: "explicit" | "project-detected" | "user-detected";
 }
 
 interface SetupAgentSelection {
@@ -124,7 +116,7 @@ const allAgentDescriptors = (
   preferredIds: ReadonlyArray<string>,
 ): ReadonlyArray<AgentDescriptor> => {
   // Preference sources overlap by design — configuration, detection, and the
-  // catalog suggestion name the same agent — so the offer is ordered by first
+  // suggestion name the same agent — so the offer is ordered by first
   // mention and carries each agent once.
   const preferred = [...new Set(preferredIds)].flatMap((id) =>
     isKnownConfigurableAgentId(id) ? [AGENT_DESCRIPTORS[id]] : [],
@@ -139,13 +131,13 @@ const allAgentDescriptors = (
 /**
  * What a first install offers when its project names no coding agent: every
  * configurable agent once, those found on the workstation first and suggested,
- * or the popular agents suggested when the workstation has none either.
+ * with no suggestions when the workstation has none either.
  */
 export const undetectedAgentOffer = (detections: ReadonlyArray<AgentScopeDetection>) => {
   const userDetectedIds = detections.flatMap(({ agent, user }) =>
     user && isAutoSelectableAgent(agent) ? [agent.id] : [],
   );
-  const suggestedIds = userDetectedIds.length === 0 ? [...POPULAR_AGENT_IDS] : userDetectedIds;
+  const suggestedIds = userDetectedIds;
   return {
     allAgents: allAgentDescriptors(suggestedIds),
     detectedIds: userDetectedIds,
@@ -187,6 +179,7 @@ const setupAgentCandidates = (args: {
     ...args.selectedAgents.map((agent) => agent.id),
     ...args.detections.map((detection) => detection.agent.id),
     ...args.suggestedIds,
+    ...Object.keys(AGENT_DESCRIPTORS),
   ];
 
   return [...new Set(relevantIds)].flatMap((id) => {
@@ -202,11 +195,9 @@ const setupAgentCandidates = (args: {
         ? "explicit"
         : args.scope === "project" && projectDetected
           ? "project-detected"
-          : args.scope === "user" && userDetected
+          : userDetected
             ? "user-detected"
-            : suggestedIds.has(id)
-              ? "catalog-suggestion"
-              : undefined
+            : undefined
       : undefined;
     return [
       {
@@ -523,11 +514,12 @@ const selectSetupAgents = (args: {
 
     const configuredIds = args.existingSettings.agents ?? [];
     const strongDetectedIds =
-      args.options.scope === "project" ? projectDetectedIds : userDetectedIds;
-    const suggestedIds =
-      strongDetectedIds.length === 0 && configuredIds.length === 0 ? [...POPULAR_AGENT_IDS] : [];
+      args.options.scope === "project" && projectDetectedIds.length > 0
+        ? projectDetectedIds
+        : userDetectedIds;
+    const suggestedIds = configuredIds.length === 0 ? strongDetectedIds : [];
     const preferredIds = [...configuredIds, ...strongDetectedIds, ...detectedIds, ...suggestedIds];
-    const defaultIds = [...new Set([...configuredIds, ...strongDetectedIds, ...suggestedIds])];
+    const defaultIds = [...new Set(configuredIds.length > 0 ? configuredIds : suggestedIds)];
     if (nonInteractive || args.options.yes === true || args.options.preview === true) {
       const selectedAgents = defaultIds.flatMap((id) =>
         isKnownConfigurableAgentId(id) ? [AGENT_DESCRIPTORS[id]] : [],

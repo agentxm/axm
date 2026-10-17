@@ -28,7 +28,7 @@ import {
   CredentialStore,
   makePersistedCredentialsUnsupportedError,
 } from "../credentials/credential-store.js";
-import { emitLoginSuccess, type LoginIdentity } from "./login-output.js";
+import { makeLoginResult, type LoginIdentity } from "./login-output.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
 import type { NormalizedTokenResponse } from "./oauth-contract.js";
 import { PendingDeviceLoginStore, type PendingDeviceLogin } from "./pending-device-login-store.js";
@@ -123,7 +123,6 @@ const persistLoginCredentials = (endpoint: HttpRegistryEndpoint, token: Normaliz
   });
 
 export interface RunDeviceLoginOptions {
-  readonly emitPendingResult?: boolean;
   readonly openBrowser?: boolean;
   readonly restart?: boolean;
   readonly timeoutSeconds?: number;
@@ -224,29 +223,9 @@ const makePendingResult = (
   };
 };
 
-const emitPendingDeviceLogin = (
-  pending: PendingDeviceLogin,
-  options: RunDeviceLoginOptions,
-  flow: DeviceLoginPendingResult["flow"] = "started",
-) =>
-  Effect.gen(function* () {
-    const presenter = yield* AuthLoginPresenter;
-    const result = makePendingResult(pending, flow);
-    // Machine mode consumes the pending document; opening a browser and
-    // human presentation must not run afterwards.
-    if (yield* presenter.tryEmitPendingDeviceLogin(result)) {
-      return result;
-    }
-    // Nothing will wait on this invocation, so the code, the links, and the
-    // resume command are the whole of what a person is left with.
-    yield* openDeviceHandoff(pending, options);
-    yield* presenter.notePendingApproval(result);
-    return result;
-  });
-
 export const initiateDeviceLogin = (
   endpoint: HttpRegistryEndpoint,
-  options: RunDeviceLoginOptions = {},
+  options: Pick<RunDeviceLoginOptions, "restart"> = {},
 ) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
@@ -265,14 +244,7 @@ export const initiateDeviceLogin = (
       if (expired || options.restart === true) {
         yield* pendingStore.clear();
       } else if (existing.value.registryUrl === credentialKey(endpoint)) {
-        // A pending sign-in asks for exactly what every sign-in asks for, so
-        // the registry it belongs to is the only thing that can make it the
-        // wrong one to resume.
-        // A caller that is about to wait takes the pending sign-in as it
-        // stands; the wait shows it, so nothing is re-presented here.
-        return options.emitPendingResult === false
-          ? makePendingResult(existing.value, "re-emitted")
-          : yield* emitPendingDeviceLogin(existing.value, options, "re-emitted");
+        return makePendingResult(existing.value, "re-emitted");
       } else {
         return yield* new RegistryAccessFailed({
           category: "conflict",
@@ -307,10 +279,7 @@ export const initiateDeviceLogin = (
       expiresAt: DateTime.add(yield* DateTime.now, { seconds: deviceFlow.expires_in }),
     };
     yield* pendingStore.save(pending);
-    // The caller is about to wait on this sign-in: the wait itself shows the
-    // code and the links, so nothing is presented here.
-    if (options.emitPendingResult === false) return makePendingResult(pending);
-    return yield* emitPendingDeviceLogin(pending, options);
+    return makePendingResult(pending);
   });
 
 const pendingLoginNotFound = () =>
@@ -477,7 +446,7 @@ export const resumeDeviceLogin = (
       () => persistLoginCredentials(endpoint, token),
     );
 
-    yield* emitLoginSuccess(endpoint.href, identity);
+    return makeLoginResult(endpoint.href, identity);
   });
 
 export const runDeviceLogin = (
@@ -486,11 +455,10 @@ export const runDeviceLogin = (
 ) =>
   Effect.gen(function* () {
     const pending = yield* initiateDeviceLogin(endpoint, {
-      ...options,
-      emitPendingResult: false,
+      restart: options.restart ?? false,
     });
     const sideEffects = yield* openDeviceHandoff(pending, options);
-    yield* resumeDeviceLogin(endpoint, {
+    return yield* resumeDeviceLogin(endpoint, {
       sideEffects,
       ...(options.timeoutSeconds === undefined ? {} : { timeoutSeconds: options.timeoutSeconds }),
     });

@@ -8,6 +8,20 @@ Pass `--json` to receive one complete machine-readable document on stdout.
 Warnings, errors, suggestions, and lifecycle progress use one JSON object per
 line (NDJSON) on stderr. Human text never shares the machine stdout channel.
 
+Capture the channels separately:
+
+```bash
+axm login --wait-for-human 300 --json >result.json 2>progress.jsonl
+status=$?
+jq . result.json
+jq -c . progress.jsonl
+```
+
+Parse stdout as one document; it may span multiple lines. Parse stderr one
+JSON object per line. Combined terminal capture is not a JSONL stream, and
+independent pipes do not establish a total ordering. Login settles its operation
+and drains progress before invoking its final stdout writer.
+
 ## Stability
 
 At public launch, stdout shapes, documented payload enums, stderr event types
@@ -329,8 +343,7 @@ response bodies, causes, stacks, URLs, suggestions, and telemetry.
 Device sign-in uses `axm login --device-code --json` to start or re-emit the
 matching pending request. Its successful initiation returns `ok: true`, exit 0,
 and `result.status: "pending-human"`; this means the handoff is available,
-not that credentials were stored. `axm login --device-code --wait-for-human 300
---json` starts or reuses that request, shows the handoff on stderr, waits up to
+not that credentials were stored. `axm login --wait-for-human 300 --json` starts or reuses that request, shows the handoff on stderr, waits up to
 300 seconds (never past the code's expiry), saves the credentials, and returns
 one final document. A wait that ends first returns the pending action with
 `code: "timeout"` and exit 16, and the request stays resumable; expiry and

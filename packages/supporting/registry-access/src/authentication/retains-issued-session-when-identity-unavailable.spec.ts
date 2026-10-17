@@ -12,7 +12,6 @@ import {
   authHandle,
   authRegistry,
   authRegistryHost,
-  machineOutputPresenter,
   makeAuthPorts,
   authSelectedRegistry,
   authEndpoint,
@@ -38,7 +37,6 @@ describe("Identity lookup recovery", () => {
   it.effect("retains the issued session and reports only the later verified account", () => {
     let identityAvailable = false;
     const ports = makeAuthPorts({
-      presenter: machineOutputPresenter,
       auth: {
         getMe: () =>
           Effect.suspend(() => {
@@ -64,17 +62,13 @@ describe("Identity lookup recovery", () => {
       },
     });
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authEndpoint, {
-        openBrowser: false,
-      });
-      yield* resumeDeviceLogin(authEndpoint);
+      yield* initiateDeviceLogin(authEndpoint);
+      const result = yield* resumeDeviceLogin(authEndpoint);
 
       const credentials = Option.getOrThrow(yield* (yield* CredentialStore).load(authKey));
       expect(credentials.access_token).toBe("fixture-new-access");
       // No handle is presented while the Registry cannot confirm one.
-      expect(ports.presenterState.loginSuccesses).toEqual([
-        { status: "logged-in", registryHost: authRegistryHost },
-      ]);
+      expect(result).toEqual({ status: "logged-in", registryHost: authRegistryHost });
 
       identityAvailable = true;
       expect(yield* currentIdentity(authSelectedRegistry)).toMatchObject({

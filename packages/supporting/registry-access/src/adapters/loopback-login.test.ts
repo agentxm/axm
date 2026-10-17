@@ -86,7 +86,7 @@ describe("runLoopbackLogin", () => {
     );
 
     return Effect.gen(function* () {
-      yield* runLoopbackLogin(decodeHttpRegistryEndpointSync(REGISTRY_URL));
+      const result = yield* runLoopbackLogin(decodeHttpRegistryEndpointSync(REGISTRY_URL));
 
       const [handoff] = presenter.state.handoffs;
       expect(handoff?._tag).toBe("LoopbackLogin");
@@ -99,9 +99,11 @@ describe("runLoopbackLogin", () => {
       expect(handoff?._tag === "LoopbackLogin" ? handoff.authorizeUrl : "").toContain(
         "oauth/authorize",
       );
-      expect(presenter.state.loginSuccesses).toEqual([
-        { status: "logged-in", registryHost: "registry.agentxm.ai", handle: "@alice" },
-      ]);
+      expect(result).toEqual({
+        status: "logged-in",
+        registryHost: "registry.agentxm.ai",
+        handle: "@alice",
+      });
       expect(interaction.state.openBrowserCalls).toHaveLength(1);
 
       const store = yield* CredentialStore;

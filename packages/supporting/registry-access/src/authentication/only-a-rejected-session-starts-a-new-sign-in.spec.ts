@@ -10,7 +10,6 @@ import {
   authRegistry,
   authRegistryHost,
   deviceLoginRequest,
-  machineOutputPresenter,
   makeAuthPorts,
   authSelectedRegistry,
 } from "./test-support/test-helpers.js";
@@ -52,7 +51,6 @@ describe("Login over a stored session", () => {
     const named: Array<string | undefined> = [];
     const context = makeAuthPorts({
       credentials: authCredentialFile,
-      presenter: machineOutputPresenter,
       auth: {
         getMe: (_endpoint, accessToken) =>
           Effect.sync(() => {
@@ -87,7 +85,6 @@ describe("Login over a stored session", () => {
   it.effect("starts a new sign-in when the Registry rejects the session", () => {
     const context = makeAuthPorts({
       credentials: authCredentialFile,
-      presenter: machineOutputPresenter,
       auth: { getMe: () => Effect.fail(rejected) },
     });
     return Effect.gen(function* () {
@@ -99,7 +96,6 @@ describe("Login over a stored session", () => {
   it.effect("reports a Registry it could not ask, and starts no sign-in", () => {
     const context = makeAuthPorts({
       credentials: authCredentialFile,
-      presenter: machineOutputPresenter,
       auth: { getMe: () => Effect.fail(unreachable) },
     });
     return Effect.gen(function* () {

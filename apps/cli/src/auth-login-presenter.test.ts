@@ -24,6 +24,7 @@ import {
   startedUnits,
 } from "./test-support/presenter-test.js";
 import { withLiveOperation } from "./operation-lifecycle.js";
+import { emitLoginOutcome } from "./root/auth/login.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import { OutputWriteFailed, Screen, paragraphDoc } from "./screen/index.js";
 import { waitDoc } from "./screen/wait/view.js";
@@ -140,14 +141,14 @@ const makeMachine = () => {
     Layer.succeed(DeviceLoginInteraction, noInteraction),
   );
   return {
-    layer: Layer.provide(AuthLoginPresenterLive, dependencies),
+    layer: Layer.provideMerge(AuthLoginPresenterLive, dependencies),
     state: renderer.state,
     logs: logsByTag(renderer.state),
   };
 };
 
 describe("AuthLoginPresenterLive", () => {
-  it.effect("propagates a failed pending document as a registry-access failure", () =>
+  it.effect("propagates a failed pending document as a typed output failure", () =>
     Effect.gen(function* () {
       const renderer = TestMachineRenderer.make();
       const screen = yield* Screen.pipe(Effect.provide(renderer.layer));
@@ -156,11 +157,11 @@ describe("AuthLoginPresenterLive", () => {
         Layer.succeed(Screen, { ...screen, document: () => Effect.fail(cause) }),
         Layer.succeed(DeviceLoginInteraction, noInteraction),
       );
-      const failure = yield* Effect.gen(function* () {
-        const presenter = yield* AuthLoginPresenter;
-        return yield* presenter.tryEmitPendingDeviceLogin(pendingResult);
-      }).pipe(Effect.provide(Layer.provide(AuthLoginPresenterLive, dependencies)), Effect.flip);
-      expect(failure).toMatchObject({ _tag: "RegistryAccessFailed", category: "internal", cause });
+      const failure = yield* emitLoginOutcome({
+        _tag: "PendingApproval",
+        result: pendingResult,
+      }).pipe(Effect.provide(dependencies), Effect.flip);
+      expect(failure).toBe(cause);
     }),
   );
 
@@ -313,29 +314,14 @@ describe("AuthLoginPresenterLive", () => {
     const { layer, state, logs } = makeMachine();
 
     return Effect.gen(function* () {
-      const presenter = yield* AuthLoginPresenter;
-      const consumed = yield* presenter.tryEmitPendingDeviceLogin(pendingResult);
-
-      expect(consumed).toBe(true);
+      yield* emitLoginOutcome({ _tag: "PendingApproval", result: pendingResult });
       expect(state.results[0]?.data).toEqual({ result: pendingResult });
       expect(state.suggestions).toEqual(pendingSuggestions);
       expect(logs.info).toEqual([]);
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("does not consume the pending document in human mode", () => {
-    const { layer, state } = makeHuman();
-
-    return Effect.gen(function* () {
-      const presenter = yield* AuthLoginPresenter;
-      const consumed = yield* presenter.tryEmitPendingDeviceLogin(pendingResult);
-
-      expect(consumed).toBe(false);
-      expect(state.suggestions).toEqual([]);
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("presents pending approval with resume suggestions", () => {
+  it.effect("presents handoff guidance without a terminal result", () => {
     const { layer, state, logs } = makeHuman();
 
     return Effect.gen(function* () {
@@ -345,9 +331,10 @@ describe("AuthLoginPresenterLive", () => {
       expect(logs.success).toEqual([]);
       // The guidance offers the page for typing the code; the outcome adds
       // only the command that keeps waiting.
-      expect(state.suggestions).toEqual([codeEntryPage, waitForSignIn]);
+      expect(state.suggestions).toEqual([codeEntryPage]);
       expect(logs.info).toEqual(terminalSignInBrief);
-      expect(logs.warn).toEqual(["Sign-in is waiting for you in the browser."]);
+      expect(logs.warn).toEqual([]);
+      expect(state.results).toEqual([]);
     }).pipe(Effect.provide(layer));
   });
 
@@ -355,11 +342,13 @@ describe("AuthLoginPresenterLive", () => {
     const { layer, state, logs } = makeMachine();
 
     return Effect.gen(function* () {
-      const presenter = yield* AuthLoginPresenter;
-      yield* presenter.emitLoginSuccess({
-        status: "logged-in",
-        registryHost: "registry.agentxm.ai",
-        handle: "@alice",
+      yield* emitLoginOutcome({
+        _tag: "SignedIn",
+        result: {
+          status: "logged-in",
+          registryHost: "registry.agentxm.ai",
+          handle: "@alice",
+        },
       });
 
       expect(state.results[0]?.data).toEqual({
@@ -378,12 +367,14 @@ describe("AuthLoginPresenterLive", () => {
     const { layer, state } = makeMachine();
 
     return Effect.gen(function* () {
-      const presenter = yield* AuthLoginPresenter;
-      yield* presenter.emitLoginSuccess({
-        status: "logged-in",
-        registryHost: "registry.agentxm.ai",
-        handle: "@alice",
-        email: "alice@example.test",
+      yield* emitLoginOutcome({
+        _tag: "SignedIn",
+        result: {
+          status: "logged-in",
+          registryHost: "registry.agentxm.ai",
+          handle: "@alice",
+          email: "alice@example.test",
+        },
       });
 
       expect(state.results[0]?.data).toEqual({
@@ -401,21 +392,29 @@ describe("AuthLoginPresenterLive", () => {
     const { layer, state, logs } = makeHuman();
 
     return Effect.gen(function* () {
-      const presenter = yield* AuthLoginPresenter;
-      yield* presenter.emitLoginSuccess({
-        status: "logged-in",
-        registryHost: "registry.agentxm.ai",
-        handle: "@alice",
-        email: "alice@example.test",
+      yield* emitLoginOutcome({
+        _tag: "SignedIn",
+        result: {
+          status: "logged-in",
+          registryHost: "registry.agentxm.ai",
+          handle: "@alice",
+          email: "alice@example.test",
+        },
       });
-      yield* presenter.emitLoginSuccess({
-        status: "logged-in",
-        registryHost: "registry.agentxm.ai",
-        handle: "@alice",
+      yield* emitLoginOutcome({
+        _tag: "SignedIn",
+        result: {
+          status: "logged-in",
+          registryHost: "registry.agentxm.ai",
+          handle: "@alice",
+        },
       });
-      yield* presenter.emitLoginSuccess({
-        status: "logged-in",
-        registryHost: "registry.agentxm.ai",
+      yield* emitLoginOutcome({
+        _tag: "SignedIn",
+        result: {
+          status: "logged-in",
+          registryHost: "registry.agentxm.ai",
+        },
       });
 
       expect(logs.success).toEqual([

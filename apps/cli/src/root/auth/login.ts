@@ -5,7 +5,13 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/cli";
 
-import { login, selectedRegistry } from "@agentxm/registry-access/authentication";
+import {
+  login,
+  selectedRegistry,
+  DeviceLoginPendingDocumentSchema,
+  LoginDocumentSchema,
+  type LoginOutcome,
+} from "@agentxm/registry-access/authentication";
 import { emitResult, Screen, successDoc } from "../../screen/index.js";
 import { jsonFlag, nonInteractiveFlag } from "../../cli-flags/index.js";
 import { isCI } from "@agentxm/registry-access/adapters";
@@ -20,6 +26,12 @@ import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import { QuestionCancelled } from "../../screen/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
+import {
+  pendingApprovalDoc,
+  pendingDeviceSuggestions,
+  loginSuccessDoc,
+  loginSuccessSuggestions,
+} from "./view.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 
 export const LoginNoOpResultSchema = Schema.Struct({
@@ -40,6 +52,43 @@ const LoginNoOpSuggestions = [
   { description: "Log out", cmd: "axm logout" },
   { description: "Sign in again with a different account", cmd: "axm login --yes" },
 ] satisfies ReadonlyArray<SuggestedAction>;
+
+/** Deliver one terminal result after the login operation has settled. */
+export const emitLoginOutcome = (outcome: LoginOutcome) =>
+  Effect.gen(function* () {
+    if (outcome._tag === "SignedIn") {
+      return yield* emitResult(
+        { result: outcome.result },
+        LoginDocumentSchema,
+        () => loginSuccessDoc(outcome.result),
+        { suggestions: loginSuccessSuggestions },
+      );
+    }
+    if (outcome._tag === "PendingApproval") {
+      return yield* emitResult(
+        { result: outcome.result },
+        DeviceLoginPendingDocumentSchema,
+        () => pendingApprovalDoc(outcome.result),
+        { suggestions: pendingDeviceSuggestions(outcome.result) },
+      );
+    }
+    const result: LoginNoOpResult = {
+      status: "already-logged-in",
+      registryHost: outcome.registryHost,
+      handle: outcome.handle,
+    };
+    yield* emitResult(
+      { result },
+      LoginNoOpDocumentSchema,
+      () =>
+        successDoc(`Already logged in to ${result.registryHost} as ${result.handle}.`, {
+          suggestions: LoginNoOpSuggestions,
+        }),
+      {
+        suggestions: LoginNoOpSuggestions,
+      },
+    );
+  });
 
 /**
  * Login writes credentials directly; the one confirmation it can approve in
@@ -86,23 +135,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
       ),
     );
 
-    if (outcome._tag !== "SessionRetained") return;
-    const result: LoginNoOpResult = {
-      status: "already-logged-in",
-      registryHost: outcome.registryHost,
-      handle: outcome.handle,
-    };
-    yield* emitResult(
-      { result },
-      LoginNoOpDocumentSchema,
-      () =>
-        successDoc(`Already logged in to ${result.registryHost} as ${result.handle}.`, {
-          suggestions: LoginNoOpSuggestions,
-        }),
-      {
-        suggestions: LoginNoOpSuggestions,
-      },
-    );
+    yield* emitLoginOutcome(outcome);
   },
   // A person who abandoned the replace-session question cancelled the command.
   Effect.catchTag("AuthInteractionAbandoned", (abandoned) =>

@@ -4,7 +4,7 @@
  * The device and loopback sign-in flows report progress and
  * present sign-in guidance exclusively through this service. The CLI runtime
  * provides the renderer-backed implementation; wording, suggestion sets, and
- * machine-mode document emission belong to that implementation, never to the
+ * terminal result delivery belong to the CLI after operation settlement, never to the
  * authentication capability.
  *
  * @experimental This API is unstable and may change without notice.
@@ -16,7 +16,6 @@ import * as ServiceMap from "effect/Context";
 
 import type { DeviceLoginPendingResult } from "./device-login.js";
 import { AuthInteractionAbandoned, type RegistryAccessFailed } from "./errors.js";
-import type { LoginResult } from "./login-output.js";
 
 export type AuthLoginProgress =
   | { readonly _tag: "StartingDeviceAuthorization"; readonly registryHost: string }
@@ -81,7 +80,7 @@ export const handoffUrl = (handoff: HumanHandoff): string => {
 };
 
 export interface AuthLoginPresenterService {
-  // Guidance, prompts, and result delivery are fallible operations. Callers
+  // Guidance and prompts are fallible operations. Callers
   // preserve delivery failures and interruption instead of claiming completion
   // or treating a broken output destination as a person's decision to stop.
   /** Progress envelope for one login phase. */
@@ -89,14 +88,6 @@ export interface AuthLoginPresenterService {
     progress: AuthLoginProgress,
     run: () => Effect.Effect<A, E, R>,
   ) => Effect.Effect<A, E, R>;
-  /**
-   * Machine-mode pending-document emission. Returns true when machine output
-   * consumed the result — the caller must then skip opening a browser and
-   * human presentation.
-   */
-  readonly tryEmitPendingDeviceLogin: (
-    result: DeviceLoginPendingResult,
-  ) => Effect.Effect<boolean, RegistryAccessFailed>;
   /**
    * Park the terminal while a person completes the handoff elsewhere, and
    * answer with what `awaited` settled on. The application owns how the wait
@@ -112,8 +103,6 @@ export interface AuthLoginPresenterService {
   readonly notePendingApproval: (
     result: DeviceLoginPendingResult,
   ) => Effect.Effect<void, RegistryAccessFailed>;
-  /** Machine login-document emission with human success fallback. */
-  readonly emitLoginSuccess: (result: LoginResult) => Effect.Effect<void, RegistryAccessFailed>;
   readonly presentLoopbackStart: (start: {
     readonly redirectUri: string;
     readonly authorizeUrl: string;
@@ -146,11 +135,9 @@ export class AuthLoginPresenter extends ServiceMap.Service<
 
 export interface AuthLoginPresenterTestState {
   readonly progress: Array<AuthLoginProgress>;
-  readonly pendingEmissions: Array<DeviceLoginPendingResult>;
   /** Every handoff a person was shown, in the order the flows reached them. */
   readonly handoffs: Array<HumanHandoff>;
   readonly pendingApprovals: Array<DeviceLoginPendingResult>;
-  readonly loginSuccesses: Array<LoginResult>;
   readonly loopbackStarts: Array<{ readonly redirectUri: string; readonly authorizeUrl: string }>;
   readonly loopbackBrowserOutcomes: Array<boolean>;
   readonly existingSessions: Array<string>;
@@ -160,19 +147,15 @@ export interface AuthLoginPresenterTestState {
 }
 
 export const AuthLoginPresenterTest = (overrides?: {
-  readonly tryEmitPendingDeviceLogin?: AuthLoginPresenterService["tryEmitPendingDeviceLogin"];
   readonly confirmSessionReplacement?: AuthLoginPresenterService["confirmSessionReplacement"];
-  readonly emitLoginSuccess?: AuthLoginPresenterService["emitLoginSuccess"];
   readonly awaitHuman?: AuthLoginPresenterService["awaitHuman"];
   /** Stop every wait, as a person pressing the stop key would. */
   readonly abandonWaits?: boolean;
 }) => {
   const state: AuthLoginPresenterTestState = {
     progress: [],
-    pendingEmissions: [],
     handoffs: [],
     pendingApprovals: [],
-    loginSuccesses: [],
     loopbackStarts: [],
     loopbackBrowserOutcomes: [],
     existingSessions: [],
@@ -187,11 +170,6 @@ export const AuthLoginPresenterTest = (overrides?: {
         state.progress.push(progress);
         return run();
       }),
-    tryEmitPendingDeviceLogin: (result) =>
-      Effect.gen(function* () {
-        state.pendingEmissions.push(result);
-        return yield* overrides?.tryEmitPendingDeviceLogin?.(result) ?? Effect.succeed(false);
-      }),
     awaitHuman: <A, E, R>(handoff: HumanHandoff, awaited: Effect.Effect<A, E, R>) =>
       Effect.suspend(
         (): Effect.Effect<A, E | AuthInteractionAbandoned | RegistryAccessFailed, R> => {
@@ -205,11 +183,6 @@ export const AuthLoginPresenterTest = (overrides?: {
     notePendingApproval: (result) =>
       Effect.sync(() => {
         state.pendingApprovals.push(result);
-      }),
-    emitLoginSuccess: (result) =>
-      Effect.gen(function* () {
-        yield* overrides?.emitLoginSuccess?.(result) ?? Effect.void;
-        state.loginSuccesses.push(result);
       }),
     presentLoopbackStart: (start) =>
       Effect.sync(() => {

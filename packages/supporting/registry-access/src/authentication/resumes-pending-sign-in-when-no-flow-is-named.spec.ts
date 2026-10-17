@@ -71,7 +71,7 @@ describe("Signing in again with a pending sign-in", () => {
       const kept = yield* pendingStore.load();
       expect(Option.isSome(kept)).toBe(true);
 
-      yield* login(plainLogin, authSelectedRegistry);
+      const outcome = yield* login(plainLogin, authSelectedRegistry);
 
       // The second sign-in waited on the first one's code; it started none.
       expect(ports.deviceAuthorizations).toEqual(["fixture-device-secret-1"]);
@@ -79,7 +79,7 @@ describe("Signing in again with a pending sign-in", () => {
       expect(ports.presenterState.handoffs).toHaveLength(2);
       expect(ports.presenterState.deviceCodeFallbacks).toEqual([]);
       expect(ports.presenterState.loopbackStarts).toEqual([]);
-      expect(ports.presenterState.loginSuccesses).toHaveLength(1);
+      expect(outcome._tag).toBe("SignedIn");
       expect(Option.isNone(yield* pendingStore.load())).toBe(true);
       expect(Option.isSome(yield* (yield* CredentialStore).load(authKey))).toBe(true);
     }).pipe(Effect.provide(ports.layer));

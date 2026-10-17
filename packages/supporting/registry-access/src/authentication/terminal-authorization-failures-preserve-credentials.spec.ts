@@ -14,7 +14,6 @@ import {
   authExpiry,
   authFailureCategory,
   authHandle,
-  machineOutputPresenter,
   makeAuthPorts,
   authEndpoint,
   authKey,
@@ -39,11 +38,10 @@ export const specification = defineSpecification({
 describe("Terminal authorization failure", () => {
   it.effect("expiry reached before the requested wait bound is terminal", () => {
     const { layer } = makeAuthPorts({
-      presenter: machineOutputPresenter,
       auth: { pollDeviceToken: () => Effect.never },
     });
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authEndpoint, { openBrowser: false });
+      yield* initiateDeviceLogin(authEndpoint);
       // The code lives 60 seconds; the caller asked to wait for 300.
       const waiting = yield* resumeDeviceLogin(authEndpoint, { timeoutSeconds: 300 }).pipe(
         Effect.flip,
@@ -62,7 +60,6 @@ describe("Terminal authorization failure", () => {
     it.effect(outcome, () => {
       const { layer } = makeAuthPorts({
         credentials: authCredentialFile,
-        presenter: machineOutputPresenter,
         auth: {
           pollDeviceToken: () =>
             Effect.fail(
@@ -75,7 +72,7 @@ describe("Terminal authorization failure", () => {
         // Start with no selected session so sign-in may initiate; keep the
         // other Registry as the preservation witness.
         yield* credentials.clear(authKey);
-        yield* initiateDeviceLogin(authEndpoint, { openBrowser: false });
+        yield* initiateDeviceLogin(authEndpoint);
         yield* credentials.save(authKey, authHandle, {
           access_token: "existing-access",
           refresh_token: "existing-refresh",

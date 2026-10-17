@@ -24,12 +24,14 @@ import {
   resumeDeviceLogin,
   runDeviceLogin,
   type RunDeviceLoginOptions,
+  type DeviceLoginPendingResult,
 } from "./device-login.js";
 import { isRejectedCredential, RegistryAccessFailed } from "./errors.js";
 import type {
   LoopbackCallbackRejected,
   LoopbackLoginFallback,
 } from "../adapters/loopback-server.js";
+import type { LoginResult } from "./login-output.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
 import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import { runLoopbackLogin } from "../adapters/loopback-login.js";
@@ -63,8 +65,8 @@ export type LoginOutcome =
       readonly registryHost: string;
       readonly handle: string;
     }
-  /** A sign-in flow ran; the presenter reported its result. */
-  | { readonly _tag: "SignInAttempted" };
+  | { readonly _tag: "SignedIn"; readonly result: LoginResult }
+  | { readonly _tag: "PendingApproval"; readonly result: DeviceLoginPendingResult };
 
 const usage = (detail: string) => new RegistryAccessFailed({ category: "usage", detail });
 
@@ -219,25 +221,23 @@ export const login = Effect.fn("Login.run")(function* (
     if (!namesFlow && !resumesPending && !unattended) {
       yield* presenter.noteDeviceCodeFallback("remote-or-headless");
     }
-    if (request.waitForHumanSeconds !== undefined && unattended) {
-      // No person is at this process, so it opens no browser: it starts or
-      // reuses the sign-in and waits on it.
-      yield* initiateDeviceLogin(endpoint, {
-        restart: request.restart,
-        emitPendingResult: false,
-      });
-      yield* resumeDeviceLogin(endpoint, { timeoutSeconds: request.waitForHumanSeconds });
-    } else if (request.waitForHumanSeconds !== undefined) {
-      yield* runDeviceLogin(endpoint, deviceOptions(!request.deviceCode));
-    } else if (unattended) {
-      yield* initiateDeviceLogin(endpoint, deviceOptions(false));
-    } else {
-      yield* runDeviceLogin(endpoint, deviceOptions(false));
+    if (unattended && request.waitForHumanSeconds === undefined) {
+      const result = yield* initiateDeviceLogin(endpoint, { restart: request.restart });
+      if (!request.machineOutput) yield* presenter.notePendingApproval(result);
+      return { _tag: "PendingApproval", result } as const satisfies LoginOutcome;
     }
-    return { _tag: "SignInAttempted" } as const satisfies LoginOutcome;
+    const result = unattended
+      ? yield* initiateDeviceLogin(endpoint, { restart: request.restart }).pipe(
+          Effect.andThen(resumeDeviceLogin(endpoint, deviceOptions(false))),
+        )
+      : yield* runDeviceLogin(
+          endpoint,
+          deviceOptions(request.waitForHumanSeconds !== undefined && !request.deviceCode),
+        );
+    return { _tag: "SignedIn", result } as const satisfies LoginOutcome;
   }
 
-  yield* Effect.suspend(() => runLoopbackLogin(endpoint)).pipe(
+  const result = yield* Effect.suspend(() => runLoopbackLogin(endpoint)).pipe(
     Effect.catchTag("LoopbackLoginFallback", (error) =>
       error.reason === "bind_failed"
         ? presenter
@@ -249,5 +249,5 @@ export const login = Effect.fn("Login.run")(function* (
       Effect.fail(classifyLoopbackFailure(error)),
     ),
   );
-  return { _tag: "SignInAttempted" } as const satisfies LoginOutcome;
+  return { _tag: "SignedIn", result } as const satisfies LoginOutcome;
 });

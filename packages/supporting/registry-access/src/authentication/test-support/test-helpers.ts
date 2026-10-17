@@ -214,18 +214,8 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
   };
 };
 
-/**
- * A presenter that consumes the pending device-login document, the way the
- * application's renderer-backed presenter does under machine output: the
- * browser and human presentation steps must not run afterwards.
- */
-export const machineOutputPresenter = {
-  tryEmitPendingDeviceLogin: () => Effect.succeed(true),
-} as const satisfies Parameters<typeof AuthLoginPresenterTest>[0];
-
 /** A presenter whose every wait is stopped, as a person pressing the stop key does. */
 export const abandoningPresenter = {
-  tryEmitPendingDeviceLogin: () => Effect.succeed(true),
   abandonWaits: true,
 } as const satisfies Parameters<typeof AuthLoginPresenterTest>[0];
 

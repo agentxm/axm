@@ -54,7 +54,7 @@ describe("login after the Registry refuses a stored credential", () => {
       const ports = makeAuthPorts({ credentials: authCredentialFile });
       return Effect.gen(function* () {
         const result = yield* login(deviceLoginRequest(), authSelectedRegistry);
-        expect(result._tag).toBe("SignInAttempted");
+        expect(result._tag).toBe("PendingApproval");
         expect(requests).toEqual(["/v1/auth/me", "/v1/auth/device/code"]);
       }).pipe(Effect.provide(Layer.merge(ports.layer, authClientOver(wire))));
     },

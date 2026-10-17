@@ -2,7 +2,7 @@
  * CLI implementation of the auth login presentation seam.
  *
  * Owns all sign-in wording, suggestion sets, lifecycle unit labels, and
- * machine-mode document emission for the device and loopback sign-in flows.
+ * handoff guidance for the device and loopback sign-in flows.
  */
 
 import { ConfigError } from "effect/Config";
@@ -15,8 +15,6 @@ import {
   RegistryAccessFailed,
   AuthLoginPresenter,
   DeviceLoginInteraction,
-  DeviceLoginPendingDocumentSchema,
-  LoginDocumentSchema,
   handoffUrl,
   type AuthLoginPresenterService,
   type AuthLoginProgress,
@@ -24,7 +22,6 @@ import {
   type SessionReplacementDecision,
 } from "@agentxm/registry-access/authentication";
 import {
-  emitResult,
   Screen,
   WaitAbandoned,
   OutputWriteFailed,
@@ -39,12 +36,8 @@ import {
   deviceCodeFallbackNote,
   existingSessionNote,
   handoffWaitView,
-  loginSuccessDoc,
-  loginSuccessSuggestions,
   loopbackBrowserOutcomeView,
   loopbackStartView,
-  pendingApprovalDoc,
-  pendingDeviceSuggestions,
   pendingHandoffBrief,
   rejectedStoredCredentialsNote,
 } from "./root/auth/view.js";
@@ -91,14 +84,6 @@ export const AuthLoginPresenterLive = Layer.effect(
           { id: authProgressUnitId(progress), label: authProgressLabel(progress) },
           run(),
         ),
-      tryEmitPendingDeviceLogin: (result) =>
-        Effect.gen(function* () {
-          return yield* required(
-            screen.document({ result }, DeviceLoginPendingDocumentSchema, {
-              suggestions: pendingDeviceSuggestions(result),
-            }),
-          );
-        }),
       awaitHuman: <A, E, R>(
         handoff: HumanHandoff,
         awaited: Effect.Effect<A, E, R>,
@@ -120,16 +105,7 @@ export const AuthLoginPresenterLive = Layer.effect(
               ),
             );
         }).pipe(required),
-      // The guidance is an aside on stderr; the outcome is the result, so a
-      // pipe carries the one and a person reads both.
-      notePendingApproval: (result) =>
-        screen
-          .instruction(pendingHandoffBrief(result))
-          .pipe(Effect.andThen(screen.result(pendingApprovalDoc(result))), required),
-      emitLoginSuccess: (result) =>
-        emitResult({ result }, LoginDocumentSchema, () => loginSuccessDoc(result), {
-          suggestions: loginSuccessSuggestions,
-        }).pipe(Effect.provideService(Screen, screen), required),
+      notePendingApproval: (result) => required(screen.instruction(pendingHandoffBrief(result))),
       presentLoopbackStart: (start) =>
         Effect.forEach(
           loopbackStartView(start),

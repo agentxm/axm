@@ -21,7 +21,7 @@ import {
   makePersistedCredentialsUnsupportedError,
 } from "../credentials/credential-store.js";
 import { DeviceLoginInteraction } from "../authentication/device-login.js";
-import { emitLoginSuccess, type LoginIdentity } from "../authentication/login-output.js";
+import { makeLoginResult, type LoginIdentity } from "../authentication/login-output.js";
 import { AuthLoginPresenter } from "../authentication/login-presenter.js";
 import { RegistryAccessFailed } from "../authentication/errors.js";
 import { LoopbackCallbackRejected, startLoopbackServer } from "./loopback-server.js";
@@ -143,6 +143,6 @@ export const runLoopbackLogin = (endpoint: HttpRegistryEndpoint) =>
           }),
       );
       yield* server.complete;
-      yield* emitLoginSuccess(endpoint.href, identity);
+      return makeLoginResult(endpoint.href, identity);
     }),
   );

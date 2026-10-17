@@ -12,7 +12,6 @@ import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import {
   abandoningPresenter,
   authRegistry,
-  machineOutputPresenter,
   makeAuthPorts,
   authEndpoint,
   authKey,
@@ -47,11 +46,10 @@ const pendingAuthorization = {
 describe("A wait that ends without approval", () => {
   it.effect("retains the same authorization after a caller-selected timeout", () => {
     const { layer } = makeAuthPorts({
-      presenter: machineOutputPresenter,
       auth: { pollDeviceToken: () => Effect.never },
     });
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authEndpoint, { openBrowser: false });
+      yield* initiateDeviceLogin(authEndpoint);
       const pendingStore = yield* PendingDeviceLoginStore;
       const before = yield* pendingStore.load();
 
@@ -78,9 +76,7 @@ describe("A wait that ends without approval", () => {
       auth: { pollDeviceToken: () => Effect.never },
     });
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authEndpoint, {
-        openBrowser: false,
-      });
+      yield* initiateDeviceLogin(authEndpoint);
       const pendingStore = yield* PendingDeviceLoginStore;
       const before = yield* pendingStore.load();
 

@@ -6429,7 +6429,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -6486,7 +6488,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -6697,7 +6701,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -6777,7 +6783,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -8753,7 +8761,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -8803,7 +8813,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -9068,7 +9080,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -9199,7 +9213,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -9421,7 +9437,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -9468,7 +9486,9 @@
             "type": "string"
           },
           "status": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           },
           "detail": {
             "type": "string"
@@ -10882,6 +10902,8 @@
           },
           "expires_in": {
             "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
             "description": "Access token lifetime remaining in seconds."
           },
           "expires_at": {
@@ -10942,10 +10964,14 @@
           },
           "expires_in": {
             "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
             "description": "Lifetime of the device code in seconds."
           },
           "interval": {
             "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
             "description": "Minimum polling interval in seconds."
           }
         },

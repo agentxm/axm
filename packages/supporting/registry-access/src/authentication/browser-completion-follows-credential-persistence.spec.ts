@@ -15,7 +15,8 @@ import { CredentialStore } from "../credentials/credential-store.js";
 import { DeviceLoginInteractionTest } from "./device-login.js";
 import { RegistryAccessFailed } from "./errors.js";
 import { AuthLoginPresenterTest } from "./login-presenter.js";
-import { runLoopbackLogin } from "../adapters/loopback-login.js";
+import { login } from "./login.js";
+import { deviceLoginRequest, makeAuthPorts } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/login/browser-completion-follows-credential-persistence",
@@ -57,6 +58,7 @@ describe("Truthful browser sign-in completion", () => {
           new RegistryAccessFailed({ category: "auth", detail: "Fixture failure" }),
         );
         const layer = Layer.mergeAll(
+          makeAuthPorts({ environment: { DISPLAY: ":0" } }).layer,
           presenter.layer,
           DeviceLoginInteractionTest({
             openBrowser: (url) => Deferred.succeed(browserUrl, url).pipe(Effect.as(true)),
@@ -116,11 +118,19 @@ describe("Truthful browser sign-in completion", () => {
               ),
           }),
         );
-        const login = yield* runLoopbackLogin(decodeHttpRegistryEndpointSync(registry)).pipe(
-          Effect.provide(layer),
-          Effect.exit,
-          Effect.forkChild,
-        );
+        const signingIn = yield* login(
+          deviceLoginRequest({
+            deviceCode: false,
+            unattended: false,
+            canAsk: false,
+            machineOutput: false,
+          }),
+          {
+            endpoint: decodeHttpRegistryEndpointSync(registry),
+            defaultEndpoint: decodeHttpRegistryEndpointSync(registry),
+            host: "registry.agentxm.ai",
+          },
+        ).pipe(Effect.provide(layer), Effect.exit, Effect.forkChild);
         const url = yield* Deferred.await(browserUrl);
         const response = yield* Effect.callback<string, Error>((resume) => {
           const outgoing = NodeHttp.get(url, (incoming) => {
@@ -143,7 +153,7 @@ describe("Truthful browser sign-in completion", () => {
         expect(receipt).not.toContain("You’re signed in");
         expect(writes).toEqual([]);
         yield* Deferred.succeed(allowPersistence, undefined);
-        const result = yield* Fiber.join(login);
+        const result = yield* Fiber.join(signingIn);
         const html = yield* Fiber.join(response);
         expect(html).not.toContain("fixture-access");
         expect(html).not.toContain("fixture-code");

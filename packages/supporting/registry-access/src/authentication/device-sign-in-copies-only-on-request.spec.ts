@@ -27,7 +27,7 @@ export const specification = defineSpecification({
 });
 
 const interactiveRequest = (overrides: Parameters<typeof deviceLoginRequest>[0] = {}) =>
-  deviceLoginRequest({ nonInteractive: false, machineOutput: false, ...overrides });
+  deviceLoginRequest({ unattended: false, canAsk: true, machineOutput: false, ...overrides });
 
 describe("Device sign-in and the clipboard", () => {
   it.effect("a waited sign-in presents the code without copying it", () => {
@@ -53,7 +53,7 @@ describe("Device sign-in and the clipboard", () => {
   it.effect("a sign-in nothing waits on copies nothing", () => {
     const ports = makeAuthPorts();
     return Effect.gen(function* () {
-      yield* login(interactiveRequest({ nonInteractive: true }), authSelectedRegistry);
+      yield* login(interactiveRequest({ unattended: true, canAsk: false }), authSelectedRegistry);
 
       expect(ports.presenterState.pendingApprovals).toHaveLength(1);
       expect(ports.deviceInteractionState.copyToClipboardCalls).toEqual([]);

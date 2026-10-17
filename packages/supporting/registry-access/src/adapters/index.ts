@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-export { AuthEnvironment } from "./environment.js";
+export { AuthEnvironment, isCI } from "./environment.js";
 export { RegistryRequestAuthorizationLive } from "./request-authorization.js";
 export { AuthLoginInteractionLive } from "./login-interaction.js";
 export { AuthClientLive, TokenExchangeLive } from "../authentication/auth-client.js";

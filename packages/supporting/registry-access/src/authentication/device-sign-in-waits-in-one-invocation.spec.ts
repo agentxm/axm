@@ -23,7 +23,7 @@ export const specification = defineSpecification({
   requirement: "cli/login/device-sign-in-waits-in-one-invocation",
   title: "Device sign-in can start and finish in one bounded invocation",
   statement:
-    "When sign-in requests a wait of N seconds, AXM shall use device-code sign-in whether or not it was named, start or reuse the selected Registry's device authorization, wait no longer than N seconds or the code's remaining lifetime, save approved credentials before reporting one final result, leave a still-valid authorization resumable when the bound elapses, and shall not open a browser or copy the code in unattended mode.",
+    "Human-text device sign-in shall wait for approval even without prompt permission; when sign-in requests a wait of N seconds, AXM shall use device-code sign-in whether or not it was named, start or reuse the selected Registry's device authorization, wait no longer than N seconds or the code's remaining lifetime, save approved credentials before reporting one final result, leave a still-valid authorization resumable when the bound elapses, and shall not open a browser or copy the code in unattended mode.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -38,6 +38,19 @@ export const specification = defineSpecification({
 });
 
 describe("Single-invocation device sign-in", () => {
+  it.effect("explicit human device sign-in waits even without prompt permission", () => {
+    const ports = makeAuthPorts();
+    return Effect.gen(function* () {
+      yield* login(
+        deviceLoginRequest({ unattended: false, canAsk: false, machineOutput: false }),
+        authSelectedRegistry,
+      );
+      expect(ports.polledCodes).toEqual(["fixture-device-secret-1"]);
+      expect(ports.deviceInteractionState.openBrowserCalls).toEqual([]);
+      expect(Option.isSome(yield* (yield* CredentialStore).load(authKey))).toBe(true);
+    }).pipe(Effect.provide(ports.layer));
+  });
+
   it.effect("starts, waits, and saves credentials without an intermediate result", () => {
     const ports = makeAuthPorts({ presenter: machineOutputPresenter });
     return Effect.gen(function* () {

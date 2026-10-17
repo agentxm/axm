@@ -38,7 +38,8 @@ export const specification = defineSpecification({
 /** An attended sign-in that names no flow, in an environment that can open a browser. */
 const plainLogin = deviceLoginRequest({
   deviceCode: false,
-  nonInteractive: false,
+  unattended: false,
+  canAsk: true,
   machineOutput: false,
 });
 

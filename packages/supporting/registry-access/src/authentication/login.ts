@@ -47,8 +47,10 @@ export interface LoginRequest {
   readonly restart: boolean;
   /** Start or resume device sign-in and wait this many seconds for approval. */
   readonly waitForHumanSeconds?: number;
-  /** No terminal is available to run a sign-in flow interactively. */
-  readonly nonInteractive: boolean;
+  /** The application can ask before replacing a valid session. */
+  readonly canAsk: boolean;
+  /** Explicit unattended initiation, independent of terminal availability. */
+  readonly unattended: boolean;
   /** The invocation reports through a machine document rather than prose. */
   readonly machineOutput: boolean;
 }
@@ -136,7 +138,7 @@ const shouldReplaceValidSession = (request: LoginRequest, handle: string) =>
       if (!request.machineOutput) yield* presenter.noteExistingSession(handle);
       return true;
     }
-    if (request.nonInteractive || request.machineOutput) return false;
+    if (!request.canAsk || request.unattended || request.machineOutput) return false;
     yield* presenter.noteExistingSession(handle);
     const decision = yield* presenter.confirmSessionReplacement();
     return decision === "replace";
@@ -203,18 +205,18 @@ export const login = Effect.fn("Login.run")(function* (
 
   const namesFlow = request.deviceCode || request.waitForHumanSeconds !== undefined;
   const resumesPending = !namesFlow && (yield* hasResumableDeviceLogin(endpoint));
+  const unattended = request.unattended || request.machineOutput;
   const strategy =
     request.waitForHumanSeconds !== undefined || resumesPending
       ? "device-code"
       : selectLoginStrategy(
-          { deviceCode: request.deviceCode, nonInteractive: request.nonInteractive },
+          { deviceCode: request.deviceCode, unattended },
           yield* loginStrategyEnvironment,
         );
   const deviceOptions = (openBrowser: boolean) => deviceLoginOptions(request, openBrowser);
-  const unattended = request.nonInteractive || request.machineOutput;
 
   if (strategy === "device-code") {
-    if (!namesFlow && !resumesPending) {
+    if (!namesFlow && !resumesPending && !unattended) {
       yield* presenter.noteDeviceCodeFallback("remote-or-headless");
     }
     if (request.waitForHumanSeconds !== undefined && unattended) {
@@ -227,25 +229,12 @@ export const login = Effect.fn("Login.run")(function* (
       yield* resumeDeviceLogin(endpoint, { timeoutSeconds: request.waitForHumanSeconds });
     } else if (request.waitForHumanSeconds !== undefined) {
       yield* runDeviceLogin(endpoint, deviceOptions(!request.deviceCode));
-    } else if (request.nonInteractive) {
+    } else if (unattended) {
       yield* initiateDeviceLogin(endpoint, deviceOptions(false));
     } else {
       yield* runDeviceLogin(endpoint, deviceOptions(false));
     }
     return { _tag: "SignInAttempted" } as const satisfies LoginOutcome;
-  }
-
-  if (request.nonInteractive) {
-    return yield* new RegistryAccessFailed({
-      category: "auth",
-      detail: "Browser sign-in requires an interactive terminal. Sign in with a code instead.",
-      suggestions: [
-        {
-          description: "Sign in with a code on a remote or headless machine.",
-          cmd: "axm login --device-code",
-        },
-      ],
-    });
   }
 
   yield* Effect.suspend(() => runLoopbackLogin(endpoint)).pipe(

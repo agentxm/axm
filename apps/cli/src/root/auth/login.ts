@@ -7,7 +7,8 @@ import { Command, Flag } from "effect/cli";
 
 import { login, selectedRegistry } from "@agentxm/registry-access/authentication";
 import { emitResult, Screen, successDoc } from "../../screen/index.js";
-import { jsonFlag } from "../../cli-flags/index.js";
+import { jsonFlag, nonInteractiveFlag } from "../../cli-flags/index.js";
+import { isCI } from "@agentxm/registry-access/adapters";
 import { waitForHumanOption } from "./wait-for-human.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -63,7 +64,9 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
   }) {
     const registry = yield* selectedRegistry("Signing in");
     const machineOutput = Option.getOrElse(yield* jsonFlag, () => false);
-    const nonInteractive = !(yield* (yield* Screen).canAsk);
+    const canAsk = yield* (yield* Screen).canAsk;
+    const unattended =
+      machineOutput || Option.getOrElse(yield* nonInteractiveFlag, () => false) || (yield* isCI);
 
     const outcome = yield* withLiveOperation(
       { command: "auth.login", name: `Sign in to ${registry.host}`, mode: "apply" },
@@ -75,7 +78,8 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
           ...(options.waitForHumanSeconds === undefined
             ? {}
             : { waitForHumanSeconds: options.waitForHumanSeconds }),
-          nonInteractive,
+          canAsk,
+          unattended,
           machineOutput,
         },
         registry,

@@ -89,7 +89,7 @@ describe("Login preapproval over a valid session", () => {
     const context = ports({ machineOutput: false, sessionReplacement: "replace" });
     return Effect.gen(function* () {
       yield* login(
-        deviceLoginRequest({ yes: true, nonInteractive: false, machineOutput: false }),
+        deviceLoginRequest({ yes: true, unattended: false, canAsk: true, machineOutput: false }),
         authSelectedRegistry,
       );
 
@@ -106,7 +106,15 @@ describe("Login preapproval over a valid session", () => {
   it.effect("machine output with preapproval signs in again and reports the new session", () => {
     const context = ports({ machineOutput: true });
     return Effect.gen(function* () {
-      yield* login(deviceLoginRequest({ yes: true, nonInteractive: false }), authSelectedRegistry);
+      yield* login(
+        deviceLoginRequest({
+          yes: true,
+          unattended: false,
+          canAsk: true,
+          waitForHumanSeconds: 300,
+        }),
+        authSelectedRegistry,
+      );
 
       expect(context.deviceAuthorizations).toHaveLength(1);
       expect(yield* storedAccessToken).toEqual(Option.some("fixture-new-access"));
@@ -159,7 +167,7 @@ describe("Login preapproval over a valid session", () => {
       const context = ports({ machineOutput: true, sessionReplacement: "replace" });
       return Effect.gen(function* () {
         const outcome = yield* login(
-          deviceLoginRequest({ nonInteractive: false }),
+          deviceLoginRequest({ unattended: false, canAsk: true }),
           authSelectedRegistry,
         );
 
@@ -178,7 +186,7 @@ describe("Login preapproval over a valid session", () => {
     const context = ports({ machineOutput: false, sessionReplacement: "keep" });
     return Effect.gen(function* () {
       const outcome = yield* login(
-        deviceLoginRequest({ nonInteractive: false, machineOutput: false }),
+        deviceLoginRequest({ unattended: false, canAsk: true, machineOutput: false }),
         authSelectedRegistry,
       );
 

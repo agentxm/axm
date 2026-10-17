@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   requirement: "cli/login/chooses-device-code-where-no-browser-can-open",
   title: "Interactive sign-in chooses the device code where no browser can open",
   statement:
-    "When interactive sign-in names no flow and no unexpired device authorization is pending for the selected Registry, AXM shall choose device-code sign-in and say why over SSH without a display, in CI, in Codespaces, and on Linux other than WSL when none of DISPLAY, WAYLAND_DISPLAY, or BROWSER is set, and shall otherwise choose browser sign-in; a BROWSER setting shall not make an SSH session without a display choose browser sign-in.",
+    "When interactive sign-in names no flow and no unexpired device authorization is pending for the selected Registry, AXM shall choose device-code sign-in and say why over SSH without a display, in CI, in Codespaces, and on Linux other than WSL when none of DISPLAY, WAYLAND_DISPLAY, or BROWSER is set, and shall otherwise choose browser sign-in even when no terminal prompt is available; a BROWSER setting shall not make an SSH session without a display choose browser sign-in.",
   class: "functional",
   role: "experience",
   goals: ["platform-reach", "actionable-diagnostics"],
@@ -30,7 +30,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const interactive = { deviceCode: false, nonInteractive: false };
+const interactive = { deviceCode: false, unattended: false };
 const linux = { platform: "linux", isWSL: false } as const satisfies LoginStrategyEnvironment;
 
 describe("Interactive sign-in flow selection", () => {
@@ -75,12 +75,18 @@ describe("Interactive sign-in flow selection", () => {
     const ports = makeAuthPorts({ environment: { SSH_TTY: "/dev/pts/0" } });
     return Effect.gen(function* () {
       yield* login(
-        deviceLoginRequest({ deviceCode: false, nonInteractive: false, machineOutput: false }),
+        deviceLoginRequest({
+          deviceCode: false,
+          unattended: false,
+          canAsk: false,
+          machineOutput: false,
+        }),
         authSelectedRegistry,
       );
 
       expect(ports.presenterState.deviceCodeFallbacks).toEqual(["remote-or-headless"]);
       expect(ports.deviceAuthorizations).toHaveLength(1);
+      expect(ports.polledCodes).toHaveLength(1);
     }).pipe(Effect.provide(ports.layer));
   });
 });

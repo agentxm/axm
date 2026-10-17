@@ -2272,7 +2272,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/login/device-sign-in-waits-in-one-invocation`
 - Owner: `registry-access`
-- Statement: When sign-in requests a wait of N seconds, AXM shall use device-code sign-in whether or not it was named, start or reuse the selected Registry's device authorization, wait no longer than N seconds or the code's remaining lifetime, save approved credentials before reporting one final result, leave a still-valid authorization resumable when the bound elapses, and shall not open a browser or copy the code in unattended mode.
+- Statement: Human-text device sign-in shall wait for approval even without prompt permission; when sign-in requests a wait of N seconds, AXM shall use device-code sign-in whether or not it was named, start or reuse the selected Registry's device authorization, wait no longer than N seconds or the code's remaining lifetime, save approved credentials before reporting one final result, leave a still-valid authorization resumable when the bound elapses, and shall not open a browser or copy the code in unattended mode.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -2379,7 +2379,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/login/starts-resumable-device-sign-in`
 - Owner: `registry-access`
-- Statement: When device sign-in starts unattended, AXM shall retain the pending authorization and return its verification URL, user code, expiry, and resume command without waiting for approval or opening a browser. A pending sign-in for another Registry shall preserve that request and offer a recovery selecting its Registry through --registry.
+- Statement: When sign-in requests machine output or explicit unattended initiation without a wait bound, AXM shall retain the pending authorization and return its verification URL, user code, expiry, and resume command without waiting for approval or opening a browser. A pending sign-in for another Registry shall preserve that request and offer a recovery selecting its Registry through --registry.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -2521,7 +2521,7 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 
 - Requirement: `cli/login/chooses-device-code-where-no-browser-can-open`
 - Owner: `registry-access`
-- Statement: When interactive sign-in names no flow and no unexpired device authorization is pending for the selected Registry, AXM shall choose device-code sign-in and say why over SSH without a display, in CI, in Codespaces, and on Linux other than WSL when none of DISPLAY, WAYLAND_DISPLAY, or BROWSER is set, and shall otherwise choose browser sign-in; a BROWSER setting shall not make an SSH session without a display choose browser sign-in.
+- Statement: When interactive sign-in names no flow and no unexpired device authorization is pending for the selected Registry, AXM shall choose device-code sign-in and say why over SSH without a display, in CI, in Codespaces, and on Linux other than WSL when none of DISPLAY, WAYLAND_DISPLAY, or BROWSER is set, and shall otherwise choose browser sign-in even when no terminal prompt is available; a BROWSER setting shall not make an SSH session without a display choose browser sign-in.
 - Class: functional
 - Role: experience
 - Product goals: `platform-reach`, `actionable-diagnostics`

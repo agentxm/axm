@@ -37,7 +37,7 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { expectRecord, property } from "../../test-support/test-helpers.js";
 import { handleLogin } from "./login.js";
 import { deviceCodeFallbackNote } from "./view.js";
-import { paragraphDoc } from "../../screen/index.js";
+import { paragraphDoc, Screen } from "../../screen/index.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const ALICE = normalizeHandle("@alice");
@@ -46,6 +46,7 @@ const UNKNOWN = normalizeHandle("@unknown");
 
 const makeLayers = (opts?: {
   nonInteractive?: boolean;
+  canAsk?: boolean;
   yes?: boolean;
   existingCredentials?: boolean;
   meResponse?: MeResponse;
@@ -59,7 +60,16 @@ const makeLayers = (opts?: {
   json?: boolean;
 }) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
-  const rendererLayer = renderer.layer;
+  const rendererLayer =
+    opts?.canAsk === undefined
+      ? renderer.layer
+      : Layer.effect(
+          Screen,
+          Effect.gen(function* () {
+            const screen = yield* Screen;
+            return { ...screen, canAsk: Effect.succeed(opts.canAsk === true) };
+          }),
+        ).pipe(Layer.provide(renderer.layer));
   const rendererState = renderer.state;
   const interactionLayer = AuthLoginInteractionTest().layer;
 
@@ -174,6 +184,7 @@ const makeLayers = (opts?: {
 
   const FullLayer = Layer.mergeAll(
     NodeServices.layer,
+    Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
     rendererLayer,
     presenterLayer,
     interactionLayer,
@@ -189,6 +200,23 @@ const makeLayers = (opts?: {
 };
 
 describe("auth login handler", () => {
+  it.effect("waits for human device approval when the screen cannot ask", () => {
+    const { provide, rendererState } = makeLayers({ canAsk: false });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleLogin({ yes: false, deviceCode: true });
+        expect(
+          rendererState.logs.some(
+            (entry) => entry._tag === "success" && entry.message.includes("Signed in to"),
+          ),
+        ).toBe(true);
+        expect(
+          rendererState.logs.some((entry) => entry.message.includes("remote or headless")),
+        ).toBe(false);
+      }),
+    );
+  });
+
   it.effect("rejects a non-positive wait before starting a device sign-in", () => {
     const { provide } = makeLayers({ nonInteractive: true });
     return provide(
@@ -362,7 +390,7 @@ describe("auth login handler", () => {
     );
   });
 
-  it.effect("explains automatic headless selection in machine mode", () => {
+  it.effect("initiates machine authorization without claiming the host is headless", () => {
     const { provide, rendererState } = makeLayers({ machine: true, json: true });
 
     return provide(
@@ -376,7 +404,7 @@ describe("auth login handler", () => {
         const instructions = rendererState.logs
           .filter((log) => log._tag === "info")
           .map((log) => log.message);
-        expect(instructions).toContain(
+        expect(instructions).not.toContain(
           "This environment appears to be remote or headless; signing in with a code.",
         );
         const result = expectRecord(
@@ -677,6 +705,7 @@ describe("auth login handler", () => {
 
     const layer = Layer.mergeAll(
       NodeServices.layer,
+      Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
       rendererLayer2,
       Layer.provide(AuthLoginPresenterLive, Layer.mergeAll(rendererLayer2, interactionLayer2)),
       interactionLayer2,

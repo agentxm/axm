@@ -53,7 +53,7 @@ describe("Authentication presentation failures", () => {
       const before = yield* store.load(authKey);
       expect(
         yield* login(
-          deviceLoginRequest({ machineOutput: false, nonInteractive: false }),
+          deviceLoginRequest({ machineOutput: false, unattended: false, canAsk: true }),
           authSelectedRegistry,
         ).pipe(Effect.flip),
       ).toBe(promptUnavailable);

@@ -234,7 +234,8 @@ export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): Login
   yes: false,
   deviceCode: true,
   restart: false,
-  nonInteractive: true,
+  unattended: true,
+  canAsk: false,
   machineOutput: true,
   ...overrides,
 });

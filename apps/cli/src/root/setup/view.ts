@@ -89,11 +89,19 @@ const planAction = (
       return { mark: "unchanged", word: "skip" };
     case "blocked":
       return { mark: "blocked", word: "blocked" };
+    case "warning":
+      return { mark: "warn", word: "warning" };
   }
 };
 
 const planDetail = (detail: SetupPlanDetail): string => {
   switch (detail._tag) {
+    case "nativeOutputConcern":
+      if (detail.concern.kind === "broken-link")
+        return `Missing target ${detail.concern.target}. Remove only this link if it is a leftover, or restore its target if intentional.`;
+      if (detail.concern.kind === "unreadable")
+        return `Could not inspect entry (${detail.concern.reason}).`;
+      return `Also read at ${detail.concern.otherPath} by ${detail.concern.agentIds.join(", ")}.`;
     case "settings":
       return `agents: ${detail.agentIds.join(", ")}`;
     case "gitignore":
@@ -222,7 +230,13 @@ const existingSubagentsDoc = (
 const warningsDoc = (result: SetupOutcome): Doc =>
   result.steps.flatMap((step) =>
     step.status === "warning" && step.message !== undefined
-      ? [{ _tag: "callout", tone: "warn", title: step.message } as const]
+      ? [
+          {
+            _tag: "callout",
+            tone: "warn",
+            title: `${step.nativeOutputIssue === undefined ? "" : `${step.label}: `}${step.message}${step.nativeOutputIssue === "broken-link" ? " Remove only this link if it is a leftover, or restore its target if intentional." : ""}`,
+          } as const,
+        ]
       : [],
   );
 

@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/reports-project-outputs-shadowed-by-user-scope",
   title: "Lint reports project agent outputs that share a name with a user-scope output",
   statement:
-    "When a project agent skill or subagent output shares its name with a user-scope output that the same agent reads, lint shall report one warning per such pair under workspace/project-outputs-not-shadowed naming the type, the name, both paths, and the agents that read both, as facts without commands.",
+    "When a resolvable project agent skill or subagent output shares its name with a resolvable user-scope output that a configured agent reads, lint shall report one warning per such pair under workspace/project-outputs-not-shadowed naming the type, the name, both paths, and only configured agents that read both, as facts without commands.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "agent-interoperability"],
@@ -81,7 +81,10 @@ describe("Project outputs shadowed by user scope", () => {
 
   it.effect("reports a project skill whose name a user-scope skill for the same agent uses", () => {
     const project = makeLintWorkspace({
-      settings: { lint: { rules: isolatedLintRules(RULE_ID, undefined) } },
+      settings: {
+        agents: ["claude-code", "opencode"],
+        lint: { rules: isolatedLintRules(RULE_ID, undefined) },
+      },
       files: {
         ".fixture/skills/axm/SKILL.md": skill("axm"),
         ".fixture/skills/notes/SKILL.md": skill("notes"),
@@ -104,7 +107,7 @@ describe("Project outputs shadowed by user scope", () => {
           ruleId: RULE_ID,
           severity: "warning",
           message:
-            "Project skill 'axm' at .fixture/skills/axm has a same-named user-scope skill at ~/.fixture/skills/axm for claude-code, opencode; the agent decides which one it loads.",
+            "Project skill 'axm' at .fixture/skills/axm has a same-named user-scope skill at ~/.fixture/skills/axm for claude-code, opencode; both locations are read by these configured agents.",
           file: ".fixture/skills/axm",
         },
       ]);
@@ -120,7 +123,10 @@ describe("Project outputs shadowed by user scope", () => {
 
   it.effect("reports nothing when the project folder is the user home, however it is named", () => {
     const project = makeLintWorkspace({
-      settings: { lint: { rules: isolatedLintRules(RULE_ID, undefined) } },
+      settings: {
+        agents: ["claude-code", "opencode"],
+        lint: { rules: isolatedLintRules(RULE_ID, undefined) },
+      },
       files: { ".fixture/skills/axm/SKILL.md": skill("axm") },
     });
     const alias = makeLintWorkspace();

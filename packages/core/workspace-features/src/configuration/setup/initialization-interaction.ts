@@ -1,3 +1,4 @@
+import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -27,7 +28,7 @@ export interface InstructionSourceChoice {
  * target whose differing content AXM has no record of writing.
  */
 export type SetupPlanAction =
-  "create" | "update" | "in sync" | "link" | "copy" | "skip" | "remove" | "blocked";
+  "create" | "update" | "in sync" | "link" | "copy" | "skip" | "remove" | "blocked" | "warning";
 
 /** Structured facts the presenting adapter turns into setup-plan wording. */
 export type SetupPlanDetail =
@@ -43,7 +44,8 @@ export type SetupPlanDetail =
     }
   | { readonly _tag: "missingInstructionConvention" }
   | { readonly _tag: "acceptedResolution" }
-  | { readonly _tag: "bundledSkill" };
+  | { readonly _tag: "bundledSkill" }
+  | { readonly _tag: "nativeOutputConcern"; readonly concern: NativeOutputConcern };
 
 /** One row of the setup plan presented before confirmation. */
 export interface SetupPlanRow {

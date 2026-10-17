@@ -627,6 +627,18 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: filesystemView,
   },
   {
+    id: "workspace/native-output-links-resolve",
+    defaultSeverity: "warning",
+    group: "workspace",
+    views: filesystemView,
+  },
+  {
+    id: "workspace/native-outputs-readable",
+    defaultSeverity: "warning",
+    group: "workspace",
+    views: filesystemView,
+  },
+  {
     id: "workspace/user-outputs-have-settings",
     defaultSeverity: "warning",
     group: "workspace",

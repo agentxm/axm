@@ -8772,6 +8772,12 @@
               "items": {
                 "type": "object",
                 "properties": {
+                  "nativeOutputIssue": {
+                    "anyOf": [
+                      { "type": "string", "enum": ["broken-link", "unreadable", "collision"] },
+                      { "type": "null" }
+                    ]
+                  },
                   "label": { "type": "string" },
                   "status": {
                     "type": "string",

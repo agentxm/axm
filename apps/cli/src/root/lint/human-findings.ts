@@ -106,7 +106,13 @@ export const toLintHumanFindings = (
       ruleDescription: finding.ruleDescription,
       title: parsed.title,
       details: parsed.details,
-      helps: parsed.helps,
+      helps:
+        finding.finding.ruleId === "workspace/native-output-links-resolve"
+          ? [
+              ...parsed.helps,
+              `Remove only the link at ${finding.path} if it is a leftover, or restore its target if intentional.`,
+            ]
+          : parsed.helps,
       fixable: repairableRules.has(finding.finding.ruleId),
       path: displayPath(finding),
     };

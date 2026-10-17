@@ -1,3 +1,8 @@
+import { NativeLocationError } from "@agentxm/workspace-kernel/locations";
+import {
+  nativeOutputLinksResolveRule,
+  nativeOutputsReadableRule,
+} from "../../native-output-health.js";
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
@@ -706,7 +711,7 @@ export const projectOutputsNotShadowedConformance: WorkspaceRuleConformanceCase 
   expectedFindings: [
     {
       message:
-        "Project skill 'axm' at .claude/skills/axm has a same-named user-scope skill at ~/.claude/skills/axm for claude-code; the agent decides which one it loads.",
+        "Project skill 'axm' at .claude/skills/axm has a same-named user-scope skill at ~/.claude/skills/axm for claude-code; both locations are read by these configured agents.",
       location: { file: ".claude/skills/axm" },
     },
   ],
@@ -715,6 +720,62 @@ export const projectOutputsNotShadowedConformance: WorkspaceRuleConformanceCase 
       project: [skillOutput("/workspace", "axm")],
       user: [skillOutput("/home/test", "axm", { claimantAgentIds: ["codex"] })],
     }),
+};
+
+export const nativeOutputLinksResolveConformance: WorkspaceRuleConformanceCase = {
+  rule: nativeOutputLinksResolveRule,
+  satisfied: () => agentScopesContext({ project: [skillOutput("/workspace", "axm")], user: [] }),
+  violated: () =>
+    agentScopesContext({
+      project: [
+        skillOutput("/workspace", "axm", {
+          nativeEntry: Result.succeed({
+            lexicalPath: "/workspace/.claude/skills/axm",
+            entryPath: "/workspace/.claude/skills/axm",
+            referentPath: undefined,
+            kind: "symlink",
+            linkTarget: "missing",
+            device: undefined,
+            inode: undefined,
+            links: undefined,
+          }),
+        }),
+      ],
+      user: [],
+    }),
+  expectedFindings: [
+    {
+      message: "Native output link at .claude/skills/axm has missing target 'missing'.",
+      location: { file: ".claude/skills/axm" },
+    },
+  ],
+  inapplicable: () => agentScopesContext({ project: [], user: [] }),
+};
+
+export const nativeOutputsReadableConformance: WorkspaceRuleConformanceCase = {
+  rule: nativeOutputsReadableRule,
+  satisfied: () => agentScopesContext({ project: [skillOutput("/workspace", "axm")], user: [] }),
+  violated: () =>
+    agentScopesContext({
+      project: [
+        skillOutput("/workspace", "axm", {
+          nativeEntry: Result.fail(
+            new NativeLocationError({
+              target: "/workspace/.claude/skills/axm",
+              reason: "unreadable",
+            }),
+          ),
+        }),
+      ],
+      user: [],
+    }),
+  expectedFindings: [
+    {
+      message: "Native output at .claude/skills/axm could not be inspected (unreadable).",
+      location: { file: ".claude/skills/axm" },
+    },
+  ],
+  inapplicable: () => agentScopesContext({ project: [], user: [] }),
 };
 
 export const userOutputsHaveSettingsConformance: WorkspaceRuleConformanceCase = {

@@ -1,3 +1,13 @@
+## 0.49.2 (2026-10-17)
+
+### 🩹 Fixes
+
+- Align generated Registry and telemetry clients with current API contracts, including explicit safe-integer bounds and typed telemetry health responses. ([fff7fcc59](https://github.com/agentxm/axm/commit/fff7fcc59))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.49.1 (2026-10-16)
 
 ### 🩹 Fixes

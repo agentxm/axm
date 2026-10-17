@@ -62,7 +62,17 @@ export type DecodeErrorResponse = {
 export const DecodeErrorResponse = Schema.Struct({
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
@@ -96,12 +106,30 @@ export const DeviceCodeResponse = Schema.Struct({
       "URI with the one-time code in the user_code query parameter, suitable for QR codes or direct links.",
     format: "uri",
   }),
-  expires_in: Schema.Number.annotate({
-    description: "Lifetime of the device code in seconds.",
-  }).check(Schema.isInt().annotate({ expected: "an integer" })),
-  interval: Schema.Number.annotate({ description: "Minimum polling interval in seconds." }).check(
-    Schema.isInt().annotate({ expected: "an integer" }),
-  ),
+  expires_in: Schema.Number.annotate({ description: "Lifetime of the device code in seconds." })
+    .check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
+  interval: Schema.Number.annotate({ description: "Minimum polling interval in seconds." })
+    .check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
 }).annotate({
   title: "Device Code Response",
   description:
@@ -728,7 +756,17 @@ export const LifecycleBlockedErrorEncoded = Schema.Struct({
   kind: Schema.Literal("LifecycleBlockedError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literal("lifecycle_blocked"),
@@ -1127,7 +1165,17 @@ export const PublishPreviewBatchTooLargeHttpErrorEncoded = Schema.Struct({
   kind: Schema.Literal("PublishPreviewBatchTooLargeHttpError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literal("publish_preflight_batch_too_large"),
@@ -1167,7 +1215,17 @@ export type ProblemDetails = {
 export const ProblemDetails = Schema.Struct({
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: RegistryProblemCode,
@@ -1195,7 +1253,17 @@ export const PreconditionFailedErrorEncoded = Schema.Struct({
   kind: Schema.Literal("PreconditionFailedError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literals([
@@ -1230,9 +1298,18 @@ export const TokenResponse = Schema.Struct({
     }),
   ),
   token_type: Schema.Literal("Bearer"),
-  expires_in: Schema.Number.annotate({
-    description: "Access token lifetime remaining in seconds.",
-  }).check(Schema.isInt().annotate({ expected: "an integer" })),
+  expires_in: Schema.Number.annotate({ description: "Access token lifetime remaining in seconds." })
+    .check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   expires_at: IsoDateTimeString,
   scope: Schema.optionalKey(
     Schema.String.annotate({
@@ -1262,7 +1339,17 @@ export const TokenEndedErrorEncoded = Schema.Struct({
   kind: Schema.Literal("TokenEndedError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literals(["token_expired", "token_revoked"]),
@@ -1288,7 +1375,17 @@ export const ExtensionNameHeldErrorEncoded = Schema.Struct({
   kind: Schema.Literal("ExtensionNameHeldError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literal("extension_name_held"),
@@ -1450,7 +1547,17 @@ export const ForbiddenErrorEncoded = Schema.Struct({
   kind: Schema.Literal("ForbiddenError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literals([
@@ -1958,7 +2065,17 @@ export const ExtensionIdentityMismatchErrorEncoded = Schema.Struct({
   kind: Schema.Literal("ExtensionIdentityMismatchError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literal("extension_identity_mismatch"),
@@ -2099,7 +2216,17 @@ export const ExtensionLintFailedErrorEncoded = Schema.Struct({
   kind: Schema.Literal("ExtensionLintFailedError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literal("extension_lint_failed"),

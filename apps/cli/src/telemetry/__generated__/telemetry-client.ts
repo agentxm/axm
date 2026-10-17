@@ -48,7 +48,17 @@ export type DecodeErrorResponse = {
 export const DecodeErrorResponse = Schema.Struct({
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
@@ -369,7 +379,17 @@ export const TelemetryPayloadTooLargeErrorEncoded = Schema.Struct({
   kind: Schema.Literal("TelemetryPayloadTooLargeError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+        expected: "a value greater than or equal to -9007199254740991",
+      }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
@@ -641,11 +661,17 @@ export const TelemetryFailureRequest = Schema.Struct({
   ),
   attemptCount: Schema.optionalKey(
     Schema.Union([
-      Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-        Schema.isGreaterThanOrEqualTo(1).annotate({
-          expected: "a value greater than or equal to 1",
-        }),
-      ),
+      Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+        .check(
+          Schema.isGreaterThanOrEqualTo(1).annotate({
+            expected: "a value greater than or equal to 1",
+          }),
+        )
+        .check(
+          Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+            expected: "a value less than or equal to 9007199254740991",
+          }),
+        ),
       Schema.Null,
     ]),
   ),
@@ -698,12 +724,24 @@ export const TelemetryFailureFrame = Schema.Struct({
         "a string matching the RegExp ^src\\/(?:[a-zA-Z0-9_-]+\\/)*[a-zA-Z0-9_-]+(?:\\.[a-zA-Z0-9_-]+)*\\.(?:ts|tsx|js|jsx)$",
     }),
   ),
-  line: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-    Schema.isGreaterThanOrEqualTo(1).annotate({ expected: "a value greater than or equal to 1" }),
-  ),
-  column: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-    Schema.isGreaterThanOrEqualTo(0).annotate({ expected: "a value greater than or equal to 0" }),
-  ),
+  line: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(1).annotate({ expected: "a value greater than or equal to 1" }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
+  column: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(0).annotate({ expected: "a value greater than or equal to 0" }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+        expected: "a value less than or equal to 9007199254740991",
+      }),
+    ),
 }).annotate({
   description:
     "A source location verified against the reporting AXM build. No absolute path, function text, source excerpt, variables, or extension code is carried.",
@@ -1296,33 +1334,61 @@ export const TelemetryErrorReport = Schema.Struct({
     counts: Schema.optionalKey(
       Schema.Union([
         Schema.Struct({
-          confirmed: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-            Schema.isGreaterThanOrEqualTo(0).annotate({
-              expected: "a value greater than or equal to 0",
-            }),
-          ),
-          failed: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-            Schema.isGreaterThanOrEqualTo(0).annotate({
-              expected: "a value greater than or equal to 0",
-            }),
-          ),
-          blocked: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-            Schema.isGreaterThanOrEqualTo(0).annotate({
-              expected: "a value greater than or equal to 0",
-            }),
-          ),
-          unattempted: Schema.Number.check(
-            Schema.isInt().annotate({ expected: "an integer" }),
-          ).check(
-            Schema.isGreaterThanOrEqualTo(0).annotate({
-              expected: "a value greater than or equal to 0",
-            }),
-          ),
-          unknown: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-            Schema.isGreaterThanOrEqualTo(0).annotate({
-              expected: "a value greater than or equal to 0",
-            }),
-          ),
+          confirmed: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+            .check(
+              Schema.isGreaterThanOrEqualTo(0).annotate({
+                expected: "a value greater than or equal to 0",
+              }),
+            )
+            .check(
+              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+                expected: "a value less than or equal to 9007199254740991",
+              }),
+            ),
+          failed: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+            .check(
+              Schema.isGreaterThanOrEqualTo(0).annotate({
+                expected: "a value greater than or equal to 0",
+              }),
+            )
+            .check(
+              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+                expected: "a value less than or equal to 9007199254740991",
+              }),
+            ),
+          blocked: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+            .check(
+              Schema.isGreaterThanOrEqualTo(0).annotate({
+                expected: "a value greater than or equal to 0",
+              }),
+            )
+            .check(
+              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+                expected: "a value less than or equal to 9007199254740991",
+              }),
+            ),
+          unattempted: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+            .check(
+              Schema.isGreaterThanOrEqualTo(0).annotate({
+                expected: "a value greater than or equal to 0",
+              }),
+            )
+            .check(
+              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+                expected: "a value less than or equal to 9007199254740991",
+              }),
+            ),
+          unknown: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+            .check(
+              Schema.isGreaterThanOrEqualTo(0).annotate({
+                expected: "a value greater than or equal to 0",
+              }),
+            )
+            .check(
+              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+                expected: "a value less than or equal to 9007199254740991",
+              }),
+            ),
         }),
         Schema.Null,
       ]),
@@ -1357,11 +1423,17 @@ export const TelemetryErrorReport = Schema.Struct({
                   expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
                 }),
               ),
-            count: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-              Schema.isGreaterThanOrEqualTo(1).annotate({
-                expected: "a value greater than or equal to 1",
-              }),
-            ),
+            count: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+              .check(
+                Schema.isGreaterThanOrEqualTo(1).annotate({
+                  expected: "a value greater than or equal to 1",
+                }),
+              )
+              .check(
+                Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+                  expected: "a value less than or equal to 9007199254740991",
+                }),
+              ),
             request: Schema.optionalKey(Schema.Union([TelemetryFailureRequest, Schema.Null])),
           }),
         ).check(Schema.isMaxLength(8).annotate({ expected: "a value with a length of at most 8" })),
@@ -1370,11 +1442,17 @@ export const TelemetryErrorReport = Schema.Struct({
     ),
     relatedOmitted: Schema.optionalKey(
       Schema.Union([
-        Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-          Schema.isGreaterThanOrEqualTo(0).annotate({
-            expected: "a value greater than or equal to 0",
-          }),
-        ),
+        Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+          .check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          )
+          .check(
+            Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+              expected: "a value less than or equal to 9007199254740991",
+            }),
+          ),
         Schema.Null,
       ]),
     ),
@@ -1396,13 +1474,17 @@ export const TelemetryErrorReport = Schema.Struct({
                 }),
               ),
             outcome: Schema.Literals(["started", "succeeded", "failed", "unknown"]),
-            elapsedMs: Schema.Number.check(
-              Schema.isInt().annotate({ expected: "an integer" }),
-            ).check(
-              Schema.isGreaterThanOrEqualTo(0).annotate({
-                expected: "a value greater than or equal to 0",
-              }),
-            ),
+            elapsedMs: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+              .check(
+                Schema.isGreaterThanOrEqualTo(0).annotate({
+                  expected: "a value greater than or equal to 0",
+                }),
+              )
+              .check(
+                Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+                  expected: "a value less than or equal to 9007199254740991",
+                }),
+              ),
           }),
         ).check(
           Schema.isMaxLength(16).annotate({ expected: "a value with a length of at most 16" }),
@@ -1477,6 +1559,8 @@ export type HealthGetDeepHealth200 = {
       readonly observedValue: number;
       readonly observedUnit: string;
       readonly time: IsoDateTimeString;
+      readonly timeoutMs?: number | null;
+      readonly outcome?: "success" | "error" | "timeout" | null;
       readonly output?: string | null;
     }>;
   } | null;
@@ -1503,6 +1587,10 @@ export const HealthGetDeepHealth200 = Schema.Struct({
             observedValue: Schema.Finite,
             observedUnit: Schema.String,
             time: IsoDateTimeString,
+            timeoutMs: Schema.optionalKey(Schema.Union([Schema.Finite, Schema.Null])),
+            outcome: Schema.optionalKey(
+              Schema.Union([Schema.Literals(["success", "error", "timeout"]), Schema.Null]),
+            ),
             output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
           }),
         ),
@@ -1514,6 +1602,64 @@ export const HealthGetDeepHealth200 = Schema.Struct({
 });
 export type HealthGetDeepHealth400 = DecodeErrorResponse;
 export const HealthGetDeepHealth400 = DecodeErrorResponse;
+export type HealthGetDeepHealth503 = {
+  readonly status: "pass" | "warn" | "fail";
+  readonly serviceId?: string | null;
+  readonly version?: string | null;
+  readonly releaseId?: string | null;
+  readonly commit?: string | null;
+  readonly environment?: string | null;
+  readonly region?: string | null;
+  readonly checks?: {
+    readonly [x: string]: ReadonlyArray<{
+      readonly componentName: string;
+      readonly componentType: "datastore" | "system" | "component";
+      readonly measurementName: string;
+      readonly status: "pass" | "warn" | "fail";
+      readonly observedValue: number;
+      readonly observedUnit: string;
+      readonly time: IsoDateTimeString;
+      readonly timeoutMs?: number | null;
+      readonly outcome?: "success" | "error" | "timeout" | null;
+      readonly output?: string | null;
+    }>;
+  } | null;
+  readonly output?: string | null;
+};
+export const HealthGetDeepHealth503 = Schema.Struct({
+  status: Schema.Literals(["pass", "warn", "fail"]),
+  serviceId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  version: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  releaseId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  commit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  environment: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  region: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  checks: Schema.optionalKey(
+    Schema.Union([
+      Schema.Record(
+        Schema.String,
+        Schema.Array(
+          Schema.Struct({
+            componentName: Schema.String,
+            componentType: Schema.Literals(["datastore", "system", "component"]),
+            measurementName: Schema.String,
+            status: Schema.Literals(["pass", "warn", "fail"]),
+            observedValue: Schema.Finite,
+            observedUnit: Schema.String,
+            time: IsoDateTimeString,
+            timeoutMs: Schema.optionalKey(Schema.Union([Schema.Finite, Schema.Null])),
+            outcome: Schema.optionalKey(
+              Schema.Union([Schema.Literals(["success", "error", "timeout"]), Schema.Null]),
+            ),
+            output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+          }),
+        ),
+      ),
+      Schema.Null,
+    ]),
+  ),
+  output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+});
 export type HealthGetObservabilityVerificationParams = {
   readonly "x-health-key"?: string | null;
   readonly level?: string | null;
@@ -1689,6 +1835,10 @@ export const make = (
             )
         : (request) => Effect.flatMap(httpClient.execute(request), withOptionalResponse);
     };
+  const decodeVoidError =
+    <const Tag extends string>(tag: Tag) =>
+    (response: HttpClientResponse.HttpClientResponse) =>
+      Effect.fail(TelemetryClientError(tag, undefined, response));
   const decodeSuccess =
     <Schema extends Schema.Constraint>(schema: Schema) =>
     (response: HttpClientResponse.HttpClientResponse) =>
@@ -1730,6 +1880,8 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetDeepHealth200),
             "400": decodeError("HealthGetDeepHealth400", HealthGetDeepHealth400),
+            "503": decodeError("HealthGetDeepHealth503", HealthGetDeepHealth503),
+            "403": decodeVoidError("403"),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1753,6 +1905,7 @@ export const make = (
               "HealthGetObservabilityVerification400",
               HealthGetObservabilityVerification400,
             ),
+            "403": decodeVoidError("403"),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1836,6 +1989,8 @@ export interface TelemetryClient {
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"HealthGetDeepHealth400", HealthGetDeepHealth400>
+      | TelemetryClientError<"HealthGetDeepHealth503", HealthGetDeepHealth503>
+      | TelemetryClientError<"403", undefined>
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options:
@@ -1849,6 +2004,8 @@ export interface TelemetryClient {
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"HealthGetDeepHealth400", HealthGetDeepHealth400>
+      | TelemetryClientError<"HealthGetDeepHealth503", HealthGetDeepHealth503>
+      | TelemetryClientError<"403", undefined>
     >;
   };
   /**
@@ -1866,6 +2023,7 @@ export interface TelemetryClient {
           "HealthGetObservabilityVerification400",
           HealthGetObservabilityVerification400
         >
+      | TelemetryClientError<"403", undefined>
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options:
@@ -1882,6 +2040,7 @@ export interface TelemetryClient {
           "HealthGetObservabilityVerification400",
           HealthGetObservabilityVerification400
         >
+      | TelemetryClientError<"403", undefined>
     >;
   };
   /**

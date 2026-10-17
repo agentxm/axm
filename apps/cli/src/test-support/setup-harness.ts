@@ -43,6 +43,7 @@ import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";
 import { ExecutionDirectory } from "../execution-directory.js";
 
 export interface SetupSpecContextOptions {
+  readonly environment?: Readonly<Record<string, string>>;
   /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
   readonly boundaryClaimsDirectory?: string | undefined;
   /** Render through the machine (JSON) renderer instead of the human one. */
@@ -128,7 +129,9 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
     Layer.succeed(AgentExecutableResolver, {
       exists: () => Effect.succeed(false),
     }),
-    ConfigProvider.layer(ConfigProvider.fromEnv({ env: environmentWithHome(home) })),
+    ConfigProvider.layer(
+      ConfigProvider.fromEnv({ env: { ...environmentWithHome(home), ...options.environment } }),
+    ),
   );
 
   return {

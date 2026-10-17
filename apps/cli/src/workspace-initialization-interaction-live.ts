@@ -31,6 +31,7 @@ import {
   type InstructionSourceChoice,
   type WorkspaceInitializationInteractionService,
 } from "@agentxm/workspace-features/configuration";
+import { setupTelemetryMode, setupTelemetryNotice } from "./root/setup/telemetry-notice.js";
 import { setupAgentScanDoc, setupPlanDoc } from "./root/setup/view.js";
 
 const selectAgentsMessage = "Select agents to configure";
@@ -205,12 +206,16 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
           Effect.mapError(toInteractionFailure),
         ),
       confirmSetupPlan: () =>
-        screen
-          .ask(setupPlanAsk, { message: confirmSetupPlanMessage })
-          .pipe(
-            Effect.catchTag("QuestionCancelled", cancelled),
-            Effect.mapError(toInteractionFailure),
-          ),
+        Effect.gen(function* () {
+          const notice = setupTelemetryNotice(yield* setupTelemetryMode);
+          return yield* screen.ask(
+            { ...setupPlanAsk, note: notice },
+            { message: `${notice}\n${confirmSetupPlanMessage}` },
+          );
+        }).pipe(
+          Effect.catchTag("QuestionCancelled", cancelled),
+          Effect.mapError(toInteractionFailure),
+        ),
       presentAgentScan: (scan) =>
         screen.note(setupAgentScanDoc(scan)).pipe(
           Effect.mapError(

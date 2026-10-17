@@ -33,8 +33,9 @@ export const setupTitleDoc = (args: {
   {
     _tag: "headline",
     tone: "neutral",
-    text: emphatic(`${args.preview ? "Previewing setup" : "Setting up AXM"} in ${args.where}`),
-    aside: factParts([args.scope === "project" ? "for this project" : "for this user"]),
+    text: emphatic(
+      `${args.preview ? "Previewing setup" : "Setting up AXM"} in ${args.where} for this ${args.scope}`,
+    ),
   },
 ];
 

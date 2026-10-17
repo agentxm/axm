@@ -157,7 +157,7 @@ describe("bootstrapWorkspace", () => {
       expect(promptState.selectInstructionSourceCalls).toEqual([]);
       expect(promptState.confirmSetupPlanCalls).toEqual([]);
       expect(settings.agents).toEqual(["claude-code"]);
-      expect(settings.instructionFiles).toEqual({ fileName: "AGENTS.md", gitignoreAliases: true });
+      expect(settings.instructionFiles).toEqual({ fileName: "AGENTS.md" });
       // The presented candidate names the seed the default source would take.
       expect(promptState.presentSetupPlanCalls[0]).toContainEqual({
         target: "AGENTS.md",

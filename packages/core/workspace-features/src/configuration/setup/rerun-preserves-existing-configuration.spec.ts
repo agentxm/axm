@@ -75,6 +75,35 @@ describe("Repeated setup", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
+  it.effect.each([true, false])("preserves explicit alias ignore choice %s", (gitignoreAliases) => {
+    const fixture = makeSetupFixture({
+      files: {
+        "axm.json": JSON.stringify({
+          agents: ["claude-code"],
+          instructionFiles: { fileName: "AGENTS.md", gitignoreAliases },
+        }),
+        "AGENTS.md": "# Authored instructions\n",
+      },
+    });
+    cleanups.push(fixture.cleanup);
+    const before = fixture.snapshot();
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          yield* runSetup({
+            scope: "project",
+            scopeExplicit: true,
+            yes: true,
+            nonInteractive: true,
+            projectRoot: decodeAbsolutePathSync(fixture.root),
+            telemetryEnabled: false,
+          });
+          expect(fixture.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
   /** A workspace as an unattended first install leaves it: no instruction choice recorded. */
   const undecided = () => {
     const fixture = makeSetupFixture({

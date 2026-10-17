@@ -1,5 +1,5 @@
 Previewing setup in ~/code/storefront
-  for this project
+for this project
 
  ✔   Checked for coding agents
                     found 4 agents

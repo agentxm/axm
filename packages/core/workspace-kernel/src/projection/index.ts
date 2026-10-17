@@ -349,3 +349,9 @@ export {
 } from "./native-retention.js";
 
 export { nativePackageReferences } from "./native-package-references.js";
+
+export {
+  classifyNativeOutputHealth,
+  classifyNativeOutputCollisions,
+  type NativeOutputConcern,
+} from "./native-output-conflicts.js";

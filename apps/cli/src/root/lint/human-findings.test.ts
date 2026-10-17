@@ -17,6 +17,31 @@ const finding = (
 });
 
 describe("lint human findings", () => {
+  it("offers link-only recovery for a dangling link but no inferred deletion for an unreadable entry", () => {
+    const broken = toLintHumanFindings([
+      finding(
+        "workspace/native-output-links-resolve",
+        "warning",
+        "Target is missing.",
+        "/home/test/.claude/skills/axm",
+      ),
+    ])[0];
+    expect(broken?.helps.join(" ")).toContain(
+      "Remove only the link at /home/test/.claude/skills/axm",
+    );
+    expect(broken?.helps.join(" ")).toContain("restore its target");
+    const unreadable = toLintHumanFindings([
+      finding(
+        "workspace/native-outputs-readable",
+        "warning",
+        "Could not inspect entry.",
+        "/home/test/.claude/skills/axm",
+      ),
+    ])[0];
+    expect(unreadable?.helps).toEqual([]);
+    expect(broken?.fixable).toBe(false);
+  });
+
   it("derives repairability from the feature repair catalog", () => {
     const [fixable, manual] = toLintHumanFindings([
       finding("workspace/instructions-target-current", "warning", "Target is missing.", "./a"),

@@ -1,3 +1,7 @@
+import {
+  nativeOutputLinksResolveRule,
+  nativeOutputsReadableRule,
+} from "./workspace/native-output-health.js";
 import type * as Config from "effect/Config";
 /**
  * Executable `workspace/*` rule catalog.
@@ -115,6 +119,8 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<
   authoredPackageDeclaredRule,
   installRootEntriesRecognizedRule,
   projectOutputsNotShadowedRule,
+  nativeOutputLinksResolveRule,
+  nativeOutputsReadableRule,
   userOutputsHaveSettingsRule,
   agentContentHasSettingsRule,
   mcpServerAgentDriftRule,
@@ -150,6 +156,8 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext, Config
   authoredPackageDeclaredRule,
   installRootEntriesRecognizedRule,
   projectOutputsNotShadowedRule,
+  nativeOutputLinksResolveRule,
+  nativeOutputsReadableRule,
   userOutputsHaveSettingsRule,
   agentContentHasSettingsRule,
   skillsDeclarationsValidRule,

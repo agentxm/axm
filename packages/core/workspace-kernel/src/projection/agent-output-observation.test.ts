@@ -4,6 +4,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
+import * as PlatformError from "effect/PlatformError";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
@@ -17,6 +18,7 @@ import {
   observeAgentOutputs,
   observeWorkspaceOwnershipIssues,
 } from "./agent-output-observation.js";
+import { classifyNativeOutputHealth } from "./native-output-conflicts.js";
 import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
 import { makeCodingAgentRepository } from "./testing.js";
 
@@ -111,6 +113,56 @@ const provide = <A, E>(
   effect.pipe(Effect.provide(Layer.mergeAll(repositoryLayer, NodeServices.layer)), Effect.scoped);
 
 describe("authored skill exclusion", () => {
+  it.effect("preserves an unreadable container instead of calling it absent or a broken link", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root } = yield* fixture();
+        const denied = path.join(root, ".claude/skills");
+        yield* fs.makeDirectory(denied, { recursive: true });
+        const inventory = yield* observeAgentOutputs(args).pipe(
+          Effect.provideService(FileSystem.FileSystem, {
+            ...fs,
+            readDirectory: (target) =>
+              target === denied
+                ? Effect.fail(
+                    PlatformError.systemError({
+                      _tag: "PermissionDenied",
+                      module: "FileSystem",
+                      method: "readDirectory",
+                      pathOrDescriptor: target,
+                    }),
+                  )
+                : fs.readDirectory(target),
+          }),
+        );
+        expect(classifyNativeOutputHealth(inventory.outputs)).toEqual([
+          { kind: "unreadable", path: denied, reason: "unreadable" },
+        ]);
+      }),
+    ),
+  );
+
+  it.effect("retains broken skill and subagent entries pointing outside the workspace", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root } = yield* fixture();
+        const target = path.join(root, "..", "missing-native-output-target");
+        const entries = [
+          path.join(root, ".claude/skills/leftover"),
+          path.join(root, ".claude/agents/leftover.md"),
+        ];
+        for (const entry of entries) {
+          yield* fs.makeDirectory(path.dirname(entry), { recursive: true });
+          yield* fs.symlink(target, entry);
+        }
+        const inventory = yield* observeAgentOutputs(args);
+        expect(classifyNativeOutputHealth(inventory.outputs)).toEqual(
+          [...entries].sort().map((entry) => ({ kind: "broken-link", path: entry, target })),
+        );
+      }),
+    ),
+  );
+
   it.effect("tracks copied outputs by package ownership across a skill rename", () =>
     provide(
       Effect.gen(function* () {

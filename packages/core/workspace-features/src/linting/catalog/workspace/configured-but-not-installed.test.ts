@@ -283,10 +283,18 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
           const realized = yield* allFindings(workspace);
           workspace.remove(fileRegistryPackagePath(registry, "skills", "review"));
 
-          // No artifact, content, or integrity rule restates the absent tree.
+          // Content absence is stated once; the two physical native links now
+          // independently expose their missing targets through link-health facts.
           const findings = yield* allFindings(workspace);
-          expect(findings).toHaveLength(realized.length + 1);
-          expect(findings).toEqual(
+          const linkFindings = findings.filter(
+            ({ ruleId }) => ruleId === "workspace/native-output-links-resolve",
+          );
+          expect(linkFindings).toHaveLength(2);
+          const contentFindings = findings.filter(
+            ({ ruleId }) => ruleId !== "workspace/native-output-links-resolve",
+          );
+          expect(contentFindings).toHaveLength(realized.length + 1);
+          expect(contentFindings).toEqual(
             expect.arrayContaining([
               ...realized,
               {

@@ -14,6 +14,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import {
   captureNativeLocationSet,
@@ -23,6 +24,8 @@ import {
   resolveNativeReadLocation,
   type NativeDirectoryInputs,
   type OwnershipUnitAddress,
+  type NativeEntryAddress,
+  NativeLocationError,
 } from "../locations/index.js";
 import {
   resolveWorkspaceExtensionRef,
@@ -41,7 +44,6 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
 import {
   extensionNameFromFilename,
-  safeReadDirectory,
   safeReadFileString,
   type WorkspaceOwnershipIssue,
 } from "./managed-file-discovery.js";
@@ -64,6 +66,8 @@ export interface AgentOutputObservation {
   readonly path: string;
   readonly entryName: string;
   readonly nativeAddress?: OwnershipUnitAddress;
+  /** Physical entry resolution, preserving dangling links and observation failures. */
+  readonly nativeEntry?: Result.Result<NativeEntryAddress, NativeLocationError>;
   /** Owning or uniquely expected package identity when its native name differs. */
   readonly extensionName?: string;
   readonly claimantAgentIds: ReadonlyArray<string>;
@@ -113,14 +117,14 @@ const groupContainers = (containers: ReadonlyArray<ResolvedContainer>) =>
     });
     for (const container of containers) {
       const resolved = yield* observed.referent(container.path).pipe(Effect.option);
-      if (Option.isNone(resolved)) continue;
-      const group = grouped.get(resolved.value) ?? {
+      const physicalPath = Option.isSome(resolved) ? resolved.value : container.path;
+      const group = grouped.get(physicalPath) ?? {
         claimants: new Set<string>(),
         sharedPolicy: false,
       };
       if (container.agentId !== undefined) group.claimants.add(container.agentId);
       group.sharedPolicy ||= container.sharedPolicy === true;
-      grouped.set(resolved.value, group);
+      grouped.set(physicalPath, group);
     }
     return [...grouped].map(([path, group]) => ({
       path,
@@ -163,6 +167,37 @@ const isAuthoredSkillPackage = (
       scope: args.layout.scope,
     }).pipe(Effect.option);
     return Option.isSome(source);
+  });
+
+/** Preserve directory read failures instead of interpreting them as an empty container. */
+const readNamedOutputDirectory = (
+  container: { readonly path: string; readonly claimantAgentIds: ReadonlyArray<string> },
+  extensionType: "skill" | "subagent",
+  outputs: Array<AgentOutputObservation>,
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const entries = yield* fs.readDirectory(container.path).pipe(Effect.result);
+    if (Result.isSuccess(entries)) return entries.success;
+    if (entries.failure.reason._tag !== "NotFound") {
+      outputs.push({
+        extensionType,
+        containerPath: container.path,
+        path: container.path,
+        entryName: "",
+        claimantAgentIds: container.claimantAgentIds,
+        ownership: "unowned",
+        desired: false,
+        nativeEntry: Result.fail(
+          new NativeLocationError({
+            target: container.path,
+            reason: "unreadable",
+            cause: entries.failure,
+          }),
+        ),
+      });
+    }
+    return [];
   });
 
 /** Observe every known agent output without writing to the workspace. */
@@ -218,9 +253,13 @@ export const observeAgentOutputs = (
       const desiredContainer =
         container.sharedPolicy ||
         containerIsDesired(container.claimantAgentIds, args.desiredAgentIds);
-      for (const entry of yield* safeReadDirectory(fs, container.path)) {
+      for (const entry of yield* readNamedOutputDirectory(container, "skill", outputs)) {
         const artifactPath = path.join(container.path, entry);
-        const address = yield* resolveNativeEntry(artifactPath).pipe(Effect.option);
+        const nativeEntry = yield* resolveNativeEntry(artifactPath).pipe(Effect.result);
+        if (Result.isSuccess(nativeEntry) && nativeEntry.success.kind === "absent") continue;
+        const address = Result.isSuccess(nativeEntry)
+          ? Option.some(nativeEntry.success)
+          : Option.none();
         let proof: AgentOutputOwnershipProof | undefined;
         const candidates = expectedSkillSources.filter(
           (candidate) => candidate.nativeName === entry,
@@ -264,6 +303,7 @@ export const observeAgentOutputs = (
           extensionType,
           containerPath: container.path,
           path: artifactPath,
+          nativeEntry,
           entryName: entry,
           ...(extensionName === undefined ? {} : { extensionName }),
           claimantAgentIds: container.claimantAgentIds,
@@ -297,37 +337,29 @@ export const observeAgentOutputs = (
 
     for (const container of yield* groupContainers(subagentContainers)) {
       const desiredContainer = containerIsDesired(container.claimantAgentIds, args.desiredAgentIds);
-      for (const entry of yield* safeReadDirectory(fs, container.path)) {
+      for (const entry of yield* readNamedOutputDirectory(container, "subagent", outputs)) {
         const artifactPath = path.join(container.path, entry);
-        const stat = yield* fs.stat(artifactPath).pipe(Effect.option);
-        if (stat._tag === "None" || stat.value.type !== "File") continue;
-        // Ownership is the declaration at its native path: the file carries no
-        // provenance, and a recorded projection row is never ownership.
+        const nativeEntry = yield* resolveNativeEntry(artifactPath).pipe(Effect.result);
+        if (Result.isSuccess(nativeEntry)) {
+          const entry = nativeEntry.success;
+          if (entry.kind === "absent" || entry.kind === "directory" || entry.kind === "other")
+            continue;
+          if (entry.referentPath !== undefined) {
+            const stat = yield* fs.stat(artifactPath).pipe(Effect.option);
+            if (Option.isSome(stat) && stat.value.type !== "File") continue;
+          }
+        }
+        // Ownership remains the declaration at its native path. Health does not confer ownership.
         const entryName = extensionNameFromFilename(entry);
         const managed = args.expectedSubagentNames.has(entryName);
-        const referent = yield* resolveNativeReferent(artifactPath).pipe(Effect.option);
-        if (Option.isNone(referent)) continue;
-        const prior = outputs.findIndex(
-          (output) => output.extensionType === "subagent" && output.path === referent.value,
-        );
-        if (prior >= 0) {
-          const observed = outputs[prior];
-          if (observed !== undefined)
-            outputs[prior] = {
-              ...observed,
-              claimantAgentIds: [
-                ...new Set([...observed.claimantAgentIds, ...container.claimantAgentIds]),
-              ].sort(),
-              desired:
-                observed.desired ||
-                (desiredContainer && args.expectedNames.subagent.has(entryName)),
-            };
-          continue;
-        }
+        const outputPath = Result.isSuccess(nativeEntry)
+          ? (nativeEntry.success.referentPath ?? nativeEntry.success.entryPath)
+          : artifactPath;
         outputs.push({
           extensionType: "subagent",
-          containerPath: path.dirname(referent.value),
-          path: referent.value,
+          containerPath: container.path,
+          path: outputPath,
+          nativeEntry,
           entryName,
           claimantAgentIds: container.claimantAgentIds,
           ownership: managed ? "owned" : "unowned",

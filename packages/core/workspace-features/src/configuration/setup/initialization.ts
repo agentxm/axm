@@ -1,3 +1,5 @@
+import { observeSetupOutputConcerns } from "./output-concerns.js";
+import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
 /**
  * Workspace initialization logic.
  *
@@ -843,6 +845,7 @@ const configureProjectWorkspace = (args: {
           replaceUnrecorded,
         })
       : [];
+    const outputConcerns = yield* observeSetupOutputConcerns(workspaceRoot, "project", agentIds);
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     if (Option.isSome(interaction) && (!nonInteractive || args.options.preview === true)) {
       yield* interaction.value.presentSetupPlan([
@@ -881,6 +884,11 @@ const configureProjectWorkspace = (args: {
             ]
           : []),
         ...planRows,
+        ...outputConcerns.map((concern): SetupPlanRow => ({
+          target: concern.path,
+          action: "warning",
+          detail: { _tag: "nativeOutputConcern", concern },
+        })),
       ]);
     }
     const confirmed =
@@ -895,6 +903,7 @@ const configureProjectWorkspace = (args: {
         settings: args.existingSettings,
         agentCandidates: selection.candidates,
         instructionPlan: planRows,
+        outputConcerns,
         confirmed: false,
       };
     }
@@ -913,6 +922,7 @@ const configureProjectWorkspace = (args: {
       settings,
       agentCandidates: selection.candidates,
       instructionPlan: planRows,
+      outputConcerns,
       confirmed: true,
     };
   });
@@ -940,6 +950,7 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
     };
     const nativeRoot = yield* resolveNativeReferent(yield* resolveUserHome());
     const settingsRoot = yield* resolveNativeReferent(workspaceRoot);
+    const outputConcerns = yield* observeSetupOutputConcerns(nativeRoot, "user", agentIds);
     const nonInteractive = options.nonInteractive === true;
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     if (Option.isSome(interaction) && (!nonInteractive || options.preview === true)) {
@@ -959,6 +970,11 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
           action: "create",
           detail: { _tag: "bundledSkill" },
         })),
+        ...outputConcerns.map((concern): SetupPlanRow => ({
+          target: concern.path,
+          action: "warning",
+          detail: { _tag: "nativeOutputConcern", concern },
+        })),
       ]);
     }
     const confirmed =
@@ -972,6 +988,7 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
       return {
         settings: createDefaultSettings(),
         agentCandidates: selection.candidates,
+        outputConcerns,
         confirmed: false,
       };
     }
@@ -982,7 +999,7 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
       yield* writeSettingsAtPath(settingsPath, settings);
       yield* writeLockfileAtPath(lockPath, { lockfileVersion: LOCKFILE_VERSION, skills: {} });
     }
-    return { settings, agentCandidates: selection.candidates, confirmed: true };
+    return { settings, agentCandidates: selection.candidates, outputConcerns, confirmed: true };
   });
 
 interface WorkspaceInitializationState {
@@ -997,6 +1014,7 @@ interface WorkspaceInitializationState {
   readonly cancelled: boolean;
   readonly agentCandidates: ReadonlyArray<SetupAgentCandidate>;
   readonly instructionPlan: ReadonlyArray<SetupPlanRow>;
+  readonly outputConcerns: ReadonlyArray<NativeOutputConcern>;
 }
 
 const workspaceInitializationState = (
@@ -1007,6 +1025,7 @@ const workspaceInitializationState = (
   cancelled = false,
   instructionPlan: ReadonlyArray<SetupPlanRow> = [],
   completed = false,
+  outputConcerns: ReadonlyArray<NativeOutputConcern> = [],
 ): WorkspaceInitializationState => ({
   settings,
   initialized,
@@ -1015,6 +1034,7 @@ const workspaceInitializationState = (
   cancelled,
   agentCandidates,
   instructionPlan,
+  outputConcerns,
 });
 
 /**
@@ -1059,6 +1079,10 @@ export const ensureUserWorkspaceInitialized = (
         options.preview !== true,
         options.preview === true,
         initialization.agentCandidates,
+        false,
+        [],
+        false,
+        initialization.outputConcerns,
       );
     }
 
@@ -1127,6 +1151,8 @@ export const ensureProjectWorkspaceInitialized = (
         initialization.agentCandidates,
         false,
         initialization.instructionPlan,
+        false,
+        initialization.outputConcerns,
       );
     }
 
@@ -1145,6 +1171,7 @@ export const ensureProjectWorkspaceInitialized = (
         !completion.confirmed,
         completion.confirmed ? completion.instructionPlan : [],
         completion.confirmed && options.preview !== true,
+        completion.outputConcerns,
       );
     }
 

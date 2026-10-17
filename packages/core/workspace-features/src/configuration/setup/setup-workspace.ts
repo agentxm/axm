@@ -1,3 +1,5 @@
+import { observeSetupOutputConcerns, setupOutputConcernMessage } from "./output-concerns.js";
+import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
 /**
  * Setting up an AXM workspace: deciding what a setup request would do,
  * initializing the workspace under one transaction, and reporting exactly
@@ -119,6 +121,7 @@ const SetupPlanStepArtifactSchema = Schema.Struct({
 });
 
 const SetupPlanStepSchema = Schema.Struct({
+  nativeOutputIssue: Schema.optional(Schema.Literals(["broken-link", "unreadable", "collision"])),
   label: Schema.String,
   status: Schema.Literals([
     "ready",
@@ -381,6 +384,7 @@ export interface SetupTransition {
   readonly cancelled: boolean;
   readonly agentCandidates: ReadonlyArray<SetupAgentCandidate>;
   readonly footprint?: ReadonlyArray<FootprintObservation>;
+  readonly outputConcerns?: ReadonlyArray<NativeOutputConcern>;
   readonly instructionPlan?: ReadonlyArray<SetupPlanRow>;
 }
 
@@ -501,6 +505,7 @@ const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
 
 /** Every failure describing the settled setup can surface. */
 export type SetupReportFailure =
+  | WorkspaceConfigurationFailed
   | Effect.Error<ReturnType<typeof setupSkillTargets>>
   | Effect.Error<ReturnType<typeof scanAllSubagentFiles>>
   | Effect.Error<ReturnType<typeof isGitManaged>>
@@ -732,6 +737,19 @@ export const reportSetupWorkspace = (
           "No coding-agent targets are configured, so installed extensions are not materialized.",
       });
     }
+
+    const outputConcerns =
+      resolvedStatus === "preview"
+        ? (request.transition.outputConcerns ?? [])
+        : yield* observeSetupOutputConcerns(physicalBaseDir, scope, agentIds);
+    steps.push(
+      ...outputConcerns.map((concern): SetupPlanStep => ({
+        label: concern.path,
+        status: "warning",
+        nativeOutputIssue: concern.kind,
+        message: setupOutputConcernMessage(concern),
+      })),
+    );
 
     const readyCount = steps.filter((step) => step.status === "ready").length;
     const warningCount = steps.filter((step) => step.status === "warning").length;

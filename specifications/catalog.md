@@ -266,6 +266,19 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/reports-agent-content-without-settings.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/reports-agent-content-without-settings.spec.ts)
 
+##### Broken native links are counted by physical entry without shadow warnings
+
+- Requirement: `cli/lint/reports-broken-native-output-links`
+- Owner: `workspace-features`
+- Statement: Lint shall report each dangling native skill or subagent link once with its path and target, exclude it from same-name collisions, and distinguish failed observations from missing targets without modifying links or targets.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lint observes real temporary project and user directories containing dangling links and a loop.
+- Methods: example
+- Source: [`packages/core/workspace-features/src/linting/catalog/workspace/reports-broken-native-output-links.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/reports-broken-native-output-links.spec.ts)
+
 ##### Lint reports deprecated installed extensions
 
 - Requirement: `cli/lint/reports-deprecated-installed`
@@ -339,7 +352,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/lint/reports-project-outputs-shadowed-by-user-scope`
 - Owner: `workspace-features`
-- Statement: When a project agent skill or subagent output shares its name with a user-scope output that the same agent reads, lint shall report one warning per such pair under workspace/project-outputs-not-shadowed naming the type, the name, both paths, and the agents that read both, as facts without commands.
+- Statement: When a resolvable project agent skill or subagent output shares its name with a resolvable user-scope output that a configured agent reads, lint shall report one warning per such pair under workspace/project-outputs-not-shadowed naming the type, the name, both paths, and only configured agents that read both, as facts without commands.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `agent-interoperability`
@@ -549,6 +562,20 @@ People and agents can understand invalid workspace state and recover it through 
 - Derived from: `packages/supporting/registry-access/src/adapters/request-authorization.ts`, `packages/supporting/registry-access/src/credentials/session-refresh.ts`
 - Supersedes: `cli/whoami/refreshes-rejected-stored-credentials`
 - Source: [`packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts`](../packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts)
+
+##### Setup discloses relevant native leftovers before approval and preserves user links
+
+- Requirement: `cli/setup/reports-native-output-concerns`
+- Owner: `workspace-features`
+- Statement: Setup shall report broken native links and same-name user collisions relevant to its proposed outputs before approval using lint's classifications, re-observe on apply, and preserve unowned links and their targets.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production setup observes real temporary project and user directories before and after preview and apply; the bundled skill install remains the application's separate boundary.
+- Methods: example
+- Derived from: `cli/lint/reports-broken-native-output-links`
+- Source: [`packages/core/workspace-features/src/configuration/setup/reports-native-output-concerns.spec.ts`](../packages/core/workspace-features/src/configuration/setup/reports-native-output-concerns.spec.ts)
 
 ##### Sync distinguishes malformed selectors from absent extensions
 

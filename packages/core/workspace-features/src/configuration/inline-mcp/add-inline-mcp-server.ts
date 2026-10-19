@@ -39,6 +39,7 @@ import {
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
+  type ExecutionCandidate,
   type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
@@ -84,14 +85,27 @@ export interface AddInlineMcpServerRequest {
   readonly headers: ReadonlyArray<string>;
 }
 
-export interface AddInlineMcpServerCandidate {
-  readonly _tag: "AddInlineMcpServer";
+/** The inline definition a request settles into, before it is planned. */
+interface InlineMcpServerAddition {
   readonly name: string;
   readonly definition: McpConnection;
   readonly auth?: McpAuth;
   /** Whether the settings file already carries an entry under this name. */
   readonly replacesExistingEntry: boolean;
   readonly scope: WorkspaceScope;
+}
+
+/** A settled inline add and the execution candidate it plans. */
+export interface AddInlineMcpServerCandidate {
+  readonly _tag: "AddInlineMcpServer";
+  readonly name: string;
+  readonly execution: ExecutionCandidate<AddInlineMcpServerRequirements>;
+  /**
+   * Whether the native MCP configurations the plan was prepared against still
+   * accept the same writes. The settings and lockfile fingerprint does not
+   * cover them, so the apply re-reads them before it writes.
+   */
+  readonly nativeTargetsCurrent: Effect.Effect<boolean, never, AddInlineMcpServerRequirements>;
 }
 
 /** The recorded entry already says exactly what the request asked for. */
@@ -110,8 +124,10 @@ export const prepareAddInlineMcpServer = (
   request: AddInlineMcpServerRequest,
 ): Effect.Effect<
   AddInlineMcpServerCandidate | InlineMcpServerUnchanged,
-  WorkspaceConfigurationFailed | WorkspaceStateReadFailure,
-  SettingsReader | WorkspaceLocation
+  | WorkspaceConfigurationFailed
+  | WorkspaceStateReadFailure
+  | Effect.Error<ReturnType<typeof planAddition>>,
+  SettingsReader | WorkspaceLocation | Effect.Services<ReturnType<typeof planAddition>>
 > =>
   Effect.gen(function* () {
     if (
@@ -161,14 +177,13 @@ export const prepareAddInlineMcpServer = (
       } satisfies InlineMcpServerUnchanged;
     }
 
-    return {
-      _tag: "AddInlineMcpServer",
+    return yield* planAddition({
       name: request.name,
       definition,
       ...(request.auth === undefined ? {} : { auth: request.auth }),
       replacesExistingEntry: existing !== undefined,
       scope: location.scope,
-    } satisfies AddInlineMcpServerCandidate;
+    });
   });
 
 const configArtifact = (
@@ -181,7 +196,7 @@ const configArtifact = (
   targets: [{ path: settingsDisplayPath(scope), change }],
 });
 
-const recordStep = (candidate: AddInlineMcpServerCandidate): ReadyJobStep<SettingsWriter> => ({
+const recordStep = (candidate: InlineMcpServerAddition): ReadyJobStep<SettingsWriter> => ({
   label: `Configure ${candidate.name}`,
   readiness: "ready",
   run: Effect.gen(function* () {
@@ -210,7 +225,7 @@ const recordStep = (candidate: AddInlineMcpServerCandidate): ReadyJobStep<Settin
  * configuration. A refused native write fails the same closure as the settings change.
  */
 const projectStep = (
-  candidate: AddInlineMcpServerCandidate,
+  candidate: InlineMcpServerAddition,
 ): ReadyJobStep<
   NativeWriteAuthority | SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > => ({
@@ -335,15 +350,8 @@ export type AddInlineMcpServerRequirements =
   | WorkspaceRecords
   | WorkspaceTransactionScope;
 
-/** Preview or apply a settled inline add: record the entry, then project it. */
-export const previewOrApplyAddInlineMcpServer = (
-  candidate: AddInlineMcpServerCandidate,
-  execution: PlanExecution,
-): Effect.Effect<
-  OperationResolution<void>,
-  PlanResolutionFailure,
-  AddInlineMcpServerRequirements
-> =>
+/** Plan a settled inline add: record the entry, then project it. */
+const planAddition = (candidate: InlineMcpServerAddition) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
@@ -411,16 +419,31 @@ export const previewOrApplyAddInlineMcpServer = (
       ),
       jobs: [{ concurrency: 1, steps }],
     };
-    const prepared = yield* prepareExecutionCandidate(plan);
-    return yield* resolveExecutionCandidate(prepared, execution, {
-      additionalFreshness: () =>
+    return {
+      _tag: "AddInlineMcpServer",
+      name: candidate.name,
+      execution: yield* prepareExecutionCandidate(plan),
+      nativeTargetsCurrent:
         preflight._tag === "Failure"
           ? Effect.succeed(true)
           : inspect.pipe(
               Effect.map((current) => Equal.equals(current, preflight.success)),
               Effect.orElseSucceed(() => false),
             ),
-    });
+    } satisfies AddInlineMcpServerCandidate;
+  });
+
+/** Preview or apply the inline add a request settled and planned. */
+export const previewOrApplyAddInlineMcpServer = (
+  candidate: AddInlineMcpServerCandidate,
+  execution: PlanExecution,
+): Effect.Effect<
+  OperationResolution<void>,
+  PlanResolutionFailure,
+  AddInlineMcpServerRequirements
+> =>
+  resolveExecutionCandidate(candidate.execution, execution, {
+    additionalFreshness: () => candidate.nativeTargetsCurrent,
   });
 
 /** The inline MCP capability use case. */

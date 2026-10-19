@@ -17,7 +17,6 @@ import {
   type InstallExtensionsSelection,
 } from "@agentxm/workspace-features/lifecycle";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { SettingsReader, WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   InstallSelectionCancelled,
@@ -126,10 +125,10 @@ const complete = <R>(args: InstallCommandArgs<R>, selection: InstallExtensionsSe
     yield* showDiagnostics(candidate);
 
     const noOpMessage = args.noOpMessage;
-    const { resolution, installedSkills } = yield* InstallExtensions.previewOrApply(
-      candidate,
-      execution,
-    ).pipe(Effect.mapError(failureToAppError));
+    const { resolution, installedSkills, instructionFilesPending } =
+      yield* InstallExtensions.previewOrApply(candidate, execution).pipe(
+        Effect.mapError(failureToAppError),
+      );
 
     yield* recordSkillInstalls(installedSkills);
 
@@ -155,27 +154,19 @@ const complete = <R>(args: InstallCommandArgs<R>, selection: InstallExtensionsSe
       return;
     }
 
-    // Rules and Knowledge reach agents through instruction files. A workspace
-    // that never settled that choice was established unattended, so say what
-    // settles it rather than leave the install looking finished. Setup has no
-    // instruction choice to offer the user scope.
-    const instructionChoiceOpen =
-      !args.preview &&
-      (yield* WorkspaceLocation).scope === "project" &&
-      candidate.types.some((type) => type === "knowledge" || type === "rule") &&
-      Option.isNone(
-        yield* (yield* SettingsReader).instructionsConfig.pipe(Effect.mapError(failureToAppError)),
-      );
-    const suggestions: ReadonlyArray<SuggestedAction> = instructionChoiceOpen
-      ? [
-          {
-            description:
-              "Instruction files are not set up, so agents do not see installed Rules or Knowledge yet; set them up",
-            cmd: "axm setup",
-          },
-          ...args.suggestions,
-        ]
-      : args.suggestions;
+    // An applied install whose extensions wait on instruction files nobody set
+    // up says what settles them rather than look finished.
+    const suggestions: ReadonlyArray<SuggestedAction> =
+      !args.preview && instructionFilesPending
+        ? [
+            {
+              description:
+                "Instruction files are not set up, so agents do not see installed Rules or Knowledge yet; set them up",
+              cmd: "axm setup",
+            },
+            ...args.suggestions,
+          ]
+        : args.suggestions;
 
     yield* emitOperationResolution(resolution, {
       recovery,

@@ -1,37 +1,24 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 
 import {
   type ExtensionLifecycleFailed,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
-import {
-  installableExtensionTypePluralSegments,
-  isInstallableExtensionTypePlural,
-  toInstallableExtensionType,
-  type InstallableExtensionType,
-} from "@agentxm/extension-model/unstable/extensions/installable-types";
-import {
-  RegistrySourceRefSchema,
-  splitExtensionReference,
-} from "@agentxm/extension-model/unstable/extensions";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { splitExtensionReference } from "@agentxm/extension-model/unstable/extensions";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 
-const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
-
-export const rootUninstallableTypeSegments = installableExtensionTypePluralSegments;
-export type RootUninstallableType = InstallableExtensionType;
+import { decodeRootRegistryFqn } from "../root-registry-fqn.js";
 
 export interface RootUninstallIntent {
   readonly source: string;
   readonly owner: string;
-  readonly type: RootUninstallableType;
+  readonly type: InstallableExtensionType;
   readonly name: string;
 }
 
 const rootUninstallFqnGrammar = "@<handle>/<plural-type>/<name>";
-const supportedRootUninstallTypes = rootUninstallableTypeSegments.join(", ");
 
 const genericPerTypeUninstallGuidance =
   "Use the matching per-type uninstall command instead: `axm skills uninstall <name>`, `axm subagents uninstall <name>`, `axm packs uninstall <name>`, or `axm mcps uninstall <name>`.";
@@ -70,8 +57,6 @@ export const resolveRootUninstallIntent: (
   "UninstallExtensions.resolveRootIntent",
 )(function* (input: string) {
   const source = input.trim();
-  const segments = source.split("/");
-  const pluralType = segments.length === 3 ? segments[1] : undefined;
 
   if (!source.startsWith("@")) {
     return yield* installRefused({
@@ -82,45 +67,12 @@ export const resolveRootUninstallIntent: (
   }
 
   const reference = splitExtensionReference(source);
-  const parsed = yield* decodeRegistrySourceRef(reference.name).pipe(
-    Effect.mapError((error) => {
-      if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {
-        return installRefused({
-          category: "not_found",
-          detail: "Uninstall source uses an unsupported plural type",
-          suggestions: [
-            {
-              description: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
-            },
-          ],
-          cause: error,
-        });
-      }
-
-      return installRefused({
-        category: "validation",
-        detail: "Uninstall source must be a registry FQN",
-        suggestions: [
-          {
-            description: `Use ${rootUninstallFqnGrammar} with one of: ${supportedRootUninstallTypes}.`,
-          },
-        ],
-        cause: error,
-      });
-    }),
-  );
-
-  if (!isInstallableExtensionTypePlural(parsed.type)) {
-    return yield* installRefused({
-      category: "usage",
-      detail: "Root uninstall does not support that extension type",
-      suggestions: [
-        {
-          description: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
-        },
-      ],
-    });
-  }
+  const { ref, type } = yield* decodeRootRegistryFqn({
+    verb: "uninstall",
+    grammar: rootUninstallFqnGrammar,
+    source,
+    fqn: reference.name,
+  });
 
   if (reference.constraint !== undefined) {
     return yield* installRefused({
@@ -135,8 +87,8 @@ export const resolveRootUninstallIntent: (
 
   return {
     source,
-    owner: parsed.owner,
-    type: toInstallableExtensionType(parsed.type),
-    name: parsed.name,
+    owner: ref.owner,
+    type,
+    name: ref.name,
   } satisfies RootUninstallIntent;
 });

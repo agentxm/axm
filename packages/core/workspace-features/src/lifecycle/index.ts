@@ -64,14 +64,7 @@ export {
   type InstallSelectionRequest,
 } from "./install/selection.js";
 export { type PrepareInstallRequirements } from "./install/vocabulary.js";
-export {
-  resolveRootInstallIntent,
-  rootInstallableTypeSegments,
-  RootInstallableTypeSegmentSchema,
-  type RootInstallIntent,
-  type RootInstallableType,
-  type RootInstallableTypeSegment,
-} from "./install/root-intent.js";
+export { resolveRootInstallIntent, type RootInstallIntent } from "./install/root-intent.js";
 export { installCommandFor, perTypeInstallPluralSegments } from "./install/per-type-install.js";
 
 // Uninstall: withdrawing extensions, as one use case behind every spelling.
@@ -85,12 +78,7 @@ export {
   type UninstallExtensionsFailure,
   type UninstallExtensionsRequest,
 } from "./uninstall/uninstall-extensions.js";
-export {
-  resolveRootUninstallIntent,
-  rootUninstallableTypeSegments,
-  type RootUninstallIntent,
-  type RootUninstallableType,
-} from "./uninstall/root-intent.js";
+export { resolveRootUninstallIntent, type RootUninstallIntent } from "./uninstall/root-intent.js";
 
 // Update: the atomicity a workspace-wide sweep declares.
 export {
@@ -124,14 +112,7 @@ export {
   type ConfiguredUpdateSelector,
   type ConfiguredUpdateSelectorType,
 } from "./update/selector.js";
-export {
-  resolveRootUpdateIntent,
-  rootUpdatableTypeSegments,
-  RootUpdatableTypeSegmentSchema,
-  type RootUpdatableType,
-  type RootUpdatableTypeSegment,
-  type RootUpdateIntent,
-} from "./update/root-request.js";
+export { resolveRootUpdateIntent, type RootUpdateIntent } from "./update/root-request.js";
 export { TARGETED_UPDATE_STALE_DETAIL } from "./update/targeted-plan.js";
 
 export {

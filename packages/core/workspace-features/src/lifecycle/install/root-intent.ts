@@ -1,40 +1,22 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 
 import {
   type ExtensionLifecycleFailed,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
-import {
-  installableExtensionTypePluralSegments,
-  InstallableExtensionTypePluralSchema,
-  isInstallableExtensionTypePlural,
-  toInstallableExtensionType,
-  type InstallableExtensionType,
-} from "@agentxm/extension-model/unstable/extensions/installable-types";
-import {
-  parseSourceQualifiedRegistrySourcePatternParts,
-  RegistrySourceRefSchema,
-} from "@agentxm/extension-model/unstable/extensions";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 
+import { decodeRootRegistryFqn } from "../root-registry-fqn.js";
 import { perTypeInstallPluralSegments } from "./per-type-install.js";
-
-const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
-
-export const rootInstallableTypeSegments = installableExtensionTypePluralSegments;
-export const RootInstallableTypeSegmentSchema = InstallableExtensionTypePluralSchema;
-export type RootInstallableTypeSegment = typeof RootInstallableTypeSegmentSchema.Type;
-export type RootInstallableType = InstallableExtensionType;
 
 export interface RootInstallIntent {
   readonly source: string;
-  readonly type: RootInstallableType | "locator";
+  readonly type: InstallableExtensionType | "locator";
 }
 
-const rootInstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
-const supportedRootInstallTypes = rootInstallableTypeSegments.join(", ");
 const locatorDiscoveryTypes = "skills, MCP servers, subagents, rules, hooks, knowledge, and packs";
 
 const rootInstallRegistryOnlyHowToFix = (source: string): string => {
@@ -72,8 +54,6 @@ export const resolveRootInstallIntent: (
   "InstallExtensions.resolveRootIntent",
 )(function* (input: string) {
   const source = input.trim();
-  const segments = source.split("/");
-  const pluralType = segments.length === 3 ? segments[1] : undefined;
   const sourceQualifiedRegistry = parseSourceQualifiedRegistrySourcePatternParts(source);
 
   if (!source.startsWith("@") && sourceQualifiedRegistry === undefined) {
@@ -103,48 +83,12 @@ export const resolveRootInstallIntent: (
     });
   }
 
-  const parsed = yield* decodeRegistrySourceRef(source).pipe(
-    Effect.mapError((error) => {
-      if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {
-        return installRefused({
-          category: "not_found",
-          detail: "Install source uses an unsupported plural type",
-          suggestions: [
-            {
-              description: `Use ${rootInstallFqnGrammar}. Supported plural types: ${supportedRootInstallTypes}.`,
-            },
-          ],
-          cause: error,
-        });
-      }
-
-      return installRefused({
-        category: "validation",
-        detail: "Install source must be a registry FQN",
-        suggestions: [
-          {
-            description: `Use ${rootInstallFqnGrammar} with one of: ${supportedRootInstallTypes}.`,
-          },
-        ],
-        cause: error,
-      });
-    }),
-  );
-
-  if (!isInstallableExtensionTypePlural(parsed.type)) {
-    return yield* installRefused({
-      category: "usage",
-      detail: "Root install does not support that extension type",
-      suggestions: [
-        {
-          description: `Use ${rootInstallFqnGrammar}. Supported plural types: ${supportedRootInstallTypes}.`,
-        },
-      ],
-    });
-  }
-
-  return {
+  const { type } = yield* decodeRootRegistryFqn({
+    verb: "install",
+    grammar: "@<handle>/<plural-type>/<name>[@<version>]",
     source,
-    type: toInstallableExtensionType(parsed.type),
-  } satisfies RootInstallIntent;
+    fqn: source,
+  });
+
+  return { source, type } satisfies RootInstallIntent;
 });

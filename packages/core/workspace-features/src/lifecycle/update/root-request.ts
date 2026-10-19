@@ -14,43 +14,24 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 
 import { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
-import {
-  installableExtensionTypePluralSegments,
-  InstallableExtensionTypePluralSchema,
-  isInstallableExtensionTypePlural,
-  toInstallableExtensionType,
-  type InstallableExtensionType,
-} from "@agentxm/extension-model/unstable/extensions/installable-types";
-import {
-  RegistrySourceRefSchema,
-  type ExtensionName,
-  type Handle,
-} from "@agentxm/extension-model/unstable/extensions";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import type { ExtensionName, Handle } from "@agentxm/extension-model/unstable/extensions";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
-const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
-
-export const rootUpdatableTypeSegments = installableExtensionTypePluralSegments;
-export const RootUpdatableTypeSegmentSchema = InstallableExtensionTypePluralSchema;
-export type RootUpdatableTypeSegment = typeof RootUpdatableTypeSegmentSchema.Type;
-export type RootUpdatableType = InstallableExtensionType;
+import { decodeRootRegistryFqn } from "../root-registry-fqn.js";
 
 /** One Registry identity a root update names, with the range it requested. */
 export interface RootUpdateIntent {
   readonly source: string;
-  readonly type: RootUpdatableType;
+  readonly type: InstallableExtensionType;
   readonly owner: Handle;
   readonly name: ExtensionName;
   readonly versionRange: Option.Option<VersionRange>;
   readonly target: string;
 }
-
-const rootUpdateFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
-const supportedRootUpdateTypes = rootUpdatableTypeSegments.join(", ");
 
 const rootUpdateRegistryOnlyHowToFix = (source: string): string => {
   const parsed = parseInputPattern(source);
@@ -86,8 +67,6 @@ export const resolveRootUpdateIntent: (
   "UpdateExtensions.readRootRequest",
 )(function* (input: string) {
   const source = input.trim();
-  const segments = source.split("/");
-  const pluralType = segments.length === 3 ? segments[1] : undefined;
 
   if (!source.startsWith("@")) {
     return yield* new ExtensionLifecycleFailed({
@@ -97,52 +76,19 @@ export const resolveRootUpdateIntent: (
     });
   }
 
-  const parsed = yield* decodeRegistrySourceRef(source).pipe(
-    Effect.mapError((error) => {
-      if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {
-        return new ExtensionLifecycleFailed({
-          category: "not_found",
-          detail: "Update source uses an unsupported plural type",
-          suggestions: [
-            {
-              description: `Use ${rootUpdateFqnGrammar}. Supported plural types: ${supportedRootUpdateTypes}.`,
-            },
-          ],
-          cause: error,
-        });
-      }
-
-      return new ExtensionLifecycleFailed({
-        category: "validation",
-        detail: "Update source must be a registry FQN",
-        suggestions: [
-          {
-            description: `Use ${rootUpdateFqnGrammar} with one of: ${supportedRootUpdateTypes}.`,
-          },
-        ],
-        cause: error,
-      });
-    }),
-  );
-
-  if (!isInstallableExtensionTypePlural(parsed.type)) {
-    return yield* new ExtensionLifecycleFailed({
-      category: "usage",
-      detail: "Root update does not support that extension type",
-      suggestions: [
-        {
-          description: `Use ${rootUpdateFqnGrammar}. Supported plural types: ${supportedRootUpdateTypes}.`,
-        },
-      ],
-    });
-  }
+  const { ref, type } = yield* decodeRootRegistryFqn({
+    verb: "update",
+    grammar: "@<handle>/<plural-type>/<name>[@<version>]",
+    source,
+    fqn: source,
+  });
 
   return {
     source,
-    type: toInstallableExtensionType(parsed.type),
-    owner: parsed.owner,
-    name: parsed.name,
-    versionRange: Option.fromUndefinedOr(parsed.versionRange),
-    target: `${parsed.owner}/${parsed.type}/${parsed.name}`,
+    type,
+    owner: ref.owner,
+    name: ref.name,
+    versionRange: Option.fromUndefinedOr(ref.versionRange),
+    target: `${ref.owner}/${ref.type}/${ref.name}`,
   } satisfies RootUpdateIntent;
 });

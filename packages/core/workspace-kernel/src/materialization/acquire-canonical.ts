@@ -24,7 +24,6 @@ import {
   retainedPackageKeyForRef,
 } from "../workspace-state/index.js";
 import { extensionRefLifecycleWarnings } from "../resolution/index.js";
-import { materializeRegistryPackageWithTreeIntegrity } from "./registry-materialization.js";
 import {
   AcquiredContent,
   sourceRefContentKey,
@@ -32,6 +31,7 @@ import {
   acquiredDirectoryForRef,
   prepareCanonicalParents,
   materializeExternalPackageWithTreeIntegrity,
+  materializeRegistryPackageWithTreeIntegrity,
   reusableCanonicalTree,
   type CanonicalDirectoryReplacementError,
   type PackageCopyFailed,

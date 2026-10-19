@@ -107,11 +107,3 @@ export {
   agentIntegrationFailureToStepFailure,
   type AgentIntegrationFailure,
 } from "./agent-integration-step-failure.js";
-
-// Registry-backed acquisition
-export {
-  materializeRegistryPackage,
-  materializeRegistryPackageWithTreeIntegrity,
-  type MaterializeRegistryPackageArgs,
-  type RegistryPackageMaterializationMessages,
-} from "./registry-materialization.js";

@@ -37,7 +37,7 @@ import {
   type ResolveInstallRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { installMcpServer } from "../../install/install-operation.js";
-import { materializeRegistryPackage } from "@agentxm/workspace-kernel/materialization";
+import { materializeRegistryPackage } from "@agentxm/workspace-kernel/acquisition";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import {

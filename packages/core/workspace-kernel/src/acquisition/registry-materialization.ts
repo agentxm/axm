@@ -1,8 +1,10 @@
 /**
  * Registry-backed canonical package materialization.
  *
- * The canonical-directory staging/swap machinery lives beside this module;
- * this module owns only the registry fetch, verify, and extract path.
+ * The canonical-directory staging and swap machinery lives in
+ * `canonical-directory.ts`, beside the external-source twin
+ * `materializeExternalPackageWithTreeIntegrity`; this module owns only the
+ * registry fetch, verify, and extract path.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -31,17 +33,16 @@ import {
   type MaterializedTreeInvalid,
   type TreeIntegrity,
 } from "../workspace-state/index.js";
+import { acquiredRegistryPackageFiles } from "./acquired-content.js";
 import {
-  ArchiveIntegrityMismatch,
-  PackageMaterializationFailed,
-  acquiredRegistryPackageFiles,
-  copyExtensionDirectory,
-  extractExternalArchive,
   recoverCanonicalDirectory,
   replaceCanonicalDirectoryWithInspection,
   type CanonicalDirectoryReplacementError,
   type MaterializedPackage,
-} from "../acquisition/index.js";
+} from "./canonical-directory.js";
+import { copyExtensionDirectory } from "./copy-directory.js";
+import { ArchiveIntegrityMismatch, PackageMaterializationFailed } from "./errors.js";
+import { extractExternalArchive } from "./external-archive.js";
 
 import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 export interface RegistryPackageMaterializationMessages {

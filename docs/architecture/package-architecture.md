@@ -172,13 +172,20 @@ why integrations and supporting packages may consume it by name without pulling
 workspace or transport packages behind it.
 
 The workspace kernel is a set of flat slices, one folder under `src/` each,
-ordered lowest first: `settlement`, `operations`, `agent-adapters`,
+ordered lowest first: `locations`, `settlement`, `operations`, `agent-adapters`,
 `workspace-state`, `projection`, `acquisition`, `sources`, `resolution`,
 `planning`, `materialization`, and `reconciliation`. A slice imports only the
 slices below it. The kernel knows no extension kind and no feature, not even as
 a type; the
 [workspace split decision](decisions/workspace-split-into-kernel-kinds-and-features.md)
 records why.
+
+`workspace-kernel/locations` is the lowest slice and imports no other. It owns
+physical native addresses: resolving a native entry and its referent under a
+resolution root, containment and overlap checks before a mutation, native
+authority roots, container receipts and their structural inverses, copied
+directory receipts, contained payload links, and Git checkout roots. An
+observed identity is evidence for these checks, never ownership authority.
 
 `workspace-kernel/settlement` owns the transition lock, transaction runner,
 preimages, restoration, verification, and write registration. The closure API —
@@ -236,7 +243,12 @@ observed state means: the ownership units, who may contribute to each, the
 provenance that proves a claim, and the facts lint and sync reconcile against.
 It reaches the capabilities that materialize those units only through the
 `ProjectionParticipants` registry they register with, so a fact never depends
-on the module that writes the unit.
+on the module that writes the unit. Projection also plans and applies the
+aggregate units several kinds contribute to, under `NativeWriteAuthority`: the
+canonical instruction file and its aliases, which Rules, Hooks, and Knowledge
+share; the managed regions AXM writes inside instruction targets; and the
+Knowledge discovery table. The destructive sweep of rendered files belongs to
+`reconciliation`.
 
 `workspace-kernel/agent-adapters` owns installed-agent detection and the
 native format mechanics used by projection: coding-agent adapters, subagent

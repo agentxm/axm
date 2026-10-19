@@ -47,7 +47,6 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
 ) {
   const result = yield* withLiveOperation(
     {
-      command: "knowledge.concepts.related",
       name: "Inspect related knowledge concepts",
       mode: "query",
     },
@@ -102,7 +101,7 @@ export const relatedCommand = Command.make(
       reference,
       Option.match(depth, { onNone: () => 1, onSome: (value) => value }),
       includeIndexBacklinks,
-    ).pipe(withWorkspace(scope), withRuntime("knowledge concepts related")),
+    ).pipe(withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(relatedConfig),
   withCommandCapabilities(readOnlyCapabilities()),

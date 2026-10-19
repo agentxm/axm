@@ -28,7 +28,6 @@ export const handleMcpServersNew = (args: McpServersNewHandlerArgs) =>
   Effect.gen(function* () {
     const nonInteractive = !(yield* (yield* Screen).canAsk);
     return yield* runCreateExtensionCommand({
-      command: "mcps.new",
       preview: args.preview,
       request: {
         type: "mcp-server",
@@ -58,7 +57,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, description, o
     description: Option.getOrElse(description, () => ""),
     owner,
     preview,
-  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("mcps new")),
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime()),
 ).pipe(
   withArgvTracking(newConfig),
   withCommandCapabilities(previewableCapabilities("authored-source")),

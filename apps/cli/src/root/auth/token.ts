@@ -290,7 +290,6 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
     // "completed" for a token stdout has not acknowledged.
     const createResult = yield* withLiveOperation(
       {
-        command: "auth.token.create",
         name: `Create registry token "${args.name}"`,
         mode: "apply",
       },
@@ -335,7 +334,7 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
     const registry = yield* selectedRegistry("Listing tokens");
     const limit = page.limit ?? 50;
     const result = yield* withLiveOperation(
-      { command: "auth.token.list", name: "List registry tokens", mode: "query" },
+      { name: "List registry tokens", mode: "query" },
       listTokens(registry, {
         limit,
         ...(page.cursor === undefined ? {} : { cursor: page.cursor }),
@@ -400,7 +399,7 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
   function* (tokenId: string) {
     const registry = yield* selectedRegistry("Revoking a token");
     yield* withLiveOperation(
-      { command: "auth.token.revoke", name: `Revoke registry token ${tokenId}`, mode: "apply" },
+      { name: `Revoke registry token ${tokenId}`, mode: "apply" },
       revokeToken(tokenId, registry),
     );
 
@@ -462,7 +461,7 @@ const createTokenCommand = Command.make(
       extensions: extension,
       permission,
       plain,
-    }).pipe(withRuntime("auth token create", { registry })),
+    }).pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(createTokenConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),
@@ -496,7 +495,7 @@ const listTokenCommand = Command.make("list", listTokenConfig, ({ registry, limi
   handleListTokens({
     limit,
     ...Option.match(cursor, { onNone: () => ({}), onSome: (cursor) => ({ cursor }) }),
-  }).pipe(withRuntime("auth token list", { registry })),
+  }).pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(listTokenConfig),
   withCommandCapabilities(readOnlyCapabilities()),
@@ -512,7 +511,7 @@ const revokeTokenConfig = {
 } as const;
 
 const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id, registry }) =>
-  handleRevokeToken(id).pipe(withRuntime("auth token revoke", { registry })),
+  handleRevokeToken(id).pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(revokeTokenConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),
@@ -523,7 +522,7 @@ const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id, regi
 );
 
 const showTokenCommand = Command.make("show", tokenConfig, ({ plain, registry }) =>
-  handleToken({ plain }).pipe(withRuntime("auth token show", { registry })),
+  handleToken({ plain }).pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(tokenConfig),
   withCommandCapabilities(readOnlyCapabilities()),

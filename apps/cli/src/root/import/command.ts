@@ -47,7 +47,6 @@ interface ImportHandlerArgs {
 export const handleImport = (args: ImportHandlerArgs) =>
   withOperationLifecycle(
     {
-      command: `${extensionTypeToPlural[args.type]} import`,
       mode: args.preview ? "preview" : "apply",
       planName: importNativeExtensionPlanName(args.type),
     },
@@ -97,14 +96,9 @@ const config = {
 } as const;
 
 const makeNativeImportCommand = (type: NativeImportRouteType) => {
-  const group = extensionTypeToPlural[type];
   const noun = type === "skill" ? "skill" : "subagent";
   return Command.make("import", config, (parsed) =>
-    handleImport({ ...parsed, type }).pipe(
-      Effect.scoped,
-      withWorkspace("project"),
-      withRuntime(`${group} import`),
-    ),
+    handleImport({ ...parsed, type }).pipe(Effect.scoped, withWorkspace("project"), withRuntime()),
   ).pipe(
     withArgvTracking(config),
     withCommandCapabilities(previewableCapabilities("authored-source")),
@@ -142,7 +136,7 @@ export const subagentsImportCommand = Command.make(
       ...parsed,
       type: "subagent",
       ...(Option.isSome(sourceAgent) ? { sourceAgent: sourceAgent.value } : {}),
-    }).pipe(Effect.scoped, withWorkspace("project"), withRuntime("subagents import")),
+    }).pipe(Effect.scoped, withWorkspace("project"), withRuntime()),
 ).pipe(
   withArgvTracking(subagentConfig),
   withCommandCapabilities(previewableCapabilities("authored-source")),

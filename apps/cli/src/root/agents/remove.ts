@@ -32,7 +32,7 @@ const PLAN_NAME = "Remove coding agents";
 
 export const handleAgentsRemove = (args: AgentsRemoveArgs) =>
   withOperationLifecycle(
-    { command: "agents.remove", mode: args.preview ? "preview" : "apply", planName: PLAN_NAME },
+    { mode: args.preview ? "preview" : "apply", planName: PLAN_NAME },
     handleAgentsRemoveBody(args),
   );
 
@@ -104,7 +104,7 @@ export const removeCommand = Command.make(
     handleAgentsRemove({ ids: [...ids], force, preview }).pipe(
       withProjectionOutputPosture({ discardModified }),
       withWorkspace(scope),
-      withRuntime("agents remove"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(removeConfig),

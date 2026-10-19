@@ -35,7 +35,7 @@ export const upgradeCommand = Command.make(
         ...(version._tag === "None" ? {} : { requestedVersion: version.value }),
       }),
       selfUpdateLayer,
-    ).pipe(withRuntime("upgrade")),
+    ).pipe(withRuntime()),
 ).pipe(
   withArgvTracking(upgradeConfig),
   withCommandCapabilities(previewableCapabilities("installation")),

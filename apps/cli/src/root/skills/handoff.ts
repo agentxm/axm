@@ -34,7 +34,6 @@ export const handleHandoff = (
 ) =>
   withOperationLifecycle(
     {
-      command: "skills handoff",
       mode: args.preview ? "preview" : "apply",
       planName: "Transfer skill management",
     },
@@ -98,7 +97,7 @@ export const handoffCommand = Command.make("handoff", config, (args) =>
     ...(Option.isSome(args.lock) ? { lockPath: args.lock.value } : {}),
   }).pipe(
     withFirstUse({ scope: args.scope, agents: args.agent, preview: args.preview }),
-    withRuntime("skills handoff"),
+    withRuntime(),
   ),
 ).pipe(
   withArgvTracking(config),

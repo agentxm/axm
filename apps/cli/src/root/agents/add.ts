@@ -41,7 +41,7 @@ const PLAN_NAME = "Add coding agents";
 
 export const handleAgentsAdd = (args: AgentsAddArgs) =>
   withOperationLifecycle(
-    { command: "agents.add", mode: args.preview ? "preview" : "apply", planName: PLAN_NAME },
+    { mode: args.preview ? "preview" : "apply", planName: PLAN_NAME },
     handleAgentsAddBody(args),
   );
 
@@ -131,7 +131,7 @@ export const addCommand = Command.make(
       withReleaseAgePosture(ignoreReleaseAge),
       withProjectionOutputPosture({ replaceUnrecorded }),
       withWorkspace(scope),
-      withRuntime("agents add"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(addConfig),

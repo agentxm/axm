@@ -19,7 +19,6 @@ export interface UnpackHandlerArgs {
 export const handleUnpack = (args: UnpackHandlerArgs) =>
   withOperationLifecycle(
     {
-      command: "packs.unpack",
       mode: args.preview ? "preview" : "apply",
       planName: "Unpack pack",
     },

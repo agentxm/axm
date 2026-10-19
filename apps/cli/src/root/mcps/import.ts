@@ -59,7 +59,6 @@ const discoveryFrom = (preflight: McpAdoptionPreflight) => ({
 export const handleMcpsImport = (args: McpsImportArgs) =>
   withOperationLifecycle(
     {
-      command: "mcps.import",
       mode: args.preview ? "preview" : "apply",
       planName: importNativeExtensionPlanName("mcp-server"),
     },
@@ -108,7 +107,7 @@ const importConfig = {
 } as const;
 
 export const importCommand = Command.make("import", importConfig, (args) =>
-  handleMcpsImport(args).pipe(Effect.scoped, withWorkspace("project"), withRuntime("mcps import")),
+  handleMcpsImport(args).pipe(Effect.scoped, withWorkspace("project"), withRuntime()),
 ).pipe(
   withArgvTracking(importConfig),
   withCommandCapabilities(previewableCapabilities("authored-source")),

@@ -37,7 +37,7 @@ export const handleSubagentRender = Effect.fn("Subagents.render")(function* (
   request: Parameters<typeof RenderSubagent.query>[0],
 ) {
   const result = yield* withLiveOperation(
-    { command: "subagents.show", name: "Render subagent", mode: "query" },
+    { name: "Render subagent", mode: "query" },
     RenderSubagent.query(request).pipe(
       Effect.catchTag("ExtensionNotInstalled", (failure) =>
         Effect.fail(extensionNotInstalledToAppError(failure)),
@@ -74,11 +74,11 @@ export const showCommand = Command.make("show", config, ({ name, scope, render, 
   Option.isSome(render) && agent.length > 0
     ? Effect.fail(
         makeAppError({ code: "usage", detail: "--agent and --render cannot be combined" }),
-      ).pipe(withRuntime("subagents show"))
+      ).pipe(withRuntime())
     : (Option.isSome(render)
         ? handleSubagentRender({ name, agentId: render.value })
         : handleExtensionShow({ type: "subagent", name, agents: agent })
-      ).pipe(withWorkspace({ scope, allowUninitialized: true }), withRuntime("subagents show")),
+      ).pipe(withWorkspace({ scope, allowUninitialized: true }), withRuntime()),
 ).pipe(
   withArgvTracking(config),
   withCommandCapabilities(readOnlyCapabilities()),

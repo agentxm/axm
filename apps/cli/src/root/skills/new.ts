@@ -24,7 +24,6 @@ export interface SkillsNewHandlerArgs {
 
 export const handleSkillsNew = (args: SkillsNewHandlerArgs) =>
   runCreateExtensionCommand({
-    command: "skills.new",
     preview: args.preview,
     request: {
       type: "skill",
@@ -52,7 +51,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, owner, descrip
     owner,
     description,
     preview,
-  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("skills new")),
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime()),
 ).pipe(
   withArgvTracking(newConfig),
   withCommandCapabilities(previewableCapabilities("authored-source")),

@@ -46,7 +46,7 @@ export const updateCommand = Command.make(
       withReleaseAgePosture(ignoreReleaseAge),
       withProjectionOutputPosture({ replaceUnrecorded, discardModified }),
       withWorkspace(scope),
-      withRuntime("update"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(updateConfig),

@@ -195,7 +195,7 @@ const capabilitiesConfig = {
 } as const;
 
 export const capabilitiesCommand = Command.make("capabilities", capabilitiesConfig, ({ id }) =>
-  handleAgentsCapabilities(id).pipe(withRuntime("agents capabilities")),
+  handleAgentsCapabilities(id).pipe(withRuntime()),
 ).pipe(
   withArgvTracking(capabilitiesConfig),
   withCommandCapabilities(readOnlyCapabilities()),

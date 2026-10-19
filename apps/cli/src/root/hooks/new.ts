@@ -35,7 +35,6 @@ export interface HooksNewHandlerArgs {
 
 export const handleHooksNew = (args: HooksNewHandlerArgs) =>
   runCreateExtensionCommand({
-    command: "hooks.new",
     preview: args.preview,
     request: {
       type: "hook",
@@ -90,7 +89,7 @@ export const newCommand = Command.make(
       matcher,
       description,
       preview,
-    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("hooks new")),
+    }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime()),
 ).pipe(
   withArgvTracking(newConfig),
   withCommandCapabilities(previewableCapabilities("authored-source")),

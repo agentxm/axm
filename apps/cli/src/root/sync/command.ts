@@ -62,7 +62,7 @@ export const syncCommand = Command.make(
       withReleaseAgePosture(ignoreReleaseAge),
       withProjectionOutputPosture({ replaceUnrecorded, discardModified }),
       withWorkspace(scope),
-      withRuntime("sync"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(syncConfig),

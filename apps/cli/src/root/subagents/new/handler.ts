@@ -11,7 +11,6 @@ export interface SubagentsNewHandlerArgs {
 
 export const handleSubagentsNew = (args: SubagentsNewHandlerArgs) =>
   runCreateExtensionCommand({
-    command: "subagents.new",
     preview: args.preview,
     request: {
       type: "subagent",

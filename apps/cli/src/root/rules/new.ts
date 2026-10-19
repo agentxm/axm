@@ -25,7 +25,6 @@ export interface RulesNewHandlerArgs {
 
 export const handleRulesNew = (args: RulesNewHandlerArgs) =>
   runCreateExtensionCommand({
-    command: "rules.new",
     preview: args.preview,
     request: {
       type: "rule",
@@ -58,7 +57,7 @@ export const newCommand = Command.make(
   ({ name, owner, title, description, preview }) =>
     handleRulesNew({ name, owner, title, description, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRuntime("rules new"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(newConfig),

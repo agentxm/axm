@@ -29,7 +29,7 @@ const config = {
 
 const handleMigrate = (fqn: string, preview: boolean) =>
   withOperationLifecycle(
-    { command: "migrate", mode: preview ? "preview" : "apply", planName: `Migrate ${fqn}` },
+    { mode: preview ? "preview" : "apply", planName: `Migrate ${fqn}` },
     Effect.gen(function* () {
       const candidate = yield* MigrateDeprecated.prepare(fqn).pipe(
         Effect.mapError(failureToAppError),
@@ -58,7 +58,7 @@ export const migrateCommand = Command.make(
     handleMigrate(fqn, preview).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
-      withRuntime("migrate"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(config),

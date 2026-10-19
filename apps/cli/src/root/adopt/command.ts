@@ -25,7 +25,6 @@ export interface AdoptHandlerArgs {
 export const handleAdopt = (args: AdoptHandlerArgs) =>
   withOperationLifecycle(
     {
-      command: "adopt",
       mode: args.preview ? "preview" : "apply",
       planName: adoptExtensionPlanName,
     },
@@ -56,7 +55,7 @@ const config = {
 } as const;
 
 export const adoptCommand = Command.make("adopt", config, ({ fqn, preview }) =>
-  handleAdopt({ fqn, preview }).pipe(withWorkspace("project"), withRuntime("adopt")),
+  handleAdopt({ fqn, preview }).pipe(withWorkspace("project"), withRuntime()),
 ).pipe(
   withArgvTracking(config),
   withCommandCapabilities(previewableCapabilities("authored-source")),

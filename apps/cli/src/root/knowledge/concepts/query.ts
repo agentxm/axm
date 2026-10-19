@@ -63,7 +63,7 @@ export const handleKnowledgeConceptQuery = Effect.fn("Knowledge.concepts.query")
   args: KnowledgeConceptQueryArgs,
 ) {
   const result = yield* withLiveOperation(
-    { command: "knowledge.concepts.query", name: "Query installed knowledge", mode: "query" },
+    { name: "Query installed knowledge", mode: "query" },
     observeUnit(
       { id: "index", label: "installed knowledge" },
       Effect.catchTags(KnowledgeDiscovery.query({ scope, ...args }), knowledgeCorpusFailures),
@@ -215,7 +215,7 @@ export const queryCommand = Command.make(
         onNone: () => ({}),
         onSome: (value) => ({ cursor: value }),
       }),
-    }).pipe(withWorkspace(scope), withRuntime("knowledge concepts query")),
+    }).pipe(withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(queryConfig),
   withCommandCapabilities(readOnlyCapabilities()),

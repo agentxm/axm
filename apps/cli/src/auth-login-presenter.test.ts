@@ -295,7 +295,7 @@ describe("AuthLoginPresenterLive", () => {
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
       yield* withLiveOperation(
-        { command: "auth.login", name: "Sign in", mode: "apply" },
+        { name: "Sign in", mode: "apply" },
         presenter.awaitHuman(deviceHandoff, Effect.void),
       );
 
@@ -446,7 +446,7 @@ describe("AuthLoginPresenterLive", () => {
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
       yield* withLiveOperation(
-        { command: "auth.login", name: "Sign in", mode: "apply" },
+        { name: "Sign in", mode: "apply" },
         Effect.gen(function* () {
           yield* presenter.withProgress(
             { _tag: "StartingDeviceAuthorization", registryHost },

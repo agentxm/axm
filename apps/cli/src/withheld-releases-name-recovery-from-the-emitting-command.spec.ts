@@ -159,7 +159,6 @@ const withholdingCommands: ReadonlyArray<{
     others: ["axm install", "axm sync"],
     run: (workspace) =>
       handleWorkspaceUpdate({
-        command: "skills.update",
         type: Option.some("skill"),
         planName: "Update skills",
         planDescription: Option.some("Update configured skills"),

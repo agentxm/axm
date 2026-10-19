@@ -22,7 +22,7 @@ export const handleHookTest = Effect.fn("Hooks.test")(function* (args: {
 }) {
   const configuration = yield* parseHookConfiguration(args.configuration);
   const result = yield* withLiveOperation(
-    { command: "hooks.test", name: "Test hook extension fixtures", mode: "apply" },
+    { name: "Test hook extension fixtures", mode: "apply" },
     observeUnit(
       { id: "fixtures", label: "declared hook extension fixtures" },
       TestHook.run({
@@ -76,7 +76,7 @@ const config = {
 export const testCommand = Command.make("test", config, (args) =>
   handleHookTest(args).pipe(
     withWorkspace({ scope: args.scope, allowUninitialized: true }),
-    withRuntime("hooks test"),
+    withRuntime(),
   ),
 ).pipe(
   withArgvTracking(config),

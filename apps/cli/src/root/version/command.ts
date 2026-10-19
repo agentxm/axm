@@ -98,7 +98,6 @@ const inferVersionableType = (handle: string) =>
 export const handleRootVersion = (args: RootVersionHandlerArgs) =>
   withOperationLifecycle(
     {
-      command: "version",
       mode: args.preview ? "preview" : "apply",
       planName: changeAuthoredVersionPlanName,
     },
@@ -122,7 +121,7 @@ export const versionCommand = Command.make(
   ({ handle, bump, preview }) =>
     handleRootVersion({ handle, bump, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-      withRuntime("version"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(rootVersionConfig),

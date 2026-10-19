@@ -39,7 +39,7 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
   fuzzy = false,
 ) {
   const resolved = yield* withLiveOperation(
-    { command: "knowledge.concepts.resolve", name: "Resolve knowledge concept", mode: "query" },
+    { name: "Resolve knowledge concept", mode: "query" },
     Effect.catchTag(
       KnowledgeDiscovery.resolve({ input, fuzzy }),
       "KnowledgeCorpusUnavailable",
@@ -96,10 +96,7 @@ const resolveConfig = {
 } as const;
 
 export const resolveCommand = Command.make("resolve", resolveConfig, ({ input, fuzzy, scope }) =>
-  handleKnowledgeConceptResolve(input, fuzzy).pipe(
-    withWorkspace(scope),
-    withRuntime("knowledge concepts resolve"),
-  ),
+  handleKnowledgeConceptResolve(input, fuzzy).pipe(withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(resolveConfig),
   withCommandCapabilities(readOnlyCapabilities()),

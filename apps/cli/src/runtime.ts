@@ -10,6 +10,7 @@ import type { WorkspaceFileWriteLocks } from "@agentxm/workspace-kernel/settleme
 import { UpdateCheckCacheLive } from "./cli-runtime/update-cache.js";
 import { CliUpgradeObservationLive } from "./cli-runtime/upgrade-observation.js";
 import { recordingConfigurationFailure } from "./cli-runtime/configuration-failure.js";
+import { CommandRoute } from "./cli-runtime/command-route.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpClient from "effect/http/HttpClient";
@@ -652,7 +653,7 @@ export const withProjectionOutputPosture =
     Effect.provideService(program, ProjectionOutputPosture, posture);
 
 export const withRuntime =
-  (command?: string, options?: { readonly registry?: Option.Option<string> }) =>
+  (options?: { readonly registry?: Option.Option<string> }) =>
   <A, R>(program: Effect.Effect<A, ExpectedCliError, R>) =>
     Effect.gen(function* () {
       const directory = yield* directoryFlag;
@@ -681,6 +682,7 @@ export const withRuntime =
       const executionDirectory = { path: decodeAbsolutePathSync(canonical) };
       const config = resolveRuntimeConfig();
       const format = yield* resolveCliFormat;
+      const route = yield* CommandRoute;
       // Only the recovery a refusal names depends on this, so a configuration
       // source that cannot be read leaves the Registry's own recovery rather
       // than failing the command; resolving the credential reports that
@@ -725,7 +727,7 @@ export const withRuntime =
           ),
           Effect.provideService(InvocationCredentialSource, credentialSource),
         ),
-        { command, format },
+        { command: route.length === 0 ? undefined : route.join(" "), format },
       ).pipe(
         Effect.provide(appLayer),
         Effect.provide(registryAccessLayer),

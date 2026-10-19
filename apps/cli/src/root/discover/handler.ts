@@ -12,7 +12,7 @@ export const handleDiscover = Effect.fn("Discover.handle")(function* () {
   const executionDirectory = yield* ExecutionDirectory;
   const projectDir = executionDirectory.path;
   const result = yield* withLiveOperation(
-    { command: "discover", name: "Discover companion extensions", mode: "query" },
+    { name: "Discover companion extensions", mode: "query" },
     observeUnit(
       { id: "dependencies", label: "project dependencies" },
       DiscoverExtensions.query({ projectDir }),

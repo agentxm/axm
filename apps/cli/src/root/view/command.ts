@@ -49,12 +49,12 @@ export const viewCommand = Command.make("view", viewConfig, ({ handle, field, re
   if (Option.isNone(registry) && Option.isNone(type) && parts !== undefined) {
     return handleDefaultRegistryFqnView({ handle, field, parts }).pipe(
       withWorkspace({ scope: DEFAULT_WORKSPACE_SCOPE, allowUninitialized: true }),
-      withRuntime("view"),
+      withRuntime(),
     );
   }
   return handleView({ handle, field, registry, type }).pipe(
     withWorkspace({ scope: DEFAULT_WORKSPACE_SCOPE, allowUninitialized: parts !== undefined }),
-    withRuntime("view", { registry }),
+    withRuntime({ registry }),
   );
 }).pipe(
   withArgvTracking(viewConfig),

@@ -53,8 +53,6 @@ import type { ExpectedCliError } from "../../cli-runtime/index.js";
 import { firstUseWorkspace, type FirstUse } from "./first-use.js";
 
 export interface InstallCommandArgs<R = never> {
-  /** Telemetry and machine-output command identity, e.g. `skills.install`. */
-  readonly command: string;
   readonly request: InstallExtensionsRequest;
   readonly preview: boolean;
   /** The command words a confirmation-recovery line reproduces. */
@@ -223,7 +221,6 @@ const body = <R>(args: InstallCommandArgs<R>) =>
 export const runInstallCommand = <R = never>(args: InstallCommandArgs<R>) =>
   withOperationLifecycle(
     {
-      command: args.command,
       mode: args.preview ? "preview" : "apply",
       planName: args.request.planName,
       productActivity: { activity: "install", activationEligible: true },

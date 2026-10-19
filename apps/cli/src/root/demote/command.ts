@@ -48,7 +48,6 @@ export interface DemoteHandlerArgs {
 export const handleDemote = (args: DemoteHandlerArgs) =>
   withOperationLifecycle(
     {
-      command: "demote",
       mode: args.preview ? "preview" : "apply",
       planName: "Demote workspace extension",
     },
@@ -97,7 +96,7 @@ export const demoteCommand = Command.make(
     handleDemote({ fqn, source, yes, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace("project"),
-      withRuntime("demote"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(config),

@@ -47,8 +47,6 @@ import { makePublicPositionalPlanInvocation, retrySuggestion } from "./confirmat
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface UninstallCommandArgs {
-  /** Telemetry and machine-output command identity, e.g. `skills.uninstall`. */
-  readonly command: string;
   readonly request: UninstallExtensionsRequest;
   readonly preview: boolean;
   /** The command words a confirmation-recovery line reproduces. */
@@ -141,7 +139,6 @@ const body = (args: UninstallCommandArgs) =>
 export const runUninstallCommand = (args: UninstallCommandArgs) =>
   withOperationLifecycle(
     {
-      command: args.command,
       mode: args.preview ? "preview" : "apply",
       planName: liveName(args.request.type),
       presentation: operationPresentation(
@@ -165,16 +162,11 @@ export const makePerTypeUninstallCommand = (type: InstallableExtensionType) => {
   } as const;
   return Command.make("uninstall", config, ({ name, scope, preview, discardModified }) =>
     runUninstallCommand({
-      command: `${route}.uninstall`,
       preview,
       request: { type: Option.some(type), selector: name },
       recoveryCommand: [route, "uninstall"],
       recoveryPositionals: [name],
-    }).pipe(
-      withProjectionOutputPosture({ discardModified }),
-      withWorkspace(scope),
-      withRuntime(`${route} uninstall`),
-    ),
+    }).pipe(withProjectionOutputPosture({ discardModified }), withWorkspace(scope), withRuntime()),
   ).pipe(
     withArgvTracking(config),
     withCommandCapabilities(previewableCapabilities("workspace")),

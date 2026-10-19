@@ -26,7 +26,7 @@ export const handleHookExport = (args: {
   readonly preview: boolean;
 }) =>
   withOperationLifecycle(
-    { command: "hooks.export", mode: args.preview ? "preview" : "apply", planName: "Export hook" },
+    { mode: args.preview ? "preview" : "apply", planName: "Export hook" },
     Effect.gen(function* () {
       const candidate = yield* ExportHook.prepare(args).pipe(Effect.mapError(failureToAppError));
       const { execution, recovery } = yield* makePlanInvocation(
@@ -61,7 +61,7 @@ const config = {
 } as const;
 
 export const exportCommand = Command.make("export", config, (args) =>
-  handleHookExport(args).pipe(Effect.scoped, withWorkspace("project"), withRuntime("hooks export")),
+  handleHookExport(args).pipe(Effect.scoped, withWorkspace("project"), withRuntime()),
 ).pipe(
   withArgvTracking(config),
   withCommandCapabilities(previewableCapabilities("authored-source")),

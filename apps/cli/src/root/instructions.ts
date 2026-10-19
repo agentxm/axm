@@ -50,7 +50,6 @@ const InstructionsColumns = [
 export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(function* () {
   const status = yield* withLiveOperation(
     {
-      command: "instructions.status",
       name: "Inspect instruction-file management",
       mode: "query",
     },
@@ -93,11 +92,10 @@ export const handleInstructionsEnable = (args: {
 }) =>
   withOperationLifecycle(
     {
-      command: "instructions.enable",
       mode: args.preview === true ? "preview" : "apply",
       planName: PLAN_NAME.enable,
     },
-    runInstructions("instructions.enable", args.preview === true, {
+    runInstructions(args.preview === true, {
       action: "enable",
       fileName: args.fileName,
       gitignoreAliases: args.gitignore,
@@ -107,15 +105,13 @@ export const handleInstructionsEnable = (args: {
 export const handleInstructionsDisable = (args?: { readonly preview?: boolean }) =>
   withOperationLifecycle(
     {
-      command: "instructions.disable",
       mode: args?.preview === true ? "preview" : "apply",
       planName: PLAN_NAME.disable,
     },
-    runInstructions("instructions.disable", args?.preview === true, { action: "disable" }),
+    runInstructions(args?.preview === true, { action: "disable" }),
   );
 
 const runInstructions = (
-  command: "instructions.enable" | "instructions.disable",
   preview: boolean,
   request: Parameters<typeof ManageInstructions.prepare>[0],
 ) =>
@@ -181,7 +177,6 @@ const instructionsAdoptCommand = Command.make(
   ({ region, scope, preview }) =>
     withOperationLifecycle(
       {
-        command: "instructions.adopt",
         mode: preview ? "preview" : "apply",
         planName: "Adopt instruction region",
       },
@@ -198,7 +193,7 @@ const instructionsAdoptCommand = Command.make(
         );
         yield* emitOperationResolution(result, { recovery });
       }),
-    ).pipe(withWorkspace(scope), withRuntime("instructions adopt")),
+    ).pipe(withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(instructionsAdoptConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),
@@ -218,7 +213,7 @@ const instructionsEnableCommand = Command.make(
     handleInstructionsEnable({ fileName, gitignore, preview }).pipe(
       withProjectionOutputPosture({ replaceUnrecorded, discardModified }),
       withWorkspace(scope),
-      withRuntime("instructions enable"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(instructionsEnableConfig),
@@ -240,7 +235,7 @@ const instructionsDisableCommand = Command.make(
     handleInstructionsDisable({ preview }).pipe(
       withProjectionOutputPosture({ discardModified }),
       withWorkspace(scope),
-      withRuntime("instructions disable"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(instructionsDisableConfig),
@@ -252,7 +247,7 @@ const instructionsDisableCommand = Command.make(
 );
 
 const instructionsStatusCommand = Command.make("status", instructionsStatusConfig, ({ scope }) =>
-  handleInstructionsStatus().pipe(withWorkspace(scope), withRuntime("instructions status")),
+  handleInstructionsStatus().pipe(withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(instructionsStatusConfig),
   withCommandCapabilities(readOnlyCapabilities()),

@@ -55,7 +55,7 @@ export const handleYank = Effect.fn("Yank.handle")(
     const message = Option.getOrUndefined(input.message);
     yield* emitRegistryTransition(
       yield* withLiveOperation(
-        { command: "yank", name: `Yank ${input.ref}`, mode: "apply" },
+        { name: `Yank ${input.ref}`, mode: "apply" },
         RetirePublishedVersion.yank({
           ref: input.ref,
           allVersions: input.allVersions,
@@ -73,7 +73,7 @@ export const handleUnyank = Effect.fn("Unyank.handle")(
   function* (ref: string) {
     yield* emitRegistryTransition(
       yield* withLiveOperation(
-        { command: "unyank", name: `Restore ${ref}`, mode: "apply" },
+        { name: `Restore ${ref}`, mode: "apply" },
         RetirePublishedVersion.unyank(ref),
       ),
     );
@@ -151,7 +151,7 @@ export const handleDeprecate = Effect.fn("Deprecate.handle")(
     readonly clearReplacement: boolean;
   }) {
     const written = yield* withLiveOperation(
-      { command: "deprecate", name: `Deprecate ${input.ref}`, mode: "apply" },
+      { name: `Deprecate ${input.ref}`, mode: "apply" },
       DeprecatePublishedExtension.deprecate(input),
     );
     yield* emitDeprecationTransition("deprecate", written.registry, written.transition);
@@ -163,7 +163,7 @@ export const handleDeprecate = Effect.fn("Deprecate.handle")(
 export const handleUndeprecate = Effect.fn("Undeprecate.handle")(
   function* (ref: string) {
     const written = yield* withLiveOperation(
-      { command: "undeprecate", name: `Restore ${ref}`, mode: "apply" },
+      { name: `Restore ${ref}`, mode: "apply" },
       DeprecatePublishedExtension.undeprecate(ref),
     );
     yield* emitDeprecationTransition("undeprecate", written.registry, written.transition);
@@ -224,7 +224,7 @@ export const handleArchive = Effect.fn("Archive.handle")(
     readonly clearMessage: boolean;
   }) {
     const written = yield* withLiveOperation(
-      { command: "archive", name: `Archive ${input.ref}`, mode: "apply" },
+      { name: `Archive ${input.ref}`, mode: "apply" },
       ArchivePublishedExtension.archive(input),
     );
     yield* emitArchivalTransition("archive", written.registry, written.transition);
@@ -236,7 +236,7 @@ export const handleArchive = Effect.fn("Archive.handle")(
 export const handleUnarchive = Effect.fn("Unarchive.handle")(
   function* (ref: string) {
     const written = yield* withLiveOperation(
-      { command: "unarchive", name: `Unarchive ${ref}`, mode: "apply" },
+      { name: `Unarchive ${ref}`, mode: "apply" },
       ArchivePublishedExtension.unarchive(ref),
     );
     yield* emitArchivalTransition("unarchive", written.registry, written.transition);
@@ -335,7 +335,7 @@ const deprecateCapabilities: CommandCapabilities = {
 };
 
 export const yankCommand = Command.make("yank", yankConfig, (input) =>
-  handleYank(input).pipe(withRuntime("yank", { registry: input.registry })),
+  handleYank(input).pipe(withRuntime({ registry: input.registry })),
 ).pipe(
   withArgvTracking(yankConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
@@ -351,7 +351,7 @@ export const yankCommand = Command.make("yank", yankConfig, (input) =>
 );
 
 export const unyankCommand = Command.make("unyank", exactRefConfig, ({ ref, registry }) =>
-  handleUnyank(ref).pipe(withRuntime("unyank", { registry })),
+  handleUnyank(ref).pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(exactRefConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
@@ -365,7 +365,7 @@ export const unyankCommand = Command.make("unyank", exactRefConfig, ({ ref, regi
 );
 
 export const deprecateCommand = Command.make("deprecate", deprecateConfig, (input) =>
-  handleDeprecate(input).pipe(withRuntime("deprecate", { registry: input.registry })),
+  handleDeprecate(input).pipe(withRuntime({ registry: input.registry })),
 ).pipe(
   withArgvTracking(deprecateConfig),
   withCommandCapabilities(deprecateCapabilities),
@@ -383,7 +383,7 @@ export const deprecateCommand = Command.make("deprecate", deprecateConfig, (inpu
 export const undeprecateCommand = Command.make(
   "undeprecate",
   extensionRefConfig,
-  ({ ref, registry }) => handleUndeprecate(ref).pipe(withRuntime("undeprecate", { registry })),
+  ({ ref, registry }) => handleUndeprecate(ref).pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(extensionRefConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
@@ -397,7 +397,7 @@ export const undeprecateCommand = Command.make(
 );
 
 export const archiveCommand = Command.make("archive", archiveConfig, (input) =>
-  handleArchive(input).pipe(withRuntime("archive", { registry: input.registry })),
+  handleArchive(input).pipe(withRuntime({ registry: input.registry })),
 ).pipe(
   withArgvTracking(archiveConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
@@ -412,7 +412,7 @@ export const archiveCommand = Command.make("archive", archiveConfig, (input) =>
 );
 
 export const unarchiveCommand = Command.make("unarchive", extensionRefConfig, ({ ref, registry }) =>
-  handleUnarchive(ref).pipe(withRuntime("unarchive", { registry })),
+  handleUnarchive(ref).pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(extensionRefConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),

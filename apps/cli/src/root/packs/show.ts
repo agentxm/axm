@@ -75,7 +75,7 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (
   agents: ReadonlyArray<string> = [],
 ) {
   const result = yield* withLiveOperation(
-    { command: "packs.show", name: "Inspect pack", mode: "query" },
+    { name: "Inspect pack", mode: "query" },
     Effect.catchTag(ShowPack.query({ target, agents }), "PackInspectionRefused", (failure) =>
       Effect.fail(packInspectionRefusedToAppError(failure)),
     ),
@@ -118,7 +118,7 @@ const showConfig = {
 } as const;
 
 export const showCommand = Command.make("show", showConfig, ({ target, scope, agent }) =>
-  handlePacksShow(target, agent).pipe(withWorkspace(scope), withRuntime("packs show")),
+  handlePacksShow(target, agent).pipe(withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(showConfig),
   withCommandCapabilities(readOnlyCapabilities()),

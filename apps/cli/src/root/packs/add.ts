@@ -37,7 +37,7 @@ const addConfig = {
 export const addCommand = Command.make("add", addConfig, ({ pack, extension, preview }) =>
   handlePacksAdd({ pack, extension, preview }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withRuntime("packs add"),
+    withRuntime(),
   ),
 ).pipe(
   withArgvTracking(addConfig),

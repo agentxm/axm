@@ -33,7 +33,6 @@ const skillsUpdate = (args: {
   readonly preview?: boolean;
 }) =>
   handleWorkspaceUpdate({
-    command: "skills.update",
     type: Option.some("skill"),
     planName: "Update skills",
     planDescription: Option.some("Update configured skills"),

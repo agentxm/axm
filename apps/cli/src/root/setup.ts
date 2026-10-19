@@ -368,7 +368,7 @@ export const setupCommand = Command.make(
       yes,
       preview,
       ...(agent.length > 0 ? { agents: agent } : {}),
-    }).pipe(withProjectionOutputPosture({ replaceUnrecorded }), withRuntime("setup"));
+    }).pipe(withProjectionOutputPosture({ replaceUnrecorded }), withRuntime());
   },
 ).pipe(
   withArgvTracking(setupConfig),

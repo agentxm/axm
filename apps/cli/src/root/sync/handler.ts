@@ -44,7 +44,6 @@ export interface HandleSyncArgs {
 export const handleSync = (args: HandleSyncArgs) =>
   withOperationLifecycle(
     {
-      command: "sync",
       mode: args.preview === true ? "preview" : "apply",
       planName: "Sync workspace",
       productActivity: { activity: "restore", activationEligible: false },

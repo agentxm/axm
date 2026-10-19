@@ -118,7 +118,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
       machineOutput || Option.getOrElse(yield* nonInteractiveFlag, () => false) || (yield* isCI);
 
     const outcome = yield* withLiveOperation(
-      { command: "auth.login", name: `Sign in to ${registry.host}`, mode: "apply" },
+      { name: `Sign in to ${registry.host}`, mode: "apply" },
       login(
         {
           yes: options.yes,
@@ -173,7 +173,7 @@ export const loginCommand = Command.make(
         onNone: () => ({}),
         onSome: (waitForHumanSeconds) => ({ waitForHumanSeconds }),
       }),
-    }).pipe(withRuntime("auth login", { registry })),
+    }).pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(loginConfig),
   withCommandCapabilities(loginCapabilities),

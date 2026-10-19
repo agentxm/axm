@@ -117,7 +117,7 @@ export const lintCommand = Command.make(
       fix,
       preview,
       view: staged ? "git-index" : "filesystem",
-    }).pipe(withRuntime("lint")),
+    }).pipe(withRuntime()),
 ).pipe(
   withArgvTracking(lintConfig),
   withCommandCapabilities(lintCapabilities),

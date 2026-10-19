@@ -14,22 +14,23 @@
  * after confirmation, for revalidation through apply.
  */
 
+import {
+  OperationScratchBudget,
+  MAX_OPERATION_SCRATCH_BYTES,
+  makeOperationScratchBudget,
+} from "@agentxm/workspace-kernel/acquisition";
+import { OperationRequestBudget, makeOperationRequestBudget } from "@agentxm/host-primitives";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Path from "effect/Path";
 import {
-  OperationRequestBudget,
   OperationExtractionBudget,
   OperationBufferedArchiveBudget,
-  OperationScratchBudget,
   RegistryRetryObservation,
-  MAX_OPERATION_SCRATCH_BYTES,
   makeOperationExtractionBudget,
   makeOperationBufferedArchiveBudget,
-  makeOperationScratchBudget,
   MAX_OPERATION_BUFFERED_ARCHIVE_BYTES,
-  makeOperationRequestBudget,
 } from "@agentxm/registry-client";
 
 import {

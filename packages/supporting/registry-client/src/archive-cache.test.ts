@@ -21,7 +21,6 @@ import * as Ref from "effect/Ref";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { computeIntegrity } from "@agentxm/host-primitives";
 import { makeArchiveCache } from "./archive-cache.js";
-import { resolveAxmCacheRootPure } from "./cache-root.js";
 import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import { RegistryOperationFailed } from "./errors.js";
 
@@ -55,31 +54,6 @@ describe("ArchiveCache", () => {
       }),
     ),
   );
-
-  it("resolves the platform-native cache root", () => {
-    expect(resolveAxmCacheRootPure(nodePath.join, "darwin", "/Users/test", {})).toBe(
-      nodePath.join("/Users/test", "Library", "Caches", "axm"),
-    );
-    expect(
-      resolveAxmCacheRootPure(nodePath.join, "linux", "/home/test", {
-        xdgCacheHome: "/var/cache/test",
-      }),
-    ).toBe(nodePath.join("/var/cache/test", "axm"));
-    expect(
-      resolveAxmCacheRootPure(nodePath.win32.join, "win32", "C:\\Users\\test", {
-        localAppData: "D:\\LocalData",
-      }),
-    ).toBe(nodePath.win32.join("D:\\LocalData", "axm", "cache"));
-  });
-
-  it("uses AXM_USER_HOME as a hermetic cache-home override", () => {
-    expect(
-      resolveAxmCacheRootPure(nodePath.join, "linux", "/home/test", {
-        axmUserHome: "/tmp/axm-home",
-        xdgCacheHome: "/var/cache/test",
-      }),
-    ).toBe(nodePath.join("/tmp/axm-home", ".cache", "axm"));
-  });
 
   it.effect("writes atomically and returns verified archive bytes", () =>
     withCache((cacheRoot) =>

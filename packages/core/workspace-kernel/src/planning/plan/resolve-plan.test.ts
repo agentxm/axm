@@ -1,3 +1,8 @@
+import {
+  MAX_OPERATION_SCRATCH_BYTES,
+  OperationScratchBudget,
+  makeOperationScratchBudget,
+} from "../../acquisition/index.js";
 import { WorkspaceTransactionScopeLive } from "../../settlement/live.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -15,11 +20,6 @@ import {
   decodeExtensionNameSync,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import {
-  MAX_OPERATION_SCRATCH_BYTES,
-  OperationScratchBudget,
-  makeOperationScratchBudget,
-} from "@agentxm/registry-client";
 
 import {
   applyPlanExecution,

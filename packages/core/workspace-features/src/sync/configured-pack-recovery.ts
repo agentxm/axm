@@ -13,13 +13,13 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { OperationRequestBudget } from "@agentxm/host-primitives";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { OperationRequestBudget } from "@agentxm/registry-client";
 import {
   extensionRefName,
   type ExtensionRef,

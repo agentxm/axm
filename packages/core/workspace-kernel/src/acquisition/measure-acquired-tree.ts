@@ -1,11 +1,10 @@
+import { MAX_ACQUIRED_TREE_BYTES } from "./scratch-budget.js";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import { validateContainedLink } from "../locations/index.js";
 import * as Path from "effect/Path";
-
-import { MAX_ACQUIRED_TREE_BYTES } from "@agentxm/registry-client";
 
 export const MAX_ACQUIRED_TREE_ENTRIES = 10_000;
 

@@ -7659,7 +7659,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Source acquisitions share an operation scratch limit
 
 - Requirement: `registry-client/operation-scratch-is-bounded`
-- Owner: `registry-client`
+- Owner: `workspace-kernel`
 - Statement: AXM shall reserve finite scratch capacity before source acquisition, wait when unsettled reservations can release capacity, refuse retained over-capacity work with a typed resource failure, release unused capacity after measuring the acquired tree, and release retained capacity when its resource scope closes.
 - Class: functional
 - Role: supporting
@@ -7668,7 +7668,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Controlled child scopes and small capacities make admission, refinement, refusal, and release observable without allocating large files.
 - Methods: boundary-value, example
 - Derived from: `docs/architecture/workspace/execution.md`
-- Source: [`packages/supporting/registry-client/src/operation-scratch-is-bounded.spec.ts`](../packages/supporting/registry-client/src/operation-scratch-is-bounded.spec.ts)
+- Source: [`packages/core/workspace-kernel/src/acquisition/operation-scratch-is-bounded.spec.ts`](../packages/core/workspace-kernel/src/acquisition/operation-scratch-is-bounded.spec.ts)
 
 ##### Verified source content stays scoped across delayed confirmation
 

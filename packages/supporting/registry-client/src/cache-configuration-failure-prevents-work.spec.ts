@@ -9,7 +9,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 import { makeUserArchiveCache } from "./archive-cache.js";
-import { resolveAxmCacheRoot } from "./cache-root.js";
+import { resolveAxmCacheRoot } from "@agentxm/host-primitives";
 import { makeRegistryClientFactory } from "./registry-client-factory.js";
 import { passThroughRegistryAuthorization } from "./testing.js";
 

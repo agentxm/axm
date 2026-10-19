@@ -1,3 +1,4 @@
+import { OperationRequestBudget } from "@agentxm/host-primitives";
 import { RegistryFailureObservation } from "./failure-observation.js";
 import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Cause from "effect/Cause";
@@ -5,12 +6,9 @@ import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as RcMap from "effect/RcMap";
 import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
-import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
-import type * as Scope from "effect/Scope";
 
 import {
   isAnyRegistryClientError,
@@ -53,50 +51,6 @@ export class RegistryRetryObservation extends ServiceMap.Service<
     readonly ended: (requestId: string) => Effect.Effect<void>;
   }
 >()("@agentxm/registry-client/request-policy/RegistryRetryObservation") {}
-
-export interface OperationRequestBudgetService {
-  readonly capacity: number;
-  readonly withAttempt: <A, E, R>(
-    origin: string,
-    effect: Effect.Effect<A, E, R>,
-  ) => Effect.Effect<A, E, R>;
-}
-
-/** Shared by all Registry reads and downloads in one CLI operation. */
-export class OperationRequestBudget extends ServiceMap.Service<
-  OperationRequestBudget,
-  OperationRequestBudgetService
->()("@agentxm/registry-client/request-policy/OperationRequestBudget") {}
-
-export const makeOperationRequestBudget = (limits: {
-  readonly invocation: number;
-  readonly origin: number;
-}): Effect.Effect<OperationRequestBudgetService, never, Scope.Scope> =>
-  Effect.gen(function* () {
-    if (
-      !Number.isSafeInteger(limits.invocation) ||
-      limits.invocation < 1 ||
-      !Number.isSafeInteger(limits.origin) ||
-      limits.origin < 1
-    ) {
-      return yield* Effect.die(new Error("Request limits must be positive finite integers"));
-    }
-    const invocation = yield* Semaphore.make(limits.invocation);
-    // Borrow before waiting: the last active request cannot retire an origin
-    // while another request for that origin is queued for its permit.
-    const origins = yield* RcMap.make({
-      lookup: (_origin: string) => Semaphore.make(limits.origin),
-    });
-    return {
-      capacity: limits.invocation,
-      withAttempt: (origin, effect) =>
-        Effect.scoped(
-          Effect.flatMap(RcMap.get(origins, origin), (originSemaphore) =>
-            originSemaphore.withPermit(invocation.withPermit(effect)),
-          ),
-        ),
-    } satisfies OperationRequestBudgetService;
-  });
 
 export const DEFAULT_REGISTRY_REQUEST_POLICY: RegistryRequestPolicy = {
   requestTimeout: "10 seconds",

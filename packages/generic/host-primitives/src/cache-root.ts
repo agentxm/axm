@@ -4,7 +4,7 @@ import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { configuredUserHome, osHomeDirectory } from "@agentxm/host-primitives";
+import { configuredUserHome, osHomeDirectory } from "./user-home.js";
 
 export interface AxmCacheEnvironment {
   readonly axmUserHome?: string;

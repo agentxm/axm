@@ -198,8 +198,10 @@ settings, the lockfile, and discovery configuration under `desired/`, the read
 model under `observed/`, and the readers, writers, and graphs derived from
 them. The two subfolders are organisational; no direction between them is
 enforced yet. `workspace-kernel/acquisition` owns bounded acquisition of
-extension content into canonical directories, together with the Git transport
-context and archive path selection that lifecycle and publishing code share.
+extension content into canonical directories, including the per-operation
+scratch budget every source acquisition reserves, together with the Git
+transport context and archive path selection that lifecycle and publishing code
+share.
 
 `workspace-kernel/planning` owns the mechanics for safely applying a plan,
 never the feature policy that decides which plan should exist. Every feature
@@ -426,9 +428,9 @@ services.
 `packages/generic/` — `domain:generic`. They may depend only on other generic
 packages; every strategic tier may import them subject to the role matrix.
 
-| Package                    | Role              | Owns                                                                                                                                                                                                                                                      |
-| -------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/host-primitives` | `role:capability` | Atomic single-file replacement and stale temporary-file sweep, SRI digests, credential redaction, the file-location codec, process-environment readers, loopback host recognition, and user-home / AXM-home resolution; private and bundled into `axm.sh` |
+| Package                    | Role              | Owns                                                                                                                                                                                                                                                                                                      |
+| -------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/host-primitives` | `role:capability` | Atomic single-file replacement and stale temporary-file sweep, SRI digests, credential redaction, the file-location codec, process-environment readers, loopback host recognition, per-operation request admission, and user-home / AXM-home and cache-root resolution; private and bundled into `axm.sh` |
 
 ## Engineering libraries
 

@@ -41,12 +41,9 @@ export type {
 export {
   DEFAULT_REGISTRY_REQUEST_POLICY,
   PUBLISH_REGISTRY_REQUEST_POLICY,
-  OperationRequestBudget,
   RegistryRetryObservation,
   executeRegistryRequest,
-  makeOperationRequestBudget,
   type RegistryRequestPolicy,
-  type OperationRequestBudgetService,
   type RegistryRequestReplaySafety,
   type RegistryRetryWait,
 } from "./request-policy.js";
@@ -63,15 +60,6 @@ export {
   withBufferedArchiveBudget,
   type OperationBufferedArchiveBudgetService,
 } from "./buffered-archive-budget.js";
-export {
-  MAX_ACQUIRED_TREE_BYTES,
-  MAX_OPERATION_SCRATCH_BYTES,
-  OperationScratchBudget,
-  OperationScratchLimitExceeded,
-  makeOperationScratchBudget,
-  type OperationScratchBudgetService,
-  type OperationScratchReservation,
-} from "./scratch-budget.js";
 
 export type {
   ArchiveCache,
@@ -80,11 +68,6 @@ export type {
   ArchiveCacheStatus,
   ArchiveCacheVerifyResult,
 } from "./archive-cache.js";
-export {
-  resolveAxmCacheRoot,
-  resolveAxmCacheRootPure,
-  type AxmCacheEnvironment,
-} from "./cache-root.js";
 export {
   ARCHIVE_CACHE_MAX_AGE,
   ARCHIVE_CACHE_MAX_BYTES,

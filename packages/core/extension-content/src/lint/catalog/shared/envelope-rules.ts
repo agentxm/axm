@@ -1,8 +1,7 @@
 /**
- * The five-rule manifest envelope every non-pack per-extension catalog ships.
+ * The manifest envelope every per-extension catalog builds from.
  *
- * `skill`, `subagent`, `mcp-server`, `hook`, `rule`, and `knowledge` each
- * enforce the same five invariants against their own
+ * Every extension type enforces the same invariants against its own
  * manifest:
  *
  * 1. `<ns>/manifest-present`             — the manifest file exists.
@@ -11,10 +10,12 @@
  * 4. `<ns>/standalone-declaration-valid` — `standalone: false` names its packs.
  * 5. `<ns>/recommended-packs-valid`      — recommended packs are bare FQNs.
  *
- * Rules 1, 4, and 5 already had factories; rules 2 and 3 were hand-copied per
- * type. This module composes all five so a new extension type's envelope is
- * one call, and so the publish-safe barrel (`lint/publish.ts`) and the
- * `axm lint` catalog (`catalog/<type>.ts`) build from the same definitions.
+ * All seven catalogs (`skill`, `pack`, `subagent`, `mcp-server`, `hook`,
+ * `rule`, `knowledge`) take their envelope rules from
+ * {@link makeManifestEnvelopeRules}. Packs carry no `standalone` or
+ * `recommendedPacks` fields, so the pack catalog registers only rules 1-3.
+ * The named record lets a catalog interleave its own rules (the skill
+ * frontmatter rules, for example) without splicing an opaque array.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -22,6 +23,7 @@
 
 import * as Effect from "effect/Effect";
 import type * as Schema from "effect/Schema";
+import type { ExtensionFileAccessor } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
 import { makeManifestPresentRule } from "./manifest-present.js";
 import {
@@ -44,6 +46,8 @@ export type ManifestEnvelopeSchema<A, I> = Schema.Codec<A, I> & {
   readonly fields: Readonly<Record<string, unknown>>;
 };
 
+type ManifestFileAccessor = Pick<ExtensionFileAccessor, "exists">;
+
 /**
  * Per-catalog parameters for {@link makeManifestEnvelopeRules}.
  *
@@ -64,6 +68,14 @@ export interface ManifestEnvelopeOptions<C, A, I> {
   readonly presentMissingMessage: string;
   /** `description` for `<ns>/manifest-schema-valid`. */
   readonly schemaDescription: string;
+  /** Accessor rooted where the manifest lives; defaults to `context.files`. */
+  readonly getFiles?: (context: C) => ManifestFileAccessor;
+  /**
+   * Whether the context is expected to carry a manifest at all. Every
+   * envelope rule produces no findings for a context it does not apply to.
+   * Defaults to every context.
+   */
+  readonly applies?: (context: C) => boolean;
 }
 
 /**
@@ -85,20 +97,23 @@ export interface ManifestEnvelopeRules<C> {
  *
  * The context only has to expose a `files` accessor with `exists`; the
  * manifest value itself is read through `options.manifestJson`, so the factory
- * never assumes a subject field name.
+ * never assumes a subject field name. A context outside `options.applies` is
+ * treated as carrying no manifest, which every rule after
+ * `<ns>/manifest-present` already skips.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const makeManifestEnvelopeRules = <
-  C extends { readonly files: { readonly exists: (path: string) => Effect.Effect<boolean> } },
-  A,
-  I,
->(
+export const makeManifestEnvelopeRules = <C extends { readonly files: ManifestFileAccessor }, A, I>(
   options: ManifestEnvelopeOptions<C, A, I>,
 ): ManifestEnvelopeRules<C> => {
   const schemaValidRuleId = `${options.namespace}/manifest-schema-valid`;
   const keysRecognizedRuleId = `${options.namespace}/manifest-keys-recognized`;
   const allowedKeys = structFieldKeys(options.schema);
+  const applies = options.applies;
+  const manifestJson =
+    applies === undefined
+      ? options.manifestJson
+      : (context: C): unknown => (applies(context) ? options.manifestJson(context) : undefined);
 
   return {
     manifestPresent: makeManifestPresentRule<C>({
@@ -106,6 +121,8 @@ export const makeManifestEnvelopeRules = <
       description: options.presentDescription,
       manifestFile: options.manifestFile,
       missingMessage: options.presentMissingMessage,
+      ...(options.getFiles === undefined ? {} : { getFiles: options.getFiles }),
+      ...(applies === undefined ? {} : { applies }),
     }),
     manifestSchemaValid: {
       id: schemaValidRuleId,
@@ -118,7 +135,7 @@ export const makeManifestEnvelopeRules = <
           "error",
           options.manifestFile,
           options.schema,
-          options.manifestJson(context),
+          manifestJson(context),
         ),
     },
     manifestKeysRecognized: {
@@ -133,19 +150,19 @@ export const makeManifestEnvelopeRules = <
             "error",
             options.manifestFile,
             allowedKeys,
-            options.manifestJson(context),
+            manifestJson(context),
           ),
         ),
     },
     standaloneDeclarationValid: makeStandaloneDeclarationValidRule<C>({
       namespace: options.namespace,
       manifestFile: options.manifestFile,
-      manifestJson: options.manifestJson,
+      manifestJson,
     }),
     recommendedPacksValid: makeRecommendedPacksValidRule<C>({
       namespace: options.namespace,
       manifestFile: options.manifestFile,
-      manifestJson: options.manifestJson,
+      manifestJson,
     }),
   };
 };

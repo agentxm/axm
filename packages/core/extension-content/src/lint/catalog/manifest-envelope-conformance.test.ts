@@ -209,7 +209,7 @@ const missingSkillManifestContext = makeSkillContext({
   skillMarkdown: validSkillMarkdown,
   manifestPresent: false,
 });
-registerConformance("skill", skillRules, [
+const skillCases: ReadonlyArray<RuleConformanceCase<SkillRuleContext>> = [
   {
     ruleId: "skill/skill-md-present",
     satisfied: validSkillContext,
@@ -278,7 +278,38 @@ registerConformance("skill", skillRules, [
     inapplicable: missingSkillManifestContext,
     location: "skill.json",
   },
-]);
+];
+registerConformance("skill", skillRules, skillCases);
+
+describe("skill manifest envelope applicability", () => {
+  const envelopeRuleIds = new Set([
+    "skill/manifest-present",
+    "skill/manifest-schema-valid",
+    "skill/manifest-keys-recognized",
+    "skill/standalone-declaration-valid",
+    "skill/recommended-packs-valid",
+  ]);
+  const skillEnvelopeCases = skillCases.filter(({ ruleId }) => envelopeRuleIds.has(ruleId));
+
+  it("covers every skill.json rule", () => {
+    expect(skillEnvelopeCases.map(({ ruleId }) => ruleId).sort()).toEqual(
+      [...envelopeRuleIds].sort(),
+    );
+  });
+
+  for (const testCase of skillEnvelopeCases) {
+    it.effect(`${testCase.ruleId} produces no findings for a non-native skill`, () =>
+      Effect.gen(function* () {
+        const rule = findRule(skillRules, testCase.ruleId);
+        const nonNative: SkillRuleContext = {
+          ...testCase.violated,
+          subject: { ...testCase.violated.subject, isNative: false },
+        };
+        expect(yield* rule.check(nonNative)).toEqual([]);
+      }),
+    );
+  }
+});
 
 const validPackManifest = {
   owner: "@acme",
@@ -318,6 +349,38 @@ registerConformance("pack", packRules, [
     location: "pack.json",
   },
 ]);
+
+describe("pack manifest envelope edge arms", () => {
+  it.effect("flags a forbidden `packs:` section and every other unknown key", () =>
+    Effect.gen(function* () {
+      const rule = findRule(packRules, "pack/manifest-keys-recognized");
+      const findings = yield* rule.check(
+        makePackContext({
+          ...validPackManifest,
+          packs: { "@acme/packs/other": "^1.0.0" },
+          made_up: "x",
+        }),
+      );
+      expect(findings.map(({ message }) => message)).toEqual([
+        expect.stringContaining("packs"),
+        expect.stringContaining("made_up"),
+      ]);
+    }),
+  );
+
+  it.effect("rejects a non-object manifest without enumerating its keys", () =>
+    Effect.gen(function* () {
+      const context = makePackContext("a string");
+      const schemaFindings = yield* findRule(packRules, "pack/manifest-schema-valid").check(
+        context,
+      );
+      expect(schemaFindings.length).toBeGreaterThan(0);
+      expect(yield* findRule(packRules, "pack/manifest-keys-recognized").check(context)).toEqual(
+        [],
+      );
+    }),
+  );
+});
 
 const subagentManifest = {
   owner: "@acme",

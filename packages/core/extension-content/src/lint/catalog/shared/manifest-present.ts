@@ -5,11 +5,11 @@
  */
 
 import * as Effect from "effect/Effect";
+import type { ExtensionFileAccessor } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule, Severity } from "../../rule.js";
 
-interface ManifestFileAccessor {
-  readonly exists: (path: string) => Effect.Effect<boolean>;
-}
+/** A manifest presence check only needs the accessor's `exists`. */
+type ManifestFileAccessor = Pick<ExtensionFileAccessor, "exists">;
 
 interface ManifestPresentRuleContext {
   readonly files: ManifestFileAccessor;

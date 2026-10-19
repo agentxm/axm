@@ -9,11 +9,10 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { isTomlTable, parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 import { osHomeDirectory } from "@agentxm/host-primitives";
@@ -500,14 +499,7 @@ export const mavenReader: PackageReader = {
             `${groupId}:${artifactId}@${version}/META-INF/agent-extensions.json`,
           );
           if (Option.isSome(parsed)) {
-            const metaResult = yield* decodeAgentExtensions(parsed.value);
-            if (Result.isFailure(metaResult)) {
-              yield* Effect.logWarning(
-                `Invalid agentExtensions metadata in ${groupId}:${artifactId}@${version}: schema validation failed`,
-              );
-              return Option.none();
-            }
-            return Option.some(metaResult.success.agentExtensions);
+            return yield* readAgentExtensions(parsed.value, `${groupId}:${artifactId}@${version}`);
           }
         }
       }
@@ -542,14 +534,10 @@ export const mavenReader: PackageReader = {
                 `${groupId}:${artifactId}@${version}/META-INF/agent-extensions.json`,
               );
               if (Option.isSome(parsed)) {
-                const metaResult = yield* decodeAgentExtensions(parsed.value);
-                if (Result.isFailure(metaResult)) {
-                  yield* Effect.logWarning(
-                    `Invalid agentExtensions metadata in ${groupId}:${artifactId}@${version}: schema validation failed`,
-                  );
-                  return Option.none();
-                }
-                return Option.some(metaResult.success.agentExtensions);
+                return yield* readAgentExtensions(
+                  parsed.value,
+                  `${groupId}:${artifactId}@${version}`,
+                );
               }
             }
           }

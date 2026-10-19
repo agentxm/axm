@@ -9,11 +9,9 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envWithDefault, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
+import { envOrHomePath, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -177,11 +175,7 @@ export const gemDetector: PackageDetector = {
  * Resolve the GEM_HOME or default gem installation directory.
  * Uses GEM_HOME env var, falling back to the default Ruby gems directory.
  */
-const resolveGemDir = () =>
-  Effect.gen(function* () {
-    const home = yield* osHomeDirectory;
-    return yield* envWithDefault("GEM_HOME", `${home}/.gem/ruby`);
-  });
+const resolveGemDir = () => envOrHomePath("GEM_HOME", ".gem/ruby");
 
 /**
  * Parse the `agent_extensions` value from a gemspec metadata string.
@@ -235,15 +229,7 @@ export const gemReader: PackageReader = {
         const metadata = parseAgentExtensionsFromGemspec(content.value);
         if (metadata === undefined) return Option.none();
 
-        const metaResult = yield* decodeAgentExtensions(metadata);
-        if (Result.isFailure(metaResult)) {
-          yield* Effect.logWarning(
-            `Invalid agentExtensions metadata in ${gemName}-${version}: schema validation failed`,
-          );
-          return Option.none();
-        }
-
-        return Option.some(metaResult.success.agentExtensions);
+        return yield* readAgentExtensions(metadata, `${gemName}-${version}`);
       }
 
       // No version - scan specs directory for matching gemspec
@@ -262,15 +248,7 @@ export const gemReader: PackageReader = {
       const metadata = parseAgentExtensionsFromGemspec(content.value);
       if (metadata === undefined) return Option.none();
 
-      const metaResult = yield* decodeAgentExtensions(metadata);
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in ${gemName}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions(metadata, `${gemName}`);
     },
     Effect.annotateLogs({ reader: "gem" }),
     Effect.withSpan("read.gem"),

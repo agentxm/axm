@@ -16,7 +16,7 @@ import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
+import { readAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageReader } from "./types.js";
 
 const huggingfaceType = Schema.decodeUnknownSync(PackageTypeSchema)("huggingface");
@@ -122,15 +122,7 @@ export const huggingfaceReader: PackageReader = {
 
       if (containerResult.success.agentExtensions === undefined) return Option.none();
 
-      const metaResult = yield* decodeAgentExtensions(parsed.value);
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions(parsed.value, `${pkg.purl.name}`);
     },
     Effect.annotateLogs({ reader: "huggingface" }),
     Effect.withSpan("read.huggingface"),

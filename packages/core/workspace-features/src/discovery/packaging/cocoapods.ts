@@ -9,10 +9,9 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -216,15 +215,7 @@ export const cocoapodsReader: PackageReader = {
       if (Option.isNone(parsed)) return Option.none();
 
       // Validate agentExtensions metadata structure
-      const metaResult = yield* decodeAgentExtensions(parsed.value);
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in ${podName}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions(parsed.value, `${podName}`);
     },
     Effect.annotateLogs({ reader: "cocoapods" }),
     Effect.withSpan("read.cocoapods"),

@@ -10,10 +10,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -194,14 +193,7 @@ export const hexReader: PackageReader = {
           `${pkgName}/agent-extensions.json`,
         );
         if (Option.isSome(parsed)) {
-          const metaResult = yield* decodeAgentExtensions(parsed.value);
-          if (Result.isFailure(metaResult)) {
-            yield* Effect.logWarning(
-              `Invalid agentExtensions metadata in ${pkgName}/agent-extensions.json: schema validation failed`,
-            );
-            return Option.none();
-          }
-          return Option.some(metaResult.success.agentExtensions);
+          return yield* readAgentExtensions(parsed.value, `${pkgName}/agent-extensions.json`);
         }
       }
 
@@ -212,14 +204,7 @@ export const hexReader: PackageReader = {
       if (Option.isSome(hexMetaContent)) {
         const axmData = parseHexMetadataExtra(hexMetaContent.value);
         if (axmData !== undefined) {
-          const metaResult = yield* decodeAgentExtensions(axmData);
-          if (Result.isFailure(metaResult)) {
-            yield* Effect.logWarning(
-              `Invalid agentExtensions metadata in ${pkgName}/hex_metadata.config: schema validation failed`,
-            );
-            return Option.none();
-          }
-          return Option.some(metaResult.success.agentExtensions);
+          return yield* readAgentExtensions(axmData, `${pkgName}/hex_metadata.config`);
         }
       }
 

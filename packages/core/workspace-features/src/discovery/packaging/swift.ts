@@ -8,14 +8,13 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import {
   PackageUrlPartsSchema,
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const swiftType = Schema.decodeUnknownSync(PackageTypeSchema)("swift");
@@ -174,15 +173,7 @@ export const swiftReader: PackageReader = {
       if (Option.isNone(parsed)) return Option.none();
 
       // Validate agentExtensions metadata structure
-      const metaResult = yield* decodeAgentExtensions(parsed.value);
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions(parsed.value, `${pkg.purl.name}`);
     },
     Effect.annotateLogs({ reader: "swift" }),
     Effect.withSpan("read.swift"),

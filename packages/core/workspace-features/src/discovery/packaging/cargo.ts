@@ -9,11 +9,9 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envWithDefault, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
+import { envOrHomePath, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { isTomlTable, parseTomlDocument, tomlTable, type TomlTable } from "./toml.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -142,11 +140,7 @@ export const cargoDetector: PackageDetector = {
 /**
  * Resolve the CARGO_HOME, defaulting to ~/.cargo when not set.
  */
-const resolveCargoHome = () =>
-  Effect.gen(function* () {
-    const home = yield* osHomeDirectory;
-    return yield* envWithDefault("CARGO_HOME", `${home}/.cargo`);
-  });
+const resolveCargoHome = () => envOrHomePath("CARGO_HOME", ".cargo");
 
 /**
  * Read `package.metadata.agentExtensions` from a Cargo.toml string.
@@ -220,15 +214,7 @@ export const cargoReader: PackageReader = {
           continue;
         }
 
-        const metaResult = yield* decodeAgentExtensions(metadata);
-        if (Result.isFailure(metaResult)) {
-          yield* Effect.logWarning(
-            `Invalid agentExtensions metadata in ${crateDir}/Cargo.toml: schema validation failed`,
-          );
-          return Option.none();
-        }
-
-        return Option.some(metaResult.success.agentExtensions);
+        return yield* readAgentExtensions(metadata, `${crateDir}/Cargo.toml`);
       }
 
       return Option.none();

@@ -12,7 +12,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const npmType = Schema.decodeUnknownSync(PackageTypeSchema)("npm");
@@ -211,15 +211,7 @@ export const npmReader: PackageReader = {
 
       if (containerResult.success.agentExtensions === undefined) return Option.none();
 
-      const metaResult = yield* decodeAgentExtensions(parsed.value);
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in ${pkgName}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions(parsed.value, `${pkgName}`);
     },
     Effect.annotateLogs({ reader: "npm" }),
     Effect.withSpan("read.npm"),

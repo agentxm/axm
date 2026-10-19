@@ -12,10 +12,9 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 import { osHomeDirectory } from "@agentxm/host-primitives";
@@ -161,15 +160,11 @@ export const zigReader: PackageReader = {
         );
         if (Option.isNone(parsed)) continue;
 
-        const metaResult = yield* decodeAgentExtensions(parsed.value);
-        if (Result.isFailure(metaResult)) {
-          yield* Effect.logWarning(
-            `Invalid agentExtensions metadata in zig cache for ${pkg.purl.name}: schema validation failed`,
-          );
-          continue;
-        }
-
-        return Option.some(metaResult.success.agentExtensions);
+        const recommendations = yield* readAgentExtensions(
+          parsed.value,
+          `zig cache for ${pkg.purl.name}`,
+        );
+        if (Option.isSome(recommendations)) return recommendations;
       }
 
       return Option.none();

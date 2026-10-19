@@ -11,7 +11,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -314,17 +314,12 @@ export const dockerReader: PackageReader = {
       const agentExtensions = yield* parseJsonOptional(encoded, `Docker label for ${imageRef}`);
       if (Option.isNone(agentExtensions)) return Option.none();
 
-      const metaResult = yield* decodeAgentExtensions({
-        agentExtensions: agentExtensions.value,
-      });
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in docker image ${imageRef}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions(
+        {
+          agentExtensions: agentExtensions.value,
+        },
+        `docker image ${imageRef}`,
+      );
     },
     Effect.annotateLogs({ reader: "docker" }),
     Effect.withSpan("read.docker"),

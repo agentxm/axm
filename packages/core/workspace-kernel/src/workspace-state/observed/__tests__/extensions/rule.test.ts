@@ -1,10 +1,8 @@
 /**
  * Rule subject module tests.
  *
- * Rules have no settings/lockfile entry shape in v1, and no agent registers a
- * rule rendering directory. Actual occurrences come exclusively from the
- * canonical-extensions scanner (`type === "rule"`) plus any future agent-dir
- * occurrences declared at the scanner tier.
+ * Actual occurrences come exclusively from the canonical-extensions scanner
+ * (`type === "rule"`); no agent registers a rule rendering directory.
  */
 
 import { describe, expect, it } from "@effect/vitest";

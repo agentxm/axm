@@ -56,7 +56,11 @@ import {
 } from "@agentxm/workspace-kernel/resolution";
 
 import { prepareAcquisitionPlan } from "../prepare-acquisition-plan.js";
-import { withWorkspaceReadView } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  SettingsReader,
+  WorkspaceLocation,
+  withWorkspaceReadView,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { planHookInstall } from "@agentxm/extension-kinds/hooks";
 import { planKnowledgeInstall } from "@agentxm/extension-kinds/knowledge";
 import {
@@ -1083,7 +1087,21 @@ export type ResolveInstallExtensionsRequirements =
 export interface InstallExtensionsResult {
   readonly resolution: OperationResolution;
   readonly installedSkills: ReadonlyArray<InstalledSkill>;
+  /**
+   * Whether what this install settles reaches agents through instruction
+   * files the project workspace has not set up yet. Rules and Knowledge render
+   * into them, and a workspace established unattended leaves that choice open;
+   * the user scope offers no such choice.
+   */
+  readonly instructionFilesPending: boolean;
 }
+
+const instructionFilesPendingFor = (types: ReadonlyArray<InstallableExtensionType>) =>
+  Effect.gen(function* () {
+    if (!types.some((type) => type === "knowledge" || type === "rule")) return false;
+    if ((yield* WorkspaceLocation).scope !== "project") return false;
+    return Option.isNone(yield* (yield* SettingsReader).instructionsConfig);
+  });
 
 /** Preview or apply a settled install, resolving to one operation outcome. */
 export const previewOrApplyInstallExtensions = (
@@ -1101,7 +1119,8 @@ export const previewOrApplyInstallExtensions = (
       resolution,
       "install",
     );
-    return { resolution, installedSkills };
+    const instructionFilesPending = yield* instructionFilesPendingFor(candidate.types);
+    return { resolution, installedSkills, instructionFilesPending };
   });
 
 /** The install use case: settle a request, then preview or apply it. */

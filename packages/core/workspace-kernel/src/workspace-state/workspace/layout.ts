@@ -10,14 +10,10 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { ACQUIRED_EXTENSIONS_DIR, LOCK_FILENAME, USER_WORKSPACE_DIRECTORY } from "./constants.js";
-import { AXM_DIR_NAME } from "@agentxm/host-primitives";
+import { AXM_DIR_NAME, isLexicallyWithin } from "@agentxm/host-primitives";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { Settings } from "../desired/settings/schema.js";
-import {
-  isWithinOrEqual,
-  makeAbsolutePath,
-  type AbsolutePath,
-} from "@agentxm/extension-model/unstable/path-types";
+import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 
 export { LOCK_FILENAME } from "./constants.js";
@@ -112,12 +108,12 @@ const validateLexicalDirectory = (
   }
 
   const resolved = path.resolve(projectRoot, configured);
-  if (!isWithinOrEqual(path, projectRoot, resolved)) {
+  if (!isLexicallyWithin(path, projectRoot, resolved)) {
     return Effect.fail(
       layoutError(`Invalid ${type} authored directory "${configured}": path escapes the workspace`),
     );
   }
-  const collision = reservedRoots.find((reserved) => isWithinOrEqual(path, reserved, resolved));
+  const collision = reservedRoots.find((reserved) => isLexicallyWithin(path, reserved, resolved));
   if (collision !== undefined) {
     return Effect.fail(
       layoutError(
@@ -172,7 +168,7 @@ const validateExistingAuthoredRoot = (
           layoutError(`Failed to resolve ${type} authored root ${root}`, cause),
         ),
       );
-    if (!isWithinOrEqual(path, realProjectRoot, realRoot)) {
+    if (!isLexicallyWithin(path, realProjectRoot, realRoot)) {
       return yield* layoutError(
         `Invalid ${type} authored root ${root}: real path escapes the workspace`,
       );
@@ -225,7 +221,7 @@ export const resolveAuthoredDirectories = (
         reservedRoots,
       );
       for (const [otherType, otherRoot] of roots) {
-        if (isWithinOrEqual(path, otherRoot, root) || isWithinOrEqual(path, root, otherRoot)) {
+        if (isLexicallyWithin(path, otherRoot, root) || isLexicallyWithin(path, root, otherRoot)) {
           return yield* layoutError(
             `Invalid ${extensionType} authored directory ${root}: overlaps ${otherType} authored root ${otherRoot}`,
           );

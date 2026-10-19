@@ -39,6 +39,7 @@ import {
 } from "@agentxm/workspace-kernel/agent-adapters";
 import {
   combineNativeLocationOutcomes,
+  findGitRoot,
   resolveNativeReadLocation,
   type NativeLocationOutcome,
 } from "@agentxm/workspace-kernel/locations";
@@ -91,17 +92,6 @@ export const collectMcpNativeSources = (
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const fs = yield* FileSystem.FileSystem;
-    const exists = (file: string) =>
-      fs.exists(file).pipe(
-        Effect.mapError(
-          () =>
-            new WorkspaceConfigurationFailed({
-              category: "validation",
-              detail: "Cannot inspect native MCP discovery boundary",
-            }),
-        ),
-      );
     const sources: Array<McpNativeSource> = [];
     const skipped = new Map<string, { readonly name: string; readonly reason: string }>();
     const sourceKeys = new Set<string>();
@@ -216,17 +206,22 @@ export const collectMcpNativeSources = (
       }
     }
     if (location.scope === "project" && agentIds.includes("github-copilot-cli")) {
-      let directory = location.baseDir;
+      const gitRoot = yield* findGitRoot(location.baseDir).pipe(
+        Effect.mapError(
+          () =>
+            new WorkspaceConfigurationFailed({
+              category: "validation",
+              detail: "Cannot inspect native MCP discovery boundary",
+            }),
+        ),
+      );
+      // Ancestors above the workspace up to its checkout root also configure Copilot.
       const ancestors: Array<string> = [];
-      while (!(yield* exists(path.join(directory, ".git")))) {
-        const parent = path.dirname(directory);
-        if (parent === directory) {
-          ancestors.length = 0;
-          break;
+      if (Option.isSome(gitRoot))
+        for (let directory = path.resolve(location.baseDir); directory !== gitRoot.value;) {
+          directory = path.dirname(directory);
+          ancestors.push(directory);
         }
-        directory = parent;
-        ancestors.push(directory);
-      }
       for (const ancestorDirectory of ancestors) {
         for (const relative of [".mcp.json", ".github/mcp.json"]) {
           const file = path.join(ancestorDirectory, relative);

@@ -428,9 +428,9 @@ services.
 `packages/generic/` — `domain:generic`. They may depend only on other generic
 packages; every strategic tier may import them subject to the role matrix.
 
-| Package                    | Role              | Owns                                                                                                                                                                                                                                                                                                      |
-| -------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/host-primitives` | `role:capability` | Atomic single-file replacement and stale temporary-file sweep, SRI digests, credential redaction, the file-location codec, process-environment readers, loopback host recognition, per-operation request admission, and user-home / AXM-home and cache-root resolution; private and bundled into `axm.sh` |
+| Package                    | Role              | Owns                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/host-primitives` | `role:capability` | Atomic single-file replacement and stale temporary-file sweep, filesystem absence reads, SRI digests, credential redaction, the file-location codec, lexical path containment, process-environment readers, loopback host recognition, per-operation request admission, and user-home / AXM-home and cache-root resolution; private and bundled into `axm.sh` |
 
 ## Engineering libraries
 

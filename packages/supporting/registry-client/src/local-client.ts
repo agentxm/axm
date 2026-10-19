@@ -49,7 +49,7 @@ import {
   type AgentExtensionRecommendation,
   type AgentExtensionSource,
 } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
-import { writeFileAtomic } from "@agentxm/host-primitives";
+import { isNotFound, writeFileAtomic } from "@agentxm/host-primitives";
 import { withLocalPublicationLock } from "./local-publication-lock.js";
 import {
   packagesToPackageUrlParts,
@@ -266,9 +266,7 @@ const readRegistryDirectory = (
   directory: string,
 ): Effect.Effect<ReadonlyArray<string>, RegistryClientFailure> =>
   fs.readDirectory(directory).pipe(
-    Effect.catchTag("PlatformError", (cause) =>
-      cause.reason._tag === "NotFound" ? Effect.succeed([]) : Effect.fail(cause),
-    ),
+    Effect.catchIf(isNotFound, () => Effect.succeed([])),
     Effect.mapError(
       (cause) =>
         new RegistryOperationFailed({

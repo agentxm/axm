@@ -8,8 +8,6 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -20,6 +18,7 @@ import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/p
 import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import { osHomeDirectory } from "@agentxm/host-primitives";
 
 const zigType = Schema.decodeUnknownSync(PackageTypeSchema)("zig");
 
@@ -140,7 +139,7 @@ export const zigReader: PackageReader = {
       const path = yield* Path.Path;
       const fs = yield* FileSystem.FileSystem;
 
-      const cacheDir = path.join(os.homedir(), ".cache", "zig", "p");
+      const cacheDir = path.join(yield* osHomeDirectory, ".cache", "zig", "p");
 
       // Check if cache directory exists
       const cacheDirExists = yield* fs.exists(cacheDir).pipe(Effect.option);

@@ -23,6 +23,7 @@ import {
   sameRootEntry,
 } from "./path-state.js";
 import { resolveNativeEntry, resolveNativeReferent } from "../locations/index.js";
+import { isRelativeWithin } from "@agentxm/host-primitives";
 
 /** Distinct, resolved targets with any target nested under another dropped. */
 export const normalizedTargets = (
@@ -49,7 +50,7 @@ export const workspaceRelative = (
   target: string,
 ): string => {
   const relative = path.relative(path.dirname(workspaceDir), target);
-  return relative.startsWith("..") ? target : relative;
+  return isRelativeWithin(path, relative) ? relative : target;
 };
 
 const sha256 = (input: string | Uint8Array): string =>

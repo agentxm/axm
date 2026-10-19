@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
+import { isRelativeWithin } from "@agentxm/host-primitives";
 import { recordWorkspacePostimage } from "./context.js";
 
 export interface FootprintObservation {
@@ -53,11 +54,12 @@ export const readFootprint: Effect.Effect<
 export const isWorkspaceFootprint =
   (path: Path.Path, baseDir: string) =>
   (observation: FootprintObservation): boolean =>
-    !(
+    isRelativeWithin(
+      path,
       path.isAbsolute(observation.path)
         ? path.relative(baseDir, observation.path)
-        : observation.path
-    ).startsWith("..");
+        : observation.path,
+    );
 
 export const makeFootprintRecorder: Effect.Effect<
   ServiceMap.Service.Shape<typeof FootprintRecorder>

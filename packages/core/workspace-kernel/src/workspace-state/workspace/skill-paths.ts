@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { extractSkillMetadata, skillDirectoryName } from "@agentxm/extension-content";
@@ -15,6 +16,7 @@ import { sanitizeName } from "./extension-name.js";
 import { computeExtensionPathsForLayout, type ExtensionPathSource } from "./extension-paths.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceLayout } from "./layout.js";
+import { readFileStringIfPresent } from "@agentxm/host-primitives";
 
 /**
  * Minimal structural discriminant for determining skill path layout.
@@ -53,12 +55,8 @@ export const readSkillDirectoryName = (contentRoot: string, packageName: string)
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const content = yield* fs
-      .readFileString(path.join(contentRoot, "SKILL.md"))
-      .pipe(
-        Effect.catch((error) =>
-          error.reason._tag === "NotFound" ? Effect.succeed("") : Effect.fail(error),
-        ),
-      );
+    const content = yield* readFileStringIfPresent(fs, path.join(contentRoot, "SKILL.md")).pipe(
+      Effect.map(Option.getOrElse(() => "")),
+    );
     return skillDirectoryName(extractSkillMetadata(content).name, sanitizeName(packageName));
   });

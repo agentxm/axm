@@ -1,8 +1,9 @@
 /** Runtime files are never shared workspace authority. */
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { writeFileAtomic } from "@agentxm/host-primitives";
+import { readFileStringIfPresent, writeFileAtomic } from "@agentxm/host-primitives";
 import { protectWorkspacePath, recordFootprint } from "../../settlement/index.js";
 import { RuntimeIgnoreWriteError } from "./errors.js";
 
@@ -18,10 +19,8 @@ export const ensureWorkspaceTransientIgnores = (workspaceRoot: string) =>
           (cause) => new RuntimeIgnoreWriteError({ path: filePath, step: "check-target", cause }),
         ),
       );
-    const current = yield* fs.readFileString(filePath).pipe(
-      Effect.catchTag("PlatformError", (error) =>
-        error.reason._tag === "NotFound" ? Effect.succeed("") : Effect.fail(error),
-      ),
+    const current = yield* readFileStringIfPresent(fs, filePath).pipe(
+      Effect.map(Option.getOrElse(() => "")),
       Effect.mapError(
         (cause) => new RuntimeIgnoreWriteError({ path: filePath, step: "read-target", cause }),
       ),

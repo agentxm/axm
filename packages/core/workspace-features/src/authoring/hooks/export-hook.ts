@@ -28,6 +28,7 @@ import {
   nativeHookBundleMetadata,
   readHookResources,
 } from "./interchange.js";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 const failed = (detail: string, cause?: unknown) =>
   new AuthoringFailed({
@@ -47,14 +48,7 @@ export const prepareExportHook = Effect.fn("Hook.prepareExport")(function* (requ
   const source = yield* fs.realPath(path.resolve(location.baseDir, request.directory));
   const destination = path.resolve(location.baseDir, request.destination);
   yield* validatePathSafety(path, location.baseDir, destination);
-  const sourceRelative = path.relative(source, destination);
-  if (
-    destination === location.baseDir ||
-    sourceRelative === "" ||
-    (!sourceRelative.startsWith(`..${path.sep}`) &&
-      sourceRelative !== ".." &&
-      !path.isAbsolute(sourceRelative))
-  )
+  if (destination === location.baseDir || isLexicallyWithin(path, source, destination))
     return yield* failed(
       "Native export requires a new workspace directory outside the source package.",
     );

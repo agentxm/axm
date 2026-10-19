@@ -21,8 +21,9 @@ import { AcceptedResolutionWriter, type Settings } from "@agentxm/workspace-kern
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { LintSummary } from "../runner.js";
+import { isRelativeWithin } from "@agentxm/host-primitives";
 
-export type PathRemapper = Pick<Path.Path, "isAbsolute" | "join" | "relative">;
+export type PathRemapper = Pick<Path.Path, "isAbsolute" | "join" | "relative" | "sep">;
 
 const remapAbsolutePath = (
   value: string,
@@ -32,7 +33,7 @@ const remapAbsolutePath = (
 ): string => {
   if (!path.isAbsolute(value)) return value;
   const relative = path.relative(sourceRoot, value);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) return value;
+  if (!isRelativeWithin(path, relative)) return value;
   return relative === "" ? displayRoot : path.join(displayRoot, relative);
 };
 

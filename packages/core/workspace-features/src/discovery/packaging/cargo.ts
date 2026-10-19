@@ -5,15 +5,13 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envWithDefault } from "@agentxm/host-primitives";
+import { envWithDefault, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import { isTomlTable, parseTomlDocument, tomlTable, type TomlTable } from "./toml.js";
@@ -144,7 +142,11 @@ export const cargoDetector: PackageDetector = {
 /**
  * Resolve the CARGO_HOME, defaulting to ~/.cargo when not set.
  */
-const resolveCargoHome = () => envWithDefault("CARGO_HOME", `${os.homedir()}/.cargo`);
+const resolveCargoHome = () =>
+  Effect.gen(function* () {
+    const home = yield* osHomeDirectory;
+    return yield* envWithDefault("CARGO_HOME", `${home}/.cargo`);
+  });
 
 /**
  * Read `package.metadata.agentExtensions` from a Cargo.toml string.

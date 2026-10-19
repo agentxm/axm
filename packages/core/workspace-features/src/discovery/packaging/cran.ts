@@ -8,14 +8,12 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envWithDefault } from "@agentxm/host-primitives";
+import { envWithDefault, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -157,7 +155,11 @@ export const cranDetector: PackageDetector = {
  * Resolve the R library path.
  * Checks R_LIBS_USER, then defaults to ~/R/library.
  */
-const resolveRLibPath = () => envWithDefault("R_LIBS_USER", `${os.homedir()}/R/library`);
+const resolveRLibPath = () =>
+  Effect.gen(function* () {
+    const home = yield* osHomeDirectory;
+    return yield* envWithDefault("R_LIBS_USER", `${home}/R/library`);
+  });
 
 /**
  * CRAN package reader.

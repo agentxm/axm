@@ -6,9 +6,11 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { findGitRoot, isGitManaged } from "./detect.js";
+import * as FileSystem from "effect/FileSystem";
+import * as PlatformError from "effect/PlatformError";
+import { detectGitRoot, findGitRoot, isGitManaged } from "./git-root.js";
 
-describe("git detection", () => {
+describe("git roots", () => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -70,5 +72,51 @@ describe("git detection", () => {
         expect(managed).toBe(false);
       }),
     ),
+  );
+
+  it.effect("stops at a parent the caller refuses", () =>
+    run(
+      Effect.gen(function* () {
+        const nested = path.join(tempDir, "packages", "demo");
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.mkdirSync(nested, { recursive: true });
+
+        const root = yield* findGitRoot(nested, {
+          continueTo: (parent) => parent !== tempDir,
+        });
+
+        expect(root).toEqual(Option.none());
+      }),
+    ),
+  );
+
+  it.effect("keeps inspection failures typed and lets detection walk past them", () =>
+    Effect.gen(function* () {
+      const unreadable = path.join(tempDir, "unreadable");
+      const failing = FileSystem.makeNoop({
+        exists: (target) =>
+          target === path.join(unreadable, ".git")
+            ? Effect.fail(
+                PlatformError.systemError({
+                  _tag: "PermissionDenied",
+                  module: "FileSystem",
+                  method: "exists",
+                  pathOrDescriptor: target,
+                }),
+              )
+            : Effect.succeed(target === path.join(tempDir, ".git")),
+      });
+
+      const failure = yield* findGitRoot(unreadable).pipe(
+        Effect.provideService(FileSystem.FileSystem, failing),
+        Effect.flip,
+      );
+      const detected = yield* detectGitRoot(unreadable).pipe(
+        Effect.provideService(FileSystem.FileSystem, failing),
+      );
+
+      expect(failure.reason._tag).toBe("PermissionDenied");
+      expect(detected).toEqual(Option.some(tempDir));
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

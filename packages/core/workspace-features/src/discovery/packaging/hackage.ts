@@ -5,8 +5,6 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -17,6 +15,7 @@ import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/p
 import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import { osHomeDirectory } from "@agentxm/host-primitives";
 
 const hackageType = Schema.decodeUnknownSync(PackageTypeSchema)("hackage");
 
@@ -280,7 +279,7 @@ export const hackageReader: PackageReader = {
 
       const pkgName = pkg.purl.name;
       const version = pkg.purl.version;
-      const home = os.homedir();
+      const home = yield* osHomeDirectory;
 
       // Try to find the .cabal file in known locations
 

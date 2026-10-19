@@ -5,8 +5,6 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -18,6 +16,7 @@ import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/p
 import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import { isTomlTable, parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import { osHomeDirectory } from "@agentxm/host-primitives";
 
 const mavenType = Schema.decodeUnknownSync(PackageTypeSchema)("maven");
 
@@ -476,7 +475,7 @@ export const mavenReader: PackageReader = {
   read: Effect.fn("read.maven")(
     function* (pkg: DetectedPackage) {
       const path = yield* Path.Path;
-      const home = os.homedir();
+      const home = yield* osHomeDirectory;
 
       const groupId = pkg.purl.namespace ?? "";
       const artifactId = pkg.purl.name;

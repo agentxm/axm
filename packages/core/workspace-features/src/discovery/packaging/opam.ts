@@ -5,8 +5,6 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -17,6 +15,7 @@ import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/p
 import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import { osHomeDirectory } from "@agentxm/host-primitives";
 
 const opamType = Schema.decodeUnknownSync(PackageTypeSchema)("opam");
 
@@ -273,7 +272,7 @@ export const opamReader: PackageReader = {
       const fs = yield* FileSystem.FileSystem;
 
       const pkgName = pkg.purl.name;
-      const home = os.homedir();
+      const home = yield* osHomeDirectory;
 
       const opamDir = path.join(home, ".opam");
 

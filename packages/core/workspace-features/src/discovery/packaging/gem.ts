@@ -5,15 +5,13 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envWithDefault } from "@agentxm/host-primitives";
+import { envWithDefault, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
@@ -179,7 +177,11 @@ export const gemDetector: PackageDetector = {
  * Resolve the GEM_HOME or default gem installation directory.
  * Uses GEM_HOME env var, falling back to the default Ruby gems directory.
  */
-const resolveGemDir = () => envWithDefault("GEM_HOME", `${os.homedir()}/.gem/ruby`);
+const resolveGemDir = () =>
+  Effect.gen(function* () {
+    const home = yield* osHomeDirectory;
+    return yield* envWithDefault("GEM_HOME", `${home}/.gem/ruby`);
+  });
 
 /**
  * Parse the `agent_extensions` value from a gemspec metadata string.

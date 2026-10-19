@@ -182,10 +182,16 @@ const removeJsonLike = (args: {
   readonly serverName: string;
   readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
+  readonly format: McpConfigTarget["format"];
 }): Effect.Effect<string, McpConfigInvalid> =>
   Effect.gen(function* () {
     if (args.raw.trim().length === 0) return args.raw;
-    const { servers } = yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath);
+    const { servers } = yield* decodeJsonMcpConfig(
+      args.configPath,
+      args.raw,
+      args.serversPath,
+      args.format,
+    );
     const existing = servers?.[args.serverName];
     if (existing === undefined) return args.raw;
     const activation = args.activationField.required;
@@ -215,9 +221,15 @@ const retireJsonLike = (args: {
   readonly raw: string;
   readonly serversPath: McpServersPath;
   readonly serverName: string;
+  readonly format: McpConfigTarget["format"];
 }): Effect.Effect<string, McpConfigInvalid> =>
   Effect.gen(function* () {
-    const { servers } = yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath);
+    const { servers } = yield* decodeJsonMcpConfig(
+      args.configPath,
+      args.raw,
+      args.serversPath,
+      args.format,
+    );
     if (servers?.[args.serverName] === undefined) return args.raw;
     return applyEdits(
       args.raw,
@@ -564,6 +576,7 @@ const renderMcpRemoval = (args: RemoveAgentMcpConfigArgs, configPath: string, ra
           serverName: args.serverName,
           activationField: args.activationField,
           disableOnly: args.disableOnly,
+          format: args.target.format,
         });
     }
   });
@@ -698,6 +711,7 @@ export const retireAgentMcpConfig = (
                   raw,
                   serversPath: args.serversPath,
                   serverName: args.serverName,
+                  format: args.target.format,
                 });
             }
           });

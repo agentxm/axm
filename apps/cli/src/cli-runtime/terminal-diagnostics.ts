@@ -18,6 +18,7 @@ import * as Semaphore from "effect/Semaphore";
 import { serializeErrorCauseChain, type SerializedErrorCause } from "../app-error/cause-chain.js";
 import type { TelemetryFailureReport } from "../telemetry/payloads.js";
 import { collectOwnedSourceFrames } from "./source-frames.js";
+import { writeFileAtomic } from "@agentxm/host-primitives";
 
 export interface TerminalFailureRecord {
   readonly eventId: string;
@@ -134,14 +135,12 @@ export const writeLocalFailureRecord = (record: TerminalFailureRecord, directory
         Schema.isPattern(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u),
       ),
     )(record.eventId);
-    const filename = path.join(root, `${eventId}.json`);
-    const staged = `${filename}.${globalThis.crypto.randomUUID()}.tmp`;
-    yield* fs
-      .writeFileString(staged, `${encodeLocalRecord(record)}\n`, { flag: "wx", mode: 0o600 })
-      .pipe(
-        Effect.andThen(fs.rename(staged, filename)),
-        Effect.ensuring(fs.remove(staged, { force: true }).pipe(Effect.ignore)),
-      );
+    yield* writeFileAtomic(fs, {
+      targetPath: path.join(root, `${eventId}.json`),
+      content: `${encodeLocalRecord(record)}\n`,
+      mode: 0o600,
+      mapError: (failure) => failure.cause,
+    });
     const now = yield* Clock.currentTimeMillis;
     const entries = yield* Effect.forEach(
       (yield* fs.readDirectory(root)).filter((name) =>

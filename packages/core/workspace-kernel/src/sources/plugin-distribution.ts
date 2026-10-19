@@ -7,6 +7,7 @@ import { DISCOVERY_MAX_DEPTH } from "@agentxm/extension-model/unstable/discovery
 import type { DistributionDescriptor } from "@agentxm/extension-model/unstable/extensions/refs/ref-base";
 import type { PluginMarketplaceSelection } from "./plugin-marketplace.js";
 import { SourceNotResolvable } from "./errors.js";
+import { isLexicallyWithin, isRelativeWithin } from "@agentxm/host-primitives";
 
 // Agent Plugins 1.0 core fields are typed; descriptive strings are opaque.
 // Unknown top-level fields remain payload, with no activation semantics.
@@ -81,8 +82,7 @@ export const readPluginDistribution = (
               }),
           ),
         );
-        const relative = path.relative(resolvedRoot, resolved);
-        if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`))
+        if (!isLexicallyWithin(path, resolvedRoot, resolved))
           return yield* new SourceNotResolvable({
             category: "validation",
             detail: `Plugin path escapes its package: ${target}`,
@@ -202,11 +202,7 @@ export const readPluginDistribution = (
       for (const relative of roots) {
         const selected = path.resolve(directory, relative);
         const selectedRelative = path.relative(directory, selected);
-        if (
-          path.isAbsolute(relative) ||
-          selectedRelative === ".." ||
-          selectedRelative.startsWith(`..${path.sep}`)
-        ) {
+        if (path.isAbsolute(relative) || !isRelativeWithin(path, selectedRelative)) {
           return yield* new SourceNotResolvable({
             category: "validation",
             detail: `Plugin skill path escapes its package: ${relative}`,

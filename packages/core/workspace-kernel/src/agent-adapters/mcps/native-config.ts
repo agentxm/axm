@@ -13,11 +13,9 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { parse, type ParseError } from "jsonc-parser";
-import { parse as parseToml } from "smol-toml";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
-import { parseYaml } from "../yaml.js";
+import { parseNativeConfigRoot, type NativeConfigRootFailure } from "../native-config-syntax.js";
 import { assertNativeMutationWithin } from "../../locations/index.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -118,9 +116,25 @@ const readServersMap = (
     return current;
   });
 
+/** MCP wording for a document that does not parse or whose root is not an object. */
+const invalidMcpConfig =
+  (format: McpConfigTarget["format"], configPath: string) =>
+  (failure: NativeConfigRootFailure): McpConfigInvalid =>
+    failure.reason === "shape"
+      ? new McpConfigInvalid({
+          detail: `Invalid MCP config format: ${configPath} (root must be an object)`,
+        })
+      : new McpConfigInvalid({
+          detail:
+            format === "yaml" || format === "toml"
+              ? `Invalid MCP config ${format.toUpperCase()}: ${configPath}`
+              : `Invalid MCP config JSON/JSONC: ${configPath}`,
+          cause: failure.cause,
+        });
+
 /**
- * Decode a JSON, JSONC, Starlark-style, or VS Code settings MCP config. The
- * root and each present ancestor of the servers container must be objects.
+ * Decode an MCP config document through the shared native grammar. The root
+ * and each present ancestor of the servers container must be objects.
  */
 export const decodeJsonMcpConfig = (
   configPath: string,
@@ -129,24 +143,11 @@ export const decodeJsonMcpConfig = (
   format: McpConfigTarget["format"] = "jsonc",
 ): Effect.Effect<DecodedJsonMcpConfig, McpConfigInvalid> =>
   Effect.gen(function* () {
-    const root = yield* Effect.try({
-      try: () => {
-        const errors: Array<ParseError> = [];
-        const parsed: unknown = parse(raw, errors, {
-          allowTrailingComma: format !== "json",
-          disallowComments: format === "json",
-        });
-        if (errors.length > 0) throw errors;
-        return parsed;
-      },
-      catch: (cause) =>
-        new McpConfigInvalid({ detail: `Invalid MCP config JSON/JSONC: ${configPath}`, cause }),
+    const root = yield* parseNativeConfigRoot({
+      format,
+      raw,
+      onFailure: invalidMcpConfig(format, configPath),
     });
-    if (!isRecord(root)) {
-      return yield* new McpConfigInvalid({
-        detail: `Invalid MCP config format: ${configPath} (root must be an object)`,
-      });
-    }
     const servers = yield* readServersMap(root, serversPath, configPath);
     return { root, servers };
   });
@@ -162,39 +163,10 @@ export interface NativeMcpConfigRead {
 export const readNativeMcpDocument = (
   args: NativeMcpConfigRead,
 ): Effect.Effect<Readonly<Record<string, unknown>>, McpConfigInvalid> =>
-  Effect.gen(function* () {
-    if (args.raw.trim().length === 0) return {};
-    switch (args.format) {
-      case "json":
-      case "jsonc":
-      case "starlark":
-      case "vscode-settings":
-        return (yield* decodeJsonMcpConfig(
-          args.configPath,
-          args.raw,
-          args.serversPath,
-          args.format,
-        )).root;
-      case "yaml":
-      case "toml": {
-        const root = yield* Effect.try({
-          try: (): unknown => (args.format === "yaml" ? parseYaml(args.raw) : parseToml(args.raw)),
-          catch: (cause) =>
-            new McpConfigInvalid({
-              detail: `Invalid MCP config ${args.format.toUpperCase()}: ${args.configPath}`,
-              cause,
-            }),
-        });
-        if (root === null || root === undefined) return {};
-        if (!isRecord(root))
-          return yield* new McpConfigInvalid({
-            detail: `Invalid MCP config format: ${args.configPath} (root must be an object)`,
-          });
-        yield* readServersMap(root, args.serversPath, args.configPath);
-        return root;
-      }
-    }
-  });
+  Effect.map(
+    decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath, args.format),
+    ({ root }) => root,
+  );
 
 /** Retain occupied keys even when their individual values are invalid. */
 export const readNativeMcpValues = (

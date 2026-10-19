@@ -33,6 +33,7 @@ import {
   observePathState,
   replacePathState,
 } from "./path-state.js";
+import { isRelativeWithin } from "@agentxm/host-primitives";
 
 export interface WorkspaceTransactionContext {
   readonly claims: BoundaryClaims;
@@ -376,13 +377,7 @@ export const recordWorkspacePostimage = (target: string): Effect.Effect<void> =>
         const snapshots: Array<Snapshot> = [];
         for (const snapshot of ledger.snapshots) {
           const relative = path.relative(snapshot.target, address.value.entryPath);
-          if (
-            snapshot.closure === closure &&
-            (relative === "" ||
-              (!path.isAbsolute(relative) &&
-                relative !== ".." &&
-                !relative.startsWith(`..${path.sep}`)))
-          ) {
+          if (snapshot.closure === closure && isRelativeWithin(path, relative)) {
             const expected = new Map(replacePathState(path, snapshot.expected, relative, actual));
             // Recursive creation adds ancestor entries too. Observe only each
             // directory entry, never absorb unrecorded siblings into AXM's delta.

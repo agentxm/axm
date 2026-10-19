@@ -3,6 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { NativeLocationError, resolveNativeReferent } from "./native-address.js";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 /** A payload link must remain inside its package after that package is relocated. */
 export const validateContainedLink = (root: string, entry: string, target: string) =>
@@ -18,12 +19,7 @@ export const validateContainedLink = (root: string, entry: string, target: strin
     if (path.isAbsolute(target)) return yield* escaped();
     const resolvedRoot = yield* resolveNativeReferent(root);
     let current = yield* resolveNativeReferent(path.dirname(entry));
-    const isContained = (candidate: string) => {
-      const relative = path.relative(resolvedRoot, candidate);
-      return (
-        !path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`)
-      );
-    };
+    const isContained = (candidate: string) => isLexicallyWithin(path, resolvedRoot, candidate);
     if (!isContained(current)) return yield* escaped();
     const segments = (value: string) => value.split(path.sep === "\\" ? /[\\/]/ : "/");
     const pending: Array<string | { readonly leave: string }> = segments(target).reverse();

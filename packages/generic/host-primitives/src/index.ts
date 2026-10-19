@@ -1,3 +1,4 @@
+export * from "./absence.js";
 export * from "./atomic-write.js";
 export * from "./cache-root.js";
 export * from "./credential-redaction.js";
@@ -5,5 +6,6 @@ export * from "./environment.js";
 export * from "./file-location.js";
 export * from "./integrity.js";
 export * from "./loopback.js";
+export * from "./path-containment.js";
 export * from "./request-budget.js";
 export * from "./user-home.js";

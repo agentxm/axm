@@ -57,7 +57,7 @@ import {
   acquiredRootDisplayPath,
   recordedProjectionRows,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { AXM_DIR_NAME } from "@agentxm/host-primitives";
+import { AXM_DIR_NAME, isRelativeWithin } from "@agentxm/host-primitives";
 import {
   type ManifestRuleContext,
   type HookContent,
@@ -357,7 +357,7 @@ const makeProjectionOutputAccessors = (args: {
             args.workspaceRoot,
             path.resolve(args.workspaceRoot, fileName),
           );
-          return relative === "" || relative.startsWith("..") || path.isAbsolute(relative)
+          return relative === "" || !isRelativeWithin(path, relative)
             ? Option.none<string>()
             : Option.some(relative.split(path.sep).join("/"));
         }),

@@ -9,7 +9,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Stream from "effect/Stream";
 import { ChildProcess } from "effect/process";
-import { writeFileAtomic, envOption } from "@agentxm/host-primitives";
+import { envOption, isLexicallyWithin, writeFileAtomic } from "@agentxm/host-primitives";
 import { readExtensionManifest } from "@agentxm/extension-content";
 import {
   resolveHookConfiguration,
@@ -87,12 +87,7 @@ export const TestHook = {
               ),
             ),
           );
-        const contained = path.relative(root, absolute);
-        if (
-          contained.startsWith(`..${path.sep}`) ||
-          contained === ".." ||
-          path.isAbsolute(contained)
-        ) {
+        if (!isLexicallyWithin(path, root, absolute)) {
           return yield* failed(`Hook resource escapes its package: ${relative}`);
         }
         const stat = yield* fs.stat(absolute);

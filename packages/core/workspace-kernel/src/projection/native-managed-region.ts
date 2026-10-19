@@ -41,6 +41,7 @@ import {
   type ProjectionUnitPath,
   type RecordedProjectionRow,
 } from "../workspace-state/index.js";
+import { readFileStringIfPresent } from "@agentxm/host-primitives";
 
 export interface NativeRegionSource {
   readonly name: string;
@@ -223,13 +224,8 @@ export const reconcileNativeManagedRegion = (args: NativeManagedRegionArgs) =>
           ),
         );
       }
-      const before = yield* fs.readFileString(physical).pipe(
-        Effect.map(Option.some),
-        Effect.catch((cause) =>
-          cause.reason._tag === "NotFound"
-            ? Effect.succeedNone
-            : Effect.fail(new ProjectionIoFailed({ path: physical, step: "read", cause })),
-        ),
+      const before = yield* readFileStringIfPresent(fs, physical).pipe(
+        Effect.mapError((cause) => new ProjectionIoFailed({ path: physical, step: "read", cause })),
       );
       const existing = Option.getOrElse(before, () => "");
       if (args.adoption !== undefined && existing !== args.adoption.expectedRaw)

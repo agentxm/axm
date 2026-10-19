@@ -7,7 +7,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import { isWithinOrEqual } from "@agentxm/extension-model/unstable/path-types";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
@@ -110,7 +110,7 @@ export const makeWorkspaceRecords = (
               installRoot,
               configuredAgents,
               relative: (absolute) => path.relative(location.baseDir, absolute),
-              isWithin: (root, target) => isWithinOrEqual(path, root, target),
+              isWithin: (root, target) => isLexicallyWithin(path, root, target),
             });
           return yield* use({ configuredAgents, provider, project });
         });

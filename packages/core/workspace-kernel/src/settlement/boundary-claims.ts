@@ -27,6 +27,7 @@ import {
 } from "./runtime-directories.js";
 import { makeWorkspaceTransitionLock } from "./transition-lock.js";
 import { accountHome } from "./account-home.js";
+import { isNotFound, readFileStringIfPresent, writeFileAtomic } from "@agentxm/host-primitives";
 
 /** Test composition only: null disables filesystem coordination for memory fixtures. */
 export const BoundaryClaimsDirectory = Context.Reference<string | null | undefined>(
@@ -165,10 +166,8 @@ export const makeBoundaryClaims = (
         yield* fs.remove(path.join(namespace, `${recordToken}.tmp`), { force: true });
         return false;
       });
-    const read = fs.readFileString(table).pipe(
-      Effect.catchTag("PlatformError", (error) =>
-        error.reason._tag === "NotFound" ? Effect.succeed("[]") : Effect.fail(error),
-      ),
+    const read = readFileStringIfPresent(fs, table).pipe(
+      Effect.map(Option.getOrElse(() => "[]")),
       Effect.flatMap(
         Schema.decodeUnknownEffect(Schema.fromJsonString(Records), { onExcessProperty: "error" }),
       ),
@@ -195,11 +194,7 @@ export const makeBoundaryClaims = (
         Effect.gen(function* () {
           const directories = yield* fs
             .readDirectory(path.join(namespace, "leases"))
-            .pipe(
-              Effect.catchTag("PlatformError", (error) =>
-                error.reason._tag === "NotFound" ? Effect.succeed([]) : Effect.fail(error),
-              ),
-            );
+            .pipe(Effect.catchIf(isNotFound, () => Effect.succeed([])));
           for (const leaseToken of directories) {
             if (leaseToken === token || records.some((record) => record.token === leaseToken))
               continue;
@@ -211,19 +206,17 @@ export const makeBoundaryClaims = (
       ),
       Effect.mapError(failure),
     );
-    const write = (records: ReadonlyArray<ClaimRecord>) => {
-      const temporary = path.join(namespace, `${token}.tmp`);
-      return (
-        records.length === 0
-          ? fs.remove(table, { force: true })
-          : fs
-              .writeFileString(temporary, JSON.stringify(records), { mode: 0o600 })
-              .pipe(Effect.andThen(fs.rename(temporary, table)))
-      ).pipe(
-        Effect.ensuring(fs.remove(temporary, { force: true }).pipe(Effect.ignore)),
-        Effect.mapError(failure),
-      );
-    };
+    // Reclaiming a dead lease removes its token-named stage, so the stage keeps that name.
+    const write = (records: ReadonlyArray<ClaimRecord>) =>
+      records.length === 0
+        ? fs.remove(table, { force: true }).pipe(Effect.mapError(failure))
+        : writeFileAtomic(fs, {
+            targetPath: table,
+            tempPath: path.join(namespace, `${token}.tmp`),
+            content: JSON.stringify(records),
+            mode: 0o600,
+            mapError: ({ cause }) => failure(cause),
+          });
     const admitted = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       Effect.scoped(
         Effect.gen(function* () {

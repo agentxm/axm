@@ -195,6 +195,34 @@ describe("writeFileAtomic", () => {
     ),
   );
 
+  it.effect("stages at a caller-named temp path and removes it on failure", () =>
+    withContext(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const staged = nodePath.join(tempDir, "owner.tmp");
+        yield* writeFileAtomic(fs, {
+          targetPath: target,
+          tempPath: staged,
+          content: "named\n",
+          mapError: identityFailure,
+        });
+        expect(nodeFs.readFileSync(target, "utf8")).toBe("named\n");
+        expect(nodeFs.readdirSync(tempDir)).toEqual(["target.txt"]);
+
+        const targetDir = nodePath.join(tempDir, "target-dir");
+        nodeFs.mkdirSync(targetDir);
+        const failure = yield* writeFileAtomic(fs, {
+          targetPath: targetDir,
+          tempPath: staged,
+          content: "cannot rename over a directory",
+          mapError: identityFailure,
+        }).pipe(Effect.flip);
+        expect(failure.tempPath).toBe(staged);
+        expect(nodeFs.readdirSync(tempDir).sort()).toEqual(["target-dir", "target.txt"]);
+      }),
+    ),
+  );
+
   it.effect("sweeps only temp siblings owned by the exact target", () =>
     withContext(
       Effect.gen(function* () {

@@ -15,11 +15,11 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import {
   discoverExtensionPackages,
-  findGitRoot,
   getExactTag,
   getRemoteUrl,
   listRemoteRefs,
 } from "@agentxm/workspace-kernel/sources";
+import { detectGitRoot } from "@agentxm/workspace-kernel/locations";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
@@ -263,7 +263,7 @@ export const ShareWorkspace = {
   }) {
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
-    const repositoryRoot = yield* findGitRoot(location.baseDir).pipe(
+    const repositoryRoot = yield* detectGitRoot(location.baseDir).pipe(
       Effect.flatMap(
         Option.match({
           onNone: () =>

@@ -5,8 +5,6 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -18,6 +16,7 @@ import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import { parseTomlDocument, tomlStringEntries, tomlTable, type TomlTable } from "./toml.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import { osHomeDirectory } from "@agentxm/host-primitives";
 
 const juliaType = Schema.decodeUnknownSync(PackageTypeSchema)("julia");
 
@@ -101,7 +100,7 @@ export const juliaReader: PackageReader = {
       const fs = yield* FileSystem.FileSystem;
 
       const pkgName = pkg.purl.name;
-      const home = os.homedir();
+      const home = yield* osHomeDirectory;
 
       const juliaPkgsDir = path.join(home, ".julia", "packages", pkgName);
 

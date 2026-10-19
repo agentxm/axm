@@ -65,3 +65,4 @@ export {
   type NativeAuthorityRootWitness,
 } from "./native-authority-roots.js";
 export { validateContainedLink } from "./contained-link.js";
+export { detectGitRoot, findGitRoot, isGitManaged, type FindGitRootOptions } from "./git-root.js";

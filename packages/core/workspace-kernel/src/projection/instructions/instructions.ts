@@ -46,6 +46,7 @@ import {
   resolveNativeReadLocation,
   type NativeDirectoryInputs,
   type NativeLocationOutcome,
+  isGitManaged,
 } from "../../locations/index.js";
 import { recordFootprint } from "../../settlement/index.js";
 import {
@@ -76,30 +77,7 @@ import type {
   MaterializationTargetId,
   AgentInstructionsDescriptor,
 } from "@agentxm/extension-model/unstable/agents/types";
-
-/**
- * Whether the workspace sits inside a Git checkout. A private duplicate of the
- * trivial `.git`-entry walk in `@agentxm/workspace-kernel/sources`: the kernel cannot
- * depend on an integration package, and the check carries no source-resolution
- * semantics.
- */
-const isGitManaged = (
-  workspaceRoot: string,
-): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    let current = path.resolve(workspaceRoot);
-    for (;;) {
-      const hasGitEntry = yield* fs
-        .exists(path.join(current, ".git"))
-        .pipe(Effect.catch(() => Effect.succeed(false)));
-      if (hasGitEntry) return true;
-      const parent = path.dirname(current);
-      if (parent === current) return false;
-      current = parent;
-    }
-  });
+import { isRelativeWithin } from "@agentxm/host-primitives";
 
 export interface ResolvedInstructionsConfig {
   readonly fileName: string;
@@ -532,10 +510,7 @@ const discoverInstructionTree = (
     });
     const conventions = declaredConventions.filter(
       (convention) =>
-        convention.relativeTarget !== fileName &&
-        !path.isAbsolute(convention.relativeTarget) &&
-        convention.relativeTarget !== ".." &&
-        !convention.relativeTarget.startsWith(`..${path.sep}`),
+        convention.relativeTarget !== fileName && isRelativeWithin(path, convention.relativeTarget),
     );
     const candidatesIn = (dir: string, entries: ReadonlyArray<string>) =>
       Effect.forEach(

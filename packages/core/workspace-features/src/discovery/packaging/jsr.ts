@@ -8,15 +8,13 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envOption } from "@agentxm/host-primitives";
+import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
@@ -197,10 +195,11 @@ const resolveDenoDir = () =>
     if (Option.isSome(denoDir) && denoDir.value !== "") return denoDir.value;
 
     // Platform-specific defaults
+    const home = yield* osHomeDirectory;
     if (process.platform === "darwin") {
-      return `${os.homedir()}/Library/Caches/deno`;
+      return `${home}/Library/Caches/deno`;
     }
-    return `${os.homedir()}/.cache/deno`;
+    return `${home}/.cache/deno`;
   });
 
 /**

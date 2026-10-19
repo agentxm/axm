@@ -50,6 +50,7 @@ import {
 import { collectNativeAgentMcpServers } from "./mcps/inspection.js";
 import {
   readDeclaredHookUnits,
+  invalidNativeConfig,
   parseNativeConfigRoot,
   type HookNativeDeclaration,
 } from "../agent-adapters/index.js";
@@ -475,8 +476,8 @@ export const observeAgentOutputs = (
       if (units.length === 0) {
         const document = yield* parseNativeConfigRoot({
           format: "jsonc",
-          configPath: group.path,
           raw,
+          onFailure: invalidNativeConfig("jsonc", group.path),
         }).pipe(Effect.option);
         const registrations = Option.isSome(document)
           ? document.value[group.settingsKey]

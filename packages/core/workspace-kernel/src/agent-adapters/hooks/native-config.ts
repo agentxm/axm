@@ -20,6 +20,7 @@ import {
   updateHooksJson,
   type HookNativeDeclaration,
 } from "./managed-groups.js";
+import { readFileStringIfPresent } from "@agentxm/host-primitives";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -99,17 +100,10 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         yield* assertNoPhysicalOverlap(path.resolve(args.workspaceRoot, source.root), physical);
       }
       const read = () =>
-        fs.readFileString(physical).pipe(
-          Effect.map(Option.some),
-          Effect.catch((cause) =>
-            cause.reason._tag === "NotFound"
-              ? Effect.succeedNone
-              : Effect.fail(
-                  new HookIoFailed({
-                    detail: `Cannot read hooks configuration: ${physical}`,
-                    cause,
-                  }),
-                ),
+        readFileStringIfPresent(fs, physical).pipe(
+          Effect.mapError(
+            (cause) =>
+              new HookIoFailed({ detail: `Cannot read hooks configuration: ${physical}`, cause }),
           ),
         );
       const before = yield* read();
@@ -150,15 +144,15 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
       );
       const foreignOnly =
         observed.length === 0 &&
-        (yield* parseNativeConfigRoot({ format: args.format, configPath: physical, raw }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new HookConfigInvalid({
-                detail: `Cannot inspect Hook configuration ${physical}`,
-                cause,
-              }),
-          ),
-        ))[args.settingsKey] !== undefined;
+        (yield* parseNativeConfigRoot({
+          format: args.format,
+          raw,
+          onFailure: (cause) =>
+            new HookConfigInvalid({
+              detail: `Cannot inspect Hook configuration ${physical}`,
+              cause,
+            }),
+        }))[args.settingsKey] !== undefined;
       const expected = args.declarations.filter(
         (owner) => Object.keys(hooksForOwner(args.rendered, owner)).length > 0,
       );

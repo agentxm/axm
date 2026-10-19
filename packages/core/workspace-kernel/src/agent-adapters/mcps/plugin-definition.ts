@@ -5,6 +5,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type { NativeMcpComponent } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 const PortableContainer = Schema.Struct({
   $schema: Schema.Literal("https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"),
@@ -63,8 +64,7 @@ export const readPluginMcpDefinition = (packageRoot: string, component: NativeMc
     const config = yield* fs
       .realPath(path.resolve(packageRoot, component.configPath))
       .pipe(Effect.mapError(io));
-    const relative = path.relative(root, config);
-    if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`))
+    if (!isLexicallyWithin(path, root, config))
       return yield* invalid(
         `Plugin MCP configuration escapes its package: ${component.configPath}`,
       );

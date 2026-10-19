@@ -12,6 +12,7 @@ import {
   type NativeEntryAddress,
 } from "./native-address.js";
 import { nativeInode } from "./native-inode.js";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 /** Only roots captured from the selected scope's explicit native inputs grant authority. */
 export const nativeAuthorityRoots = (
@@ -34,14 +35,6 @@ export const nativeAuthorityRoots = (
           .map((root) => path.resolve(args.workspaceRoot, root))),
   ]),
 ];
-
-const contains = (path: Path.Path, parent: string, child: string): boolean => {
-  const relative = path.relative(parent, child);
-  return (
-    relative === "" ||
-    (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`))
-  );
-};
 
 const directoryIdentity = (target: string) =>
   Effect.gen(function* () {
@@ -168,7 +161,7 @@ export const assertNativeMutationWithinRoots = (
       if (
         Option.isSome(rootAddress) &&
         rootAddress.value.referentPath !== undefined &&
-        contains(path, rootAddress.value.referentPath, boundary)
+        isLexicallyWithin(path, rootAddress.value.referentPath, boundary)
       )
         candidates.push({
           nativeRoot,
@@ -201,9 +194,10 @@ export const assertNativeMutationWithinRoots = (
       const runtimeMarker = path.join(ancestor, ".axm");
       const conflict =
         (yield* fs.exists(path.join(ancestor, "axm.json"))) ||
-        ((yield* fs.exists(runtimeMarker)) && !contains(path, runtimeMarker, physicalOwner));
+        ((yield* fs.exists(runtimeMarker)) &&
+          !isLexicallyWithin(path, runtimeMarker, physicalOwner));
       if (conflict) return yield* new NativeLocationError({ target, reason: "workspace-conflict" });
-      if (contains(path, ancestor, physicalOwner)) break;
+      if (isLexicallyWithin(path, ancestor, physicalOwner)) break;
       const parent = path.dirname(ancestor);
       if (parent === ancestor) break;
       ancestor = parent;

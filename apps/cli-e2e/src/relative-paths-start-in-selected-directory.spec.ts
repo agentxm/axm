@@ -7,7 +7,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture, unattendedProjectSetup } from "./test-support/directory-harness.js";
 import { snapshotTree } from "@agentxm/test-support";
 import { makeEnvironmentProcessFixture } from "./test-support/environment-process-fixture.js";
-import { publishSkill } from "./test-support/published-registry.js";
+import { publishSkill } from "./test-support/registry-workspace.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
 
 export const specification = defineSpecification({

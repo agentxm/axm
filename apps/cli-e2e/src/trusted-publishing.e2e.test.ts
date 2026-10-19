@@ -15,7 +15,7 @@ import { defineExecutionBinding } from "@agentxm/specification-metadata";
 
 import { startGitHubActionsIdTokenServer } from "./e2e/github-actions-id-token-server.js";
 import { startHttpRegistry } from "./e2e/http-registry-server.js";
-import { initWorkspace } from "./test-support/published-registry.js";
+import { initRegistryWorkspace } from "./test-support/registry-workspace.js";
 import { createTempDir, runCli, writeUserDefaultRegistry } from "./utils.js";
 
 export const executionBinding = defineExecutionBinding({
@@ -149,7 +149,12 @@ describe("Trusted publishing from a GitHub Actions job", () => {
     const world = await setup();
     const workspace = createTempDir();
     try {
-      await initWorkspace(workspace.path, world.registry.url, OWNER);
+      await initRegistryWorkspace({
+        path: workspace.path,
+        location: world.registry.url,
+        owner: OWNER,
+        minimumReleaseAge: "0s",
+      });
       const created = await runCli(["skills", "new", "release-notes", "--owner", OWNER], {
         cwd: workspace.path,
         env: world.env,

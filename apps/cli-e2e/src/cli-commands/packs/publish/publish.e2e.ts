@@ -12,19 +12,11 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../../e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "../../../e2e/workspace-pack-state.js";
+import { initRegistryWorkspace } from "../../../test-support/registry-workspace.js";
 
 /** Set up a workspace with registry source and owner. */
-const setupWorkspace = async (tempPath: string, registryPath: string, owner: string) => {
-  await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-    cwd: tempPath,
-  });
-  const settingsPath = path.join(tempPath, "axm.json");
-  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.defaultRegistry = "test";
-  settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
-  settings.owner = owner;
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-};
+const setupWorkspace = (tempPath: string, registryPath: string, owner: string) =>
+  initRegistryWorkspace({ path: tempPath, location: `file://${registryPath}`, owner });
 
 /** Create an authored skill extension. */
 const createManagedSkill = (tempPath: string, owner: string, name: string, version = "1.0.0") => {

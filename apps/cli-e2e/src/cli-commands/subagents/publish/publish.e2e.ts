@@ -7,15 +7,7 @@ import * as path from "node:path";
 import { unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../../e2e/utils.js";
-
-const configureWorkspaceRegistry = (workspacePath: string, registryPath: string, owner: string) => {
-  const settingsPath = path.join(workspacePath, "axm.json");
-  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.defaultRegistry = "test";
-  settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
-  settings.owner = owner;
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-};
+import { initRegistryWorkspace } from "../../../test-support/registry-workspace.js";
 
 const createManagedSubagent = (
   workspacePath: string,
@@ -58,11 +50,11 @@ describe("axm subagents publish", () => {
     const registryDir = createTempDir("axm-registry-");
 
     try {
-      await runCli(
-        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-        { cwd: temp.path },
-      );
-      configureWorkspaceRegistry(temp.path, registryDir.path, "@test");
+      await initRegistryWorkspace({
+        path: temp.path,
+        location: `file://${registryDir.path}`,
+        owner: "@test",
+      });
       createManagedSubagent(temp.path, "@test", "researcher", "1.0.0");
 
       const publishResult = await runCli(["subagents", "publish", "@test/subagents/researcher"], {

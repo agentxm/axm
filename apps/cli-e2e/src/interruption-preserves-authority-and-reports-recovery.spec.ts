@@ -8,6 +8,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { startHttpRegistry } from "./e2e/http-registry-server.js";
 import { interruptOnFirstRegistryRequest, runCliUntil } from "./e2e/interruption.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
+import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
 
 export const specification = defineSpecification({
   requirement: "cli/interruption-preserves-authority-and-reports-recovery",
@@ -34,7 +35,7 @@ export const specification = defineSpecification({
 const OWNER = "@test";
 const TOKEN = "e2e-test-token";
 
-const registryEnv = (_location: string): Record<string, string> => ({ AXM_TOKEN: TOKEN });
+const registryEnv = (): Record<string, string> => ({ AXM_TOKEN: TOKEN });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -49,39 +50,12 @@ const writeSettings = (workspace: string, value: Record<string, unknown>): void 
   fs.writeFileSync(path.join(workspace, "axm.json"), `${JSON.stringify(value, null, 2)}\n`);
 };
 
-const initWorkspace = async (workspace: string, location: string) => {
-  const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-    cwd: workspace,
-    env: registryEnv(location),
-  });
-  expect(setup.exitCode, setup.stderr).toBe(0);
-  const settings = readSettings(workspace);
-  settings["defaultRegistry"] = "test";
-  settings["sources"] = [{ name: "test", type: "registry", location }];
-  settings["owner"] = OWNER;
-  settings["minimumReleaseAge"] = "0s";
-  writeSettings(workspace, settings);
-};
+const initWorkspace = (workspace: string, location: string) =>
+  initRegistryWorkspace({ path: workspace, location, owner: OWNER, minimumReleaseAge: "0s" });
 
 /** Scaffold and publish one skill into the HTTP registry. */
-const publishSkill = async (location: string, name: string) => {
-  const workspace = createTempDir();
-  try {
-    await initWorkspace(workspace.path, location);
-    const created = await runCli(["skills", "new", name, "--owner", OWNER], {
-      cwd: workspace.path,
-      env: registryEnv(location),
-    });
-    expect(created.exitCode, created.stderr).toBe(0);
-    const published = await runCli(["skills", "publish", `${OWNER}/skills/${name}`], {
-      cwd: workspace.path,
-      env: registryEnv(location),
-    });
-    expect(published.exitCode, published.stderr).toBe(0);
-  } finally {
-    workspace.cleanup();
-  }
-};
+const publishSkill = (location: string, name: string) =>
+  publishExtension({ registryLocation: location, owner: OWNER, plural: "skills", name });
 
 describe("An interrupted workspace change", () => {
   it("leaves the workspace untouched when the signal lands before the first write", async () => {
@@ -137,7 +111,7 @@ describe("An interrupted workspace change", () => {
       const interrupted = await runCliUntil(["sync", "--json"], {
         cwd: workspace.path,
         userHome: userHome.path,
-        env: registryEnv(registry.url),
+        env: registryEnv(),
         signalWhen: registry.nextHungArchive(),
         signal: "SIGTERM",
       });
@@ -158,7 +132,7 @@ describe("An interrupted workspace change", () => {
       registry.resumeArchive("skills/beta");
       const rerun = await runCli(["sync", "--json"], {
         cwd: workspace.path,
-        env: registryEnv(registry.url),
+        env: registryEnv(),
       });
       expect(rerun.exitCode, rerun.stdout + rerun.stderr).toBe(0);
       expect(fs.existsSync(path.join(workspace.path, ".agents", "skills", "beta"))).toBe(true);
@@ -177,7 +151,7 @@ describe("An interrupted workspace change", () => {
       await initWorkspace(workspace.path, registry.url);
       const installed = await runCli(["install", `${OWNER}/skills/alpha`], {
         cwd: workspace.path,
-        env: registryEnv(registry.url),
+        env: registryEnv(),
       });
       expect(installed.exitCode, installed.stderr).toBe(0);
 
@@ -201,7 +175,7 @@ describe("An interrupted workspace change", () => {
 
       const recovered = await runCli(["sync", "--json"], {
         cwd: workspace.path,
-        env: registryEnv(registry.url),
+        env: registryEnv(),
       });
       expect(recovered.exitCode, recovered.stderr).toBe(0);
 
@@ -236,7 +210,7 @@ describe("An interrupted workspace change", () => {
 
       const proceeded = await runCli(["install", `${OWNER}/skills/alpha`, "--json"], {
         cwd: workspace.path,
-        env: registryEnv(registry.url),
+        env: registryEnv(),
       });
 
       expect(proceeded.exitCode, proceeded.stdout + proceeded.stderr).toBe(0);

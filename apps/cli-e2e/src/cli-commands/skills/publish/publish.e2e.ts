@@ -12,6 +12,7 @@ import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli, withoutLocalGitEnvironment } from "../../../e2e/utils.js";
+import { initRegistryWorkspace } from "../../../test-support/registry-workspace.js";
 
 const git = (root: string, args: ReadonlyArray<string>): void => {
   execFileSync("git", args, {
@@ -30,19 +31,12 @@ describe("axm skills publish", () => {
       const registryDir = createTempDir("axm-registry-");
       try {
         // Initialize workspace
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          { cwd: temp.path },
-        );
-
-        // Set up registry source and owner
-        const settingsPath = path.join(temp.path, "axm.json");
+        const { settingsPath } = await initRegistryWorkspace({
+          path: temp.path,
+          location: `file://${registryDir.path}`,
+          owner: "@test",
+        });
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.defaultRegistry = "test";
-        settings.sources = [
-          { name: "test", type: "registry", location: `file://${registryDir.path}` },
-        ];
-        settings.owner = "@test";
         settings.skills = {
           ...settings.skills,
           "my-publish-skill": "workspace",
@@ -189,17 +183,12 @@ describe("axm skills publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          { cwd: temp.path },
-        );
-        const settingsPath = path.join(temp.path, "axm.json");
+        const { settingsPath } = await initRegistryWorkspace({
+          path: temp.path,
+          location: `file://${registryDir.path}`,
+          owner: "@test",
+        });
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.defaultRegistry = "test";
-        settings.sources = [
-          { name: "test", type: "registry", location: `file://${registryDir.path}` },
-        ];
-        settings.owner = "@test";
         settings.skills = { ...settings.skills, "git-source-review": "workspace" };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -299,17 +288,12 @@ describe("axm skills publish", () => {
       const registryDir = createTempDir("axm-registry-");
       const binDir = createTempDir("axm-failing-git-");
       try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          { cwd: temp.path },
-        );
-        const settingsPath = path.join(temp.path, "axm.json");
+        const { settingsPath } = await initRegistryWorkspace({
+          path: temp.path,
+          location: `file://${registryDir.path}`,
+          owner: "@test",
+        });
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.defaultRegistry = "test";
-        settings.sources = [
-          { name: "test", type: "registry", location: `file://${registryDir.path}` },
-        ];
-        settings.owner = "@test";
         settings.skills = { ...settings.skills, "editor-source-review": "workspace" };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -414,18 +398,12 @@ exit 128
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          { cwd: temp.path },
-        );
-
-        const settingsPath = path.join(temp.path, "axm.json");
+        const { settingsPath } = await initRegistryWorkspace({
+          path: temp.path,
+          location: `file://${registryDir.path}`,
+          owner: "@myorg",
+        });
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.defaultRegistry = "test";
-        settings.sources = [
-          { name: "test", type: "registry", location: `file://${registryDir.path}` },
-        ];
-        settings.owner = "@myorg";
         settings.skills = {
           ...settings.skills,
           "code-review": "workspace",
@@ -484,19 +462,11 @@ exit 128
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(
-          ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-          { cwd: temp.path },
-        );
-
-        const settingsPath = path.join(temp.path, "axm.json");
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.defaultRegistry = "test";
-        settings.sources = [
-          { name: "test", type: "registry", location: `file://${registryDir.path}` },
-        ];
-        settings.owner = "@test";
-        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        await initRegistryWorkspace({
+          path: temp.path,
+          location: `file://${registryDir.path}`,
+          owner: "@test",
+        });
 
         const publishResult = await runCli(
           ["skills", "publish", "@test/skills/nonexistent-skill", "--json"],
@@ -552,17 +522,13 @@ exit 128
       owner: string,
       skills?: Record<string, string>,
     ) => {
-      await runCli(
-        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-        { cwd: tempPath },
-      );
-      const settingsPath = path.join(tempPath, "axm.json");
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.defaultRegistry = "test";
-      settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
-      settings.owner = owner;
-      if (skills) settings.skills = skills;
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      const { settingsPath, settings } = await initRegistryWorkspace({
+        path: tempPath,
+        location: `file://${registryPath}`,
+        owner,
+      });
+      if (skills === undefined) return;
+      fs.writeFileSync(settingsPath, JSON.stringify({ ...settings, skills }, null, 2));
     };
 
     it("glob pattern publishes matching configured skills", async () => {

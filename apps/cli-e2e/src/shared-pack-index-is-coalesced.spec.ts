@@ -7,6 +7,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { startHttpRegistry } from "./e2e/http-registry-server.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
+import { initRegistryWorkspace } from "./test-support/registry-workspace.js";
 
 export const specification = defineSpecification({
   requirement: "cli/shared-pack-member-index-is-coalesced",
@@ -29,25 +30,14 @@ export const specification = defineSpecification({
 const OWNER = "@test";
 const env = { AXM_TOKEN: "e2e-test-token", AXM_NO_UPDATE_CHECK: "1" };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const setupWorkspace = async (workspace: string, registryUrl: string) => {
-  const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-    cwd: workspace,
+const setupWorkspace = (workspace: string, registryUrl: string) =>
+  initRegistryWorkspace({
+    path: workspace,
+    location: registryUrl,
+    owner: OWNER,
     env,
+    minimumReleaseAge: "0s",
   });
-  expect(setup.exitCode, setup.stderr).toBe(0);
-  const settingsPath = path.join(workspace, "axm.json");
-  const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-  if (!isRecord(parsed)) throw new Error("Expected workspace settings");
-  parsed["defaultRegistry"] = "test";
-  parsed["sources"] = [{ name: "test", type: "registry", location: registryUrl }];
-  parsed["owner"] = OWNER;
-  parsed["minimumReleaseAge"] = "0s";
-  fs.writeFileSync(settingsPath, JSON.stringify(parsed, null, 2));
-  return { settingsPath, settings: parsed };
-};
 
 const authorPack = async (workspace: string, name: string) => {
   const created = await runCli(["packs", "new", name, "--owner", OWNER], {

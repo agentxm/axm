@@ -6,6 +6,10 @@ import { describe, expect, it } from "vitest";
 
 import { createTempDir, runCli } from "./e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
+import {
+  initRegistryWorkspace,
+  type RegistryWorkspaceOptions,
+} from "./test-support/registry-workspace.js";
 
 export const executionBinding = {
   requirements: ["cli/installed-state-stays-in-selected-scope"],
@@ -37,16 +41,18 @@ const SUBAGENT = "scope-subagent";
 const SKILL = "scope-review";
 const KNOWLEDGE = "scope-policy";
 
-const configureRegistry = (settingsPath: string, registryPath: string) => {
-  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.owner = OWNER;
-  settings.defaultRegistry = "test";
-  settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
-  // Fixture releases are published moments before a Pack install selects its
-  // members by range, which the minimum release age would otherwise hold.
-  settings.minimumReleaseAge = "0s";
-  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-};
+// Fixture releases are published moments before a Pack install selects its
+// members by range, which the minimum release age would otherwise hold.
+const registryWorkspace = (
+  registryPath: string,
+  options: Pick<RegistryWorkspaceOptions, "path" | "scope" | "agents" | "env">,
+) =>
+  initRegistryWorkspace({
+    ...options,
+    location: `file://${registryPath}`,
+    owner: OWNER,
+    minimumReleaseAge: "0s",
+  });
 
 describe("installed-state scope consistency", () => {
   it("keeps lint and pack show/unpack isolated to user scope", async () => {
@@ -66,14 +72,7 @@ describe("installed-state scope consistency", () => {
     const env = { AXM_USER_HOME: userHome.path, HOME: userHome.path };
 
     try {
-      const authorSetup = await runCli(
-        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-        {
-          cwd: author.path,
-        },
-      );
-      expect(authorSetup.exitCode, `${authorSetup.stderr}\n${authorSetup.stdout}`).toBe(0);
-      configureRegistry(path.join(author.path, "axm.json"), registry.path);
+      await registryWorkspace(registry.path, { path: author.path, env: {} });
 
       const created = await runCli(["packs", "new", PACK, "--owner", OWNER], {
         cwd: author.path,
@@ -181,16 +180,7 @@ describe("installed-state scope consistency", () => {
         `${subagentPublished.stderr}\n${subagentPublished.stdout}`,
       ).toBe(0);
 
-      const projectSetup = await runCli(
-        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
-        {
-          cwd: consumer.path,
-          env,
-        },
-      );
-      expect(projectSetup.exitCode, `${projectSetup.stderr}\n${projectSetup.stdout}`).toBe(0);
-      const projectSettingsPath = path.join(consumer.path, "axm.json");
-      configureRegistry(projectSettingsPath, registry.path);
+      await registryWorkspace(registry.path, { path: consumer.path, env });
       const projectInstalled = await runCli(["packs", "install", `${OWNER}/packs/${PACK}`], {
         cwd: consumer.path,
         env,
@@ -215,13 +205,12 @@ describe("installed-state scope consistency", () => {
       expect(fs.existsSync(path.join(consumer.path, CANONICAL_REFERENCE))).toBe(true);
       const projectSnapshot = snapshotDirectory(consumer.path);
 
-      const userSetup = await runCli(
-        ["setup", "--scope", "user", "--agent", "cursor", "--yes", "--non-interactive"],
-        { cwd: consumer.path, env },
-      );
-      expect(userSetup.exitCode, `${userSetup.stderr}\n${userSetup.stdout}`).toBe(0);
-      const userSettingsPath = path.join(userHome.path, ".axm", "workspace", "axm.json");
-      configureRegistry(userSettingsPath, registry.path);
+      const { settingsPath: userSettingsPath } = await registryWorkspace(registry.path, {
+        path: consumer.path,
+        scope: "user",
+        agents: ["cursor"],
+        env,
+      });
 
       const missingAgent = await runCli(
         ["agents", "remove", "cursor", "codex", "--scope", "user"],

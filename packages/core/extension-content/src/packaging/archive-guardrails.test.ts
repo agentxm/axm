@@ -1,8 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Effect from "effect/Effect";
+import { crc32 } from "node:zlib";
 import {
   checkForbiddenSourceEntries,
+  defaultReadEntry,
   parseZipCentralDirectory,
   validateArchive,
 } from "./archive-guardrails.js";
@@ -14,23 +16,232 @@ import {
   textContent,
 } from "./test-zip-helpers.js";
 
+// Fixed ZIP v1 record offsets used to forge archives that a writer would not produce.
+const EOCD_SIZE = 22;
+const EOCD = {
+  diskNumber: 4,
+  cdirDisk: 6,
+  entriesOnDisk: 8,
+  totalEntries: 10,
+  cdirSize: 12,
+  cdirOffset: 16,
+  commentLength: 20,
+} as const;
+const CENTRAL = { flags: 8, compressedSize: 20, localHeaderOffset: 42 } as const;
+const LOCAL = { flags: 6, compressionMethod: 8, fileName: 30 } as const;
+
+interface ZipLayout {
+  readonly view: DataView;
+  readonly eocd: number;
+  readonly cdir: number;
+}
+
+const helloContent = textContent("hello world");
+const helloZip = () => buildZip([{ fileName: "hello.txt", content: helloContent }]);
+
+const forge = (edit: (layout: ZipLayout) => void, fileNames: readonly string[] = ["hello.txt"]) => {
+  const zip = buildZip(fileNames.map((fileName) => ({ fileName, content: helloContent })));
+  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  const eocd = zip.length - EOCD_SIZE;
+  edit({ view, eocd, cdir: view.getUint32(eocd + EOCD.cdirOffset, true) });
+  return zip;
+};
+
+const concat = (...parts: readonly Uint8Array[]) => {
+  const result = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.length;
+  }
+  return result;
+};
+
+/** Give the end record a comment, which may itself hold a forged end record. */
+const withComment = (zip: Uint8Array, comment: Uint8Array) => {
+  const commented = concat(zip, comment);
+  new DataView(commented.buffer).setUint16(
+    zip.length - EOCD_SIZE + EOCD.commentLength,
+    comment.length,
+    true,
+  );
+  return commented;
+};
+
+const expectMalformed = (zip: Uint8Array, message: RegExp) =>
+  Effect.gen(function* () {
+    const error = yield* Effect.flip(parseZipCentralDirectory(zip));
+    expect(error.code).toBe("malformed_archive");
+    expect(error.message).toMatch(message);
+  });
+
 describe("parseZipCentralDirectory", () => {
-  it.effect("parses a valid ZIP with one entry", () =>
+  it.effect("parses a valid ZIP and locates each entry's verified data", () =>
     Effect.gen(function* () {
-      const zip = buildZip([{ fileName: "hello.txt", content: textContent("hello world") }]);
+      const deflated = textContent("deflated ".repeat(64));
+      const zip = buildZip([
+        { fileName: "hello.txt", content: helloContent },
+        { fileName: "dir/deflated.txt", content: deflated, compressionMethod: 8 },
+      ]);
       const entries = yield* parseZipCentralDirectory(zip);
 
-      expect(entries).toHaveLength(1);
-      expect(entries[0]?.fileName).toBe("hello.txt");
-      expect(entries[0]?.uncompressedSize).toBe(11);
+      expect(entries.map(({ fileName }) => fileName)).toEqual(["hello.txt", "dir/deflated.txt"]);
+      const [stored, compressed] = entries;
+      expect(stored).toMatchObject({
+        versionMadeBy: 20,
+        crc32: crc32(helloContent),
+        uncompressedSize: 11,
+        localHeaderOffset: 0,
+        localDataOffset: LOCAL.fileName + "hello.txt".length,
+      });
+      expect(compressed?.crc32).toBe(crc32(deflated));
+      if (stored === undefined || compressed === undefined) return;
+      expect(zip.subarray(stored.localDataOffset, stored.localDataOffset + 11)).toEqual(
+        helloContent,
+      );
+      expect(yield* defaultReadEntry(zip, compressed)).toEqual(deflated);
     }),
   );
 
-  it.effect("rejects malformed content", () =>
+  it.effect("accepts an archive comment", () =>
     Effect.gen(function* () {
-      const error = yield* Effect.flip(parseZipCentralDirectory(buildMalformedZip()));
-      expect(error.code).toBe("malformed_archive");
+      const zip = withComment(helloZip(), textContent("note"));
+      expect(yield* parseZipCentralDirectory(zip)).toHaveLength(1);
     }),
+  );
+
+  it.effect("rejects malformed content", () => expectMalformed(buildMalformedZip(), /too small/));
+
+  it.effect("rejects trailing bytes after the end-of-central-directory record", () =>
+    expectMalformed(concat(helloZip(), new Uint8Array([0])), /not found at the archive end/),
+  );
+
+  it.effect("rejects an end record whose comment length overruns the archive", () =>
+    expectMalformed(
+      forge(({ view, eocd }) => view.setUint16(eocd + EOCD.commentLength, 1, true)),
+      /not found at the archive end/,
+    ),
+  );
+
+  it.effect("rejects a second end record hidden in the archive comment", () => {
+    const zip = helloZip();
+    return expectMalformed(withComment(zip, zip.slice(zip.length - EOCD_SIZE)), /more than one/);
+  });
+
+  for (const [field, value] of [
+    ["diskNumber", 1],
+    ["cdirDisk", 1],
+    ["entriesOnDisk", 2],
+  ] as const) {
+    it.effect(`rejects a multi-disk archive (${field})`, () =>
+      expectMalformed(
+        forge(({ view, eocd }) => view.setUint16(eocd + EOCD[field], value, true)),
+        /Multi-disk/,
+      ),
+    );
+  }
+
+  it.effect("rejects a ZIP64 entry-count sentinel", () =>
+    expectMalformed(
+      forge(({ view, eocd }) => {
+        view.setUint16(eocd + EOCD.entriesOnDisk, 0xffff, true);
+        view.setUint16(eocd + EOCD.totalEntries, 0xffff, true);
+      }),
+      /ZIP64 archives/,
+    ),
+  );
+
+  for (const field of ["cdirSize", "cdirOffset"] as const) {
+    it.effect(`rejects a ZIP64 central directory sentinel (${field})`, () =>
+      expectMalformed(
+        forge(({ view, eocd }) => view.setUint32(eocd + EOCD[field], 0xffffffff, true)),
+        /ZIP64 archives/,
+      ),
+    );
+  }
+
+  for (const field of ["compressedSize", "localHeaderOffset"] as const) {
+    it.effect(`rejects a ZIP64 entry sentinel (${field})`, () =>
+      expectMalformed(
+        forge(({ view, cdir }) => view.setUint32(cdir + CENTRAL[field], 0xffffffff, true)),
+        /ZIP64 entries/,
+      ),
+    );
+  }
+
+  it.effect("rejects a central directory that does not end at the end record", () => {
+    const zip = helloZip();
+    const gap = concat(
+      zip.subarray(0, zip.length - EOCD_SIZE),
+      new Uint8Array(4),
+      zip.subarray(zip.length - EOCD_SIZE),
+    );
+    return expectMalformed(gap, /does not end at the end-of-central-directory/);
+  });
+
+  it.effect("rejects an end record that declares more entries than the directory holds", () =>
+    expectMalformed(
+      forge(({ view, eocd }) => {
+        view.setUint16(eocd + EOCD.entriesOnDisk, 2, true);
+        view.setUint16(eocd + EOCD.totalEntries, 2, true);
+      }),
+      /holds 1 entries, but the archive declares 2/,
+    ),
+  );
+
+  it.effect("rejects an end record that declares fewer entries than the directory holds", () =>
+    expectMalformed(
+      forge(
+        ({ view, eocd }) => {
+          view.setUint16(eocd + EOCD.entriesOnDisk, 1, true);
+          view.setUint16(eocd + EOCD.totalEntries, 1, true);
+        },
+        ["a.txt", "b.txt"],
+      ),
+      /holds 2 entries, but the archive declares 1/,
+    ),
+  );
+
+  it.effect("rejects an entry flagged encrypted in the central directory", () =>
+    expectMalformed(
+      forge(({ view, cdir }) => view.setUint16(cdir + CENTRAL.flags, 1, true)),
+      /Encrypted/,
+    ),
+  );
+
+  it.effect("rejects an entry flagged encrypted in its local header", () =>
+    expectMalformed(
+      forge(({ view }) => view.setUint16(LOCAL.flags, 1, true)),
+      /Encrypted/,
+    ),
+  );
+
+  it.effect("rejects a central entry that points at no local header", () =>
+    expectMalformed(
+      forge(({ view, cdir }) => view.setUint32(cdir + CENTRAL.localHeaderOffset, 1, true)),
+      /Invalid local file header/,
+    ),
+  );
+
+  it.effect("rejects local and central file names that disagree", () =>
+    expectMalformed(
+      forge(({ view }) => view.setUint8(LOCAL.fileName, "j".charCodeAt(0))),
+      /file names disagree/,
+    ),
+  );
+
+  it.effect("rejects local and central compression methods that disagree", () =>
+    expectMalformed(
+      forge(({ view }) => view.setUint16(LOCAL.compressionMethod, 8, true)),
+      /compression methods disagree/,
+    ),
+  );
+
+  it.effect("rejects entry data that overlaps the central directory", () =>
+    expectMalformed(
+      forge(({ view, cdir }) => view.setUint32(cdir + CENTRAL.compressedSize, 12, true)),
+      /exceeds archive bounds/,
+    ),
   );
 });
 

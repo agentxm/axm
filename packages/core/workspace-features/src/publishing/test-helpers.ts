@@ -458,12 +458,9 @@ export const registryProblem = (code: string, status: number): Response =>
 export const archiveContents = (bytes: Uint8Array) =>
   Effect.gen(function* () {
     const entries = yield* validateArchive(bytes);
-    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     return Object.fromEntries(
       entries.map((entry) => {
-        const offset = entry.localHeaderOffset;
-        const start =
-          offset + 30 + view.getUint16(offset + 26, true) + view.getUint16(offset + 28, true);
+        const start = entry.localDataOffset;
         const compressed = bytes.subarray(start, start + entry.compressedSize);
         const content =
           entry.compressionMethod === 0 ? Buffer.from(compressed) : inflateRawSync(compressed);

@@ -74,13 +74,16 @@
     "includedScripts": []
   },
   "dependencies": {
-    "@agentxm/extension-model": "workspace:^",
-    "effect": "catalog:"
+    "@agentxm/extension-model": "workspace:^"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.5"
   },
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:*",
     "@effect/vitest": "catalog:",
     "@typescript/native": "catalog:",
+    "effect": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

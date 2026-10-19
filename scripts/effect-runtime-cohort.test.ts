@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 
+import { resolveReleaseCohort, workingTreeSnapshot } from "./release-cohort.js";
+
 const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -16,15 +18,19 @@ const readObject = (path: string): Record<string, unknown> => {
   return value;
 };
 
+const readCatalog = (): Record<string, unknown> => {
+  const workspace: unknown = YAML.parse(
+    readFileSync(resolve(repoRoot, "pnpm-workspace.yaml"), "utf8"),
+  );
+  if (!isRecord(workspace) || !isRecord(workspace["catalog"])) {
+    throw new Error("pnpm-workspace.yaml must declare a catalog.");
+  }
+  return workspace["catalog"];
+};
+
 describe("published Effect runtime cohort", () => {
   it("pins the CLI's Node runtime packages to the same stable Effect 4 release", () => {
-    const workspace: unknown = YAML.parse(
-      readFileSync(resolve(repoRoot, "pnpm-workspace.yaml"), "utf8"),
-    );
-    if (!isRecord(workspace) || !isRecord(workspace["catalog"])) {
-      throw new Error("pnpm-workspace.yaml must declare a catalog.");
-    }
-    const catalog = workspace["catalog"];
+    const catalog = readCatalog();
     const effectVersion = catalog["effect"];
 
     expect(effectVersion).toMatch(/^4\.\d+\.\d+$/u);
@@ -41,4 +47,23 @@ describe("published Effect runtime cohort", () => {
     expect(dependencies["@effect/platform-node-shared"]).toBe("catalog:");
     expect(dependencies["effect"]).toBe("catalog:");
   });
+
+  // The CLI ships its own runtime; a library shares its consumer's, so two
+  // Effect copies never meet in one process. The floor names the tested release.
+  it.each(resolveReleaseCohort(workingTreeSnapshot()).filter(({ name }) => name !== "axm.sh"))(
+    "$name shares its consumer's Effect runtime",
+    ({ path }) => {
+      const effectVersion = readCatalog()["effect"];
+      if (typeof effectVersion !== "string") throw new Error("The catalog must pin effect.");
+      const manifest = readObject(resolve(repoRoot, path));
+      const field = (name: string): Record<string, unknown> => {
+        const value = manifest[name];
+        return isRecord(value) ? value : {};
+      };
+
+      expect(field("dependencies")["effect"]).toBeUndefined();
+      expect(field("devDependencies")["effect"]).toBe("catalog:");
+      expect(field("peerDependencies")["effect"]).toBe(`^${effectVersion}`);
+    },
+  );
 });

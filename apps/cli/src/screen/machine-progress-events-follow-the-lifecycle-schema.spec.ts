@@ -12,7 +12,7 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import { PlanResolutionDocumentSchema } from "../operation-output.js";
 import { ProgressEventSchema } from "./index.js";
-import { MachineEventSchema } from "../runtime.js";
+import { MachineEventSchema } from "../machine-output-api.js";
 import { HELP_TOPICS } from "../__generated__/help-topics.js";
 import { handleList as handleRootList } from "../root/list/command.js";
 import { handleList as handleSkillsList } from "../root/skills/list.js";

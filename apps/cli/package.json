@@ -44,10 +44,10 @@
   ],
   "exports": {
     "./runtime": {
-      "types": "./dist/src/runtime.d.ts",
-      "axm-source": "./src/runtime.ts",
-      "experimental": "./dist/src/runtime.js",
-      "default": "./dist/src/runtime.js"
+      "types": "./dist/src/machine-output-api.d.ts",
+      "axm-source": "./src/machine-output-api.ts",
+      "experimental": "./dist/src/machine-output-api.js",
+      "default": "./dist/src/machine-output-api.js"
     }
   },
   "files": [

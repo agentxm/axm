@@ -989,6 +989,49 @@ esac
   });
 });
 
+describe("checkout credentials", () => {
+  it("persists the job token only where a workflow pushes to the repository", () => {
+    const directory = path.join(repoRoot, ".github/workflows");
+    const credentialed: Array<string> = [];
+    for (const filename of fs.readdirSync(directory).filter((name) => name.endsWith(".yml"))) {
+      const workflow: unknown = YAML.parse(fs.readFileSync(path.join(directory, filename), "utf8"));
+      if (typeof workflow !== "object" || workflow === null || !("jobs" in workflow))
+        throw new Error(`Missing workflow jobs: ${filename}`);
+      const jobs = workflow.jobs;
+      if (typeof jobs !== "object" || jobs === null)
+        throw new Error(`Invalid workflow jobs: ${filename}`);
+      for (const [jobName, job] of Object.entries(jobs)) {
+        if (
+          typeof job !== "object" ||
+          job === null ||
+          !("steps" in job) ||
+          !Array.isArray(job.steps)
+        )
+          continue;
+        for (const step of job.steps) {
+          if (
+            typeof step !== "object" ||
+            step === null ||
+            !("uses" in step) ||
+            typeof step.uses !== "string" ||
+            !step.uses.startsWith("actions/checkout@")
+          )
+            continue;
+          const persists =
+            !("with" in step) ||
+            typeof step.with !== "object" ||
+            step.with === null ||
+            !("persist-credentials" in step.with) ||
+            step.with["persist-credentials"] !== false;
+          if (persists) credentialed.push(`${filename}#${jobName}`);
+        }
+      }
+    }
+    // Release preparation commits and pushes the release branch.
+    expect(credentialed).toEqual(["prepare-release.yml#prepare"]);
+  });
+});
+
 describe("native cache setup trust and configuration", () => {
   it("forwards repository bypass for every configured cache consumer and producer", () => {
     const directory = path.join(repoRoot, ".github/workflows");

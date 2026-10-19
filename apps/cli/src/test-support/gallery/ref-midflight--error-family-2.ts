@@ -19,7 +19,6 @@ export const refMidflightErrorFamily2: Doc = [
       new ScaffoldNameInvalid({
         subject: "skill",
         name: "Code Review!",
-        pattern: "^[a-z0-9][a-z0-9-]*$",
         maxLength: 64,
       }),
     ),

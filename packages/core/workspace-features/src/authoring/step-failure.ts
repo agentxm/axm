@@ -248,7 +248,7 @@ const renderAuthoringFailureDetails = (error: AuthoringFamilyFailure): StepFailu
         title: `Invalid ${error.subject} name`,
         detail: `Invalid ${error.subject} name: "${error.name}"`,
         inputs: [{ label: "Name", value: `"${error.name}"` }],
-        recover: `Choose a name matching /${error.pattern}/ (max ${error.maxLength} chars)`,
+        recover: `Choose a name of lowercase letters, numbers, and hyphens that does not start or end with a hyphen (max ${error.maxLength} chars)`,
       });
     case "AuthoringScopeUnsupported":
       return makeStepFailure({

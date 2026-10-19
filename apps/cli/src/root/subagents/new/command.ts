@@ -2,7 +2,6 @@ import { creationOwnerFlag } from "../../../cli-flags/owner-handle.js";
 import { withParameterDescription } from "../../../cli-parameters.js";
 import { descriptionFlag } from "../../../cli-flags/index.js";
 import { Argument, Command } from "effect/cli";
-import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
@@ -24,7 +23,7 @@ const newConfig = {
 
 export const newCommand = Command.make("new", newConfig, ({ name, owner, description, preview }) =>
   handleSubagentsNew({
-    name: decodeExtensionNameSync(name),
+    name,
     owner,
     description,
     preview,

@@ -26,8 +26,8 @@ import {
 import { LockfileWriteError } from "./errors.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
 import { patchProjections } from "./projections.js";
-import { decodeLockfileBytes, readLockfileBytes } from "../../observed/state.js";
-import type { LockfileReadError } from "../../observed/errors.js";
+import { decodeLockfileBytes, readLockfileBytes } from "./read.js";
+import type { LockfileReadError } from "./errors.js";
 import type { DocumentRoundTripContext } from "../document-round-trip.js";
 import { prepareLockfileRoundTrip } from "./round-trip.js";
 import { emitLockfileToml } from "./toml.js";

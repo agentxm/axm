@@ -28,11 +28,14 @@ import {
   LockfileParseError,
   LockfileVersionUnsupported,
   lockfileRequiresNewerAxm,
+} from "../../desired/lockfile/errors.js";
+import {
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,
-} from "../errors.js";
-import { decodeSettingsBytes, makeScopedStateApi, type ScopedStateLoaders } from "../state.js";
+} from "../../desired/settings/errors.js";
+import { makeScopedStateApi, type ScopedStateLoaders } from "../state.js";
+import { decodeSettingsBytes } from "../../desired/settings/read.js";
 
 describe("settings failure nondisclosure", () => {
   const secret = "fixture-private-credential";

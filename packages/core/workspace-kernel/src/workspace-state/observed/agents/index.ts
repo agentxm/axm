@@ -19,7 +19,7 @@ import {
   type MaterializationTargetId,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agents/types";
-import type { SettingsReadError } from "../errors.js";
+import type { SettingsReadError } from "../../desired/settings/errors.js";
 import type { Scope } from "../types.js";
 import { defineAgentModule } from "./shared.js";
 import type {

@@ -18,7 +18,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { LockfileReadError, SettingsReadError } from "../errors.js";
+import type { LockfileReadError } from "../../desired/lockfile/errors.js";
+import type { SettingsReadError } from "../../desired/settings/errors.js";
 import {
   projectInstalledExtensions,
   projectPackMemberRows,

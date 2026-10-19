@@ -340,7 +340,6 @@ export { McpSourceIdentity, McpSourceKey } from "./workspace/mcp-source-identity
 export {
   makeWorkspaceReadModel,
   WorkspaceReadModelConfig,
-  type RawSourceBytes,
   type ScopedOwnerApi,
   type ScopedSourceHostsApi,
   type ScopedStateApi,
@@ -471,22 +470,26 @@ export {
   type KnowledgeExtensionTarget,
 } from "./workspace/contracts.js";
 
-// Read-model per-source typed failure families
+// Read-model, settings-read, and lockfile-read failure families
+export {
+  SkillDiscoveryRootInvalid,
+  SubagentScanFailed,
+  WorkspaceRootEscape,
+} from "./observed/errors.js";
 export {
   LockfileDecodeError,
   LockfileIoError,
   LockfileParseError,
   LockfileVersionUnsupported,
   lockfileRequiresNewerAxm,
+  type LockfileReadError,
+} from "./desired/lockfile/errors.js";
+export {
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,
-  SkillDiscoveryRootInvalid,
-  SubagentScanFailed,
-  WorkspaceRootEscape,
-  type LockfileReadError,
   type SettingsReadError,
-} from "./observed/errors.js";
+} from "./desired/settings/errors.js";
 
 // Workspace-state typed failure families
 export {

@@ -36,11 +36,8 @@ import type {
 import type { ConfiguredAgentOutcomesUnavailable } from "./workspace/configured-agent-outcomes-provider.js";
 import type { WorkspaceStateReadFailure } from "./workspace/contracts.js";
 import type { MaterializedTreeInvalid } from "./workspace/materialized-tree.js";
-import {
-  lockfileRequiresNewerAxm,
-  type SkillDiscoveryRootInvalid,
-  type SubagentScanFailed,
-} from "./observed/errors.js";
+import { type SkillDiscoveryRootInvalid, type SubagentScanFailed } from "./observed/errors.js";
+import { lockfileRequiresNewerAxm } from "./desired/lockfile/errors.js";
 import type {
   LockfileResolvedVersionInvalid,
   LockfileValidationError,

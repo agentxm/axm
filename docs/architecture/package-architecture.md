@@ -196,12 +196,13 @@ install-selection interaction ports, and the lifecycle refusal. It imports only
 `workspace-kernel/workspace-state` owns desired and observed workspace state:
 settings, the lockfile, and discovery configuration under `desired/`, the read
 model under `observed/`, and the readers, writers, and graphs derived from
-them. The two subfolders are organisational; no direction between them is
-enforced yet. `workspace-kernel/acquisition` owns bounded acquisition of
-extension content into canonical directories, including the per-operation
-scratch budget every source acquisition reserves, together with the Git
-transport context and archive path selection that lifecycle and publishing code
-share.
+them. Each desired document keeps its strict read, its write, and both failure
+families together, so production code under `desired/` never imports
+`observed/`; the slice configuration enforces that direction.
+`workspace-kernel/acquisition` owns bounded acquisition of extension content
+into canonical directories, including the per-operation scratch budget every
+source acquisition reserves, together with the Git transport context and archive
+path selection that lifecycle and publishing code share.
 
 `workspace-kernel/planning` owns the mechanics for safely applying a plan,
 never the feature policy that decides which plan should exist. Every feature

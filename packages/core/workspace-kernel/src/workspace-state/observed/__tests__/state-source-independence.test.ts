@@ -27,7 +27,8 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { emitLockfileToml } from "../../desired/lockfile/toml.js";
-import { LockfileParseError, SettingsParseError } from "../errors.js";
+import { LockfileParseError } from "../../desired/lockfile/errors.js";
+import { SettingsParseError } from "../../desired/settings/errors.js";
 import { makeScopedStateApi, type ScopedStateLoaders } from "../state.js";
 
 // ---------------------------------------------------------------------------

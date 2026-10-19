@@ -9,7 +9,8 @@
 
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
-import type { LockfileReadError, SettingsReadError } from "../errors.js";
+import type { LockfileReadError } from "../../desired/lockfile/errors.js";
+import type { SettingsReadError } from "../../desired/settings/errors.js";
 import type {
   ActivationState,
   ExtensionKey,

@@ -28,7 +28,8 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
-import type { LockfileReadError, SettingsReadError } from "../errors.js";
+import type { LockfileReadError } from "../../desired/lockfile/errors.js";
+import type { SettingsReadError } from "../../desired/settings/errors.js";
 import type { ActivationState, InstallationOrigin, InstalledPackRef } from "../types.js";
 import { findByName, type RowWithKey } from "./indexByName.js";
 

@@ -40,14 +40,14 @@ export interface RegistryRequestMetadata {
   readonly url: string;
 }
 
-export interface RegistryResponseMetadata {
+interface RegistryResponseMetadata {
   readonly status: number;
   readonly requestId?: string;
   readonly problemCode?: string;
   readonly body?: unknown;
 }
 
-export interface RegistryRequestPolicyMetadata {
+interface RegistryRequestPolicyMetadata {
   readonly retryable: boolean;
   readonly attemptCount: number;
   readonly maxAttempts: number;

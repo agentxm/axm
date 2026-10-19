@@ -114,7 +114,7 @@ interface GetExtensionPackageBaseArgs {
 }
 
 /** An immutable selection whose archive digest and lifecycle warnings were already observed. */
-export interface ExactRegistryPackage {
+interface ExactRegistryPackage {
   readonly version: Version;
   readonly integrity: string;
   readonly publisherBindingId: string;
@@ -192,13 +192,6 @@ export interface PublishExtensionArgs {
   readonly publicationDescriptorDigest?: Sha256Hex;
 }
 
-export interface PublishPreviewTarget {
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly version: Version;
-}
-
 export type PreviewExtensionPublishesArgs = PreviewPublicationSetRequest;
 export type PublishPreviewResult = PreviewPublicationSetResponse;
 
@@ -261,7 +254,7 @@ export interface GetExtensionPackageResponse {
 /**
  * Response from publishing an extension version.
  */
-export interface ExtensionLinks {
+interface ExtensionLinks {
   readonly html: string;
 }
 
@@ -317,7 +310,7 @@ export interface ExtensionExistsResponse {
  * - `packages`: detected package purls to match against extension compatibility
  * - `declaredExtensions`: extension refs declared by the package's portable agentExtensions metadata
  */
-export interface DiscoverPackageInput {
+interface DiscoverPackageInput {
   readonly purl: PackageUrlParts;
   readonly version: string;
   readonly declaredExtensions: ReadonlyArray<AgentExtensionRecommendation>;

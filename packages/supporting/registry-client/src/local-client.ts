@@ -62,7 +62,7 @@ import {
   PackageUrlSchema,
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
-import { extensionDir, extensionLifecycleWarnings, pluralizeType } from "./utils.js";
+import { extensionDir, extensionLifecycleWarnings } from "./utils.js";
 import {
   resolveVersionEntry,
   selectVersion,
@@ -739,7 +739,12 @@ export const createLocalRegistryClient = (
       const directories = yield* Effect.forEach(
         Array.dedupe(requestedTypes),
         (type) => {
-          const directory = path.join(registryRoot, "extensions", args.owner, pluralizeType(type));
+          const directory = path.join(
+            registryRoot,
+            "extensions",
+            args.owner,
+            toExtensionTypePlural(type),
+          );
           return readRegistryDirectory(fs, directory).pipe(
             Effect.map((names) => ({ type, directory, names })),
           );

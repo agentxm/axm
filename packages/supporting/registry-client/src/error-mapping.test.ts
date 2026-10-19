@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { buildNetworkDiagnosis, buildNetworkSuggestions } from "./error-mapping.js";
+import { buildNetworkSuggestions } from "./error-mapping.js";
 
 describe("network diagnostics", () => {
   it.each(["https://localhost:4300", "https://127.0.0.1:4300", "https://[::1]:4300"])(
@@ -10,9 +10,6 @@ describe("network diagnostics", () => {
           description:
             "Ensure local registry is running with TLS, or switch the source URL to http://localhost:<port>.",
         },
-      ]);
-      expect(buildNetworkDiagnosis(baseUrl)).toEqual([
-        "Diagnosis: Local registry appears HTTP-only while source uses HTTPS.",
       ]);
     },
   );
@@ -29,6 +26,5 @@ describe("network diagnostics", () => {
     expect(buildNetworkSuggestions("https://registry.agentxm.ai")).toEqual([
       { description: "Check registry URL/network connectivity and retry." },
     ]);
-    expect(buildNetworkDiagnosis("https://registry.agentxm.ai")).toEqual([]);
   });
 });

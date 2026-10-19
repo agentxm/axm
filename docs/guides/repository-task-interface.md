@@ -255,11 +255,16 @@ the few dependency exceptions that static analysis cannot establish. Stale
 configuration hints fail the check. Acquired Agent Skill packages retain their
 own validation boundary.
 
-The gate currently covers files and dependency declarations. Symbol-level
-export and member reports remain available through the same target with
-`--include=exports,types,duplicates`; review those findings against the published
-API before pruning. The compiler and ESLint continue to own unused local
-bindings. Knip does not replace architectural dependency or cycle enforcement.
+The gate also covers unused exports and exported types, package by package.
+A private package joins once its unused exports are pruned: its workspace entry
+sets `includeEntryExports`, so its entry points are checked too, and its paths
+leave the `ignoreIssues` list of packages still pending. A type that dependents
+must name only for declaration emit carries a `@public` tag at its entry
+export. Member and duplicate reports remain available through the same target
+with `--include=enumMembers,namespaceMembers,duplicates`; review those findings
+against the published API before pruning. The compiler and ESLint continue to
+own unused local bindings. Knip does not replace architectural dependency or
+cycle enforcement.
 
 Dependencies express prerequisite artifacts or lifecycle ordering. Callers do
 not sequence a dependency already owned by a target. Host workflows may order

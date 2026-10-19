@@ -18,28 +18,28 @@ import { RegistryOperationFailed, type RegistryClientFailure } from "./errors.js
 import { computeIntegrity, resolveAxmCacheRoot, writeFileAtomic } from "@agentxm/host-primitives";
 import { MAX_BUFFERED_ARCHIVE_BYTES, readBufferedArchive } from "./archive-limits.js";
 
-export const ARCHIVE_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
-export const ARCHIVE_CACHE_MAX_AGE = Duration.days(90);
+const ARCHIVE_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+const ARCHIVE_CACHE_MAX_AGE = Duration.days(90);
 
 export interface ArchiveCacheOptions {
   readonly maxBytes?: number;
   readonly maxAge?: Duration.Duration;
 }
 
-export interface ArchiveCacheStatus {
+interface ArchiveCacheStatus {
   readonly entries: number;
   readonly bytes: number;
   readonly maxBytes: number;
   readonly maxAgeDays: number;
 }
 
-export interface ArchiveCacheVerifyResult {
+interface ArchiveCacheVerifyResult {
   readonly checked: number;
   readonly valid: number;
   readonly corruptRemoved: number;
 }
 
-export interface ArchiveCachePruneResult {
+interface ArchiveCachePruneResult {
   readonly removed: number;
   readonly bytesFreed: number;
   readonly remaining: number;

@@ -1,8 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   "treatConfigHintsAsErrors": true,
-  // Gate files and dependency declarations. Export/member pruning is reviewed
-  // separately against the published API; --include can select those reports.
+  // Gate files, dependency declarations, and unused exports. Member pruning is
+  // reviewed separately; --include can select that report.
   "include": [
     "files",
     "dependencies",
@@ -13,7 +13,20 @@
     "catalog",
     "catalogReferences",
     "binaries",
+    "exports",
+    "types",
   ],
+  // Unused exports are gated per package once it has been pruned: private
+  // packages also report their entry exports (includeEntryExports below).
+  // Every location listed here is still pending that pruning; remove an entry
+  // when its package is clean. Generated clients mirror their contracts whole.
+  "ignoreIssues": {
+    "*.{ts,mts,cts,js,mjs,cjs}": ["exports", "types"],
+    "{apps,benchmarks,scripts,specifications,tools}/**": ["exports", "types"],
+    "packages/core/**": ["exports", "types"],
+    "packages/supporting/{cli-maintenance,registry-access}/**": ["exports", "types"],
+    "packages/supporting/registry-client/src/__generated__/**": ["exports", "types"],
+  },
   // Nx infers each project's compiler target; the dual compiler aliases are
   // enforced separately by scripts/typescript-aliases.test.ts.
   // The Git bootstrap enters lint-staged through its installed Node binary
@@ -58,6 +71,12 @@
     },
     "packages/core/workspace-features": {
       "entry": ["src/**/*.type-test.ts"],
+    },
+    "packages/generic/host-primitives": {
+      "includeEntryExports": true,
+    },
+    "packages/supporting/registry-client": {
+      "includeEntryExports": true,
     },
     "packages/core/workspace-kernel": {
       "entry": ["src/**/*.type-test.ts"],

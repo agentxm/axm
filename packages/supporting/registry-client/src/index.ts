@@ -178,14 +178,6 @@ export { purlIdentityMatch, purlMatch } from "./purl-match.js";
 // Generated OpenAPI transport (consumed by the Registry access capability)
 export * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 
-// Credential redaction for registry-supplied text and structures
-export {
-  REDACTED_SECRET,
-  collectSensitiveStrings,
-  redactRegistryText,
-  redactRegistryValue,
-} from "./redaction.js";
-
 export {
   collectBufferedArchive,
   MAX_ARCHIVE_ENTRIES,

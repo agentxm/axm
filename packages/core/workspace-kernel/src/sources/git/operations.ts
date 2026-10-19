@@ -5,6 +5,7 @@
  * @packageDocumentation
  */
 
+import { redactCredentialText } from "@agentxm/host-primitives";
 import { createHash } from "node:crypto";
 import * as FileSystem from "effect/FileSystem";
 import * as Array from "effect/Array";
@@ -15,7 +16,7 @@ import { GitObjectIdSchema } from "@agentxm/extension-model/unstable/sources/typ
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
-import { OperationRequestBudget, redactRegistryText } from "@agentxm/registry-client";
+import { OperationRequestBudget } from "@agentxm/registry-client";
 
 import { GitOperationFailed, type GitOperation } from "../errors.js";
 import { inheritedGitEnvironment } from "../../acquisition/index.js";
@@ -101,7 +102,9 @@ const mapGitError =
 
     return new GitOperationFailed({
       operation,
-      detail: redactRegistryText(reason === undefined ? baseMessage : `${baseMessage}: ${reason}`),
+      detail: redactCredentialText(
+        reason === undefined ? baseMessage : `${baseMessage}: ${reason}`,
+      ),
       cause: error,
     });
   };

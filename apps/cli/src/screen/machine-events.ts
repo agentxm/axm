@@ -1,4 +1,4 @@
-import { redactRegistryValue } from "@agentxm/registry-client";
+import { redactCredentialValue } from "@agentxm/host-primitives";
 import * as Schema from "effect/Schema";
 
 import {
@@ -116,4 +116,4 @@ export const instructionEvent = (message: string): InstructionEvent => ({
 });
 
 export const encodeMachineEvent = (event: MachineEvent): string =>
-  `${JSON.stringify(redactRegistryValue(event))}\n`;
+  `${JSON.stringify(redactCredentialValue(event))}\n`;

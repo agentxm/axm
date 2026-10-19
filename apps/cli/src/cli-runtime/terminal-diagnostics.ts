@@ -1,6 +1,7 @@
+import { collectSensitiveStrings } from "@agentxm/host-primitives";
 import { errorClassForAppErrorCode, makeAppError, type AppError } from "../app-error/index.js";
 import type { CommandSettlementFailure } from "./telemetry.js";
-import { RegistryFailureObservation, collectSensitiveStrings } from "@agentxm/registry-client";
+import { RegistryFailureObservation } from "@agentxm/registry-client";
 import { OperationJournal } from "@agentxm/workspace-kernel/operations";
 import { resolveUserAxmHome } from "@agentxm/workspace-kernel/workspace-state";
 import * as Clock from "effect/Clock";

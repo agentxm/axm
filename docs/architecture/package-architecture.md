@@ -426,9 +426,9 @@ services.
 `packages/generic/` — `domain:generic`. They may depend only on other generic
 packages; every strategic tier may import them subject to the role matrix.
 
-| Package                    | Role              | Owns                                                                                                                                                                                                                                |
-| -------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/host-primitives` | `role:capability` | Atomic single-file replacement and stale temporary-file sweep, SRI digests, the file-location codec, process-environment readers, loopback host recognition, and user-home / AXM-home resolution; private and bundled into `axm.sh` |
+| Package                    | Role              | Owns                                                                                                                                                                                                                                                      |
+| -------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/host-primitives` | `role:capability` | Atomic single-file replacement and stale temporary-file sweep, SRI digests, credential redaction, the file-location codec, process-environment readers, loopback host recognition, and user-home / AXM-home resolution; private and bundled into `axm.sh` |
 
 ## Engineering libraries
 

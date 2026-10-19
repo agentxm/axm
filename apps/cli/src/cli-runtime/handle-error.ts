@@ -1,4 +1,4 @@
-import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
+import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
 import { OutputWriteFailed } from "../screen/streams.js";
 import {
   CLOSED_PIPE_EXIT_CODE,
@@ -105,7 +105,7 @@ export const renderAppErrorChannels = (
       ...effectiveSuggestionsFor(error).map((suggestion) =>
         JSON.stringify(suggestionEvent(redactSuggestedAction(suggestion, secrets))),
       ),
-      JSON.stringify(errorEvent(error.code, redactRegistryText(error.detail, { secrets }))),
+      JSON.stringify(errorEvent(error.code, redactCredentialText(error.detail, { secrets }))),
     ],
     stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, options), null, 2) + "\n",
   };
@@ -170,7 +170,7 @@ export const classifyError = (
       }
 
       if (format !== "text") {
-        const message = redactRegistryText(cliErrorMessage(error.errors));
+        const message = redactCredentialText(cliErrorMessage(error.errors));
         return {
           exitCode: ExitCode.Usage,
           stderr: [JSON.stringify(errorEvent("usage", message))],
@@ -202,7 +202,7 @@ export const classifyError = (
         "errors" in error && Array.isArray(error.errors) && error.errors.length > 0
           ? cliErrorMessage(error.errors)
           : error.message;
-      const message = redactRegistryText(rawMessage);
+      const message = redactCredentialText(rawMessage);
       return {
         exitCode: ExitCode.Usage,
         stderr: [JSON.stringify(errorEvent("usage", message))],

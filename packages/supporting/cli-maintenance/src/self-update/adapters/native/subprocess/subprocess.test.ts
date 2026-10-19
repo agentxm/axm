@@ -10,18 +10,14 @@ const testLayer = SubprocessLive.pipe(Layer.provide(NodeServices.layer));
 
 describe("sanitizeExternalOutput", () => {
   it("strips ANSI and control injection while preserving newline and tab", () => {
-    const result = sanitizeExternalOutput(
-      "\u001b[31mred\u001b[0m\u0000ok\nnext\tcell\u009b31m",
-      [],
-    );
+    const result = sanitizeExternalOutput("\u001b[31mred\u001b[0m\u0000ok\nnext\tcell\u009b31m");
     expect(result.value).toBe("redok\nnext\tcell");
     expect(result.truncated).toBe(false);
   });
 
-  it("redacts URL credentials, authorization tokens, and known secrets", () => {
+  it("redacts URL credentials and authorization tokens", () => {
     const result = sanitizeExternalOutput(
       "https://alice:password@example.test Bearer abc.def.ghi token=super-secret",
-      ["super-secret"],
     );
     expect(result.value).not.toContain("password");
     expect(result.value).not.toContain("abc.def.ghi");
@@ -29,8 +25,21 @@ describe("sanitizeExternalOutput", () => {
     expect(result.value).toContain("[REDACTED]");
   });
 
+  it("redacts registry, GitHub, and package-manager tokens a tool echoes", () => {
+    const echoed = [
+      "axms_0123456789abcdefghijklmn",
+      "ghp_0123456789abcdefghijklmn",
+      "npm_0123456789abcdefghij",
+      "https://registry.example.test/?token=query-secret",
+    ];
+    const result = sanitizeExternalOutput(echoed.join("\n"));
+    for (const secret of ["axms_0123", "ghp_0123", "npm_0123", "query-secret"]) {
+      expect(result.value).not.toContain(secret);
+    }
+  });
+
   it("retains at most 8 KiB and marks truncation", () => {
-    const result = sanitizeExternalOutput("x".repeat(10_000), []);
+    const result = sanitizeExternalOutput("x".repeat(10_000));
     expect(new TextEncoder().encode(result.value).length).toBeLessThanOrEqual(8192);
     expect(result.truncated).toBe(true);
   });

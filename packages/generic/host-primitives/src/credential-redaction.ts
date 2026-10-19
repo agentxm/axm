@@ -1,17 +1,15 @@
 /**
- * Credential redaction for text and values that came off the wire.
+ * Credential redaction for text and values that leave the process.
  *
- * Registry problem details, response bodies, and request URLs can quote a
- * credential back at the caller, either in a recognizable shape (a bearer
- * token, a query parameter, a URL userinfo password, a well-known key
- * prefix) or as the exact value the Registry returned under a sensitive key
- * (`token`, `password`, `device_code` and the like). Every surface that
- * copies such text or structure into durable or machine-readable output
- * redacts it through this module first:
- * `collectSensitiveStrings` harvests the exact values a structured boundary
- * carries, and the two redactors erase both the shapes and those values.
- *
- * @experimental This API is unstable and may change without notice.
+ * Problem details, response bodies, request URLs, and external tool output can
+ * quote a credential back, either in a recognizable shape (a bearer token, a
+ * query parameter, a URL userinfo password, a well-known key prefix) or as the
+ * exact value a structure carries under a sensitive key (`token`, `password`,
+ * `device_code` and the like). Every surface that copies such text or
+ * structure into durable or machine-readable output redacts it through this
+ * module first: `collectSensitiveStrings` harvests the exact values a
+ * structured boundary carries, and the two redactors erase both the shapes and
+ * those values.
  */
 
 /** The replacement every redacted credential leaves behind. */
@@ -69,11 +67,11 @@ const redactKnownSecret = (text: string, secret: string): string =>
   secret.length < MIN_SECRET_LENGTH ? text : text.replaceAll(secret, REDACTED_SECRET);
 
 /**
- * Redact common credential shapes in registry-supplied text, plus the exact
+ * Redact common credential shapes in text, plus the exact
  * secret values harvested from a structured boundary with
  * `collectSensitiveStrings`.
  */
-export const redactRegistryText = (
+export const redactCredentialText = (
   input: string,
   options: { readonly secrets?: ReadonlyArray<string> } = {},
 ): string => {
@@ -122,7 +120,7 @@ const redactValue = (
 ): unknown => {
   if (typeof value === "string") {
     if (key !== undefined && isSensitiveKey(key)) return REDACTED_SECRET;
-    return redactRegistryText(value, { secrets });
+    return redactCredentialText(value, { secrets });
   }
   if (
     value === null ||
@@ -134,7 +132,7 @@ const redactValue = (
     return value;
   }
   if (typeof value !== "object") {
-    return redactRegistryText(String(value), { secrets });
+    return redactCredentialText(String(value), { secrets });
   }
   if (seen.has(value)) return "[Circular]";
   seen.add(value);
@@ -155,7 +153,7 @@ const redactValue = (
  * shapes and the harvested secrets, and circular references are cut. The
  * secrets default to the ones the structure itself carries.
  */
-export const redactRegistryValue = (
+export const redactCredentialValue = (
   value: unknown,
   options: { readonly secrets?: ReadonlyArray<string> } = {},
 ): unknown => redactValue(value, options.secrets ?? collectSensitiveStrings(value), new WeakSet());

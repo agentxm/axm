@@ -29,6 +29,7 @@ import type { PlannedJobStep } from "../operations/index.js";
 import { WorkspaceSyncFailed } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import type { SyncStepRequirements } from "./plan.js";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 /** A full-graph maintenance closure; never infers intent from accepted records. */
 export const collectUnreachableRetirement = (
@@ -109,15 +110,11 @@ export const collectUnreachableRetirement = (
                 }),
             ),
           );
-          const shared = [...retainedPaths].some((retained) => {
-            const below = path.relative(canonical, retained);
-            const above = path.relative(retained, canonical);
-            return (
-              below === "" ||
-              (!below.startsWith(`..${path.sep}`) && below !== ".." && !path.isAbsolute(below)) ||
-              (!above.startsWith(`..${path.sep}`) && above !== ".." && !path.isAbsolute(above))
-            );
-          });
+          const shared = [...retainedPaths].some(
+            (retained) =>
+              isLexicallyWithin(path, canonical, retained) ||
+              isLexicallyWithin(path, retained, canonical),
+          );
           if (exists && !shared) {
             const integrity = yield* computeMaterializedTreeIntegrity(canonical);
             if (integrity !== row.entry.treeIntegrity)

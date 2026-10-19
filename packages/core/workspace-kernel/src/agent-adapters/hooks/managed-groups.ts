@@ -9,8 +9,9 @@
 
 import * as Effect from "effect/Effect";
 import { parse as parseShell } from "shell-quote";
-import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
+import { applyEdits, modify } from "jsonc-parser";
 import { HookConfigInvalid } from "../errors.js";
+import { parseNativeConfigRoot } from "../native-config-syntax.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -19,36 +20,24 @@ const parseJsonConfig = (
   configPath: string,
   raw: string,
   format: "json" | "jsonc" = "jsonc",
-): Effect.Effect<unknown, HookConfigInvalid> =>
-  Effect.try({
-    try: () => {
-      const errors: Array<ParseError> = [];
-      const parsed: unknown = parse(raw, errors, {
-        allowTrailingComma: format === "jsonc",
-        disallowComments: format === "json",
-      });
-      if (errors.length > 0) {
-        throw errors;
-      }
-      return parsed;
-    },
-    catch: (error) =>
-      new HookConfigInvalid({
-        detail: `Invalid native hooks config JSON/JSONC: ${configPath}`,
-        cause: error,
-      }),
+): Effect.Effect<Readonly<Record<string, unknown>>, HookConfigInvalid> =>
+  parseNativeConfigRoot({
+    format,
+    raw,
+    onFailure: (failure) =>
+      failure.reason === "shape"
+        ? new HookConfigInvalid({ detail: `Invalid hooks config format: ${configPath}` })
+        : new HookConfigInvalid({
+            detail: `Invalid native hooks config JSON/JSONC: ${configPath}`,
+            cause: failure.cause,
+          }),
   });
 
 const validateHooksShape = (
   configPath: string,
   settingsKey: string,
-  parsed: unknown,
+  parsed: Readonly<Record<string, unknown>>,
 ): Effect.Effect<void, HookConfigInvalid> => {
-  if (!isRecord(parsed)) {
-    return Effect.fail(
-      new HookConfigInvalid({ detail: `Invalid hooks config format: ${configPath}` }),
-    );
-  }
   const hooks = parsed[settingsKey];
   if (hooks !== undefined && !isRecord(hooks)) {
     return Effect.fail(
@@ -210,9 +199,9 @@ export const readDeclaredHookUnits = (
   declarations: ReadonlyArray<HookNativeDeclaration>,
 ) =>
   Effect.gen(function* () {
-    const parsed = yield* parseJsonConfig(configPath, raw.trim().length === 0 ? "{}\n" : raw);
+    const parsed = yield* parseJsonConfig(configPath, raw);
     yield* validateHooksShape(configPath, settingsKey, parsed);
-    return isRecord(parsed) ? declaredHookUnits(parsed[settingsKey], declarations) : [];
+    return declaredHookUnits(parsed[settingsKey], declarations);
   });
 
 export const selectDeclaredHookGroups = (
@@ -244,9 +233,9 @@ export const readDeclaredHookGroups = (
   declarations: ReadonlyArray<HookNativeDeclaration>,
 ) =>
   Effect.gen(function* () {
-    const parsed = yield* parseJsonConfig(configPath, raw.trim().length === 0 ? "{}\n" : raw);
+    const parsed = yield* parseJsonConfig(configPath, raw);
     yield* validateHooksShape(configPath, settingsKey, parsed);
-    return isRecord(parsed) ? selectDeclaredHookGroups(parsed[settingsKey], declarations) : {};
+    return selectDeclaredHookGroups(parsed[settingsKey], declarations);
   });
 
 const structurallyEqual = (left: unknown, right: unknown): boolean => {
@@ -277,8 +266,6 @@ export const updateHooksJson = (
     let next = raw.trim().length === 0 ? "{}\n" : raw;
     const parsed = yield* parseJsonConfig(configPath, next, format);
     yield* validateHooksShape(configPath, settingsKey, parsed);
-    if (!isRecord(parsed))
-      return yield* new HookConfigInvalid({ detail: `Invalid hooks configuration: ${configPath}` });
     const edit = (keys: ReadonlyArray<string | number>, value: unknown, insertion = false) => {
       next = applyEdits(
         next,

@@ -1,9 +1,12 @@
 import * as crypto from "node:crypto";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { SelectionRule } from "../../acquisition/index.js";
+import { isLexicallyWithin, isNotFound } from "@agentxm/host-primitives";
+import { findGitRoot } from "../../locations/index.js";
 
 export class IgnoreDiscoveryFailed extends Data.TaggedError("IgnoreDiscoveryFailed")<{
   readonly detail: string;
@@ -42,30 +45,16 @@ export const observeGitIgnoreInputs = (input: {
         ),
       );
     const packageRoot = path.resolve(input.packageRoot);
-    let boundaryRoot =
-      input.boundaryRoot === undefined ? packageRoot : path.resolve(input.boundaryRoot);
-    if (input.boundaryRoot === undefined) {
-      let current = packageRoot;
-      while (true) {
-        if (yield* fs.exists(path.join(current, ".git"))) {
-          boundaryRoot = current;
-          break;
-        }
-        const parent = path.dirname(current);
-        if (parent === current) break;
-        current = parent;
-      }
-    }
-    const packageDirectory = path.relative(boundaryRoot, packageRoot).split(path.sep).join("/");
-    if (
-      packageDirectory === ".." ||
-      packageDirectory.startsWith("../") ||
-      path.isAbsolute(packageDirectory)
-    ) {
+    const boundaryRoot =
+      input.boundaryRoot === undefined
+        ? Option.getOrElse(yield* findGitRoot(packageRoot), () => packageRoot)
+        : path.resolve(input.boundaryRoot);
+    if (!isLexicallyWithin(path, boundaryRoot, packageRoot)) {
       return yield* new IgnoreDiscoveryFailed({
         detail: "The package is outside its ignore discovery boundary.",
       });
     }
+    const packageDirectory = path.relative(boundaryRoot, packageRoot).split(path.sep).join("/");
     const directories: Array<string> = [];
     let ancestor = packageRoot;
     while (true) {
@@ -96,22 +85,16 @@ export const observeGitIgnoreInputs = (input: {
     for (const directory of directories) {
       const absolute = path.join(directory, ".gitignore");
       const link = yield* readLink(absolute).pipe(
-        Effect.catchIf(
-          (error) => error.reason._tag === "NotFound",
-          () => Effect.succeed(undefined),
-        ),
+        Effect.catchIf(isNotFound, () => Effect.succeed(undefined)),
       );
       if (link !== undefined) {
         return yield* new IgnoreDiscoveryFailed({
           detail: "A publication .gitignore must be a regular file, not a symbolic link.",
         });
       }
-      const info = yield* fs.stat(absolute).pipe(
-        Effect.catchIf(
-          (error) => error.reason._tag === "NotFound",
-          () => Effect.succeed(undefined),
-        ),
-      );
+      const info = yield* fs
+        .stat(absolute)
+        .pipe(Effect.catchIf(isNotFound, () => Effect.succeed(undefined)));
       if (info === undefined) continue;
       // Git does not follow symbolic links when accessing a .gitignore file.
       if (info.type !== "File") {

@@ -55,6 +55,12 @@ export interface WriteFileAtomicOptions<E> {
   readonly content: string | Uint8Array;
   /** Permissions applied when creating the temporary file. */
   readonly mode?: number;
+  /**
+   * Stage at this path, in the target's directory, instead of a generated
+   * `<target>.tmp.<unique>` sibling. Only for callers whose own crash recovery
+   * names the stage; `sweepStaleAtomicWriteTemps` cannot find it.
+   */
+  readonly tempPath?: string;
   /** When set, leave the target untouched if it already has this content. */
   readonly skipIfUnchanged?: SkipIfUnchanged;
   /** Best-effort remove of the target before rename (Windows cannot always rename over an existing file). */
@@ -116,7 +122,7 @@ export const writeFileAtomic = <E>(
 ): Effect.Effect<"written" | "skipped", E> =>
   Effect.gen(function* () {
     const { content, mapError, targetPath } = options;
-    const tempPath = makeTempPath(targetPath);
+    const tempPath = options.tempPath ?? makeTempPath(targetPath);
     const fail =
       (step: AtomicWriteStep) =>
       (cause: PlatformError): E =>

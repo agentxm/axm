@@ -17,6 +17,7 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { RegistryOperationFailed } from "./errors.js";
+import { readFileStringIfPresent } from "@agentxm/host-primitives";
 
 const retryDelay = Duration.millis(25);
 const staleAfter = Duration.toMillis(Duration.minutes(5));
@@ -37,13 +38,8 @@ const failure = (step: string, lockPath: string, cause?: unknown) =>
   });
 
 const readOwner = (fs: FileSystem.FileSystem, lockPath: string) =>
-  fs.readFileString(lockPath).pipe(
-    Effect.map(Option.some),
-    Effect.catch((cause) =>
-      cause.reason._tag === "NotFound"
-        ? Effect.succeed(Option.none<string>())
-        : Effect.fail(failure("read", lockPath, cause)),
-    ),
+  readFileStringIfPresent(fs, lockPath).pipe(
+    Effect.mapError((cause) => failure("read", lockPath, cause)),
     Effect.flatMap((content) =>
       Option.isNone(content)
         ? Effect.succeed(Option.none<Owner>())
@@ -75,14 +71,8 @@ const releaseOwned = (fs: FileSystem.FileSystem, lockPath: string, token: string
     const owner = yield* readOwner(fs, lockPath);
     if (Option.isNone(owner) || owner.value.token !== token) return;
     yield* fs
-      .remove(lockPath)
-      .pipe(
-        Effect.catch((cause) =>
-          cause.reason._tag === "NotFound"
-            ? Effect.void
-            : Effect.fail(failure("release", lockPath, cause)),
-        ),
-      );
+      .remove(lockPath, { force: true })
+      .pipe(Effect.mapError((cause) => failure("release", lockPath, cause)));
   });
 
 /** A single exclusive-link attempt, never a contention wait. */

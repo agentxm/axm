@@ -5,14 +5,12 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envWithDefault } from "@agentxm/host-primitives";
+import { envWithDefault, osHomeDirectory } from "@agentxm/host-primitives";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
@@ -123,7 +121,11 @@ const parseGoMod = (content: string, source: string): ReadonlyArray<DetectedPack
 /**
  * Resolve the GOPATH, defaulting to ~/go when not set.
  */
-const resolveGopath = () => envWithDefault("GOPATH", `${os.homedir()}/go`);
+const resolveGopath = () =>
+  Effect.gen(function* () {
+    const home = yield* osHomeDirectory;
+    return yield* envWithDefault("GOPATH", `${home}/go`);
+  });
 
 /**
  * Go module package detector.

@@ -25,7 +25,11 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as lockfile from "proper-lockfile";
-import { resolveUserHome, writeFileAtomic } from "@agentxm/host-primitives";
+import {
+  readFileStringIfPresent,
+  resolveUserHome,
+  writeFileAtomic,
+} from "@agentxm/host-primitives";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { AuthTokenPolicyRequired, RegistryAccessFailed } from "../authentication/errors.js";
 import {
@@ -318,18 +322,14 @@ const readCredentialFile = (
 ): Effect.Effect<Option.Option<CredentialFile>, RegistryAccessFailed> =>
   Effect.gen(function* () {
     const filePath = getCredentialsPath(path, homeDir);
-    const content = yield* fs.readFileString(filePath).pipe(
-      Effect.map(Option.some),
-      Effect.catch((error) =>
-        error.reason._tag === "NotFound"
-          ? Effect.succeed(Option.none<string>())
-          : Effect.fail(
-              new RegistryAccessFailed({
-                category: "auth",
-                detail: "Credential file could not be read",
-                cause: error,
-              }),
-            ),
+    const content = yield* readFileStringIfPresent(fs, filePath).pipe(
+      Effect.mapError(
+        (cause) =>
+          new RegistryAccessFailed({
+            category: "auth",
+            detail: "Credential file could not be read",
+            cause,
+          }),
       ),
     );
     if (Option.isNone(content)) return Option.none<CredentialFile>();
@@ -360,17 +360,14 @@ const readCredentialFile = (
 const deleteCredentialFile = (fs: FileSystem.FileSystem, path: Path.Path, homeDir: string) =>
   Effect.gen(function* () {
     const filePath = getCredentialsPath(path, homeDir);
-    yield* fs.remove(filePath).pipe(
-      Effect.catch((cause) =>
-        cause.reason._tag === "NotFound"
-          ? Effect.void
-          : Effect.fail(
-              new RegistryAccessFailed({
-                category: "auth",
-                detail: "Credential file could not be removed",
-                cause,
-              }),
-            ),
+    yield* fs.remove(filePath, { force: true }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new RegistryAccessFailed({
+            category: "auth",
+            detail: "Credential file could not be removed",
+            cause,
+          }),
       ),
     );
   });

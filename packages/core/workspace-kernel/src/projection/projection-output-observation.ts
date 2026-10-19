@@ -27,6 +27,7 @@ import {
 import { ManagedRegionViolation, ProjectionIoFailed } from "./errors.js";
 import { projectionOutputDigest } from "./generation.js";
 import { observedNativeManagedRegionBody } from "./native-managed-region.js";
+import { readFileStringIfPresent } from "@agentxm/host-primitives";
 
 /** How a recorded unit's bytes are read back for comparison. */
 export type ProjectionOutputRead =
@@ -108,13 +109,8 @@ export const observeProjectionOutput = (args: {
     const path = yield* Path.Path;
     const { unit } = args;
     const physical = path.join(args.workspaceRoot, unit.path);
-    const content = yield* fs.readFileString(physical).pipe(
-      Effect.map(Option.some),
-      Effect.catch((cause) =>
-        cause.reason._tag === "NotFound"
-          ? Effect.succeedNone
-          : Effect.fail(new ProjectionIoFailed({ path: unit.path, step: "read", cause })),
-      ),
+    const content = yield* readFileStringIfPresent(fs, physical).pipe(
+      Effect.mapError((cause) => new ProjectionIoFailed({ path: unit.path, step: "read", cause })),
     );
     if (Option.isNone(content)) return Option.none();
     const observed = (bytes: string): Option.Option<ProjectionOutputObservation> =>

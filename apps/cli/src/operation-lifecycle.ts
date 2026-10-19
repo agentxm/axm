@@ -57,6 +57,7 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import { CurrentScreenOperationId, Screen } from "./screen/index.js";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
+import { isRelativeWithin } from "@agentxm/host-primitives";
 import {
   FootprintRecorder,
   makeFootprintRecorder,
@@ -215,7 +216,7 @@ export const withOperationLifecycle = <A, E, R>(
                         : entry.path,
                       change: entry.change,
                     }))
-                    .filter((entry) => !entry.path.startsWith(".."))
+                    .filter((entry) => isRelativeWithin(path, entry.path))
                     .filter(
                       (entry, index, entries) =>
                         entries.findIndex(

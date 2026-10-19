@@ -33,7 +33,7 @@ import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types"
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { isGitManaged } from "@agentxm/workspace-kernel/sources";
+import { isGitManaged } from "@agentxm/workspace-kernel/locations";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
@@ -53,7 +53,7 @@ import {
   type Settings,
   type WorkspaceStateOptions,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { AXM_DIR_NAME } from "@agentxm/host-primitives";
+import { AXM_DIR_NAME, isRelativeWithin } from "@agentxm/host-primitives";
 import {
   resolveNativeEntry,
   resolveNativeReferent,
@@ -637,9 +637,7 @@ export const reportSetupWorkspace = (
     };
     const displayTargetPath = (filePath: string): string => {
       const relative = path.relative(physicalBaseDir, filePath);
-      return relative === "" || relative.startsWith("..") || path.isAbsolute(relative)
-        ? filePath
-        : relative;
+      return relative === "" || !isRelativeWithin(path, relative) ? filePath : relative;
     };
     const targetsFor = (paths: ReadonlyArray<string>) =>
       Effect.forEach([...new Set(paths)], (filePath) =>

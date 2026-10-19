@@ -5,6 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import { NativeResolutionRoot } from "./native-address.js";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 /** A captured read view. Snapshot facts never establish native runtime availability. */
 export type NativeObservationView =
@@ -27,19 +28,9 @@ const observationViewFileSystem = (view: NativeObservationView) =>
     if (view.kind === "workspace") return fs;
     const readRoot = path.resolve(view.readRoot);
     const displayRoot = path.resolve(view.displayRoot);
-    const within = (root: string, candidate: string) => {
-      // Captured roots are capability prefixes, not arbitrary live aliases.
-      if (path.sep === "\\")
-        return (
-          candidate === root ||
-          candidate.startsWith(root.endsWith(path.sep) ? root : `${root}${path.sep}`)
-        );
-      const relative = path.relative(root, candidate);
-      return (
-        relative === "" ||
-        (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`))
-      );
-    };
+    // Captured roots are capability prefixes, not arbitrary live aliases.
+    const within = (root: string, candidate: string) =>
+      isLexicallyWithin(path, root, candidate, { windowsPrefix: true });
     const refused = (target: string, method = "read") =>
       Effect.fail(
         PlatformError.systemError({

@@ -4,6 +4,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { SourceNotResolvable } from "./errors.js";
+import { isLexicallyWithin, isRelativeWithin } from "@agentxm/host-primitives";
 
 export interface PluginMarketplaceSelection {
   readonly format: "claude" | "codex" | "cursor";
@@ -54,8 +55,7 @@ export const readPluginMarketplace = (directory: string, requested: ReadonlyArra
               invalid(`Marketplace path could not be resolved: ${target}`, cause),
             ),
           );
-        const relative = path.relative(physicalRoot, physical);
-        if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`))
+        if (!isLexicallyWithin(path, physicalRoot, physical))
           return yield* invalid(`Marketplace path escapes its root: ${target}`);
       });
     for (const format of formats) {
@@ -153,8 +153,7 @@ export const readPluginMarketplace = (directory: string, requested: ReadonlyArra
           relative.length === 0 ||
           path.isAbsolute(relative) ||
           relative.includes("\\") ||
-          selectedRelative === ".." ||
-          selectedRelative.startsWith(`..${path.sep}`)
+          !isRelativeWithin(path, selectedRelative)
         )
           return yield* invalid(`Marketplace source escapes its root: ${relative}`);
         yield* contained(selected);

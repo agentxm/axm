@@ -19,7 +19,7 @@ import {
 } from "./hooks/reader-semantics.js";
 import { readDeclaredHookUnits } from "./hooks/managed-groups.js";
 import { interpretNativeMcpEntry } from "./mcps/reader-semantics.js";
-import { parseNativeConfigRoot } from "./native-config-syntax.js";
+import { invalidNativeConfig, parseNativeConfigRoot } from "./native-config-syntax.js";
 
 export interface NativeConfigReader {
   readonly agentId: string;
@@ -125,8 +125,8 @@ export const preflightNativeConfigReaders = (args: {
         : [args.raw, args.proposedRaw]) {
         const root = yield* parseNativeConfigRoot({
           format: reader.format,
-          configPath: alias,
           raw,
+          onFailure: invalidNativeConfig(reader.format, alias),
         });
         parsed.push(root);
         if (reader.kind === "hook" && reader.settingsKey !== undefined)

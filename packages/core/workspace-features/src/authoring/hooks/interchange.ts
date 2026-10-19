@@ -17,6 +17,7 @@ import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extens
 import { renderNativeHookGroup } from "@agentxm/workspace-kernel/agent-adapters";
 import { AuthoringFailed } from "../errors.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 export const NATIVE_HOOK_BUNDLE_CONFIG = "hooks.json";
 export const NATIVE_HOOK_BUNDLE_METADATA = "hook-bundle.json";
@@ -207,8 +208,7 @@ export const readHookResources = Effect.fn("Hook.readBundleResources")(function*
     )
       return yield* safe(`Resource path is reserved by the native bundle: ${relative}.`);
     const absolute = yield* fs.realPath(path.resolve(realRoot, relative));
-    const contained = path.relative(realRoot, absolute);
-    if (contained === ".." || contained.startsWith(`..${path.sep}`) || path.isAbsolute(contained))
+    if (!isLexicallyWithin(path, realRoot, absolute))
       return yield* safe(`Hook resource escapes its source package: ${relative}.`);
     const info = yield* fs.stat(absolute);
     if (info.type !== "File")
@@ -238,8 +238,7 @@ export const prepareNativeHookImport = Effect.fn("Hook.prepareNativeImport")(fun
     "Native config must be a safe path relative to its bundle directory.",
   );
   const configReal = yield* fs.realPath(path.resolve(root, configPath));
-  const relative = path.relative(root, configReal);
-  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))
+  if (!isLexicallyWithin(path, root, configReal))
     return yield* safe("Native config escapes its bundle directory.");
   const configText = yield* fs.readFileString(configReal);
   const input = yield* decode(

@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { isStrictlyWithin } from "@agentxm/extension-model/unstable/path-types";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 import {
   extensionTypes,
   toExtensionTypePlural,
@@ -131,7 +131,7 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
 
     const leadsToLockedPath = (directory: string) =>
       [...lockedPaths.keys(), ...bundledPaths].some((locked) =>
-        isStrictlyWithin(path, directory, locked),
+        isLexicallyWithin(path, directory, locked, { includeSelf: false }),
       );
 
     const visit = (directory: string): Effect.Effect<void, never> =>

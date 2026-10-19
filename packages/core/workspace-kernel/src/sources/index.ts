@@ -105,7 +105,6 @@ export { withPackRegistryIndexMemo } from "./providers/registry/index-memo.js";
 // Locator utilities
 
 // Git acquisition
-export { findGitRoot, isGitManaged } from "./git/detect.js";
 export {
   observeGitIgnoreInputs,
   IgnoreDiscoveryFailed,

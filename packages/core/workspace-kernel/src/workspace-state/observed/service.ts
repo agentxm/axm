@@ -15,11 +15,8 @@ import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/regi
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { Settings, SourceHostConfig } from "../desired/settings/schema.js";
-import {
-  isWithinOrEqual,
-  makeAbsolutePath,
-  type AbsolutePath,
-} from "@agentxm/extension-model/unstable/path-types";
+import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 import {
   resolveProjectWorkspaceLayout,
   resolveProjectWorkspaceStatePaths,
@@ -166,7 +163,7 @@ export const validateWorkspaceReadRoot = (
 ): Effect.Effect<ResolvedWorkspaceRoot, WorkspaceRootEscape> =>
   Effect.gen(function* () {
     const resolved = pathSvc.resolve(candidate);
-    if (Option.isSome(allowedRoot) && !isWithinOrEqual(pathSvc, allowedRoot.value, resolved)) {
+    if (Option.isSome(allowedRoot) && !isLexicallyWithin(pathSvc, allowedRoot.value, resolved)) {
       return yield* new WorkspaceRootEscape({
         workspaceRoot: candidate,
         allowedRoot: allowedRoot.value,

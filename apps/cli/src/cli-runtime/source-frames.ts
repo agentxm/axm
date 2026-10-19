@@ -1,5 +1,4 @@
 import { SourceMap } from "node:module";
-import { fileURLToPath } from "node:url";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -7,6 +6,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type { DIAGNOSTIC_SOURCES } from "../__generated__/diagnostic-sources.js";
+import { fromFileLocation } from "@agentxm/host-primitives";
 
 declare const __AXM_BUILD_ROOT__: string | undefined;
 
@@ -72,7 +72,7 @@ const stackLocations = (stack: string): ReadonlyArray<StackLocation> => {
 
 const localPath = (filename: string) =>
   Effect.try({
-    try: () => (filename.startsWith("file:") ? fileURLToPath(filename) : filename),
+    try: () => fromFileLocation(filename),
     catch: (cause) => new SourceFrameUnavailable({ reason: "Invalid location", cause }),
   });
 

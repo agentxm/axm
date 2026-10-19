@@ -7,9 +7,14 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { parse as parseShell } from "shell-quote";
-import { isDeclaredHookEntry, parseNativeConfigRoot } from "../agent-adapters/index.js";
+import {
+  invalidNativeConfig,
+  isDeclaredHookEntry,
+  parseNativeConfigRoot,
+} from "../agent-adapters/index.js";
 import { resolveNativeReadLocation, type NativeDirectoryInputs } from "../locations/index.js";
 import { ProjectionIoFailed } from "./errors.js";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 /** This guard grants no mutation authority; uncertain references prevent package deletion. */
 export const nativePackageReferences = (args: {
@@ -29,13 +34,8 @@ export const nativePackageReferences = (args: {
     const path = yield* Path.Path;
     const root = path.resolve(args.packageRoot);
     const relativeRoot = path.relative(args.workspaceRoot, root);
-    const beneath = (value: string) => {
-      const relative = path.relative(root, path.resolve(args.workspaceRoot, value));
-      return (
-        relative === "" ||
-        (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
-      );
-    };
+    const beneath = (value: string) =>
+      isLexicallyWithin(path, root, path.resolve(args.workspaceRoot, value));
     const candidates = (value: unknown): ReadonlyArray<string> => {
       if (Array.isArray(value)) return value.flatMap(candidates);
       if (typeof value === "object" && value !== null)
@@ -117,8 +117,8 @@ export const nativePackageReferences = (args: {
     for (const { kind, declaration, resolved, key } of present.flat()) {
       const document = yield* parseNativeConfigRoot({
         format: declaration.format,
-        configPath: resolved.path,
         raw: yield* fs.readFileString(resolved.path),
+        onFailure: invalidNativeConfig(declaration.format, resolved.path),
       });
       let value: unknown = document;
       for (const key of declaration.keyPath ?? []) {

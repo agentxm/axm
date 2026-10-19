@@ -15,6 +15,7 @@ import type { SubprocessService } from "../subprocess/subprocess.js";
 import { makeCommandRunner } from "../subprocess/command-evidence.js";
 import { acquireUpgradeLock, updateLockBackup } from "./lock.js";
 import { nativeUpgradeFailure } from "./failure.js";
+import { isNotFound } from "@agentxm/host-primitives";
 
 /** Own only native resource lifetime; the application chooses replacement and acceptance. */
 export const makeScriptExecutableInstaller = (
@@ -38,14 +39,10 @@ export const makeScriptExecutableInstaller = (
     acquire: (executablePath) =>
       Effect.gen(function* () {
         const targetPath = yield* fs.realPath(executablePath).pipe(
-          Effect.catch((cause) =>
-            cause.reason._tag === "NotFound"
-              ? fs
-                  .realPath(path.dirname(executablePath))
-                  .pipe(
-                    Effect.map((directory) => path.join(directory, path.basename(executablePath))),
-                  )
-              : Effect.fail(cause),
+          Effect.catchIf(isNotFound, () =>
+            fs
+              .realPath(path.dirname(executablePath))
+              .pipe(Effect.map((directory) => path.join(directory, path.basename(executablePath)))),
           ),
           Effect.mapError((cause) => nativeUpgradeFailure("resolve-executable", cause)),
         );
@@ -76,14 +73,7 @@ export const makeScriptExecutableInstaller = (
               const needsRestoration = yield* Ref.make(false);
               const restore = Effect.uninterruptible(
                 Effect.gen(function* () {
-                  if (process.platform === "win32")
-                    yield* fs
-                      .remove(targetPath)
-                      .pipe(
-                        Effect.catch((cause) =>
-                          cause.reason._tag === "NotFound" ? Effect.void : Effect.fail(cause),
-                        ),
-                      );
+                  if (process.platform === "win32") yield* fs.remove(targetPath, { force: true });
                   yield* fs.rename(backupPath, targetPath);
                   yield* Ref.set(needsRestoration, false);
                 }).pipe(

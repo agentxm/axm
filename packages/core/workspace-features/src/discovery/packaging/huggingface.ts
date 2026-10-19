@@ -8,15 +8,13 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { envOption } from "@agentxm/host-primitives";
+import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageReader } from "./types.js";
@@ -57,7 +55,7 @@ const resolveHfCache = () =>
     const home = yield* envOption("HF_HOME");
     return Option.isSome(home) && home.value.length > 0
       ? `${home.value}/hub`
-      : `${os.homedir()}/.cache/huggingface/hub`;
+      : `${yield* osHomeDirectory}/.cache/huggingface/hub`;
   });
 
 // ---------------------------------------------------------------------------

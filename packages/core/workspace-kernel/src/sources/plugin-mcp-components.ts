@@ -5,6 +5,7 @@ import * as Schema from "effect/Schema";
 import type { NativeMcpComponent } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { PluginSkillDistribution } from "./plugin-distribution.js";
 import { SourceNotResolvable } from "./errors.js";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 const PortableMap = Schema.Struct({
   $schema: Schema.Literal("https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"),
@@ -40,8 +41,7 @@ export const discoverPluginMcpComponents = (
     const physical = yield* fs
       .realPath(config)
       .pipe(Effect.mapError((cause) => invalid("Cannot resolve plugin MCP configuration", cause)));
-    const relative = path.relative(root, physical);
-    if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`))
+    if (!isLexicallyWithin(path, root, physical))
       return yield* invalid("Plugin MCP configuration escapes its package");
     const raw = yield* fs
       .readFileString(config)

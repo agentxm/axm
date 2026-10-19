@@ -15,7 +15,11 @@
  */
 
 // Detection (effectful)
-export { parseNativeConfigRoot } from "./native-config-syntax.js";
+export {
+  invalidNativeConfig,
+  parseNativeConfigRoot,
+  type NativeConfigRootFailure,
+} from "./native-config-syntax.js";
 export { preflightNativeConfigReaders, type NativeConfigReader } from "./native-config-readers.js";
 export {
   AgentExecutableResolver,

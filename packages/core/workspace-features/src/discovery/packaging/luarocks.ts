@@ -5,8 +5,6 @@
  * @packageDocumentation
  */
 
-// Intentional escape hatch: node:os homedir() has no @effect/platform equivalent.
-import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -17,6 +15,7 @@ import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/p
 import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
+import { osHomeDirectory } from "@agentxm/host-primitives";
 
 const luarocksType = Schema.decodeUnknownSync(PackageTypeSchema)("luarocks");
 
@@ -155,7 +154,7 @@ export const luarocksReader: PackageReader = {
 
       const pkgName = pkg.purl.name;
       const version = pkg.purl.version ?? "0.0.0-0";
-      const home = os.homedir();
+      const home = yield* osHomeDirectory;
 
       // Lua version variants to check
       const luaVersions = ["5.4", "5.3", "5.2", "5.1"];

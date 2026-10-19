@@ -3,7 +3,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import type { PlatformError } from "effect/PlatformError";
 import type {
   CanonicalObservation,
   CanonicalObservationStatus,
@@ -18,6 +17,7 @@ import {
 } from "@agentxm/cli-maintenance/official-skill/domain";
 import { type AxmSkillCompatibilityPolicyService } from "@agentxm/cli-maintenance/official-skill/application";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { readFileStringIfPresent } from "@agentxm/host-primitives";
 
 /** One desired node and the canonical observation workspace state made of it. */
 export interface ObservedOfficialAxmSkillCandidate {
@@ -108,19 +108,6 @@ const manifestVersion = (content: string): string | null => {
   }
 };
 
-/** Read a file the selected package may lack; absence is a fact, other failures are not. */
-const readOptional = (
-  fs: FileSystem.FileSystem,
-  file: string,
-): Effect.Effect<Option.Option<string>, PlatformError> =>
-  fs.readFileString(file).pipe(
-    Effect.map(Option.some),
-    Effect.catchIf(
-      (error) => error.reason._tag === "NotFound",
-      () => Effect.succeedNone,
-    ),
-  );
-
 const sourceFor = (
   selected: SelectedOfficialAxmSkill,
   installedVersion: string | null,
@@ -196,8 +183,8 @@ export const assessOfficialAxmSkill = (args: {
     const path = yield* Path.Path;
     const read = yield* Effect.result(
       Effect.all([
-        readOptional(fs, path.join(root, manifestFilenameForType("skill"))),
-        readOptional(fs, path.join(root, "src", "SKILL.md")),
+        readFileStringIfPresent(fs, path.join(root, manifestFilenameForType("skill"))),
+        readFileStringIfPresent(fs, path.join(root, "src", "SKILL.md")),
       ]),
     );
     if (Result.isFailure(read)) {

@@ -2,11 +2,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as FileSystem from "effect/FileSystem";
 import { McpConfigIoFailed } from "../errors.js";
-import { NativeResolutionRoot } from "../../locations/index.js";
+import { findGitRoot, NativeResolutionRoot } from "../../locations/index.js";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { readNativeMcpConfig, readNativeMcpValues, decodeJsonMcpConfig } from "./native-config.js";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 export interface CompetingMcpEntry {
   readonly name: string;
@@ -29,14 +29,8 @@ export const readCompetingMcpEntries = (args: {
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const capturedRoot = yield* NativeResolutionRoot;
-    const observable = (candidate: string) => {
-      if (capturedRoot === undefined) return true;
-      const relative = path.relative(capturedRoot, candidate);
-      return (
-        relative === "" ||
-        (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`))
-      );
-    };
+    const observable = (candidate: string) =>
+      capturedRoot === undefined || isLexicallyWithin(path, capturedRoot, candidate);
     const results: Array<CompetingMcpEntry> = [];
     if (args.agentId === "github-copilot-cli" && args.target.scope === "project") {
       const raw = yield* readNativeMcpConfig(args.target.path);
@@ -54,28 +48,22 @@ export const readCompetingMcpEntries = (args: {
             reason: `github-copilot-cli: bare-root configuration at ${args.target.path} cannot receive a nested mcpServers map without hiding existing entries. Convert the native file explicitly before projection; it remains untouched.`,
           });
       }
-      const fs = yield* FileSystem.FileSystem;
-      const exists = (file: string) =>
-        fs.exists(file).pipe(
-          Effect.mapError(
-            (cause) =>
-              new McpConfigIoFailed({
-                detail: "Cannot inspect Copilot ancestor configuration boundary",
-                cause,
-              }),
-          ),
-        );
-      let directory = args.workspaceRoot;
+      const gitRoot = yield* findGitRoot(args.workspaceRoot, { continueTo: observable }).pipe(
+        Effect.mapError(
+          (cause) =>
+            new McpConfigIoFailed({
+              detail: "Cannot inspect Copilot ancestor configuration boundary",
+              cause,
+            }),
+        ),
+      );
+      // Ancestors above the workspace up to its checkout root also configure Copilot.
       const ancestors: Array<string> = [];
-      while (!(yield* exists(path.join(directory, ".git")))) {
-        const parent = path.dirname(directory);
-        if (parent === directory || !observable(parent)) {
-          ancestors.length = 0;
-          break;
+      if (Option.isSome(gitRoot))
+        for (let directory = path.resolve(args.workspaceRoot); directory !== gitRoot.value;) {
+          directory = path.dirname(directory);
+          ancestors.push(directory);
         }
-        directory = parent;
-        ancestors.push(directory);
-      }
       for (const ancestorDirectory of ancestors) {
         for (const relative of [".mcp.json", ".github/mcp.json"]) {
           const configPath = path.join(ancestorDirectory, relative);

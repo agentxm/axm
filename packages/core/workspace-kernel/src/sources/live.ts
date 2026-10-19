@@ -19,7 +19,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import { RegistryClientFactory } from "@agentxm/registry-client";
-import { fromFileLocation } from "@agentxm/host-primitives";
+import { fromFileLocation, isRelativeWithin } from "@agentxm/host-primitives";
 import type * as Scope from "effect/Scope";
 
 import {
@@ -56,7 +56,7 @@ import type { SourceHostProvidersService } from "./service.js";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
 import { GitDirectoryComparison } from "./git/directory-comparison.js";
 import { compareDirectoryToHead } from "./git/operations.js";
-import { findGitRoot } from "./git/detect.js";
+import { detectGitRoot } from "../locations/index.js";
 import {
   acquiredFilesForRef,
   DirectoryCopyLimitExceeded,
@@ -71,13 +71,13 @@ export const localRefSourcePath = (
   workspaceRoot: string,
   selectedPath: string,
 ): string => {
-  const relative = Option.map(
+  const relative = Option.filter(
     makeWorkspaceRelativeSourcePath(path, workspaceRoot, selectedPath),
-    (value) => value.split(path.sep).join("/"),
+    (value) => isRelativeWithin(path, value),
   );
-  return Option.isSome(relative) && relative.value !== ".." && !relative.value.startsWith("../")
-    ? relative.value
-    : selectedPath.split(path.sep).join("/");
+  return Option.getOrElse(relative, () => selectedPath)
+    .split(path.sep)
+    .join("/");
 };
 
 // -----------------------------------------------------------------------------
@@ -367,7 +367,7 @@ export const GitDirectoryComparisonLive: Layer.Layer<
     );
     return {
       compare: ({ directory, currentPaths }) =>
-        findGitRoot(directory).pipe(
+        detectGitRoot(directory).pipe(
           Effect.flatMap(
             Option.match({
               onNone: () => Effect.succeed(Option.none()),

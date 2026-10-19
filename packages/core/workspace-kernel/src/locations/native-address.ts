@@ -7,6 +7,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import type * as PlatformError from "effect/PlatformError";
 import { nativeInode } from "./native-inode.js";
+import { isLexicallyWithin } from "@agentxm/host-primitives";
 
 export class NativeLocationError extends Data.TaggedError("NativeLocationError")<{
   readonly target: string;
@@ -267,20 +268,9 @@ export const resolveNativeEntry = (
     };
   });
 
-const contains = (path: Path.Path, parent: string, child: string): boolean => {
-  if (path.sep === "\\") {
-    const root = path.resolve(parent);
-    const target = path.resolve(child);
-    return (
-      target === root || target.startsWith(root.endsWith(path.sep) ? root : `${root}${path.sep}`)
-    );
-  }
-  const relative = path.relative(parent, child);
-  return (
-    relative === "" ||
-    (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`))
-  );
-};
+// Admission roots are capability prefixes, not arbitrary live aliases.
+const contains = (path: Path.Path, parent: string, child: string): boolean =>
+  isLexicallyWithin(path, parent, child, { windowsPrefix: true });
 
 export const pathsOverlap = (path: Path.Path, left: string, right: string): boolean =>
   contains(path, left, right) || contains(path, right, left);

@@ -11,12 +11,12 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { isStrictlyWithin } from "@agentxm/extension-model/unstable/path-types";
+import { isLexicallyWithin, isRelativeWithin } from "@agentxm/host-primitives";
 import * as Stream from "effect/Stream";
 import { ChildProcess } from "effect/process";
 import { createHash } from "node:crypto";
 import { LintStagingFailed } from "./errors.js";
-import { findGitRoot } from "@agentxm/workspace-kernel/sources";
+import { detectGitRoot } from "@agentxm/workspace-kernel/locations";
 
 export interface StagedWorkspace {
   readonly gitRoot: string;
@@ -247,7 +247,7 @@ const writeIndexEntry = (args: {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const destination = path.resolve(args.workspaceRoot, args.entry.path);
-    if (!isStrictlyWithin(path, args.workspaceRoot, destination)) {
+    if (!isLexicallyWithin(path, args.workspaceRoot, destination, { includeSelf: false })) {
       return yield* stagedSnapshotError({
         detail: `Git index path escapes the staged workspace: ${args.entry.path}`,
       });
@@ -303,7 +303,7 @@ export const materializeGitIndexWorkspace = Effect.fn("Lint.materializeGitIndexW
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const resolvedStartPath = path.resolve(startPath);
-    const gitRoot = yield* findGitRoot(resolvedStartPath);
+    const gitRoot = yield* detectGitRoot(resolvedStartPath);
 
     if (Option.isNone(gitRoot)) {
       return yield* stagedSnapshotError({
@@ -314,7 +314,7 @@ export const materializeGitIndexWorkspace = Effect.fn("Lint.materializeGitIndexW
 
     const displayWorkspaceRoot = options.selectRepositoryRoot ? gitRoot.value : resolvedStartPath;
     const selectedRelative = path.relative(gitRoot.value, displayWorkspaceRoot);
-    if (selectedRelative.startsWith("..") || path.isAbsolute(selectedRelative)) {
+    if (!isRelativeWithin(path, selectedRelative)) {
       return yield* stagedSnapshotError({
         detail: `Lint path '${displayWorkspaceRoot}' is outside Git repository '${gitRoot.value}'`,
       });

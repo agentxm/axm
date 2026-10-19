@@ -105,121 +105,48 @@ export const authoredDeclaration = (
   name: string,
   options?: { readonly roundTrip?: boolean },
 ): AuthoredDeclaration => {
-  switch (type) {
-    case "skill":
-      return {
-        read: ports.settings.entries("skill").pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry(
-            "skill",
-            name,
-            { source: WORKSPACE_SOURCE, enabled },
-            options,
-          ),
-        retireExternalResolution: ports.accepted.removeAccepted("skill", name),
-      };
-    case "subagent":
-      return {
-        read: ports.settings
-          .entries("subagent")
-          .pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry(
-            "subagent",
-            name,
-            { source: WORKSPACE_SOURCE, enabled },
-            options,
-          ),
-        retireExternalResolution: ports.accepted.removeAccepted("subagent", name),
-      };
-    case "rule":
-      return {
-        read: ports.settings.entries("rule").pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry(
-            "rule",
-            name,
-            { source: WORKSPACE_SOURCE, enabled },
-            options,
-          ),
-        retireExternalResolution: ports.accepted.removeAccepted("rule", name),
-      };
-    case "hook":
-      return {
-        read: ports.settings.entries("hook").pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry(
-            "hook",
-            name,
-            { source: WORKSPACE_SOURCE, enabled },
-            options,
-          ),
-        retireExternalResolution: ports.accepted.removeAccepted("hook", name),
-      };
-    case "knowledge":
-      return {
-        read: ports.settings
-          .entries("knowledge")
-          .pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry(
-            "knowledge",
-            name,
-            { source: WORKSPACE_SOURCE, enabled },
-            options,
-          ),
-        retireExternalResolution: ports.accepted.removeAccepted("knowledge", name),
-      };
-    case "pack":
-      return {
-        read: ports.settings.entries("pack").pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) =>
-          ports.settingsWriter.setEntry(
-            "pack",
-            name,
-            { source: WORKSPACE_SOURCE, enabled },
-            options,
-          ),
-        retireExternalResolution: ports.accepted.removeAccepted("pack", name),
-      };
-    case "mcp-server":
-      return {
-        read: ports.settings.entries("mcp-server").pipe(
-          Effect.map((entries) =>
-            state(entries[name], {
-              ...(entries[name]?.distribution === undefined
-                ? {}
-                : { distribution: entries[name].distribution }),
-              ...(entries[name]?.bindings === undefined
-                ? {}
-                : { bindings: entries[name].bindings }),
-              ...(entries[name]?.auth === undefined ? {} : { auth: entries[name].auth }),
-            }),
-          ),
-        ),
-        declare: ({ enabled, mcpPreferences }) =>
-          Effect.gen(function* () {
-            const existing = (yield* ports.settings.entries("mcp-server"))[name];
-            yield* ports.settingsWriter.setEntry(
-              "mcp-server",
-              name,
-              {
-                kind: "sourced",
-                source: WORKSPACE_SOURCE,
-                enabled,
-                ...(existing?.distribution === undefined
-                  ? {}
-                  : { distribution: existing.distribution }),
-                ...(existing?.bindings === undefined ? {} : { bindings: existing.bindings }),
-                ...(existing?.auth === undefined ? {} : { auth: existing.auth }),
-                ...mcpPreferences,
-              },
-              options,
-            );
+  if (type === "mcp-server") {
+    return {
+      read: ports.settings.entries("mcp-server").pipe(
+        Effect.map((entries) =>
+          state(entries[name], {
+            ...(entries[name]?.distribution === undefined
+              ? {}
+              : { distribution: entries[name].distribution }),
+            ...(entries[name]?.bindings === undefined ? {} : { bindings: entries[name].bindings }),
+            ...(entries[name]?.auth === undefined ? {} : { auth: entries[name].auth }),
           }),
-        // Resolve the old connection before its workspace declaration replaces
-        // it, preserving any resolution still shared by another connection.
-        retireExternalResolution: ports.desiredStateWriter.undeclare("mcp-server", name),
-      };
+        ),
+      ),
+      declare: ({ enabled, mcpPreferences }) =>
+        Effect.gen(function* () {
+          const existing = (yield* ports.settings.entries("mcp-server"))[name];
+          yield* ports.settingsWriter.setEntry(
+            "mcp-server",
+            name,
+            {
+              kind: "sourced",
+              source: WORKSPACE_SOURCE,
+              enabled,
+              ...(existing?.distribution === undefined
+                ? {}
+                : { distribution: existing.distribution }),
+              ...(existing?.bindings === undefined ? {} : { bindings: existing.bindings }),
+              ...(existing?.auth === undefined ? {} : { auth: existing.auth }),
+              ...mcpPreferences,
+            },
+            options,
+          );
+        }),
+      // Resolve the old connection before its workspace declaration replaces
+      // it, preserving any resolution still shared by another connection.
+      retireExternalResolution: ports.desiredStateWriter.undeclare("mcp-server", name),
+    };
   }
+  return {
+    read: ports.settings.entries(type).pipe(Effect.map((entries) => state(entries[name]))),
+    declare: ({ enabled }) =>
+      ports.settingsWriter.setEntry(type, name, { source: WORKSPACE_SOURCE, enabled }, options),
+    retireExternalResolution: ports.accepted.removeAccepted(type, name),
+  };
 };

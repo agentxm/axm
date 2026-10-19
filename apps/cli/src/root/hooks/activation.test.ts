@@ -7,7 +7,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
@@ -164,8 +163,9 @@ describe("hooks enable/disable no-op output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleHooksNew({
-          name: decodeExtensionNameSync("workspace-baseline"),
+          name: "workspace-baseline",
           owner: Option.some("@acme"),
+          description: Option.none(),
           runtime: "bash",
           protocol: "claude-code",
           event: "PreToolUse",

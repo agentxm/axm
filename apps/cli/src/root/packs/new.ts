@@ -1,69 +1,20 @@
-import { creationOwnerFlag } from "../../cli-flags/owner-handle.js";
-import { withParameterDescription } from "../../cli-parameters.js";
-import { descriptionFlag } from "../../cli-flags/index.js";
-import * as Option from "effect/Option";
-import { Argument, Command } from "effect/cli";
-
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
-
-import { withArgvTracking } from "../../cli-runtime/index.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
-  previewCapabilityFlag,
-  previewableCapabilities,
-  withCommandCapabilities,
-} from "../shared/command-capabilities.js";
-import { runCreateExtensionCommand } from "../shared/create-extension-command.js";
+  makePerTypeNewCommand,
+  runCreateExtensionCommand,
+  type NewExtensionArgs,
+} from "../shared/create-extension-command.js";
 
-export interface PacksNewHandlerArgs {
-  readonly name: string;
-  readonly owner: Option.Option<string>;
-  readonly description?: Option.Option<string>;
-  readonly preview: boolean;
-}
-
-export const handlePacksNew = (args: PacksNewHandlerArgs) =>
+export const handlePacksNew = (args: NewExtensionArgs) =>
   runCreateExtensionCommand({
     preview: args.preview,
-    request: {
-      type: "pack",
-      name: args.name,
-      owner: args.owner,
-      description: args.description ?? Option.none(),
-    },
+    request: { type: "pack", name: args.name, owner: args.owner, description: args.description },
     suggestions: (candidate) => [
       { description: `Edit \`${candidate.entryPath}\` to fill in pack contents` },
     ],
   });
 
-const newConfig = {
-  name: Argument.String("name").pipe(
-    withParameterDescription("Name of the pack to create, without owner"),
-  ),
-  owner: creationOwnerFlag,
-  description: descriptionFlag,
-  preview: previewCapabilityFlag(),
-} as const;
-
-export const newCommand = Command.make("new", newConfig, ({ name, owner, description, preview }) =>
-  handlePacksNew({
-    name,
-    owner,
-    description,
-    preview,
-  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime()),
-).pipe(
-  withArgvTracking(newConfig),
-  withCommandCapabilities(previewableCapabilities("authored-source")),
-  Command.withDescription("Create a new empty pack in the project-workspace authoring root"),
-  Command.withExamples([
-    {
-      command: "axm packs new frontend-tools",
-      description: "Create an empty pack to bundle extensions",
-    },
-    {
-      command: "axm packs new frontend-tools --owner @co",
-      description: "Create under a specific owner",
-    },
-  ]),
-);
+export const newCommand = makePerTypeNewCommand("pack", {
+  description: "Create a new empty pack in the project-workspace authoring root",
+  extraConfig: {},
+  handle: handlePacksNew,
+});

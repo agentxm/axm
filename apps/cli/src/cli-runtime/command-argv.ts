@@ -7,7 +7,8 @@ import { Command } from "effect/cli";
 // ---------------------------------------------------------------------------
 
 export interface CommandArgvService {
-  readonly value: Record<string, unknown>;
+  /** The command's parsed input, as its handler received it. */
+  readonly value: unknown;
   readonly paramKinds: Record<string, "argument" | "flag">;
 }
 
@@ -43,7 +44,7 @@ export const extractParamKinds = (
 
 export const withArgvTracking =
   (config: Record<string, unknown>) =>
-  <const Name extends string, Input extends Record<string, unknown>, ContextInput, E, R>(
+  <const Name extends string, Input, ContextInput, E, R>(
     self: Command.Command<Name, Input, ContextInput, E, R>,
   ) =>
     Command.provideSync(CommandArgv, (input: Input) => ({
@@ -56,11 +57,13 @@ export const withArgvTracking =
 // ---------------------------------------------------------------------------
 
 export const serializeArgv = (
-  argv: Record<string, unknown>,
+  argv: unknown,
   paramKinds: Record<string, "argument" | "flag">,
 ): Record<string, string> => {
   const result: Record<string, string> = {};
-  for (const [key, value] of Object.entries(argv)) {
+  if (typeof argv !== "object" || argv === null) return result;
+  const entries: ReadonlyArray<readonly [string, unknown]> = Object.entries(argv);
+  for (const [key, value] of entries) {
     if (value == null) continue;
     const prefix = paramKinds[key] === "argument" ? "cli.arg" : "cli.flag";
     // Record that the argument/flag was provided, but never its value: a

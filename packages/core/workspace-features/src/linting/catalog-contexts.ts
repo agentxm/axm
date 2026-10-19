@@ -28,13 +28,14 @@ import {
   ruleRules,
   skillRules,
   subagentRules,
-  type HookRuleContext,
+  type ManifestRuleContext,
+  type HookContent,
   type KnowledgeRuleContext,
-  type McpServerRuleContext,
-  type PackRuleContext,
-  type RuleRuleContext,
+  type McpServerContent,
+  type PackContent,
+  type RuleContent,
   type SkillRuleContext,
-  type SubagentRuleContext,
+  type SubagentContent,
   type LintRule,
 } from "@agentxm/extension-content/lint";
 import {
@@ -55,11 +56,11 @@ import type { WorkspaceRuleContext } from "./workspace-context.js";
  */
 export interface CatalogRuleContexts {
   readonly skill: ReadonlyArray<SkillRuleContext>;
-  readonly pack: ReadonlyArray<PackRuleContext>;
-  readonly subagent: ReadonlyArray<SubagentRuleContext>;
-  readonly "mcp-server": ReadonlyArray<McpServerRuleContext>;
-  readonly rule: ReadonlyArray<RuleRuleContext>;
-  readonly hook: ReadonlyArray<HookRuleContext>;
+  readonly pack: ReadonlyArray<ManifestRuleContext<PackContent>>;
+  readonly subagent: ReadonlyArray<ManifestRuleContext<SubagentContent>>;
+  readonly "mcp-server": ReadonlyArray<ManifestRuleContext<McpServerContent>>;
+  readonly rule: ReadonlyArray<ManifestRuleContext<RuleContent>>;
+  readonly hook: ReadonlyArray<ManifestRuleContext<HookContent>>;
   readonly knowledge: ReadonlyArray<KnowledgeRuleContext>;
   readonly workspace: ReadonlyArray<WorkspaceRuleContext>;
 }

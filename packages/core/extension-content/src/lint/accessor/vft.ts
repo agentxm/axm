@@ -1,5 +1,5 @@
 /**
- * VFT-backed `SkillFileAccessor` for publish callers.
+ * VFT-backed `ExtensionFileAccessor` for publish callers and fixture tests.
  *
  * A Virtual File Tree (VFT) is an in-memory representation of an extracted
  * archive — the registry publish pipeline extracts an upload into a VFT, then
@@ -26,7 +26,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { FileAccessError, SkillFileAccessor } from "../../context.js";
+import type { ExtensionFileAccessor, FileAccessError } from "../context.js";
 
 // -----------------------------------------------------------------------------
 // VFTNode — minimal interface the accessor needs
@@ -54,15 +54,15 @@ export interface VFTNode {
 }
 
 /**
- * Build a VFT-backed `SkillFileAccessor` rooted at the tree's root.
+ * Build a VFT-backed `ExtensionFileAccessor` rooted at the tree's root.
  *
- * Callers that root the skill at a sub-path of the archive should pre-strip
+ * Callers that root the extension at a sub-path of the archive should pre-strip
  * that sub-path before constructing the tree — the accessor enforces no
  * `..` escape above the root it was given.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const makeVftSkillFileAccessor = (tree: VFTNode): SkillFileAccessor => {
+export const makeVftFileAccessor = (tree: VFTNode): ExtensionFileAccessor => {
   return {
     exists: (path) => {
       const normalized = normalizeAndCheck(path);
@@ -85,64 +85,6 @@ export const makeVftSkillFileAccessor = (tree: VFTNode): SkillFileAccessor => {
   };
 };
 
-/**
- * Build a VFT-backed `SkillFileAccessor` rooted at a sub-path of the tree.
- *
- * Publish callers use this when the archive layout nests the skill content
- * under a directory (for native managed skills: `src/` holds the content
- * accessor root while the archive root holds the package). The
- * `prefix` is a posix path relative to the tree root; every rule-supplied
- * path is resolved as `<prefix>/<path>` before dispatching to the tree.
- *
- * Bounds enforcement matches {@link makeVftSkillFileAccessor} — path traversal
- * checks run on the caller-supplied path before the prefix is applied, so
- * rules still cannot escape above the scoped root.
- *
- * The prefix itself is normalized posix (leading `./` and trailing `/` stripped);
- * an empty or `.` prefix is equivalent to {@link makeVftSkillFileAccessor}.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const makeVftSkillFileAccessorScoped = (
-  tree: VFTNode,
-  prefix: string,
-): SkillFileAccessor => {
-  const normalizedPrefix = normalizePrefix(prefix);
-  if (normalizedPrefix === "") {
-    return makeVftSkillFileAccessor(tree);
-  }
-  const join = (path: string): string =>
-    path === "" ? normalizedPrefix : `${normalizedPrefix}/${path}`;
-  return {
-    exists: (path) => {
-      const normalized = normalizeAndCheck(path);
-      if (normalized.kind !== "ok") {
-        return Effect.succeed(false);
-      }
-      return Effect.succeed(tree.hasFile(join(normalized.path)));
-    },
-    readBytes: (path) => {
-      const normalized = normalizeAndCheck(path);
-      if (normalized.kind === "escape") {
-        return failFileAccess(path, "path-escape", `path escapes the accessor root: ${path}`);
-      }
-      const bytes = tree.getFile(join(normalized.path));
-      if (bytes === undefined) {
-        return failFileAccess(path, "read-error", `file not found at ${path}`);
-      }
-      return Effect.succeed(bytes);
-    },
-  };
-};
-
-const normalizePrefix = (prefix: string): string => {
-  const stripped = prefix.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
-  if (stripped === "" || stripped === ".") {
-    return "";
-  }
-  return stripped;
-};
-
 // -----------------------------------------------------------------------------
 // Path normalization + bounds
 // -----------------------------------------------------------------------------
@@ -154,7 +96,7 @@ const normalizeAndCheck = (path: string): NormalizeResult => {
     return { kind: "ok", path: "" };
   }
   // Windows drive letters (`C:/`) and absolute posix paths both count as
-  // escape attempts at a skill-rooted accessor.
+  // escape attempts at a rooted accessor.
   if (/^[a-z]:[\\/]/i.test(path) || path.startsWith("/") || path.startsWith("\\")) {
     return { kind: "escape" };
   }

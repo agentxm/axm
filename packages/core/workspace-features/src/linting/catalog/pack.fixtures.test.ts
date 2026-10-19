@@ -7,7 +7,7 @@
  *   case needs).
  * - `case.json` — { description, expectedFindings[] }.
  *
- * The runner builds a VFT-backed `PackRuleContext` from the tree, evaluates
+ * The runner builds a VFT-backed `ManifestRuleContext<PackContent>` from the tree, evaluates
  * `packRules`, and asserts that each expected finding's `(ruleId, severity,
  * file)` triple is present and that any `messageIncludes` substring matches
  * the actual message. Exact findings count must match.
@@ -22,10 +22,11 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import {
   platformCanonicalLintConfig,
-  type PackRuleContext,
+  type ManifestRuleContext,
+  type PackContent,
   evaluateContexts,
-  makeVftPackFileAccessor,
-  type PackVFTNode,
+  makeVftFileAccessor,
+  type VFTNode,
   packRules,
 } from "@agentxm/extension-content/lint";
 
@@ -54,7 +55,7 @@ const listCases = (): ReadonlyArray<string> =>
     .map((d) => d.name)
     .sort();
 
-const loadCase = (name: string): { readonly case: FixtureCase; readonly tree: PackVFTNode } => {
+const loadCase = (name: string): { readonly case: FixtureCase; readonly tree: VFTNode } => {
   const dir = nodePath.join(FIXTURES_ROOT, name);
   const caseRaw = nodeFs.readFileSync(nodePath.join(dir, "case.json"), "utf8");
   const parsed = JSON.parse(caseRaw) as FixtureCase;
@@ -70,14 +71,14 @@ const loadCase = (name: string): { readonly case: FixtureCase; readonly tree: Pa
     }
     files.set(entry.name, nodeFs.readFileSync(nodePath.join(dir, entry.name)));
   }
-  const tree: PackVFTNode = {
+  const tree: VFTNode = {
     hasFile: (p) => files.has(p),
     getFile: (p) => files.get(p),
   };
   return { case: parsed, tree };
 };
 
-const decodePackJson = (tree: PackVFTNode): unknown => {
+const decodePackJson = (tree: VFTNode): unknown => {
   const bytes = tree.getFile("pack.json");
   if (bytes === undefined) {
     return undefined;
@@ -94,11 +95,11 @@ describe("pack catalog — fixtures", () => {
     const { case: fixture, tree } = loadCase(caseName);
     it.effect(`${caseName}: ${fixture.description}`, () =>
       Effect.gen(function* () {
-        const context: PackRuleContext = {
+        const context: ManifestRuleContext<PackContent> = {
           subject: {
             packJson: decodePackJson(tree),
           },
-          files: makeVftPackFileAccessor(tree),
+          files: makeVftFileAccessor(tree),
           displayRoot: "",
         };
 

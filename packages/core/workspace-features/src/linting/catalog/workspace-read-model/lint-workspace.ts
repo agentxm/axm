@@ -59,15 +59,15 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import {
-  type HookRuleContext,
+  type ManifestRuleContext,
+  type HookContent,
   type KnowledgeRuleContext,
-  type McpServerRuleContext,
-  type RuleRuleContext,
-  type SubagentRuleContext,
+  type McpServerContent,
+  type RuleContent,
+  type SubagentContent,
   type InstalledSkillInfo,
   type InstalledPackInfo,
-  makePlatformSkillFileAccessor,
-  makePlatformPackFileAccessor,
+  makePlatformFileAccessor,
 } from "@agentxm/extension-content/lint";
 import type {
   InstalledExtensionManifest,
@@ -115,10 +115,10 @@ import { manifestFilenameForType } from "@agentxm/extension-model/unstable/exten
 export interface LintWorkspaceView {
   readonly installedSkills: ReadonlyArray<InstalledSkillInfo>;
   readonly installedPacks: ReadonlyArray<InstalledPackInfo>;
-  readonly subagentContexts: ReadonlyArray<SubagentRuleContext>;
-  readonly mcpServerContexts: ReadonlyArray<McpServerRuleContext>;
-  readonly hookContexts: ReadonlyArray<HookRuleContext>;
-  readonly ruleContexts: ReadonlyArray<RuleRuleContext>;
+  readonly subagentContexts: ReadonlyArray<ManifestRuleContext<SubagentContent>>;
+  readonly mcpServerContexts: ReadonlyArray<ManifestRuleContext<McpServerContent>>;
+  readonly hookContexts: ReadonlyArray<ManifestRuleContext<HookContent>>;
+  readonly ruleContexts: ReadonlyArray<ManifestRuleContext<RuleContent>>;
   readonly knowledgeContexts: ReadonlyArray<KnowledgeRuleContext>;
 }
 
@@ -677,8 +677,8 @@ const populateSkillManifestJson = (
   );
 
 const populateSubagentManifestJson = (
-  entries: ReadonlyArray<NamedContext<SubagentRuleContext>>,
-): Effect.Effect<ReadonlyArray<NamedContext<SubagentRuleContext>>> =>
+  entries: ReadonlyArray<NamedContext<ManifestRuleContext<SubagentContent>>>,
+): Effect.Effect<ReadonlyArray<NamedContext<ManifestRuleContext<SubagentContent>>>> =>
   Effect.forEach(
     entries,
     (entry) =>
@@ -693,8 +693,8 @@ const populateSubagentManifestJson = (
   );
 
 const populateMcpServerManifestJson = (
-  entries: ReadonlyArray<NamedContext<McpServerRuleContext>>,
-): Effect.Effect<ReadonlyArray<NamedContext<McpServerRuleContext>>> =>
+  entries: ReadonlyArray<NamedContext<ManifestRuleContext<McpServerContent>>>,
+): Effect.Effect<ReadonlyArray<NamedContext<ManifestRuleContext<McpServerContent>>>> =>
   Effect.forEach(
     entries,
     (entry) =>
@@ -709,8 +709,8 @@ const populateMcpServerManifestJson = (
   );
 
 const populateHookManifestJson = (
-  entries: ReadonlyArray<NamedContext<HookRuleContext>>,
-): Effect.Effect<ReadonlyArray<NamedContext<HookRuleContext>>> =>
+  entries: ReadonlyArray<NamedContext<ManifestRuleContext<HookContent>>>,
+): Effect.Effect<ReadonlyArray<NamedContext<ManifestRuleContext<HookContent>>>> =>
   Effect.forEach(
     entries,
     (entry) =>
@@ -725,8 +725,8 @@ const populateHookManifestJson = (
   );
 
 const populateRuleManifestJson = (
-  entries: ReadonlyArray<NamedContext<RuleRuleContext>>,
-): Effect.Effect<ReadonlyArray<NamedContext<RuleRuleContext>>> =>
+  entries: ReadonlyArray<NamedContext<ManifestRuleContext<RuleContent>>>,
+): Effect.Effect<ReadonlyArray<NamedContext<ManifestRuleContext<RuleContent>>>> =>
   Effect.forEach(
     entries,
     (entry) =>
@@ -811,7 +811,7 @@ const installedSkillToInfo = (
 ): BuiltSkillInfo | undefined => {
   const actual = chooseSkillActual(skill.actual);
   if (actual !== undefined) {
-    const files = makePlatformSkillFileAccessor(args.platform, actual.contentRoot);
+    const files = makePlatformFileAccessor(args.platform, actual.contentRoot);
     const packageRoot = actual.packageRoot ?? actual.contentRoot;
     return {
       info: {
@@ -819,7 +819,7 @@ const installedSkillToInfo = (
         skillJson: undefined,
         displayRoot: relativeDisplayRoot(args, actual.contentRoot),
         files,
-        packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
+        packageFiles: makePlatformFileAccessor(args.platform, packageRoot),
       },
       packageDisplayRoot: relativeDisplayRoot(args, packageRoot),
     };
@@ -857,7 +857,7 @@ const installedPackToInfo = (
     return {
       packJson: undefined,
       displayRoot: relativeDisplayRoot(args, actual.contentRoot),
-      files: makePlatformPackFileAccessor(args.platform, actual.contentRoot),
+      files: makePlatformFileAccessor(args.platform, actual.contentRoot),
     };
   }
 
@@ -872,7 +872,7 @@ const installedPackToInfo = (
     return {
       packJson: undefined,
       displayRoot,
-      files: makePlatformPackFileAccessor(
+      files: makePlatformFileAccessor(
         args.platform,
         args.platform.path.resolve(args.workspaceRoot, displayRoot),
       ),
@@ -885,14 +885,14 @@ const installedPackToInfo = (
 const installedSubagentToContext = (
   args: BuildLintWorkspaceViewArgs,
   subagent: InstalledSubagent,
-): SubagentRuleContext | undefined => {
+): ManifestRuleContext<SubagentContent> | undefined => {
   const root = subagentPackageRoot(args, subagent);
   if (root === undefined) {
     return undefined;
   }
   return {
     subject: { subagentJson: undefined },
-    files: makePlatformPackFileAccessor(args.platform, root),
+    files: makePlatformFileAccessor(args.platform, root),
     displayRoot: relativeDisplayRoot(args, root),
   };
 };
@@ -900,14 +900,14 @@ const installedSubagentToContext = (
 const installedMcpServerToContext = (
   args: BuildLintWorkspaceViewArgs,
   mcpServer: InstalledMcpServer,
-): McpServerRuleContext | undefined => {
+): ManifestRuleContext<McpServerContent> | undefined => {
   const root = mcpServerPackageRoot(args, mcpServer);
   if (root === undefined) {
     return undefined;
   }
   return {
     subject: { mcpServerJson: undefined },
-    files: makePlatformPackFileAccessor(args.platform, root),
+    files: makePlatformFileAccessor(args.platform, root),
     displayRoot: relativeDisplayRoot(args, root),
   };
 };
@@ -915,7 +915,7 @@ const installedMcpServerToContext = (
 const installedHookToContext = (
   args: BuildLintWorkspaceViewArgs,
   hook: InstalledHook,
-): HookRuleContext | undefined => {
+): ManifestRuleContext<HookContent> | undefined => {
   const root = canonicalPackageRoot(args, {
     name: hook.key.name,
     plural: "hooks",
@@ -928,7 +928,7 @@ const installedHookToContext = (
   }
   return {
     subject: { hookJson: undefined },
-    files: makePlatformPackFileAccessor(args.platform, root),
+    files: makePlatformFileAccessor(args.platform, root),
     displayRoot: relativeDisplayRoot(args, root),
   };
 };
@@ -936,7 +936,7 @@ const installedHookToContext = (
 const installedRuleToContext = (
   args: BuildLintWorkspaceViewArgs,
   rule: InstalledRule,
-): RuleRuleContext | undefined => {
+): ManifestRuleContext<RuleContent> | undefined => {
   const root = canonicalPackageRoot(args, {
     name: rule.key.name,
     plural: "rules",
@@ -949,7 +949,7 @@ const installedRuleToContext = (
   }
   return {
     subject: { ruleJson: undefined },
-    files: makePlatformPackFileAccessor(args.platform, root),
+    files: makePlatformFileAccessor(args.platform, root),
     displayRoot: relativeDisplayRoot(args, root),
   };
 };
@@ -970,7 +970,7 @@ const installedKnowledgeToContext = (
   }
   return {
     subject: { knowledgeJson: undefined },
-    files: makePlatformPackFileAccessor(args.platform, root),
+    files: makePlatformFileAccessor(args.platform, root),
     displayRoot: relativeDisplayRoot(args, root),
     packageRoot: root,
   };
@@ -1154,7 +1154,7 @@ export const buildAcquiredInstalledSkillInfo = (
     isNative: args.lockEntry.identity.owner !== undefined,
     skillJson: undefined,
     displayRoot: acquiredSkillDisplayRoot(args.scope, args.lockEntry, args.name),
-    files: makePlatformSkillFileAccessor(args.platform, contentRoot),
-    packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
+    files: makePlatformFileAccessor(args.platform, contentRoot),
+    packageFiles: makePlatformFileAccessor(args.platform, packageRoot),
   };
 };

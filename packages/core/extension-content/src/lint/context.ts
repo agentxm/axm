@@ -22,9 +22,9 @@ import type { KnowledgeInspection } from "../knowledge/okf.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Tagged error surfaced by `SkillFileAccessor` / `PackFileAccessor` when a
- * read fails for reasons other than "file not found" (which is represented
- * by `exists -> false`).
+ * Tagged error surfaced by an `ExtensionFileAccessor` when a read fails for
+ * reasons other than "file not found" (which is represented by
+ * `exists -> false`).
  *
  * This interface fixes the error shape rules can rely on.
  *
@@ -41,66 +41,22 @@ export interface FileAccessError {
 }
 
 // -----------------------------------------------------------------------------
-// SkillFileAccessor — skill-rooted narrow file access
+// ExtensionFileAccessor — package-rooted narrow file access
 // -----------------------------------------------------------------------------
 
 /**
- * Narrow skill-rooted file accessor.
+ * Narrow rooted file accessor shared by every extension type's rule context.
  *
- * Root is the directory containing `SKILL.md`. Paths are posix and relative
- * to the root; implementations MUST reject path-traversal attempts (`..`,
- * absolute paths, symlink escapes) by returning `false` from `exists` or
- * failing `readBytes` with `FileAccessError { reason: "path-escape" }`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface SkillFileAccessor {
-  readonly exists: (path: string) => Effect.Effect<boolean>;
-  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
-}
-
-// -----------------------------------------------------------------------------
-// PackFileAccessor — pack-rooted narrow file access
-// -----------------------------------------------------------------------------
-
-/**
- * Narrow pack-rooted file accessor.
- *
- * Root is the directory containing `pack.json`. Same traversal
- * constraints as `SkillFileAccessor`.
+ * The root is chosen by the caller: the directory containing the type's
+ * manifest (`pack.json`, `hook.json`, ...), or for a skill's `files` the
+ * directory containing `SKILL.md`. Paths are posix and relative to the root;
+ * implementations MUST reject path-traversal attempts (`..`, absolute paths,
+ * symlink escapes) by returning `false` from `exists` or failing `readBytes`
+ * with `FileAccessError { reason: "path-escape" }`.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface PackFileAccessor {
-  readonly exists: (path: string) => Effect.Effect<boolean>;
-  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
-}
-
-// -----------------------------------------------------------------------------
-// Manifest-rooted accessors for non-skill extension types
-// -----------------------------------------------------------------------------
-
-export interface SubagentFileAccessor {
-  readonly exists: (path: string) => Effect.Effect<boolean>;
-  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
-}
-
-export interface McpServerFileAccessor {
-  readonly exists: (path: string) => Effect.Effect<boolean>;
-  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
-}
-
-export interface HookFileAccessor {
-  readonly exists: (path: string) => Effect.Effect<boolean>;
-  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
-}
-
-export interface RuleFileAccessor {
-  readonly exists: (path: string) => Effect.Effect<boolean>;
-  readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
-}
-
-export interface KnowledgeFileAccessor {
+export interface ExtensionFileAccessor {
   readonly exists: (path: string) => Effect.Effect<boolean>;
   readonly readBytes: (path: string) => Effect.Effect<Uint8Array, FileAccessError>;
 }
@@ -110,18 +66,31 @@ export interface KnowledgeFileAccessor {
 // -----------------------------------------------------------------------------
 
 /**
+ * Context passed to every extension type's rules.
+ *
+ * `subject` is the caller-decoded content for the type (for example
+ * {@link PackContent}). `files` is rooted at the directory containing the
+ * type's manifest. `displayRoot` is posix and relative; `""` means the
+ * accessor root is the rendering base. See `./compose-path.ts` for the four
+ * documented cases.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface ManifestRuleContext<S> {
+  readonly subject: S;
+  readonly files: ExtensionFileAccessor;
+  readonly displayRoot: string;
+}
+
+/**
  * Context passed to `skill/*` rules.
  *
  * `subject` is the caller-decoded skill content (SKILL.md frontmatter +
  * optional skill.json).
  *
- * `displayRoot` is posix and relative; `""` means the accessor root is the
- * rendering base. See `./compose-path.ts` for the four documented cases.
- *
  * @experimental This API is unstable and may change without notice.
  */
-export interface SkillRuleContext<S = SkillContent> {
-  readonly subject: S;
+export interface SkillRuleContext extends ManifestRuleContext<SkillContent> {
   /**
    * Content-root accessor. Rooted at the directory containing `SKILL.md`.
    * For native (registry-installed) skills this is the `src/` sub-directory
@@ -130,7 +99,7 @@ export interface SkillRuleContext<S = SkillContent> {
    * `frontmatter-parseable`, and any future rule evaluating files that
    * render into agent directories) read through this accessor.
    */
-  readonly files: SkillFileAccessor;
+  readonly files: ExtensionFileAccessor;
   /**
    * Package-root accessor. Rooted at the skill's package root —
    * the directory containing `skill.json` for native skills. For non-native
@@ -139,8 +108,7 @@ export interface SkillRuleContext<S = SkillContent> {
    * future rule inspecting files at or above the content root) read through
    * this accessor.
    */
-  readonly packageFiles: SkillFileAccessor;
-  readonly displayRoot: string;
+  readonly packageFiles: ExtensionFileAccessor;
 }
 
 /**
@@ -152,16 +120,12 @@ export interface SkillRuleContext<S = SkillContent> {
  *
  * - `isNative` — whether the caller expects this skill to carry a
  *   `skill.json` manifest. Native (registry-installed) skills set this to
- *   `true`; non-native (managed external) skills set it to `false`. Rules
- *   that depend on `skill.json` (`skill/manifest-present`,
- *   `skill/manifest-schema-valid`, `skill/manifest-keys-recognized`)
- *   early-return `[]` when `isNative === false`, so the same catalog covers
- *   both.
+ *   `true`; non-native (managed external) skills set it to `false`. The
+ *   `skill.json` envelope rules produce no findings when
+ *   `isNative === false`, so the same catalog covers both.
  * - `skillJson` — the already-decoded `skill.json` contents when present
  *   (caller decodes once, rules don't re-read + re-parse). `undefined` when
- *   the file is absent. Schema-valid rules pipe this into
- *   `Schema.decodeUnknownResult(SkillManifestSchema)`; keys-recognized
- *   enumerates top-level keys after narrowing to `Record<string, unknown>`.
+ *   the file is absent.
  *
  * Workspace consumers build `SkillContent` via `buildSkillRuleContexts`
  * against the lint workspace view; publish builds one `SkillContent` per
@@ -178,42 +142,12 @@ export interface SkillContent {
 }
 
 /**
- * Context passed to `pack/*` rules.
- *
- * `subject` is the caller-decoded pack content — concrete `PackContent` shape
- * defined below. Packs are registry-only at v1 (no non-native arm), so the
- * subject carries only the already-decoded manifest and rules read
- * `pack.json` bytes through `context.files` as needed.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface PackRuleContext<S = PackContent> {
-  readonly subject: S;
-  readonly files: PackFileAccessor;
-  readonly displayRoot: string;
-}
-
-/**
  * Concrete subject shape passed to `pack/*` rules.
  *
- * Rules read `pack.json` bytes through `context.files` (the
- * authoritative source shared across publish and `axm lint`). The `subject`
- * carries only what rules can't efficiently re-derive from bytes:
- *
- * - `packJson` — the already-decoded `pack.json` contents when
- *   present (caller decodes once, rules don't re-read + re-parse).
- *   `undefined` when the file is absent. Schema-valid rules pipe this into
- *   `Schema.decodeUnknownResult(PackManifestSchema)`;
- *   keys-recognized enumerates top-level keys after narrowing to
- *   `Record<string, unknown>`.
- *
- * Unlike `SkillContent`, there is no `isNative` discriminator — packs are
- * registry-only and every pack context is expected to expose a manifest.
- * The presence rule (`pack/manifest-present`) owns the absence arm.
- *
- * Workspace consumers build `PackContent` via `buildPackRuleContexts`
- * against the lint workspace view; publish builds one `PackContent` per
- * incoming archive.
+ * `packJson` is the already-decoded `pack.json` contents when present
+ * (caller decodes once, rules don't re-read + re-parse), and `undefined`
+ * when the file is absent. Packs are registry-only, so there is no
+ * `isNative` discriminator; `pack/manifest-present` owns the absence arm.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -221,57 +155,29 @@ export interface PackContent {
   readonly packJson: unknown;
 }
 
-export interface SubagentRuleContext<S = SubagentContent> {
-  readonly subject: S;
-  readonly files: SubagentFileAccessor;
-  readonly displayRoot: string;
-}
-
 export interface SubagentContent {
   readonly subagentJson: unknown;
-}
-
-export interface McpServerRuleContext<S = McpServerContent> {
-  readonly subject: S;
-  readonly files: McpServerFileAccessor;
-  readonly displayRoot: string;
 }
 
 export interface McpServerContent {
   readonly mcpServerJson: unknown;
 }
 
-export interface HookRuleContext<S = HookContent> {
-  readonly subject: S;
-  readonly files: HookFileAccessor;
-  readonly displayRoot: string;
-}
-
 export interface HookContent {
   readonly hookJson: unknown;
 }
 
-/**
- * Context passed to `rule/*` rules.
- *
- * The doubled word is unavoidable: `rule` is an extension type and `rule` is
- * also the lint primitive, so the context for the `rule` extension type is a
- * `RuleRuleContext`. Every other name here follows `<Type>RuleContext`.
- */
-export interface RuleRuleContext<S = RuleContent> {
-  readonly subject: S;
-  readonly files: RuleFileAccessor;
-  readonly displayRoot: string;
-}
-
+/** Subject for the `rule` extension type's `rule/*` lint rules. */
 export interface RuleContent {
   readonly ruleJson: unknown;
 }
 
-export interface KnowledgeRuleContext<S = KnowledgeContent> {
-  readonly subject: S;
-  readonly files: KnowledgeFileAccessor;
-  readonly displayRoot: string;
+/**
+ * Context passed to `knowledge/*` rules.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface KnowledgeRuleContext extends ManifestRuleContext<KnowledgeContent> {
   /** Absolute package root used once while constructing the cached inspection. */
   readonly packageRoot?: string;
 }

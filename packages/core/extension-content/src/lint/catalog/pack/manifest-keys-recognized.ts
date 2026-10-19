@@ -24,7 +24,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { PackRuleContext } from "../../context.js";
+import type { ManifestRuleContext, PackContent } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { enumerateUnknownTopLevelKeys, structFieldKeys } from "../shared/schema-rule.js";
@@ -34,7 +34,7 @@ const RULE_ID = "pack/manifest-keys-recognized";
 
 const allowedKeys = structFieldKeys(PackManifestSchema);
 
-export const manifestKeysRecognizedRule: AdvisoryRule<PackRuleContext> = {
+export const manifestKeysRecognizedRule: AdvisoryRule<ManifestRuleContext<PackContent>> = {
   id: RULE_ID,
   description: "pack.json uses only supported top-level fields.",
   kind: "advisory",

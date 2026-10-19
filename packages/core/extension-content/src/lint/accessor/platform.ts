@@ -1,16 +1,17 @@
 /**
- * Platform-backed `SkillFileAccessor` for `axm lint`.
+ * Platform-backed `ExtensionFileAccessor` for `axm lint` and the publish gate.
  *
- * Maps accessor-relative posix paths to on-disk absolute paths rooted at
- * the caller-supplied skill-root directory. Layout conventions per
- * the lint design "Skill accessor root":
+ * Maps accessor-relative posix paths to on-disk absolute paths rooted at a
+ * caller-supplied directory. The caller picks the root per extension type
+ * and provenance; the accessor itself is type- and provenance-agnostic, so
+ * rules see one uniform contract:
  *
- * - **Native acquired package:** the identity-qualified package's `src/` directory.
- * - **Portable Agent Skill:** the identity-qualified selected package directory.
- *
- * The accessor is provenance-agnostic — rules see one uniform contract and
- * never branch on native-vs-non-native. The caller (`buildSkillRuleContexts`
- * or the CLI entry point) picks the root.
+ * - **Skill content (`files`):** the native package's `src/` directory, or
+ *   the selected directory of a portable Agent Skill.
+ * - **Skill package (`packageFiles`) and every other type:** the package
+ *   directory holding the type's manifest (`skill.json`, `pack.json`,
+ *   `hook.json`, ...). Packs and the other manifest-rooted types have no
+ *   `src/` split at the accessor root.
  *
  * Bounds enforcement:
  *
@@ -18,13 +19,13 @@
  * - No absolute paths (posix or Windows drive letters).
  * - Resolved absolute paths are verified to stay under the accessor root.
  *
- * The accessor is built via a factory that captures a pre-resolved
+ * The accessor is built via a factory that captures pre-resolved
  * `FileSystem.FileSystem` + `Path.Path` services and an absolute root, so
- * `SkillFileAccessor` stays Layer-free at rule-evaluation time (per
+ * `ExtensionFileAccessor` stays Layer-free at rule-evaluation time (per
  * `lint-engine` spec "Rule contexts expose narrow caller-bound accessors").
  * It mirrors the VFT-backed accessor in `./vft.ts`; the two are the only
- * `SkillFileAccessor` implementations, one for on-disk roots and one for an
- * extracted archive.
+ * `ExtensionFileAccessor` implementations, one for on-disk roots and one for
+ * an extracted archive.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -33,16 +34,18 @@
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import type { FileAccessError, SkillFileAccessor } from "../../context.js";
+import type { ExtensionFileAccessor, FileAccessError } from "../context.js";
 
 // -----------------------------------------------------------------------------
 // Factory
 // -----------------------------------------------------------------------------
 
 /**
- * Platform services needed by the platform-backed skill accessor.
+ * Platform services needed by the platform-backed accessor.
+ *
+ * @experimental This API is unstable and may change without notice.
  */
-export interface SkillAccessorPlatform {
+export interface FileAccessorPlatform {
   readonly fs: FileSystem.FileSystem;
   readonly path: Path.Path;
 }
@@ -51,19 +54,17 @@ type ResolveResult =
   { readonly kind: "ok"; readonly absolute: string } | { readonly kind: "escape" };
 
 /**
- * Build a platform-backed `SkillFileAccessor` rooted at `absoluteRoot`.
+ * Build a platform-backed `ExtensionFileAccessor` rooted at `absoluteRoot`.
  *
- * `absoluteRoot` SHOULD be the absolute path to the skill root directory
- * (either `.../src/` for native, or the selected package directory for a
- * portable Agent Skill). The caller typically sources it from
- * `computeSkillPathsForLayout` in `@agentxm/workspace-kernel/workspace-state`.
+ * `absoluteRoot` SHOULD be an absolute directory path; a relative one is
+ * resolved against the process working directory.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const makePlatformSkillFileAccessor = (
-  platform: SkillAccessorPlatform,
+export const makePlatformFileAccessor = (
+  platform: FileAccessorPlatform,
   absoluteRoot: string,
-): SkillFileAccessor => {
+): ExtensionFileAccessor => {
   const { fs, path } = platform;
   const normalizedRoot = path.resolve(absoluteRoot);
 

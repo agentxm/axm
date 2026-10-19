@@ -24,7 +24,7 @@ import * as Effect from "effect/Effect";
 import {
   type SkillRuleContext,
   evaluateContexts,
-  makeVftSkillFileAccessor,
+  makeVftFileAccessor,
   type VFTNode,
   skillRules,
 } from "@agentxm/extension-content/lint";
@@ -95,7 +95,7 @@ describe("skill catalog — fixtures", () => {
     const { case: fixture, tree } = loadCase(caseName);
     it.effect(`${caseName}: ${fixture.description}`, () =>
       Effect.gen(function* () {
-        const accessor = makeVftSkillFileAccessor(tree);
+        const accessor = makeVftFileAccessor(tree);
         // Fixture layouts store `SKILL.md` and `skill.json` at the same tree
         // root, so both accessors share it. Publish-path tests exercise the
         // native split where `skill.json` is at the package root while

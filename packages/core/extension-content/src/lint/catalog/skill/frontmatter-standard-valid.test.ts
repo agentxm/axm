@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { SkillFileAccessor, SkillRuleContext } from "../../context.js";
+import type { ExtensionFileAccessor, SkillRuleContext } from "../../context.js";
 import { frontmatterStandardValidRule } from "./frontmatter-standard-valid.js";
 
 const makeContext = (content: string, expectedName = "café-review"): SkillRuleContext => {
   const bytes = new TextEncoder().encode(content);
-  const files: SkillFileAccessor = {
+  const files: ExtensionFileAccessor = {
     exists: () => Effect.succeed(true),
     readBytes: () => Effect.succeed(bytes),
   };

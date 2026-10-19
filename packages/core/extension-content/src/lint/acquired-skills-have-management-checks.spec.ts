@@ -4,7 +4,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   buildSkillRuleContexts,
   evaluateContexts,
-  makeVftSkillFileAccessor,
+  makeVftFileAccessor,
   skillRules,
 } from "./index.js";
 
@@ -28,7 +28,7 @@ const check = (content: string | undefined, conformance = false, isNative = fals
   const skillJson = isNative
     ? { type: "skill", owner: "@example", name: "upstream-path", version: "1.0.0" }
     : undefined;
-  const files = makeVftSkillFileAccessor({
+  const files = makeVftFileAccessor({
     hasFile: (path) =>
       (path === "SKILL.md" && bytes !== undefined) || (path === "skill.json" && isNative),
     getFile: (path) => (path === "SKILL.md" ? bytes : undefined),

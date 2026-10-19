@@ -21,28 +21,18 @@ export type {
   Severity,
 } from "./rule.js";
 export type {
+  ExtensionFileAccessor,
   FileAccessError,
   HookContent,
-  HookFileAccessor,
-  HookRuleContext,
   KnowledgeContent,
-  KnowledgeFileAccessor,
   KnowledgeRuleContext,
+  ManifestRuleContext,
   McpServerContent,
-  McpServerFileAccessor,
-  McpServerRuleContext,
   PackContent,
-  PackFileAccessor,
-  PackRuleContext,
   RuleContent,
-  RuleFileAccessor,
-  RuleRuleContext,
   SkillContent,
-  SkillFileAccessor,
   SkillRuleContext,
   SubagentContent,
-  SubagentFileAccessor,
-  SubagentRuleContext,
 } from "./context.js";
 export {
   type LintConfig,
@@ -76,25 +66,10 @@ export {
   knowledgeRules,
   publishKnowledgeRules,
 } from "./catalog/knowledge.js";
-export {
-  type InstalledSkillInfo,
-  buildSkillRuleContexts,
-} from "./catalog/skill-accessor/contexts.js";
-export {
-  type VFTNode,
-  makeVftSkillFileAccessor,
-  makeVftSkillFileAccessorScoped,
-} from "./catalog/skill-accessor/vft.js";
-export {
-  type SkillAccessorPlatform,
-  makePlatformSkillFileAccessor,
-} from "./catalog/skill-accessor/platform.js";
-export { type InstalledPackInfo, buildPackRuleContexts } from "./catalog/pack-accessor/contexts.js";
-export { type PackVFTNode, makeVftPackFileAccessor } from "./catalog/pack-accessor/vft.js";
-export {
-  type PackAccessorPlatform,
-  makePlatformPackFileAccessor,
-} from "./catalog/pack-accessor/platform.js";
+export { type InstalledSkillInfo, buildSkillRuleContexts } from "./catalog/skill/contexts.js";
+export { type InstalledPackInfo, buildPackRuleContexts } from "./catalog/pack/contexts.js";
+export { type VFTNode, makeVftFileAccessor } from "./accessor/vft.js";
+export { type FileAccessorPlatform, makePlatformFileAccessor } from "./accessor/platform.js";
 export {
   type ManifestJsonParseFailure,
   isManifestJsonParseFailure,

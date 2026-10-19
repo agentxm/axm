@@ -17,6 +17,7 @@
 
 import * as fs from "node:fs";
 import { snapshotTree } from "@agentxm/workspace-kernel/workspace-state/testing";
+import { DEFAULT_AUTHORED_DIRECTORIES } from "@agentxm/workspace-kernel/workspace-state";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -99,17 +100,6 @@ export interface AuthoredExtensionFixture {
   /** Member constraints keyed by fully qualified name; packs only. */
   readonly dependencies?: Readonly<Record<string, string>>;
 }
-
-/** The workspace directory each publishable type's authored packages live under. */
-const authoredDirectory = {
-  skill: "skills",
-  "mcp-server": "mcps",
-  subagent: "subagents",
-  rule: "rules",
-  hook: "hooks",
-  knowledge: "knowledge",
-  pack: "packs",
-} as const satisfies Record<PublishableType, string>;
 
 /** The settings key each publishable type declares its authored entry under. */
 export const authoredSettingsKey = {
@@ -238,7 +228,7 @@ export const writeAuthoredExtension = (
 ): string => {
   const version = fixture.version ?? "1.0.0";
   const description = fixture.description ?? `The ${fixture.name} ${type}.`;
-  const packageDir = nodePath.join(workspaceRoot, authoredDirectory[type], fixture.name);
+  const packageDir = nodePath.join(workspaceRoot, DEFAULT_AUTHORED_DIRECTORIES[type], fixture.name);
   fs.mkdirSync(nodePath.join(packageDir, "src"), { recursive: true });
   fs.writeFileSync(
     nodePath.join(packageDir, manifestFilenameForType(type)),

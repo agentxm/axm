@@ -46,7 +46,10 @@ import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
 import { ProjectRegistryContextTest } from "../testing/workspace-world.js";
 
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
-import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  DEFAULT_AUTHORED_DIRECTORIES,
+  emitLockfileToml,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 export const inspectionRegistryUrl = "https://inspection-registry.example.test";
 
@@ -478,20 +481,9 @@ export const AUTHORING_TYPES = [
 
 export type AuthoringType = (typeof AUTHORING_TYPES)[number];
 
-/** The workspace directory each authored type's packages live under. */
-const authoredDirectory = {
-  skill: "skills",
-  "mcp-server": "mcps",
-  subagent: "subagents",
-  rule: "rules",
-  hook: "hooks",
-  knowledge: "knowledge",
-  pack: "packs",
-} as const satisfies Record<AuthoringType, string>;
-
 /** Workspace-relative manifest path of an authored package of this type. */
 export const authoredManifestPath = (type: AuthoringType, name: string): string =>
-  `${authoredDirectory[type]}/${name}/${manifestFilenameForType(type)}`;
+  `${DEFAULT_AUTHORED_DIRECTORIES[type]}/${name}/${manifestFilenameForType(type)}`;
 
 /**
  * One workspace-authored extension package, laid out exactly as its `new`

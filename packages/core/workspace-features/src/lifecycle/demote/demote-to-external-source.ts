@@ -139,24 +139,8 @@ const configuredEntry = (
   settings: SettingsReaderService,
   type: ExtensionType,
   name: string,
-): Effect.Effect<unknown, WorkspaceSettingsReadFailure> => {
-  switch (type) {
-    case "skill":
-      return settings.entries("skill").pipe(Effect.map((entries) => entries[name]));
-    case "mcp-server":
-      return settings.entries("mcp-server").pipe(Effect.map((entries) => entries[name]));
-    case "subagent":
-      return settings.entries("subagent").pipe(Effect.map((entries) => entries[name]));
-    case "rule":
-      return settings.entries("rule").pipe(Effect.map((entries) => entries[name]));
-    case "hook":
-      return settings.entries("hook").pipe(Effect.map((entries) => entries[name]));
-    case "knowledge":
-      return settings.entries("knowledge").pipe(Effect.map((entries) => entries[name]));
-    case "pack":
-      return settings.entries("pack").pipe(Effect.map((entries) => entries[name]));
-  }
-};
+): Effect.Effect<unknown, WorkspaceSettingsReadFailure> =>
+  settings.entries(type).pipe(Effect.map((entries) => entries[name]));
 
 const entrySource = (entry: unknown): string | undefined => {
   if (typeof entry === "string") return entry;
@@ -183,22 +167,7 @@ const restoreDisabledState = (
     ...entry,
     enabled: false,
   });
-  switch (type) {
-    case "skill":
-      return settings.updateEntry("skill", name, disable);
-    case "mcp-server":
-      return settings.updateEntry("mcp-server", name, disable);
-    case "subagent":
-      return settings.updateEntry("subagent", name, disable);
-    case "rule":
-      return settings.updateEntry("rule", name, disable);
-    case "hook":
-      return settings.updateEntry("hook", name, disable);
-    case "knowledge":
-      return settings.updateEntry("knowledge", name, disable);
-    case "pack":
-      return settings.updateEntry("pack", name, disable);
-  }
+  return settings.updateEntry(type, name, disable);
 };
 
 /** A replacement no version can satisfy together with the rest of desired state. */

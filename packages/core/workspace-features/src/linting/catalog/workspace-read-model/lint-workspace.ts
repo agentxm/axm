@@ -78,8 +78,6 @@ import type {
   UnknownAxmFence,
 } from "../../workspace-context.js";
 import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extensions/registry-source";
-import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import { KNOWLEDGE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
 import {
   inspectKnowledgePackage,
   type KnowledgeInspection,
@@ -93,19 +91,15 @@ import {
   type ProjectionOutputObservation,
 } from "@agentxm/workspace-kernel/projection";
 import { fenceSyntaxForTarget, scanUnknownFences } from "@agentxm/workspace-kernel/agent-adapters";
-import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { RULE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/rules/manifest-schema";
-import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import { readManifestJson } from "./manifest-json.js";
 import type {
   ExtensionTypePlural,
   ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { OfficialAxmSkillAssessment } from "@agentxm/workspace-kernel/resolution";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 // -----------------------------------------------------------------------------
 // LintWorkspaceView
@@ -536,7 +530,10 @@ const buildLintWorkspaceView = (
         : [
             {
               name: skill.key.name,
-              manifestPath: joinManifestPath(built.packageDisplayRoot, SKILL_MANIFEST_FILENAME),
+              manifestPath: joinManifestPath(
+                built.packageDisplayRoot,
+                manifestFilenameForType("skill"),
+              ),
               info: built.info,
             },
           ];
@@ -549,31 +546,31 @@ const buildLintWorkspaceView = (
       const context = installedSubagentToContext(args, subagent);
       return context === undefined
         ? []
-        : [namedContext(subagent.key.name, context, SUBAGENT_MANIFEST_FILENAME)];
+        : [namedContext(subagent.key.name, context, manifestFilenameForType("subagent"))];
     });
     const namedMcpServers = mcpServers.flatMap((mcpServer) => {
       const context = installedMcpServerToContext(args, mcpServer);
       return context === undefined
         ? []
-        : [namedContext(mcpServer.key.name, context, MCP_SERVER_MANIFEST_FILENAME)];
+        : [namedContext(mcpServer.key.name, context, manifestFilenameForType("mcp-server"))];
     });
     const namedHooks = hooks.flatMap((hook) => {
       const context = installedHookToContext(args, hook);
       return context === undefined
         ? []
-        : [namedContext(hook.key.name, context, HOOK_MANIFEST_FILENAME)];
+        : [namedContext(hook.key.name, context, manifestFilenameForType("hook"))];
     });
     const namedRules = rules.flatMap((rule) => {
       const context = installedRuleToContext(args, rule);
       return context === undefined
         ? []
-        : [namedContext(rule.key.name, context, RULE_MANIFEST_FILENAME)];
+        : [namedContext(rule.key.name, context, manifestFilenameForType("rule"))];
     });
     const namedKnowledge = knowledge.flatMap((bundle) => {
       const context = installedKnowledgeToContext(args, bundle);
       return context === undefined
         ? []
-        : [namedContext(bundle.key.name, context, KNOWLEDGE_MANIFEST_FILENAME)];
+        : [namedContext(bundle.key.name, context, manifestFilenameForType("knowledge"))];
     });
 
     const [
@@ -670,7 +667,10 @@ const populateSkillManifestJson = (
         if (!entry.info.isNative) {
           return entry;
         }
-        const skillJson = yield* readManifestJson(entry.info.packageFiles, SKILL_MANIFEST_FILENAME);
+        const skillJson = yield* readManifestJson(
+          entry.info.packageFiles,
+          manifestFilenameForType("skill"),
+        );
         return { ...entry, info: { ...entry.info, skillJson } };
       }),
     { concurrency: 16 },
@@ -685,7 +685,7 @@ const populateSubagentManifestJson = (
       Effect.gen(function* () {
         const subagentJson = yield* readManifestJson(
           entry.context.files,
-          SUBAGENT_MANIFEST_FILENAME,
+          manifestFilenameForType("subagent"),
         );
         return { ...entry, context: { ...entry.context, subject: { subagentJson } } };
       }),
@@ -701,7 +701,7 @@ const populateMcpServerManifestJson = (
       Effect.gen(function* () {
         const mcpServerJson = yield* readManifestJson(
           entry.context.files,
-          MCP_SERVER_MANIFEST_FILENAME,
+          manifestFilenameForType("mcp-server"),
         );
         return { ...entry, context: { ...entry.context, subject: { mcpServerJson } } };
       }),
@@ -715,7 +715,10 @@ const populateHookManifestJson = (
     entries,
     (entry) =>
       Effect.gen(function* () {
-        const hookJson = yield* readManifestJson(entry.context.files, HOOK_MANIFEST_FILENAME);
+        const hookJson = yield* readManifestJson(
+          entry.context.files,
+          manifestFilenameForType("hook"),
+        );
         return { ...entry, context: { ...entry.context, subject: { hookJson } } };
       }),
     { concurrency: 16 },
@@ -728,7 +731,10 @@ const populateRuleManifestJson = (
     entries,
     (entry) =>
       Effect.gen(function* () {
-        const ruleJson = yield* readManifestJson(entry.context.files, RULE_MANIFEST_FILENAME);
+        const ruleJson = yield* readManifestJson(
+          entry.context.files,
+          manifestFilenameForType("rule"),
+        );
         return { ...entry, context: { ...entry.context, subject: { ruleJson } } };
       }),
     { concurrency: 16 },
@@ -754,7 +760,7 @@ const populateKnowledgeManifestJson = (
       Effect.gen(function* () {
         const knowledgeJson = yield* readManifestJson(
           entry.context.files,
-          KNOWLEDGE_MANIFEST_FILENAME,
+          manifestFilenameForType("knowledge"),
         );
         const inspection =
           entry.context.packageRoot === undefined
@@ -782,7 +788,7 @@ const populatePackManifestJson = (
     installedPacks,
     (entry) =>
       Effect.gen(function* () {
-        const packJson = yield* readManifestJson(entry.info.files, PACK_MANIFEST_FILENAME);
+        const packJson = yield* readManifestJson(entry.info.files, manifestFilenameForType("pack"));
         return { ...entry, info: { ...entry.info, packJson } };
       }),
     { concurrency: 16 },

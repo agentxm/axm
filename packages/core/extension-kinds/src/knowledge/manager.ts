@@ -100,8 +100,6 @@ import {
 } from "@agentxm/extension-model/unstable/path-types";
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
 import {
-  KNOWLEDGE_EXTENSION_DIR,
-  KNOWLEDGE_MANIFEST_FILENAME,
   KNOWLEDGE_SOURCE_DIR,
   KnowledgeManifestSchema,
   type KnowledgeManifest,
@@ -114,6 +112,7 @@ import type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 interface PreparedKnowledgePackage {
   readonly root: string;
@@ -188,23 +187,18 @@ export const KnowledgeManagerLive = Layer.effect(
     };
 
     const canonicalPathForRef = (ref: KnowledgeExtensionRef): string =>
-      computeExtensionPathsForLayout(
-        path.join,
-        currentLayout(),
-        ref,
-        KNOWLEDGE_EXTENSION_DIR,
-        ref.name,
-      ).canonicalPath;
+      computeExtensionPathsForLayout(path.join, currentLayout(), ref, "knowledge", ref.name)
+        .canonicalPath;
 
     const inspectPackage = (packageRoot: string) =>
       Effect.gen(function* () {
         const raw = yield* fs
-          .readFileString(path.join(packageRoot, KNOWLEDGE_MANIFEST_FILENAME))
+          .readFileString(path.join(packageRoot, manifestFilenameForType("knowledge")))
           .pipe(
             Effect.mapError(
               (cause) =>
                 new KnowledgeDefinitionInvalid({
-                  detail: `Failed to read ${KNOWLEDGE_MANIFEST_FILENAME}`,
+                  detail: `Failed to read ${manifestFilenameForType("knowledge")}`,
                   cause,
                 }),
             ),
@@ -213,7 +207,7 @@ export const KnowledgeManagerLive = Layer.effect(
           try: (): unknown => JSON.parse(raw),
           catch: (cause) =>
             new KnowledgeDefinitionInvalid({
-              detail: `Failed to parse ${KNOWLEDGE_MANIFEST_FILENAME}`,
+              detail: `Failed to parse ${manifestFilenameForType("knowledge")}`,
               cause,
             }),
         }).pipe(
@@ -221,7 +215,7 @@ export const KnowledgeManagerLive = Layer.effect(
           Effect.mapError(
             (cause) =>
               new KnowledgeDefinitionInvalid({
-                detail: `Invalid ${KNOWLEDGE_MANIFEST_FILENAME}`,
+                detail: `Invalid ${manifestFilenameForType("knowledge")}`,
                 cause,
               }),
           ),
@@ -444,7 +438,9 @@ export const KnowledgeManagerLive = Layer.effect(
       failure: ExtensionManagerFailure,
     ): Effect.Effect<ProjectionContributorExclusion> =>
       Effect.gen(function* () {
-        const probe = yield* Effect.result(fs.exists(path.join(root, KNOWLEDGE_MANIFEST_FILENAME)));
+        const probe = yield* Effect.result(
+          fs.exists(path.join(root, manifestFilenameForType("knowledge"))),
+        );
         const manifestPresent = Result.isSuccess(probe) && probe.success;
         if (!manifestPresent) return { contributor: name, reason: "package-missing" };
         return {
@@ -747,7 +743,7 @@ export const KnowledgeManagerLive = Layer.effect(
                   path.join,
                   currentLayout(),
                   ref,
-                  KNOWLEDGE_EXTENSION_DIR,
+                  "knowledge",
                   ref.knowledge.name,
                 ).canonicalPath;
                 return inclusion.included ? [toProjectionBundle(canonical, inspected)] : [];

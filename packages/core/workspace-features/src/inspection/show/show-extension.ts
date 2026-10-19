@@ -30,7 +30,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { ManifestIdentitySchema, manifestFilenameForType } from "@agentxm/extension-content";
+import { ManifestIdentitySchema } from "@agentxm/extension-content";
 import {
   InstallableExtensionTypeSchema,
   type InstallableExtensionType,
@@ -51,6 +51,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { ExtensionNotInstalled } from "../errors.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /**
  * Installed-state detail for one extension. Identical field set for every

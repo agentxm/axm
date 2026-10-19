@@ -5,7 +5,6 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import {
-  KNOWLEDGE_MANIFEST_FILENAME,
   KNOWLEDGE_SOURCE_DIR,
   KnowledgeManifestSchema,
 } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
@@ -15,12 +14,13 @@ import {
   type KnowledgeDiagnostic,
   type KnowledgeInspection,
 } from "./okf.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const missingManifestDescription = (): KnowledgeDiagnostic => ({
   code: "missing-manifest-description",
   severity: "warning",
-  relativePath: KNOWLEDGE_MANIFEST_FILENAME,
-  message: `${KNOWLEDGE_MANIFEST_FILENAME} should include a concise bundle description for discovery.`,
+  relativePath: manifestFilenameForType("knowledge"),
+  message: `${manifestFilenameForType("knowledge")} should include a concise bundle description for discovery.`,
 });
 
 /** Read and decode one Knowledge package manifest without inspecting its bundle body. */
@@ -29,7 +29,7 @@ export const readKnowledgePackageManifest = Effect.fn("Knowledge.readPackageMani
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const manifestPath = path.join(packageRoot, KNOWLEDGE_MANIFEST_FILENAME);
+  const manifestPath = path.join(packageRoot, manifestFilenameForType("knowledge"));
   const manifestRaw = yield* fs.readFileString(manifestPath);
   const manifestUnknown = yield* Effect.try({
     try: (): unknown => JSON.parse(manifestRaw),

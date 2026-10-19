@@ -2,16 +2,14 @@
  * `knowledge/*` manifest envelope — see `../shared/envelope-rules.ts`.
  */
 
-import {
-  KnowledgeManifestSchema,
-  KNOWLEDGE_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
+import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
 import type { KnowledgeRuleContext } from "../../context.js";
 import { makeManifestEnvelopeRules } from "../shared/envelope-rules.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const knowledgeEnvelopeRules = makeManifestEnvelopeRules({
   namespace: "knowledge",
-  manifestFile: KNOWLEDGE_MANIFEST_FILENAME,
+  manifestFile: manifestFilenameForType("knowledge"),
   schema: KnowledgeManifestSchema,
   manifestJson: (context: KnowledgeRuleContext) => context.subject.knowledgeJson,
   presentDescription: "Knowledge bundles include a root knowledge.json manifest.",

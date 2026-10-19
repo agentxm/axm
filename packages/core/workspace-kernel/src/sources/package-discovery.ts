@@ -8,8 +8,6 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import {
-  extensionTypeForManifestFilename,
-  MANIFEST_FILENAME_BY_TYPE,
   extractSkillMetadata,
   skillDirectoryName,
   readExtensionManifest,
@@ -33,6 +31,10 @@ import { readPluginDistribution, type PluginSkillDistribution } from "./plugin-d
 import { readPluginMarketplace } from "./plugin-marketplace.js";
 import { SourceNotResolvable } from "./errors.js";
 import { readSourceWorkspace } from "./source-workspace.js";
+import {
+  extensionTypeForManifestFilename,
+  manifestFilenameForType,
+} from "@agentxm/extension-model/unstable/extensions/common";
 
 export interface ExtensionPackageFilter {
   readonly names: ReadonlyArray<string>;
@@ -199,7 +201,7 @@ const readPortableSkill = (
     const isAxmPackageContent =
       path.basename(directory) === "src" &&
       (yield* fs
-        .exists(path.join(path.dirname(directory), MANIFEST_FILENAME_BY_TYPE.skill))
+        .exists(path.join(path.dirname(directory), manifestFilenameForType("skill")))
         .pipe(Effect.catch(() => Effect.succeed(false))));
     if (isAxmPackageContent) return Option.none<DiscoveredPortableSkillPackage>();
     const content = yield* fs.readFileString(path.join(directory, "SKILL.md")).pipe(Effect.option);

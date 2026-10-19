@@ -24,10 +24,7 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
   toExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import {
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { versionSatisfiesRequest } from "@agentxm/extension-model/unstable/version-constraints";
 import {
@@ -50,6 +47,7 @@ import {
 
 import { ShowAgentOutcomeSchema, filterShowAgentOutcomes } from "../show/agent-outcomes.js";
 import { PackInspectionRefused } from "../errors.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** What the Pack manifest declares for one member: its range, and an explicit Registry endpoint or none when the member inherits the Pack's source. */
 const PackMemberDeclarationSchema = Schema.Struct({
@@ -229,7 +227,7 @@ export const ShowPack = {
         detail: `Canonical pack "${packFqn}" is unavailable`,
       });
     }
-    const manifestPath = path.join(canonicalPath.value, PACK_MANIFEST_FILENAME);
+    const manifestPath = path.join(canonicalPath.value, manifestFilenameForType("pack"));
     const raw = yield* fs.readFileString(manifestPath).pipe(
       Effect.mapError(
         (cause) =>

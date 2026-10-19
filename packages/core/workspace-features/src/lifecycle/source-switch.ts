@@ -6,10 +6,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { manifestFilenameForType } from "@agentxm/extension-content";
 import {
   PublishOptionsSchema,
   toExtensionTypePlural,
+  manifestFilenameForType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {

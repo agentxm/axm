@@ -25,6 +25,7 @@ import type {
 } from "@agentxm/workspace-kernel/acquisition";
 import { excludedDistributionLinkTarget } from "@agentxm/workspace-kernel/acquisition";
 import { resolvePublishSelection, type PublishFileSelectionOptions } from "./publish-selection.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 // ZIP timestamps have no timezone. fflate serializes Date's local calendar
 // fields, so construct those fields locally to keep the encoded bytes stable
@@ -86,7 +87,9 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
     const resolved = yield* resolvePublishSelection(
       dir,
       options ?? {},
-      options?.skillEnvelope === undefined ? (options?.manifest ?? "skill.json") : undefined,
+      options?.skillEnvelope === undefined
+        ? (options?.manifest ?? manifestFilenameForType("skill"))
+        : undefined,
     );
 
     const files = yield* Effect.gen(function* () {
@@ -101,7 +104,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       }> = [];
       if (options?.skillEnvelope !== undefined) {
         candidates.push({
-          rel: "skill.json",
+          rel: manifestFilenameForType("skill"),
           abs: "",
           size: options.skillEnvelope.byteLength,
           mode: 0o100644,
@@ -110,7 +113,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
             reason: "rule",
             matchedRules: [],
             decidingRule: {
-              pattern: "skill.json",
+              pattern: manifestFilenameForType("skill"),
               baseDirectory: "",
               origin: { kind: "builtin", rule: "required-manifest" },
             },

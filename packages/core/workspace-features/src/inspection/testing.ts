@@ -33,7 +33,6 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
-import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/extension-content";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
@@ -48,6 +47,7 @@ import { ProjectRegistryContextTest } from "../testing/workspace-world.js";
 
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 export const inspectionRegistryUrl = "https://inspection-registry.example.test";
 
 export interface ObservedRegistryRequest {
@@ -491,7 +491,7 @@ const authoredDirectory = {
 
 /** Workspace-relative manifest path of an authored package of this type. */
 export const authoredManifestPath = (type: AuthoringType, name: string): string =>
-  `${authoredDirectory[type]}/${name}/${MANIFEST_FILENAME_BY_TYPE[type]}`;
+  `${authoredDirectory[type]}/${name}/${manifestFilenameForType(type)}`;
 
 /**
  * One workspace-authored extension package, laid out exactly as its `new`

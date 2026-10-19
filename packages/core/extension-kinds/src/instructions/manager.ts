@@ -73,8 +73,6 @@ import {
 } from "@agentxm/extension-model/unstable/path-types";
 import {
   RULE_BODY_FILENAME,
-  RULE_EXTENSION_DIR,
-  RULE_MANIFEST_FILENAME,
   RuleManifestSchema,
   type RuleManifest,
 } from "@agentxm/extension-model/unstable/rules/manifest-schema";
@@ -84,6 +82,7 @@ import {
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
 } from "@agentxm/workspace-kernel/locations";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULES_REGION = "rules";
 
@@ -203,7 +202,7 @@ export const RuleManagerLive = Layer.effect(
           path.join,
           currentLayout(),
           ref,
-          RULE_EXTENSION_DIR,
+          "rules",
           ref.name,
         ).canonicalPath;
         if (ref.refType === "workspace") {
@@ -234,13 +233,13 @@ export const RuleManagerLive = Layer.effect(
       });
 
     const readManifest = (packageRoot: string) =>
-      fs.readFileString(path.join(packageRoot, RULE_MANIFEST_FILENAME)).pipe(
+      fs.readFileString(path.join(packageRoot, manifestFilenameForType("rule"))).pipe(
         Effect.flatMap((content) =>
           Effect.try({
             try: (): unknown => JSON.parse(content),
             catch: (error) =>
               new RuleDefinitionInvalid({
-                detail: `Failed to parse ${RULE_MANIFEST_FILENAME}`,
+                detail: `Failed to parse ${manifestFilenameForType("rule")}`,
                 cause: error,
               }),
           }),
@@ -249,7 +248,7 @@ export const RuleManagerLive = Layer.effect(
         Effect.mapError(
           (error) =>
             new RuleDefinitionInvalid({
-              detail: `Failed to read ${RULE_MANIFEST_FILENAME}`,
+              detail: `Failed to read ${manifestFilenameForType("rule")}`,
               cause: error,
             }),
         ),
@@ -553,7 +552,7 @@ export const RuleManagerLive = Layer.effect(
                   path.join,
                   currentLayout(),
                   ref,
-                  RULE_EXTENSION_DIR,
+                  "rules",
                   ref.rule.name,
                 ).canonicalPath;
                 return {

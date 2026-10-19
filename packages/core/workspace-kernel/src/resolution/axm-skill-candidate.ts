@@ -15,6 +15,7 @@ import {
 } from "@agentxm/cli-maintenance/official-skill/domain";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { parseSkillMd } from "@agentxm/extension-content";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -73,7 +74,9 @@ export const evaluateAxmSkillCandidate = (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const [manifestContent, skillContent] = yield* Effect.all([
-      fs.readFileString(path.join(args.packageRoot, "skill.json")).pipe(Effect.option),
+      fs
+        .readFileString(path.join(args.packageRoot, manifestFilenameForType("skill")))
+        .pipe(Effect.option),
       fs.readFileString(path.join(args.skillSourcePath, "SKILL.md")).pipe(Effect.option),
     ]);
     const manifest = parseManifest(manifestContent);

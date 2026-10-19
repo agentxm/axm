@@ -5,12 +5,12 @@
 
 import type { SkillRuleContext } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
-import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { makeStandaloneDeclarationValidRule } from "../shared/recommended-packs-rules.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const standaloneDeclarationValidRule: AdvisoryRule<SkillRuleContext> =
   makeStandaloneDeclarationValidRule<SkillRuleContext>({
     namespace: "skill",
-    manifestFile: MANIFEST_FILENAME,
+    manifestFile: manifestFilenameForType("skill"),
     manifestJson: (context) => context.subject.skillJson,
   });

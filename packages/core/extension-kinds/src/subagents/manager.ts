@@ -9,7 +9,6 @@ import { fromFileLocation } from "@agentxm/host-primitives";
 import { loadSubagentPackage, type DecodedSubagentPackage } from "@agentxm/extension-content";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   assertNativeMutationWithinRoots,
@@ -83,6 +82,7 @@ import type {
   JobStepArtifactTarget,
 } from "@agentxm/workspace-kernel/operations";
 import { SubagentDefinitionInvalid, SubagentNativeConflict } from "./errors.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const SubagentManagerLive = Layer.effect(
   SubagentManager,
@@ -127,7 +127,10 @@ export const SubagentManagerLive = Layer.effect(
       subagentProvenance(
         ref,
         path
-          .relative(baseDir, path.join(getCanonicalPaths(ref).canonicalPath, MANIFEST_FILENAME))
+          .relative(
+            baseDir,
+            path.join(getCanonicalPaths(ref).canonicalPath, manifestFilenameForType("subagent")),
+          )
           .split(path.sep)
           .join("/"),
       );
@@ -323,7 +326,10 @@ export const SubagentManagerLive = Layer.effect(
       Effect.gen(function* () {
         if (options?.sourceRoot !== undefined) return yield* readPackage(options.sourceRoot);
         const canonical = getCanonicalPaths(ref).canonicalPath;
-        if (state === "current" && (yield* fs.exists(path.join(canonical, MANIFEST_FILENAME))))
+        if (
+          state === "current" &&
+          (yield* fs.exists(path.join(canonical, manifestFilenameForType("subagent"))))
+        )
           return yield* readPackage(canonical);
         if (ref.refType === "registry")
           return yield* Effect.scoped(

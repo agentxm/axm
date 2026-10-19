@@ -12,13 +12,13 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   RULE_BODY_FILENAME,
-  RULE_MANIFEST_FILENAME,
   RULE_MANIFEST_SCHEMA_URL,
   type RuleManifest,
 } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { manifestText, stageFileAt, type AuthoredScaffold } from "./scaffold.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** Rule bodies live under `src/` alongside every other package-body type. */
 const RULE_SOURCE_DIR = "src";
@@ -45,13 +45,13 @@ export const ruleScaffold = (args: {
   return {
     subject: "Rule",
     version: INITIAL_VERSION,
-    contentFiles: [RULE_MANIFEST_FILENAME, RULE_BODY],
+    contentFiles: [manifestFilenameForType("rule"), RULE_BODY],
     entryFile: RULE_BODY,
     populate: (stagingPath) =>
       Effect.gen(function* () {
         const path = yield* Path.Path;
         yield* stageFileAt({
-          path: path.join(stagingPath, RULE_MANIFEST_FILENAME),
+          path: path.join(stagingPath, manifestFilenameForType("rule")),
           contents: manifestText(manifest),
         });
         yield* stageFileAt({

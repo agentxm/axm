@@ -68,7 +68,6 @@ import {
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { AgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
-  MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
   type McpServerManifest,
@@ -135,6 +134,7 @@ import {
 } from "@agentxm/workspace-kernel/acquisition";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { prepareNativeHookImport, writeNativeHookImport } from "../hooks/interchange.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** The version an imported package starts at. */
 const INITIAL_IMPORT_VERSION = decodeVersionSync("0.1.0");
@@ -571,7 +571,7 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
       ...(candidate.auth === undefined ? {} : { auth: candidate.auth }),
     },
     nativeTargets: Array.from(new Set(entries.map((entry) => entry.filePath))).sort(),
-    requiredFiles: [MCP_SERVER_MANIFEST_FILENAME],
+    requiredFiles: [manifestFilenameForType("mcp-server")],
     materialPaths: [],
     populate: (stagingPath: string) =>
       Effect.gen(function* () {
@@ -579,7 +579,7 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
         const path = yield* Path.Path;
         yield* fs
           .writeFileString(
-            path.join(stagingPath, MCP_SERVER_MANIFEST_FILENAME),
+            path.join(stagingPath, manifestFilenameForType("mcp-server")),
             `${JSON.stringify(manifest, null, 2)}\n`,
           )
           .pipe(
@@ -635,7 +635,7 @@ const hookConversion = Effect.fn("ImportNativeExtension.hookConversion")(functio
     mcpPreferences: {},
     materialPaths: [],
     nativeTargets: [],
-    requiredFiles: ["hook.json", ...bundle.files.map((file) => file.path)],
+    requiredFiles: [manifestFilenameForType("hook"), ...bundle.files.map((file) => file.path)],
     populate: (publicationPath: string) =>
       writeNativeHookImport(publicationPath, bundle).pipe(
         Effect.mapError(

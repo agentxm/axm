@@ -11,8 +11,6 @@ import {
   NonPackManifestFields,
 } from "../extensions/common.js";
 
-export const MANIFEST_FILENAME = "skill.json";
-
 export const MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/skill.schema.json";
 
 /**

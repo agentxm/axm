@@ -15,14 +15,14 @@
 
 import type { PackRuleContext } from "../../context.js";
 import { makeManifestPresentRule } from "../shared/manifest-present.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULE_ID = "pack/manifest-present";
-const PACK_JSON = "pack.json";
 
 export const manifestPresentRule = makeManifestPresentRule<PackRuleContext>({
   ruleId: RULE_ID,
   description: "Packs include a root pack.json manifest.",
-  manifestFile: PACK_JSON,
+  manifestFile: manifestFilenameForType("pack"),
   missingMessage:
     "pack.json is missing. Create pack.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
 });

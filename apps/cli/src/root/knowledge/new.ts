@@ -4,10 +4,7 @@ import { descriptionFlag } from "../../cli-flags/index.js";
 import * as Option from "effect/Option";
 import { Argument, Command } from "effect/cli";
 
-import {
-  KNOWLEDGE_MANIFEST_FILENAME,
-  KNOWLEDGE_SOURCE_DIR,
-} from "@agentxm/extension-model/unstable/knowledge";
+import { KNOWLEDGE_SOURCE_DIR } from "@agentxm/extension-model/unstable/knowledge";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -18,6 +15,7 @@ import {
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { runCreateExtensionCommand } from "../shared/create-extension-command.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export interface KnowledgeNewHandlerArgs {
   readonly name: string;
@@ -40,7 +38,7 @@ export const handleKnowledgeNew = (args: KnowledgeNewHandlerArgs) =>
       ...(Option.isNone(args.description)
         ? [
             {
-              description: `Add a concise bundle description to \`${candidate.authoredPath}/${KNOWLEDGE_MANIFEST_FILENAME}\``,
+              description: `Add a concise bundle description to \`${candidate.authoredPath}/${manifestFilenameForType("knowledge")}\``,
             },
           ]
         : []),

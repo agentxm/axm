@@ -35,10 +35,7 @@ import {
   type ResolvedInstallRef,
 } from "@agentxm/workspace-kernel/reconciliation";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
-import {
-  type HookConfigurationValues,
-  HOOK_EXTENSION_DIR,
-} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { type HookConfigurationValues } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import {
   operationPresentation,
   type JobStepArtifact,
@@ -71,18 +68,13 @@ export interface HookInstallIntent {
 const hookRefArtifactPath = (ref: HookExtensionRef, scope: JobStepArtifact["scope"]): string =>
   ref.refType === "workspace"
     ? ref.location
-    : acquiredExtensionDisplayPath(
-        acquiredRootDisplayPath(scope),
-        ref,
-        HOOK_EXTENSION_DIR,
-        ref.name,
-      );
+    : acquiredExtensionDisplayPath(acquiredRootDisplayPath(scope), ref, "hooks", ref.name);
 
 const hookInstallArtifactPath = (entry: HookLockEntry, scope: JobStepArtifact["scope"]): string =>
   acquiredExtensionDisplayPathFromLockEntry(
     acquiredRootDisplayPath(scope),
     entry,
-    HOOK_EXTENSION_DIR,
+    "hooks",
     entry.identity.name,
   );
 

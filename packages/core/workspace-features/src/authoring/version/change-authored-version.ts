@@ -24,7 +24,6 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
-import { manifestFilenameForType } from "@agentxm/extension-content";
 import {
   extensionTypeSentenceLabels,
   extensionTypeToPlural,
@@ -82,6 +81,7 @@ import {
   VersionTargetNotAuthored,
   type AuthoredVersionError,
 } from "./errors.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 // -----------------------------------------------------------------------------
 // Request

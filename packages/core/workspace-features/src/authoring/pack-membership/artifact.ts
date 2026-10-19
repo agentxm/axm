@@ -1,7 +1,7 @@
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-kernel/operations";
-import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { acquiredDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const packManifestPath = (
   scope: JobStepArtifact["scope"],
@@ -9,8 +9,8 @@ export const packManifestPath = (
   name: string,
 ): string =>
   scope === "project"
-    ? `packs/${name}/${PACK_MANIFEST_FILENAME}`
-    : acquiredDisplayPath(scope, `${owner}/packs/${name}/${PACK_MANIFEST_FILENAME}`);
+    ? `packs/${name}/${manifestFilenameForType("pack")}`
+    : acquiredDisplayPath(scope, `${owner}/packs/${name}/${manifestFilenameForType("pack")}`);
 
 export const packManifestTarget = (
   scope: JobStepArtifact["scope"],

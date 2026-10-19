@@ -12,13 +12,6 @@ import {
 } from "../extensions/common.js";
 
 /**
- * Filename for MCP server manifest files.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const MCP_SERVER_MANIFEST_FILENAME = "mcp.json";
-
-/**
  * URL for the MCP server manifest JSON Schema.
  *
  * @experimental This API is unstable and may change without notice.

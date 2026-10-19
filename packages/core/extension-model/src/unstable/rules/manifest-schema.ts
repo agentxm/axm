@@ -11,10 +11,6 @@ import {
   NonPackManifestFields,
 } from "../extensions/common.js";
 
-export const RULE_MANIFEST_FILENAME = "rule.json";
-
-export const RULE_EXTENSION_DIR = "rules";
-
 export const RULE_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/rule.schema.json";
 
 export const RULE_BODY_FILENAME = "RULE.md";

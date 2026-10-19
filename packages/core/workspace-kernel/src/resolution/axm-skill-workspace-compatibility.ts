@@ -17,6 +17,7 @@ import {
   type AxmSkillSourceAuthority,
 } from "@agentxm/cli-maintenance/official-skill/domain";
 import { type AxmSkillCompatibilityPolicyService } from "@agentxm/cli-maintenance/official-skill/application";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** One desired node and the canonical observation workspace state made of it. */
 export interface ObservedOfficialAxmSkillCandidate {
@@ -195,7 +196,7 @@ export const assessOfficialAxmSkill = (args: {
     const path = yield* Path.Path;
     const read = yield* Effect.result(
       Effect.all([
-        readOptional(fs, path.join(root, "skill.json")),
+        readOptional(fs, path.join(root, manifestFilenameForType("skill"))),
         readOptional(fs, path.join(root, "src", "SKILL.md")),
       ]),
     );

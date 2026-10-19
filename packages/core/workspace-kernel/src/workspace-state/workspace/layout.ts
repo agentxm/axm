@@ -4,7 +4,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { WorkspaceLayoutError } from "./errors.js";
-import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  extensionTypes,
+  extensionTypeToPlural,
+  type ExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import { ACQUIRED_EXTENSIONS_DIR, LOCK_FILENAME, USER_WORKSPACE_DIRECTORY } from "./constants.js";
 import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -19,25 +23,8 @@ import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-f
 export { LOCK_FILENAME } from "./constants.js";
 export const RUNTIME_DIRECTORY = AXM_DIR_NAME;
 
-export const DEFAULT_AUTHORED_DIRECTORIES = {
-  skill: "skills",
-  "mcp-server": "mcps",
-  subagent: "subagents",
-  rule: "rules",
-  hook: "hooks",
-  knowledge: "knowledge",
-  pack: "packs",
-} as const satisfies Record<ExtensionType, string>;
-
-const EXTENSION_TYPES: ReadonlyArray<ExtensionType> = [
-  "skill",
-  "mcp-server",
-  "subagent",
-  "rule",
-  "hook",
-  "knowledge",
-  "pack",
-];
+/** Each type's authored root before settings override it: the type's plural segment. */
+export const DEFAULT_AUTHORED_DIRECTORIES = extensionTypeToPlural;
 
 export interface ProjectWorkspaceLayout {
   readonly scope: "project";
@@ -229,7 +216,7 @@ export const resolveAuthoredDirectories = (
     const reservedRoots = [runtimeDir, acquiredRoot, ...agentRoots];
     const roots = new Map<ExtensionType, AbsolutePath>();
 
-    for (const extensionType of EXTENSION_TYPES) {
+    for (const extensionType of extensionTypes) {
       const root = yield* validateLexicalDirectory(
         path,
         projectRoot,

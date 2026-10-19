@@ -24,9 +24,9 @@ import type { PackRuleContext } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { schemaDecodeFindings } from "../shared/schema-rule.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULE_ID = "pack/manifest-schema-valid";
-const PACK_JSON = "pack.json";
 
 export const manifestSchemaValidRule: AdvisoryRule<PackRuleContext> = {
   id: RULE_ID,
@@ -34,5 +34,11 @@ export const manifestSchemaValidRule: AdvisoryRule<PackRuleContext> = {
   kind: "advisory",
   severity: "error",
   check: (context) =>
-    schemaDecodeFindings(RULE_ID, "error", PACK_JSON, PackManifestSchema, context.subject.packJson),
+    schemaDecodeFindings(
+      RULE_ID,
+      "error",
+      manifestFilenameForType("pack"),
+      PackManifestSchema,
+      context.subject.packJson,
+    ),
 };

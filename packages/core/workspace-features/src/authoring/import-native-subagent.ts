@@ -23,6 +23,7 @@ import {
   NativeSubagentImportUnsupported,
   NativeSubagentRuntimeRequired,
 } from "./authored-package-errors.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** Native import is explicit when a Markdown document has no unique runtime location. */
 export const importNativeSubagent = Effect.fn("ImportNativeSubagent")(function* (args: {
@@ -135,7 +136,7 @@ export const importNativeSubagent = Effect.fn("ImportNativeSubagent")(function* 
   };
   yield* fs
     .writeFileString(
-      path.join(args.targetDir, "subagent.json"),
+      path.join(args.targetDir, manifestFilenameForType("subagent")),
       `${JSON.stringify(manifest, null, 2)}\n`,
     )
     .pipe(Effect.mapError(ioFailure));

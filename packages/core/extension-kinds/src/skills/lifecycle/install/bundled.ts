@@ -63,6 +63,7 @@ import {
   prepareCanonicalParents,
   replaceCanonicalDirectory,
 } from "@agentxm/workspace-kernel/acquisition";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** One file of the bundled skill's source tree. */
 export interface BundledAxmSkillSourceFile {
@@ -196,7 +197,7 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
     ),
     populate: (stagingPath) => {
       const stagingSrcPath = path.join(stagingPath, "src");
-      const skillJsonPath = path.join(stagingPath, "skill.json");
+      const skillJsonPath = path.join(stagingPath, manifestFilenameForType("skill"));
       return Effect.gen(function* () {
         yield* fs
           .makeDirectory(stagingSrcPath, { recursive: true })

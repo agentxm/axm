@@ -8,7 +8,7 @@
  * `hook.json`, none knew `rule.json` or `knowledge.json`, and the parse-failure
  * copy defaulted to "Manifest" where the others defaulted to "Document".
  *
- * The manifest labels are derived from `MANIFEST_FILENAME_BY_TYPE` and
+ * The manifest labels are derived from `manifestFilenameForType` and
  * `extensionTypeSentenceLabels`, both of which are total over `ExtensionType`,
  * so a new extension type gets a label the moment its row lands in
  * `EXTENSION_TYPE_TABLE`.
@@ -20,12 +20,12 @@
 import {
   extensionTypeSentenceLabels,
   extensionTypes,
+  manifestFilenameForType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import {
   LOCKFILE_NAME,
   SETTINGS_FILENAME,
 } from "@agentxm/extension-model/unstable/workspace-files";
-import { MANIFEST_FILENAME_BY_TYPE } from "../packaging/manifest-policy.js";
 
 /** Label used when a filename matches no known document. */
 export const UNKNOWN_DOCUMENT_LABEL = "Document";
@@ -36,7 +36,7 @@ const capitalizeFirst = (value: string): string =>
 // eslint-disable-next-line no-restricted-syntax -- Immutable lookup over the closed manifest filename vocabulary.
 const documentLabels: ReadonlyMap<string, string> = new Map<string, string>([
   ...extensionTypes.map((type): readonly [string, string] => [
-    MANIFEST_FILENAME_BY_TYPE[type],
+    manifestFilenameForType(type),
     `${capitalizeFirst(extensionTypeSentenceLabels[type])} manifest`,
   ]),
   [SETTINGS_FILENAME, "Workspace settings"],

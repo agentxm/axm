@@ -30,10 +30,7 @@ import {
   type Handle,
   type PackMemberConstraintMap,
 } from "@agentxm/extension-model/unstable/extensions";
-import {
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   operationPresentation,
@@ -81,6 +78,7 @@ import {
   PackSourceMissing,
 } from "./membership-errors.js";
 import { removeFromPack } from "./remove-from-pack.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 // -----------------------------------------------------------------------------
 // Request and candidate
@@ -227,7 +225,7 @@ export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(f
   const manifestPath = path.join(
     computePackPathsForLayout(path.join, layout, { refType: "workspace", owner: packOwner }, pack)
       .canonicalPath,
-    PACK_MANIFEST_FILENAME,
+    manifestFilenameForType("pack"),
   );
   const manifestContent = yield* fs
     .readFileString(manifestPath)

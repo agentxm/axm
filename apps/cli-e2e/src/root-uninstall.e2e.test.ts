@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { parse as parseToml } from "smol-toml";
 import { createTempDir, normalizeWorkspacePaths, runCli } from "./e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
+import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
 import { lockfilePath, readLockfile as readLockDocument } from "./test-support/lockfile.js";
 
 /**
@@ -73,115 +74,22 @@ const extensionDirForSurface = (
 const renderedSkillDir = (workspacePath: string, name: string) =>
   path.join(workspacePath, ".claude", "skills", name);
 
-const configureWorkspaceRegistry = (
-  workspacePath: string,
-  registryPath: string,
-  scope: "project" | "user" = "project",
-) => {
-  const settingsPath =
-    scope === "project"
-      ? path.join(workspacePath, "axm.json")
-      : path.join(workspacePath, ".axm", "workspace", "axm.json");
-  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-
-  settings.defaultRegistry = "test";
-  settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
-  settings.owner = OWNER;
-  // Fixture releases are published moments before a Pack install selects its
-  // members by range, which the minimum release age would otherwise hold.
-  settings.minimumReleaseAge = "0s";
-
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-};
-
-const initWorkspace = async (workspacePath: string, registryPath: string) => {
-  const result = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-    cwd: workspacePath,
+const initWorkspace = (workspacePath: string, registryPath: string) =>
+  initRegistryWorkspace({
+    path: workspacePath,
+    location: `file://${registryPath}`,
+    owner: OWNER,
+    // Fixture releases are published moments before a Pack install selects its
+    // members by range, which the minimum release age would otherwise hold.
+    minimumReleaseAge: "0s",
   });
-  expect(result.exitCode, `stdout:\n${result.stdout}\n\nstderr:\n${result.stderr}`).toBe(0);
-  configureWorkspaceRegistry(workspacePath, registryPath);
-};
 
-const publishSkillToRegistry = async (registryPath: string, name: string) => {
-  const workspace = createTempDir();
+const publishToRegistry = (plural: string) => (registryPath: string, name: string) =>
+  publishExtension({ registryLocation: `file://${registryPath}`, owner: OWNER, plural, name });
 
-  try {
-    await initWorkspace(workspace.path, registryPath);
-
-    const createResult = await runCli(["skills", "new", name, "--owner", OWNER], {
-      cwd: workspace.path,
-    });
-    expect(
-      createResult.exitCode,
-      `stdout:\n${createResult.stdout}\n\nstderr:\n${createResult.stderr}`,
-    ).toBe(0);
-
-    const publishResult = await runCli(["skills", "publish", registryFqn("skills", name)], {
-      cwd: workspace.path,
-      env: PUBLISH_ENV,
-    });
-    expect(
-      publishResult.exitCode,
-      `stdout:\n${publishResult.stdout}\n\nstderr:\n${publishResult.stderr}`,
-    ).toBe(0);
-  } finally {
-    workspace.cleanup();
-  }
-};
-
-const publishRuleToRegistry = async (registryPath: string, name: string) => {
-  const workspace = createTempDir();
-
-  try {
-    await initWorkspace(workspace.path, registryPath);
-
-    const createResult = await runCli(["rules", "new", name, "--owner", OWNER], {
-      cwd: workspace.path,
-    });
-    expect(
-      createResult.exitCode,
-      `stdout:\n${createResult.stdout}\n\nstderr:\n${createResult.stderr}`,
-    ).toBe(0);
-
-    const publishResult = await runCli(["rules", "publish", registryFqn("rules", name)], {
-      cwd: workspace.path,
-      env: PUBLISH_ENV,
-    });
-    expect(
-      publishResult.exitCode,
-      `stdout:\n${publishResult.stdout}\n\nstderr:\n${publishResult.stderr}`,
-    ).toBe(0);
-  } finally {
-    workspace.cleanup();
-  }
-};
-
-const publishSubagentToRegistry = async (registryPath: string, name: string) => {
-  const workspace = createTempDir();
-
-  try {
-    await initWorkspace(workspace.path, registryPath);
-
-    const createResult = await runCli(["subagents", "new", name, "--owner", OWNER], {
-      cwd: workspace.path,
-    });
-    expect(
-      createResult.exitCode,
-      `stdout:\n${createResult.stdout}\n\nstderr:\n${createResult.stderr}`,
-    ).toBe(0);
-
-    const publishResult = await runCli(["subagents", "publish", registryFqn("subagents", name)], {
-      cwd: workspace.path,
-      env: PUBLISH_ENV,
-    });
-    expect(
-      publishResult.exitCode,
-      `stdout:\n${publishResult.stdout}\n\nstderr:\n${publishResult.stderr}`,
-    ).toBe(0);
-  } finally {
-    workspace.cleanup();
-  }
-};
+const publishSkillToRegistry = publishToRegistry("skills");
+const publishRuleToRegistry = publishToRegistry("rules");
+const publishSubagentToRegistry = publishToRegistry("subagents");
 
 const publishPackToRegistry = async (
   registryPath: string,
@@ -631,12 +539,14 @@ describe("axm uninstall", () => {
         [rootWorkspace, rootEnv],
         [typedWorkspace, typedEnv],
       ] as const) {
-        const setup = await runCli(
-          ["setup", "--scope", "user", "--yes", "--agent", "claude-code"],
-          { cwd: workspace.path, env },
-        );
-        expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
-        configureWorkspaceRegistry(workspace.path, registryDir.path, "user");
+        await initRegistryWorkspace({
+          path: workspace.path,
+          location: `file://${registryDir.path}`,
+          owner: OWNER,
+          scope: "user",
+          env,
+          minimumReleaseAge: "0s",
+        });
         const install = await runCli(
           ["skills", "install", registryFqn("skills", name), "--scope", "user"],
           { cwd: workspace.path, env },

@@ -8,6 +8,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { startHttpRegistry } from "./e2e/http-registry-server.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
+import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
 
 export const specification = defineSpecification({
   requirement: "cli/acquires-content-before-workspace-transition",
@@ -30,51 +31,11 @@ export const specification = defineSpecification({
 const OWNER = "@test";
 const TOKEN = "e2e-test-token";
 const registryEnv = (): Record<string, string> => ({ AXM_TOKEN: TOKEN });
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const publishSkill = (location: string, name: string) =>
+  publishExtension({ registryLocation: location, owner: OWNER, plural: "skills", name });
 
-const readSettings = (workspace: string): Record<string, unknown> => {
-  const parsed: unknown = JSON.parse(fs.readFileSync(path.join(workspace, "axm.json"), "utf8"));
-  if (!isRecord(parsed)) throw new Error("Expected workspace settings");
-  return parsed;
-};
-
-const writeSettings = (workspace: string, settings: Record<string, unknown>): void => {
-  fs.writeFileSync(path.join(workspace, "axm.json"), JSON.stringify(settings, null, 2));
-};
-
-const initWorkspace = async (workspace: string, location: string) => {
-  const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-    cwd: workspace,
-    env: registryEnv(),
-  });
-  expect(setup.exitCode, setup.stderr).toBe(0);
-  const settings = readSettings(workspace);
-  settings["defaultRegistry"] = "test";
-  settings["sources"] = [{ name: "test", type: "registry", location }];
-  settings["owner"] = OWNER;
-  settings["minimumReleaseAge"] = "0s";
-  writeSettings(workspace, settings);
-};
-
-const publishSkill = async (location: string, name: string) => {
-  const workspace = createTempDir();
-  try {
-    await initWorkspace(workspace.path, location);
-    const created = await runCli(["skills", "new", name, "--owner", OWNER], {
-      cwd: workspace.path,
-      env: registryEnv(),
-    });
-    expect(created.exitCode, created.stderr).toBe(0);
-    const published = await runCli(["skills", "publish", `${OWNER}/skills/${name}`], {
-      cwd: workspace.path,
-      env: registryEnv(),
-    });
-    expect(published.exitCode, published.stderr).toBe(0);
-  } finally {
-    workspace.cleanup();
-  }
-};
+const initWorkspace = (workspace: string, location: string) =>
+  initRegistryWorkspace({ path: workspace, location, owner: OWNER, minimumReleaseAge: "0s" });
 
 const availablePort = (): Promise<number> =>
   new Promise((resolve, reject) => {
@@ -203,12 +164,11 @@ describe("Remote content precedes workspace transition", () => {
     const names = ["first-sync-source", "second-sync-source", "third-sync-source"];
     try {
       for (const name of names) await publishSkill(registry.url, name);
-      await initWorkspace(consumer.path, registry.url);
-      const settings = readSettings(consumer.path);
+      const { settingsPath, settings } = await initWorkspace(consumer.path, registry.url);
       settings["skills"] = Object.fromEntries(
         names.map((name) => [name, `${OWNER}/skills/${name}`]),
       );
-      writeSettings(consumer.path, settings);
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       const result = await runCli(["sync"], { cwd: consumer.path, env: registryEnv() });
       expect(result.exitCode, result.stderr).toBe(0);

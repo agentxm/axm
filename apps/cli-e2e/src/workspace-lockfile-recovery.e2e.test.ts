@@ -13,7 +13,7 @@ import {
   boundPackage,
   readLockfile,
 } from "./test-support/lockfile.js";
-import { initWorkspace } from "./test-support/published-registry.js";
+import { initRegistryWorkspace } from "./test-support/registry-workspace.js";
 
 export const executionBinding = {
   requirements: ["cli/lockfile-rejections-name-recovery-routes"],
@@ -62,7 +62,12 @@ const publishScenario = async (registry: HttpRegistry): Promise<void> => {
   const env = { AXM_TOKEN: TOKEN };
   const run = (args: ReadonlyArray<string>) => runCli(args, { cwd: publisher.path, env });
   try {
-    await initWorkspace(publisher.path, registry.url, OWNER);
+    await initRegistryWorkspace({
+      path: publisher.path,
+      location: registry.url,
+      owner: OWNER,
+      minimumReleaseAge: "0s",
+    });
 
     expectSuccess(await run(["skills", "new", MEMBER.name, "--owner", OWNER]));
     const skillManifest = path.join(publisher.path, "skills", MEMBER.name, "skill.json");

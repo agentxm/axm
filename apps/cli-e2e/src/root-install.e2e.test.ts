@@ -11,6 +11,7 @@ import {
 } from "./__generated__/extension-type-matrix.js";
 import { createTempDir, normalizeWorkspacePaths, runCli } from "./e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
+import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
 import {
   lockPackage,
   lockfilePath,
@@ -114,16 +115,6 @@ const registryFqn = (surface: InstallSurface, name: string) => `${OWNER}/${surfa
 const extensionDirForSurface = (workspacePath: string, surface: InstallSurface, name: string) =>
   configuredRegistryFixturePath(workspacePath, OWNER, surface, name);
 
-const configureWorkspaceRegistry = (workspacePath: string, registryPath: string) => {
-  const settingsPath = path.join(workspacePath, "axm.json");
-  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.defaultRegistry = "test";
-  settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
-  settings.owner = OWNER;
-  settings.minimumReleaseAge = "0s";
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-};
-
 const configureWorkspaceEntries = (
   workspacePath: string,
   entries: Partial<Record<SettingsKey, Record<string, string | { readonly source: string }>>>,
@@ -144,59 +135,29 @@ const configureWorkspaceEntries = (
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
-const initWorkspace = async (workspacePath: string, registryPath: string) => {
-  const setup = await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
-    cwd: workspacePath,
+const initWorkspace = (workspacePath: string, registryPath: string) =>
+  initRegistryWorkspace({
+    path: workspacePath,
+    location: `file://${registryPath}`,
+    owner: OWNER,
+    minimumReleaseAge: "0s",
   });
-  // Assert here rather than letting the next line fail: a setup that died
-  // leaves no axm.json, and the resulting ENOENT surfaces several frames
-  // away with setup's stderr already discarded — which reads like workspace
-  // state corruption rather than the CLI failing to start.
-  expect(setup.exitCode, setup.stderr).toBe(0);
-  configureWorkspaceRegistry(workspacePath, registryPath);
-};
 
-const publishSkillToRegistry = async (registryPath: string, name: string) => {
-  const workspace = createTempDir();
+const publishSkillToRegistry = (registryPath: string, name: string) =>
+  publishExtension({
+    registryLocation: `file://${registryPath}`,
+    owner: OWNER,
+    plural: "skills",
+    name,
+  });
 
-  try {
-    await initWorkspace(workspace.path, registryPath);
-
-    const createResult = await runCli(["skills", "new", name, "--owner", OWNER], {
-      cwd: workspace.path,
-    });
-    expect(createResult.exitCode).toBe(0);
-
-    const publishResult = await runCli(["skills", "publish", registryFqn("skills", name)], {
-      cwd: workspace.path,
-      env: PUBLISH_ENV,
-    });
-    expect(publishResult.exitCode).toBe(0);
-  } finally {
-    workspace.cleanup();
-  }
-};
-
-const publishSubagentToRegistry = async (registryPath: string, name: string) => {
-  const workspace = createTempDir();
-
-  try {
-    await initWorkspace(workspace.path, registryPath);
-
-    const createResult = await runCli(["subagents", "new", name, "--owner", OWNER], {
-      cwd: workspace.path,
-    });
-    expect(createResult.exitCode).toBe(0);
-
-    const publishResult = await runCli(["subagents", "publish", registryFqn("subagents", name)], {
-      cwd: workspace.path,
-      env: PUBLISH_ENV,
-    });
-    expect(publishResult.exitCode).toBe(0);
-  } finally {
-    workspace.cleanup();
-  }
-};
+const publishSubagentToRegistry = (registryPath: string, name: string) =>
+  publishExtension({
+    registryLocation: `file://${registryPath}`,
+    owner: OWNER,
+    plural: "subagents",
+    name,
+  });
 
 const publishMcpServerToRegistry = async (registryPath: string, name: string) => {
   const version = "1.0.0";

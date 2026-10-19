@@ -1,10 +1,10 @@
-import type { HookRuleContext } from "../context.js";
+import type { ManifestRuleContext, HookContent } from "../context.js";
 import type { LintRule } from "../rule.js";
 import { entrypointExistsRule } from "./hook/entrypoint-exists.js";
 import { hookEnvelopeRules } from "./hook/envelope.js";
 import { nativeBindingsSupportedRule } from "./hook/native-bindings-supported.js";
 
-export const hookRules: ReadonlyArray<LintRule<HookRuleContext>> = [
+export const hookRules: ReadonlyArray<LintRule<ManifestRuleContext<HookContent>>> = [
   hookEnvelopeRules.manifestPresent,
   hookEnvelopeRules.manifestSchemaValid,
   hookEnvelopeRules.manifestKeysRecognized,

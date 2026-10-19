@@ -7,10 +7,10 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { PackFileAccessor, PackRuleContext } from "../../context.js";
+import type { ExtensionFileAccessor, ManifestRuleContext, PackContent } from "../../context.js";
 import { manifestPresentRule } from "./manifest-present.js";
 
-const makeAccessor = (manifestPresent: boolean): PackFileAccessor => ({
+const makeAccessor = (manifestPresent: boolean): ExtensionFileAccessor => ({
   exists: (path) => Effect.succeed(path === "pack.json" && manifestPresent),
   readBytes: (path) =>
     Effect.fail({
@@ -21,7 +21,7 @@ const makeAccessor = (manifestPresent: boolean): PackFileAccessor => ({
     }),
 });
 
-const makeContext = (manifestPresent: boolean): PackRuleContext => ({
+const makeContext = (manifestPresent: boolean): ManifestRuleContext<PackContent> => ({
   subject: { packJson: undefined },
   files: makeAccessor(manifestPresent),
   displayRoot: "",

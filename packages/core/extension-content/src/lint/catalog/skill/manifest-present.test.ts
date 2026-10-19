@@ -7,10 +7,10 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { SkillFileAccessor, SkillRuleContext } from "../../context.js";
+import type { ExtensionFileAccessor, SkillRuleContext } from "../../context.js";
 import { manifestPresentRule } from "./manifest-present.js";
 
-const makeAccessor = (skillJsonPresent: boolean): SkillFileAccessor => ({
+const makeAccessor = (skillJsonPresent: boolean): ExtensionFileAccessor => ({
   exists: (path) => Effect.succeed(path === "skill.json" && skillJsonPresent),
   readBytes: (path) =>
     Effect.fail({
@@ -21,7 +21,7 @@ const makeAccessor = (skillJsonPresent: boolean): SkillFileAccessor => ({
     }),
 });
 
-const emptyAccessor = (): SkillFileAccessor => ({
+const emptyAccessor = (): ExtensionFileAccessor => ({
   exists: () => Effect.succeed(false),
   readBytes: (path) =>
     Effect.fail({

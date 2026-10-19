@@ -12,14 +12,14 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
-  type PackFileAccessor,
+  type ExtensionFileAccessor,
   makeManifestJsonParseFailure,
 } from "@agentxm/extension-content/lint";
 
 const decoder = new TextDecoder();
 
 export const readManifestJson = (
-  accessor: PackFileAccessor,
+  accessor: ExtensionFileAccessor,
   filename: string,
 ): Effect.Effect<unknown | undefined> =>
   Effect.gen(function* () {

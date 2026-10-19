@@ -6,7 +6,7 @@ import {
   referencedHookPackageFiles,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { isManifestJsonParseFailure } from "../shared/manifest-json.js";
-import type { HookRuleContext } from "../../context.js";
+import type { ManifestRuleContext, HookContent } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
@@ -14,7 +14,7 @@ const RULE_ID = "hook/referenced-files-exist";
 
 const decodeHookManifest = Schema.decodeUnknownResult(HookManifestSchema);
 
-export const entrypointExistsRule: AdvisoryRule<HookRuleContext> = {
+export const entrypointExistsRule: AdvisoryRule<ManifestRuleContext<HookContent>> = {
   id: RULE_ID,
   description: "Every Hook implementation, declared asset, and fixture references a package file.",
   kind: "advisory",

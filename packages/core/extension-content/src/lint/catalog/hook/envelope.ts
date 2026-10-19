@@ -3,7 +3,7 @@
  */
 
 import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
-import type { HookRuleContext } from "../../context.js";
+import type { ManifestRuleContext, HookContent } from "../../context.js";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
@@ -16,7 +16,7 @@ const envelope = makeManifestEnvelopeRules({
   namespace: "hook",
   manifestFile: manifestFilenameForType("hook"),
   schema: HookManifestSchema,
-  manifestJson: (context: HookRuleContext) => context.subject.hookJson,
+  manifestJson: (context: ManifestRuleContext<HookContent>) => context.subject.hookJson,
   presentDescription: "Hooks include a root hook.json manifest.",
   presentMissingMessage:
     "hook.json is missing. Create hook.json with the required manifest fields (`owner`, `type`, `name`, `version`, `implementations`).",
@@ -27,7 +27,7 @@ export const hookEnvelopeRules = {
   ...envelope,
   manifestSchemaValid: {
     ...envelope.manifestSchemaValid,
-    check: (context: HookRuleContext) => {
+    check: (context: ManifestRuleContext<HookContent>) => {
       const input = context.subject.hookJson;
       if (input === undefined || isManifestJsonParseFailure(input))
         return envelope.manifestSchemaValid.check(context);

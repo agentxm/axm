@@ -12,10 +12,10 @@
  *   once per skill, so rules don't re-read + re-parse).
  * - `displayRoot` — posix-relative root used by the renderer; the caller
  *   picks per provenance (see the table below).
- * - `files` — the pre-bound content-root `SkillFileAccessor` (rooted at the
+ * - `files` — the pre-bound content-root `ExtensionFileAccessor` (rooted at the
  *   directory containing `SKILL.md`). The caller chooses VFT or
  *   platform-backed.
- * - `packageFiles` — the pre-bound package-root `SkillFileAccessor` (rooted
+ * - `packageFiles` — the pre-bound package-root `ExtensionFileAccessor` (rooted
  *   at the directory containing `skill.json` for native skills). For
  *   non-native skills, callers MAY alias `files`.
  *
@@ -31,7 +31,7 @@
  * @packageDocumentation
  */
 
-import type { SkillFileAccessor, SkillRuleContext } from "../../context.js";
+import type { ExtensionFileAccessor, SkillRuleContext } from "../../context.js";
 
 // -----------------------------------------------------------------------------
 // Installed-skill projection
@@ -49,8 +49,8 @@ export interface InstalledSkillInfo {
   readonly skillJson: unknown;
   readonly expectedName?: string;
   readonly displayRoot: string;
-  readonly files: SkillFileAccessor;
-  readonly packageFiles: SkillFileAccessor;
+  readonly files: ExtensionFileAccessor;
+  readonly packageFiles: ExtensionFileAccessor;
 }
 
 // -----------------------------------------------------------------------------

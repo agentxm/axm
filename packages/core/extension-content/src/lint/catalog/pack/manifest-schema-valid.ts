@@ -20,7 +20,7 @@
  * @packageDocumentation
  */
 
-import type { PackRuleContext } from "../../context.js";
+import type { ManifestRuleContext, PackContent } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { schemaDecodeFindings } from "../shared/schema-rule.js";
@@ -28,7 +28,7 @@ import { manifestFilenameForType } from "@agentxm/extension-model/unstable/exten
 
 const RULE_ID = "pack/manifest-schema-valid";
 
-export const manifestSchemaValidRule: AdvisoryRule<PackRuleContext> = {
+export const manifestSchemaValidRule: AdvisoryRule<ManifestRuleContext<PackContent>> = {
   id: RULE_ID,
   description: "pack.json defines a valid pack manifest.",
   kind: "advisory",

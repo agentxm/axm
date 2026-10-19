@@ -17,10 +17,10 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { PackContent, PackFileAccessor, PackRuleContext } from "../../context.js";
+import type { PackContent, ExtensionFileAccessor, ManifestRuleContext } from "../../context.js";
 import { manifestSchemaValidRule } from "./manifest-schema-valid.js";
 
-const absentAccessor: PackFileAccessor = {
+const absentAccessor: ExtensionFileAccessor = {
   exists: () => Effect.succeed(false),
   readBytes: (path) =>
     Effect.fail({
@@ -31,7 +31,7 @@ const absentAccessor: PackFileAccessor = {
     }),
 };
 
-const makeContext = (subject: PackContent): PackRuleContext => ({
+const makeContext = (subject: PackContent): ManifestRuleContext<PackContent> => ({
   subject,
   files: absentAccessor,
   displayRoot: "",

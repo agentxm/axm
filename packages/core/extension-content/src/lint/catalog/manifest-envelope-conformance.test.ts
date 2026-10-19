@@ -11,13 +11,14 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
 import type {
-  HookRuleContext,
+  ManifestRuleContext,
+  HookContent,
   KnowledgeRuleContext,
-  McpServerRuleContext,
-  PackRuleContext,
-  RuleRuleContext,
+  McpServerContent,
+  PackContent,
+  RuleContent,
   SkillRuleContext,
-  SubagentRuleContext,
+  SubagentContent,
 } from "../context.js";
 import type { LintRule } from "../rule.js";
 import { hookRules } from "./hook.js";
@@ -289,7 +290,7 @@ const validPackManifest = {
 const makePackContext = (
   packJson: unknown,
   files: ReadonlyArray<string> = ["pack.json"],
-): PackRuleContext => ({
+): ManifestRuleContext<PackContent> => ({
   subject: { packJson },
   files: makeFiles(files),
   displayRoot: "",
@@ -330,7 +331,7 @@ const subagentManifest = {
 registerConformance(
   "subagent manifest envelope",
   subagentRules,
-  envelopeCases<SubagentRuleContext>({
+  envelopeCases<ManifestRuleContext<SubagentContent>>({
     namespace: "subagent",
     manifestFile: "subagent.json",
     validManifest: subagentManifest,
@@ -357,7 +358,7 @@ const mcpServerManifest = {
 registerConformance(
   "mcp-server manifest envelope",
   mcpServerRules,
-  envelopeCases<McpServerRuleContext>({
+  envelopeCases<ManifestRuleContext<McpServerContent>>({
     namespace: "mcp-server",
     manifestFile: "mcp.json",
     validManifest: mcpServerManifest,
@@ -379,7 +380,7 @@ const ruleManifest = {
 registerConformance(
   "rule manifest envelope",
   ruleRules,
-  envelopeCases<RuleRuleContext>({
+  envelopeCases<ManifestRuleContext<RuleContent>>({
     namespace: "rule",
     manifestFile: "rule.json",
     validManifest: ruleManifest,
@@ -411,13 +412,16 @@ const hookManifest = {
   ],
 };
 
-const makeHookContext = (hookJson: unknown, files: ReadonlyArray<string>): HookRuleContext => ({
+const makeHookContext = (
+  hookJson: unknown,
+  files: ReadonlyArray<string>,
+): ManifestRuleContext<HookContent> => ({
   subject: { hookJson },
   files: makeFiles(files),
   displayRoot: "",
 });
 
-const hookEnvelopeCases = envelopeCases<HookRuleContext>({
+const hookEnvelopeCases = envelopeCases<ManifestRuleContext<HookContent>>({
   namespace: "hook",
   manifestFile: "hook.json",
   validManifest: hookManifest,

@@ -15,10 +15,10 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { SkillContent, SkillFileAccessor, SkillRuleContext } from "../../context.js";
+import type { SkillContent, ExtensionFileAccessor, SkillRuleContext } from "../../context.js";
 import { manifestSchemaValidRule } from "./manifest-schema-valid.js";
 
-const absentAccessor: SkillFileAccessor = {
+const absentAccessor: ExtensionFileAccessor = {
   exists: () => Effect.succeed(false),
   readBytes: (path) =>
     Effect.fail({

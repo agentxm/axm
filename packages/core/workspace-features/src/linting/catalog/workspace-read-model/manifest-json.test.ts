@@ -1,11 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { type PackFileAccessor, isManifestJsonParseFailure } from "@agentxm/extension-content/lint";
+import {
+  type ExtensionFileAccessor,
+  isManifestJsonParseFailure,
+} from "@agentxm/extension-content/lint";
 import { readManifestJson } from "./manifest-json.js";
 
 const encoder = new TextEncoder();
 
-const makeAccessor = (files: Readonly<Record<string, string>>): PackFileAccessor => ({
+const makeAccessor = (files: Readonly<Record<string, string>>): ExtensionFileAccessor => ({
   exists: (path) => Effect.succeed(Object.hasOwn(files, path)),
   readBytes: (path) => {
     const value = files[path];

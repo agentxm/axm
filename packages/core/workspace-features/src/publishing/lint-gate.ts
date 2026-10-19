@@ -3,15 +3,16 @@ import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { PublishFailed } from "./errors.js";
 import {
-  makePlatformPackFileAccessor,
+  makePlatformFileAccessor,
   platformCanonicalLintConfig,
   composePath,
-  type HookRuleContext,
+  type ManifestRuleContext,
+  type HookContent,
   type KnowledgeRuleContext,
-  type McpServerRuleContext,
-  type PackRuleContext,
-  type SubagentRuleContext,
-  type RuleRuleContext,
+  type McpServerContent,
+  type PackContent,
+  type SubagentContent,
+  type RuleContent,
   evaluateContexts,
   hookRules,
   publishKnowledgeRules as knowledgeRules,
@@ -97,8 +98,8 @@ export const runPublishLintGate = (args: PublishLintArgs): Effect.Effect<void, P
 };
 
 const evaluatePack = (args: Extract<PublishLintArgs, { readonly type: "pack" }>) => {
-  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
-  const context: PackRuleContext = {
+  const files = makePlatformFileAccessor(args.platform, args.extensionDir);
+  const context: ManifestRuleContext<PackContent> = {
     subject: { packJson: args.manifestJson },
     files,
     displayRoot: "",
@@ -109,8 +110,8 @@ const evaluatePack = (args: Extract<PublishLintArgs, { readonly type: "pack" }>)
 };
 
 const evaluateSubagent = (args: Extract<PublishLintArgs, { readonly type: "subagent" }>) => {
-  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
-  const context: SubagentRuleContext = {
+  const files = makePlatformFileAccessor(args.platform, args.extensionDir);
+  const context: ManifestRuleContext<SubagentContent> = {
     subject: { subagentJson: args.manifestJson },
     files,
     displayRoot: "",
@@ -121,8 +122,8 @@ const evaluateSubagent = (args: Extract<PublishLintArgs, { readonly type: "subag
 };
 
 const evaluateMcpServer = (args: Extract<PublishLintArgs, { readonly type: "mcp-server" }>) => {
-  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
-  const context: McpServerRuleContext = {
+  const files = makePlatformFileAccessor(args.platform, args.extensionDir);
+  const context: ManifestRuleContext<McpServerContent> = {
     subject: { mcpServerJson: args.manifestJson },
     files,
     displayRoot: "",
@@ -133,8 +134,8 @@ const evaluateMcpServer = (args: Extract<PublishLintArgs, { readonly type: "mcp-
 };
 
 const evaluateHook = (args: Extract<PublishLintArgs, { readonly type: "hook" }>) => {
-  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
-  const context: HookRuleContext = {
+  const files = makePlatformFileAccessor(args.platform, args.extensionDir);
+  const context: ManifestRuleContext<HookContent> = {
     subject: { hookJson: args.manifestJson },
     files,
     displayRoot: "",
@@ -145,8 +146,8 @@ const evaluateHook = (args: Extract<PublishLintArgs, { readonly type: "hook" }>)
 };
 
 const evaluateRule = (args: Extract<PublishLintArgs, { readonly type: "rule" }>) => {
-  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
-  const context: RuleRuleContext = {
+  const files = makePlatformFileAccessor(args.platform, args.extensionDir);
+  const context: ManifestRuleContext<RuleContent> = {
     subject: { ruleJson: args.manifestJson },
     files,
     displayRoot: "",
@@ -157,7 +158,7 @@ const evaluateRule = (args: Extract<PublishLintArgs, { readonly type: "rule" }>)
 };
 
 const evaluateKnowledge = (args: Extract<PublishLintArgs, { readonly type: "knowledge" }>) => {
-  const files = makePlatformPackFileAccessor(args.platform, args.extensionDir);
+  const files = makePlatformFileAccessor(args.platform, args.extensionDir);
   const context: KnowledgeRuleContext = {
     subject: { knowledgeJson: args.manifestJson },
     files,

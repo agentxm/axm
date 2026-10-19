@@ -8,10 +8,10 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { SkillFileAccessor } from "../../context.js";
+import type { ExtensionFileAccessor } from "../../context.js";
 import { buildSkillRuleContexts, type InstalledSkillInfo } from "./contexts.js";
 
-const absentAccessor: SkillFileAccessor = {
+const absentAccessor: ExtensionFileAccessor = {
   exists: () => Effect.succeed(false),
   readBytes: (path) =>
     Effect.fail({
@@ -24,7 +24,7 @@ const absentAccessor: SkillFileAccessor = {
 
 describe("buildSkillRuleContexts", () => {
   it("returns one context per installed skill", () => {
-    const otherAccessor: SkillFileAccessor = {
+    const otherAccessor: ExtensionFileAccessor = {
       exists: () => Effect.succeed(true),
       readBytes: (path) =>
         Effect.fail({

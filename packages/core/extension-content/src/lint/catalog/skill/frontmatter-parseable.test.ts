@@ -15,12 +15,12 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { SkillFileAccessor, SkillRuleContext } from "../../context.js";
+import type { ExtensionFileAccessor, SkillRuleContext } from "../../context.js";
 import { frontmatterParseableRule } from "./frontmatter-parseable.js";
 
 const encoder = new TextEncoder();
 
-const makeAccessor = (content: string | undefined): SkillFileAccessor => ({
+const makeAccessor = (content: string | undefined): ExtensionFileAccessor => ({
   exists: (path) => Effect.succeed(path === "SKILL.md" && content !== undefined),
   readBytes: (path) => {
     if (path !== "SKILL.md" || content === undefined) {

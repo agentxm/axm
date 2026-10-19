@@ -4,12 +4,12 @@ import * as Schema from "effect/Schema";
 import { AGENTS_BY_ID, installable } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { isManifestJsonParseFailure } from "../shared/manifest-json.js";
-import type { HookRuleContext } from "../../context.js";
+import type { ManifestRuleContext, HookContent } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULE_ID = "hook/native-bindings-supported";
-export const nativeBindingsSupportedRule: AdvisoryRule<HookRuleContext> = {
+export const nativeBindingsSupportedRule: AdvisoryRule<ManifestRuleContext<HookContent>> = {
   id: RULE_ID,
   description: "Native Hook events preserve every required outcome and modification operation.",
   kind: "advisory",

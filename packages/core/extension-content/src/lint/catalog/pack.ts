@@ -20,7 +20,7 @@
  */
 
 import type { LintRule } from "../rule.js";
-import type { PackRuleContext } from "../context.js";
+import type { ManifestRuleContext, PackContent } from "../context.js";
 import { manifestPresentRule } from "./pack/manifest-present.js";
 import { manifestSchemaValidRule } from "./pack/manifest-schema-valid.js";
 import { manifestKeysRecognizedRule } from "./pack/manifest-keys-recognized.js";
@@ -32,7 +32,7 @@ import { manifestKeysRecognizedRule } from "./pack/manifest-keys-recognized.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const packRules: ReadonlyArray<LintRule<PackRuleContext>> = [
+export const packRules: ReadonlyArray<LintRule<ManifestRuleContext<PackContent>>> = [
   manifestPresentRule,
   manifestSchemaValidRule,
   manifestKeysRecognizedRule,

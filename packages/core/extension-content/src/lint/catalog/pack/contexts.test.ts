@@ -8,10 +8,10 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { PackFileAccessor } from "../../context.js";
+import type { ExtensionFileAccessor } from "../../context.js";
 import { buildPackRuleContexts, type InstalledPackInfo } from "./contexts.js";
 
-const absentAccessor: PackFileAccessor = {
+const absentAccessor: ExtensionFileAccessor = {
   exists: () => Effect.succeed(false),
   readBytes: (path) =>
     Effect.fail({

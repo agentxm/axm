@@ -121,10 +121,10 @@ plan because it creates no local artifact.
 
 Effect schemas own published wire shapes. The single register in
 `apps/cli/src/machine-output-contracts.ts` classifies every command path by
-result family, explicit liveness, and representative human and machine
-scenarios. Tests compare it with the real command tree. Formatter help,
-version, usage errors, and explicit raw credential output retain their own
-contracts.
+result family and explicit liveness. Tests compare it with the real command
+tree. Executable specifications and command tests own the human and machine
+scenarios each family must cover. Formatter help, version, usage errors, and
+explicit raw credential output retain their own contracts.
 
 The executable specifications `cli/output-preserves-committed-history`,
 `cli/results-stand-alone-on-stdout`, and `cli/quiet-keeps-actionable-results`

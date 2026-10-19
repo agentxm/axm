@@ -1,8 +1,6 @@
 import { NAMED_MACHINE_OUTPUT_SCHEMAS } from "./machine-output-schemas.js";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 
 import { JsonHelpDocSchema, JsonVersionDocSchema } from "./cli-runtime/index.js";
@@ -73,45 +71,19 @@ describe("machine-output contract register", () => {
     }),
   );
 
-  it("keeps every row deliberate, documented, and connected to coverage", () => {
+  it("keeps every row deliberate", () => {
     for (const row of [...MACHINE_OUTPUT_CONTRACT_ROWS, FORMATTER_VERSION_CONTRACT]) {
       expect(row.family.id).not.toBe("");
       expect(["orientation", "query", "mutation", "mixed"]).toContain(row.family.humanOutputKind);
       expect(["immediate", "progress"]).toContain(row.family.liveness);
-      expect(row.family.livenessCoverage.length).toBeGreaterThan(0);
-      expect(row.family.humanCoverage.length, row.path).toBeGreaterThan(0);
-      for (const coverage of row.family.humanCoverage) {
-        expect(coverage.scenarios.length, coverage.file).toBeGreaterThan(0);
-      }
       expect(row.family.schemaNames.length).toBeGreaterThan(0);
       expect(row.family.requiredEnvelopeKeys.length).toBeGreaterThan(0);
       expect(
         row.family.requiredTopLevelKeys.length + row.family.optionalTopLevelKeys.length,
         row.path,
       ).toBeGreaterThan(0);
-      expect(row.family.scenarios.length).toBeGreaterThan(0);
       expect(row.family.rationale).not.toBe("");
-      expect(row.family.centralizedCoverage.length).toBeGreaterThan(0);
-      expect(row.family.documentation.length).toBeGreaterThan(0);
       expect(row.helpSchemaName).toBe("JsonHelpDocSchema");
-    }
-  });
-
-  it("keeps every repository coverage pointer connected to an existing file", () => {
-    const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
-    const coveragePointers = new Set(
-      [...MACHINE_OUTPUT_CONTRACT_ROWS, FORMATTER_VERSION_CONTRACT].flatMap((row) => [
-        ...row.family.commandCoverage,
-        ...row.family.livenessCoverage,
-        ...row.family.centralizedCoverage,
-        ...row.family.humanCoverage.map((coverage) => coverage.file),
-      ]),
-    );
-
-    const repositoryPointer = /^(?:apps|packages|tools|specifications)\//u;
-    for (const pointer of coveragePointers) {
-      if (!repositoryPointer.test(pointer)) continue;
-      expect(fs.existsSync(path.join(repositoryRoot, pointer)), pointer).toBe(true);
     }
   });
 

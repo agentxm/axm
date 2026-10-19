@@ -656,115 +656,45 @@ const resolveUpdateIntent = <TIntent, R>(args: ConfiguredUpdateIntentArgs<TInten
  */
 const reacquiresContent = (ref: ExtensionRef): boolean => ref.refType !== "registry";
 
-const resolveSkillIntent = (
-  name: string,
-  source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
-  effective: DesiredEffectiveConstraint,
-  reinstall: boolean,
-) =>
-  resolveUpdateIntent({
-    type: "skill",
-    name,
-    source,
-    releaseAgeEvaluation,
-    effective,
-    reinstall,
-    fallback: resolveConfiguredSkill(name, source, releaseAgeEvaluation, effective.range),
-    makeIntent: (ref, versionRange) =>
-      ref.type === "skill"
-        ? ({
-            skillsToInstall: [{ ref, versionRange }],
-            force: reinstall || reacquiresContent(ref),
-          } satisfies SkillInstallIntent)
-        : undefined,
-  });
+/**
+ * What updating one configured entry of a kind needs: how its declared source
+ * resolves when the Registry cannot select it, the install intent a resolved
+ * ref becomes, and the install planner that intent feeds.
+ */
+interface EntryUpdateKind<TIntent, RResolve, RPlan> {
+  readonly resolve: (
+    name: string,
+    source: string,
+    releaseAgeEvaluation: ReleaseAgeEvaluation,
+    selectionRange: Option.Option<VersionRange>,
+  ) => ConfiguredUpdateIntentArgs<TIntent, RResolve>["fallback"];
+  readonly makeIntent: (
+    ref: ExtensionRef,
+    versionRange: Option.Option<VersionRange>,
+    reinstall: boolean,
+  ) => TIntent | undefined;
+  readonly plan: (
+    intent: TIntent,
+  ) => Effect.Effect<Plan<InstallStepRequirements>, ConfiguredUpdateFailure, RPlan>;
+}
 
-const resolveSubagentIntent = (
+const resolveUpdateIntentFor = <TIntent, RResolve, RPlan>(
+  type: InstallableExtensionType,
+  kind: EntryUpdateKind<TIntent, RResolve, RPlan>,
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  selection: WorkspaceUpdateCollectionRequest,
   effective: DesiredEffectiveConstraint,
-  reinstall: boolean,
 ) =>
   resolveUpdateIntent({
-    type: "subagent",
+    type,
     name,
     source,
-    releaseAgeEvaluation,
+    releaseAgeEvaluation: selection.releaseAgeEvaluation,
     effective,
-    reinstall,
-    fallback: resolveConfiguredSubagent(name, source, releaseAgeEvaluation, effective.range),
-    makeIntent: (ref, versionRange) =>
-      ref.type === "subagent"
-        ? ({
-            subagentsToInstall: [{ ref, versionRange }],
-            force: reinstall || reacquiresContent(ref),
-          } satisfies SubagentInstallIntent)
-        : undefined,
-  });
-
-const resolveRuleIntent = (
-  name: string,
-  source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
-  effective: DesiredEffectiveConstraint,
-  reinstall: boolean,
-) =>
-  resolveUpdateIntent({
-    type: "rule",
-    name,
-    source,
-    releaseAgeEvaluation,
-    effective,
-    reinstall,
-    fallback: resolveConfiguredRule(name, source, releaseAgeEvaluation, effective.range),
-    makeIntent: (ref, versionRange) =>
-      ref.type === "rule"
-        ? ({ refs: [{ ref, versionRange }] } satisfies RuleInstallIntent)
-        : undefined,
-  });
-
-const resolveHookIntent = (
-  name: string,
-  source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
-  effective: DesiredEffectiveConstraint,
-  reinstall: boolean,
-) =>
-  resolveUpdateIntent({
-    type: "hook",
-    name,
-    source,
-    releaseAgeEvaluation,
-    effective,
-    reinstall,
-    fallback: resolveConfiguredHook(name, source, releaseAgeEvaluation, effective.range),
-    makeIntent: (ref, versionRange) =>
-      ref.type === "hook"
-        ? ({ refs: [{ ref, versionRange }] } satisfies HookInstallIntent)
-        : undefined,
-  });
-
-const resolveKnowledgeIntent = (
-  name: string,
-  source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
-  effective: DesiredEffectiveConstraint,
-  reinstall: boolean,
-) =>
-  resolveUpdateIntent({
-    type: "knowledge",
-    name,
-    source,
-    releaseAgeEvaluation,
-    effective,
-    reinstall,
-    fallback: resolveConfiguredKnowledge(name, source, releaseAgeEvaluation, effective.range),
-    makeIntent: (ref, versionRange) =>
-      ref.type === "knowledge"
-        ? ({ refs: [{ ref, versionRange }] } satisfies KnowledgeInstallIntent)
-        : undefined,
+    reinstall: selection.reinstall,
+    fallback: kind.resolve(name, source, selection.releaseAgeEvaluation, effective.range),
+    makeIntent: (ref, versionRange) => kind.makeIntent(ref, versionRange, selection.reinstall),
   });
 
 const resolveMcpServerIntent = (
@@ -939,230 +869,52 @@ const withinEffectiveConstraint = <E, R>(
     : plan(effective.success);
 };
 
-const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest, graph: DesiredStateGraph) =>
-  Effect.gen(function* () {
-    const settings = yield* SettingsReader;
-    const location = yield* WorkspaceLocation;
-    const conversion = yield* StepFailureConversion;
-    const configured = yield* settings.entries("skill");
-    const entries = selectedEntries(
-      acquisitionConfiguredEntries(configured, selection.retainedNames),
-      selection,
-    ).filter(hasConfiguredSource);
-    const resolved = yield* Effect.forEach(
-      entries,
-      ([name, entry]) =>
-        isWorkspaceSourceLocator(entry.source)
-          ? Effect.succeed(
-              collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("skill", name, entry.source, location.scope),
-              ),
-            )
-          : withinEffectiveConstraint(graph, "skill", name, (effective) =>
-              collectResolvedPlan(
-                resolveSkillIntent(
-                  name,
-                  entry.source,
-                  selection.releaseAgeEvaluation,
-                  effective,
-                  selection.reinstall,
+/**
+ * Collect the update plans for every selected, acquiring entry of one kind:
+ * a workspace-sourced entry is reported unchanged, and every other entry is
+ * resolved and planned within the effective constraint the graph intersects.
+ */
+const collectEntryPlans =
+  <TIntent, RResolve, RPlan>(
+    type: Exclude<WorkspaceEntryUpdatableType, "mcp-server">,
+    kind: EntryUpdateKind<TIntent, RResolve, RPlan>,
+  ) =>
+  (selection: WorkspaceUpdateCollectionRequest, graph: DesiredStateGraph) =>
+    Effect.gen(function* () {
+      const settings = yield* SettingsReader;
+      const location = yield* WorkspaceLocation;
+      const conversion = yield* StepFailureConversion;
+      const configured = yield* settings.entries(type);
+      const entries = selectedEntries(
+        acquisitionConfiguredEntries(configured, selection.retainedNames),
+        selection,
+      ).filter(hasConfiguredSource);
+      const resolved = yield* Effect.forEach(
+        entries,
+        ([name, entry]) =>
+          isWorkspaceSourceLocator(entry.source)
+            ? Effect.succeed(
+                collectedWorkspaceSourcePlan(
+                  workspaceSourceUnchangedPlan(type, name, entry.source, location.scope),
                 ),
-                planSkillInstall,
-                (error) => workspacePlanningErrorPlan("skill", name, error, conversion),
-                toTypedLabel("skill", name),
-              ),
-            ),
-      { concurrency: 16 },
-    );
-
-    return toCollectedWorkspaceUpdatePlans({
-      plans: resolved.flatMap((item) => item.plans),
-      holdbacks: resolved.flatMap((item) => item.holdbacks),
-      bypasses: resolved.flatMap((item) => item.bypasses),
-    });
-  });
-
-const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest, graph: DesiredStateGraph) =>
-  Effect.gen(function* () {
-    const settings = yield* SettingsReader;
-    const location = yield* WorkspaceLocation;
-    const conversion = yield* StepFailureConversion;
-    const configured = yield* settings.entries("rule");
-    const entries = selectedEntries(
-      acquisitionConfiguredEntries(configured, selection.retainedNames),
-      selection,
-    );
-
-    const resolved = yield* Effect.forEach(
-      entries,
-      ([name, entry]) =>
-        isWorkspaceSourceLocator(entry.source)
-          ? Effect.succeed(
-              collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("rule", name, entry.source, location.scope),
-              ),
-            )
-          : withinEffectiveConstraint(graph, "rule", name, (effective) =>
-              collectResolvedPlan(
-                resolveRuleIntent(
-                  name,
-                  entry.source,
-                  selection.releaseAgeEvaluation,
-                  effective,
-                  selection.reinstall,
+              )
+            : withinEffectiveConstraint(graph, type, name, (effective) =>
+                collectResolvedPlan(
+                  resolveUpdateIntentFor(type, kind, name, entry.source, selection, effective),
+                  kind.plan,
+                  (error) => workspacePlanningErrorPlan(type, name, error, conversion),
+                  toTypedLabel(type, name),
                 ),
-                (intent) => planRuleInstall(intent),
-                (error) => workspacePlanningErrorPlan("rule", name, error, conversion),
-                toTypedLabel("rule", name),
               ),
-            ),
-      { concurrency: 16 },
-    );
+        { concurrency: 16 },
+      );
 
-    return toCollectedWorkspaceUpdatePlans({
-      plans: resolved.flatMap((item) => item.plans),
-      holdbacks: resolved.flatMap((item) => item.holdbacks),
-      bypasses: resolved.flatMap((item) => item.bypasses),
+      return toCollectedWorkspaceUpdatePlans({
+        plans: resolved.flatMap((item) => item.plans),
+        holdbacks: resolved.flatMap((item) => item.holdbacks),
+        bypasses: resolved.flatMap((item) => item.bypasses),
+      });
     });
-  });
-
-const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest, graph: DesiredStateGraph) =>
-  Effect.gen(function* () {
-    const settings = yield* SettingsReader;
-    const location = yield* WorkspaceLocation;
-    const conversion = yield* StepFailureConversion;
-    const configured = yield* settings.entries("hook");
-    const entries = selectedEntries(
-      acquisitionConfiguredEntries(configured, selection.retainedNames),
-      selection,
-    );
-
-    const resolved = yield* Effect.forEach(
-      entries,
-      ([name, entry]) =>
-        isWorkspaceSourceLocator(entry.source)
-          ? Effect.succeed(
-              collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("hook", name, entry.source, location.scope),
-              ),
-            )
-          : withinEffectiveConstraint(graph, "hook", name, (effective) =>
-              collectResolvedPlan(
-                resolveHookIntent(
-                  name,
-                  entry.source,
-                  selection.releaseAgeEvaluation,
-                  effective,
-                  selection.reinstall,
-                ),
-                (intent) => planHookInstall(intent),
-                (error) => workspacePlanningErrorPlan("hook", name, error, conversion),
-                toTypedLabel("hook", name),
-              ),
-            ),
-      { concurrency: 16 },
-    );
-
-    return toCollectedWorkspaceUpdatePlans({
-      plans: resolved.flatMap((item) => item.plans),
-      holdbacks: resolved.flatMap((item) => item.holdbacks),
-      bypasses: resolved.flatMap((item) => item.bypasses),
-    });
-  });
-
-const collectKnowledgePlans = (
-  selection: WorkspaceUpdateCollectionRequest,
-  graph: DesiredStateGraph,
-) =>
-  Effect.gen(function* () {
-    const settings = yield* SettingsReader;
-    const location = yield* WorkspaceLocation;
-    const conversion = yield* StepFailureConversion;
-    const configured = yield* settings.entries("knowledge");
-    const entries = selectedEntries(
-      acquisitionConfiguredEntries(configured, selection.retainedNames),
-      selection,
-    );
-
-    const resolved = yield* Effect.forEach(
-      entries,
-      ([name, entry]) =>
-        isWorkspaceSourceLocator(entry.source)
-          ? Effect.succeed(
-              collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("knowledge", name, entry.source, location.scope),
-              ),
-            )
-          : withinEffectiveConstraint(graph, "knowledge", name, (effective) =>
-              collectResolvedPlan(
-                resolveKnowledgeIntent(
-                  name,
-                  entry.source,
-                  selection.releaseAgeEvaluation,
-                  effective,
-                  selection.reinstall,
-                ),
-                (intent) => planKnowledgeInstall(intent),
-                (error) => workspacePlanningErrorPlan("knowledge", name, error, conversion),
-                toTypedLabel("knowledge", name),
-              ),
-            ),
-      { concurrency: 16 },
-    );
-
-    return toCollectedWorkspaceUpdatePlans({
-      plans: resolved.flatMap((item) => item.plans),
-      holdbacks: resolved.flatMap((item) => item.holdbacks),
-      bypasses: resolved.flatMap((item) => item.bypasses),
-    });
-  });
-
-const collectSubagentPlans = (
-  selection: WorkspaceUpdateCollectionRequest,
-  graph: DesiredStateGraph,
-) =>
-  Effect.gen(function* () {
-    const settings = yield* SettingsReader;
-    const location = yield* WorkspaceLocation;
-    const conversion = yield* StepFailureConversion;
-    const configured = yield* settings.entries("subagent");
-    const entries = selectedEntries(
-      acquisitionConfiguredEntries(configured, selection.retainedNames),
-      selection,
-    ).filter(hasConfiguredSource);
-
-    const resolved = yield* Effect.forEach(
-      entries,
-      ([name, entry]) =>
-        isWorkspaceSourceLocator(entry.source)
-          ? Effect.succeed(
-              collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("subagent", name, entry.source, location.scope),
-              ),
-            )
-          : withinEffectiveConstraint(graph, "subagent", name, (effective) =>
-              collectResolvedPlan(
-                resolveSubagentIntent(
-                  name,
-                  entry.source,
-                  selection.releaseAgeEvaluation,
-                  effective,
-                  selection.reinstall,
-                ),
-                (intent) => planSubagentInstall(intent),
-                (error) => workspacePlanningErrorPlan("subagent", name, error, conversion),
-                toTypedLabel("subagent", name),
-              ),
-            ),
-      { concurrency: 16 },
-    );
-
-    return toCollectedWorkspaceUpdatePlans({
-      plans: resolved.flatMap((item) => item.plans),
-      holdbacks: resolved.flatMap((item) => item.holdbacks),
-      bypasses: resolved.flatMap((item) => item.bypasses),
-    });
-  });
 
 const collectMcpServerPlans = (
   selection: WorkspaceUpdateCollectionRequest,
@@ -1399,11 +1151,52 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
 // never again be silently dropped from workspace update.
 const makeWorkspaceUpdateCollectors = (): ReadonlyArray<WorkspaceUpdateCollector> => {
   const collectorsByType = {
-    skill: collectSkillPlans,
-    rule: collectRulePlans,
-    hook: collectHookPlans,
-    knowledge: collectKnowledgePlans,
-    subagent: collectSubagentPlans,
+    skill: collectEntryPlans("skill", {
+      resolve: resolveConfiguredSkill,
+      makeIntent: (ref, versionRange, reinstall) =>
+        ref.type === "skill"
+          ? ({
+              skillsToInstall: [{ ref, versionRange }],
+              force: reinstall || reacquiresContent(ref),
+            } satisfies SkillInstallIntent)
+          : undefined,
+      plan: planSkillInstall,
+    }),
+    subagent: collectEntryPlans("subagent", {
+      resolve: resolveConfiguredSubagent,
+      makeIntent: (ref, versionRange, reinstall) =>
+        ref.type === "subagent"
+          ? ({
+              subagentsToInstall: [{ ref, versionRange }],
+              force: reinstall || reacquiresContent(ref),
+            } satisfies SubagentInstallIntent)
+          : undefined,
+      plan: planSubagentInstall,
+    }),
+    rule: collectEntryPlans("rule", {
+      resolve: resolveConfiguredRule,
+      makeIntent: (ref, versionRange) =>
+        ref.type === "rule"
+          ? ({ refs: [{ ref, versionRange }] } satisfies RuleInstallIntent)
+          : undefined,
+      plan: planRuleInstall,
+    }),
+    hook: collectEntryPlans("hook", {
+      resolve: resolveConfiguredHook,
+      makeIntent: (ref, versionRange) =>
+        ref.type === "hook"
+          ? ({ refs: [{ ref, versionRange }] } satisfies HookInstallIntent)
+          : undefined,
+      plan: planHookInstall,
+    }),
+    knowledge: collectEntryPlans("knowledge", {
+      resolve: resolveConfiguredKnowledge,
+      makeIntent: (ref, versionRange) =>
+        ref.type === "knowledge"
+          ? ({ refs: [{ ref, versionRange }] } satisfies KnowledgeInstallIntent)
+          : undefined,
+      plan: planKnowledgeInstall,
+    }),
     "mcp-server": collectMcpServerPlans,
   } satisfies Record<WorkspaceEntryUpdatableType, WorkspaceUpdateCollector["collect"]>;
 

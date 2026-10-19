@@ -47,7 +47,6 @@ import {
   type ResolveInstallRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/workspace-kernel/sources";
-import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import {
   type JobStepArtifactTarget,
   type Plan,
@@ -119,12 +118,6 @@ export const parseSkillUninstallRequest: (
     return { targets: [] } satisfies SkillUninstallIntent;
   }
 
-  // An identifier nothing installed answers to still names one skill: its
-  // extension name, never the fully qualified spelling as a name.
-  const unresolvedName = (input: string) => {
-    const fqn = parseExtensionFqnParts(input);
-    return fqn?.type === "skill" ? fqn.name : input;
-  };
   const names =
     matched.length > 0
       ? matched
@@ -133,7 +126,6 @@ export const parseSkillUninstallRequest: (
             input: selector,
             resourceType: "skill",
           }).pipe(
-            Effect.map((name) => (name === selector.trim() ? unresolvedName(name) : name)),
             Effect.mapError((cause) =>
               installRefused({
                 category: "not_found",

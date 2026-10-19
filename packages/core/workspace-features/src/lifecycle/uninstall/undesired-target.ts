@@ -21,7 +21,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
-import { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
+import { ExtensionLifecycleFailed, installRefused } from "@agentxm/workspace-kernel/operations";
 
 /** The single extension a literal uninstall selector names. */
 export interface UninstallSubject {
@@ -31,17 +31,48 @@ export interface UninstallSubject {
   readonly owner: string | undefined;
 }
 
-/** The subject a typed selector names, or none for a glob. */
-export const typedUninstallSubject = (
+/**
+ * A typed selector, settled once for every kind: what the kind's parser reads
+ * and, unless the selector is a glob, the one subject it names.
+ */
+export interface TypedUninstallSelector {
+  /**
+   * A name or a glob for the kind's parser. A fully qualified name of the
+   * route's type is read as its extension name; a Pack keeps the qualified
+   * spelling, because its owner selects among Pack identities.
+   */
+  readonly selector: string;
+  readonly subject: UninstallSubject | undefined;
+}
+
+/**
+ * Read a typed selector: an extension name, a glob over names, or a fully
+ * qualified name of the route's type. A fully qualified name of another type
+ * names nothing this route can remove, so it is refused.
+ */
+export const typedUninstallSelector = (
   type: InstallableExtensionType,
   selector: string,
-): UninstallSubject | undefined => {
+): Effect.Effect<TypedUninstallSelector, ExtensionLifecycleFailed> => {
   const trimmed = selector.trim();
-  if (trimmed.includes("*")) return undefined;
+  if (trimmed.includes("*")) return Effect.succeed({ selector: trimmed, subject: undefined });
   const fqn = parseExtensionFqnParts(trimmed);
-  return fqn !== undefined && fqn.type === type
-    ? { type, name: fqn.name, owner: fqn.owner }
-    : { type, name: trimmed, owner: undefined };
+  if (fqn === undefined)
+    return Effect.succeed({
+      selector: trimmed,
+      subject: { type, name: trimmed, owner: undefined },
+    });
+  if (fqn.type !== type)
+    return Effect.fail(
+      installRefused({
+        category: "validation",
+        detail: `Expected a ${type} identity, received ${trimmed}`,
+      }),
+    );
+  return Effect.succeed({
+    selector: type === "pack" ? trimmed : fqn.name,
+    subject: { type, name: fqn.name, owner: fqn.owner },
+  });
 };
 
 const readFailed = (cause: unknown) =>

@@ -15,9 +15,8 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { envWithDefault, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
+import { envOrHomePath, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const conanType = Schema.decodeUnknownSync(PackageTypeSchema)("conan");
@@ -229,11 +228,7 @@ const decodeConanDataAgentExtensions = Schema.decodeUnknownResult(ConanDataAgent
  * Resolve the Conan cache directory.
  * Checks CONAN_USER_HOME, then defaults to ~/.conan2.
  */
-const resolveConanCache = () =>
-  Effect.gen(function* () {
-    const home = yield* osHomeDirectory;
-    return yield* envWithDefault("CONAN_USER_HOME", `${home}/.conan2`);
-  });
+const resolveConanCache = () => envOrHomePath("CONAN_USER_HOME", ".conan2");
 
 /**
  * Conan package reader.
@@ -274,15 +269,7 @@ export const conanReader: PackageReader = {
       const agentExtensions = containerResult.success.agentExtensions;
       if (agentExtensions === undefined) return Option.none();
 
-      const metaResult = yield* decodeAgentExtensions({ agentExtensions });
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions({ agentExtensions }, `${pkg.purl.name}`);
     },
     Effect.annotateLogs({ reader: "conan" }),
     Effect.withSpan("read.conan"),

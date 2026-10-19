@@ -9,10 +9,9 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
+import { readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { parseTomlDocument, tomlStringEntries, tomlTable, type TomlTable } from "./toml.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
@@ -117,15 +116,7 @@ export const juliaReader: PackageReader = {
         const metadata = parseAgentExtensions(content.value);
         if (metadata === undefined) continue;
 
-        const metaResult = yield* decodeAgentExtensions(metadata);
-        if (Result.isFailure(metaResult)) {
-          yield* Effect.logWarning(
-            `Invalid agentExtensions metadata in ${pkgName}: schema validation failed`,
-          );
-          return Option.none();
-        }
-
-        return Option.some(metaResult.success.agentExtensions);
+        return yield* readAgentExtensions(metadata, `${pkgName}`);
       }
 
       return Option.none();

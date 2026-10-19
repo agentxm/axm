@@ -13,7 +13,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { envOption } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -346,14 +346,7 @@ export const condaReader: PackageReader = {
           `conda share/agent-extensions/${pkgName}/agent-extensions.json`,
         );
         if (Option.isSome(parsed)) {
-          const metaResult = yield* decodeAgentExtensions(parsed.value);
-          if (Result.isFailure(metaResult)) {
-            yield* Effect.logWarning(
-              `Invalid agentExtensions metadata in conda ${pkgName}: schema validation failed`,
-            );
-            return Option.none();
-          }
-          return Option.some(metaResult.success.agentExtensions);
+          return yield* readAgentExtensions(parsed.value, `conda ${pkgName}`);
         }
       }
 
@@ -380,14 +373,7 @@ export const condaReader: PackageReader = {
               if (Result.isSuccess(aboutResult)) {
                 const agentExtensions = aboutResult.success.extra?.agentExtensions;
                 if (agentExtensions !== undefined) {
-                  const metaResult = yield* decodeAgentExtensions({ agentExtensions });
-                  if (Result.isFailure(metaResult)) {
-                    yield* Effect.logWarning(
-                      `Invalid agentExtensions metadata in conda cache ${pkgName}: schema validation failed`,
-                    );
-                    return Option.none();
-                  }
-                  return Option.some(metaResult.success.agentExtensions);
+                  return yield* readAgentExtensions({ agentExtensions }, `conda cache ${pkgName}`);
                 }
               }
             }

@@ -11,11 +11,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envWithDefault, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
+import { envOrHomePath, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const cranType = Schema.decodeUnknownSync(PackageTypeSchema)("cran");
@@ -155,11 +153,7 @@ export const cranDetector: PackageDetector = {
  * Resolve the R library path.
  * Checks R_LIBS_USER, then defaults to ~/R/library.
  */
-const resolveRLibPath = () =>
-  Effect.gen(function* () {
-    const home = yield* osHomeDirectory;
-    return yield* envWithDefault("R_LIBS_USER", `${home}/R/library`);
-  });
+const resolveRLibPath = () => envOrHomePath("R_LIBS_USER", "R/library");
 
 /**
  * CRAN package reader.
@@ -199,17 +193,12 @@ export const cranReader: PackageReader = {
         return Option.none();
       }
 
-      const metaResult = yield* decodeAgentExtensions({
-        agentExtensions: agentExtensions.value,
-      });
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions(
+        {
+          agentExtensions: agentExtensions.value,
+        },
+        `${pkg.purl.name}`,
+      );
     },
     Effect.annotateLogs({ reader: "cran" }),
     Effect.withSpan("read.cran"),

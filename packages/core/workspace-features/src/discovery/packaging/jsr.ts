@@ -16,7 +16,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { envOption, osHomeDirectory } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -258,15 +258,11 @@ export const denoReader: PackageReader = {
 
         if (containerResult.success.agentExtensions === undefined) continue;
 
-        const metaResult = yield* decodeAgentExtensions(parsed.value);
-        if (Result.isFailure(metaResult)) {
-          yield* Effect.logWarning(
-            `Invalid agentExtensions metadata in deno cache for ${scope}/${pkg.purl.name}: schema validation failed`,
-          );
-          continue;
-        }
-
-        return Option.some(metaResult.success.agentExtensions);
+        const recommendations = yield* readAgentExtensions(
+          parsed.value,
+          `deno cache for ${scope}/${pkg.purl.name}`,
+        );
+        if (Option.isSome(recommendations)) return recommendations;
       }
 
       return Option.none();

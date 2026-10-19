@@ -8,12 +8,15 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { envWithDefault, osHomeDirectory } from "@agentxm/host-primitives";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  envOrHomePath,
+  parseJsonOptional,
+  readAgentExtensions,
+  readFileOptional,
+} from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const golangType = Schema.decodeUnknownSync(PackageTypeSchema)("golang");
@@ -121,11 +124,7 @@ const parseGoMod = (content: string, source: string): ReadonlyArray<DetectedPack
 /**
  * Resolve the GOPATH, defaulting to ~/go when not set.
  */
-const resolveGopath = () =>
-  Effect.gen(function* () {
-    const home = yield* osHomeDirectory;
-    return yield* envWithDefault("GOPATH", `${home}/go`);
-  });
+const resolveGopath = () => envOrHomePath("GOPATH", "go");
 
 /**
  * Go module package detector.
@@ -201,15 +200,7 @@ export const golangReader: PackageReader = {
       if (Option.isNone(parsed)) return Option.none();
 
       // Validate agentExtensions metadata structure
-      const metaResult = yield* decodeAgentExtensions(parsed.value);
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in ${modulePath}@${version}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions(parsed.value, `${modulePath}@${version}`);
     },
     Effect.annotateLogs({ reader: "golang" }),
     Effect.withSpan("read.golang"),

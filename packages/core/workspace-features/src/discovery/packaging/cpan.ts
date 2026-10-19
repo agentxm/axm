@@ -15,7 +15,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { envOption, envWithDefault } from "@agentxm/host-primitives";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const cpanType = Schema.decodeUnknownSync(PackageTypeSchema)("cpan");
@@ -216,15 +216,7 @@ export const cpanReader: PackageReader = {
       const agentExtensions = containerResult.success.x_agent_extensions;
       if (agentExtensions === undefined) return Option.none();
 
-      const metaResult = yield* decodeAgentExtensions({ agentExtensions });
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in ${distName}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions({ agentExtensions }, `${distName}`);
     },
     Effect.annotateLogs({ reader: "cpan" }),
     Effect.withSpan("read.cpan"),

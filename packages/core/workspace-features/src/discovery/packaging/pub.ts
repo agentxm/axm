@@ -14,7 +14,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -279,15 +279,7 @@ export const pubReader: PackageReader = {
       }).pipe(Effect.option);
       if (Option.isNone(metadata)) return Option.none();
 
-      const metaResult = yield* decodeAgentExtensions(metadata.value);
-      if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(
-          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
-        );
-        return Option.none();
-      }
-
-      return Option.some(metaResult.success.agentExtensions);
+      return yield* readAgentExtensions(metadata.value, `${pkg.purl.name}`);
     },
     Effect.annotateLogs({ reader: "pub" }),
     Effect.withSpan("read.pub"),

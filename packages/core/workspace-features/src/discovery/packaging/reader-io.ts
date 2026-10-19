@@ -14,6 +14,7 @@ import {
   type AgentExtensionRecommendation,
 } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
+import { envWithDefault, osHomeDirectory } from "@agentxm/host-primitives";
 
 export const decodePurl = Schema.decodeUnknownSync(PackageUrlSchema);
 
@@ -30,7 +31,7 @@ const decodeRecommendation = Schema.decodeUnknownResult(AgentExtensionRecommenda
  * A malformed envelope is rejected; malformed entries are diagnosed and omitted
  * so valid siblings remain usable.
  */
-export const decodeAgentExtensions = Effect.fn("packaging.decodeAgentExtensions")(function* (
+const decodeAgentExtensions = Effect.fn("packaging.decodeAgentExtensions")(function* (
   input: unknown,
 ) {
   const envelope = decodeEnvelope(input);
@@ -58,6 +59,32 @@ export const decodeAgentExtensions = Effect.fn("packaging.decodeAgentExtensions"
     agentExtensions,
   });
 });
+
+/**
+ * The recommendations a package's metadata carries. Metadata whose envelope
+ * does not decode is diagnosed against `context`, the package it was read
+ * from, and contributes none.
+ */
+export const readAgentExtensions = Effect.fn("packaging.readAgentExtensions")(function* (
+  input: unknown,
+  context: string,
+) {
+  const decoded = yield* decodeAgentExtensions(input);
+  if (Result.isFailure(decoded)) {
+    yield* Effect.logWarning(
+      `Invalid agentExtensions metadata in ${context}: schema validation failed`,
+    );
+    return Option.none<ReadonlyArray<AgentExtensionRecommendation>>();
+  }
+  return Option.some<ReadonlyArray<AgentExtensionRecommendation>>(decoded.success.agentExtensions);
+});
+
+/**
+ * A package-manager directory: the environment variable that relocates it
+ * when set, otherwise `relativePath` below the OS account home.
+ */
+export const envOrHomePath = (name: string, relativePath: string) =>
+  Effect.flatMap(osHomeDirectory, (home) => envWithDefault(name, `${home}/${relativePath}`));
 
 export const readFileOptional = (filePath: string) =>
   Effect.gen(function* () {

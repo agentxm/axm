@@ -19,11 +19,14 @@ const textEncoder = new TextEncoder();
 
 const makeEntry = (fileName: string, overrides?: Partial<ZipEntry>): ZipEntry => ({
   fileName,
+  versionMadeBy: 20,
+  crc32: 0,
   compressedSize: 100,
   uncompressedSize: 100,
   compressionMethod: 0,
   externalAttributes: 0,
   localHeaderOffset: 0,
+  localDataOffset: 0,
   ...overrides,
 });
 

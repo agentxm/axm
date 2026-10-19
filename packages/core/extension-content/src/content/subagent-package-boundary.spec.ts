@@ -37,11 +37,14 @@ const identity = { owner: "@acme", type: "subagent", name: "review", version: "1
 const portable = { ...identity, description: "Reviews", core: { instructions: "instructions.md" } };
 const entry = (fileName: string): ZipEntry => ({
   fileName,
+  versionMadeBy: 20,
+  crc32: 0,
   compressedSize: 1,
   uncompressedSize: 1,
   compressionMethod: 0,
   externalAttributes: 0,
   localHeaderOffset: 0,
+  localDataOffset: 0,
 });
 
 it.effect(

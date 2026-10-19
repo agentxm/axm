@@ -47,6 +47,7 @@ export const buildZip = (entries: ZipFileEntry[]): Uint8Array => {
       compressedData = entry.content;
     }
 
+    const crc32 = zlib.crc32(entry.content);
     const localBuf = new ArrayBuffer(30);
     const localView = new DataView(localBuf);
 
@@ -56,7 +57,7 @@ export const buildZip = (entries: ZipFileEntry[]): Uint8Array => {
     writeUint16LE(localView, 8, compressionMethod);
     writeUint16LE(localView, 10, 0);
     writeUint16LE(localView, 12, 0);
-    writeUint32LE(localView, 14, 0);
+    writeUint32LE(localView, 14, crc32);
     writeUint32LE(localView, 18, compressedData.length);
     writeUint32LE(localView, 22, entry.content.length);
     writeUint16LE(localView, 26, fileNameBytes.length);
@@ -76,7 +77,7 @@ export const buildZip = (entries: ZipFileEntry[]): Uint8Array => {
     writeUint16LE(cdirView, 10, compressionMethod);
     writeUint16LE(cdirView, 12, 0);
     writeUint16LE(cdirView, 14, 0);
-    writeUint32LE(cdirView, 16, 0);
+    writeUint32LE(cdirView, 16, crc32);
     writeUint32LE(cdirView, 20, compressedData.length);
     writeUint32LE(cdirView, 24, entry.content.length);
     writeUint16LE(cdirView, 28, fileNameBytes.length);

@@ -83,11 +83,14 @@ const validate = (names: ReadonlyArray<string>) =>
     manifest,
     entries: names.map((fileName) => ({
       fileName,
+      versionMadeBy: 20,
+      crc32: 0,
       compressedSize: 1,
       uncompressedSize: 1,
       compressionMethod: 0,
       externalAttributes: 0,
       localHeaderOffset: 0,
+      localDataOffset: 0,
     })),
     readEntry: () => Effect.die("Hook closure validation must never read or execute bodies"),
   });

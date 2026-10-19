@@ -371,10 +371,12 @@
     "includedScripts": []
   },
   "dependencies": {
-    "effect": "catalog:",
     "packageurl-js": "catalog:",
     "semver": "catalog:",
     "spdx-expression-parse": "5.0.0"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.5"
   },
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:*",
@@ -383,6 +385,7 @@
     "@types/spdx-expression-parse": "4.0.0",
     "@typescript/native": "catalog:",
     "@fast-check/vitest": "catalog:",
+    "effect": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

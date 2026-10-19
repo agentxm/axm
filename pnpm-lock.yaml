@@ -466,9 +466,6 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.5
       smol-toml:
         specifier: 'catalog:'
         version: 1.9.1
@@ -491,6 +488,9 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.5
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'
@@ -549,9 +549,6 @@ importers:
 
   packages/core/extension-model:
     dependencies:
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.5
       packageurl-js:
         specifier: 'catalog:'
         version: 2.0.1
@@ -580,6 +577,9 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.5
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'
@@ -592,9 +592,6 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.5
     devDependencies:
       '@agentxm/specification-metadata':
         specifier: workspace:*
@@ -605,6 +602,9 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.5
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'
@@ -975,10 +975,6 @@ importers:
         version: 5.0.5(@types/node@24.19.2)(@vitest/coverage-v8@5.0.5)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.1))
 
   tools/specification-metadata:
-    dependencies:
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.5
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
@@ -986,6 +982,9 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.5
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'

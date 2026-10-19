@@ -52,9 +52,11 @@
   },
   "dependencies": {
     "@agentxm/extension-model": "workspace:^",
-    "effect": "catalog:",
     "smol-toml": "catalog:",
     "yaml": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.5"
   },
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:^",
@@ -62,6 +64,7 @@
     "@effect/vitest": "catalog:",
     "@typescript/native": "catalog:",
     "@fast-check/vitest": "catalog:",
+    "effect": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

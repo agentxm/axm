@@ -35,12 +35,13 @@
   "nx": {
     "includedScripts": []
   },
-  "dependencies": {
-    "effect": "catalog:"
+  "peerDependencies": {
+    "effect": "^4.0.5"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@typescript/native": "catalog:",
+    "effect": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

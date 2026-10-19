@@ -29,7 +29,7 @@ import { ExtensionFqnSchema } from "@agentxm/extension-model/unstable/extensions
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-import { AppError } from "../app-error/index.js";
+import { AppError, makeAppError } from "../app-error/index.js";
 import { failureToAppError } from "../app-error/conversions.js";
 import {
   discardModifiedFlag,
@@ -296,19 +296,10 @@ export const rootDisableCommand = makeRootActivationCommand(false);
  */
 const withInspection = (error: AppError, inspect: SuggestedAction): AppError =>
   error.code === "not_found"
-    ? new AppError({
-        code: error.code,
-        title: error.title,
-        detail: error.detail,
-        ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
-        ...(error.status === undefined ? {} : { status: error.status }),
-        ...(error.retryable === undefined ? {} : { retryable: error.retryable }),
-        ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
-        ...(error.action === undefined ? {} : { action: error.action }),
-        ...(error.problem === undefined ? {} : { problem: error.problem }),
-        ...(error.inputs === undefined ? {} : { inputs: error.inputs }),
-        suggestions: [...(error.suggestions ?? []), inspect],
+    ? makeAppError({
+        ...error,
         cause: error.cause,
+        suggestions: [...(error.suggestions ?? []), inspect],
       })
     : error;
 

@@ -4365,7 +4365,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/instructions/enable/records-choice-and-reconciles-aliases`
 - Owner: `workspace-features`
-- Statement: When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation. An alias copy is byte-identical to its source. A differing file at an alias path that AXM has no record of writing blocks the operation unless replacing unrecorded files is explicitly requested.
+- Statement: When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation. Without source, alias, recorded projection, or real contribution evidence, enabled management shall remain settled without creating empty sources, aliases, or alias-only ignore entries. The first real source content or eligible Rule/Knowledge contribution shall reconcile required aliases in the same operation. An alias copy is byte-identical to its source. A differing file at an alias path that AXM has no record of writing blocks the operation unless replacing unrecorded files is explicitly requested.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
@@ -4380,7 +4380,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/instructions/status-reports-without-changing-state`
 - Owner: `workspace-features`
-- Statement: When instruction-file management status is inspected, AXM shall report whether management is enabled and, when it is, the source file and the managed target for each configured agent together with stale owned aliases, and shall not change settings or instruction files.
+- Statement: When instruction-file management status is inspected, AXM shall report whether management is enabled and, when it is, the source file and the managed target for each configured agent together with stale owned aliases, and shall not change settings or instruction files. Enabled management with no source, relevant alias, recorded projection, or contribution evidence shall be settled without missing-source findings; actual missing required sources remain diagnostic.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
@@ -4933,7 +4933,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/setup/first-use-plan-and-migration`
 - Owner: `cli-e2e`
-- Statement: First setup shall show every configuration, bundled skill, and native target before approval, report observed changes after apply, and replace only the regular instruction file used to seed its missing canonical source after verifying identical content, while preserving other instruction files and the Git index; a differing instruction file AXM has no record of writing stops setup before any write unless replacement is explicit.
+- Statement: First setup shall describe the same configuration, bundled skill, native targets, instruction choice, migration, retained files, warnings and blockers in human and machine previews before approval, with a blocked preview remaining a successful read-only assessment and offering no apply command, report observed changes after apply, and replace only the regular instruction file used to seed its missing canonical source after verifying identical content, while preserving other instruction files and the Git index; a differing instruction file AXM has no record of writing stops setup before any write unless replacement is explicit.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -4961,7 +4961,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/setup/preview-resolves-inputs-without-prompts`
 - Owner: `workspace-features`
-- Statement: When setup runs in preview mode, it shall resolve evidence-backed inputs and disclose when an agent choice is still required among the inputs an interactive run would ask about — the coding agents to configure and the instruction source to use — without raising a prompt, shall present the same candidate whether or not the request preapproved it, and shall name how each default was chosen.
+- Statement: When setup runs in preview mode, it shall resolve evidence-backed inputs and disclose when an agent choice is still required among the inputs an interactive run would ask about — the coding agents to configure and the instruction source to use — without raising a prompt, shall present the same candidate whether or not the request preapproved it, and shall name how each default was chosen. Project membership shall default only from project evidence; workstation evidence shall remain unselected suggestions, while user scope may select workstation evidence. The candidate report shall exclude undetected, unselected catalog entries. An explicit instruction source or off choice shall bypass its questions and agree between preview and apply.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -4975,7 +4975,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/setup/rerun-preserves-existing-configuration`
 - Owner: `workspace-features`
-- Statement: When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands, except that it shall settle an instruction-management choice the project workspace has never recorded: asking where a prompt can open, applying the documented default under preapproval, and otherwise leaving the choice open. Settling that choice shall block, with a recovery, on a differing alias AXM has no record of writing rather than silently preserving it, and shall refuse a lockfile version this CLI does not read before writing anything.
+- Statement: When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands, except that it shall settle an instruction-management choice the project workspace has never recorded: asking where a prompt can open, applying an explicit instruction choice or the documented default under preapproval, and otherwise leaving the choice open. Settling that choice shall block, with a recovery, on a differing alias AXM has no record of writing rather than silently preserving it, and shall refuse a lockfile version this CLI does not read before writing anything.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -6889,6 +6889,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: contract, decision-table
 - Derived from: `packages/supporting/registry-client/specs/registry-openapi.json`
 - Source: [`packages/supporting/registry-client/src/remote-archives-require-complete-responses.spec.ts`](../packages/supporting/registry-client/src/remote-archives-require-complete-responses.spec.ts)
+
+##### Installer-owned version probes disable telemetry only in their children
+
+- Requirement: `system/installability/native-installers-probe-without-telemetry`
+- Owner: `cli-e2e`
+- Statement: Every installer-owned AXM version probe shall receive AXM_TELEMETRY=0, including downloaded, existing, installed and PATH-resolved executables, and the installer shall preserve the caller's telemetry environment, including on probe failure.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The public installer executes version-answering programs that record their child environment against a loopback artifact server.
+- Methods: example
+- Additional evidence: process via [`apps/cli-e2e/src/windows/installer-probe.windows.e2e.test.ts`](../apps/cli-e2e/src/windows/installer-probe.windows.e2e.test.ts) — PowerShell's parser loads the actual installer probe helper, which invokes a native fixture executable recording its environment; the caller's absent, empty and set values are compared after successful and failing probes. Full PowerShell/cmd installation remains in the installed-product lane.
+- Source: [`apps/cli-e2e/src/installers/native-installers-probe-without-telemetry.spec.ts`](../apps/cli-e2e/src/installers/native-installers-probe-without-telemetry.spec.ts)
 
 #### Constraints
 

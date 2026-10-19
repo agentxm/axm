@@ -11,7 +11,7 @@ const version = "1.2.3";
 // This executable answers only --version. It proves installer file placement
 // and printed shell commands, never AXM product startup or functionality.
 const executable = Buffer.from(
-  `#!/bin/sh\nif [ "$#" -eq 1 ] && [ "$1" = "--version" ]; then\n  printf '%s\\n' '${version}'\nelse\n  exit 64\nfi\n`,
+  `#!/bin/sh\nif [ -n "\${AXM_PROBE_LOG:-}" ]; then printf '%s|%s\\n' "$0" "\${AXM_TELEMETRY-unset}" >> "$AXM_PROBE_LOG"; fi\nif [ "\${AXM_TEST_FAIL_DOWNLOADED_PROBE:-}" = "1" ]; then case "$0" in */.axm-download.*) exit 1 ;; esac; fi\nif [ "$#" -eq 1 ] && [ "$1" = "--version" ]; then\n  printf '%s\\n' '${version}'\nelse\n  exit 64\nfi\n`,
 );
 const alteredExecutable = Buffer.concat([executable, Buffer.from("# Altered download bytes\n")]);
 const checksum = createHash("sha256").update(executable).digest("hex");
@@ -22,6 +22,10 @@ interface ProcessResult {
   readonly stderr: string;
 }
 interface InstallOptions {
+  readonly telemetry?: string;
+  readonly shadowOnPath?: boolean;
+  readonly failingProbe?: boolean;
+  readonly failingDownloadedProbe?: boolean;
   readonly installDirectory?: string;
   readonly includeOnPath?: boolean;
   readonly corruptDownload?: boolean;
@@ -36,6 +40,7 @@ export interface NativeInstallerFixture {
   readonly executable: Buffer;
   readonly requests: ReadonlyArray<string>;
   readonly artifactName: string;
+  readonly probes: () => ReadonlyArray<string>;
   readonly install: (options?: InstallOptions) => Promise<ProcessResult>;
   readonly runShell: (command: string) => Promise<ProcessResult>;
 }
@@ -87,6 +92,7 @@ export const withNativeInstallerFixture = async <A>(
     if (address === null || typeof address === "string")
       throw new Error("Fixture server has no port");
     const baseUrl = `http://127.0.0.1:${address.port}`;
+    const probeLog = path.join(root, "probes.log");
     const environment = {
       ...process.env,
       HOME: userHome,
@@ -98,6 +104,7 @@ export const withNativeInstallerFixture = async <A>(
       NO_PROXY: "127.0.0.1,localhost",
       no_proxy: "127.0.0.1,localhost",
       AXM_TELEMETRY: "0",
+      AXM_PROBE_LOG: probeLog,
     };
     const run = (args: ReadonlyArray<string>, env: NodeJS.ProcessEnv) =>
       new Promise<ProcessResult>((resolve, reject) => {
@@ -127,17 +134,34 @@ export const withNativeInstallerFixture = async <A>(
       executable,
       requests,
       artifactName,
+      probes: () =>
+        fs.existsSync(probeLog) ? fs.readFileSync(probeLog, "utf8").trim().split("\n") : [],
       install: (options = {}) => {
         transientArtifactFailures = options.transientArtifactFailures ?? 0;
         transientManifestFailures = options.transientManifestFailures ?? 0;
         const directory = options.installDirectory ?? path.join(userHome, ".axm", "bin");
+        const shadowDirectory = path.join(root, "shadow");
+        if (options.shadowOnPath) {
+          fs.mkdirSync(shadowDirectory, { recursive: true });
+          fs.writeFileSync(
+            path.join(shadowDirectory, "axm"),
+            options.failingProbe
+              ? `#!/bin/sh\nprintf '%s|%s\\n' "$0" "\${AXM_TELEMETRY-unset}" >> "$AXM_PROBE_LOG"\nexit 1\n`
+              : executable,
+            { mode: 0o755 },
+          );
+        }
         return run([installer], {
           ...environment,
+          AXM_TELEMETRY: options.telemetry ?? "0",
+          AXM_TEST_FAIL_DOWNLOADED_PROBE: options.failingDownloadedProbe ? "1" : "0",
           AXM_INSTALL_BASE_URL: `${baseUrl}/${options.corruptDownload ? "corrupt" : "valid"}`,
           AXM_INSTALL_DIR: options.installDirectory ?? "",
-          PATH: options.includeOnPath
-            ? `${directory}:${process.env["PATH"] ?? ""}`
-            : process.env["PATH"],
+          PATH: options.shadowOnPath
+            ? `${shadowDirectory}:${process.env["PATH"] ?? ""}`
+            : options.includeOnPath
+              ? `${directory}:${process.env["PATH"] ?? ""}`
+              : process.env["PATH"],
         });
       },
       runShell: (command) => run(["-c", command], environment),

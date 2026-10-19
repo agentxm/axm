@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   title:
     "Enabling instruction-file management records the explicit choice and reconciles aliases together",
   statement:
-    "When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation. An alias copy is byte-identical to its source. A differing file at an alias path that AXM has no record of writing blocks the operation unless replacing unrecorded files is explicitly requested.",
+    "When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation. Without source, alias, recorded projection, or real contribution evidence, enabled management shall remain settled without creating empty sources, aliases, or alias-only ignore entries. The first real source content or eligible Rule/Knowledge contribution shall reconcile required aliases in the same operation. An alias copy is byte-identical to its source. A differing file at an alias path that AXM has no record of writing blocks the operation unless replacing unrecorded files is explicitly requested.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],

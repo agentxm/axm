@@ -1,5 +1,6 @@
-import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
 import * as Data from "effect/Data";
+import * as Schema from "effect/Schema";
+import { ArtifactChangeSchema } from "@agentxm/workspace-kernel/operations";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
@@ -27,32 +28,77 @@ export interface InstructionSourceChoice {
  * source, pass over an agent that has no instruction convention, or refuse a
  * target whose differing content AXM has no record of writing.
  */
-export type SetupPlanAction =
-  "create" | "update" | "in sync" | "link" | "copy" | "skip" | "remove" | "blocked" | "warning";
+export const SetupPlanActionSchema = Schema.Literals([
+  "create",
+  "update",
+  "in sync",
+  "link",
+  "copy",
+  "skip",
+  "remove",
+  "blocked",
+  "warning",
+]);
+export type SetupPlanAction = typeof SetupPlanActionSchema.Type;
 
-/** Structured facts the presenting adapter turns into setup-plan wording. */
-export type SetupPlanDetail =
-  | { readonly _tag: "settings"; readonly agentIds: ReadonlyArray<string> }
-  | { readonly _tag: "gitignore" }
-  | { readonly _tag: "instructionSource"; readonly seededFrom?: string }
-  | {
-      readonly _tag: "instructionTarget";
-      readonly agentName: string;
-      readonly seededAlias?: boolean;
-      /** A differing file AXM has no record of writing occupies the target. */
-      readonly blocked?: boolean;
-    }
-  | { readonly _tag: "missingInstructionConvention" }
-  | { readonly _tag: "acceptedResolution" }
-  | { readonly _tag: "bundledSkill" }
-  | { readonly _tag: "nativeOutputConcern"; readonly concern: NativeOutputConcern };
-
-/** One row of the setup plan presented before confirmation. */
-export interface SetupPlanRow {
-  readonly target: string;
-  readonly action: SetupPlanAction;
-  readonly detail: SetupPlanDetail;
-}
+/** Facts shared by the confirmation ledger and machine report. */
+export const SetupPlanDetailSchema = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.Literal("settings"),
+    agentIds: Schema.Array(Schema.String),
+    instructionFiles: Schema.optional(
+      Schema.Union([Schema.Literal(false), Schema.Struct({ fileName: Schema.String })]),
+    ),
+  }),
+  Schema.Struct({ _tag: Schema.Literal("gitignore") }),
+  Schema.Struct({
+    _tag: Schema.Literal("instructionSource"),
+    seededFrom: Schema.optional(Schema.String),
+    deferred: Schema.optional(Schema.Boolean),
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("instructionTarget"),
+    agentName: Schema.String,
+    seededAlias: Schema.optional(Schema.Boolean),
+    blocked: Schema.optional(Schema.Boolean),
+    reason: Schema.optional(Schema.String),
+  }),
+  Schema.Struct({ _tag: Schema.Literal("missingInstructionConvention") }),
+  Schema.Struct({ _tag: Schema.Literal("acceptedResolution") }),
+  Schema.Struct({ _tag: Schema.Literal("bundledSkill"), reason: Schema.optional(Schema.String) }),
+  Schema.Struct({
+    _tag: Schema.Literal("nativeOutputConcern"),
+    concern: Schema.Union([
+      Schema.Struct({
+        kind: Schema.Literal("broken-link"),
+        path: Schema.String,
+        target: Schema.String,
+      }),
+      Schema.Struct({
+        kind: Schema.Literal("unreadable"),
+        path: Schema.String,
+        reason: Schema.String,
+      }),
+      Schema.Struct({
+        kind: Schema.Literal("collision"),
+        path: Schema.String,
+        otherPath: Schema.String,
+        entryName: Schema.String,
+        extensionType: Schema.Literals(["skill", "subagent"]),
+        agentIds: Schema.Array(Schema.String),
+      }),
+    ]),
+  }),
+]);
+export type SetupPlanDetail = typeof SetupPlanDetailSchema.Type;
+export const SetupPlanRowSchema = Schema.Struct({
+  target: Schema.String,
+  action: SetupPlanActionSchema,
+  change: Schema.optional(ArtifactChangeSchema),
+  detail: SetupPlanDetailSchema,
+  agentIds: Schema.optional(Schema.Array(Schema.String)),
+});
+export type SetupPlanRow = typeof SetupPlanRowSchema.Type;
 
 /** Agent-detection summary presented before agent selection. */
 export interface SetupAgentScan {

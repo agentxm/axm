@@ -63,7 +63,7 @@ describe("Coding-agent membership", () => {
 
           const offer = fixture.promptState().selectAgentsCalls[0];
           expect(offer?.userDetectedIds).toContain("claude-code");
-          expect(offer?.suggestedIds).toContain("claude-code");
+          expect(offer?.suggestedIds).toEqual([]);
           const offered = offer?.allAgents.map((agent) => agent.id) ?? [];
           expect(offered.filter((id) => id === "claude-code")).toEqual(["claude-code"]);
           expect(offered).toHaveLength(new Set(offered).size);

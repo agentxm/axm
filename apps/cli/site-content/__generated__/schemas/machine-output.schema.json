@@ -8836,6 +8836,234 @@
                                       "type": "string",
                                       "enum": ["created", "updated", "unchanged", "removed"]
                                     },
+                                    "action": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "create",
+                                            "update",
+                                            "in sync",
+                                            "link",
+                                            "copy",
+                                            "skip",
+                                            "remove",
+                                            "blocked",
+                                            "warning"
+                                          ]
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    },
+                                    "detail": {
+                                      "anyOf": [
+                                        {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "_tag": { "type": "string", "enum": ["settings"] },
+                                                "agentIds": {
+                                                  "type": "array",
+                                                  "items": { "type": "string" }
+                                                },
+                                                "instructionFiles": {
+                                                  "anyOf": [
+                                                    {
+                                                      "anyOf": [
+                                                        { "type": "boolean", "enum": [false] },
+                                                        {
+                                                          "type": "object",
+                                                          "properties": {
+                                                            "fileName": { "type": "string" }
+                                                          },
+                                                          "required": ["fileName"],
+                                                          "additionalProperties": false
+                                                        }
+                                                      ]
+                                                    },
+                                                    { "type": "null" }
+                                                  ]
+                                                }
+                                              },
+                                              "required": ["_tag", "agentIds"],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "_tag": { "type": "string", "enum": ["gitignore"] }
+                                              },
+                                              "required": ["_tag"],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "_tag": {
+                                                  "type": "string",
+                                                  "enum": ["instructionSource"]
+                                                },
+                                                "seededFrom": {
+                                                  "anyOf": [
+                                                    { "type": "string" },
+                                                    { "type": "null" }
+                                                  ]
+                                                },
+                                                "deferred": {
+                                                  "anyOf": [
+                                                    { "type": "boolean" },
+                                                    { "type": "null" }
+                                                  ]
+                                                }
+                                              },
+                                              "required": ["_tag"],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "_tag": {
+                                                  "type": "string",
+                                                  "enum": ["instructionTarget"]
+                                                },
+                                                "agentName": { "type": "string" },
+                                                "seededAlias": {
+                                                  "anyOf": [
+                                                    { "type": "boolean" },
+                                                    { "type": "null" }
+                                                  ]
+                                                },
+                                                "blocked": {
+                                                  "anyOf": [
+                                                    { "type": "boolean" },
+                                                    { "type": "null" }
+                                                  ]
+                                                },
+                                                "reason": {
+                                                  "anyOf": [
+                                                    { "type": "string" },
+                                                    { "type": "null" }
+                                                  ]
+                                                }
+                                              },
+                                              "required": ["_tag", "agentName"],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "_tag": {
+                                                  "type": "string",
+                                                  "enum": ["missingInstructionConvention"]
+                                                }
+                                              },
+                                              "required": ["_tag"],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "_tag": {
+                                                  "type": "string",
+                                                  "enum": ["acceptedResolution"]
+                                                }
+                                              },
+                                              "required": ["_tag"],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "_tag": {
+                                                  "type": "string",
+                                                  "enum": ["bundledSkill"]
+                                                },
+                                                "reason": {
+                                                  "anyOf": [
+                                                    { "type": "string" },
+                                                    { "type": "null" }
+                                                  ]
+                                                }
+                                              },
+                                              "required": ["_tag"],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "_tag": {
+                                                  "type": "string",
+                                                  "enum": ["nativeOutputConcern"]
+                                                },
+                                                "concern": {
+                                                  "anyOf": [
+                                                    {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "kind": {
+                                                          "type": "string",
+                                                          "enum": ["broken-link"]
+                                                        },
+                                                        "path": { "type": "string" },
+                                                        "target": { "type": "string" }
+                                                      },
+                                                      "required": ["kind", "path", "target"],
+                                                      "additionalProperties": false
+                                                    },
+                                                    {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "kind": {
+                                                          "type": "string",
+                                                          "enum": ["unreadable"]
+                                                        },
+                                                        "path": { "type": "string" },
+                                                        "reason": { "type": "string" }
+                                                      },
+                                                      "required": ["kind", "path", "reason"],
+                                                      "additionalProperties": false
+                                                    },
+                                                    {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "kind": {
+                                                          "type": "string",
+                                                          "enum": ["collision"]
+                                                        },
+                                                        "path": { "type": "string" },
+                                                        "otherPath": { "type": "string" },
+                                                        "entryName": { "type": "string" },
+                                                        "extensionType": {
+                                                          "type": "string",
+                                                          "enum": ["skill", "subagent"]
+                                                        },
+                                                        "agentIds": {
+                                                          "type": "array",
+                                                          "items": { "type": "string" }
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "kind",
+                                                        "path",
+                                                        "otherPath",
+                                                        "entryName",
+                                                        "extensionType",
+                                                        "agentIds"
+                                                      ],
+                                                      "additionalProperties": false
+                                                    }
+                                                  ]
+                                                }
+                                              },
+                                              "required": ["_tag", "concern"],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        },
+                                        { "type": "null" }
+                                      ]
+                                    },
                                     "agentIds": {
                                       "anyOf": [
                                         { "type": "array", "items": { "type": "string" } },
@@ -9020,7 +9248,7 @@
                   "properties": {
                     "agents": {
                       "type": "string",
-                      "enum": ["explicit", "detected", "choice-required"]
+                      "enum": ["explicit", "detected", "configured", "choice-required"]
                     },
                     "instructions": {
                       "anyOf": [

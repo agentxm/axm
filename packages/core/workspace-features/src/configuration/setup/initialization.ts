@@ -9,8 +9,12 @@ import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
  * @internal
  */
 
-import { resolveNativeEntry, resolveNativeReferent } from "@agentxm/workspace-kernel/locations";
-import { setupSkillTargets } from "./skill-targets.js";
+import {
+  assertNativeMutationWithin,
+  resolveNativeEntry,
+  resolveNativeReferent,
+} from "@agentxm/workspace-kernel/locations";
+import { setupSkillTargets, setupSkillPlanRows } from "./skill-targets.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
@@ -132,16 +136,15 @@ const allAgentDescriptors = (
 
 /**
  * What a first install offers when its project names no coding agent: every
- * configurable agent once, those found on the workstation first and suggested,
- * with no suggestions when the workstation has none either.
+ * configurable agent once, with workstation detections first but unselected.
  */
 export const undetectedAgentOffer = (detections: ReadonlyArray<AgentScopeDetection>) => {
   const userDetectedIds = detections.flatMap(({ agent, user }) =>
     user && isAutoSelectableAgent(agent) ? [agent.id] : [],
   );
-  const suggestedIds = userDetectedIds;
+  const suggestedIds: ReadonlyArray<ConfigurableAgentId> = [];
   return {
-    allAgents: allAgentDescriptors(suggestedIds),
+    allAgents: allAgentDescriptors(userDetectedIds),
     detectedIds: userDetectedIds,
     projectDetectedIds: [],
     userDetectedIds,
@@ -181,7 +184,6 @@ const setupAgentCandidates = (args: {
     ...args.selectedAgents.map((agent) => agent.id),
     ...args.detections.map((detection) => detection.agent.id),
     ...args.suggestedIds,
-    ...Object.keys(AGENT_DESCRIPTORS),
   ];
 
   return [...new Set(relevantIds)].flatMap((id) => {
@@ -251,7 +253,20 @@ const currentInstructionSyncEnabled = (settings: Settings): boolean => {
 const readFileOption = (filePath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    return yield* fs.readFileString(filePath).pipe(Effect.option);
+    return yield* fs.readFileString(filePath).pipe(
+      Effect.map(Option.some),
+      Effect.catch((cause) =>
+        cause.reason._tag === "NotFound"
+          ? Effect.succeed(Option.none<string>())
+          : Effect.fail(
+              new WorkspaceConfigurationFailed({
+                category: "validation",
+                detail: `Cannot read instruction source candidate: ${filePath}`,
+                cause,
+              }),
+            ),
+      ),
+    );
   });
 
 const fileExists = (filePath: string) =>
@@ -293,7 +308,9 @@ const instructionSourceChoices = (workspaceRoot: string, defaultFileName: string
 const richestExistingInstructionFile = (
   choices: ReadonlyArray<SetupInstructionSourceChoice>,
 ): Option.Option<SetupInstructionSourceChoice> => {
-  const existing = choices.filter((choice) => Option.isSome(choice.content));
+  const existing = choices.filter(
+    (choice) => Option.isSome(choice.content) && choice.content.value.length > 0,
+  );
   if (existing.length === 0) return Option.none<SetupInstructionSourceChoice>();
   const ranked = [...existing].sort((a, b) => b.lines - a.lines);
   const first = ranked[0];
@@ -308,7 +325,7 @@ const sourceContentForApply = (args: {
   if (selected !== undefined && Option.isSome(selected.content)) return Option.none<string>();
   const richest = richestExistingInstructionFile(args.choices);
   return Option.match(richest, {
-    onNone: () => Option.some(""),
+    onNone: () => Option.none<string>(),
     onSome: (choice) => choice.content,
   });
 };
@@ -400,16 +417,20 @@ const instructionPlanRows = (args: {
       scope: "project",
       configuredAgents: args.selectedAgents.map((agent) => agent.id),
       config: { fileName: args.sourceFileName, gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE },
-      prospectiveRoots: [args.workspaceRoot],
+      prospectiveRoots: args.sourceWillBeCreated ? [args.workspaceRoot] : [],
       rows: yield* setupInstructionRows(args.workspaceRoot),
       replaceUnrecorded: args.replaceUnrecorded,
     });
+    const deferred =
+      !args.sourceWillBeCreated &&
+      !(yield* fileExists(path.join(args.workspaceRoot, args.sourceFileName)));
     const rows: Array<SetupPlanRow> = [
       {
         target: args.sourceFileName,
-        action: args.sourceWillBeCreated ? "create" : "in sync",
+        action: deferred ? "skip" : args.sourceWillBeCreated ? "create" : "in sync",
         detail: Option.match(args.sourceSeed, {
-          onNone: () => ({ _tag: "instructionSource" }) as const,
+          onNone: () =>
+            ({ _tag: "instructionSource", ...(deferred ? { deferred: true } : {}) }) as const,
           onSome: (choice) => ({ _tag: "instructionSource", seededFrom: choice.fileName }) as const,
         }),
       },
@@ -417,13 +438,39 @@ const instructionPlanRows = (args: {
     for (const item of snapshot.status.items) {
       if (item.mechanism === "none" || item.mechanism === "adapter") continue;
       const target = path.relative(args.workspaceRoot, item.targetFile);
-      if (rows.some((row) => row.target === target)) continue;
+      const existingIndex = rows.findIndex((row) => row.target === target);
+      const existing = rows[existingIndex];
+      if (existing !== undefined) {
+        rows[existingIndex] = {
+          ...existing,
+          ...(existing.detail._tag === "instructionTarget"
+            ? {
+                detail: {
+                  ...existing.detail,
+                  agentName: `${existing.detail.agentName}, ${item.agentName}`,
+                },
+              }
+            : {}),
+          agentIds: [...new Set([...(existing.agentIds ?? []), item.agentId])],
+        };
+        continue;
+      }
       const seeded = Option.isSome(args.sourceSeed) && args.sourceSeed.value.fileName === target;
       // A differing file AXM has no record of writing blocks setup unless the
       // caller asked to replace it; it is never silently preserved.
       const blocked = !seeded && item.ownership === "unowned" && !args.replaceUnrecorded;
       rows.push({
         target,
+        agentIds: [item.agentId],
+        change: blocked
+          ? "unchanged"
+          : seeded
+            ? "updated"
+            : item.ownership === "owned-current" || item.ownership === "owned-unrecorded-identical"
+              ? "unchanged"
+              : item.observedForm === "none"
+                ? "created"
+                : "updated",
         action: blocked
           ? "blocked"
           : !seeded &&
@@ -434,6 +481,7 @@ const instructionPlanRows = (args: {
         detail: {
           _tag: "instructionTarget",
           agentName: item.agentName,
+          ...(blocked ? { reason: item.details } : {}),
           ...(seeded ? { seededAlias: true } : blocked ? { blocked: true } : {}),
         },
       });
@@ -516,9 +564,7 @@ const selectSetupAgents = (args: {
 
     const configuredIds = args.existingSettings.agents ?? [];
     const strongDetectedIds =
-      args.options.scope === "project" && projectDetectedIds.length > 0
-        ? projectDetectedIds
-        : userDetectedIds;
+      args.options.scope === "project" ? projectDetectedIds : userDetectedIds;
     const suggestedIds = configuredIds.length === 0 ? strongDetectedIds : [];
     const preferredIds = [...configuredIds, ...strongDetectedIds, ...detectedIds, ...suggestedIds];
     const defaultIds = [...new Set(configuredIds.length > 0 ? configuredIds : suggestedIds)];
@@ -531,7 +577,7 @@ const selectSetupAgents = (args: {
         candidates: setupAgentCandidates({
           detections,
           selectedAgents,
-          suggestedIds,
+          suggestedIds: suggestedIds.length > 0 ? suggestedIds : userDetectedIds,
           explicit: false,
           scope: args.options.scope,
         }),
@@ -556,11 +602,40 @@ const selectSetupAgents = (args: {
       candidates: setupAgentCandidates({
         detections,
         selectedAgents,
-        suggestedIds,
+        suggestedIds: suggestedIds.length > 0 ? suggestedIds : userDetectedIds,
         explicit: false,
         scope: args.options.scope,
       }),
     } satisfies SetupAgentSelection;
+  });
+
+const validateInstructionSource = (workspaceRoot: string, fileName: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    if (fileName.trim().length === 0 || fileName === "." || path.isAbsolute(fileName))
+      return yield* new WorkspaceConfigurationFailed({
+        category: "validation",
+        detail: "Instruction source must be a workspace-relative filename",
+      });
+    const entry = yield* assertNativeMutationWithin(
+      workspaceRoot,
+      path.resolve(workspaceRoot, fileName),
+      "content",
+    ).pipe(
+      Effect.mapError(
+        (cause) =>
+          new WorkspaceConfigurationFailed({
+            category: "validation",
+            detail: "Instruction source must be a writable workspace-relative file",
+            cause,
+          }),
+      ),
+    );
+    if (entry.kind === "directory")
+      return yield* new WorkspaceConfigurationFailed({
+        category: "validation",
+        detail: "Instruction source must be a file",
+      });
   });
 
 const resolveInstructionSetup = (args: {
@@ -579,24 +654,37 @@ const resolveInstructionSetup = (args: {
       args.options.preview === true;
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     const defaultSyncEnabled = currentInstructionSyncEnabled(args.existingSettings);
-    const syncEnabled = unattended
-      ? true
-      : Option.isSome(interaction)
-        ? yield* interaction.value.confirmInstructionSync({ enabled: defaultSyncEnabled })
-        : defaultSyncEnabled;
-    const defaultFileName = currentInstructionFileName(args.existingSettings);
-    const choices = yield* instructionSourceChoices(args.workspaceRoot, defaultFileName);
+    const explicit = args.options.instructions;
+    const syncEnabled =
+      explicit !== undefined
+        ? explicit !== false
+        : unattended
+          ? true
+          : Option.isSome(interaction)
+            ? yield* interaction.value.confirmInstructionSync({ enabled: defaultSyncEnabled })
+            : defaultSyncEnabled;
+    const path = yield* Path.Path;
+    const defaultFileName =
+      explicit !== undefined && explicit !== false
+        ? path.normalize(explicit.fileName)
+        : currentInstructionFileName(args.existingSettings);
+    if (syncEnabled) yield* validateInstructionSource(args.workspaceRoot, defaultFileName);
+    const choices = syncEnabled
+      ? yield* instructionSourceChoices(args.workspaceRoot, defaultFileName)
+      : [];
     const selectedFileName =
-      syncEnabled && !unattended && Option.isSome(interaction)
+      syncEnabled && explicit === undefined && !unattended && Option.isSome(interaction)
         ? yield* interaction.value.selectInstructionSource({
             defaultFileName,
             choices: choices.map(({ fileName, exists, lines }) => ({ fileName, exists, lines })),
           })
         : defaultFileName;
 
+    if (syncEnabled && selectedFileName !== defaultFileName)
+      yield* validateInstructionSource(args.workspaceRoot, selectedFileName);
     return {
       enabled: syncEnabled,
-      fileName: selectedFileName.trim().length > 0 ? selectedFileName.trim() : defaultFileName,
+      fileName: selectedFileName,
       choices,
     };
   });
@@ -844,52 +932,61 @@ const configureProjectWorkspace = (args: {
           replaceUnrecorded,
         })
       : [];
-    const outputConcerns = yield* observeSetupOutputConcerns(workspaceRoot, "project", agentIds);
+    const skillTargets = yield* setupSkillTargets(workspaceRoot, "project", agentIds);
+    const skillPlanRows = completing
+      ? []
+      : yield* setupSkillPlanRows(workspaceRoot, "project", skillTargets);
+    const outputConcerns = yield* observeSetupOutputConcerns(
+      workspaceRoot,
+      "project",
+      agentIds,
+      skillTargets,
+    );
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
-    if (Option.isSome(interaction) && (!nonInteractive || args.options.preview === true)) {
-      yield* interaction.value.presentSetupPlan([
-        {
-          target: SETTINGS_FILENAME,
-          action: completing ? "update" : "create",
-          detail: { _tag: "settings", agentIds },
+    const plan: ReadonlyArray<SetupPlanRow> = [
+      {
+        target: SETTINGS_FILENAME,
+        action: completing ? "update" : "create",
+        detail: {
+          _tag: "settings",
+          agentIds,
+          instructionFiles: instructionSetup.enabled
+            ? { fileName: instructionSetup.fileName }
+            : false,
         },
-        ...(completing
-          ? []
-          : [
-              {
-                target: LOCK_FILENAME,
-                action: (yield* fileExists(path.join(workspaceRoot, LOCK_FILENAME)))
-                  ? "update"
-                  : "create",
-                detail: { _tag: "acceptedResolution" },
-              } satisfies SetupPlanRow,
-              ...(yield* setupSkillTargets(workspaceRoot, "project", agentIds)).map(
-                (target): SetupPlanRow => ({
-                  target: path.relative(workspaceRoot, target.path),
-                  action: "create",
-                  detail: { _tag: "bundledSkill" },
-                }),
-              ),
-            ]),
-        ...(gitManaged
-          ? [
-              {
-                target: ".gitignore",
-                action: (yield* fileExists(path.join(workspaceRoot, ".gitignore")))
-                  ? "update"
-                  : "create",
-                detail: { _tag: "gitignore" },
-              } satisfies SetupPlanRow,
-            ]
-          : []),
-        ...planRows,
-        ...outputConcerns.map((concern): SetupPlanRow => ({
-          target: concern.path,
-          action: "warning",
-          detail: { _tag: "nativeOutputConcern", concern },
-        })),
-      ]);
-    }
+      },
+      ...(completing
+        ? []
+        : [
+            {
+              target: LOCK_FILENAME,
+              action: (yield* fileExists(path.join(workspaceRoot, LOCK_FILENAME)))
+                ? "update"
+                : "create",
+              detail: { _tag: "acceptedResolution" },
+            } satisfies SetupPlanRow,
+            ...skillPlanRows,
+          ]),
+      ...(gitManaged
+        ? [
+            {
+              target: ".gitignore",
+              action: (yield* fileExists(path.join(workspaceRoot, ".gitignore")))
+                ? "update"
+                : "create",
+              detail: { _tag: "gitignore" },
+            } satisfies SetupPlanRow,
+          ]
+        : []),
+      ...planRows,
+      ...outputConcerns.map((concern): SetupPlanRow => ({
+        target: concern.path,
+        action: "warning",
+        detail: { _tag: "nativeOutputConcern", concern },
+      })),
+    ];
+    if (Option.isSome(interaction) && (!nonInteractive || args.options.preview === true))
+      yield* interaction.value.presentSetupPlan(plan);
     const confirmed =
       args.options.preview === true ||
       args.options.yes === true ||
@@ -901,7 +998,7 @@ const configureProjectWorkspace = (args: {
       return {
         settings: args.existingSettings,
         agentCandidates: selection.candidates,
-        instructionPlan: planRows,
+        plan,
         outputConcerns,
         confirmed: false,
       };
@@ -920,7 +1017,7 @@ const configureProjectWorkspace = (args: {
     return {
       settings,
       agentCandidates: selection.candidates,
-      instructionPlan: planRows,
+      plan,
       outputConcerns,
       confirmed: true,
     };
@@ -949,33 +1046,36 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
     };
     const nativeRoot = yield* resolveNativeReferent(yield* resolveUserHome());
     const settingsRoot = yield* resolveNativeReferent(workspaceRoot);
-    const outputConcerns = yield* observeSetupOutputConcerns(nativeRoot, "user", agentIds);
+    const skillTargets = yield* setupSkillTargets(nativeRoot, "user", agentIds);
+    const skillPlanRows = yield* setupSkillPlanRows(nativeRoot, "user", skillTargets);
+    const outputConcerns = yield* observeSetupOutputConcerns(
+      nativeRoot,
+      "user",
+      agentIds,
+      skillTargets,
+    );
     const nonInteractive = options.nonInteractive === true;
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
-    if (Option.isSome(interaction) && (!nonInteractive || options.preview === true)) {
-      yield* interaction.value.presentSetupPlan([
-        {
-          target: path.relative(nativeRoot, path.join(settingsRoot, SETTINGS_FILENAME)),
-          action: "create",
-          detail: { _tag: "settings", agentIds },
-        },
-        {
-          target: path.relative(nativeRoot, path.join(settingsRoot, LOCKFILE_NAME)),
-          action: "create",
-          detail: { _tag: "acceptedResolution" },
-        },
-        ...(yield* setupSkillTargets(nativeRoot, "user", agentIds)).map((target): SetupPlanRow => ({
-          target: path.relative(nativeRoot, target.path),
-          action: "create",
-          detail: { _tag: "bundledSkill" },
-        })),
-        ...outputConcerns.map((concern): SetupPlanRow => ({
-          target: concern.path,
-          action: "warning",
-          detail: { _tag: "nativeOutputConcern", concern },
-        })),
-      ]);
-    }
+    const plan: ReadonlyArray<SetupPlanRow> = [
+      {
+        target: path.relative(nativeRoot, path.join(settingsRoot, SETTINGS_FILENAME)),
+        action: "create",
+        detail: { _tag: "settings", agentIds },
+      },
+      {
+        target: path.relative(nativeRoot, path.join(settingsRoot, LOCKFILE_NAME)),
+        action: "create",
+        detail: { _tag: "acceptedResolution" },
+      },
+      ...skillPlanRows,
+      ...outputConcerns.map((concern): SetupPlanRow => ({
+        target: concern.path,
+        action: "warning",
+        detail: { _tag: "nativeOutputConcern", concern },
+      })),
+    ];
+    if (Option.isSome(interaction) && (!nonInteractive || options.preview === true))
+      yield* interaction.value.presentSetupPlan(plan);
     const confirmed =
       options.preview === true ||
       options.yes === true ||
@@ -986,6 +1086,7 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
     if (!confirmed) {
       return {
         settings: createDefaultSettings(),
+        plan,
         agentCandidates: selection.candidates,
         outputConcerns,
         confirmed: false,
@@ -998,7 +1099,13 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
       yield* writeSettingsAtPath(settingsPath, settings);
       yield* writeLockfileAtPath(lockPath, { lockfileVersion: LOCKFILE_VERSION, skills: {} });
     }
-    return { settings, agentCandidates: selection.candidates, outputConcerns, confirmed: true };
+    return {
+      settings,
+      agentCandidates: selection.candidates,
+      plan,
+      outputConcerns,
+      confirmed: true,
+    };
   });
 
 interface WorkspaceInitializationState {
@@ -1012,7 +1119,7 @@ interface WorkspaceInitializationState {
   readonly completed: boolean;
   readonly cancelled: boolean;
   readonly agentCandidates: ReadonlyArray<SetupAgentCandidate>;
-  readonly instructionPlan: ReadonlyArray<SetupPlanRow>;
+  readonly plan: ReadonlyArray<SetupPlanRow>;
   readonly outputConcerns: ReadonlyArray<NativeOutputConcern>;
 }
 
@@ -1022,7 +1129,7 @@ const workspaceInitializationState = (
   wouldInitialize: boolean,
   agentCandidates: ReadonlyArray<SetupAgentCandidate> = [],
   cancelled = false,
-  instructionPlan: ReadonlyArray<SetupPlanRow> = [],
+  plan: ReadonlyArray<SetupPlanRow> = [],
   completed = false,
   outputConcerns: ReadonlyArray<NativeOutputConcern> = [],
 ): WorkspaceInitializationState => ({
@@ -1032,7 +1139,7 @@ const workspaceInitializationState = (
   completed,
   cancelled,
   agentCandidates,
-  instructionPlan,
+  plan,
   outputConcerns,
 });
 
@@ -1079,7 +1186,7 @@ export const ensureUserWorkspaceInitialized = (
         options.preview === true,
         initialization.agentCandidates,
         false,
-        [],
+        initialization.plan,
         false,
         initialization.outputConcerns,
       );
@@ -1149,7 +1256,7 @@ export const ensureProjectWorkspaceInitialized = (
         options.preview === true,
         initialization.agentCandidates,
         false,
-        initialization.instructionPlan,
+        initialization.plan,
         false,
         initialization.outputConcerns,
       );
@@ -1168,7 +1275,7 @@ export const ensureProjectWorkspaceInitialized = (
         completion.confirmed && options.preview === true,
         [],
         !completion.confirmed,
-        completion.confirmed ? completion.instructionPlan : [],
+        completion.confirmed ? completion.plan : [],
         completion.confirmed && options.preview !== true,
         completion.outputConcerns,
       );

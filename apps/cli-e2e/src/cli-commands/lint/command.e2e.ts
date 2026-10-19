@@ -543,6 +543,7 @@ describe("axm lint (e2e, Phase 7)", () => {
       const temp = createTempDir("axm-staged-instructions-e2e-");
       try {
         initializeGit(temp.path);
+        fs.writeFileSync(path.join(temp.path, "AGENTS.md"), "Authored project instructions.\n");
         const env = {
           DO_NOT_TRACK: "1",
         };

@@ -397,6 +397,9 @@ export const prepareSyncWorkspace = (
             selectionTouches(selection, "knowledge")
               ? yield* collectInstructionStep({
                   nativeProjection: collected.ruleProjection,
+                  ...(collected.preparedRulePlans === undefined
+                    ? {}
+                    : { prepared: collected.preparedRulePlans }),
                   projectionFacts: ruleProjectionFacts,
                   precedingNativeLocations: [
                     ...Option.toArray(knowledgeStep),

@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/setup/first-use-plan-and-migration",
   title: "First setup describes its writes and preserves instruction content",
   statement:
-    "First setup shall show every configuration, bundled skill, and native target before approval, report observed changes after apply, and replace only the regular instruction file used to seed its missing canonical source after verifying identical content, while preserving other instruction files and the Git index; a differing instruction file AXM has no record of writing stops setup before any write unless replacement is explicit.",
+    "First setup shall describe the same configuration, bundled skill, native targets, instruction choice, migration, retained files, warnings and blockers in human and machine previews before approval, with a blocked preview remaining a successful read-only assessment and offering no apply command, report observed changes after apply, and replace only the regular instruction file used to seed its missing canonical source after verifying identical content, while preserving other instruction files and the Git index; a differing instruction file AXM has no record of writing stops setup before any write unless replacement is explicit.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -142,6 +142,36 @@ describe("First setup plan and migration", () => {
         "--non-interactive",
         "--json",
       ];
+      const preview = await fixture.run([...args, "--preview"]);
+      expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
+      const previewDocument: unknown = JSON.parse(preview.stdout);
+      expect(previewDocument).toMatchObject({
+        ok: true,
+        result: {
+          outcome: "previewed",
+          blockedCount: 1,
+          steps: expect.arrayContaining([
+            expect.objectContaining({
+              label: "Instruction files",
+              status: "blocked",
+              artifact: expect.objectContaining({
+                targets: expect.arrayContaining([
+                  expect.objectContaining({
+                    path: "CLAUDE.md",
+                    action: "blocked",
+                    detail: expect.objectContaining({ blocked: true }),
+                  }),
+                ]),
+              }),
+            }),
+          ]),
+        },
+      });
+      expect(preview.stdout).not.toContain('"description": "Apply setup"');
+      const human = await fixture.run(args.filter((arg) => arg !== "--json").concat("--preview"));
+      expect(human.exitCode).toBe(0);
+      expect(human.stdout + human.stderr).toContain("blocked");
+      expect(human.stdout + human.stderr).toContain("CLAUDE.md");
       const refused = await fixture.run(args);
       expect(refused.exitCode, refused.stdout + refused.stderr).not.toBe(0);
       expect(refused.stdout).toContain('"code": "projection-output-unrecorded"');
@@ -168,4 +198,95 @@ describe("First setup plan and migration", () => {
       fixture.cleanup();
     }
   });
+  it("keeps a fresh deferred workspace clean and reconciles its first source content", async () => {
+    const fixture = makeEnvironmentProcessFixture();
+    try {
+      const args = [
+        "setup",
+        "--scope",
+        "project",
+        "--agent",
+        "claude-code",
+        "--instructions",
+        "AGENTS.md",
+        "--non-interactive",
+        "--json",
+      ];
+      const preview = await fixture.run([...args, "--preview"]);
+      expect(preview.exitCode, preview.stderr).toBe(0);
+      expect(JSON.parse(preview.stdout)).toMatchObject({
+        suggestions: [
+          expect.objectContaining({
+            description: "Apply setup",
+            cmd: expect.stringContaining("--instructions AGENTS.md"),
+          }),
+        ],
+      });
+      expect(preview.stdout).toContain("--non-interactive --scope project --agent claude-code");
+      const applied = await fixture.run([...args, "--yes"]);
+      expect(applied.exitCode, applied.stderr).toBe(0);
+      for (const file of ["AGENTS.md", "CLAUDE.md"])
+        expect(fs.existsSync(path.join(fixture.invoking, file))).toBe(false);
+      const lint = await fixture.run(["lint", "--json"]);
+      expect(lint.exitCode, lint.stdout + lint.stderr).toBe(0);
+      expect(JSON.parse(lint.stdout)).toMatchObject({ result: { findings: [] } });
+      const sync = await fixture.run([
+        "sync",
+        "--preview",
+        "--fail-on-change",
+        "--json",
+        "--non-interactive",
+      ]);
+      expect(sync.exitCode, sync.stdout + sync.stderr).toBe(0);
+      expect(JSON.parse(sync.stdout)).toMatchObject({ result: { outcome: "no-op" } });
+      const source = "First authored guidance.\n";
+      fs.writeFileSync(path.join(fixture.invoking, "AGENTS.md"), source);
+      const reconciled = await fixture.run(["sync", "--json", "--non-interactive"]);
+      expect(reconciled.exitCode, reconciled.stdout + reconciled.stderr).toBe(0);
+      expect(fs.readFileSync(path.join(fixture.invoking, "CLAUDE.md"), "utf8")).toBe(source);
+      const again = await fixture.run([
+        "sync",
+        "--preview",
+        "--fail-on-change",
+        "--json",
+        "--non-interactive",
+      ]);
+      expect(again.exitCode, again.stdout + again.stderr).toBe(0);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+  for (const choice of ["off", "./off"]) {
+    it(`distinguishes instruction disablement from the literal source ${choice}`, async () => {
+      const fixture = makeEnvironmentProcessFixture();
+      try {
+        const source = "Literal off source content.\n";
+        fs.writeFileSync(path.join(fixture.invoking, "off"), source);
+        const result = await fixture.run([
+          "setup",
+          "--scope",
+          "project",
+          "--agent",
+          "claude-code",
+          "--instructions",
+          choice,
+          "--yes",
+          "--non-interactive",
+          "--json",
+        ]);
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+        expect(JSON.parse(result.stdout)).toMatchObject({
+          result: {
+            instructions:
+              choice === "off" ? { enabled: false } : { enabled: true, fileName: "off" },
+          },
+        });
+        expect(fs.readFileSync(path.join(fixture.invoking, "off"), "utf8")).toBe(source);
+        expect(fs.existsSync(path.join(fixture.invoking, "AGENTS.md"))).toBe(false);
+        expect(fs.existsSync(path.join(fixture.invoking, "CLAUDE.md"))).toBe(choice !== "off");
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
 });

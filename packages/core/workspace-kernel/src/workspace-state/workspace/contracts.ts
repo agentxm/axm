@@ -245,6 +245,8 @@ export interface WorkspaceStateOptions {
   readonly projectRoot: AbsolutePath;
   /** Explicit agent IDs to use during initialization (overrides detection and prompting). */
   readonly agents?: ReadonlyArray<string>;
+  /** Explicit project instruction choice; absent uses interactive or documented defaults. */
+  readonly instructions?: false | { readonly fileName: string };
   /** Auto-accept setup defaults and confirmations. */
   readonly yes?: boolean;
   /** Suppress interactive setup prompts; the transport boundary resolves flag/CI/TTY. */

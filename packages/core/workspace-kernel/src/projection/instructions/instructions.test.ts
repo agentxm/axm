@@ -2041,23 +2041,85 @@ describe("agent instructions", () => {
     ),
   );
 
-  it.effect("reports missing canonical sources for roots the plan expects", () =>
+  it.effect("requires source evidence before diagnosing a missing canonical file", () =>
     run(
       Effect.gen(function* () {
-        const { status } = yield* observe({
+        const absent = yield* observe({
           configuredAgents: ["claude-code"],
           symlinkSupported: true,
         });
-
-        expect(status.roots).toEqual([tempDir]);
-        expect(status.missingSources).toEqual([path.join(tempDir, "AGENTS.md")]);
-        expect(status.items[0]).toMatchObject({
+        expect(absent.status.roots).toEqual([]);
+        expect(absent.status.missingSources).toEqual([]);
+        expect(absent.status.items).toEqual([]);
+        fs.symlinkSync("AGENTS.md", path.join(tempDir, "CLAUDE.md"));
+        const required = yield* observe({
+          configuredAgents: ["claude-code"],
+          symlinkSupported: true,
+        });
+        expect(required.status.missingSources).toEqual([path.join(tempDir, "AGENTS.md")]);
+        expect(required.status.items[0]).toMatchObject({
           health: "missing-source",
-          ownership: "absent",
-          observedForm: "none",
+          observedForm: "broken-link",
         });
       }),
     ),
+  );
+
+  it.effect("retires only aliases of explicitly withdrawn, absent sources", () =>
+    run(
+      Effect.gen(function* () {
+        const source = path.join(tempDir, "AGENTS.md");
+        const target = path.join(tempDir, "CLAUDE.md");
+        fs.symlinkSync("AGENTS.md", target);
+        const args = {
+          workspaceRoot: tempDir,
+          scope: "project" as const,
+          configuredAgents: ["claude-code"],
+          config: TRACKED,
+          symlinkSupported: true,
+          withdrawnSources: [source],
+          rows: yield* rows,
+          dryRun: false,
+        };
+        const withdrawn = yield* syncInstructions(args);
+        expect(withdrawn.removed).toContain(target);
+        expect(fs.readdirSync(tempDir)).not.toContain("CLAUDE.md");
+        fs.writeFileSync(source, "Retained authored prose.\n");
+        yield* syncInstructions(args);
+        expect(fs.readFileSync(target, "utf8")).toBe("Retained authored prose.\n");
+        expect(fs.readFileSync(source, "utf8")).toBe("Retained authored prose.\n");
+      }),
+    ),
+  );
+
+  it.effect(
+    "preserves existing empty instruction files without creating or adopting empty aliases",
+    () =>
+      run(
+        Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "");
+          const emptyAlias = yield* sync({
+            configuredAgents: ["claude-code"],
+            symlinkSupported: true,
+          });
+          expect(emptyAlias.written).toEqual([]);
+          expect(emptyAlias.rowChanges).toEqual([]);
+          expect(emptyAlias.snapshot.status.missingSources).toEqual([]);
+          expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
+          fs.rmSync(path.join(tempDir, "CLAUDE.md"));
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "");
+          const first = yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: true });
+          expect(first.written).toEqual([]);
+          expect(first.rowChanges).toEqual([]);
+          expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
+          fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "");
+          const second = yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: true });
+          expect(second.written).toEqual([]);
+          expect(second.removed).toEqual([]);
+          expect(second.rowChanges).toEqual([]);
+          expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toBe("");
+        }),
+      ),
   );
 
   it.effect("reports native rules directories AXM does not sync", () =>

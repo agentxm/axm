@@ -80,7 +80,7 @@ describe("Setup preview purity", () => {
               agents: [{ id: "claude-code", name: "Claude Code" }],
               steps: [
                 expect.objectContaining({ label: "Workspace configuration", status: "ready" }),
-                expect.objectContaining({ label: "Instruction files", status: "ready" }),
+                expect.objectContaining({ label: "Instruction files", status: "unchanged" }),
                 expect.objectContaining({ label: "@agentxm/skills/axm", status: "ready" }),
               ],
             },
@@ -150,4 +150,73 @@ describe("Setup preview purity", () => {
         .pipe(Effect.provide(NodeServices.layer));
     },
   );
+  it.effect("the machine report preserves the human plan's blocked target and reason", () => {
+    const fixture = makeSetupFixture({
+      files: {
+        "AGENTS.md": "Canonical instructions\n",
+        "CLAUDE.md": "Unrelated authored content\n",
+      },
+    });
+    cleanups.push(fixture.cleanup);
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const before = fixture.snapshot();
+          const settled = yield* runSetup(request(fixture, { agents: ["claude-code"] }));
+          expect(settled.outcome).toMatchObject({
+            outcome: "previewed",
+            blockedCount: 1,
+            failedCount: 0,
+          });
+          const human = fixture
+            .promptState()
+            .presentSetupPlanCalls[0]?.find((row) => row.target === "CLAUDE.md");
+          const step = settled.outcome.steps.find((step) => step.label === "Instruction files");
+          expect(human).toMatchObject({
+            action: "blocked",
+            detail: { blocked: true, reason: expect.any(String) },
+          });
+          expect(step).toMatchObject({ status: "blocked" });
+          expect(
+            step?.artifact?.targets?.find((target) => target.path === "CLAUDE.md"),
+          ).toMatchObject({ action: human?.action, detail: human?.detail, change: "unchanged" });
+          expect(fixture.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+  for (const nativeTarget of [".claude/skills/axm", ".agents/skills/axm"]) {
+    it.effect(`an unowned ${nativeTarget} blocks both views without changing it`, () => {
+      const fixture = makeSetupFixture({
+        files: { [`${nativeTarget}/SKILL.md`]: "Authored skill, preserve me\n" },
+      });
+      cleanups.push(fixture.cleanup);
+      return fixture
+        .provide(
+          Effect.gen(function* () {
+            const before = fixture.snapshot();
+            const settled = yield* runSetup(request(fixture, { agents: ["claude-code"] }));
+            expect(settled.outcome).toMatchObject({
+              outcome: "previewed",
+              blockedCount: 1,
+              failedCount: 0,
+            });
+            const human = fixture
+              .promptState()
+              .presentSetupPlanCalls[0]?.find((row) => row.target === nativeTarget);
+            expect(human).toMatchObject({
+              action: "blocked",
+              detail: { _tag: "bundledSkill", reason: expect.stringContaining("unowned") },
+            });
+            const step = settled.outcome.steps.find((step) => step.label === "@agentxm/skills/axm");
+            expect(step).toMatchObject({ status: "blocked" });
+            expect(
+              step?.artifact?.targets?.find((target) => target.path === nativeTarget),
+            ).toMatchObject({ action: human?.action, detail: human?.detail, change: "unchanged" });
+            expect(fixture.snapshot()).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    });
+  }
 });

@@ -127,42 +127,6 @@ When a projection is named as the desired permanent source, identify it as
 non-authoritative, resolve the canonical package first, make semantic changes
 there, then verify the projection from AXM state.
 
-For publication, distinguish the complete repository package, the filtered
-Registry archive, the canonical installation extracted from that archive, and
-the type-specific agent projection. `publish.include` and `publish.exclude`
-control only Registry distribution. Omitted include uses applicable repository
-`.gitignore` rules; explicit include bypasses them, with `[]` selecting only the
-mandatory manifest and `["**"]` selecting all permitted content. Ordered,
-case-sensitive Git-style excludes run afterward. AXM gives `evals/` and other
-development names no special treatment. Use `axm help publish` and inspect
-`axm publish --preview --json` for rule origins, selected paths, unmatched
-explicit patterns, and final integrity before authorizing upload. The filtered
-package must remain type-valid. For `publish --from`, use repeated
-`--include-file` and `--exclude-file` against original source paths.
-
-## Subagent implementations
-
-Resolve the authored package before changing a subagent and read `axm help
-subagents` for its current contract. Keep portable instructions in `core` and
-runtime-specific behavior in `implementations.<catalog-id>`. A `customized`
-implementation uses its core with native configuration and optional appended or
-replacement instructions. A `native` implementation is a complete definition;
-its native identity and bytes remain independent of the package identity.
-Never use `agentOverrides` or create a role Skill as a subagent fallback.
-
-Preview a selected runtime with `axm subagents show <name> --render <agent-id>`;
-this is read-only even for an unconfigured runtime. Inspect unsupported outcomes
-as well as rendered content. Mixed support may apply compatible native targets;
-zero compatible configured targets refuses enabled installation or activation.
-Do not invent shared model, tool, permission, or sandbox defaults across hosts.
-
-For native import, specify `--source-agent` when location does not unambiguously
-identify the runtime. Use `--preview` to inspect the proposed package and native
-destinations. Import defaults to disabled and may fill an empty slot in an
-existing authored package while preserving its core, version, other slots,
-activation, and source bytes. Occupied slots and ownership conflicts are
-refusals. Fork an acquired package before customizing it.
-
 ## Bound authority before acting
 
 Classify every operation and keep it within the authority supplied by the
@@ -192,10 +156,6 @@ request and host:
 - **Credential operation:** login or token management only when required and
   authorized. Keep secrets symbolic; never print, request in chat, place in a
   command, persist in extension files, or expose through telemetry.
-- **CI publishing:** in GitHub Actions, prefer trusted publishing over a stored
-  token: grant the job `permissions: id-token: write` and register the
-  repository and workflow as a trusted publisher in AgentXM settings. Set
-  `AXM_TRUSTED_PUBLISHING=0` only for a job that must not use it.
 - **Executable upgrade:** `axm upgrade` changes installed executable state and
   requires explicit upgrade authority. Keep it separate from workspace repair.
 
@@ -203,18 +163,6 @@ Do not run `whoami`, login, or token commands for public reads or installs
 unless a live result says authentication is required. If the request contains
 a literal credential, never echo it in a response, quote, command, finding, or
 report; refer to it only as “the supplied credential.”
-
-Validated effective MCP declarations authorize full replacement of their exact
-named native entries without an adoption or ownership approval. Hook extension declarations
-select direct runtime invocations under the exact canonical package root; never
-select by event, array index or a broad substring. Use preview to review the
-selected scope, agents, entry replacements and retained state; do not inject
-ownership metadata. Absence, renaming, departing agents and lost Pack routes
-retain native registrations and do not establish stopped execution. Explicit
-disable/uninstall selects configured-agent registrations before discarding
-intent; after intent is gone, cleanup requires exact native-file selection.
-Retained executable references block canonical package deletion. Verify selected
-agents' projection capability and actual connection or native hook invocation separately.
 
 For other artifact types, an unowned-file collision reported by AXM blocks the affected closure. Preserve
 the artifact and require explicit ownership resolution before apply; do not
@@ -226,44 +174,19 @@ they prevent a mutation, report the exact blocked target and recovery instead
 of claiming success. Do not retry a failed Registry mutation unless live help
 and the result explicitly establish a safe retry.
 
-## Doctor mode
+## Route the operation
 
-Enter when invoked as `doctor` or asked to check, diagnose, or health-check AXM
-workspace state. Diagnosis is a local read and authorizes no repair.
+After resolving authority and scope, load only the reference for the task:
 
-1. Preflight `axm`. When it is missing, report `Could not diagnose` with the
-   install route only.
-2. Agents read the user scope and the invoked folder together; diagnose both,
-   user first. Run `axm lint --scope user --json`. Unless the working
-   directory is `$HOME`, run `axm lint --json`; when the directory lacks
-   `axm.json` and `git rev-parse --show-toplevel` has one, add `-C <toplevel>`.
-   A `workspace/initialized` finding means that scope is not set up.
-3. For each set-up scope, run `axm sync --preview --fail-on-change --json` and
-   `axm list --json` with its `--scope`; classify findings by lint rule ID and
-   inventory by `management`. Read `git status` for recoverability and
-   `git grep -n` for references to each removal candidate. Add read-only checks
-   live help offers.
-4. Unless asked to stay offline, check currency against configured sources
-   only: `axm upgrade --preview --json`, then `axm list --outdated --json` and
-   `axm list --deprecated --json` for each set-up scope, and
-   `axm view <fqn> --json` for a replacement named only in a deprecation note.
-   Never authenticate for these. Report an offline request, unreachable source,
-   or timeout as skipped, not failed.
-   For a directly installed deprecated extension, report its reason and any
-   disclosed replacement. Suggest `axm migrate <fqn> --preview` for `obsolete`
-   or `superseded` with an available replacement; apply `axm migrate <fqn>`
-   only when repair was selected. For `superseded` with an unavailable or
-   concealed replacement, explain why migration cannot proceed. For
-   `unmaintained` or `other`, explain that the user must choose a successor.
-   A Pack member requires its publisher to update the dependency.
-5. Render [the doctor report](references/doctor-report.md) exactly, then stop
-   at its choice. Only a selected option or named IDs authorize repair;
-   free text becomes a plan to approve.
-6. Apply exactly the selected IDs in the report's dependency order, re-run the
-   checks, and render the post-repair report with the same IDs.
+| Task                                                             | Read before acting                                                               |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Publish, inspect archive selection, or change Registry lifecycle | [Publishing](references/publishing.md)                                           |
+| Create, change, render, or import subagent implementations       | [Subagents](references/subagents.md)                                             |
+| Configure or remove MCP connections or native hooks              | [MCP connections and hooks](references/connections-and-hooks.md)                 |
+| `doctor`, diagnose, or health-check AXM workspace state          | [Diagnosis](references/doctor.md), a read-only workflow until repair is selected |
 
-Never hand-delete installed or projected content; converge it with `axm sync`.
-Never delete authored content without an explicitly selected option.
+Other operations use the relevant live command/type help and the gates here.
+References refine the selected operation; they grant no additional authority.
 
 ## Execute and verify
 

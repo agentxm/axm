@@ -42,7 +42,17 @@ Top-level `instructionFiles` settings record the workspace choice. An absent
 value means the capability has not been configured. An object enables it by
 default and records the canonical `fileName` and `gitignoreAliases` preference.
 The literal `false` disables reconciliation. Re-enabling establishes the
-requested preferences again.
+requested preferences again. Project setup accepts the same choice through
+`--instructions <source-file|off>`; rerunning setup preserves a settled choice.
+
+Enabled management is valid before there is content. Setup creates no new empty
+canonical file, aliases, or alias-only ignore entries. Existing files remain
+untouched. Discovery uses actual canonical sources, relevant alias entries,
+recorded projection evidence, and real pending contribution writes to establish
+roots; it does not assume the workspace root must have a source. An absent source
+without that evidence is not historical deletion. The first real content or
+eligible contribution reconciles its required aliases in the same transaction.
+Broken aliases and missing sources required by real contributions remain diagnostic.
 
 The `axm instructions status` command inspects this surface; `axm instructions
 enable` and `axm instructions disable` express its activation. The family is

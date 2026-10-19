@@ -111,7 +111,21 @@ compatibility checks performed by `axm lint`.
 
 ## Telemetry
 
-Telemetry is execution policy, not workspace state. Any nonempty `DO_NOT_TRACK` or
+Telemetry is execution policy, not workspace state. AXM does not persist a
+conversation choice or shell export. Set `AXM_TELEMETRY=0 axm <command>` for
+one POSIX invocation, or `export AXM_TELEMETRY=0` for the current shell and its
+children. In PowerShell use `$env:AXM_TELEMETRY = "0"` for the session. To keep
+the choice, configure the environment loaded by future shells and by the actual
+coding-agent launcher. A GUI-launched agent may not load shell profiles; configure
+its launch environment or launch it from the configured shell. AXM does not edit
+profiles or host permissions.
+
+Native installer version probes use a child-scoped `AXM_TELEMETRY=0`; later AXM
+commands retain the caller's environment. For `curl ... | sh`, an environment
+assignment only on `curl` does not propagate to `sh`: export first or attach the
+assignment to the interpreter side.
+
+Any nonempty `DO_NOT_TRACK` or
 `DISABLE_TELEMETRY` disables telemetry, including `0`, `false`, or whitespace.
 Empty standard flags do not disable it. Otherwise:
 

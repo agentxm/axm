@@ -487,7 +487,7 @@ const hasEntryAt = (args: {
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const segments = args.relativeTarget.split("/");
+    const segments = args.relativeTarget.split(path.sep === "\\" ? /[\\/]/ : "/");
     let current = args.dir;
     let entries = args.entries;
     for (const [index, segment] of segments.entries()) {
@@ -562,7 +562,7 @@ const discoverInstructionTree = (
     ): Effect.Effect<InstructionTree, never, FileSystem.FileSystem | Path.Path> =>
       Effect.gen(function* () {
         const entries = yield* readDirSafe(dir);
-        const hasSource = entries.includes(fileName);
+        const hasSource = yield* hasEntryAt({ dir, entries, relativeTarget: fileName });
         const candidates = yield* candidatesIn(dir, entries);
         // A user workspace is the home directory for storage purposes, not a
         // project tree. Recursing from it can enter cloud-backed mounts and
@@ -623,7 +623,7 @@ const discoverInstructionTree = (
               ),
           )).flat();
     return {
-      roots: tree.roots.length > 0 ? tree.roots : [workspaceRoot],
+      roots: tree.roots,
       candidates: [...tree.candidates, ...externalCandidates],
     };
   });
@@ -1080,13 +1080,14 @@ const observePlannedItems = (args: {
   readonly config: ResolvedInstructionsConfig;
   readonly symlinkSupported: boolean;
   readonly rows: InstructionProjectionRows;
+  readonly prospectiveRoots: ReadonlyArray<string>;
 }) =>
   Effect.forEach(
     args.plan.items,
     (item) =>
       Effect.gen(function* () {
         if (item.action === "skip") {
-          return {
+          return Option.some({
             root: item.root,
             agentId: item.agentId,
             agentName: item.agentName,
@@ -1102,7 +1103,7 @@ const observePlannedItems = (args: {
                 : item.reason === "unverified-scope"
                   ? "The native instruction location for this scope is unverified."
                   : "Agent descriptor has no instruction-file convention.",
-          } satisfies InstructionStatusItem;
+          } satisfies InstructionStatusItem);
         }
         const mechanism =
           item.action === "native"
@@ -1131,12 +1132,22 @@ const observePlannedItems = (args: {
                 sourceFileName: args.config.fileName,
                 rows: args.rows,
               });
+        // No content authorizes creating or adopting a new empty alias. Use
+        // this same source/target observation for the plan, status and apply.
+        if (
+          item.action === "write" &&
+          Option.isSome(sourceContent) &&
+          sourceContent.value.length === 0 &&
+          !args.prospectiveRoots.includes(item.root) &&
+          (target.ownership === "absent" || target.ownership === "owned-unrecorded-identical")
+        )
+          return Option.none<InstructionStatusItem>();
         const health = toInstructionHealth({
           sourceExists: Option.isSome(sourceContent),
           mechanism,
           ...target,
         });
-        return {
+        return Option.some({
           root: item.root,
           agentId: item.agentId,
           agentName: item.agentName,
@@ -1148,10 +1159,10 @@ const observePlannedItems = (args: {
           observedForm: target.observedForm,
           ...(target.lastWrite === undefined ? {} : { lastWrite: target.lastWrite }),
           details: instructionDetails(item.instructions, health, target.ownership),
-        } satisfies InstructionStatusItem;
+        } satisfies InstructionStatusItem);
       }),
     { concurrency: 16 },
-  );
+  ).pipe(Effect.map((items) => items.filter(Option.isSome).map((item) => item.value)));
 
 /**
  * Classify a registry-convention path the current plan does not desire. Only
@@ -1682,6 +1693,8 @@ export interface ObserveInstructionProjectionArgs {
   readonly symlinkSupported?: boolean;
   /** Canonical roots this proposed closure will create; their sources still observe as missing. */
   readonly prospectiveRoots?: ReadonlyArray<string>;
+  /** Sources withdrawn by a region owner in this transition, never inferred from absence. */
+  readonly withdrawnSources?: ReadonlyArray<string>;
   /** True only when the supplied filesystem is a snapshot of the Git index. */
   readonly gitIndexView?: boolean;
   /**
@@ -1717,8 +1730,61 @@ export const observeInstructionProjection = (
       args.scope,
       args.nativeDirectoryInputs,
     );
-    const plan = buildInstructionProjectionPlan({
-      roots: [...new Set([...tree.roots, ...(args.prospectiveRoots ?? [])])],
+    const routes = buildInstructionProjectionPlan({
+      roots: [args.workspaceRoot],
+      scope: args.scope,
+      ...(args.nativeDirectoryInputs === undefined
+        ? {}
+        : { nativeDirectoryInputs: args.nativeDirectoryInputs }),
+      configuredAgents: args.configuredAgents,
+      sourceFileName: args.config.fileName,
+      path,
+    });
+    const recordedRoots = [...args.rows.keys()].flatMap((key) =>
+      routes.items.flatMap((item) => {
+        if (item.action === "skip") return [];
+        const relative = path
+          .relative(args.workspaceRoot, item.targetPath)
+          .split(path.sep)
+          .join("/");
+        return key === relative ? [args.workspaceRoot] : [];
+      }),
+    );
+    const aliasEvidence = yield* Effect.filter(
+      tree.candidates.filter(
+        (candidate) =>
+          !tree.roots.includes(args.workspaceRoot) &&
+          candidate.root === args.workspaceRoot &&
+          args.configuredAgents.includes(candidate.agentId),
+      ),
+      (candidate) =>
+        Effect.gen(function* () {
+          const entry = yield* resolveNativeEntry(candidate.targetPath).pipe(Effect.option);
+          if (Option.isNone(entry) || entry.value.kind !== "file") return true;
+          const content = yield* readFileOption(
+            candidate.targetPath,
+            args.workspaceRoot,
+            nativeRoots,
+          );
+          // Empty unrecorded files establish neither content nor historical projection.
+          return Option.isNone(content) || content.value.length > 0;
+        }),
+    );
+    const roots = [
+      ...new Set([
+        ...tree.roots,
+        ...aliasEvidence.map((candidate) => candidate.root),
+        ...recordedRoots,
+        ...(args.prospectiveRoots ?? []),
+      ]),
+    ].filter(
+      (root) =>
+        tree.roots.includes(root) ||
+        (args.prospectiveRoots ?? []).includes(root) ||
+        !(args.withdrawnSources ?? []).includes(path.resolve(root, args.config.fileName)),
+    );
+    const proposed = buildInstructionProjectionPlan({
+      roots,
       scope: args.scope,
       ...(args.nativeDirectoryInputs === undefined
         ? {}
@@ -1732,13 +1798,26 @@ export const observeInstructionProjection = (
     const items = yield* observePlannedItems({
       workspaceRoot: args.workspaceRoot,
       nativeRoots,
-      plan,
+      plan: proposed,
       config: args.config,
       symlinkSupported,
       rows: args.rows,
+      prospectiveRoots: args.prospectiveRoots ?? [],
     });
+    const plan = {
+      ...proposed,
+      items: proposed.items.filter(
+        (item) =>
+          item.action === "skip" ||
+          items.some(
+            (observed) => observed.root === item.root && observed.agentId === item.agentId,
+          ),
+      ),
+    };
     const desiredTargets = new Set(
-      plan.items.flatMap((item) => (item.action === "skip" ? [] : [path.resolve(item.targetPath)])),
+      proposed.items.flatMap((item) =>
+        item.action === "skip" ? [] : [path.resolve(item.targetPath)],
+      ),
     );
     // Candidates are only the alias names actually present at visited
     // directories — a handful in practice — so sequential classification adds

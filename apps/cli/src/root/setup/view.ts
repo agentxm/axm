@@ -104,11 +104,15 @@ const planDetail = (detail: SetupPlanDetail): string => {
         return `Could not inspect entry (${detail.concern.reason}).`;
       return `Also read at ${detail.concern.otherPath} by ${detail.concern.agentIds.join(", ")}.`;
     case "settings":
-      return `agents: ${detail.agentIds.join(", ")}`;
+      return `agents: ${detail.agentIds.join(", ")}${detail.instructionFiles === undefined ? "" : detail.instructionFiles === false ? "; instructions: off" : `; instructions: ${detail.instructionFiles.fileName}`}`;
     case "gitignore":
       return "AXM runtime and package transaction artifacts";
     case "instructionSource":
-      return detail.seededFrom === undefined ? "source" : `seeded from ${detail.seededFrom}`;
+      return detail.deferred
+        ? "enabled, no instruction content yet"
+        : detail.seededFrom === undefined
+          ? "source"
+          : `seeded from ${detail.seededFrom}`;
     case "instructionTarget":
       return detail.seededAlias
         ? `${detail.agentName}: replace seeded source with alias`
@@ -118,7 +122,7 @@ const planDetail = (detail: SetupPlanDetail): string => {
     case "missingInstructionConvention":
       return "no instruction convention";
     case "bundledSkill":
-      return "bundled AXM skill";
+      return detail.reason ?? "bundled AXM skill";
     case "acceptedResolution":
       return "accepted resolution";
   }
@@ -131,7 +135,16 @@ export const setupPlanDoc = (rows: ReadonlyArray<SetupPlanRow>): Doc => [
     columns: planColumns,
     rows: rows.map((row) => {
       const action = planAction(row.action);
-      return { mark: action.mark, cells: [row.target, action.word, planDetail(row.detail)] };
+      const detail = planDetail(row.detail);
+      const consumers = row.agentIds?.join(", ");
+      return {
+        mark: action.mark,
+        cells: [
+          row.target,
+          action.word,
+          consumers === undefined ? detail : `${detail}: ${consumers}`,
+        ],
+      };
     }),
   },
 ];
@@ -249,6 +262,8 @@ const previewDefaultPhrase = (result: SetupOutcome): string | undefined => {
   switch (result.previewDefaults?.agents) {
     case "detected":
       return "using agents found here";
+    case "configured":
+      return "using configured agents";
     case "choice-required":
       return "choose coding agents before applying";
     case "explicit":

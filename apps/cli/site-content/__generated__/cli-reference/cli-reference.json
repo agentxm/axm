@@ -161,6 +161,13 @@
             ]
           },
           {
+            "name": "instructions",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Project instruction source filename, or off to leave instruction files alone"
+          },
+          {
             "name": "yes",
             "aliases": ["-y"],
             "type": "boolean",

@@ -162,7 +162,7 @@ acquire_lock() {
 }
 
 verify_version() {
-  "$1" --version 2>/dev/null | tr -d '\r\n'
+  AXM_TELEMETRY=0 "$1" --version 2>/dev/null | tr -d '\r\n'
 }
 
 install_transactionally() {
@@ -220,13 +220,13 @@ install_transactionally() {
 verify_path() {
   path_command="$(command -v "$BINARY_NAME" 2>/dev/null || true)"
   if [ "$path_command" = "$TARGET" ]; then
-    path_version="$("$path_command" --version 2>/dev/null || true)"
+    path_version="$(verify_version "$path_command" || true)"
     if [ "$path_version" = "$TARGET_VERSION" ]; then
       return
     fi
     echo "Warning: AXM on PATH reports ${path_version:-no version}; installed path reports ${TARGET_VERSION}." >&2
   elif [ -n "$path_command" ]; then
-    path_version="$("$path_command" --version 2>/dev/null || true)"
+    path_version="$(verify_version "$path_command" || true)"
     if [ "$path_version" != "$TARGET_VERSION" ]; then
       echo "Warning: AXM on PATH reports ${path_version:-no version}; installed path reports ${TARGET_VERSION}." >&2
     else

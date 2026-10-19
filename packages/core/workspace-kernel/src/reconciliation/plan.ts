@@ -26,6 +26,7 @@ import {
   KnowledgeManager,
   RuleManager,
   type PreparedHookProjection,
+  type RuleManagerService,
   type NativeProjectionOptions,
 } from "../materialization/index.js";
 import {
@@ -34,6 +35,7 @@ import {
   applyPlannedProjections,
   applyProjectionPlans,
   observeProjectionPlans,
+  makeProjectionInvariantFact,
   observeInstructionProjection,
   readInstructionRows,
   reconcileInstructionAliases,
@@ -687,22 +689,44 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   readonly configuredAgents?: ReadonlyArray<string>;
   readonly newlyConfiguredAgentIds?: ReadonlyArray<string>;
   readonly nativeProjection?: NativeProjectionOptions;
+  readonly prepared?: Effect.Success<ReturnType<RuleManagerService["prepareProjection"]>>;
   readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
   /** Native region writes already declared by preceding steps in this closure. */
   readonly precedingNativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly touchesRule: boolean;
   readonly adapter: StepFailureConversionService;
 }) {
-  const projectionFacts = args.projectionFacts;
+  const location = yield* WorkspaceLocation;
+  const preparedResult =
+    args.prepared === undefined
+      ? undefined
+      : yield* Effect.result(observeProjectionPlans(args.prepared));
+  if (preparedResult !== undefined && Result.isFailure(preparedResult)) {
+    return Option.some<PlannedJobStep<SyncStepRequirements>>({
+      key: SYNC_RECOVERY_IDS.instructionReconcile,
+      readiness: "error",
+      label: "instruction files",
+      errorMessage: args.adapter.toStepFailure(preparedResult.failure).detail,
+    });
+  }
+  const projectionFacts =
+    preparedResult === undefined
+      ? args.projectionFacts
+      : preparedResult.success.map((unit) => makeProjectionInvariantFact(unit, location.scope));
   const posture = yield* ProjectionOutputPosture;
   const overrides = {
     replaceUnrecorded: posture.replaceUnrecorded === true,
     discardModified: posture.discardModified === true,
   };
   const settings = yield* SettingsReader;
-  const location = yield* WorkspaceLocation;
   const config = yield* settings.instructionsConfig;
   const manager = yield* RuleManager;
+  const applyRules =
+    args.prepared === undefined
+      ? applyPlannedProjections({
+          projectionPlans: () => manager.projectionPlans(args.nativeProjection),
+        })
+      : applyProjectionPlans(args.prepared);
   if (Option.isNone(config) || config.value === false) {
     if (!args.touchesRule || !projectionFactsNeedReconciliation(projectionFacts))
       return Option.none<PlannedJobStep<SyncStepRequirements>>();
@@ -722,9 +746,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
       readiness: "ready",
       label: projectionDivergenceLabel("managed Rules region", projectionFacts),
       artifact,
-      run: applyPlannedProjections({
-        projectionPlans: () => manager.projectionPlans(args.nativeProjection),
-      }).pipe(
+      run: applyRules.pipe(
         Effect.andThen(manager.aggregateProjectionObservation),
         Effect.mapError(args.adapter.toStepFailure),
         Effect.map((observation): JobStepResult => ({
@@ -748,23 +770,43 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   );
   const resolvedConfig = resolveInstructionsConfig(config.value);
   const path = yield* Path.Path;
-  const sourceWrites = [
+  const sourceLocations = [
     ...(args.touchesRule
       ? projectionFacts.flatMap((fact) => fact.observation.nativeLocations ?? [])
       : []),
     ...(args.precedingNativeLocations ?? []),
-  ]
+  ];
+  const sourceWrites = sourceLocations
     .filter(
       (unit) =>
         unit.address.kind === "region" &&
         (unit.state === "created" || unit.state === "updated" || unit.state === "removed"),
     )
     .flatMap((unit) => [unit.address.path, ...unit.aliases]);
+  const withdrawnSources = sourceLocations.flatMap((unit) =>
+    unit.address.kind === "region" && unit.state === "removed"
+      ? [unit.address.path, ...unit.aliases]
+      : [],
+  );
   const prospectiveRoots = [
     ...new Set(
-      sourceWrites
-        .filter((source) => path.basename(source) === resolvedConfig.fileName)
-        .map((source) => path.dirname(source)),
+      sourceLocations
+        .filter(
+          (unit) =>
+            unit.address.kind === "region" &&
+            (unit.state === "created" || unit.state === "updated"),
+        )
+        .flatMap((unit) => [unit.address.path, ...unit.aliases])
+        .filter((source) => source.endsWith(path.sep + path.normalize(resolvedConfig.fileName)))
+        .map((source) =>
+          path.resolve(
+            source,
+            ...path
+              .normalize(resolvedConfig.fileName)
+              .split(path.sep)
+              .map(() => ".."),
+          ),
+        ),
     ),
   ];
   // Rows are read first, so a lockfile this CLI cannot read refuses here.
@@ -848,13 +890,24 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
       : []),
   ];
   const targets = mergeArtifactTargets([...ruleTargets, ...instructionTargets]);
+  const withdrawingRoutes = new Set(
+    snapshot.status.items
+      .filter((item) => withdrawnSources.includes(item.sourceFile))
+      .map((item) => item.targetFile),
+  );
   const artifact = {
     path: targets[0]?.path ?? resolvedConfig.fileName,
     scope: location.scope,
     change: targets[0]?.change ?? "updated",
     managedRegions: args.touchesRule ? managedRegionsForFacts(projectionFacts) : [],
     nativeLocations: combineNativeLocationOutcomes([
-      ...instructionProjectionNativeLocations(snapshot, "reconcile", sourceWrites),
+      // A retiring source may also retire its owned aliases. Their final
+      // readback supplies evidence; they are not promised unchanged here.
+      ...instructionProjectionNativeLocations(snapshot, "reconcile", sourceWrites).filter(
+        (unit) =>
+          !unit.policyReasons.includes("instruction-propagation") ||
+          ![unit.address.path, ...unit.aliases].some((route) => withdrawingRoutes.has(route)),
+      ),
       ...projectionFacts.flatMap((fact) => fact.observation.nativeLocations ?? []),
     ]),
     targets,
@@ -870,14 +923,13 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     run: Effect.gen(function* () {
       if (args.touchesRule) {
         yield* recordInstructionCopiesBeforeSourceWrite({ configuredAgents });
-        yield* applyPlannedProjections({
-          projectionPlans: () => manager.projectionPlans(args.nativeProjection),
-        });
+        yield* applyRules;
       }
       const ruleLocations = args.touchesRule
         ? ((yield* manager.aggregateProjectionObservation).nativeLocations ?? [])
         : [];
       const result = yield* reconcileInstructionAliases({
+        withdrawnSources,
         configuredAgents,
         eligibleAgentIds,
         eligibleTargets,

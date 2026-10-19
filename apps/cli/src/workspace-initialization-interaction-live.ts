@@ -42,7 +42,7 @@ const instructionSourceNote =
   "AXM will sync its contents to the selected agents' instruction files.";
 const customInstructionSourceMessage = "Instructions file name";
 const customInstructionSourceNote =
-  "Relative to the project root. It will be created if it does not exist.";
+  "Relative to the project root. Created when instruction content is available.";
 const confirmSetupPlanMessage = "Apply setup?";
 
 /** Which agents the scan found, and which of them a person already chose. */
@@ -124,7 +124,7 @@ export const instructionSourceAsk = (
       title: choice.fileName,
       details: [
         ...(choice.fileName === defaultFileName ? ["recommended"] : []),
-        choice.exists ? "existing" : "will be created",
+        choice.exists ? "existing" : "created when content is available",
         ...(choice.exists ? [`${String(choice.lines)} lines`] : []),
       ],
       value: { _tag: "File", fileName: choice.fileName },

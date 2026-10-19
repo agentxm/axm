@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   requirement: "cli/setup/rerun-preserves-existing-configuration",
   title: "Repeated setup preserves the existing workspace",
   statement:
-    "When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands, except that it shall settle an instruction-management choice the project workspace has never recorded: asking where a prompt can open, applying the documented default under preapproval, and otherwise leaving the choice open. Settling that choice shall block, with a recovery, on a differing alias AXM has no record of writing rather than silently preserving it, and shall refuse a lockfile version this CLI does not read before writing anything.",
+    "When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands, except that it shall settle an instruction-management choice the project workspace has never recorded: asking where a prompt can open, applying an explicit instruction choice or the documented default under preapproval, and otherwise leaving the choice open. Settling that choice shall block, with a recovery, on a differing alias AXM has no record of writing rather than silently preserving it, and shall refuse a lockfile version this CLI does not read before writing anything.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -268,4 +268,58 @@ describe("Repeated setup", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+  it.effect("preserves a settled instruction choice and names the day-two commands", () => {
+    const fixture = makeSetupFixture();
+    cleanups.push(fixture.cleanup);
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const request = {
+            scope: "project",
+            scopeExplicit: true,
+            agents: ["claude-code"],
+            yes: true,
+            nonInteractive: true,
+            projectRoot: decodeAbsolutePathSync(fixture.root),
+            telemetryEnabled: false,
+          } as const;
+          yield* runSetup({ ...request, instructions: false });
+          const before = fixture.snapshot();
+          const rerun = yield* runSetup({ ...request, instructions: { fileName: "TEAM.md" } });
+          expect(rerun.outcome.instructions).toEqual({ enabled: false });
+          expect(rerun.outcome.message).toContain("axm instructions enable");
+          expect(fixture.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+  it.effect(
+    "settles an unresolved instruction choice explicitly while retaining configured membership",
+    () => {
+      const fixture = undecided();
+      return fixture
+        .provide(
+          Effect.gen(function* () {
+            const before = fixture.snapshot();
+            const request = {
+              ...completion(fixture.root, { yes: true, nonInteractive: true }),
+              instructions: false,
+            } as const;
+            const preview = yield* runSetup({ ...request, preview: true });
+            expect(preview.outcome.previewDefaults).toMatchObject({
+              agents: "configured",
+              instructions: { enabled: false },
+            });
+            expect(fixture.snapshot()).toEqual(before);
+            yield* runSetup(request);
+            expect(JSON.parse(fixture.readFile("axm.json"))).toMatchObject({
+              agents: ["claude-code"],
+              instructionFiles: false,
+            });
+            expect(fixture.readFile("CLAUDE.md")).toBe("# Team instructions\n");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 });

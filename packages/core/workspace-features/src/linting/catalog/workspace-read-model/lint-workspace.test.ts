@@ -375,7 +375,7 @@ describe("buildLintWorkspace manifest JSON population", () => {
       );
 
       expect(rootListings).toBe(1);
-      expect(findings.flat().map((finding) => finding.ruleId)).toContain(
+      expect(findings.flat().map((finding) => finding.ruleId)).not.toContain(
         "workspace/instructions-source-present",
       );
     }),

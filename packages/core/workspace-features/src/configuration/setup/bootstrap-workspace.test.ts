@@ -222,7 +222,7 @@ describe("bootstrapWorkspace", () => {
           {
             target: "axm.json",
             action: "create",
-            detail: { _tag: "settings", agentIds: ["claude-code"] },
+            detail: { _tag: "settings", agentIds: ["claude-code"], instructionFiles: false },
           },
           { target: "axm.lock", action: "create", detail: { _tag: "acceptedResolution" } },
           { target: ".agents/skills/axm", action: "create", detail: { _tag: "bundledSkill" } },

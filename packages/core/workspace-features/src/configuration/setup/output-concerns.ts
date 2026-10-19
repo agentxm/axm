@@ -20,25 +20,27 @@ export const observeSetupOutputConcerns = (
   root: string,
   scope: WorkspaceScope,
   agentIds: ReadonlyArray<string>,
+  targets?: Effect.Success<ReturnType<typeof setupSkillTargets>>,
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const repository = yield* CodingAgentRepository;
-    const targets = yield* setupSkillTargets(root, scope, agentIds);
-    const proposedTargets: ReadonlyArray<AgentOutputObservation> = targets.flatMap((target) =>
-      "agentIds" in target && target.agentIds !== undefined
-        ? [
-            {
-              path: target.path,
-              containerPath: path.dirname(target.path),
-              entryName: "axm",
-              extensionType: "skill" as const,
-              claimantAgentIds: target.agentIds,
-              ownership: "unowned" as const,
-              desired: true,
-            },
-          ]
-        : [],
+    const selectedTargets = targets ?? (yield* setupSkillTargets(root, scope, agentIds));
+    const proposedTargets: ReadonlyArray<AgentOutputObservation> = selectedTargets.flatMap(
+      (target) =>
+        "agentIds" in target && target.agentIds !== undefined
+          ? [
+              {
+                path: target.path,
+                containerPath: path.dirname(target.path),
+                entryName: "axm",
+                extensionType: "skill" as const,
+                claimantAgentIds: target.agentIds,
+                ownership: "unowned" as const,
+                desired: true,
+              },
+            ]
+          : [],
     );
     const projectReaders = new Map<string, Array<string>>();
     for (const id of agentIds.filter(isConfigurableAgentId)) {
@@ -93,7 +95,7 @@ export const observeSetupOutputConcerns = (
       }),
     );
     const userPaths = new Set(user.map((entry) => entry.path));
-    const canonical = targets.find((target) => !("agentIds" in target));
+    const canonical = selectedTargets.find((target) => !("agentIds" in target));
     const proposedPaths = new Set(proposed.map((entry) => entry.path));
     // Publishing the bundled source repairs these exact source links as part of
     // the existing plan; it does not authorize removal of any foreign link.

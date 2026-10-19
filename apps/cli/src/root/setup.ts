@@ -38,6 +38,7 @@ import {
 } from "./shared/command-capabilities.js";
 import { setupResultDoc, setupTitleDoc } from "./setup/view.js";
 import { AXM_SKILL_VERSION } from "../__generated__/bundled-axm-skill.js";
+import { ProjectionOutputPosture } from "@agentxm/workspace-kernel/projection";
 import { installBundledAxmSkill } from "@agentxm/extension-kinds/skills";
 
 /**
@@ -60,8 +61,29 @@ const SetupDocumentFields = {
 export const SetupDocumentSchema = Schema.Struct(SetupDocumentFields);
 export type SetupDocument = typeof SetupDocumentSchema.Type;
 
+const setupCandidateFlags = (args: {
+  readonly scope: WorkspaceScope;
+  readonly agentIds: ReadonlyArray<string>;
+  readonly instructions: HandleSetupArgs["instructions"];
+  readonly replaceUnrecorded: boolean;
+}): string => {
+  const source = args.instructions === false ? "off" : (args.instructions?.fileName ?? "AGENTS.md");
+  const operand =
+    args.instructions !== false && (source === "off" || source.startsWith("-"))
+      ? `./${source}`
+      : source;
+  const quoted = /^[A-Za-z0-9_./-]+$/u.test(operand)
+    ? operand
+    : `'${operand.replaceAll("'", process.platform === "win32" ? "''" : "'\\''")}'`;
+  return `--scope ${args.scope}${args.agentIds.map((id) => ` --agent ${id}`).join("")}${args.scope === "project" ? ` --instructions ${quoted}` : ""}${args.replaceUnrecorded ? " --replace-unrecorded" : ""}`;
+};
+
 const setupSuggestions = (args: {
   readonly status: SetupOutcome["status"];
+  readonly blocked: boolean;
+  readonly instructions: SetupOutcome["instructions"];
+  readonly requestedInstructions: HandleSetupArgs["instructions"];
+  readonly replaceUnrecorded: boolean;
   readonly agentCount: number;
   readonly agentIds: ReadonlyArray<string>;
   readonly scope: WorkspaceScope;
@@ -71,15 +93,27 @@ const setupSuggestions = (args: {
   /** The workspace exists and has never settled its instruction choice. */
   readonly instructionChoiceOpen: boolean;
 }): ReadonlyArray<SuggestedAction> => {
+  const flags = setupCandidateFlags({
+    scope: args.scope,
+    agentIds: args.agentIds,
+    instructions:
+      args.instructions === undefined
+        ? args.requestedInstructions
+        : args.instructions.enabled === false
+          ? false
+          : { fileName: args.instructions.fileName ?? "AGENTS.md" },
+    replaceUnrecorded: args.replaceUnrecorded,
+  });
+  if (args.status === "preview" && args.blocked)
+    return [{ description: "Resolve the blocked targets and preview again" }];
   if (args.status === "preview" && args.agentCount === 0) {
-    return [{ description: "Choose coding agents", cmd: `axm setup --scope ${args.scope}` }];
+    return [{ description: "Choose coding agents", cmd: `axm setup ${flags}` }];
   }
   if (args.status === "preview") {
-    const agentFlags = args.agentIds.map((id) => ` --agent ${id}`).join("");
     return [
       {
         description: "Apply setup",
-        cmd: `axm setup --yes --scope ${args.scope}${agentFlags}`,
+        cmd: `axm setup --yes --non-interactive ${flags}`,
       },
     ];
   }
@@ -123,7 +157,7 @@ const setupSuggestions = (args: {
     suggestions.unshift({
       description:
         "Instruction files are not set up, so agents do not see installed Rules or Knowledge; settle that choice",
-      cmd: `axm setup --yes --scope ${args.scope}`,
+      cmd: `axm setup --preview --non-interactive ${flags}`,
     });
   }
 
@@ -152,6 +186,7 @@ const setupSuggestions = (args: {
 
 export interface HandleSetupArgs {
   readonly scope: WorkspaceScope;
+  readonly instructions?: false | { readonly fileName: string };
   readonly agents?: ReadonlyArray<string>;
   readonly yes?: boolean;
   readonly preview?: boolean;
@@ -173,6 +208,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
     scope: args.scope,
     ...(args.scopeExplicit === undefined ? {} : { scopeExplicit: args.scopeExplicit }),
     ...(args.agents === undefined ? {} : { agents: args.agents }),
+    ...(args.instructions === undefined ? {} : { instructions: args.instructions }),
     ...(args.yes === undefined ? {} : { yes: args.yes }),
     ...(args.preview === undefined ? {} : { preview: args.preview }),
     nonInteractive,
@@ -184,7 +220,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
     const suggestions = [
       {
         description: "Preview the setup candidate",
-        cmd: `axm setup --preview --scope ${args.scope}`,
+        cmd: `axm setup --preview --non-interactive ${setupCandidateFlags({ scope: args.scope, agentIds: args.agents ?? [], instructions: args.instructions, replaceUnrecorded: (yield* ProjectionOutputPosture).replaceUnrecorded === true })}`,
       },
     ];
     yield* emitResult(
@@ -250,6 +286,10 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
     ...suggestionsForScope(
       setupSuggestions({
         status: result.status,
+        blocked: result.blockedCount > 0,
+        instructions: result.instructions,
+        requestedInstructions: args.instructions,
+        replaceUnrecorded: (yield* ProjectionOutputPosture).replaceUnrecorded === true,
         agentCount: result.agents.length,
         agentIds: result.agents.map((agent) => agent.id),
         scope: transition.location.scope,
@@ -303,6 +343,12 @@ const setupConfig = {
   agent: agentFlag.pipe(
     withParameterDescription("Configure these coding agents instead of auto-detection"),
   ),
+  instructions: Flag.String("instructions").pipe(
+    withParameterDescription(
+      "Project instruction source filename, or off to leave instruction files alone",
+    ),
+    Flag.optional,
+  ),
   yes: preapprovalCapabilityFlag(setupCapabilities),
   preview: previewCapabilityFlag(),
   replaceUnrecorded: replaceUnrecordedFlag,
@@ -311,11 +357,14 @@ const setupConfig = {
 export const setupCommand = Command.make(
   "setup",
   setupConfig,
-  ({ scope, agent, yes, preview, replaceUnrecorded }) => {
+  ({ scope, agent, instructions, yes, preview, replaceUnrecorded }) => {
     const resolvedScope = Option.getOrElse(scope, () => "project" as const);
     return handleSetup({
       scope: resolvedScope,
       scopeExplicit: Option.isSome(scope),
+      ...(Option.isSome(instructions)
+        ? { instructions: instructions.value === "off" ? false : { fileName: instructions.value } }
+        : {}),
       yes,
       preview,
       ...(agent.length > 0 ? { agents: agent } : {}),

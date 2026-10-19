@@ -6,13 +6,24 @@ Disclose telemetry before invoking AXM, including `axm --version`: by default
 AXM collects command usage, public skill installs, and errors. Surface the
 preference and carry any chosen override through subsequent commands:
 `AXM_TELEMETRY=1` for all collection, `AXM_TELEMETRY=errors` for errors only,
-or `AXM_TELEMETRY=off` for off. A nonempty `DO_NOT_TRACK` or `DISABLE_TELEMETRY`
+or `AXM_TELEMETRY=0` for off. A nonempty `DO_NOT_TRACK` or `DISABLE_TELEMETRY`
 overrides that choice and turns collection off. Preserve those overrides.
 
 Set the chosen value in the shell used for every subsequent AXM command
 (`export AXM_TELEMETRY=errors` in POSIX shells, or
 `$env:AXM_TELEMETRY = "errors"` in PowerShell, for example). This uses the
 existing environment controls; setup does not save a separate consent setting.
+A conversation choice or export lasts only for the process or shell session
+that receives it. For future shells, put the export in the profile those shells
+actually load; on Windows, configure the user's environment explicitly. For a
+coding agent, configure its actual launcher or start it from that configured
+shell, for example `AXM_TELEMETRY=0 <agent-launcher>`. A GUI launcher may not
+read shell profiles. Do not edit profiles or host permissions automatically.
+
+Installer-owned version probes always receive `AXM_TELEMETRY=0` without changing
+the environment used by later AXM operations. For a pipe, an assignment on the
+downloader applies only to the downloader: `AXM_TELEMETRY=0 curl ... | sh` does
+not configure `sh`. Export the choice first, or set it on the interpreter side.
 
 **DONE WHEN:** `axm --version` succeeds and (if the user chose workspace
 setup) `axm setup` has completed.
@@ -24,8 +35,8 @@ setup) `axm setup` has completed.
 3. Preview setup, summarize its exact agent and file candidate, and get the
    user's approval.
 4. Apply the approved candidate with explicit scope and agent flags.
-5. Read `agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/src/SKILL.md`, then load
-   `axm help getting-started` and `axm help basic-usage`.
+5. Verify setup and stop. If continuing with extension work, load the installed
+   AXM entry skill and only the help needed for that operation.
 
 ## Invariants
 
@@ -56,37 +67,16 @@ Branch on stdout:
 
 ## 2. Install
 
-### Choose the method
+### Select the installer
 
-A manager is "available" if its `--version` exits 0 (`brew --version`,
-`npm --version`; PowerShell: `Get-Command brew|npm`). Don't install a new
-package manager just to install AXM.
+Honor an explicitly requested method or the environment's established tool
+policy. Otherwise use the install script. Do not install or survey package
+managers merely to choose an installer. The script manages its executable through
+`axm upgrade`; Homebrew and npm keep their own installation ownership.
 
-| Detected          | Method                                          |
-| ----------------- | ----------------------------------------------- |
-| Neither           | Install script (A on macOS/Linux, B on Windows) |
-| Homebrew only     | Homebrew (D)                                    |
-| npm only          | npm (E)                                         |
-| Both brew and npm | **Ask the user** (see below)                    |
-
-The install script is always a valid fallback if a package-manager install
-fails.
-
-### Ask when multiple managers are available
-
-All three install the same `axm` binary; **the difference is how you update
-it later.** Frame the choice that way, then ask the user to pick one:
-
-1. **Install script** (recommended) — self-managed via `axm upgrade`,
-   independent of any package manager. Installs to `~/.axm/bin`
-   (macOS/Linux) or `%USERPROFILE%\.axm\bin` (Windows).
-2. **Homebrew** — `brew upgrade agentxm/tap/axm`, alongside other brew
-   packages. Pick this if most CLIs are managed with brew.
-3. **npm** — `npm install -g axm.sh`, alongside other global npm packages.
-   Pick this if AXM is part of a Node.js-heavy environment. Requires Node.js
-   as specified under **npm prerequisite** below.
-
-Wait for the user's choice before running an installer.
+Homebrew and npm alternatives are listed below. If a manager install fails,
+diagnose its failure or use the standalone script with the user's existing
+installation ownership in view.
 
 ### npm prerequisite
 
@@ -121,10 +111,24 @@ need private extensions or publishing; `axm login --help` owns the available
 sign-in flows. See `axm help machine-output` for automation's result and error
 contracts.
 
-First preview setup without writing:
+Use project evidence when it names the intended agents. In an empty project,
+name the requesting agent explicitly when it is known from the request or host,
+for example `--agent claude-code`; otherwise ask once which agents to configure.
+Workstation detections are unselected suggestions for project setup, not project
+membership. Do not infer the requesting host from an arbitrary environment marker.
+
+Choose instruction management with `--instructions <source-file|off>`.
+The default is enabled with `AGENTS.md`; `off` leaves instruction files alone.
+With no content yet, enabled setup records that intent without creating an empty
+source or aliases. The first real source content or eligible Rule/Knowledge
+contribution materializes the required files. Existing usable content propagates
+normally; the plan discloses the canonical file, aliases, and any migration of
+an existing file into the source. A differing unrelated alias blocks setup.
+
+First preview the selected candidate without writing:
 
 ```bash
-axm setup --preview --scope project --json --non-interactive
+axm setup --preview --scope project --agent claude-code --instructions AGENTS.md --json --non-interactive
 ```
 
 Read `result.agents`, `result.agentCandidates`, `result.scopeSupport`, and
@@ -143,34 +147,33 @@ configuration; the consuming repository must exclude acquired
 `agent_extensions/` content from mutating tools.
 Successful setup and valid `axm.json` in the selected scope establish
 initialization. Ignored `.axm/` runtime state is created on demand; its absence
-after setup is valid. Wait for approval of that exact agent set and scope.
+after setup is valid. Include instruction choice, concrete source and alias paths,
+seed source/destination and replacement mechanism, retained files, warnings, and
+blockers from this actual plan in the summary. A blocked preview is a successful
+read-only assessment, not permission to apply. Resolve blockers or agent choices
+before asking for approval of that exact candidate.
 
 After approval, repeat every `result.agents[*].id` as an explicit `--agent`
-flag and apply without prompts. For example:
+flag, carry the same resolved `--instructions` choice, and apply without prompts.
+Use the suggested Apply setup command when available. Carry
+`--replace-unrecorded` only if the caller explicitly supplied that authority;
+`--yes` does not grant it. For example:
 
 ```bash
-axm setup --yes --scope project --agent claude-code --non-interactive
-cat agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/src/SKILL.md
-axm help getting-started
-axm help basic-usage
+axm setup --yes --scope project --agent claude-code --instructions AGENTS.md --non-interactive
 ```
 
 Do not infer approval from a preview. An unattended first setup without
 `--yes`, an explicit `--scope`, and at least one explicit `--agent` returns
 `reason: "approval-required"` and writes nothing.
 
-After setup, read the installed AXM skill and both help topics before doing
-any other AXM work in this session:
-
-- **`agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/src/SKILL.md`** — agent rules for
-  safe AXM CLI use, permissions, output modes, and day-to-day operations.
-
-- **`getting-started`** — first-time workspace setup; explains what `axm
-setup` just produced.
-- **`basic-usage`** — the key workspace files (`axm.json`, `axm.lock`,
-  `agent_extensions/`), the commit policy (those paths are committed while
-  `.axm/` is ignored), and how to act safely
-  in an existing workspace.
+After setup, verify `axm lint --json` and
+`axm sync --preview --fail-on-change --json`. Stop when installation and the
+approved setup are verified. No compulsory help reading follows setup. If the
+user continues with AXM work, load
+`agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/src/SKILL.md` and
+follow its task routes. The bundled official skill is executable-supplied content,
+not a user-authored package or a bare-publish candidate.
 
 ---
 

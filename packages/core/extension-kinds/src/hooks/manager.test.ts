@@ -217,6 +217,37 @@ describe("HookManager", () => {
       }
     }),
   );
+  it.effect("refuses a hook.json key the manifest schema does not declare", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-hook-excess-"));
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "audit");
+        const manifestPath = nodePath.join(packageRoot, "hook.json");
+        const manifest: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
+        writeFileSync(
+          manifestPath,
+          JSON.stringify(
+            typeof manifest === "object" && manifest !== null
+              ? { ...manifest, undeclared: true }
+              : manifest,
+          ),
+        );
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          const failure = yield* manager
+            .prepareProjection([makeLocalHookRef("audit", packageRoot)])
+            .pipe(Effect.flip);
+          expect(failure).toMatchObject({
+            _tag: "HookDefinitionInvalid",
+            cause: { _tag: "ManifestError", code: "manifest_schema_invalid" },
+          });
+        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["audit"] })));
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
   it.effect("activates a distributed package with intentionally omitted fixture files", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(

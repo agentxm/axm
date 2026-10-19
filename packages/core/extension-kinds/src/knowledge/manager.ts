@@ -39,7 +39,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Result from "effect/Result";
 import { PlatformError } from "effect/PlatformError";
@@ -101,13 +100,13 @@ import {
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
 import {
   KNOWLEDGE_SOURCE_DIR,
-  KnowledgeManifestSchema,
   type KnowledgeManifest,
 } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
 import {
-  inspectKnowledgeBundle,
+  inspectKnowledgePackage,
   type KnowledgeInspection,
 } from "@agentxm/extension-content/knowledge";
+import { ManifestError } from "@agentxm/extension-content";
 import type {
   GitHostedKnowledgeRef,
   KnowledgeExtensionRef,
@@ -124,8 +123,6 @@ interface PreparedKnowledgePackage {
   };
   readonly commit: Effect.Effect<void, ExtensionManagerFailure, ManagerRequirements>;
 }
-
-const decodeManifest = Schema.decodeUnknownEffect(KnowledgeManifestSchema);
 
 /**
  * Name the failure that stopped a restore in the operator's sentence: the
@@ -192,41 +189,14 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const inspectPackage = (packageRoot: string) =>
       Effect.gen(function* () {
-        const raw = yield* fs
-          .readFileString(path.join(packageRoot, manifestFilenameForType("knowledge")))
-          .pipe(
-            Effect.mapError(
-              (cause) =>
-                new KnowledgeDefinitionInvalid({
-                  detail: `Failed to read ${manifestFilenameForType("knowledge")}`,
-                  cause,
-                }),
-            ),
-          );
-        const manifest = yield* Effect.try({
-          try: (): unknown => JSON.parse(raw),
-          catch: (cause) =>
-            new KnowledgeDefinitionInvalid({
-              detail: `Failed to parse ${manifestFilenameForType("knowledge")}`,
-              cause,
-            }),
-        }).pipe(
-          Effect.flatMap(decodeManifest),
+        const { manifest, inspection } = yield* inspectKnowledgePackage(packageRoot).pipe(
           Effect.mapError(
             (cause) =>
               new KnowledgeDefinitionInvalid({
-                detail: `Invalid ${manifestFilenameForType("knowledge")}`,
-                cause,
-              }),
-          ),
-        );
-        const inspection = yield* provide(
-          inspectKnowledgeBundle(path.join(packageRoot, KNOWLEDGE_SOURCE_DIR)),
-        ).pipe(
-          Effect.mapError(
-            (cause) =>
-              new KnowledgeDefinitionInvalid({
-                detail: "Failed to inspect Open Knowledge Format bundle",
+                detail:
+                  cause instanceof ManifestError
+                    ? cause.detail
+                    : "Failed to inspect Open Knowledge Format bundle",
                 cause,
               }),
           ),

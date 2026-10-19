@@ -58,7 +58,6 @@ export const TestHook = {
     const location = yield* WorkspaceLocation;
     const root = yield* fs.realPath(path.resolve(location.baseDir, request.directory));
     const { manifest } = yield* readExtensionManifest(root, "hook");
-    if (manifest.type !== "hook") return yield* failed("The selected package is not a Hook");
     const resolved = resolveHookConfiguration(manifest, request.configuration ?? {});
     if (Result.isFailure(resolved))
       return yield* failed(

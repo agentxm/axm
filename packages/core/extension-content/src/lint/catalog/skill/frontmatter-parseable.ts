@@ -5,13 +5,15 @@
  * Cascade (reports the first failure in the order below; later arms
  * short-circuit):
  *
- * 1. SKILL.md begins with `---` at byte 0 (no BOM, no leading whitespace, no
- *    leading HTML comment). This is the arm that caught the
+ * 1. SKILL.md begins with a `---` line at byte 0 (no BOM, no leading
+ *    whitespace, no leading HTML comment). This is the arm that caught the
  *    `@agentxm/skills/axm` regression — an HTML comment preceded the
  *    frontmatter delimiter, so YAML parsers silently treated the content as
  *    body.
- * 2. Frontmatter YAML parses without error.
- * 3. Parsed frontmatter is a mapping (not a list, not a scalar).
+ * 2. A closing `---` line ends the block. Delimiters are located by
+ *    `findFrontmatterBoundaries`, the same grammar `parseSkillMd` uses.
+ * 3. Frontmatter YAML parses without error.
+ * 4. Parsed frontmatter is a mapping (not a list, not a scalar).
  *
  * Presence is handled by `skill/skill-md-present`; this rule early-returns
  * `[]` when `SKILL.md` is absent.
@@ -28,6 +30,7 @@
 
 import * as Effect from "effect/Effect";
 import YAML from "yaml";
+import { findFrontmatterBoundaries } from "../../../content/frontmatter.js";
 import type { SkillRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 
@@ -81,9 +84,7 @@ const evaluateCascade = (content: string): ReadonlyArray<AdvisoryFinding> => {
   }
   const parsed = parseFrontmatterYaml(content);
   if (parsed === undefined) {
-    // No frontmatter block. Treat as bad (cascade arm 1 "begins with ---"
-    // already handled the "literally no ---" case; reaching here means the
-    // delimiter was found but the closing delimiter is missing).
+    // Arm 1 guaranteed the opening `---` line, so the closing one is missing.
     return [
       finding(
         "SKILL.md frontmatter is malformed because the closing `---` delimiter is missing. Add a closing `---` after the frontmatter block.",
@@ -119,7 +120,12 @@ const detectLeadingBytes = (content: string): AdvisoryFinding | undefined => {
     );
   }
   if (content.startsWith(DELIMITER)) {
-    return undefined;
+    return content.split(/\r?\n/u, 1)[0] === DELIMITER
+      ? undefined
+      : finding(
+          "SKILL.md frontmatter must open with a line containing only `---`. Move any text after the opening delimiter onto the next line.",
+          { line: 1 },
+        );
   }
   // Any non-`---` leading content is a cascade-arm-1 violation. Detect the
   // common HTML-comment case explicitly so the finding message is clear.
@@ -136,7 +142,7 @@ const detectLeadingBytes = (content: string): AdvisoryFinding | undefined => {
 };
 
 // -----------------------------------------------------------------------------
-// Arms 2 + 3: YAML parse + mapping check
+// Arms 2-4: closing delimiter, YAML parse, mapping check
 // -----------------------------------------------------------------------------
 
 type ParseResult =
@@ -144,21 +150,14 @@ type ParseResult =
   | { readonly kind: "parse-error"; readonly message: string };
 
 const parseFrontmatterYaml = (content: string): ParseResult | undefined => {
-  // content starts with `---` (arm 1 guaranteed). Find closing delimiter on a
-  // new line.
-  const afterOpening = content.indexOf("\n");
-  if (afterOpening === -1) {
+  const boundaries = findFrontmatterBoundaries(content);
+  if (boundaries === undefined) {
     return undefined;
   }
-  const closingIndex = content.indexOf(`\n${DELIMITER}`, afterOpening);
-  if (closingIndex === -1) {
-    return undefined;
-  }
-  const yamlContent = content.slice(afterOpening + 1, closingIndex);
   try {
     // YAML.parse returns `null | undefined` for empty input; we care about
     // shape, not emptiness at this arm.
-    const value: unknown = YAML.parse(yamlContent);
+    const value: unknown = YAML.parse(content.slice(boundaries.yamlStart, boundaries.yamlEnd));
     return { kind: "parsed", value };
   } catch (error) {
     return {

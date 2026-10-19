@@ -1,14 +1,13 @@
 /**
- * Skill content file module for SKILL.md parsing and frontmatter schemas.
+ * SKILL.md frontmatter validation and parsing.
  *
- * Defines the frontmatter schema for SKILL.md files and a parser that
- * combines the shared frontmatter utility with skill-specific validation.
+ * Validates SKILL.md frontmatter against the pinned Agent Skills standard and
+ * combines the shared frontmatter utility with that validation in a parser.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import { parseFrontmatterSync } from "./frontmatter.js";
 import type { Skill } from "./skill-types.js";
 import {
@@ -18,76 +17,20 @@ import {
   AGENT_SKILLS_NAME_MAX_LENGTH,
 } from "./agent-skills-standard.js";
 
-const NonEmptyTrimmedStringSchema = Schema.String.pipe(
-  Schema.check(
-    Schema.makeFilter((input) =>
-      input.trim().length > 0 ? undefined : "Expected a non-empty string",
-    ),
-  ),
-);
-
-const BoundedNonEmptyStringSchema = (maximumLength: number) =>
-  NonEmptyTrimmedStringSchema.pipe(
-    Schema.check(
-      Schema.makeFilter((input) =>
-        [...input].length <= maximumLength
-          ? undefined
-          : `Expected at most ${maximumLength} characters`,
-      ),
-    ),
-  );
-
-const SkillNameSchema = BoundedNonEmptyStringSchema(AGENT_SKILLS_NAME_MAX_LENGTH).pipe(
-  Schema.check(
-    Schema.makeFilter((input) => {
-      const normalized = input.trim().normalize("NFKC");
-      if (normalized !== normalized.toLowerCase()) return "Skill name must be lowercase";
-      if (normalized.startsWith("-") || normalized.endsWith("-")) {
-        return "Skill name cannot start or end with a hyphen";
-      }
-      if (normalized.includes("--")) return "Skill name cannot contain consecutive hyphens";
-      return [...normalized].every((character) => /[\p{L}\p{N}-]/u.test(character))
-        ? undefined
-        : "Skill name may contain only Unicode letters, numbers, and hyphens";
-    }),
-  ),
-);
-
-const AllowedToolsSchema = NonEmptyTrimmedStringSchema.pipe(
-  Schema.check(
-    Schema.makeFilter((input) =>
-      /^\S+(?: \S+)*$/u.test(input) ? undefined : "Allowed tools must be a space-delimited string",
-    ),
-  ),
-);
-
 /**
- * Schema for SKILL.md frontmatter fields.
+ * Agent Skills standard metadata at the top of a SKILL.md file, as accepted
+ * by {@link validateSkillFrontmatter} (the single authority for its rules).
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillFrontmatterSchema = Schema.Struct({
-  name: SkillNameSchema.pipe(
-    Schema.annotateKey({ messageMissingKey: "skill name is required in SKILL.md frontmatter" }),
-  ),
-  description: BoundedNonEmptyStringSchema(AGENT_SKILLS_DESCRIPTION_MAX_LENGTH).pipe(
-    Schema.annotateKey({
-      messageMissingKey: "skill description is required in SKILL.md frontmatter",
-    }),
-  ),
-  license: Schema.optionalKey(Schema.String),
-  compatibility: Schema.optionalKey(
-    BoundedNonEmptyStringSchema(AGENT_SKILLS_COMPATIBILITY_MAX_LENGTH),
-  ),
-  metadata: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
-  "allowed-tools": Schema.optionalKey(AllowedToolsSchema),
-}).annotate({
-  identifier: "SkillFrontmatter",
-  title: "Skill Frontmatter",
-  description: "Agent Skills standard metadata at the top of a SKILL.md file.",
-});
-
-export type SkillFrontmatter = Schema.Schema.Type<typeof SkillFrontmatterSchema>;
+export interface SkillFrontmatter {
+  readonly name: string;
+  readonly description: string;
+  readonly license?: string;
+  readonly compatibility?: string;
+  readonly metadata?: Readonly<Record<string, string>>;
+  readonly "allowed-tools"?: string;
+}
 
 export type SkillFrontmatterValidation =
   | { readonly valid: true; readonly frontmatter: SkillFrontmatter }

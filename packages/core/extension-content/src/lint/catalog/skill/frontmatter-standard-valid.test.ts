@@ -92,4 +92,10 @@ describe("frontmatterStandardValidRule", () => {
       );
     }),
   );
+
+  it.effect("leaves a block without an exact closing `---` line to frontmatter-parseable", () =>
+    Effect.gen(function* () {
+      expect(yield* check("---\nname: café-review\n----\nbody\n")).toEqual([]);
+    }),
+  );
 });

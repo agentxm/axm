@@ -15,12 +15,11 @@
  * | `skill/standalone-declaration-valid`   | warning  | —       |
  * | `skill/recommended-packs-valid`        | warning  | —       |
  *
- * The last two come from `catalog/shared/recommended-packs-rules.ts`; every
- * non-pack catalog applies the same pair against its own manifest.
+ * The `skill.json` rules are the shared manifest envelope (`./skill/envelope.ts`),
+ * interleaved with the skill content rules. They apply to native skills only;
+ * a non-native skill carries no manifest, so they produce no findings for it.
  *
- * All ship `kind: "advisory"`. Native-vs-non-native applicability is
- * expressed via `check` early-return (no separate `applies` predicate); see
- * each rule's module for the guard.
+ * All ship `kind: "advisory"`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -29,13 +28,9 @@
 import type { LintRule } from "../rule.js";
 import type { SkillRuleContext } from "../context.js";
 import { skillMdPresentRule } from "./skill/skill-md-present.js";
-import { manifestPresentRule } from "./skill/manifest-present.js";
+import { skillEnvelopeRules } from "./skill/envelope.js";
 import { frontmatterParseableRule } from "./skill/frontmatter-parseable.js";
 import { frontmatterStandardValidRule } from "./skill/frontmatter-standard-valid.js";
-import { manifestSchemaValidRule } from "./skill/manifest-schema-valid.js";
-import { manifestKeysRecognizedRule } from "./skill/manifest-keys-recognized.js";
-import { recommendedPacksValidRule } from "./skill/recommended-packs-valid.js";
-import { standaloneDeclarationValidRule } from "./skill/standalone-declaration-valid.js";
 
 /**
  * Ordered `skill/*` rule catalog. Declaration order is the evaluation
@@ -46,11 +41,11 @@ import { standaloneDeclarationValidRule } from "./skill/standalone-declaration-v
  */
 export const skillRules: ReadonlyArray<LintRule<SkillRuleContext>> = [
   skillMdPresentRule,
-  manifestPresentRule,
+  skillEnvelopeRules.manifestPresent,
   frontmatterParseableRule,
   frontmatterStandardValidRule,
-  manifestSchemaValidRule,
-  manifestKeysRecognizedRule,
-  standaloneDeclarationValidRule,
-  recommendedPacksValidRule,
+  skillEnvelopeRules.manifestSchemaValid,
+  skillEnvelopeRules.manifestKeysRecognized,
+  skillEnvelopeRules.standaloneDeclarationValid,
+  skillEnvelopeRules.recommendedPacksValid,
 ];

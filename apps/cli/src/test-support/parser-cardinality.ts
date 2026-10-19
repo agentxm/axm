@@ -65,16 +65,20 @@ export const repeatedFlagControls = [
   ...["skill", "subagent", "rule", "hook", "knowledge", "mcp-server", "pack"].map((flag) =>
     control("install", flag),
   ),
-  control("hooks install", "hook"),
-  control("knowledge install", "knowledge"),
-  control("mcps install", "mcp-server"),
-  control("packs install", "pack"),
-  control("rules install", "rule"),
+  ...(
+    [
+      ["hooks install", "hook"],
+      ["knowledge install", "knowledge"],
+      ["mcps install", "mcp-server"],
+      ["packs install", "pack"],
+      ["rules install", "rule"],
+      ["skills install", "skill"],
+      ["subagents install", "subagent"],
+    ] satisfies ReadonlyArray<readonly [string, string]>
+  ).map(([route, flag]) => ({ ...control(route, flag), configKey: "selection" })),
   control("setup", "agent", ["claude-code", "claude-code"]),
-  control("skills install", "skill"),
   control("skills handoff", "skill"),
   control("skills handoff", "agent", ["claude-code", "codex"]),
-  control("subagents install", "subagent"),
   control(
     "token create",
     "owner",

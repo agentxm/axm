@@ -5,7 +5,6 @@ import { Argument, Command, Flag } from "effect/cli";
 
 import { acceptWarningsFlag, registryFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import {
   normalizeTypePublishSelection,
   type PublishableType,
@@ -19,6 +18,7 @@ import {
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { backfillFlag } from "../shared/publish-flags.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { handleRootPublish } from "./command.js";
 
 /** Every publish form distributes authored content to a Registry. */
@@ -26,10 +26,8 @@ const publishCapabilities = previewableCapabilities("registry", {
   inputs: "explicit-or-documented-defaults",
 });
 
-type PerTypePublishType = PublishableType;
-
-export const makePerTypePublishCommand = (type: PerTypePublishType) => {
-  const plural = extensionTypeToPlural[type];
+export const makePerTypePublishCommand = (type: PublishableType) => {
+  const { route } = extensionTypePresentation(type);
   const commonConfig = {
     extensions: Argument.String("name").pipe(
       withParameterDescription("Name, glob, or FQN within this type"),
@@ -53,60 +51,10 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     preview: previewCapabilityFlag(),
   } as const;
 
-  const examples = [
-    {
-      command: `axm ${plural} publish`,
-      description: `Publish every workspace-sourced ${plural} package`,
-    },
-    {
-      command: `axm ${plural} publish example-*`,
-      description: `Publish matching ${plural} packages`,
-    },
-  ];
-
-  if (type === "pack") {
-    const config = {
-      ...commonConfig,
-      includeDependencies: Flag.Boolean("include-dependencies").pipe(
-        withParameterDescription("Include workspace-sourced dependencies of selected packs"),
-        withParameterDefault(false),
-      ),
-    } as const;
-    return Command.make("publish", config, (parsed) =>
-      Effect.gen(function* () {
-        const selection = yield* normalizeTypePublishSelection({
-          type,
-          selectors: parsed.extensions,
-          owners: parsed.owner,
-          excludes: parsed.exclude,
-        }).pipe(Effect.mapError(failureToAppError));
-        return yield* handleRootPublish({
-          ...selection,
-          registry: parsed.registry,
-          backfill: parsed.backfill,
-          acceptWarnings: parsed.acceptWarnings,
-          preview: parsed.preview,
-          scope: "project",
-          visibility: parsed.visibility,
-          includeDependencies: parsed.includeDependencies,
-          recoveryCommand: [plural, "publish"],
-          recoverySelectors: [...parsed.extensions],
-          recoveryExcludes: [...parsed.exclude],
-        });
-      }).pipe(
-        withWorkspace("project"),
-        withRuntime(`${plural} publish`, { registry: parsed.registry }),
-      ),
-    ).pipe(
-      withArgvTracking(config),
-      withCommandCapabilities(publishCapabilities),
-      Command.withDescription(`Publish project-workspace ${plural} to a registry`),
-      Command.withExamples(examples),
-    );
-  }
-
-  const config = commonConfig;
-  return Command.make("publish", config, (parsed) =>
+  const run = (
+    parsed: Command.Command.Config.Infer<typeof commonConfig>,
+    includeDependencies: boolean,
+  ) =>
     Effect.gen(function* () {
       const selection = yield* normalizeTypePublishSelection({
         type,
@@ -122,20 +70,52 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         preview: parsed.preview,
         scope: "project",
         visibility: parsed.visibility,
-        includeDependencies: false,
-        recoveryCommand: [plural, "publish"],
+        includeDependencies,
+        recoveryCommand: [route, "publish"],
         recoverySelectors: [...parsed.extensions],
         recoveryExcludes: [...parsed.exclude],
       });
     }).pipe(
       withWorkspace("project"),
-      withRuntime(`${plural} publish`, { registry: parsed.registry }),
+      withRuntime(`${route} publish`, { registry: parsed.registry }),
+    );
+
+  const finish = <Name extends string, Input, ContextInput, E, R>(
+    command: Command.Command<Name, Input, ContextInput, E, R>,
+  ) =>
+    command.pipe(
+      withCommandCapabilities(publishCapabilities),
+      Command.withDescription(`Publish project-workspace ${route} to a registry`),
+      Command.withExamples([
+        {
+          command: `axm ${route} publish`,
+          description: `Publish every workspace-sourced ${route} package`,
+        },
+        {
+          command: `axm ${route} publish example-*`,
+          description: `Publish matching ${route} packages`,
+        },
+      ]),
+    );
+
+  if (type === "pack") {
+    const config = {
+      ...commonConfig,
+      includeDependencies: Flag.Boolean("include-dependencies").pipe(
+        withParameterDescription("Include workspace-sourced dependencies of selected packs"),
+        withParameterDefault(false),
+      ),
+    } as const;
+    return finish(
+      Command.make("publish", config, (parsed) => run(parsed, parsed.includeDependencies)).pipe(
+        withArgvTracking(config),
+      ),
+    );
+  }
+  return finish(
+    Command.make("publish", commonConfig, (parsed) => run(parsed, false)).pipe(
+      withArgvTracking(commonConfig),
     ),
-  ).pipe(
-    withArgvTracking(config),
-    withCommandCapabilities(publishCapabilities),
-    Command.withDescription(`Publish project-workspace ${plural} to a registry`),
-    Command.withExamples(examples),
   );
 };
 

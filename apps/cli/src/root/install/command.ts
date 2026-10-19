@@ -1,19 +1,15 @@
 import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
-/** Root and per-type install commands generated from one grammar definition. */
+/** Root and per-type install commands over one shared grammar. */
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
-import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import {
-  type InstallExtensionSelectors,
-  installSelectorsFor,
-} from "@agentxm/workspace-features/lifecycle";
+import { installSelectorsFor } from "@agentxm/workspace-features/lifecycle";
 
 import { agentFlag, ignoreReleaseAgeFlag, replaceUnrecordedFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
@@ -97,28 +93,6 @@ const mcpConfig = {
   ),
 };
 
-const selectorsFor = (
-  type: InstallableExtensionType,
-  selection: ReadonlyArray<string>,
-): InstallExtensionSelectors => {
-  switch (type) {
-    case "skill":
-      return { skill: selection };
-    case "mcp-server":
-      return { "mcp-server": selection };
-    case "subagent":
-      return { subagent: selection };
-    case "rule":
-      return { rule: selection };
-    case "hook":
-      return { hook: selection };
-    case "knowledge":
-      return { knowledge: selection };
-    case "pack":
-      return { pack: selection };
-  }
-};
-
 const installCapabilities = previewableCapabilities("workspace", {
   inputs: "explicit-or-interactive-selection",
   trust: ["publisher-change"],
@@ -140,14 +114,14 @@ const finishCommand = <Name extends string, Input, ContextInput, E, R>(
         command:
           type === undefined
             ? "axm install ./extensions --skill review --rule safe-shell"
-            : `axm ${extensionTypeToPlural[type]} install ./extensions --${extensionTypePresentation(type).selectorFlag} example`,
+            : `axm ${extensionTypePresentation(type).route} install ./extensions --${extensionTypePresentation(type).selectorFlag} example`,
         description: "Install an explicit selection from one source locator",
       },
       {
         command:
           type === undefined
             ? "axm install ./extensions --all"
-            : `axm ${extensionTypeToPlural[type]} install ./extensions --all`,
+            : `axm ${extensionTypePresentation(type).route} install ./extensions --all`,
         description: "Install everything the source offers without prompting",
       },
     ]),
@@ -155,6 +129,7 @@ const finishCommand = <Name extends string, Input, ContextInput, E, R>(
 
 interface ParsedTypedInstall {
   readonly source: string;
+  readonly selection: ReadonlyArray<string>;
   readonly agent: ReadonlyArray<string>;
   readonly scope: "project" | "user";
   readonly all: boolean;
@@ -227,205 +202,115 @@ const executeInstall = (
     withRuntime(runtimeName),
   );
 
-const runTypedInstall = (
+/**
+ * A typed route's grammar: the root install flags with one selector, keyed
+ * `selection` on every route, and the type's own flags after `--preview`.
+ */
+const typedConfig = <const Extras extends Command.Command.Config>(
   type: InstallableExtensionType,
-  parsed: ParsedTypedInstall,
-  selection: ReadonlyArray<string>,
-  configuration?: import("@agentxm/extension-model/unstable/hooks/manifest-schema").HookConfigurationValues,
+  extras: Extras,
 ) => {
-  const args: InstallHandlerArgs = {
-    type: Option.some(type),
-    source: Option.some(parsed.source),
-    agents: parsed.agent,
-    selectors: selectorsFor(type, selection),
-    all: parsed.all,
-
-    preview: parsed.preview,
-    bind: [],
-    bindEnv: [],
-    localName: Option.none(),
-    bundled: false,
-    ...(configuration === undefined ? {} : { configuration }),
+  const common = commonConfig();
+  return {
+    source: common.source,
+    agent: common.agent,
+    scope: common.scope,
+    selection: selectorFlag(type),
+    all: common.all,
+    preview: common.preview,
+    ...extras,
+    ignoreReleaseAge: common.ignoreReleaseAge,
+    replaceUnrecorded: common.replaceUnrecorded,
   };
-  return executeInstall(args, parsed.scope, parsed, `${extensionTypeToPlural[type]} install`);
 };
 
+const typedInstallArgs = (
+  type: InstallableExtensionType,
+  parsed: ParsedTypedInstall,
+): InstallHandlerArgs => ({
+  type: Option.some(type),
+  source: Option.some(parsed.source),
+  agents: parsed.agent,
+  selectors: { [type]: parsed.selection },
+  all: parsed.all,
+  preview: parsed.preview,
+  bind: [],
+  bindEnv: [],
+  localName: Option.none(),
+  bundled: false,
+});
+
 export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
-  if (type === "mcp-server") {
-    const common = commonConfig();
-    const config = {
-      source: common.source,
-      agent: common.agent,
-      scope: common.scope,
-      mcp: selectorFlag(type),
-      all: common.all,
-      preview: common.preview,
-      ...mcpConfig,
-      ignoreReleaseAge: common.ignoreReleaseAge,
-      replaceUnrecorded: common.replaceUnrecorded,
-    } as const;
-    return finishCommand(
-      Command.make("install", config, (parsed) => {
-        const args: InstallHandlerArgs = {
-          type: Option.some(type),
-          source: Option.some(parsed.source),
-          agents: parsed.agent,
-          selectors: selectorsFor(type, parsed.mcp),
-          all: parsed.all,
-
-          preview: parsed.preview,
-          bind: parsed.bind,
-          bindEnv: parsed.bindEnv,
-          ...(Option.isSome(parsed.distribution)
-            ? { distributionId: parsed.distribution.value }
-            : {}),
-          nativeOauth: parsed.nativeOauth,
-          localName: parsed.as,
-          bundled: false,
-        };
-        return executeInstall(args, parsed.scope, parsed, "mcps install");
-      }).pipe(withArgvTracking(config)),
-      type,
-    );
-  }
-  if (type === "skill") {
-    const common = commonConfig();
-    const config = {
-      source: common.source,
-      agent: common.agent,
-      scope: common.scope,
-      skill: selectorFlag(type),
-      all: common.all,
-      preview: common.preview,
-      bundled: Flag.Boolean("bundled").pipe(
-        withParameterDescription("Install the embedded official AXM skill without registry access"),
-        withParameterDefault(false),
-      ),
-      ignoreReleaseAge: common.ignoreReleaseAge,
-      replaceUnrecorded: common.replaceUnrecorded,
-    } as const;
-    return finishCommand(
-      Command.make("install", config, (parsed) => {
-        const args: InstallHandlerArgs = {
-          type: Option.some(type),
-          source: Option.some(parsed.source),
-          agents: parsed.agent,
-          selectors: selectorsFor(type, parsed.skill),
-          all: parsed.all,
-
-          preview: parsed.preview,
-          bind: [],
-          bindEnv: [],
-          localName: Option.none(),
-          bundled: parsed.bundled,
-        };
-        return executeInstall(args, parsed.scope, parsed, "skills install");
-      }).pipe(withArgvTracking(config)),
-      type,
-    );
-  }
+  const runtimeName = `${extensionTypePresentation(type).route} install`;
+  const run = (args: InstallHandlerArgs, parsed: ParsedTypedInstall) =>
+    executeInstall(args, parsed.scope, parsed, runtimeName);
   switch (type) {
-    case "subagent": {
-      const common = commonConfig();
-      const config = {
-        source: common.source,
-        agent: common.agent,
-        scope: common.scope,
-        subagent: selectorFlag(type),
-        all: common.all,
-        preview: common.preview,
-        ignoreReleaseAge: common.ignoreReleaseAge,
-        replaceUnrecorded: common.replaceUnrecorded,
-      } as const;
+    case "mcp-server": {
+      const config = typedConfig(type, mcpConfig);
       return finishCommand(
         Command.make("install", config, (parsed) =>
-          runTypedInstall(type, parsed, parsed.subagent),
+          run(
+            {
+              ...typedInstallArgs(type, parsed),
+              bind: parsed.bind,
+              bindEnv: parsed.bindEnv,
+              ...(Option.isSome(parsed.distribution)
+                ? { distributionId: parsed.distribution.value }
+                : {}),
+              nativeOauth: parsed.nativeOauth,
+              localName: parsed.as,
+            },
+            parsed,
+          ),
         ).pipe(withArgvTracking(config)),
         type,
       );
     }
-    case "rule": {
-      const common = commonConfig();
-      const config = {
-        source: common.source,
-        agent: common.agent,
-        scope: common.scope,
-        rule: selectorFlag(type),
-        all: common.all,
-        preview: common.preview,
-        ignoreReleaseAge: common.ignoreReleaseAge,
-        replaceUnrecorded: common.replaceUnrecorded,
-      } as const;
+    case "skill": {
+      const config = typedConfig(type, {
+        bundled: Flag.Boolean("bundled").pipe(
+          withParameterDescription(
+            "Install the embedded official AXM skill without registry access",
+          ),
+          withParameterDefault(false),
+        ),
+      });
       return finishCommand(
         Command.make("install", config, (parsed) =>
-          runTypedInstall(type, parsed, parsed.rule),
+          run({ ...typedInstallArgs(type, parsed), bundled: parsed.bundled }, parsed),
         ).pipe(withArgvTracking(config)),
         type,
       );
     }
     case "hook": {
-      const common = commonConfig();
-      const config = {
-        source: common.source,
-        agent: common.agent,
-        scope: common.scope,
-        hook: selectorFlag(type),
+      const config = typedConfig(type, {
         configuration: Flag.String("configuration").pipe(
           Flag.optional,
           withParameterDescription(
             "Consumer values as a JSON object; {env: NAME} references a secret",
           ),
         ),
-        all: common.all,
-        preview: common.preview,
-        ignoreReleaseAge: common.ignoreReleaseAge,
-        replaceUnrecorded: common.replaceUnrecorded,
-      } as const;
+      });
       return finishCommand(
         Command.make("install", config, (parsed) =>
-          Option.isNone(parsed.configuration)
-            ? runTypedInstall(type, parsed, parsed.hook)
-            : parseHookConfiguration(parsed.configuration.value).pipe(
-                Effect.flatMap((values) => runTypedInstall(type, parsed, parsed.hook, values)),
+          Option.match(parsed.configuration, {
+            onNone: () => run(typedInstallArgs(type, parsed), parsed),
+            onSome: (configuration) =>
+              parseHookConfiguration(configuration).pipe(
+                Effect.flatMap((values) =>
+                  run({ ...typedInstallArgs(type, parsed), configuration: values }, parsed),
+                ),
               ),
+          }),
         ).pipe(withArgvTracking(config)),
         type,
       );
     }
-    case "knowledge": {
-      const common = commonConfig();
-      const config = {
-        source: common.source,
-        agent: common.agent,
-        scope: common.scope,
-        knowledge: selectorFlag(type),
-        all: common.all,
-        preview: common.preview,
-        ignoreReleaseAge: common.ignoreReleaseAge,
-        replaceUnrecorded: common.replaceUnrecorded,
-      } as const;
+    default: {
+      const config = typedConfig(type, {});
       return finishCommand(
         Command.make("install", config, (parsed) =>
-          runTypedInstall(type, parsed, parsed.knowledge),
-        ).pipe(withArgvTracking(config)),
-        type,
-      );
-    }
-    case "pack": {
-      const common = commonConfig();
-      const config = {
-        source: common.source,
-        agent: common.agent,
-        scope: common.scope,
-        pack: selectorFlag(type),
-        all: common.all,
-        preview: common.preview,
-        ignoreReleaseAge: common.ignoreReleaseAge,
-        replaceUnrecorded: common.replaceUnrecorded,
-      } as const;
-      return finishCommand(
-        Command.make("install", config, (parsed) =>
-          runTypedInstall(type, parsed, parsed.pack),
+          run(typedInstallArgs(type, parsed), parsed),
         ).pipe(withArgvTracking(config)),
         type,
       );

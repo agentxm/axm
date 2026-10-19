@@ -4171,13 +4171,6 @@
                 "variadic": { "min": 0 }
               },
               {
-                "name": "configuration",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Consumer values as a JSON object; {env: NAME} references a secret"
-              },
-              {
                 "name": "all",
                 "aliases": [],
                 "type": "boolean",
@@ -4192,6 +4185,13 @@
                 "required": false,
                 "description": "Show what would change without applying it",
                 "default": false
+              },
+              {
+                "name": "configuration",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Consumer values as a JSON object; {env: NAME} references a secret"
               },
               {
                 "name": "ignore-release-age",

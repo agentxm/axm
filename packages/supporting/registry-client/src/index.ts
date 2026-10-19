@@ -147,13 +147,7 @@ export {
 } from "./error-mapping.js";
 
 // Utilities
-export {
-  extensionDir,
-  extensionLifecycleWarnings,
-  extractZip,
-  pluralizeType,
-  type ArchiveExtractionLimits,
-} from "./utils.js";
+export { extensionDir, extensionLifecycleWarnings, pluralizeType } from "./utils.js";
 export { formatDeprecationWarning } from "./deprecation-warning.js";
 
 export {

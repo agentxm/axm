@@ -1,14 +1,11 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Fiber from "effect/Fiber";
 import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
-import { zipSync } from "fflate";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -27,19 +24,18 @@ import {
   withBufferedArchiveBudget,
 } from "./buffered-archive-budget.js";
 import { makeOperationExtractionBudget } from "./extraction-budget.js";
-import { extractZip } from "./utils.js";
 
 export const specification = defineSpecification({
   requirement: "registry-client/archive-acquisition-is-bounded",
   title: "Archive acquisition refuses content that exceeds finite resource limits",
   statement:
-    "AXM shall enforce finite compressed-body, operation-wide buffered-archive, expanded-content, entry-count, and concurrent-extraction limits while acquiring Registry archives, stop at a breached content bound with a typed resource failure, observe cancellation between compressed chunks, and leave the target package tree unwritten on refusal or interruption.",
+    "AXM shall declare finite compressed-body, expanded-content, and entry-count limits for Registry archives, refuse a body that exceeds the compressed-body or operation-wide buffered-archive limit with a typed resource failure before writing the target package tree, and release a buffered-archive reservation or concurrent-extraction slot when its holder is cancelled.",
   class: "functional",
   role: "supporting",
   goals: ["trustworthy-distribution", "safe-repetition"],
   boundary: "platform",
   boundaryRationale:
-    "Controlled archive bytes and a temporary filesystem make the admitted byte count, extracted entries, typed refusal, and absence of target writes directly observable.",
+    "Controlled archive bytes and a temporary filesystem make the admitted byte count, typed refusal, and absence of target writes directly observable.",
   methods: ["boundary-value", "example"],
   derivedFrom: ["docs/architecture/workspace/execution.md"],
   supersedes: [],
@@ -131,42 +127,6 @@ describe("Bounded archive acquisition", () => {
       expect(failure.category).toBe("quota");
       expect(observed).toEqual([2, 4, 2, 4]);
     }),
-  );
-
-  it.effect("refuses expanded bytes before writing extracted entries", () =>
-    Effect.gen(function* () {
-      const files = yield* FileSystem.FileSystem;
-      const paths = yield* Path.Path;
-      const root = yield* files.makeTempDirectoryScoped({ prefix: "axm-bounded-unzip-" });
-      const target = paths.join(root, "target");
-      yield* files.makeDirectory(target);
-      const archive = zipSync({ "skill.txt": new TextEncoder().encode("more than four") });
-
-      const failure = yield* extractZip(archive, target, { maxExpandedBytes: 4 }).pipe(Effect.flip);
-      expect(failure.category).toBe("quota");
-      expect(yield* files.readDirectory(target)).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-  );
-
-  it.effect("interrupts inflation between chunks before writing the target tree", () =>
-    Effect.gen(function* () {
-      const files = yield* FileSystem.FileSystem;
-      const paths = yield* Path.Path;
-      const root = yield* files.makeTempDirectoryScoped({ prefix: "axm-interrupted-unzip-" });
-      const target = paths.join(root, "target");
-      yield* files.makeDirectory(target);
-      const content = Uint8Array.from({ length: 2 * 1024 * 1024 }, (_, index) => index % 251);
-      const archive = zipSync({ "skill.txt": content }, { level: 0 });
-
-      const worker = yield* extractZip(archive, target).pipe(Effect.forkChild);
-      yield* Effect.yieldNow;
-      expect(worker.pollUnsafe()).toBeUndefined();
-
-      yield* Fiber.interrupt(worker);
-      const exit = yield* Fiber.await(worker);
-      expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true);
-      expect(yield* files.readDirectory(target)).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect("releases an extraction slot after cancellation so another archive can proceed", () =>

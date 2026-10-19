@@ -7835,7 +7835,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `extensions/acquisition/external-archives-retain-payloads`
 - Owner: `workspace-kernel`
-- Statement: AXM shall acquire ZIP, tar, and gzip-compressed tar payloads without rewriting content or executable modes, retain contained relative symbolic links, and refuse unsafe archive paths, ambiguous members, non-directory ancestors, escaping links, unsupported special entries, and content exceeding bounded acquisition limits.
+- Statement: AXM shall acquire ZIP, tar, and gzip-compressed tar payloads without rewriting content or executable modes, retain contained relative symbolic links, hold an operation extraction slot while extracting, refuse unsafe archive paths, ambiguous members, non-directory ancestors, escaping links, unsupported special entries, undecodable content, content that differs from its declared sizes, and content exceeding bounded acquisition limits, and leave the staging directory unwritten when refusing content or cancelled during decoding.
 - Class: functional
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `extension-adoption`
@@ -7860,12 +7860,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `registry-client/archive-acquisition-is-bounded`
 - Owner: `registry-client`
-- Statement: AXM shall enforce finite compressed-body, operation-wide buffered-archive, expanded-content, entry-count, and concurrent-extraction limits while acquiring Registry archives, stop at a breached content bound with a typed resource failure, observe cancellation between compressed chunks, and leave the target package tree unwritten on refusal or interruption.
+- Statement: AXM shall declare finite compressed-body, expanded-content, and entry-count limits for Registry archives, refuse a body that exceeds the compressed-body or operation-wide buffered-archive limit with a typed resource failure before writing the target package tree, and release a buffered-archive reservation or concurrent-extraction slot when its holder is cancelled.
 - Class: functional
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `safe-repetition`
 - Boundary: platform; selection: per-change
-- Boundary rationale: Controlled archive bytes and a temporary filesystem make the admitted byte count, extracted entries, typed refusal, and absence of target writes directly observable.
+- Boundary rationale: Controlled archive bytes and a temporary filesystem make the admitted byte count, typed refusal, and absence of target writes directly observable.
 - Methods: boundary-value, example
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/supporting/registry-client/src/archive-acquisition-is-bounded.spec.ts`](../packages/supporting/registry-client/src/archive-acquisition-is-bounded.spec.ts)

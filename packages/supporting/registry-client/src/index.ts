@@ -4,7 +4,7 @@
  * The registry integration: local and remote registry clients over the
  * generated OpenAPI transport, request policy and retry, the typed registry
  * failure vocabulary with problem-details translation, the content-addressed
- * archive cache, lifecycle administration, and package-discovery request types.
+ * archive cache, lifecycle administration, and package-discovery results.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -14,72 +14,40 @@
 export type {
   RegistryClient,
   RegistryExtensionManifest,
-  DiscoverPackageInput,
-  DiscoverPackagesArgs,
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
   GetExtensionIndexArgs,
-  GetExactExtensionVersionArgs,
-  ExactExtensionVersion,
-  GetExtensionVisibilityArgs,
-  ArchiveDownloadProgress,
-  ExactRegistryPackage,
   GetExtensionPackageArgs,
-  GetExtensionPackageResponse,
   PublishExtensionArgs,
   PublishExtensionResponse,
   RegistryPublishWarning,
-  PreviewExtensionPublishesArgs,
-  PublishPreviewResult,
-  PublishPreviewTarget,
-  OwnerExistsResponse,
-  ExtensionExistsArgs,
-  ExtensionExistsResponse,
-  UpdateExtensionVisibilityArgs,
 } from "./client.js";
 
-export {
-  DEFAULT_REGISTRY_REQUEST_POLICY,
-  PUBLISH_REGISTRY_REQUEST_POLICY,
-  RegistryRetryObservation,
-  executeRegistryRequest,
-  type RegistryRequestPolicy,
-  type RegistryRequestReplaySafety,
-  type RegistryRetryWait,
-} from "./request-policy.js";
+export { RegistryRetryObservation } from "./request-policy.js";
 export {
   OperationExtractionBudget,
   makeOperationExtractionBudget,
   type OperationExtractionBudgetService,
 } from "./extraction-budget.js";
 export {
-  BUFFERED_ARCHIVE_RESERVATION_BYTES,
   MAX_OPERATION_BUFFERED_ARCHIVE_BYTES,
   OperationBufferedArchiveBudget,
   makeOperationBufferedArchiveBudget,
   withBufferedArchiveBudget,
-  type OperationBufferedArchiveBudgetService,
 } from "./buffered-archive-budget.js";
 
-export type {
-  ArchiveCache,
-  ArchiveCacheOptions,
-  ArchiveCachePruneResult,
-  ArchiveCacheStatus,
-  ArchiveCacheVerifyResult,
-} from "./archive-cache.js";
-export {
-  ARCHIVE_CACHE_MAX_AGE,
-  ARCHIVE_CACHE_MAX_BYTES,
-  makeArchiveCache,
-  makeUserArchiveCache,
-} from "./archive-cache.js";
+export { makeUserArchiveCache } from "./archive-cache.js";
 
 export type {
   RegistryExtensionReference,
   RegistryExtensionVersionReference,
+  // Dependents infer the lifecycle client's type, so declaration emit must be
+  // able to name it and its inputs; knip skips exports tagged public.
+  /** @public */
   RegistryLifecycleClient,
+  /** @public */
   PutExtensionDeprecationInput,
+  /** @public */
   PutExtensionArchivalInput,
   YankCategory,
 } from "./admin-client.js";
@@ -96,41 +64,24 @@ export {
   type RegistryClientFailure,
   type RegistryErrorCategory,
   type RegistryErrorMetadata,
-  type RegistryRequestMetadata,
-  type RegistryRequestPolicyMetadata,
-  type RegistryResponseMetadata,
 } from "./errors.js";
 
 // Failure translation
-export {
-  httpStatusToCategory,
-  registryClientErrorToProblem,
-  registryErrorToProblem,
-  type ProblemDetails,
-} from "./translate.js";
-export {
-  captureRegistryErrorResponseBodies,
-  mapRegistryFailure,
-  type RegistryFailureContext,
-} from "./failure-mapping.js";
+export { registryErrorToProblem } from "./translate.js";
+export { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failure-mapping.js";
 export { retainedRegistryResponseBody } from "./response-body.js";
 
 // Error mapping helpers
 export {
-  buildNetworkSuggestions,
-  buildNetworkDiagnosis,
   getString,
   isRegistryClientError,
   isHttpClientError,
   isSchemaError,
   isTransientRegistryError,
-  mapNetworkError,
-  mapSchemaError,
-  mapUnexpectedStatusError,
 } from "./error-mapping.js";
 
 // Utilities
-export { extensionDir, extensionLifecycleWarnings, pluralizeType } from "./utils.js";
+export { extensionLifecycleWarnings } from "./utils.js";
 export { formatDeprecationWarning } from "./deprecation-warning.js";
 
 export {
@@ -156,14 +107,11 @@ export {
   type RegistrySelectionReason,
 } from "./registry-context.js";
 
-export { purlIdentityMatch, purlMatch } from "./purl-match.js";
-
 // Discovery results refined from the generated transport
 export {
   DiscoveryResolvedExtensionSchema,
   type DiscoverPackagesResponse,
   type DiscoveryExtensionResult,
-  type DiscoveryPackageResult,
   type DiscoveryResolvedExtension,
 } from "./discovery-response.js";
 
@@ -176,7 +124,5 @@ export {
   MAX_BUFFERED_ARCHIVE_BYTES,
   MAX_EXTRACTED_ARCHIVE_BYTES,
 } from "./archive-limits.js";
-
-export { RegistryRequestAttempt } from "./request-attempt.js";
 
 export { RegistryFailureObservation } from "./failure-observation.js";

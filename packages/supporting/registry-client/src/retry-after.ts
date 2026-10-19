@@ -21,7 +21,7 @@ const retryAfterFromBody = (status: number, body: unknown): number | undefined =
   }
 };
 
-export const parseRetryAfterHeader = (
+const parseRetryAfterHeader = (
   value: string | undefined,
   nowMillis?: number,
 ): number | undefined => {

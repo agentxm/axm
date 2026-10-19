@@ -77,7 +77,7 @@ const normalizeArchivalTransition = (
   revision: value.revision,
 });
 
-export const normalizeRegistryDeprecation = (
+const normalizeRegistryDeprecation = (
   value: GeneratedRegistryClient.DeprecationView | null,
 ): Effect.Effect<DeprecationView | null, RegistryClientFailure> => {
   if (value === null) return Effect.succeed(null);

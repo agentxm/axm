@@ -13,7 +13,7 @@ import { RegistryProblem, type RegistryErrorCategory } from "./errors.js";
 import { registryRetryAfterSeconds } from "./retry-after.js";
 import { retainedRegistryResponseBody } from "./response-body.js";
 
-export interface ProblemDetails {
+interface ProblemDetails {
   readonly [key: string]: unknown;
   readonly title?: string;
   readonly status?: number;

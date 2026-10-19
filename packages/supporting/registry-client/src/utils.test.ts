@@ -7,7 +7,7 @@ import * as DateTime from "effect/DateTime";
 
 import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { exactVersion, extensionName, handle } from "./test-helpers.js";
-import { extensionDir, extensionLifecycleWarnings, pluralizeType } from "./utils.js";
+import { extensionDir, extensionLifecycleWarnings } from "./utils.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -68,24 +68,6 @@ describe("extensionLifecycleWarnings", () => {
         version,
       ),
     ).toEqual(["@acme/mcps/github@1.0.0 is yanked"]);
-  });
-});
-
-// -----------------------------------------------------------------------------
-// pluralizeType
-// -----------------------------------------------------------------------------
-
-describe("pluralizeType", () => {
-  it("pluralizes skill", () => {
-    expect(pluralizeType("skill")).toBe("skills");
-  });
-
-  it("pluralizes pack", () => {
-    expect(pluralizeType("pack")).toBe("packs");
-  });
-
-  it("pluralizes mcp-server", () => {
-    expect(pluralizeType("mcp-server")).toBe("mcps");
   });
 });
 

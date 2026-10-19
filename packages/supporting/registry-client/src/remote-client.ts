@@ -61,7 +61,7 @@ import {
   type ResolutionMetadataRequest,
 } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { extensionLifecycleWarnings, pluralizeType } from "./utils.js";
+import { extensionLifecycleWarnings } from "./utils.js";
 import { collectBufferedArchive, MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import { collectResolutionMetadataPages } from "./resolution-metadata-pages.js";
 import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
@@ -510,7 +510,7 @@ export const createRemoteRegistryClient = (
   // ---------------------------------------------------------------------------
   const getExtensionIndex = (args: GetExtensionIndexArgs) =>
     executeRemoteRequest(
-      client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined).pipe(
+      client.ExtensionsGet(args.owner, toExtensionTypePlural(args.type), args.name, undefined).pipe(
         // Resolve the HTTP outcome first (404 → absent), then decode the index in
         // the effect so a schema-drift SchemaError is mapped through the error
         // channel (mapDiscoveryError's isSchemaError branch) instead of throwing
@@ -525,7 +525,7 @@ export const createRemoteRegistryClient = (
       {
         operation: "get extension index",
         method: "GET",
-        path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
+        path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`,
         replaySafety: safe,
         mapError: (error, nowMillis) =>
           mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
@@ -559,7 +559,7 @@ export const createRemoteRegistryClient = (
       client
         .ExtensionsGetVersion(
           args.owner,
-          pluralizeType(args.type),
+          toExtensionTypePlural(args.type),
           args.name,
           args.version,
           undefined,
@@ -596,7 +596,7 @@ export const createRemoteRegistryClient = (
       {
         operation: "get exact extension version",
         method: "GET",
-        path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${args.version}`,
+        path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}/${args.version}`,
         replaySafety: safe,
         mapError: (error, nowMillis) =>
           mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
@@ -822,7 +822,7 @@ export const createRemoteRegistryClient = (
   ): Effect.Effect<ExtensionSummaryPage["extensions"], RegistryClientFailure> =>
     collectExtensionSummaryPages((cursor) =>
       executeRemoteRequest(
-        client.ExtensionsListByType(owner, pluralizeType(type), {
+        client.ExtensionsListByType(owner, toExtensionTypePlural(type), {
           params: {
             limit: EXTENSION_LIST_PAGE_LIMIT,
             ...(cursor === null ? {} : { cursor }),
@@ -832,7 +832,7 @@ export const createRemoteRegistryClient = (
         {
           operation: "list owner extensions by type",
           method: "GET",
-          path: `/v1/extensions/${owner}/${pluralizeType(type)}`,
+          path: `/v1/extensions/${owner}/${toExtensionTypePlural(type)}`,
           replaySafety: safe,
           mapError: (error, nowMillis) =>
             mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
@@ -889,11 +889,11 @@ export const createRemoteRegistryClient = (
       const selected = yield* Effect.gen(function* () {
         if (args.exact !== undefined) return args.exact;
         const indexResult = yield* executeRemoteRequest(
-          client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined),
+          client.ExtensionsGet(args.owner, toExtensionTypePlural(args.type), args.name, undefined),
           {
             operation: "get package index",
             method: "GET",
-            path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
+            path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`,
             replaySafety: safe,
             mapError: mapPackageFetchError,
           },
@@ -929,7 +929,7 @@ export const createRemoteRegistryClient = (
 
       // Step 3: Download archive, streaming the body so the caller observes
       // progress as bytes arrive; the transport never decides how often.
-      const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${pluralizeType(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
+      const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${toExtensionTypePlural(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
       const archiveHttpClient =
         args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient;
       const fetchArchive = executeRemoteRequest(
@@ -1070,19 +1070,21 @@ export const createRemoteRegistryClient = (
     args: ExtensionExistsArgs,
   ): Effect.Effect<ExtensionExistsResponse, RegistryClientFailure> =>
     executeRemoteRequest(
-      client.ExtensionsHead(args.owner, pluralizeType(args.type), args.name, undefined).pipe(
-        Effect.map(() => ({ exists: true }) satisfies ExtensionExistsResponse),
-        Effect.catch((e) => {
-          if (getTag(e) === "404") {
-            return Effect.succeed({ exists: false } satisfies ExtensionExistsResponse);
-          }
-          return Effect.fail(e);
-        }),
-      ),
+      client
+        .ExtensionsHead(args.owner, toExtensionTypePlural(args.type), args.name, undefined)
+        .pipe(
+          Effect.map(() => ({ exists: true }) satisfies ExtensionExistsResponse),
+          Effect.catch((e) => {
+            if (getTag(e) === "404") {
+              return Effect.succeed({ exists: false } satisfies ExtensionExistsResponse);
+            }
+            return Effect.fail(e);
+          }),
+        ),
       {
         operation: "check extension",
         method: "HEAD",
-        path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
+        path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`,
         replaySafety: safe,
         mapError: mapExtensionExistsError,
       },
@@ -1145,15 +1147,21 @@ export const createRemoteRegistryClient = (
 
     return executeRemoteRequest(
       publishClient
-        .ExtensionsPublishVersion(args.owner, pluralizeType(args.type), args.name, args.version, {
-          params: {
-            "if-match": args.condition,
-            "x-axm-publication-set-digest": args.publicationSetDigest,
-            "x-axm-publication-descriptor-digest": args.publicationDescriptorDigest,
-            "x-axm-visibility-input": JSON.stringify(args.visibilityInput),
-            ...(args.visibility === undefined ? {} : { visibility: args.visibility.value }),
+        .ExtensionsPublishVersion(
+          args.owner,
+          toExtensionTypePlural(args.type),
+          args.name,
+          args.version,
+          {
+            params: {
+              "if-match": args.condition,
+              "x-axm-publication-set-digest": args.publicationSetDigest,
+              "x-axm-publication-descriptor-digest": args.publicationDescriptorDigest,
+              "x-axm-visibility-input": JSON.stringify(args.visibilityInput),
+              ...(args.visibility === undefined ? {} : { visibility: args.visibility.value }),
+            },
           },
-        })
+        )
         .pipe(
           Effect.map(
             (response) =>
@@ -1178,7 +1186,7 @@ export const createRemoteRegistryClient = (
       {
         operation: "publish extension version",
         method: "PUT",
-        path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/${args.version}`,
+        path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}/${args.version}`,
         replaySafety: mutation,
         mapError: mapPublishError,
         policy: PUBLISH_REGISTRY_REQUEST_POLICY,
@@ -1250,17 +1258,22 @@ export const createRemoteRegistryClient = (
       ...(args.verification === undefined ? {} : { verification: args.verification }),
     };
     return executeRemoteRequest(
-      client.ExtensionsUpdateVisibility(target.owner, pluralizeType(target.type), target.name, {
-        params: {
-          "if-match": args.revision,
+      client.ExtensionsUpdateVisibility(
+        target.owner,
+        toExtensionTypePlural(target.type),
+        target.name,
+        {
+          params: {
+            "if-match": args.revision,
+          },
+          payload,
+          config: undefined,
         },
-        payload,
-        config: undefined,
-      }),
+      ),
       {
         operation: "update extension visibility",
         method: "PATCH",
-        path: `/v1/extensions/${target.owner}/${pluralizeType(target.type)}/${target.name}`,
+        path: `/v1/extensions/${target.owner}/${toExtensionTypePlural(target.type)}/${target.name}`,
         replaySafety: mutation,
         mapError: (error, nowMillis) =>
           mapFailure(
@@ -1279,7 +1292,7 @@ export const createRemoteRegistryClient = (
 
   const getExtensionVisibility = (args: GetExtensionVisibilityArgs) =>
     executeRemoteRequest(
-      client.ExtensionsGetVisibility(args.owner, pluralizeType(args.type), args.name, {
+      client.ExtensionsGetVisibility(args.owner, toExtensionTypePlural(args.type), args.name, {
         ...(args.intent === null
           ? {}
           : {
@@ -1294,7 +1307,7 @@ export const createRemoteRegistryClient = (
       {
         operation: "get extension visibility",
         method: "GET",
-        path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}/visibility`,
+        path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}/visibility`,
         replaySafety: safe,
         mapError: (error, nowMillis) =>
           mapFailure(

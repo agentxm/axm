@@ -216,20 +216,20 @@ export interface RegistrySubagentVersion {
   readonly published?: string;
 }
 
-export interface RegistryRuleVersion {
+interface RegistryRuleVersion {
   readonly version: string;
   readonly body?: string;
   readonly published?: string;
 }
 
-export interface RegistryHookVersion {
+interface RegistryHookVersion {
   readonly version: string;
   readonly files?: Readonly<Record<string, string>>;
   readonly published?: string;
 }
 
 /** One published version of an MCP server package. */
-export interface RegistryMcpVersion {
+interface RegistryMcpVersion {
   readonly version: string;
   readonly files?: Readonly<Record<string, string>>;
   /** A required secret environment input, for credential-lifecycle fixtures. */
@@ -238,7 +238,7 @@ export interface RegistryMcpVersion {
 }
 
 /** One published version of a pack, with the member constraints it declares. */
-export interface RegistryPackVersion {
+interface RegistryPackVersion {
   readonly version: string;
   readonly files?: Readonly<Record<string, string>>;
   readonly dependencies: Readonly<Record<string, string>>;
@@ -246,7 +246,7 @@ export interface RegistryPackVersion {
 }
 
 /** One published version of an Open Knowledge Format bundle. */
-export interface RegistryKnowledgeVersion {
+interface RegistryKnowledgeVersion {
   readonly version: string;
   readonly body: string;
   readonly published?: string;

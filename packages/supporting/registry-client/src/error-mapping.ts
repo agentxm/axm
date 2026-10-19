@@ -20,9 +20,7 @@ import {
   isRegistryClientFailure,
   RegistryRequestFailed,
   type RegistryClientFailure,
-  type RegistryProblem,
 } from "./errors.js";
-import { registryClientErrorToProblem } from "./translate.js";
 
 // -----------------------------------------------------------------------------
 // Safe Field Access
@@ -150,25 +148,6 @@ export const buildNetworkSuggestions = (baseUrl: string): ReadonlyArray<Suggeste
   }
 };
 
-/**
- * Build diagnostic details array for network errors.
- * Detects localhost+HTTPS protocol mismatch.
- */
-export const buildNetworkDiagnosis = (baseUrl: string): ReadonlyArray<string> => {
-  try {
-    const parsed = new URL(baseUrl);
-    const isLocalAddr = isLoopbackHostname(parsed.hostname);
-
-    if (isLocalAddr && parsed.protocol === "https:") {
-      return ["Diagnosis: Local registry appears HTTP-only while source uses HTTPS."];
-    }
-
-    return [];
-  } catch {
-    return [];
-  }
-};
-
 // -----------------------------------------------------------------------------
 // Tag Utilities
 // -----------------------------------------------------------------------------
@@ -224,30 +203,3 @@ export const mapNetworkError = (
     suggestions: buildNetworkSuggestions(baseUrl),
     cause: error,
   });
-
-// -----------------------------------------------------------------------------
-// Schema Error Mapping
-// -----------------------------------------------------------------------------
-
-/**
- * Map a response Schema decode error to a typed registry failure.
- */
-export const mapSchemaError = (error: unknown, message: string): RegistryRequestFailed =>
-  new RegistryRequestFailed({
-    reason: "transport",
-    category: "internal",
-    detail: message,
-    cause: error,
-  });
-
-// -----------------------------------------------------------------------------
-// Generic Error Mapping
-// -----------------------------------------------------------------------------
-
-/**
- * Map a RegistryClientError to a typed registry failure for unexpected status codes.
- */
-export const mapUnexpectedStatusError = (
-  error: RegistryClientError<string, unknown>,
-  _message: string,
-): RegistryProblem => registryClientErrorToProblem(error);

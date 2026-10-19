@@ -77,7 +77,7 @@ export type DiscoveryExtensionResult = Pick<
 > &
   typeof DiscoveryAttestationSchema.Type;
 
-export interface DiscoveryPackageResult extends Omit<WirePackageResult, "extensions"> {
+interface DiscoveryPackageResult extends Omit<WirePackageResult, "extensions"> {
   readonly extensions: ReadonlyArray<DiscoveryExtensionResult>;
 }
 

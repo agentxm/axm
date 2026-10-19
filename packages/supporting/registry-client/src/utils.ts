@@ -50,13 +50,6 @@ export const extensionLifecycleWarnings = (
 };
 
 // -----------------------------------------------------------------------------
-// Type Pluralization
-// -----------------------------------------------------------------------------
-
-/** Pluralize extension type for directory segments. */
-export const pluralizeType = (type: ExtensionType): string => toExtensionTypePlural(type);
-
-// -----------------------------------------------------------------------------
 // Extension Directory
 // -----------------------------------------------------------------------------
 
@@ -67,4 +60,4 @@ export const extensionDir = (
   type: ExtensionType,
   name: string,
   join: (...parts: readonly string[]) => string,
-): string => join(registryRoot, "extensions", owner, pluralizeType(type), name);
+): string => join(registryRoot, "extensions", owner, toExtensionTypePlural(type), name);

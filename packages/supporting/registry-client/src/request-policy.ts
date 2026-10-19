@@ -52,7 +52,7 @@ export class RegistryRetryObservation extends ServiceMap.Service<
   }
 >()("@agentxm/registry-client/request-policy/RegistryRetryObservation") {}
 
-export const DEFAULT_REGISTRY_REQUEST_POLICY: RegistryRequestPolicy = {
+const DEFAULT_REGISTRY_REQUEST_POLICY: RegistryRequestPolicy = {
   requestTimeout: "10 seconds",
   totalDeadline: "30 seconds",
   maxAttempts: 3,

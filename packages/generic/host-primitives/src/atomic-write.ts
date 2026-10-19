@@ -22,7 +22,7 @@ import type { PlatformError } from "effect/PlatformError";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type AtomicWriteStep = "check-target" | "read-target" | "write-temp" | "rename";
+type AtomicWriteStep = "check-target" | "read-target" | "write-temp" | "rename";
 
 /**
  * Failure passed to `mapError` so each call site keeps its own error shape.
@@ -43,7 +43,7 @@ export interface AtomicWriteFailure {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SkipIfUnchanged = "fail-on-read-error" | "ignore-read-errors";
+type SkipIfUnchanged = "fail-on-read-error" | "ignore-read-errors";
 
 /**
  * Options for `writeFileAtomic`.
@@ -65,7 +65,7 @@ export interface WriteFileAtomicOptions<E> {
 /** In-process sequence so concurrent fibers never share a temp path. */
 let tempSequence = 0;
 
-export const atomicWriteTempPrefix = (targetPath: string): string => `${targetPath}.tmp.`;
+const atomicWriteTempPrefix = (targetPath: string): string => `${targetPath}.tmp.`;
 
 /** Remove only stale temp siblings belonging to one atomic-write target. */
 export const sweepStaleAtomicWriteTemps = (
@@ -75,7 +75,7 @@ export const sweepStaleAtomicWriteTemps = (
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const parent = path.dirname(targetPath);
-    const filenamePrefix = `${path.basename(targetPath)}.tmp.`;
+    const filenamePrefix = atomicWriteTempPrefix(path.basename(targetPath));
     const entries = yield* fs.readDirectory(parent).pipe(Effect.orElseSucceed(() => []));
     yield* Effect.forEach(
       entries.filter((entry) => entry.startsWith(filenamePrefix)),

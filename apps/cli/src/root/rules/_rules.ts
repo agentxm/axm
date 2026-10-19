@@ -17,11 +17,7 @@ const uninstallCommand = makePerTypeUninstallCommand("rule");
 
 const { enableCommand, disableCommand } = makeActivationCommands("rule");
 
-const showCommand = makeExtensionShowCommand({
-  type: "rule",
-  group: "rules",
-  exampleName: "commit-style",
-});
+const showCommand = makeExtensionShowCommand("rule");
 
 export const rulesCommand = Command.make("rules").pipe(
   Command.withDescription("Manage rules capabilities for configured agents"),

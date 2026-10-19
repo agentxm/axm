@@ -5,7 +5,7 @@ import {
   type McpServerListRow,
 } from "@agentxm/workspace-features/inspection";
 import { type ViewColumn } from "../../screen/index.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { inventoryAgentOutcomes, inventoryLifecycle, inventorySummary } from "../inventory-view.js";
 import { makePerTypeListCommand } from "../shared/list-command.js";
 
@@ -33,7 +33,7 @@ const { handler, command } = makePerTypeListCommand({
   schema: McpServerListQueryResultSchema,
   columns: McpServerListColumns,
   summary: (document) =>
-    inventorySummary(document, EXTENSION_TYPE_PRESENTATION["mcp-server"].noun.singular),
+    inventorySummary(document, extensionTypePresentation("mcp-server").noun.singular),
 });
 
 export const handleList = handler;

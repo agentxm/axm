@@ -17,7 +17,7 @@ import {
   withRuntime,
   withWorkspace,
 } from "../../runtime.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -26,7 +26,7 @@ import {
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
 
 export const makePerTypeUpdateCommand = (type: WorkspaceUpdatableType) => {
-  const { route, noun, exampleName } = EXTENSION_TYPE_PRESENTATION[type];
+  const { route, noun, exampleName } = extensionTypePresentation(type);
   const config = {
     source: Flag.String("source").pipe(
       withParameterDescription(

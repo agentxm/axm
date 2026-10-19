@@ -18,7 +18,7 @@ import { withArgvTracking, type ExpectedCliError } from "../../cli-runtime/index
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { inventorySummary } from "../inventory-view.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "./command-capabilities.js";
 
@@ -44,13 +44,13 @@ export const inventoryList = <Row, E, R>(
     Effect.map(list(agents), ({ document, rows }) => ({ document, rows })),
   schema: ExtensionInventoryDocumentSchema,
   summary: (inventory: ExtensionInventoryDocument) =>
-    inventorySummary(inventory, EXTENSION_TYPE_PRESENTATION[type].noun.singular),
+    inventorySummary(inventory, extensionTypePresentation(type).noun.singular),
 });
 
 export const makePerTypeListCommand = <Row, S extends Schema.Top, E extends ExpectedCliError, R>(
   definition: ListDefinition<Row, S, E, R>,
 ) => {
-  const { route, noun } = EXTENSION_TYPE_PRESENTATION[definition.type];
+  const { route, noun } = extensionTypePresentation(definition.type);
   const handler = Effect.fn(`${route}.list`)(function* (
     args: { readonly agents: ReadonlyArray<string> } = { agents: [] },
   ) {

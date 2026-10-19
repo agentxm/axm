@@ -26,7 +26,7 @@ import {
 
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { runInstallCommand, type FirstInstall } from "../shared/install-command.js";
 
 export interface InstallHandlerArgs {
@@ -189,7 +189,7 @@ export const handleInstall = <R = never>(
         recoverySwitch("--ignore-release-age", ignoreReleaseAge),
         ...selected.map(({ type, name }) =>
           recoveryOption(
-            `--${EXTENSION_TYPE_PRESENTATION[type].selectorFlag}`,
+            `--${extensionTypePresentation(type).selectorFlag}`,
             publicRecoveryValue(name),
           ),
         ),

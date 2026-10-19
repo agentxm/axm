@@ -13,7 +13,7 @@ import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
@@ -61,7 +61,7 @@ const handleMcpsAdoptBody = Effect.fn("Mcps.adopt")(function* (args: McpsAdoptAr
   );
   const appliedCount = adoptedCount(resolution, preflight.candidates.length);
   const suggestions = [
-    EXTENSION_TYPE_PRESENTATION["mcp-server"].inspect,
+    extensionTypePresentation("mcp-server").inspect,
     ...(appliedCount === 1
       ? [{ description: "Undo", cmd: `axm mcps uninstall ${preflight.candidates[0]?.name ?? ""}` }]
       : []),

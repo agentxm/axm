@@ -19,11 +19,7 @@ const uninstallCommand = makePerTypeUninstallCommand("knowledge");
 
 const { enableCommand, disableCommand } = makeActivationCommands("knowledge");
 
-const showCommand = makeExtensionShowCommand({
-  type: "knowledge",
-  group: "knowledge",
-  exampleName: "platform",
-});
+const showCommand = makeExtensionShowCommand("knowledge");
 
 export const knowledgeCommand = Command.make("knowledge").pipe(
   Command.withDescription("Browse and validate Open Knowledge Format bundles"),

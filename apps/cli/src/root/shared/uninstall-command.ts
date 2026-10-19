@@ -36,7 +36,7 @@ import {
   operationResolutionSummary,
   retryCanHelp,
 } from "../../operation-output.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { withProjectionOutputPosture, withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
@@ -66,7 +66,7 @@ export interface UninstallCommandArgs {
 const liveName = (type: Option.Option<InstallableExtensionType>): string =>
   Option.match(type, {
     onNone: () => "Uninstall extension",
-    onSome: (type) => `Uninstall ${EXTENSION_TYPE_PRESENTATION[type].noun.singular}`,
+    onSome: (type) => `Uninstall ${extensionTypePresentation(type).noun.singular}`,
   });
 
 /**
@@ -79,7 +79,7 @@ const noOpMessage = (
   selector: string,
   alreadyAbsent: boolean,
 ): string => {
-  const { plural } = EXTENSION_TYPE_PRESENTATION[type].noun;
+  const { plural } = extensionTypePresentation(type).noun;
   return alreadyAbsent && !isGlobPattern(selector)
     ? `No ${plural} uninstalled; ${selector} is not installed.`
     : `No ${plural} uninstalled.`;
@@ -90,7 +90,7 @@ const body = (args: UninstallCommandArgs) =>
     const candidate = yield* UninstallExtensions.prepare(args.request).pipe(
       Effect.mapError(failureToAppError),
     );
-    const { inspect } = EXTENSION_TYPE_PRESENTATION[candidate.type];
+    const { inspect } = extensionTypePresentation(candidate.type);
 
     const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
       { preview: args.preview },
@@ -154,7 +154,7 @@ export const runUninstallCommand = (args: UninstallCommandArgs) =>
 
 /** Generate a typed uninstall route from the same words as its result. */
 export const makePerTypeUninstallCommand = (type: InstallableExtensionType) => {
-  const { route, noun, exampleName } = EXTENSION_TYPE_PRESENTATION[type];
+  const { route, noun, exampleName } = extensionTypePresentation(type);
   const config = {
     name: Argument.String("name").pipe(
       withParameterDescription(`Name or glob of the ${noun.singular} to uninstall`),

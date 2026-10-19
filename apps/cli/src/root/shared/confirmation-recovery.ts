@@ -36,7 +36,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import { extensionFromStepKey } from "@agentxm/workspace-kernel/reconciliation";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 
 export const makeConfirmationRecovery = (
   command: ReadonlyArray<string>,
@@ -156,7 +156,7 @@ const typedUnit = (unit: ResolvedUnit<unknown>) => extensionFromStepKey(unit.id)
 
 const INSTALL_SELECTION_FLAGS = new Set([
   "--all",
-  ...installableExtensionTypes.map((type) => `--${EXTENSION_TYPE_PRESENTATION[type].selectorFlag}`),
+  ...installableExtensionTypes.map((type) => `--${extensionTypePresentation(type).selectorFlag}`),
 ]);
 
 const isInstallSelection = (argument: ConfirmationRecoveryArgument): boolean =>
@@ -191,7 +191,7 @@ export const narrowInstallSelection = (
         unit !== undefined && isInstallableExtensionType(unit.type)
           ? [
               recoveryOption(
-                `--${EXTENSION_TYPE_PRESENTATION[unit.type].selectorFlag}`,
+                `--${extensionTypePresentation(unit.type).selectorFlag}`,
                 publicRecoveryValue(unit.name),
               ),
             ]

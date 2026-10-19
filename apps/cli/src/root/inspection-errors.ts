@@ -6,7 +6,7 @@ import type {
 import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 
 import { makeAppError, type AppError } from "../app-error/index.js";
-import { EXTENSION_TYPE_PRESENTATION } from "./extension-type-presentation.js";
+import { extensionTypePresentation } from "./extension-type-presentation.js";
 
 /**
  * The named extension is not installed: offer the type's inspection command
@@ -17,7 +17,7 @@ export const extensionNotInstalledToAppError = (failure: ExtensionNotInstalled):
   makeAppError({
     code: "not_found",
     detail: `${extensionTypeSentenceLabels[failure.type]} "${failure.name}" is not installed`,
-    suggestions: [EXTENSION_TYPE_PRESENTATION[failure.type].inspect],
+    suggestions: [extensionTypePresentation(failure.type).inspect],
   });
 
 export const packInspectionRefusedToAppError = (failure: PackInspectionRefused): AppError =>

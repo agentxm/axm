@@ -26,7 +26,7 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 
 import { makeAppError } from "../app-error/index.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../root/extension-type-presentation.js";
+import { extensionTypePresentation } from "../root/extension-type-presentation.js";
 import {
   Screen,
   askFailureFields,
@@ -165,7 +165,7 @@ const selectionSubject = (candidates: ReadonlyArray<InstallSelectionCandidate>) 
   return {
     label: extensionTypePluralLabels[extensionTypeToPlural[only]],
     noun: typeNoun(only),
-    flag: `--${EXTENSION_TYPE_PRESENTATION[only].selectorFlag}`,
+    flag: `--${extensionTypePresentation(only).selectorFlag}`,
   };
 };
 

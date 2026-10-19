@@ -144,6 +144,16 @@ layer(Path.layer, { excludeTestServices: true })("path-types", (it) => {
     }),
   );
 
+  it.effect("treats a child whose name starts with two dots as contained", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const base = path.resolve("/workspace");
+      const dotted = path.join(base, "..cache", "entry");
+      expect(isWithinOrEqual(path, base, dotted)).toBe(true);
+      expect(isStrictlyWithin(path, base, dotted)).toBe(true);
+    }),
+  );
+
   it.effect("accepts a target within base", () =>
     Effect.map(pathSafe("/a/b", "/a/b/c/d"), (safe) => expect(safe).toBe(true)),
   );

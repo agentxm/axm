@@ -110,14 +110,17 @@ export const safeChildPath = (
     : Option.none();
 };
 
+// A relative path leaves its base only through a whole `..` segment, so a child
+// named like `..cache` stays inside.
+const relativeEscapes = (path: Path.Path, relative: string): boolean =>
+  relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
+
 /** Relative-path containment, including the parent itself. */
-export const isWithinOrEqual = (path: Path.Path, parent: string, child: string): boolean => {
-  const relative = path.relative(path.resolve(parent), path.resolve(child));
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
-};
+export const isWithinOrEqual = (path: Path.Path, parent: string, child: string): boolean =>
+  !relativeEscapes(path, path.relative(path.resolve(parent), path.resolve(child)));
 
 /** Relative-path containment that excludes the parent itself. */
 export const isStrictlyWithin = (path: Path.Path, parent: string, child: string): boolean => {
   const relative = path.relative(path.resolve(parent), path.resolve(child));
-  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+  return relative !== "" && !relativeEscapes(path, relative);
 };

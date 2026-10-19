@@ -67,7 +67,7 @@ const fetchAsset = (
     }
 
     const total = declaredContentLength(response.headers);
-    const chunks = yield* response.stream.pipe(
+    return yield* response.stream.pipe(
       Stream.mapAccum(
         () => 0,
         (received, chunk) => {
@@ -77,16 +77,9 @@ const fetchAsset = (
       ),
       Stream.tap((observation) => report(observation.received, total)),
       Stream.map((observation) => observation.chunk),
-      Stream.runCollect,
+      Stream.mkUint8Array,
       Effect.mapError(readFailed),
     );
-    const body = new Uint8Array(chunks.reduce((totalBytes, chunk) => totalBytes + chunk.length, 0));
-    let offset = 0;
-    for (const chunk of chunks) {
-      body.set(chunk, offset);
-      offset += chunk.length;
-    }
-    return body;
   });
 
 export const makeScriptReleaseAssets = (

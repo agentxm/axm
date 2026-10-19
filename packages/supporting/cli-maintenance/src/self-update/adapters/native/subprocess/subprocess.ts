@@ -83,20 +83,8 @@ export const sanitizeExternalOutput = (
   return { value, truncated: true };
 };
 
-const collectBytes = <E>(stream: Stream.Stream<Uint8Array, E>) =>
-  Effect.gen(function* () {
-    const chunks = yield* Stream.runCollect(stream);
-    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-    const bytes = new Uint8Array(totalLength);
-    let offset = 0;
-
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.length;
-    }
-
-    return new TextDecoder("utf-8").decode(bytes);
-  });
+const collectText = <E>(stream: Stream.Stream<Uint8Array, E>) =>
+  Stream.mkUint8Array(stream).pipe(Effect.map((bytes) => new TextDecoder("utf-8").decode(bytes)));
 
 const unavailableResult = (
   executionState: "not-started" | "timed-out",
@@ -129,8 +117,8 @@ const makeRunCommand =
 
       const completed = yield* Effect.all(
         {
-          stdout: collectBytes(spawned.value.stdout),
-          stderr: collectBytes(spawned.value.stderr),
+          stdout: collectText(spawned.value.stdout),
+          stderr: collectText(spawned.value.stderr),
           exitCode: spawned.value.exitCode,
         },
         // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed three-way join of scoped child stdout, stderr, and exit

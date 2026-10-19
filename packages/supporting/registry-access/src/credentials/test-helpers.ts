@@ -4,7 +4,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
-import { AuthEnvironment, CredentialStoreLive } from "../adapters/index.js";
+import { CredentialStoreLive } from "../adapters/index.js";
 import { credentialKey, type CredentialKey } from "./credential-key.js";
 
 /** A real, isolated restricted credential file; no operating-system keychain. */
@@ -20,7 +20,7 @@ export const credentialFileFixture = Effect.gen(function* () {
     SSH_TTY: "/dev/ttys000",
   });
   const layer = Layer.fresh(CredentialStoreLive).pipe(
-    Layer.provide(Layer.succeed(AuthEnvironment, environment)),
+    Layer.provide(ConfigProvider.layer(environment)),
   );
   return { fs, home, directory, file, environment, layer };
 });

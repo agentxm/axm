@@ -5,7 +5,6 @@
  */
 
 import * as FileSystem from "effect/FileSystem";
-import * as ConfigProvider from "effect/ConfigProvider";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -20,7 +19,6 @@ import {
 } from "@agentxm/host-primitives";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { RegistryAccessFailed } from "./errors.js";
-import { AuthEnvironment } from "../adapters/environment.js";
 
 export const PendingDeviceLoginSchema = Schema.Struct({
   version: Schema.Literal(3),
@@ -63,7 +61,6 @@ export const PendingDeviceLoginStoreLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const directory = yield* resolveUserAxmHome().pipe(
-      Effect.provideServiceEffect(ConfigProvider.ConfigProvider, AuthEnvironment),
       Effect.mapError((cause) => storeError("Could not read pending login home", cause)),
     );
     const filePath = path.join(directory, PENDING_LOGIN_FILENAME);

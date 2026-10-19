@@ -14,7 +14,7 @@ import {
 } from "@agentxm/registry-access/authentication";
 import { emitResult, Screen, successDoc } from "../../screen/index.js";
 import { jsonFlag, nonInteractiveFlag } from "../../cli-flags/index.js";
-import { isCI } from "@agentxm/registry-access/adapters";
+import { isCI } from "@agentxm/host-primitives";
 import { waitForHumanOption } from "./wait-for-human.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {

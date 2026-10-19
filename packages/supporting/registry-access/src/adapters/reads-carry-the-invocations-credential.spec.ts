@@ -25,7 +25,6 @@ import {
 } from "../credentials/credential-store.js";
 import { SessionRefresherLive } from "../credentials/session-refresh.js";
 import { AuthorizedTransportAt } from "./test-helpers.js";
-import { AuthEnvironment } from "./environment.js";
 import { WorkloadCredentialsTest } from "../credentials/workload-credentials.js";
 
 export const specification = defineSpecification({
@@ -147,8 +146,7 @@ const rejectingReadsOf = (options: {
         NodeServices.layer,
       ),
     ),
-    Layer.succeed(
-      AuthEnvironment,
+    ConfigProvider.layer(
       options.provider ?? ConfigProvider.fromEnvRecord(options.environment ?? {}),
     ),
   );
@@ -198,7 +196,7 @@ describe("Reads carry the invocation's credential", () => {
         );
         const failure = yield* get().pipe(
           Effect.provide(layer),
-          Effect.provideService(AuthEnvironment, fixture.environment),
+          Effect.provideService(ConfigProvider.ConfigProvider, fixture.environment),
           Effect.flip,
         );
         expect(carriedBy(failure)).toMatchObject({
@@ -283,7 +281,7 @@ describe("Reads carry the invocation's credential", () => {
         );
         const request = get().pipe(
           Effect.provide(layer),
-          Effect.provideService(AuthEnvironment, fixture.environment),
+          Effect.provideService(ConfigProvider.ConfigProvider, fixture.environment),
         );
         if (operation === "missing") {
           expect((yield* request).status).toBe(200);

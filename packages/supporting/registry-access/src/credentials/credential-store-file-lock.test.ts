@@ -18,7 +18,6 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
-import { AuthEnvironment } from "../adapters/environment.js";
 import { RegistryAccessFailed } from "../authentication/errors.js";
 import { CredentialStore, CredentialStoreLive, withFileLock } from "./credential-store.js";
 
@@ -29,8 +28,7 @@ import { CredentialStore, CredentialStoreLive, withFileLock } from "./credential
 const storeOver = (home: string) =>
   Layer.fresh(CredentialStoreLive).pipe(
     Layer.provide(
-      Layer.succeed(
-        AuthEnvironment,
+      ConfigProvider.layer(
         ConfigProvider.fromEnvRecord({ AXM_USER_HOME: home, SSH_TTY: "/dev/ttys000" }),
       ),
     ),

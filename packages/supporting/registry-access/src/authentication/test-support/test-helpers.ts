@@ -41,7 +41,6 @@ import {
 } from "../../credentials/credential-store.js";
 import { DeviceLoginInteractionTest } from "../device-login.js";
 import { RegistryAccessFailed } from "../errors.js";
-import { AuthEnvironment } from "../../adapters/environment.js";
 import { AuthLoginInteractionTest } from "../../adapters/login-interaction.js";
 import { AuthLoginPresenterTest } from "../login-presenter.js";
 import type { LoginRequest } from "../login.js";
@@ -197,7 +196,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
     WorkloadCredentialsTest(options.workload),
     Layer.provide(CredentialStoreSessionLive, credentialStore),
     PendingDeviceLoginStoreTest(options.pending),
-    Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord(options.environment ?? {})),
+    ConfigProvider.layer(ConfigProvider.fromEnvRecord(options.environment ?? {})),
     // Host detection reads no real file, so no example observes the host's own WSL.
     FileSystem.layerNoop({}),
   );

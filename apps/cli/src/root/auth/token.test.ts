@@ -4,10 +4,10 @@
 
 import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { afterEach, beforeEach } from "vitest";
 
 import {
   AuthClientTest,
@@ -33,6 +33,7 @@ const makeLayers = (opts?: {
   nonInteractive?: boolean;
   allowsPersistedCredentials?: boolean;
   authOverrides?: Parameters<typeof AuthClientTest>[0];
+  environment?: Record<string, string>;
 }) => {
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
   const interaction = AuthLoginInteractionTest({
@@ -76,6 +77,9 @@ const makeLayers = (opts?: {
     interaction.layer,
     Layer.provide(AuthLoginPresenterLive, Layer.mergeAll(rendererLayer, interaction.layer)),
     registryUrlLayer,
+    ConfigProvider.layer(
+      ConfigProvider.fromEnv({ env: opts?.environment ?? {}, preserveEmptyStrings: true }),
+    ),
   );
   const provide = Effect.provide(FullLayer);
 
@@ -83,18 +87,6 @@ const makeLayers = (opts?: {
 };
 
 describe("auth token handler", () => {
-  let origAxmToken: string | undefined;
-
-  beforeEach(() => {
-    origAxmToken = process.env["AXM_TOKEN"];
-    delete process.env["AXM_TOKEN"];
-  });
-
-  afterEach(() => {
-    if (origAxmToken !== undefined) process.env["AXM_TOKEN"] = origAxmToken;
-    else delete process.env["AXM_TOKEN"];
-  });
-
   it.effect("reports being signed out when no credential resolves", () => {
     const { provide } = makeLayers();
     return provide(
@@ -162,8 +154,9 @@ describe("auth token handler", () => {
   });
 
   it.effect("outputs token from AXM_TOKEN env var", () => {
-    process.env["AXM_TOKEN"] = "axm_env_test_token";
-    const { provide, rendererState } = makeLayers();
+    const { provide, rendererState } = makeLayers({
+      environment: { AXM_TOKEN: "axm_env_test_token" },
+    });
 
     return provide(
       Effect.gen(function* () {

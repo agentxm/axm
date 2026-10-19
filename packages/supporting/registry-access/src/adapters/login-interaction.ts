@@ -11,7 +11,6 @@
 import * as Effect from "effect/Effect";
 import * as Base64 from "effect/encoding/Base64";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as Stdio from "effect/Stdio";
 import * as Stream from "effect/Stream";
@@ -23,7 +22,7 @@ import {
   DeviceLoginInteraction,
   type DeviceLoginInteractionService,
 } from "../authentication/device-login.js";
-import { envOption, isSSH } from "./environment.js";
+import { authVariableIsSet, isSSH } from "./environment.js";
 
 interface CommandInvocation {
   readonly command: string;
@@ -149,9 +148,8 @@ export const osc52Sequence = (text: string, multiplexer?: TerminalMultiplexer): 
 };
 
 const terminalMultiplexer = Effect.map(
-  Effect.all([envOption("TMUX"), envOption("STY")]),
-  ([tmux, sty]): TerminalMultiplexer | undefined =>
-    Option.isSome(tmux) ? "tmux" : Option.isSome(sty) ? "screen" : undefined,
+  Effect.all([authVariableIsSet("TMUX"), authVariableIsSet("STY")]),
+  ([tmux, sty]): TerminalMultiplexer | undefined => (tmux ? "tmux" : sty ? "screen" : undefined),
 );
 
 /**

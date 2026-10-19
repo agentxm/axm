@@ -22,7 +22,6 @@ import {
   deviceLoginOptions,
 } from "@agentxm/registry-access/authentication";
 import { CredentialStore } from "@agentxm/registry-access/credentials";
-import { AuthEnvironment } from "@agentxm/registry-access/adapters";
 import {
   AuthClientTest,
   AuthLoginInteractionTest,
@@ -184,7 +183,7 @@ const makeLayers = (opts?: {
 
   const FullLayer = Layer.mergeAll(
     NodeServices.layer,
-    Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
+    ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
     rendererLayer,
     presenterLayer,
     interactionLayer,
@@ -396,7 +395,10 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false, deviceCode: false }).pipe(
-          Effect.provideService(AuthEnvironment, ConfigProvider.fromEnvRecord({ CI: "1" })),
+          Effect.provideService(
+            ConfigProvider.ConfigProvider,
+            ConfigProvider.fromEnvRecord({ CI: "1" }),
+          ),
         );
 
         // Machine output cannot ask, so the sign-in is handed to a person
@@ -705,7 +707,7 @@ describe("auth login handler", () => {
 
     const layer = Layer.mergeAll(
       NodeServices.layer,
-      Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
+      ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
       rendererLayer2,
       Layer.provide(AuthLoginPresenterLive, Layer.mergeAll(rendererLayer2, interactionLayer2)),
       interactionLayer2,

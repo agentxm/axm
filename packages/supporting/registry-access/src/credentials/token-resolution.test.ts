@@ -12,13 +12,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { afterEach, beforeEach, expect } from "vitest";
+import { expect } from "vitest";
 
 import { AuthClientTest } from "../authentication/auth-client.js";
 import { CredentialStoreTest } from "./credential-store.js";
 import { CredentialFileSchema } from "./schema.js";
 import { WorkloadCredentialsTest } from "./workload-credentials.js";
-import { AuthEnvironment } from "../adapters/environment.js";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
 import { WorkloadTokenSource } from "./schema.js";
@@ -40,39 +39,29 @@ const makeCredentialFile = (registries: Record<string, unknown>) =>
     registries,
   });
 
+/** The environment an invocation reads, with empty values preserved as the CLI does. */
+const environmentLayer = (environment: Record<string, string> = {}) =>
+  ConfigProvider.layer(ConfigProvider.fromEnv({ env: environment, preserveEmptyStrings: true }));
+
 const makeRuntimeLayer = (
   credentialData?: Parameters<typeof CredentialStoreTest>[1],
   authClientLayer = AuthClientTest(),
   allowsPersistedCredentials?: boolean,
+  environment: Record<string, string> = {},
 ) =>
   Layer.mergeAll(
     CredentialStoreTest("restricted-file", credentialData, allowsPersistedCredentials),
     authClientLayer,
     WorkloadCredentialsTest(),
     NodeServices.layer,
+    environmentLayer(environment),
   );
 
 describe("resolveRequestToken for the default Registry", () => {
-  let origAxmToken: string | undefined;
-  let origAxmTokenFile: string | undefined;
-
-  beforeEach(() => {
-    origAxmToken = process.env["AXM_TOKEN"];
-    origAxmTokenFile = process.env["AXM_TOKEN_FILE"];
-    delete process.env["AXM_TOKEN"];
-    delete process.env["AXM_TOKEN_FILE"];
-  });
-
-  afterEach(() => {
-    if (origAxmToken !== undefined) process.env["AXM_TOKEN"] = origAxmToken;
-    else delete process.env["AXM_TOKEN"];
-    if (origAxmTokenFile !== undefined) process.env["AXM_TOKEN_FILE"] = origAxmTokenFile;
-    else delete process.env["AXM_TOKEN_FILE"];
-  });
-
   it.effect("returns EnvVar token source when AXM_TOKEN is set", () => {
-    process.env["AXM_TOKEN"] = "axm_ses_env_token";
-    const layer = makeRuntimeLayer();
+    const layer = makeRuntimeLayer(undefined, undefined, undefined, {
+      AXM_TOKEN: "axm_ses_env_token",
+    });
     return Effect.gen(function* () {
       const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
@@ -87,8 +76,7 @@ describe("resolveRequestToken for the default Registry", () => {
     const directory = mkdtempSync(join(tmpdir(), "axm-token-file-"));
     const tokenPath = join(directory, "token");
     writeFileSync(tokenPath, "axm_pat_file_token\n", { mode: 0o600 });
-    process.env["AXM_TOKEN_FILE"] = tokenPath;
-    const layer = makeRuntimeLayer();
+    const layer = makeRuntimeLayer(undefined, undefined, undefined, { AXM_TOKEN_FILE: tokenPath });
     return Effect.gen(function* () {
       const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
@@ -106,9 +94,10 @@ describe("resolveRequestToken for the default Registry", () => {
     const directory = mkdtempSync(join(tmpdir(), "axm-token-file-"));
     const tokenPath = join(directory, "token");
     writeFileSync(tokenPath, "axm_pat_file_token\n", { mode: 0o600 });
-    process.env["AXM_TOKEN"] = "axm_pat_env_token";
-    process.env["AXM_TOKEN_FILE"] = tokenPath;
-    const layer = makeRuntimeLayer();
+    const layer = makeRuntimeLayer(undefined, undefined, undefined, {
+      AXM_TOKEN: "axm_pat_env_token",
+      AXM_TOKEN_FILE: tokenPath,
+    });
     return Effect.gen(function* () {
       const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
@@ -154,8 +143,7 @@ describe("resolveRequestToken for the default Registry", () => {
   });
 
   it.effect("ignores empty AXM_TOKEN", () => {
-    process.env["AXM_TOKEN"] = "";
-    const layer = makeRuntimeLayer();
+    const layer = makeRuntimeLayer(undefined, undefined, undefined, { AXM_TOKEN: "" });
     return Effect.gen(function* () {
       const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isNone(result)).toBe(true);
@@ -233,18 +221,6 @@ describe("resolveRequiredToken", () => {
 });
 
 describe("resolveStoredToken", () => {
-  let origAxmToken: string | undefined;
-
-  beforeEach(() => {
-    origAxmToken = process.env["AXM_TOKEN"];
-    delete process.env["AXM_TOKEN"];
-  });
-
-  afterEach(() => {
-    if (origAxmToken !== undefined) process.env["AXM_TOKEN"] = origAxmToken;
-    else delete process.env["AXM_TOKEN"];
-  });
-
   it.effect("returns stored credentials when they exist", () => {
     const layer = CredentialStoreTest(
       "restricted-file",
@@ -281,8 +257,10 @@ describe("resolveStoredToken", () => {
   });
 
   it.effect("does not check AXM_TOKEN env var", () => {
-    process.env["AXM_TOKEN"] = "axm_ses_env_should_be_ignored";
-    const layer = CredentialStoreTest();
+    const layer = Layer.merge(
+      CredentialStoreTest(),
+      environmentLayer({ AXM_TOKEN: "axm_ses_env_should_be_ignored" }),
+    );
     return Effect.gen(function* () {
       const result = yield* resolveStoredToken(ENDPOINT);
       // Should return none — env var is not checked by resolveStoredToken
@@ -316,20 +294,7 @@ describe("resolveStoredToken", () => {
 });
 
 describe("resolveRequestToken", () => {
-  let origAxmToken: string | undefined;
-
-  beforeEach(() => {
-    origAxmToken = process.env["AXM_TOKEN"];
-    delete process.env["AXM_TOKEN"];
-  });
-
-  afterEach(() => {
-    if (origAxmToken !== undefined) process.env["AXM_TOKEN"] = origAxmToken;
-    else delete process.env["AXM_TOKEN"];
-  });
-
   it.effect("prefers AXM_TOKEN for requests to the default registry", () => {
-    process.env["AXM_TOKEN"] = "axm_ses_env";
     const layer = makeRuntimeLayer(
       makeCredentialFile({
         [REGISTRY_URL]: {
@@ -343,6 +308,9 @@ describe("resolveRequestToken", () => {
           },
         },
       }),
+      undefined,
+      undefined,
+      { AXM_TOKEN: "axm_ses_env" },
     );
 
     return Effect.gen(function* () {
@@ -356,14 +324,17 @@ describe("resolveRequestToken", () => {
   });
 
   it.effect("does not apply AXM_TOKEN to non-default registry requests", () => {
-    process.env["AXM_TOKEN"] = "axm_ses_env";
     return Effect.gen(function* () {
       const result = yield* resolveRequestToken(
         decodeHttpRegistryEndpointSync("https://other-registry.example.com"),
         ENDPOINT,
       );
       expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(makeRuntimeLayer()));
+    }).pipe(
+      Effect.provide(
+        makeRuntimeLayer(undefined, undefined, undefined, { AXM_TOKEN: "axm_ses_env" }),
+      ),
+    );
   });
 
   it.effect("falls back to stored credentials for non-default registry requests", () => {
@@ -491,9 +462,9 @@ describe("resolvePresentedToken", () => {
             tokenFor: () => Effect.die(new Error("The transport never exchanges an identity")),
           }),
           NodeServices.layer,
+          environmentLayer(environment),
         ),
       ),
-      Effect.provideService(AuthEnvironment, ConfigProvider.fromEnvRecord(environment)),
     );
 
   it.effect("presents nothing for an identity no command has exchanged yet", () =>

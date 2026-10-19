@@ -11,11 +11,12 @@ import { describe, it } from "@effect/vitest";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { afterEach, beforeEach, expect } from "vitest";
+import { expect } from "vitest";
 
 import { TokenExchangeLive } from "../authentication/auth-client.js";
 import {
@@ -79,6 +80,19 @@ const mockTransportLayer = (client: HttpClient.HttpClient) =>
     Layer.succeed(RegistryHttpClient, client),
   );
 
+/** Requests see no ambient token unless a test supplies one. */
+const emptyEnvironment = ConfigProvider.fromEnv({ env: {} });
+
+/** Run with the given process environment in place of the empty one. */
+const withEnvironment =
+  (environment: Record<string, string>) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.provideService(
+      effect,
+      ConfigProvider.ConfigProvider,
+      ConfigProvider.fromEnv({ env: environment, preserveEmptyStrings: true }),
+    );
+
 const makeTestLayers = (
   handler: (request: HttpClientRequest.HttpClientRequest) => MockResponse,
   credentialData?: Parameters<typeof CredentialStoreTest>[1],
@@ -122,6 +136,7 @@ const makeTestLayers = (
     credStoreLayer,
     refresherLayer,
     registryContextLayer,
+    ConfigProvider.layer(emptyEnvironment),
   );
 };
 
@@ -186,18 +201,6 @@ const makeCountingCredentialStore = (
 // -----------------------------------------------------------------------------
 
 describe("RegistryRequestAuthorization", () => {
-  let origAxmToken: string | undefined;
-
-  beforeEach(() => {
-    origAxmToken = process.env["AXM_TOKEN"];
-    delete process.env["AXM_TOKEN"];
-  });
-
-  afterEach(() => {
-    if (origAxmToken !== undefined) process.env["AXM_TOKEN"] = origAxmToken;
-    else delete process.env["AXM_TOKEN"];
-  });
-
   // ---------------------------------------------------------------------------
   // Header injection
   // ---------------------------------------------------------------------------
@@ -220,7 +223,6 @@ describe("RegistryRequestAuthorization", () => {
     });
 
     it.effect("injects Bearer header for AXM_TOKEN env var", () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env";
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
@@ -233,11 +235,10 @@ describe("RegistryRequestAuthorization", () => {
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         yield* client.execute(request);
         expect(capturedAuth).toBe("Bearer axm_ses_env");
-      }).pipe(Effect.provide(layers));
+      }).pipe(withEnvironment({ AXM_TOKEN: "axm_ses_env" }), Effect.provide(layers));
     });
 
     it.effect("prefers AXM_TOKEN over stored credentials for the default registry", () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env";
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
@@ -250,7 +251,7 @@ describe("RegistryRequestAuthorization", () => {
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         yield* client.execute(request);
         expect(capturedAuth).toBe("Bearer axm_ses_env");
-      }).pipe(Effect.provide(layers));
+      }).pipe(withEnvironment({ AXM_TOKEN: "axm_ses_env" }), Effect.provide(layers));
     });
   });
 
@@ -385,7 +386,6 @@ describe("RegistryRequestAuthorization", () => {
     );
 
     it.effect("does not refresh for env var tokens on 401", () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env";
       let refreshCalled = false;
 
       const layers = makeTestLayers((req) => {
@@ -402,7 +402,7 @@ describe("RegistryRequestAuthorization", () => {
         const response = yield* client.execute(request);
         expect(response.status).toBe(401);
         expect(refreshCalled).toBe(false);
-      }).pipe(Effect.provide(layers));
+      }).pipe(withEnvironment({ AXM_TOKEN: "axm_ses_env" }), Effect.provide(layers));
     });
 
     it.effect("only retries once after refresh (single retry)", () => {
@@ -524,7 +524,6 @@ describe("RegistryRequestAuthorization", () => {
     });
 
     it.effect("scopes AXM_TOKEN to default registry only", () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env_scoped";
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers(
@@ -543,11 +542,10 @@ describe("RegistryRequestAuthorization", () => {
         yield* client.execute(request);
         // AXM_TOKEN should NOT leak to non-default registry hosts
         expect(capturedAuth).toBeNull();
-      }).pipe(Effect.provide(layers));
+      }).pipe(withEnvironment({ AXM_TOKEN: "axm_ses_env_scoped" }), Effect.provide(layers));
     });
 
     it.effect("does not send AXM_TOKEN to non-registry hosts", () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env_leak_test";
       let sent = false;
 
       const layers = makeTestLayers(() => {
@@ -561,11 +559,10 @@ describe("RegistryRequestAuthorization", () => {
         const error = yield* client.execute(request).pipe(Effect.flip);
         expect(error.reason._tag).toBe("TransportError");
         expect(sent).toBe(false);
-      }).pipe(Effect.provide(layers));
+      }).pipe(withEnvironment({ AXM_TOKEN: "axm_ses_env_leak_test" }), Effect.provide(layers));
     });
 
     it.effect("uses AXM_TOKEN with empty credential store against default registry", () => {
-      process.env["AXM_TOKEN"] = "axm_ses_env_default";
       let capturedAuth: string | null = null;
 
       const layers = makeTestLayers((req) => {
@@ -578,7 +575,7 @@ describe("RegistryRequestAuthorization", () => {
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         yield* client.execute(request);
         expect(capturedAuth).toBe("Bearer axm_ses_env_default");
-      }).pipe(Effect.provide(layers));
+      }).pipe(withEnvironment({ AXM_TOKEN: "axm_ses_env_default" }), Effect.provide(layers));
     });
   });
 

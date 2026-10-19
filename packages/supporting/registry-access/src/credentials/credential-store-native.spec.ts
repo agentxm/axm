@@ -9,7 +9,6 @@ import * as Logger from "effect/Logger";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { AuthEnvironment } from "../adapters/environment.js";
 import {
   CredentialStore,
   CredentialStoreLive,
@@ -78,10 +77,7 @@ const keychainFixture = (loadFailure = false) =>
     const layer = Layer.fresh(CredentialStoreLive).pipe(
       Layer.provide(
         Layer.mergeAll(
-          Layer.succeed(
-            AuthEnvironment,
-            ConfigProvider.fromEnvRecord({ AXM_USER_HOME: fixture.home }),
-          ),
+          ConfigProvider.layer(ConfigProvider.fromEnvRecord({ AXM_USER_HOME: fixture.home })),
           Layer.succeed(
             KeyringEntryLoader,
             loadFailure

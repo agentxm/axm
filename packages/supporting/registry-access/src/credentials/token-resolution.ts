@@ -17,7 +17,7 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import { envOption } from "../adapters/environment.js";
+import { authVariableIsSet, readAuthVariable } from "../adapters/environment.js";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type {
@@ -103,12 +103,12 @@ export const resolveStoredToken = (
  * a reason to fall through to another source.
  */
 const resolveExplicitToken = Effect.gen(function* () {
-  const envTokenOpt = yield* envOption("AXM_TOKEN");
+  const envTokenOpt = yield* readAuthVariable("AXM_TOKEN");
   const envToken = Option.getOrUndefined(envTokenOpt);
   if (envToken !== undefined && envToken.length > 0) {
     return Option.some<TokenSource>(new EnvVarTokenSource({ token: envToken }));
   }
-  const tokenFileOpt = yield* envOption("AXM_TOKEN_FILE");
+  const tokenFileOpt = yield* readAuthVariable("AXM_TOKEN_FILE");
   if (Option.isSome(tokenFileOpt) && tokenFileOpt.value.length > 0) {
     const maybeFs = yield* Effect.serviceOption(FileSystem.FileSystem);
     if (Option.isNone(maybeFs)) {
@@ -181,9 +181,8 @@ export const ambientCredentialSource: Effect.Effect<
   Option.Option<AmbientCredentialSource>,
   RegistryAccessFailed
 > = Effect.gen(function* () {
-  const isSet = (value: Option.Option<string>) => Option.exists(value, (text) => text.length > 0);
-  if (isSet(yield* envOption("AXM_TOKEN"))) return Option.some("environment" as const);
-  if (isSet(yield* envOption("AXM_TOKEN_FILE"))) return Option.some("file" as const);
+  if (yield* authVariableIsSet("AXM_TOKEN")) return Option.some("environment" as const);
+  if (yield* authVariableIsSet("AXM_TOKEN_FILE")) return Option.some("file" as const);
   return Option.isSome(yield* githubActionsIdentity)
     ? Option.some("github-actions" as const)
     : Option.none();

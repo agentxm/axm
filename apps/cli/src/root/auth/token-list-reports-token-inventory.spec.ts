@@ -5,7 +5,6 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
-import { AuthEnvironment } from "@agentxm/registry-access/adapters";
 import {
   AuthClientTest,
   CredentialStoreTest,
@@ -62,7 +61,7 @@ describe("Token inventory", () => {
       renderer.layer,
       TestFlagsLayer({ json: true }),
       RegistryContextTest(registry),
-      Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
+      ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
       AuthClientTest({
         listTokens: (_endpoint, page) =>
           Effect.sync(() => {
@@ -148,7 +147,7 @@ describe("Token inventory", () => {
               renderer.layer,
               TestFlagsLayer({ json: machine }),
               RegistryContextTest(registry),
-              Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
+              ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
               AuthClientTest({
                 listTokens: (_endpoint, page) =>
                   Effect.sync(() => {

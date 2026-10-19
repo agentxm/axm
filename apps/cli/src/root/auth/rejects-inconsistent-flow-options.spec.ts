@@ -10,7 +10,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { PendingDeviceLoginStore } from "@agentxm/registry-access/authentication";
 import { CredentialStore } from "@agentxm/registry-access/credentials";
-import { AuthEnvironment } from "@agentxm/registry-access/adapters";
 import {
   AuthClientTest,
   AuthLoginInteractionTest,
@@ -74,7 +73,7 @@ describe("Sign-in option validation", () => {
         renderer.layer,
         TestFlagsLayer({ json: true, nonInteractive: true }),
         RegistryContextTest(registry),
-        Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
+        ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
         FileSystem.layerNoop({}),
         AuthLoginInteractionTest().layer,
         AuthClientTest({

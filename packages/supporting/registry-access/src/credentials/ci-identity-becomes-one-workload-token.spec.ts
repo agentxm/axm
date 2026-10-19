@@ -20,7 +20,6 @@ import { TokenExchangeLive } from "../authentication/auth-client.js";
 import { WorkloadTokenUnavailable } from "../authentication/errors.js";
 import { currentToken } from "../authentication/identity.js";
 import type { SelectedRegistry } from "../authentication/selected-registry.js";
-import { AuthEnvironment } from "../adapters/environment.js";
 import { RegistryRequestAuthorizationLive } from "../adapters/request-authorization.js";
 import { CredentialStoreSessionLive, CredentialStoreTest } from "./credential-store.js";
 import { SessionRefresherLive } from "./session-refresh.js";
@@ -228,7 +227,10 @@ describe("GitHub Actions identity", () => {
           [`${registry}/v1/extensions/@alice`, "Bearer fixture-workload-token"],
           [`${otherRegistry}/v1/extensions/@alice`, undefined],
         ]);
-      }).pipe(Effect.provide(world.layer), Effect.provideService(AuthEnvironment, githubActions));
+      }).pipe(
+        Effect.provide(world.layer),
+        Effect.provideService(ConfigProvider.ConfigProvider, githubActions),
+      );
     },
   );
 
@@ -239,7 +241,10 @@ describe("GitHub Actions identity", () => {
       expect(failure._tag).toBe("SignedOut");
       expect(world.observed.idTokenRequests).toEqual([]);
       expect(world.observed.exchanges).toEqual([]);
-    }).pipe(Effect.provide(world.layer), Effect.provideService(AuthEnvironment, githubActions));
+    }).pipe(
+      Effect.provide(world.layer),
+      Effect.provideService(ConfigProvider.ConfigProvider, githubActions),
+    );
   });
 
   it.effect("refuses a redirected ID-token request rather than following it", () => {
@@ -253,7 +258,10 @@ describe("GitHub Actions identity", () => {
       expect(world.observed.idTokenRequests).toHaveLength(1);
       expect(world.observed.exchanges).toEqual([]);
       expect(JSON.stringify(failure)).not.toContain("fixture-request-token");
-    }).pipe(Effect.provide(world.layer), Effect.provideService(AuthEnvironment, githubActions));
+    }).pipe(
+      Effect.provide(world.layer),
+      Effect.provideService(ConfigProvider.ConfigProvider, githubActions),
+    );
   });
 
   it.effect("keeps the Registry's rejection of a workload token rather than renewing it", () => {
@@ -264,7 +272,10 @@ describe("GitHub Actions identity", () => {
       expect(response.status).toBe(401);
       expect(world.observed.reads).toHaveLength(1);
       expect(world.observed.exchanges).toHaveLength(1);
-    }).pipe(Effect.provide(world.layer), Effect.provideService(AuthEnvironment, githubActions));
+    }).pipe(
+      Effect.provide(world.layer),
+      Effect.provideService(ConfigProvider.ConfigProvider, githubActions),
+    );
   });
 
   for (const refused of ["idToken", "exchange"] as const) {
@@ -301,7 +312,10 @@ describe("GitHub Actions identity", () => {
         expect(world.observed.reads.map((entry) => entry.authorization)).toEqual([undefined]);
         expect(world.observed.idTokenRequests).toHaveLength(1);
         expect(world.observed.exchanges).toHaveLength(refused === "exchange" ? 1 : 0);
-      }).pipe(Effect.provide(world.layer), Effect.provideService(AuthEnvironment, githubActions));
+      }).pipe(
+        Effect.provide(world.layer),
+        Effect.provideService(ConfigProvider.ConfigProvider, githubActions),
+      );
     });
   }
 });

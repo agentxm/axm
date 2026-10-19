@@ -12,8 +12,9 @@
 import * as HttpClientError from "effect/http/HttpClientError";
 import * as Predicate from "effect/Predicate";
 
+import { isLoopbackHostname } from "@agentxm/host-primitives";
+
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { isLoopbackAddress } from "./network.js";
 import type { RegistryClientError } from "./__generated__/registry-client.js";
 import {
   isRegistryClientFailure,
@@ -123,7 +124,7 @@ export const buildNetworkSuggestions = (baseUrl: string): ReadonlyArray<Suggeste
 
   try {
     const parsed = new URL(baseUrl);
-    const isLocalAddr = isLoopbackAddress(parsed.hostname);
+    const isLocalAddr = isLoopbackHostname(parsed.hostname);
 
     if (isLocalAddr && parsed.protocol === "https:") {
       return [
@@ -156,7 +157,7 @@ export const buildNetworkSuggestions = (baseUrl: string): ReadonlyArray<Suggeste
 export const buildNetworkDiagnosis = (baseUrl: string): ReadonlyArray<string> => {
   try {
     const parsed = new URL(baseUrl);
-    const isLocalAddr = isLoopbackAddress(parsed.hostname);
+    const isLocalAddr = isLoopbackHostname(parsed.hostname);
 
     if (isLocalAddr && parsed.protocol === "https:") {
       return ["Diagnosis: Local registry appears HTTP-only while source uses HTTPS."];

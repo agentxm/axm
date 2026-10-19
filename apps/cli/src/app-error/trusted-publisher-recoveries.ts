@@ -22,7 +22,7 @@ import {
   type StepFailure,
 } from "@agentxm/workspace-kernel/operations";
 
-import { AppError } from "./app-error.js";
+import { AppError, makeAppError } from "./app-error.js";
 
 /**
  * Where this invocation's credential for its default Registry comes from,
@@ -104,18 +104,5 @@ export const appErrorForCredentialSource = (
   error: AppError,
 ): AppError =>
   refusedByTrustedPublisher(source, error)
-    ? new AppError({
-        code: error.code,
-        title: error.title,
-        detail: error.detail,
-        ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
-        ...(error.status === undefined ? {} : { status: error.status }),
-        ...(error.retryable === undefined ? {} : { retryable: error.retryable }),
-        ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
-        ...(error.action === undefined ? {} : { action: error.action }),
-        ...(error.problem === undefined ? {} : { problem: error.problem }),
-        ...(error.inputs === undefined ? {} : { inputs: error.inputs }),
-        suggestions: [TRUSTED_PUBLISHER_RECOVERY],
-        cause: error.cause,
-      })
+    ? makeAppError({ ...error, cause: error.cause, suggestions: [TRUSTED_PUBLISHER_RECOVERY] })
     : error;

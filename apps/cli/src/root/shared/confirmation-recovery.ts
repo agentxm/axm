@@ -28,7 +28,7 @@ import {
   ProjectionOutputPosture,
   REPLACE_UNRECORDED_FLAG,
 } from "@agentxm/workspace-kernel/projection";
-import { AppError } from "../../app-error/index.js";
+import { AppError, makeAppError } from "../../app-error/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   installableExtensionTypes,
@@ -248,21 +248,10 @@ export const withUnrecordedOutputRecovery =
               ),
           );
           return yield* Effect.fail(
-            new AppError({
-              code: failure.code,
-              title: failure.title,
-              detail: failure.detail,
-              ...(failure.diagnostic === undefined ? {} : { diagnostic: failure.diagnostic }),
-              ...(failure.diagnosticId === undefined ? {} : { diagnosticId: failure.diagnosticId }),
-              ...(failure.metadata === undefined ? {} : { metadata: failure.metadata }),
-              ...(failure.status === undefined ? {} : { status: failure.status }),
-              ...(failure.retryable === undefined ? {} : { retryable: failure.retryable }),
-              ...(failure.blockedOn === undefined ? {} : { blockedOn: failure.blockedOn }),
-              ...(failure.action === undefined ? {} : { action: failure.action }),
-              ...(failure.problem === undefined ? {} : { problem: failure.problem }),
-              ...(failure.inputs === undefined ? {} : { inputs: failure.inputs }),
-              suggestions: [...added, ...existing],
+            makeAppError({
+              ...failure,
               cause: failure.cause,
+              suggestions: [...added, ...existing],
             }),
           );
         }),

@@ -18,7 +18,7 @@ import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operation
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import { isWorkspaceFailure } from "../../app-error/failure-catalog.js";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { AppError } from "../../app-error/index.js";
+import { AppError, makeAppError } from "../../app-error/index.js";
 import { toAppError } from "../../app-error/conversions.js";
 import { commandFlagNames } from "../../cli-reference.js";
 
@@ -143,18 +143,9 @@ export const failureForWorkspaceScope = <E>(
     error instanceof AppError ? error : isWorkspaceFailure(error) ? toAppError(error) : undefined;
   if (envelope === undefined) return error;
   if (envelope.suggestions === undefined) return envelope;
-  return new AppError({
-    code: envelope.code,
-    title: envelope.title,
-    detail: envelope.detail,
-    ...(envelope.metadata === undefined ? {} : { metadata: envelope.metadata }),
-    ...(envelope.status === undefined ? {} : { status: envelope.status }),
-    ...(envelope.retryable === undefined ? {} : { retryable: envelope.retryable }),
-    ...(envelope.blockedOn === undefined ? {} : { blockedOn: envelope.blockedOn }),
-    ...(envelope.action === undefined ? {} : { action: envelope.action }),
-    ...(envelope.problem === undefined ? {} : { problem: envelope.problem }),
-    ...(envelope.inputs === undefined ? {} : { inputs: envelope.inputs }),
-    suggestions: suggestionsForScope(envelope.suggestions, scope, routes),
+  return makeAppError({
+    ...envelope,
     cause: envelope.cause,
+    suggestions: suggestionsForScope(envelope.suggestions, scope, routes),
   });
 };

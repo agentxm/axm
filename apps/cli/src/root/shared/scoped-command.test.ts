@@ -1,7 +1,14 @@
+import { StepFailure } from "@agentxm/workspace-kernel/operations";
 import { describe, expect, it } from "vitest";
 
+import { AppError } from "../../app-error/index.js";
 import { rootCommand } from "../../app.js";
-import { commandForScope, scopedRoutesOf, suggestionsForScope } from "./scoped-command.js";
+import {
+  commandForScope,
+  failureForWorkspaceScope,
+  scopedRoutesOf,
+  suggestionsForScope,
+} from "./scoped-command.js";
 
 const routes = scopedRoutesOf(rootCommand);
 
@@ -92,5 +99,27 @@ describe("scoped command suggestions", () => {
         cmd: "axm upgrade",
       },
     ]);
+  });
+
+  it("keeps a workspace failure's diagnostic when its suggestions are rescoped", () => {
+    const diagnostic = { kind: "settings-invalid", operation: "workspace.configure" } as const;
+    const failure = failureForWorkspaceScope(
+      new StepFailure({
+        category: "validation",
+        detail: "The settings are invalid.",
+        diagnostic,
+        suggestions: [{ description: "Inspect installed skills", cmd: "axm skills list" }],
+      }),
+      "user",
+      routes,
+    );
+
+    expect(failure).toBeInstanceOf(AppError);
+    expect(failure).toMatchObject({
+      diagnostic,
+      suggestions: [
+        { description: "Inspect installed skills", cmd: "axm skills list --scope user" },
+      ],
+    });
   });
 });

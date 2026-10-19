@@ -22,11 +22,11 @@ import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import type { RegistryClientFactoryService } from "@agentxm/registry-client";
 import type {
   DiscoveryExtensionResult,
   DiscoveryResolvedExtension,
-} from "@agentxm/registry-protocol/unstable/registry/discover-schema";
+  RegistryClientFactoryService,
+} from "@agentxm/registry-client";
 import { detectPackages } from "./packaging/detect.js";
 import { packageDetectors, packageReaders } from "./packaging/index.js";
 import {

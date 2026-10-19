@@ -158,6 +158,15 @@ export {
 
 export { purlIdentityMatch, purlMatch } from "./purl-match.js";
 
+// Discovery results refined from the generated transport
+export {
+  DiscoveryResolvedExtensionSchema,
+  type DiscoverPackagesResponse,
+  type DiscoveryExtensionResult,
+  type DiscoveryPackageResult,
+  type DiscoveryResolvedExtension,
+} from "./discovery-response.js";
+
 // Generated OpenAPI transport (consumed by the Registry access capability)
 export * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 

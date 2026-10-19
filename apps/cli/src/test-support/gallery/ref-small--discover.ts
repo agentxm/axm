@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema";
 
 import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { AgentExtensionSourceSchema } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
-import { DiscoveryResolvedExtensionSchema } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
+import { DiscoveryResolvedExtensionSchema } from "@agentxm/registry-client";
 import type { DiscoverExtensionsResult } from "@agentxm/workspace-features/discovery";
 
 import type { Doc } from "../../screen/doc.js";

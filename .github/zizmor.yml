@@ -16,3 +16,10 @@ rules:
       - prepare-release.yml
       - publish.yml
       - registry-contract-drift.yml
+  unpinned-uses:
+    # Every external action and reusable workflow, in workflows and composite
+    # actions alike, must use a full commit SHA, whatever the default policy of
+    # the pinned zizmor version. Local `./...` uses are pinned by the checkout.
+    config:
+      policies:
+        "*": hash-pin

@@ -6,10 +6,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { redactCredentialText } from "@agentxm/host-primitives";
 import * as Option from "effect/Option";
 
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
-import { redactRegistryText } from "@agentxm/registry-client";
 import type { AuthError } from "@agentxm/registry-access/authentication";
 import {
   StepFailure,
@@ -241,7 +241,7 @@ export const failedSelectedResult = (
     phase: "selection",
     status: "failed",
     reason,
-    message: redactRegistryText(publishCause(typed).message),
+    message: redactCredentialText(publishCause(typed).message),
     cause: publishCause(typed),
   };
 };

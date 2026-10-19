@@ -1,3 +1,4 @@
+import { redactCredentialText } from "@agentxm/host-primitives";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 
@@ -65,7 +66,6 @@ import {
   type LedgerRow,
   type Tone,
 } from "./screen/index.js";
-import { redactRegistryText } from "@agentxm/registry-client";
 import { operationExitCode } from "./operation-exit-code.js";
 import { NO_SCOPED_ROUTES, commandForScope } from "./root/shared/scoped-command.js";
 
@@ -179,7 +179,7 @@ const nativeLocationsDoc = (
         ({
           _tag: "paragraph",
           tone: "dim",
-          text: LOCATION_POLICIES[reason] ?? redactRegistryText(reason),
+          text: LOCATION_POLICIES[reason] ?? redactCredentialText(reason),
         }) as const,
     ),
     ...locations
@@ -211,7 +211,7 @@ const nativeLocationsDoc = (
         return {
           _tag: "paragraph",
           tone: location.state === "blocked" ? "warn" : "dim",
-          text: redactRegistryText(
+          text: redactCredentialText(
             `${address}: ${location.state}${location.reason === undefined ? "" : `; ${location.reason}`}${detailed && aliases.length > 0 ? `; aliases ${aliases.join(", ")}` : ""}${detailed && availability.length > 0 ? `; ${availability.join("; ")}` : ""}`,
           ),
         } as const;
@@ -292,7 +292,7 @@ const sourceSwitchChildren = (artifact: JobStepArtifact | undefined): Doc => {
     const describe = (endpoint: (typeof member)["before"] | (typeof member)["after"]): string =>
       endpoint === undefined
         ? "absent"
-        : `${endpoint.family} ${redactRegistryText(endpoint.locator)} (${endpoint.resolution})`;
+        : `${endpoint.family} ${redactCredentialText(endpoint.locator)} (${endpoint.resolution})`;
     return {
       _tag: "paragraph",
       tone: "dim",
@@ -303,7 +303,7 @@ const sourceSwitchChildren = (artifact: JobStepArtifact | undefined): Doc => {
     {
       _tag: "paragraph",
       tone: "dim",
-      text: `Source: ${sourceSwitch.before.family} ${redactRegistryText(sourceSwitch.before.locator)} to ${sourceSwitch.after.family} ${redactRegistryText(sourceSwitch.after.locator)}`,
+      text: `Source: ${sourceSwitch.before.family} ${redactCredentialText(sourceSwitch.before.locator)} to ${sourceSwitch.after.family} ${redactCredentialText(sourceSwitch.after.locator)}`,
     },
     {
       _tag: "paragraph",
@@ -978,7 +978,7 @@ export const operationDoc = (
         ({
           _tag: "paragraph",
           tone: "warn",
-          text: `Preserved original for ${redactRegistryText(entry.originalPath)}: ${redactRegistryText(entry.recoveryPath)}`,
+          text: `Preserved original for ${redactCredentialText(entry.originalPath)}: ${redactCredentialText(entry.recoveryPath)}`,
         }) as const,
     ),
     ...(coverage === undefined || coverage.agents.length > 0

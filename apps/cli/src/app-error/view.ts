@@ -1,9 +1,9 @@
-import { type ErrorCode } from "@agentxm/workspace-kernel/operations";
 import {
   collectSensitiveStrings,
-  redactRegistryText,
-  redactRegistryValue,
-} from "@agentxm/registry-client";
+  redactCredentialText,
+  redactCredentialValue,
+} from "@agentxm/host-primitives";
+import { type ErrorCode } from "@agentxm/workspace-kernel/operations";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   exitPhrase,
@@ -40,9 +40,9 @@ const getRegistryUrl = (error: AppError): string | undefined =>
 
 const formatRegistryLocation = (url: string, secrets: ReadonlyArray<string>): string => {
   try {
-    return redactRegistryText(new URL(url).origin, { secrets });
+    return redactCredentialText(new URL(url).origin, { secrets });
   } catch {
-    return redactRegistryText(url, { secrets });
+    return redactCredentialText(url, { secrets });
   }
 };
 
@@ -54,7 +54,7 @@ const formatRegistryRequest = (
   if (request === undefined || request.service !== "registry") {
     return undefined;
   }
-  return redactRegistryText(
+  return redactCredentialText(
     request.method === undefined ? request.url : `${request.method} ${request.url}`,
     { secrets },
   );
@@ -65,7 +65,7 @@ const formatResponseBody = (
   secrets: ReadonlyArray<string>,
 ): ReadonlyArray<string> => {
   try {
-    return JSON.stringify(redactRegistryValue(body, { secrets }), null, 2).split("\n");
+    return JSON.stringify(redactCredentialValue(body, { secrets }), null, 2).split("\n");
   } catch {
     return ["[unserializable response body]"];
   }
@@ -115,7 +115,7 @@ const problemAside = (code: ErrorCode): string => `${code}, ${exitPhrase(exitCod
 
 /** The reason, with how many attempts it took when a retry policy ran out. */
 const reasonText = (error: AppError, secrets: ReadonlyArray<string>): Text => {
-  const detail = redactRegistryText(error.detail, { secrets });
+  const detail = redactCredentialText(error.detail, { secrets });
   const attempts = error.metadata?.requestPolicy?.attemptCount;
   return attempts === undefined || attempts < 2
     ? detail
@@ -136,10 +136,10 @@ export const appErrorDoc = (
   const requestId = getRequestId(error);
   const registryUrl = getRegistryUrl(error);
   const detailed = options.verbose || options.debug;
-  const title = redactRegistryText(error.title, { secrets });
+  const title = redactCredentialText(error.title, { secrets });
   const fields: Array<Field> = (error.inputs ?? []).map((input) => ({
-    label: redactRegistryText(input.label, { secrets }),
-    value: redactRegistryText(input.value, { secrets }),
+    label: redactCredentialText(input.label, { secrets }),
+    value: redactCredentialText(input.value, { secrets }),
   }));
   const children: Array<DocNode> = [];
   if (error.diagnosticId !== undefined)
@@ -159,13 +159,13 @@ export const appErrorDoc = (
   if (requestId !== undefined && (detailed || error.code === "internal")) {
     fields.push({
       label: "Request ID",
-      value: [{ text: redactRegistryText(requestId, { secrets }), copyable: true }],
+      value: [{ text: redactCredentialText(requestId, { secrets }), copyable: true }],
     });
   }
 
   // A failure about its inputs states them as fields, which say more than
   // the sentence its detail spells for the machine envelope.
-  if (error.inputs === undefined && redactRegistryText(error.detail, { secrets }) !== title) {
+  if (error.inputs === undefined && redactCredentialText(error.detail, { secrets }) !== title) {
     children.push({ _tag: "paragraph", text: reasonText(error, secrets) });
   }
   if (fields.length > 0) children.push({ _tag: "fields", fields });

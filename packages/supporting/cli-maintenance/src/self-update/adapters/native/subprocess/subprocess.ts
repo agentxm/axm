@@ -11,6 +11,7 @@ import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/process/ChildProcess";
 import type { ChildProcessSpawner as ChildProcessSpawnerService } from "effect/process/ChildProcessSpawner";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+import { redactCredentialText } from "@agentxm/host-primitives";
 
 export interface CommandResult {
   readonly executionState: "not-started" | "exited" | "timed-out";
@@ -25,7 +26,6 @@ export interface RunCommandOptions {
   readonly cwd?: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly timeoutMs?: number;
-  readonly redactValues?: ReadonlyArray<string>;
 }
 
 export interface SubprocessService {
@@ -50,28 +50,14 @@ const ansiPattern =
 const controlsPattern =
   // eslint-disable-next-line no-control-regex -- external process output is untrusted
   /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/gu;
-const credentialUrlPattern = /(https?:\/\/)([^/\s:@]+):([^/@\s]+)@/giu;
-const bearerPattern = /\b(Bearer\s+)[A-Za-z0-9._~+/-]+=*/giu;
-const authorizationPattern = /\b(authorization|token|api[_-]?key|password)\s*[:=]\s*[^\s]+/giu;
 
 export interface SanitizedOutput {
   readonly value: string;
   readonly truncated: boolean;
 }
 
-export const sanitizeExternalOutput = (
-  input: string,
-  redactValues: ReadonlyArray<string>,
-): SanitizedOutput => {
-  let value = input
-    .replace(ansiPattern, "")
-    .replace(controlsPattern, "")
-    .replace(credentialUrlPattern, "$1[REDACTED]@")
-    .replace(bearerPattern, "$1[REDACTED]")
-    .replace(authorizationPattern, "$1=[REDACTED]");
-  for (const secret of redactValues) {
-    if (secret.length > 0) value = value.split(secret).join("[REDACTED]");
-  }
+export const sanitizeExternalOutput = (input: string): SanitizedOutput => {
+  let value = redactCredentialText(input.replace(ansiPattern, "").replace(controlsPattern, ""));
 
   const encoded = new TextEncoder().encode(value);
   if (encoded.length <= MAX_RETAINED_OUTPUT_BYTES) {
@@ -134,8 +120,8 @@ const makeRunCommand =
         return unavailableResult("timed-out", `Timed out executing ${command}`);
       }
 
-      const stdout = sanitizeExternalOutput(completed.value.stdout, options?.redactValues ?? []);
-      const stderr = sanitizeExternalOutput(completed.value.stderr, options?.redactValues ?? []);
+      const stdout = sanitizeExternalOutput(completed.value.stdout);
+      const stderr = sanitizeExternalOutput(completed.value.stderr);
       return {
         executionState: "exited",
         exitCode: Number(completed.value.exitCode),

@@ -11,10 +11,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
 import {
-  collectSensitiveStrings,
   isRegistryClientFailure,
-  redactRegistryText,
   RegistrySelectionFailed,
   RegistrySourceUnknown,
   type RegistryClientFailure,
@@ -114,7 +113,7 @@ export const publishCause = (failure: PublishFailure) => {
       operation: "publish.prepare",
     },
     class: CAUSE_CLASS_BY_CATEGORY[step.category],
-    message: redactRegistryText(step.detail, { secrets }),
+    message: redactCredentialText(step.detail, { secrets }),
     retryable: policy?.retryable ?? false,
     ...(policy === undefined
       ? {}
@@ -126,14 +125,14 @@ export const publishCause = (failure: PublishFailure) => {
         }),
     ...(response?.requestId === undefined
       ? {}
-      : { requestId: redactRegistryText(response.requestId, { secrets }) }),
+      : { requestId: redactCredentialText(response.requestId, { secrets }) }),
     ...(response === undefined
       ? {}
       : {
           responseStatus: response.status,
           ...(response.problemCode === undefined
             ? {}
-            : { problemCode: redactRegistryText(response.problemCode, { secrets }) }),
+            : { problemCode: redactCredentialText(response.problemCode, { secrets }) }),
         }),
   };
 };

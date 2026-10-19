@@ -1,4 +1,4 @@
-import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
+import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
 import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/human-handoff";
 import * as Schema from "effect/Schema";
 
@@ -122,7 +122,7 @@ export const makeJsonSuccessEnvelope = (args?: {
   ...(args?.ok === false && args.diagnosticId !== undefined
     ? { diagnosticId: args.diagnosticId }
     : {}),
-  ...(args?.summary !== undefined ? { summary: redactRegistryText(args.summary) } : {}),
+  ...(args?.summary !== undefined ? { summary: redactCredentialText(args.summary) } : {}),
   ...(args?.suggestions !== undefined && args.suggestions.length > 0
     ? { suggestions: args.suggestions.map((suggestion) => redactSuggestedAction(suggestion)) }
     : {}),
@@ -147,17 +147,17 @@ export const makeJsonErrorEnvelope = (args: {
     ok: false,
     code: args.code,
     ...(args.diagnosticId === undefined ? {} : { diagnosticId: args.diagnosticId }),
-    title: redactRegistryText(args.title, { secrets }),
-    detail: redactRegistryText(args.detail, { secrets }),
+    title: redactCredentialText(args.title, { secrets }),
+    detail: redactCredentialText(args.detail, { secrets }),
     ...(args.problem !== undefined ? { problem: args.problem } : {}),
     ...(args.cause !== undefined && args.cause.length > 0
       ? {
           cause: args.cause.map((cause) => ({
             ...cause,
-            message: redactRegistryText(cause.message, { secrets }),
+            message: redactCredentialText(cause.message, { secrets }),
             ...(cause.stack === undefined
               ? {}
-              : { stack: redactRegistryText(cause.stack, { secrets }) }),
+              : { stack: redactCredentialText(cause.stack, { secrets }) }),
           })),
         }
       : {}),

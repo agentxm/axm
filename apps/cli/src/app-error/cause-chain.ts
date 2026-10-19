@@ -1,4 +1,4 @@
-import { redactRegistryText } from "@agentxm/registry-client";
+import { redactCredentialText } from "@agentxm/host-primitives";
 import * as Schema from "effect/Schema";
 import { type AppError } from "./app-error.js";
 import { StepFailure, ErrorCodeSchema } from "@agentxm/workspace-kernel/operations";
@@ -65,15 +65,15 @@ const structuredObjectMessage = (cause: unknown): string | undefined => {
 
 const causeMessage = (cause: unknown, secrets: ReadonlyArray<string>): string => {
   if (typeof cause === "string" || typeof cause === "number" || typeof cause === "boolean") {
-    return redactRegistryText(String(cause), { secrets });
+    return redactCredentialText(String(cause), { secrets });
   }
   if (cause === null) return "null";
   if (cause === undefined) return "undefined";
 
   const structuredMessage = structuredObjectMessage(cause);
-  if (structuredMessage !== undefined) return redactRegistryText(structuredMessage, { secrets });
+  if (structuredMessage !== undefined) return redactCredentialText(structuredMessage, { secrets });
 
-  return redactRegistryText(
+  return redactCredentialText(
     getStringField(cause, "_tag") ?? (cause instanceof Error ? errorTag(cause) : objectTag(cause)),
     { secrets },
   );
@@ -92,7 +92,7 @@ const serializeCause = (
     return {
       _tag: "AppError",
       code: cause.code,
-      message: redactRegistryText(cause.detail, { secrets: options.secrets }),
+      message: redactCredentialText(cause.detail, { secrets: options.secrets }),
     };
   }
 
@@ -100,7 +100,7 @@ const serializeCause = (
     return {
       _tag: "StepFailure",
       code: cause.category,
-      message: redactRegistryText(cause.detail, { secrets: options.secrets }),
+      message: redactCredentialText(cause.detail, { secrets: options.secrets }),
     };
   }
 
@@ -111,9 +111,9 @@ const serializeCause = (
       message:
         message === undefined
           ? causeMessage(cause, options.secrets)
-          : redactRegistryText(message, { secrets: options.secrets }),
+          : redactCredentialText(message, { secrets: options.secrets }),
       ...(options.debug && cause.stack !== undefined
-        ? { stack: redactRegistryText(cause.stack, { secrets: options.secrets }) }
+        ? { stack: redactCredentialText(cause.stack, { secrets: options.secrets }) }
         : {}),
     };
   }

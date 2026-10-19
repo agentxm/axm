@@ -1,4 +1,4 @@
-import { redactRegistryValue } from "@agentxm/registry-client";
+import { redactCredentialValue } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
@@ -12,7 +12,7 @@ import { verbosityToLogLevel, type VerbosityLevel } from "../cli-flags/index.js"
 import { Screen, type ScreenLogRecord } from "./screen.js";
 
 const messageText = (message: unknown): string => {
-  const redacted = redactRegistryValue(message);
+  const redacted = redactCredentialValue(message);
   if (typeof redacted === "string") return redacted;
   if (Array.isArray(redacted)) {
     return redacted

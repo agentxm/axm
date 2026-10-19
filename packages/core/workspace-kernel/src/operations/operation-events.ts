@@ -19,6 +19,7 @@
  * provided.
  */
 
+import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
@@ -33,8 +34,6 @@ import * as Semaphore from "effect/Semaphore";
 import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 import * as Stream from "effect/Stream";
-
-import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
 
 import { BlockingClassSchema } from "./plan.js";
 import { ErrorCodeSchema, StepFailure } from "./errors.js";
@@ -446,7 +445,7 @@ const unitFailureForExit = (exit: Exit.Exit<unknown, unknown>): UnitFailure | un
   return error instanceof StepFailure
     ? {
         category: error.category,
-        detail: redactRegistryText(error.detail, {
+        detail: redactCredentialText(error.detail, {
           secrets: collectSensitiveStrings(error.metadata),
         }),
       }

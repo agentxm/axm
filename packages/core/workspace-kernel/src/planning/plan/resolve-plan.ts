@@ -18,6 +18,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
 import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
 import * as Path from "effect/Path";
@@ -82,8 +83,6 @@ import {
   OperationRequestBudget,
   OperationScratchBudget,
   OperationScratchLimitExceeded,
-  collectSensitiveStrings,
-  redactRegistryText,
 } from "@agentxm/registry-client";
 import { SourceHostProviders, isSourceResolutionFailure } from "../../sources/index.js";
 import { resolutionFailureToStepFailure } from "../resolution-step-failure.js";
@@ -906,7 +905,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     step.result.result === "error"
       ? {
           category: step.result.error.category,
-          detail: redactRegistryText(step.result.error.detail, {
+          detail: redactCredentialText(step.result.error.detail, {
             secrets: collectSensitiveStrings(step.result.error.metadata),
           }),
         }

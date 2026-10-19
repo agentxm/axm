@@ -1,3 +1,4 @@
+import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
 import type { CommandSettlementFailure } from "./cli-runtime/telemetry.js";
 import { prepareTerminalFailure } from "./cli-runtime/terminal-diagnostics.js";
 import { errorClassForAppErrorCode } from "./app-error/index.js";
@@ -11,7 +12,6 @@ import { errorClassForAppErrorCode } from "./app-error/index.js";
  * own account of what happened.
  */
 
-import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -523,14 +523,14 @@ export interface PlanResolutionResultOptions {
 
 const nativeLocationForJson = (location: NativeLocationOutcome): NativeLocationOutcome => ({
   ...location,
-  address: { ...location.address, path: redactRegistryText(location.address.path) },
-  aliases: location.aliases.map((path) => redactRegistryText(path)),
-  ...(location.reason === undefined ? {} : { reason: redactRegistryText(location.reason) }),
+  address: { ...location.address, path: redactCredentialText(location.address.path) },
+  aliases: location.aliases.map((path) => redactCredentialText(path)),
+  ...(location.reason === undefined ? {} : { reason: redactCredentialText(location.reason) }),
   availability: location.availability.map((availability) => ({
     ...availability,
     ...(availability.reason === undefined
       ? {}
-      : { reason: redactRegistryText(availability.reason) }),
+      : { reason: redactCredentialText(availability.reason) }),
   })),
 });
 
@@ -552,11 +552,11 @@ const artifactForJson = (
             ...sourceSwitch,
             before: {
               ...sourceSwitch.before,
-              locator: redactRegistryText(sourceSwitch.before.locator),
+              locator: redactCredentialText(sourceSwitch.before.locator),
             },
             after: {
               ...sourceSwitch.after,
-              locator: redactRegistryText(sourceSwitch.after.locator),
+              locator: redactCredentialText(sourceSwitch.after.locator),
             },
             ...(sourceSwitch.packMembers === undefined
               ? {}
@@ -568,7 +568,7 @@ const artifactForJson = (
                       : {
                           before: {
                             ...member.before,
-                            locator: redactRegistryText(member.before.locator),
+                            locator: redactCredentialText(member.before.locator),
                           },
                         }),
                     ...(member.after === undefined
@@ -576,7 +576,7 @@ const artifactForJson = (
                       : {
                           after: {
                             ...member.after,
-                            locator: redactRegistryText(member.after.locator),
+                            locator: redactCredentialText(member.after.locator),
                           },
                         }),
                   })),
@@ -588,17 +588,17 @@ const artifactForJson = (
       : {
           references: references.map((reference) => ({
             ...reference,
-            path: redactRegistryText(reference.path),
-            reason: redactRegistryText(reference.reason),
+            path: redactCredentialText(reference.path),
+            reason: redactCredentialText(reference.reason),
           })),
         }),
-    ...(base.path === undefined ? {} : { path: redactRegistryText(base.path) }),
+    ...(base.path === undefined ? {} : { path: redactCredentialText(base.path) }),
     ...(managedRegions === undefined
       ? {}
       : {
           managedRegions: managedRegions.map((region) => ({
             ...region,
-            path: redactRegistryText(region.path),
+            path: redactCredentialText(region.path),
           })),
         }),
   };
@@ -607,8 +607,8 @@ const artifactForJson = (
       ? undefined
       : {
           ...source,
-          origin: redactRegistryText(source.origin),
-          ...(source.ref === undefined ? {} : { ref: redactRegistryText(source.ref) }),
+          origin: redactCredentialText(source.origin),
+          ...(source.ref === undefined ? {} : { ref: redactCredentialText(source.ref) }),
         };
   const rest =
     options.debug === true && sanitizedSource !== undefined
@@ -624,7 +624,7 @@ const artifactForJson = (
         ...rest,
         targets: additionalTargets.map((target) => ({
           ...target,
-          path: redactRegistryText(target.path),
+          path: redactCredentialText(target.path),
         })),
       };
 };
@@ -644,8 +644,8 @@ const failureForJson = (failure: StepFailure, options: PlanResolutionResultOptio
       : [];
   return {
     code: failure.category,
-    message: redactRegistryText(failure.detail, { secrets }),
-    title: redactRegistryText(failure.title ?? defaultTitleFor(failure.category), { secrets }),
+    message: redactCredentialText(failure.detail, { secrets }),
+    title: redactCredentialText(failure.title ?? defaultTitleFor(failure.category), { secrets }),
     ...(failure.problem === undefined ? {} : { problem: failure.problem }),
     ...(failure.metadata === undefined
       ? {}
@@ -672,15 +672,15 @@ const unitForJson = (
       : {
           blocking: {
             ...unit.blocking,
-            detail: redactRegistryText(unit.blocking.detail, { secrets }),
+            detail: redactCredentialText(unit.blocking.detail, { secrets }),
           },
         }),
     ...(unit.message === undefined || unit.message.length === 0
       ? {}
-      : { message: redactRegistryText(unit.message, { secrets }) }),
+      : { message: redactCredentialText(unit.message, { secrets }) }),
     ...(unit.warnings === undefined || unit.warnings.length === 0
       ? {}
-      : { warnings: unit.warnings.map((warning) => redactRegistryText(warning, { secrets })) }),
+      : { warnings: unit.warnings.map((warning) => redactCredentialText(warning, { secrets })) }),
     ...(unit.error === undefined ? {} : { code: unit.error.category }),
     ...(unit.error !== undefined && includeErrorDetails
       ? { error: failureForJson(unit.error, options) }
@@ -700,7 +700,7 @@ const unitForJson = (
         }),
     ...(unit.agentOutcomes === undefined ? {} : { agentOutcomes: unit.agentOutcomes }),
     ...(unit.registryLifecycle === undefined ? {} : { registryLifecycle: unit.registryLifecycle }),
-    ...(unit.links === undefined ? {} : { links: { html: redactRegistryText(unit.links.html) } }),
+    ...(unit.links === undefined ? {} : { links: { html: redactCredentialText(unit.links.html) } }),
   };
 };
 
@@ -742,7 +742,7 @@ export const toPlanResolutionResult = (
       : {
           blocking: {
             ...resolution.blocking,
-            detail: redactRegistryText(resolution.blocking.detail),
+            detail: redactCredentialText(resolution.blocking.detail),
           },
         }),
     ...(resolution.failure === undefined
@@ -789,7 +789,7 @@ export const toPlanResolutionResult = (
       : {
           footprint: resolution.footprint.map((entry) => ({
             ...entry,
-            path: redactRegistryText(entry.path),
+            path: redactCredentialText(entry.path),
           })),
         }),
     ...(resolution.recovery === undefined
@@ -797,11 +797,11 @@ export const toPlanResolutionResult = (
       : {
           recovery: {
             ...resolution.recovery,
-            retained: resolution.recovery.retained.map((path) => redactRegistryText(path)),
+            retained: resolution.recovery.retained.map((path) => redactCredentialText(path)),
             entries: resolution.recovery.entries.map((entry) => ({
               ...entry,
-              originalPath: redactRegistryText(entry.originalPath),
-              recoveryPath: redactRegistryText(entry.recoveryPath),
+              originalPath: redactCredentialText(entry.originalPath),
+              recoveryPath: redactCredentialText(entry.recoveryPath),
             })),
           },
         }),

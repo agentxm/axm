@@ -1,3 +1,4 @@
+import { REDACTED_SECRET, redactCredentialText } from "@agentxm/host-primitives";
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
@@ -7,10 +8,8 @@ import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Result from "effect/Result";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
-  REDACTED_SECRET,
   RegistryProblem,
   RegistrySelectionFailed,
-  redactRegistryText,
   refuseRegistryRedirects,
 } from "@agentxm/registry-client";
 import { SettingsDecodeError, selectRegistry } from "@agentxm/workspace-kernel/workspace-state";
@@ -78,7 +77,9 @@ describe("Credential-safe error reports", () => {
       // was given, so what a live row can show is what arrived.
       failure: {
         category: "auth",
-        detail: redactRegistryText("The registry refused Bearer sk_live_not_a_real_secret_value."),
+        detail: redactCredentialText(
+          "The registry refused Bearer sk_live_not_a_real_secret_value.",
+        ),
       },
     });
     const detail = state.units[0]?.failure?.detail ?? "";

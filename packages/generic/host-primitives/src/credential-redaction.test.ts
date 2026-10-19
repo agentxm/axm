@@ -1,23 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import { collectSensitiveStrings, redactRegistryText, redactRegistryValue } from "./redaction.js";
+import {
+  collectSensitiveStrings,
+  redactCredentialText,
+  redactCredentialValue,
+} from "./credential-redaction.js";
 
-describe("redactRegistryText", () => {
+describe("redactCredentialText", () => {
   it("redacts a bearer credential quoted back in a problem detail", () => {
-    expect(redactRegistryText("rejected Authorization: Bearer axm_ses_live_abc123")).toBe(
+    expect(redactCredentialText("rejected Authorization: Bearer axm_ses_live_abc123")).toBe(
       "rejected Authorization: [REDACTED] [REDACTED]",
     );
   });
 
   it("redacts a credential carried in a query string", () => {
-    expect(redactRegistryText("GET /v1/x?access_token=axm_ses_live_abc123&page=2")).toBe(
+    expect(redactCredentialText("GET /v1/x?access_token=axm_ses_live_abc123&page=2")).toBe(
       "GET /v1/x?access_token=[REDACTED]&page=2",
     );
   });
 
   it("redacts a URL userinfo password while keeping the rest of a Git reason", () => {
     expect(
-      redactRegistryText(
+      redactCredentialText(
         "fatal: unable to access 'https://robot:s3cret@example.test/repo.git/': Could not resolve host",
       ),
     ).toBe(
@@ -26,7 +30,7 @@ describe("redactRegistryText", () => {
   });
 
   it("leaves scp-style Git locators and email addresses unchanged", () => {
-    expect(redactRegistryText("git@example.test:acme/repo.git from dev@example.test")).toBe(
+    expect(redactCredentialText("git@example.test:acme/repo.git from dev@example.test")).toBe(
       "git@example.test:acme/repo.git from dev@example.test",
     );
   });
@@ -35,20 +39,20 @@ describe("redactRegistryText", () => {
     "redacts a bare %s AgentXM credential wherever it appears",
     (prefix) => {
       const credential = `${prefix}${"a".repeat(30)}${"b".repeat(6)}`;
-      expect(redactRegistryText(`Token ${credential} was revoked.`)).toBe(
+      expect(redactCredentialText(`Token ${credential} was revoked.`)).toBe(
         "Token [REDACTED] was revoked.",
       );
     },
   );
 
   it("leaves AgentXM-prefixed words too short to be a credential unchanged", () => {
-    expect(redactRegistryText("see axmt_docs for the token format")).toBe(
+    expect(redactCredentialText("see axmt_docs for the token format")).toBe(
       "see axmt_docs for the token format",
     );
   });
 
   it("redacts the identity token a token exchange presents", () => {
-    expect(redactRegistryText("grant_type=exchange&subject_token=plain-identity-token")).toBe(
+    expect(redactCredentialText("grant_type=exchange&subject_token=plain-identity-token")).toBe(
       "grant_type=exchange&subject_token=[REDACTED]",
     );
     expect(collectSensitiveStrings({ subject_token: "plain-identity-token" })).toEqual([
@@ -57,7 +61,7 @@ describe("redactRegistryText", () => {
   });
 
   it("leaves text without a credential shape unchanged", () => {
-    expect(redactRegistryText("version 1.2.3 is already published")).toBe(
+    expect(redactCredentialText("version 1.2.3 is already published")).toBe(
       "version 1.2.3 is already published",
     );
   });
@@ -65,7 +69,7 @@ describe("redactRegistryText", () => {
   it("erases an exact secret a structured boundary carried, whatever its shape", () => {
     const secrets = collectSensitiveStrings({ body: { device_code: "plain-words-only" } });
     expect(secrets).toEqual(["plain-words-only"]);
-    expect(redactRegistryText("Credential plain-words-only was revoked.", { secrets })).toBe(
+    expect(redactCredentialText("Credential plain-words-only was revoked.", { secrets })).toBe(
       "Credential [REDACTED] was revoked.",
     );
   });
@@ -75,10 +79,10 @@ describe("redactRegistryText", () => {
   });
 });
 
-describe("redactRegistryValue", () => {
+describe("redactCredentialValue", () => {
   it("replaces every string under a sensitive key and redacts the rest", () => {
     expect(
-      redactRegistryValue({
+      redactCredentialValue({
         token: "plain-words-only",
         detail: "Credential plain-words-only was revoked.",
         nested: [{ password: "hunter22", note: "Bearer abc.def" }],
@@ -95,6 +99,6 @@ describe("redactRegistryValue", () => {
   it("cuts circular references instead of recursing", () => {
     const value: { self?: unknown; name: string } = { name: "loop" };
     value.self = value;
-    expect(redactRegistryValue(value)).toEqual({ name: "loop", self: "[Circular]" });
+    expect(redactCredentialValue(value)).toEqual({ name: "loop", self: "[Circular]" });
   });
 });

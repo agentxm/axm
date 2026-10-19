@@ -20,11 +20,9 @@ import { LOCKFILE_VERSION } from "../desired/lockfile/index.js";
 import type { Lockfile } from "../desired/lockfile/schema.js";
 import { createDefaultSettings, type Settings } from "../desired/settings/index.js";
 import { AgentRootResolverLive } from "../observed/agent-root-resolver.js";
-import type {
-  LockfileReadError,
-  SettingsReadError,
-  WorkspaceRootEscape,
-} from "../observed/errors.js";
+import type { WorkspaceRootEscape } from "../observed/errors.js";
+import type { LockfileReadError } from "../desired/lockfile/errors.js";
+import type { SettingsReadError } from "../desired/settings/errors.js";
 import {
   makeWorkspaceReadModel,
   validateWorkspaceReadRoot,

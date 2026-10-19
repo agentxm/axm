@@ -8,11 +8,9 @@ import type * as Option from "effect/Option";
 import type { NativeObservationView } from "../../locations/index.js";
 
 import type { WorkspaceSnapshotError } from "../../settlement/index.js";
-import type {
-  LockfileReadError,
-  SettingsReadError,
-  WorkspaceRootEscape,
-} from "../observed/errors.js";
+import type { WorkspaceRootEscape } from "../observed/errors.js";
+import type { LockfileReadError } from "../desired/lockfile/errors.js";
+import type { SettingsReadError } from "../desired/settings/errors.js";
 import type { SettingsWriteError } from "../desired/settings/errors.js";
 import type { LockfileValidationError, LockfileWriteError } from "../desired/lockfile/errors.js";
 import type {

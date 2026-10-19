@@ -10,7 +10,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import { LockEntryEndpointConflict, LockEntryNameInvalid } from "./errors.js";
-import type { SettingsReadError, WorkspaceRootEscape } from "../observed/errors.js";
+import type { WorkspaceRootEscape } from "../observed/errors.js";
+import type { SettingsReadError } from "../desired/settings/errors.js";
 import {
   decodeExtensionNameSync,
   toExtensionTypePlural,

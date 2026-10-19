@@ -36,7 +36,8 @@ import {
 import { projectWorkspaceRecords } from "../observed/record-projection.js";
 import type { ConfiguredAgentOutcome } from "../../operations/index.js";
 import type { WorkspaceRecordRow } from "../observed/records.js";
-import type { LockfileReadError, SettingsReadError } from "../observed/errors.js";
+import type { LockfileReadError } from "../desired/lockfile/errors.js";
+import type { SettingsReadError } from "../desired/settings/errors.js";
 import { readScopedModel } from "./state-cells.js";
 
 type Read<A> = Effect.Effect<A, WorkspaceStateReadFailure, FileSystem.FileSystem | Path.Path>;

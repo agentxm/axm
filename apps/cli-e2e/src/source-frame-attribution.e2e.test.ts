@@ -24,7 +24,7 @@ const recordSchema = Schema.Struct({
 const builtEntry = fileURLToPath(new URL("../../cli/dist/src/main.js", import.meta.url));
 const source = fileURLToPath(
   new URL(
-    "../../../packages/core/workspace-kernel/src/workspace-state/observed/state.ts",
+    "../../../packages/core/workspace-kernel/src/workspace-state/desired/settings/read.ts",
     import.meta.url,
   ),
 );
@@ -93,7 +93,7 @@ describe("production artifact source attribution", () => {
           expect.arrayContaining([
             expect.objectContaining({
               module: "@agentxm/workspace-kernel",
-              filename: "src/workspace-state/observed/state.ts",
+              filename: "src/workspace-state/desired/settings/read.ts",
               line: creationLine,
             }),
           ]),

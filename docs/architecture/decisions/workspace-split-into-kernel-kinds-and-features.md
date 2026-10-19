@@ -163,9 +163,9 @@ path exceptions it required, can then be deleted.
   with `type:lib`, its role, and its `scope:` tag, a build target, the
   TypeScript configuration trio, a Vitest configuration, and a README. The old
   package and its README are deleted.
-- `desired-state` is renamed `workspace-state`. Its `desired/` and `observed/`
-  subfolders are organisational; the direction between them is not yet
-  enforced. The nested `transitions/*`, `projection/agent-adapters`,
+- `desired-state` is renamed `workspace-state`. Production code in its
+  `desired/` subfolder never imports `observed/`; a slice configuration row
+  enforces that direction inside the slice. The nested `transitions/*`, `projection/agent-adapters`,
   `resolution/sources`, and `knowledge/query` entries become the flat
   `settlement`, `planning`, `agent-adapters`, `sources`, and `knowledge-query`
   slices.
@@ -212,7 +212,8 @@ Reconsider this layout in any of these cases:
   kinds capability, not as a licence for a peer edge.
 - Nx can express folder-level boundaries inside a project natively. The slice
   lint layer then becomes redundant.
-- The `desired/` and `observed/` halves of workspace state become an enforced
-  direction. That adds rows to the slice configuration, not packages.
+- Another folder inside a slice needs an enforced direction. That adds rows to
+  the slice configuration, as the `desired/` and `observed/` halves of
+  workspace state did, not packages.
 
 When superseded, this record remains reachable and links its replacement.

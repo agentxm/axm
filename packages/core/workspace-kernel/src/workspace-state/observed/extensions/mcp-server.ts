@@ -21,7 +21,8 @@ import { lockEntryToSourceParams } from "../../workspace/lock-entry.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { isSourcedMcpServerEntry } from "../../desired/settings/schema.js";
 import type { McpServerEntry, Settings } from "../../desired/settings/schema.js";
-import type { LockfileReadError, SettingsReadError } from "../errors.js";
+import type { LockfileReadError } from "../../desired/lockfile/errors.js";
+import type { SettingsReadError } from "../../desired/settings/errors.js";
 import type { CanonicalExtensionOccurrence, McpConfigOccurrence } from "../scanners/types.js";
 import type {
   ActivationState,

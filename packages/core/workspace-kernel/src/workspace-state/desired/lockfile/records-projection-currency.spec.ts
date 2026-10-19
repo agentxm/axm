@@ -11,7 +11,7 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import { stringify as stringifyToml } from "smol-toml";
 
-import { decodeLockfileBytes } from "../../observed/state.js";
+import { decodeLockfileBytes } from "./read.js";
 import { WorkspaceFileWriteLocks } from "../../../settlement/index.js";
 import { WorkspaceFileWriteLocksLive } from "../../../settlement/live.js";
 import { makeAcceptedResolutionWriter } from "../../workspace/accepted-resolution-writer.js";

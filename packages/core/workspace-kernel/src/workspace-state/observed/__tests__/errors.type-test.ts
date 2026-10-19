@@ -6,7 +6,8 @@
  * `tsconfig.spec.json` so the assertions are checked when typecheck runs.
  */
 
-import type { LockfileReadError, SettingsReadError } from "../errors.js";
+import type { LockfileReadError } from "../../desired/lockfile/errors.js";
+import type { SettingsReadError } from "../../desired/settings/errors.js";
 
 // SettingsReadError SHALL contain only the three Settings* tags.
 type _SettingsExact = [

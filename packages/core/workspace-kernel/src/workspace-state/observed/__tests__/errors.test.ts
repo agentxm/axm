@@ -8,18 +8,20 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { WorkspaceRootEscape } from "../errors.js";
 import {
   LockfileDecodeError,
   LockfileIoError,
   LockfileParseError,
   LockfileVersionUnsupported,
+  type LockfileReadError,
+} from "../../desired/lockfile/errors.js";
+import {
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,
-  WorkspaceRootEscape,
-  type LockfileReadError,
   type SettingsReadError,
-} from "../errors.js";
+} from "../../desired/settings/errors.js";
 
 // Compile-time exact-union assertions live in `errors.type-test.ts` so they
 // run under typecheck without registering empty vitest specs.

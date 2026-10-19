@@ -16,7 +16,8 @@
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
-import type { LockfileReadError, SettingsReadError } from "./errors.js";
+import type { LockfileReadError } from "../desired/lockfile/errors.js";
+import type { SettingsReadError } from "../desired/settings/errors.js";
 
 // -----------------------------------------------------------------------------
 // Scope

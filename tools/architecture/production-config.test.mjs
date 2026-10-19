@@ -48,6 +48,46 @@ for (const [kind, other] of [
   }
 }
 
+const sliceViolations = async (code, filePath) => {
+  const [result] = await eslint.lintText(code, { filePath });
+  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+  return result.messages.filter(({ ruleId }) => ruleId === "boundaries/dependencies");
+};
+const workspaceState = "packages/core/workspace-kernel/src/workspace-state";
+
+test("workspace-state desired documents cannot import the observed read model", async () => {
+  const violations = await sliceViolations(
+    'export { makeScopedStateApi } from "../../observed/state.js";',
+    `${workspaceState}/desired/settings/settings.ts`,
+  );
+  assert.ok(
+    violations.some(({ message }) => message.includes("never imports observed/")),
+    JSON.stringify(violations),
+  );
+});
+
+for (const [name, code, filePath] of [
+  [
+    "the observed read model imports desired documents",
+    'export { decodeSettingsBytes } from "../desired/settings/read.js";',
+    `${workspaceState}/observed/state.ts`,
+  ],
+  [
+    "a desired-document test composes observed fixtures",
+    'export { storedLockfileFixture } from "../../observed/__fixtures__/decoders.js";',
+    `${workspaceState}/desired/lockfile/lockfile.test.ts`,
+  ],
+  [
+    "files inside an extension kind import each other",
+    'export * from "../install/plan.js";',
+    "packages/core/extension-kinds/src/hooks/lifecycle/uninstall/plan.ts",
+  ],
+]) {
+  test(`slice-internal imports stay free: ${name}`, async () => {
+    assert.deepEqual(await sliceViolations(code, filePath), []);
+  });
+}
+
 test("shared extension matching cannot acquire the install selection policy", async () => {
   const [result] = await eslint.lintText(
     'export { selectInstallRefs } from "@agentxm/workspace-features/lifecycle";',

@@ -19,7 +19,8 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Lockfile, RuleLockEntry } from "../../desired/lockfile/schema.js";
 import type { RuleEntry, Settings } from "../../desired/settings/schema.js";
-import type { LockfileReadError, SettingsReadError } from "../errors.js";
+import type { LockfileReadError } from "../../desired/lockfile/errors.js";
+import type { SettingsReadError } from "../../desired/settings/errors.js";
 import type { CanonicalExtensionOccurrence } from "../scanners/types.js";
 import type {
   ActivationState,

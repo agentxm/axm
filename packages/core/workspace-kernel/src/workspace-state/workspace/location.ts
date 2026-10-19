@@ -36,7 +36,10 @@ import {
   type WorkspaceLayout,
 } from "./layout.js";
 import { getProjectRuntimeDir, resolveUserHome } from "./paths.js";
-import { LockfileVersionUnsupported, lockfileRequiresNewerAxm } from "../observed/errors.js";
+import {
+  LockfileVersionUnsupported,
+  lockfileRequiresNewerAxm,
+} from "../desired/lockfile/errors.js";
 import type {
   WorkspaceLockfileReadFailure,
   WorkspaceStateError,

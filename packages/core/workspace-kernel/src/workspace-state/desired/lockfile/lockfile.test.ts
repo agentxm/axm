@@ -19,7 +19,7 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { LOCKFILE_VERSION, LockfileSchema, type Lockfile, type SkillLockEntry } from "./schema.js";
 import { parseLockfileToml } from "./toml-values.js";
-import { LockfileDecodeError, LockfileVersionUnsupported } from "../../observed/errors.js";
+import { LockfileDecodeError, LockfileVersionUnsupported } from "./errors.js";
 import {
   applyLockfileUpdates,
   commitLockfileSnapshotUpdate,

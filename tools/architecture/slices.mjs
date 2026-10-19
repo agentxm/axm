@@ -82,6 +82,15 @@ const at = (type, slice) => ({
 const described = (tier, rule) =>
   `${tier} {{from.element.captured.slice}} -> {{to.type}} {{to.element.captured.slice}} ({{to.internalPath}}): ${rule}`;
 
+// Workspace state keeps its desired documents below its read model: production
+// code under desired/ never imports observed/. Both halves sit in one slice
+// behind one entry, so the row selects them by their path inside the slice.
+const workspaceStateHalf = (half) => ({
+  type: "kernel",
+  captured: { slice: "workspace-state" },
+  fileInternalPath: `${half}/**`,
+});
+
 const slicePolicies = [
   // A feature uses kinds and the kernel through their entry files.
   { from: { element: { type: "feature" } }, allow: { to: { element: at(["kind", "kernel"]) } } },
@@ -142,6 +151,18 @@ const slicePolicies = [
     disallow: { to: { file: { categories: "test" } } },
     message: described("production", "production code must not depend on tests or test support."),
   },
+  // Files inside one slice import each other freely. This follows every rule
+  // above, so those rules govern only imports between elements.
+  { allow: { dependency: { relationship: { to: "internal" } } } },
+  // Rows that order folders inside one slice come after that allowance.
+  {
+    from: { element: workspaceStateHalf("desired"), file: { categories: "production" } },
+    disallow: { to: { element: workspaceStateHalf("observed") } },
+    message: described(
+      "kernel",
+      "workspace-state desired/ code never imports observed/; move the shared part into desired/.",
+    ),
+  },
 ];
 
 /**
@@ -193,6 +214,9 @@ export function sliceBoundaries(rootPath, { ignores = [] } = {}) {
           "error",
           {
             default: "disallow",
+            // Imports inside one slice are evaluated too, so a row can order
+            // the folders within it; the internal allowance keeps the rest free.
+            checkInternals: true,
             message: described(
               "{{from.type}}",
               "not an allowed direction, or not the target slice's index, live, or testing entry.",

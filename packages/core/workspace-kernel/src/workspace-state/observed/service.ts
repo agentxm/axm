@@ -27,13 +27,9 @@ import { AgentRootResolver } from "./agent-root-resolver.js";
 import { makeScopedAgentsApi, type ScopedAgentsApi } from "./agents/index.js";
 import { type AgentScannerObservations } from "./agents/types.js";
 import { makeDiagnostics, type Diagnostics, type Warning } from "./diagnostics.js";
-import {
-  WorkspaceRootEscape,
-  type LockfileIoError,
-  type LockfileVersionUnsupported,
-  type SettingsIoError,
-  type SettingsReadError,
-} from "./errors.js";
+import { WorkspaceRootEscape } from "./errors.js";
+import type { LockfileIoError, LockfileVersionUnsupported } from "../desired/lockfile/errors.js";
+import type { SettingsIoError, SettingsReadError } from "../desired/settings/errors.js";
 import {
   makeHookExtensionsApi,
   makeKnowledgeExtensionsApi,
@@ -61,15 +57,14 @@ import {
   type McpConfigOccurrence,
   type CanonicalExtensionOccurrence,
 } from "./scanners/index.js";
-import { makeScopedStateApi, type RawSourceBytes, type ScopedStateLoaders } from "./state.js";
+import { makeScopedStateApi, type ScopedStateLoaders } from "./state.js";
+import type { RawSourceBytes } from "../desired/source-bytes.js";
 import { makeScannerFileSystem } from "./scanners/fs-helpers.js";
 import type { Scope } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Public surface types
 // ---------------------------------------------------------------------------
-
-export type { RawSourceBytes } from "./state.js";
 
 /** Scoped state cells; `raw(source)` reads cached bytes (absent → `Option.none`). */
 export interface ScopedStateApi {

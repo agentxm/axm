@@ -17,10 +17,6 @@ import { withArgvTracking } from "../../cli-runtime/index.js";
 import { parseHookConfiguration } from "../hooks/configuration-input.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import {
-  canAskUndetectedAgents,
-  chooseUndetectedAgents,
-  observeFirstInstallAgents,
-  undetectedAgentsRefusal,
   withProjectionOutputPosture,
   withReleaseAgePosture,
   withRuntime,
@@ -37,7 +33,14 @@ import {
   type InstallHandlerArgs,
   validateInstallArgsBeforeWorkspace,
 } from "./handler.js";
-import { firstUseWorkspace, setUpFirstUse } from "../shared/first-use.js";
+import {
+  canAskUndetectedAgents,
+  chooseUndetectedAgents,
+  firstUseWorkspace,
+  observeFirstInstallAgents,
+  setUpFirstUse,
+  undetectedAgentsRefusal,
+} from "../shared/first-use.js";
 import type { FirstInstall } from "../shared/install-command.js";
 
 const sourceArgument = () =>

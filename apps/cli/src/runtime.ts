@@ -27,12 +27,6 @@ import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/cli";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 
-import {
-  detectAgentScopeResults,
-  type AgentScopeDetection,
-} from "@agentxm/workspace-kernel/agent-adapters";
-import { ConfigurableAgentIdSchema } from "@agentxm/extension-model/unstable/extensions/common";
-import * as Schema from "effect/Schema";
 import { AgentPresenceProbeLive } from "@agentxm/workspace-kernel/agent-adapters/live";
 import {
   AxmSkillCandidateGateLive,
@@ -50,13 +44,7 @@ import {
   setCommandSemanticProperties,
   withCliErrorHandling,
 } from "./cli-runtime/index.js";
-import {
-  Verbosity,
-  type VerbosityLevel,
-  verboseFlag,
-  debugFlag,
-  directoryFlag,
-} from "./cli-flags/index.js";
+import { Verbosity, type VerbosityLevel, directoryFlag } from "./cli-flags/index.js";
 
 import { ExtensionKindsLive } from "@agentxm/extension-kinds/live";
 import {
@@ -106,7 +94,6 @@ import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/ex
 import { detectCallerAgent } from "./telemetry/caller-agent.js";
 import { resolveTelemetryMode, type TelemetryClientOptions } from "./telemetry/index.js";
 import {
-  resolveUserWorkspaceRoot,
   selectRegistry,
   type WorkspaceStateOptions,
   type SourceHostConfig,
@@ -134,11 +121,7 @@ import { LatestReleaseCheckLive } from "@agentxm/cli-maintenance/self-update/com
 
 import { loadVersion } from "./version.js";
 import { ScopedRoutes, failureForWorkspaceScope } from "./root/shared/scoped-command.js";
-import { Screen, ScreenLoggerLive, headlineDoc } from "./screen/index.js";
-import {
-  WorkspaceInitializationInteraction,
-  undetectedAgentOffer,
-} from "@agentxm/workspace-features/configuration";
+import { ScreenLoggerLive } from "./screen/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import {
@@ -146,10 +129,6 @@ import {
   type ProjectionOutputPostureValue,
 } from "@agentxm/workspace-kernel/projection";
 import { AGENTXM_REGISTRY_URL } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
-
-export { verboseFlag, debugFlag };
-
-export { axmGlobalFlags } from "./cli-flags/index.js";
 
 // -- Runtime layers --
 const LATEST_RELEASE_URL = "https://releases.axm.sh/latest.txt";
@@ -283,7 +262,7 @@ const registryClientFactoryLayer = Layer.provide(
  * or selects a Registry: that happens the first time a command asks the
  * `RegistryContext` it requires.
  */
-export const registryAccessLayer = Layer.provideMerge(
+const registryAccessLayer = Layer.provideMerge(
   Layer.mergeAll(PendingDeviceLoginStoreLive, AuthClientLive, TokenExchangeLayer),
   Layer.mergeAll(registryClientFactoryLayer, credentialStoreLayer, PlatformLayer),
 );
@@ -337,7 +316,7 @@ export const makeRegistryContextLayer = (
     }),
   );
 
-export const runtimeBaseLayer = Layer.mergeAll(
+const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
   CanonicalNativePathLive,
   makeAxmSkillCompatibilityPolicyLayer(loadVersion()),
@@ -487,100 +466,6 @@ const resolveRuntimeConfig = () => {
 type CliWorkspaceOptions = Omit<WorkspaceStateOptions, "builtInSources" | "projectRoot"> & {
   readonly projectRoot?: AbsolutePath;
 };
-
-const NO_AGENTS_DETECTED = "No coding agents were detected for this workspace";
-
-/**
- * The refusal a first install ends with when it has no agents and cannot ask.
- * A request that also left its selection open names both flags at once, so an
- * unattended caller is not refused a second time for the selection.
- */
-export const undetectedAgentsRefusal = (selectionOpen = false) =>
-  makeAppError({
-    code: "usage",
-    detail: NO_AGENTS_DETECTED,
-    recover: selectionOpen
-      ? "Retry with --agent <agent-id>, for example --agent claude-code, and name what to install with a selector flag or --all"
-      : "Retry with --agent <agent-id>, for example --agent claude-code",
-  });
-
-/** Whether this invocation can open the question a first install asks about agents. */
-export const canAskUndetectedAgents = Effect.gen(function* () {
-  const screen = yield* Effect.serviceOption(Screen);
-  const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
-  if (Option.isNone(screen) || Option.isNone(interaction)) return false;
-  return yield* screen.value.canAsk.pipe(
-    Effect.mapError((cause) =>
-      makeAppError({
-        code: "internal",
-        detail: "Interaction configuration could not be read.",
-        cause,
-      }),
-    ),
-  );
-});
-
-const configurableAgents = (ids: ReadonlyArray<string>) =>
-  ids.flatMap((id) => (Schema.is(ConfigurableAgentIdSchema)(id) ? [id] : []));
-
-/**
- * The agents a person chooses for a first install whose project names none.
- * Where no question can open, or the answer is nobody, the install refuses
- * with the flag that names them instead.
- */
-export const chooseUndetectedAgents = (detections: ReadonlyArray<AgentScopeDetection>) =>
-  Effect.gen(function* () {
-    const screen = yield* Effect.serviceOption(Screen);
-    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
-    if (Option.isNone(screen) || Option.isNone(interaction) || !(yield* canAskUndetectedAgents)) {
-      return yield* undetectedAgentsRefusal();
-    }
-    yield* screen.value.note(
-      headlineDoc("info", "No coding agents were detected in this project."),
-    );
-    const agents = configurableAgents(
-      yield* interaction.value.selectAgents(undetectedAgentOffer(detections)),
-    );
-    if (agents.length === 0) return yield* undetectedAgentsRefusal();
-    return agents;
-  });
-
-/**
- * What an install knows about its scope's agents before a workspace opens: the
- * scope already has settings, its project names agents, or it names none.
- */
-export const observeFirstInstallAgents = (scope: WorkspaceScope, projectRoot?: AbsolutePath) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const project = projectRoot ?? (yield* ExecutionDirectory).path;
-    const root = scope === "user" ? yield* resolveUserWorkspaceRoot() : project;
-    const exists = yield* fs.exists(path.join(root, "axm.json")).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: "Could not inspect workspace settings",
-          cause,
-        }),
-      ),
-    );
-    if (exists) return { _tag: "Established" } as const;
-    const detections = yield* detectAgentScopeResults(project).pipe(
-      Effect.mapError((cause) =>
-        makeAppError({
-          code: "internal",
-          detail: "Could not detect coding agents",
-          cause,
-        }),
-      ),
-    );
-    const agents = configurableAgents(
-      detections.flatMap(({ agent, project: detected }) => (detected ? [agent.id] : [])),
-    );
-    return agents.length > 0
-      ? ({ _tag: "Detected", agents } as const)
-      : ({ _tag: "Undetected", detections } as const);
-  });
 
 export const withWorkspace =
   (options: WorkspaceScope | CliWorkspaceOptions) =>
@@ -739,19 +624,3 @@ export const withRuntime =
         Effect.catchTag("RegistryAccessFailed", (error) => Effect.fail(failureToAppError(error))),
       );
     }).pipe(Effect.provide(WorkspaceFileWriteLocksLive));
-
-// Machine-output decoding surface for JavaScript and TypeScript automation.
-// The machine-output help topic points consumers here, so the published
-// `axm.sh/runtime` entry re-exports the schema and kind detector.
-export {
-  MachineOutputDocumentSchema,
-  detectMachineOutputDocumentKind,
-} from "./cli-runtime/index.js";
-export { MachineEventSchema, type MachineEvent } from "./screen/machine-events.js";
-
-export {
-  ConfiguredAgentOutcomeSchema,
-  ConfiguredAgentReasonCodeSchema,
-  type ConfiguredAgentOutcome,
-  type ConfiguredAgentReasonCode,
-} from "@agentxm/workspace-kernel/operations";

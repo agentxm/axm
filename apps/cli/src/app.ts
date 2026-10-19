@@ -27,7 +27,7 @@ import {
   resolveCliOutputPolicy,
   stderrIsTTY,
 } from "./screen/index.js";
-import { resolveVerbosityFromArgv } from "./cli-flags/index.js";
+import { axmGlobalFlags, resolveVerbosityFromArgv } from "./cli-flags/index.js";
 import {
   hasExplicitJsonFlag,
   hasPlainFlag,
@@ -45,7 +45,6 @@ import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-s
 
 import {
   PlatformLayer,
-  axmGlobalFlags,
   baseLayer,
   resolveProcessTelemetryOptions,
   startupUpdateCheckLayer,

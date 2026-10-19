@@ -9,7 +9,7 @@ import * as fs from "node:fs";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { chooseUndetectedAgents, observeFirstInstallAgents } from "../../runtime.js";
+import { chooseUndetectedAgents, observeFirstInstallAgents } from "../shared/first-use.js";
 import { useFirstInstallProject } from "../../test-support/first-install-harness.js";
 import { makeTestScreen } from "../../test-support/screen-test.js";
 

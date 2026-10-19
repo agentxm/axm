@@ -10,29 +10,131 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 
-import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  ConfigurableAgentIdSchema,
+  type ConfigurableAgentId,
+} from "@agentxm/extension-model/unstable/extensions/common";
+import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   SetupWorkspace,
   WorkspaceInitializationCancelled,
+  WorkspaceInitializationInteraction,
+  undetectedAgentOffer,
 } from "@agentxm/workspace-features/configuration";
+import {
+  detectAgentScopeResults,
+  type AgentScopeDetection,
+} from "@agentxm/workspace-kernel/agent-adapters";
+import { resolveUserWorkspaceRoot } from "@agentxm/workspace-kernel/workspace-state";
 
 import { makeAppError } from "../../app-error/index.js";
 import type { ExpectedCliError } from "../../cli-runtime/index.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { coerceConfigurationFailure } from "../../feature-errors.js";
-import {
-  canAskUndetectedAgents,
-  chooseUndetectedAgents,
-  observeFirstInstallAgents,
-  setupProjectionLayer,
-  withWorkspace,
-} from "../../runtime.js";
+import { setupProjectionLayer, withWorkspace } from "../../runtime.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
 import { setupTitleDoc } from "../setup/view.js";
 import { formatDisplayPath } from "./display-path.js";
+
+const NO_AGENTS_DETECTED = "No coding agents were detected for this workspace";
+
+/**
+ * The refusal a first install ends with when it has no agents and cannot ask.
+ * A request that also left its selection open names both flags at once, so an
+ * unattended caller is not refused a second time for the selection.
+ */
+export const undetectedAgentsRefusal = (selectionOpen = false) =>
+  makeAppError({
+    code: "usage",
+    detail: NO_AGENTS_DETECTED,
+    recover: selectionOpen
+      ? "Retry with --agent <agent-id>, for example --agent claude-code, and name what to install with a selector flag or --all"
+      : "Retry with --agent <agent-id>, for example --agent claude-code",
+  });
+
+/** Whether this invocation can open the question a first install asks about agents. */
+export const canAskUndetectedAgents = Effect.gen(function* () {
+  const screen = yield* Effect.serviceOption(Screen);
+  const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
+  if (Option.isNone(screen) || Option.isNone(interaction)) return false;
+  return yield* screen.value.canAsk.pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "internal",
+        detail: "Interaction configuration could not be read.",
+        cause,
+      }),
+    ),
+  );
+});
+
+const configurableAgents = (ids: ReadonlyArray<string>) =>
+  ids.flatMap((id) => (Schema.is(ConfigurableAgentIdSchema)(id) ? [id] : []));
+
+/**
+ * The agents a person chooses for a first install whose project names none.
+ * Where no question can open, or the answer is nobody, the install refuses
+ * with the flag that names them instead.
+ */
+export const chooseUndetectedAgents = (detections: ReadonlyArray<AgentScopeDetection>) =>
+  Effect.gen(function* () {
+    const screen = yield* Effect.serviceOption(Screen);
+    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
+    if (Option.isNone(screen) || Option.isNone(interaction) || !(yield* canAskUndetectedAgents)) {
+      return yield* undetectedAgentsRefusal();
+    }
+    yield* screen.value.note(
+      headlineDoc("info", "No coding agents were detected in this project."),
+    );
+    const agents = configurableAgents(
+      yield* interaction.value.selectAgents(undetectedAgentOffer(detections)),
+    );
+    if (agents.length === 0) return yield* undetectedAgentsRefusal();
+    return agents;
+  });
+
+/**
+ * What an install knows about its scope's agents before a workspace opens: the
+ * scope already has settings, its project names agents, or it names none.
+ */
+export const observeFirstInstallAgents = (scope: WorkspaceScope, projectRoot?: AbsolutePath) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const project = projectRoot ?? (yield* ExecutionDirectory).path;
+    const root = scope === "user" ? yield* resolveUserWorkspaceRoot() : project;
+    const exists = yield* fs.exists(path.join(root, "axm.json")).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: "Could not inspect workspace settings",
+          cause,
+        }),
+      ),
+    );
+    if (exists) return { _tag: "Established" } as const;
+    const detections = yield* detectAgentScopeResults(project).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: "Could not detect coding agents",
+          cause,
+        }),
+      ),
+    );
+    const agents = configurableAgents(
+      detections.flatMap(({ agent, project: detected }) => (detected ? [agent.id] : [])),
+    );
+    return agents.length > 0
+      ? ({ _tag: "Detected", agents } as const)
+      : ({ _tag: "Undetected", detections } as const);
+  });
 
 /** How a scope without settings came to hold a workspace. */
 export type FirstUse =

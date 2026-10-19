@@ -50,6 +50,7 @@ import {
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
+  type ExecutionCandidate,
   type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
@@ -184,7 +185,8 @@ export interface InstructionsUnchanged {
   readonly message: string;
 }
 
-export interface ManageInstructionsCandidate {
+/** The instruction transition a request settles into, before it is planned. */
+interface InstructionTransition {
   readonly eligibleAgentIds: ReadonlyArray<string>;
   readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
   readonly _tag: "ManageInstructions";
@@ -200,6 +202,11 @@ export interface ManageInstructionsCandidate {
   readonly scope: WorkspaceScope;
   /** Explicit whole-file overrides the transition applies; both default to `false`. */
   readonly overrides: InstructionOutputOverrides;
+}
+
+/** A settled instruction transition and the execution candidate it plans. */
+export interface ManageInstructionsCandidate extends InstructionTransition {
+  readonly execution: ExecutionCandidate<ManageInstructionsRequirements>;
 }
 
 /**
@@ -278,7 +285,7 @@ export const prepareManageInstructions = (
   request: ManageInstructionsRequest,
 ): Effect.Effect<
   ManageInstructionsCandidate | InstructionsUnchanged,
-  ManageInstructionsFailure,
+  ManageInstructionsFailure | Effect.Error<ReturnType<typeof planTransition>>,
   | SettingsReader
   | WorkspaceLocation
   | FileSystem.FileSystem
@@ -286,6 +293,7 @@ export const prepareManageInstructions = (
   | RuleManager
   | ManagerRequirements
   | LockfileReader
+  | Effect.Services<ReturnType<typeof planTransition>>
 > =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -309,7 +317,7 @@ export const prepareManageInstructions = (
       }
       const config = resolveInstructionsConfig(recorded.value);
       const snapshot = yield* observeInstructions({ config, ...overrides });
-      const disableCandidate: ManageInstructionsCandidate = {
+      const disableTransition: InstructionTransition = {
         _tag: "ManageInstructions",
         action: "disable",
         eligibleAgentIds: [],
@@ -321,7 +329,7 @@ export const prepareManageInstructions = (
         scope: location.scope,
         overrides,
       };
-      return disableCandidate;
+      return yield* planTransition(disableTransition);
     }
 
     const desired = resolveInstructionsConfig({
@@ -375,7 +383,7 @@ export const prepareManageInstructions = (
         change: "updated" as const,
       }));
 
-    const enableCandidate: ManageInstructionsCandidate = {
+    const enableTransition: InstructionTransition = {
       _tag: "ManageInstructions",
       action: "enable",
       eligibleAgentIds: Option.isNone(recorded) ? yield* settings.configuredAgents : [],
@@ -391,7 +399,7 @@ export const prepareManageInstructions = (
       scope: location.scope,
       overrides,
     };
-    return enableCandidate;
+    return yield* planTransition(enableTransition);
   });
 
 // -----------------------------------------------------------------------------
@@ -434,7 +442,7 @@ export type ManageInstructionsRequirements =
   | WorkspaceTransactionScope;
 
 const transitionEffect = (
-  candidate: ManageInstructionsCandidate & { readonly action: "enable" },
+  candidate: InstructionTransition & { readonly action: "enable" },
   config: ResolvedInstructionsConfig,
 ) =>
   Effect.gen(function* () {
@@ -483,7 +491,7 @@ const transitionFailureToStepFailure = (
 };
 
 const transitionStep = (
-  candidate: ManageInstructionsCandidate,
+  candidate: InstructionTransition,
   artifact: JobStepArtifact,
 ): PlannedJobStep<ManageInstructionsRequirements> => {
   const presentation = PRESENTATION[candidate.action];
@@ -560,11 +568,41 @@ const transitionStep = (
 };
 
 /**
- * Preview or apply a settled instruction transition. The whole transition —
- * removing superseded aliases, recording the choice, and reconciling every
- * target — runs inside one workspace transaction, so a reconciliation that
- * cannot complete never leaves the choice recorded.
+ * Plan a settled instruction transition. The whole transition, removing
+ * superseded aliases, recording the choice, and reconciling every target,
+ * runs inside one workspace transaction, so a reconciliation that cannot
+ * complete never leaves the choice recorded.
  */
+const planTransition = (transition: InstructionTransition) =>
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const path = yield* Path.Path;
+    const artifact = instructionArtifact({
+      scope: transition.scope,
+      baseDir: location.baseDir,
+      path,
+      effects: transition.effects,
+      nativeLocations: transition.nativeLocations,
+    });
+    const plan: Plan<ManageInstructionsRequirements> = {
+      _tag: "Plan",
+      name: PRESENTATION[transition.action].name,
+      description: Option.some(
+        transition.action === "disable"
+          ? "Turn off instruction-file propagation"
+          : `Use ${transition.config === false ? "AGENTS.md" : transition.config.fileName} as the source instruction file`,
+      ),
+      presentation: {
+        verb: PRESENTATION[transition.action].verb,
+        subject: { singular: "instruction file", plural: "instruction files" },
+      },
+      jobs: [{ concurrency: 1, steps: [transitionStep(transition, artifact)] }],
+    };
+    const execution = yield* prepareExecutionCandidate(plan);
+    return { ...transition, execution } satisfies ManageInstructionsCandidate;
+  });
+
+/** Preview or apply the transition a request settled and planned. */
 export const previewOrApplyManageInstructions = (
   candidate: ManageInstructionsCandidate,
   execution: PlanExecution,
@@ -572,34 +610,7 @@ export const previewOrApplyManageInstructions = (
   OperationResolution<void>,
   PlanResolutionFailure,
   ManageInstructionsRequirements
-> =>
-  Effect.gen(function* () {
-    const location = yield* WorkspaceLocation;
-    const path = yield* Path.Path;
-    const artifact = instructionArtifact({
-      scope: candidate.scope,
-      baseDir: location.baseDir,
-      path,
-      effects: candidate.effects,
-      nativeLocations: candidate.nativeLocations,
-    });
-    const plan: Plan<ManageInstructionsRequirements> = {
-      _tag: "Plan",
-      name: PRESENTATION[candidate.action].name,
-      description: Option.some(
-        candidate.action === "disable"
-          ? "Turn off instruction-file propagation"
-          : `Use ${candidate.config === false ? "AGENTS.md" : candidate.config.fileName} as the source instruction file`,
-      ),
-      presentation: {
-        verb: PRESENTATION[candidate.action].verb,
-        subject: { singular: "instruction file", plural: "instruction files" },
-      },
-      jobs: [{ concurrency: 1, steps: [transitionStep(candidate, artifact)] }],
-    };
-    const prepared = yield* prepareExecutionCandidate(plan);
-    return yield* resolveExecutionCandidate(prepared, execution);
-  });
+> => resolveExecutionCandidate(candidate.execution, execution);
 
 /** The instruction-management use case. */
 export const ManageInstructions = {

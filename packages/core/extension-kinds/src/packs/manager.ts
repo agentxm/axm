@@ -345,8 +345,6 @@ export const PackManagerLive = Layer.effect(
           entry,
         }));
       }),
-
-      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies PackManagerService;
   }),
 );

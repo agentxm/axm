@@ -12,6 +12,7 @@ import {
   HookManager,
   acquireCanonicalForRef,
   verifyWorkspaceRefLocation,
+  captureManagerServices,
   makeBaseManagerMembers,
   listMaterializableFromAccepted,
   type NativeProjectionOptions,
@@ -27,11 +28,6 @@ import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import {
-  DesiredStateReader,
-  LockfileReader,
-  SettingsReader,
-  WorkspaceLocation,
-  WorkspaceRecords,
   computePackageContentHash,
   hookConfigurationHash,
   readHookEvidence,
@@ -81,7 +77,6 @@ import type {
   ConfiguredAgentOutcome,
   HookEvidenceStatus,
 } from "@agentxm/workspace-kernel/operations";
-import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/workspace-kernel/sources";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
   type HookBinding,
@@ -254,30 +249,12 @@ const appendCommandHookBinding = (
 export const HookManagerLive = Layer.effect(
   HookManager,
   Effect.gen(function* () {
-    const location = yield* WorkspaceLocation;
-    const settings = yield* SettingsReader;
-    const lockfile = yield* LockfileReader;
-    const desiredState = yield* DesiredStateReader;
-    const records = yield* WorkspaceRecords;
+    const { location, settings, lockfile, desiredState, records, sources, provide } =
+      yield* captureManagerServices;
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const sources = yield* SourceHostProviders;
-    const catalog = yield* WorkspaceCatalog;
     const baseDir = location.baseDir;
-
-    // The workspace state ports and source integration are this layer's own
-    // dependencies; the platform stays in `R` for every member.
-    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-      effect.pipe(
-        Effect.provideService(WorkspaceLocation, location),
-        Effect.provideService(SettingsReader, settings),
-        Effect.provideService(LockfileReader, lockfile),
-        Effect.provideService(DesiredStateReader, desiredState),
-        Effect.provideService(WorkspaceRecords, records),
-        Effect.provideService(SourceHostProviders, sources),
-        Effect.provideService(WorkspaceCatalog, catalog),
-      );
 
     // Active materializations and waiters retain a package key; the map closes
     // with this manager layer.
@@ -1075,8 +1052,6 @@ export const HookManagerLive = Layer.effect(
           ref,
           acquired: Option.flatMap(materialization, (facts) => facts.acquired),
         }),
-
-      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     };
   }),
 );

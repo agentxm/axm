@@ -8,6 +8,7 @@ import {
   type RuleMaterializationFacts,
   acquireCanonicalForRef,
   verifyWorkspaceRefLocation,
+  captureManagerServices,
   makeBaseManagerMembers,
   listMaterializableFromAccepted,
   type NativeProjectionOptions,
@@ -23,11 +24,6 @@ import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import {
   AcceptedResolutionWriter,
-  DesiredStateReader,
-  LockfileReader,
-  SettingsReader,
-  WorkspaceLocation,
-  WorkspaceRecords,
   enabledConfiguredEntries,
   computeExtensionPathsForLayout,
   computePackageContentHash,
@@ -66,7 +62,6 @@ import {
 } from "@agentxm/workspace-kernel/projection";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import { parseFrontmatterEffect, readExtensionManifest } from "@agentxm/extension-content";
-import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/workspace-kernel/sources";
 import {
   makeWorkspaceRelativeSourcePath,
   makeWorkspaceRelativePath,
@@ -159,31 +154,13 @@ export const ruleMaterializationObservation = (
 export const RuleManagerLive = Layer.effect(
   RuleManager,
   Effect.gen(function* () {
-    const location = yield* WorkspaceLocation;
-    const settings = yield* SettingsReader;
-    const lockfile = yield* LockfileReader;
-    const desiredState = yield* DesiredStateReader;
-    const records = yield* WorkspaceRecords;
+    const { location, settings, lockfile, desiredState, records, sources, provide } =
+      yield* captureManagerServices;
     const accepted = yield* AcceptedResolutionWriter;
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const sources = yield* SourceHostProviders;
-    const catalog = yield* WorkspaceCatalog;
     const baseDir = location.baseDir;
-
-    // The workspace state ports and source integration are this layer's own
-    // dependencies; the platform stays in `R` for every member.
-    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-      effect.pipe(
-        Effect.provideService(WorkspaceLocation, location),
-        Effect.provideService(SettingsReader, settings),
-        Effect.provideService(LockfileReader, lockfile),
-        Effect.provideService(DesiredStateReader, desiredState),
-        Effect.provideService(WorkspaceRecords, records),
-        Effect.provideService(SourceHostProviders, sources),
-        Effect.provideService(WorkspaceCatalog, catalog),
-      );
 
     // The instructions region is an aggregate unit: it renders after desired
     // state commits, so the closure reads back what the render projected.
@@ -652,8 +629,6 @@ export const RuleManagerLive = Layer.effect(
           ref,
           acquired: Option.flatMap(materialization, (facts) => facts.acquired),
         }),
-
-      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies RuleManagerService;
   }),
 );

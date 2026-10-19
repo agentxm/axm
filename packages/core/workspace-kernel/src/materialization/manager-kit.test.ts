@@ -34,6 +34,9 @@ describe("shared manager members", () => {
       expect(
         yield* members.getConfiguredSource({ target: { type: "hook", name: "missing" } }),
       ).toEqual(Option.none());
+      expect(
+        yield* members.withdrawnResolutionKeys({ target: { type: "hook", name: "audit" } }),
+      ).toEqual(["audit"]);
       const failure = yield* members
         .materializeRetained({
           target: { type: "hook", name: "audit" },

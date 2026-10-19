@@ -553,8 +553,6 @@ export const SkillManagerLive = Layer.effect(
           ),
         });
       }),
-
-      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies SkillManagerService;
   }),
 );

@@ -13,11 +13,6 @@ import {
   AcceptedResolutionWriter,
   contributorSetBlockers,
   contributorSetComplete,
-  DesiredStateReader,
-  LockfileReader,
-  SettingsReader,
-  WorkspaceLocation,
-  WorkspaceRecords,
   computeExtensionPathsForLayout,
   observeCanonicalExtension,
   type DesiredExtensionNode,
@@ -62,6 +57,7 @@ import {
   type ExtensionKindFailure,
   acquireCanonicalForRef,
   verifyWorkspaceRefLocation,
+  captureManagerServices,
   makeBaseManagerMembers,
   listMaterializableFromAccepted,
   type NativeProjectionOptions,
@@ -92,7 +88,6 @@ import {
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
 } from "@agentxm/workspace-kernel/locations";
-import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/workspace-kernel/sources";
 import {
   makeWorkspaceRelativeSourcePath,
   makeWorkspaceRelativePath,
@@ -137,32 +132,14 @@ const describeKnowledgeFailure = (
 export const KnowledgeManagerLive = Layer.effect(
   KnowledgeManager,
   Effect.gen(function* () {
-    const location = yield* WorkspaceLocation;
-    const settings = yield* SettingsReader;
-    const lockfile = yield* LockfileReader;
-    const desiredState = yield* DesiredStateReader;
-    const records = yield* WorkspaceRecords;
+    const { location, settings, lockfile, desiredState, records, sources, provide } =
+      yield* captureManagerServices;
     const accepted = yield* AcceptedResolutionWriter;
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const sources = yield* SourceHostProviders;
-    const catalog = yield* WorkspaceCatalog;
     const baseDir = location.baseDir;
     const lastProjection = yield* Ref.make(NO_MATERIALIZATION_OBSERVATION);
-
-    // The workspace state ports and source integration are this layer's own
-    // dependencies; the platform stays in `R` for every member.
-    const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-      effect.pipe(
-        Effect.provideService(WorkspaceLocation, location),
-        Effect.provideService(SettingsReader, settings),
-        Effect.provideService(LockfileReader, lockfile),
-        Effect.provideService(DesiredStateReader, desiredState),
-        Effect.provideService(WorkspaceRecords, records),
-        Effect.provideService(SourceHostProviders, sources),
-        Effect.provideService(WorkspaceCatalog, catalog),
-      );
 
     const acquiredFacts = (
       prepared: {
@@ -998,7 +975,6 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
           ),
         }),
-      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies KnowledgeManagerService;
   }),
 );

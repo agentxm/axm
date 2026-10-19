@@ -8,7 +8,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 
 import { makeUserArchiveCache } from "../archive-cache.js";
-import { resolveAxmCacheRoot } from "../cache-root.js";
+import { resolveAxmCacheRoot } from "@agentxm/host-primitives";
 
 /**
  * A cache rooted in a throwaway home, with a writer that produces valid

@@ -22,11 +22,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { OperationRequestBudget } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { OperationRequestBudget, type RegistryClientFactory } from "@agentxm/registry-client";
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 import type * as Config from "effect/Config";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";

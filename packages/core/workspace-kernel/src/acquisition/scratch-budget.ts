@@ -31,7 +31,7 @@ export interface OperationScratchBudgetService {
 export class OperationScratchBudget extends ServiceMap.Service<
   OperationScratchBudget,
   OperationScratchBudgetService
->()("@agentxm/registry-client/scratch-budget/OperationScratchBudget") {}
+>()("@agentxm/workspace-kernel/acquisition/OperationScratchBudget") {}
 
 interface ScratchState {
   readonly bytes: number;

@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/host-primitives",
   "version": "0.0.1",
-  "description": "Host primitives shared by every AXM tier: atomic single-file replacement, SRI digests, credential redaction, file locations, process-environment readers, loopback host recognition, and user-home resolution. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "description": "Host primitives shared by every AXM tier: atomic single-file replacement, SRI digests, credential redaction, file locations, process-environment readers, loopback host recognition, per-operation request admission, and user-home and cache-root resolution. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",

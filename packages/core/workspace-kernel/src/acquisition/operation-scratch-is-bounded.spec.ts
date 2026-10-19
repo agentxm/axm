@@ -12,7 +12,7 @@ import {
   MAX_ACQUIRED_TREE_BYTES,
   MAX_OPERATION_SCRATCH_BYTES,
   makeOperationScratchBudget,
-} from "./scratch-budget.js";
+} from "./index.js";
 
 export const specification = defineSpecification({
   requirement: "registry-client/operation-scratch-is-bounded",

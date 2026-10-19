@@ -18,7 +18,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
+import {
+  collectSensitiveStrings,
+  redactCredentialText,
+  OperationRequestBudget,
+} from "@agentxm/host-primitives";
 import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
 import * as Path from "effect/Path";
@@ -78,12 +82,6 @@ import {
 } from "./execution-candidate.js";
 import { augmentPlanWithReconciliation } from "../operations/augment-plan.js";
 import { scanPlanReadiness } from "../operations/scan-plan-readiness.js";
-import {
-  MAX_ACQUIRED_TREE_BYTES,
-  OperationRequestBudget,
-  OperationScratchBudget,
-  OperationScratchLimitExceeded,
-} from "@agentxm/registry-client";
 import { SourceHostProviders, isSourceResolutionFailure } from "../../sources/index.js";
 import { resolutionFailureToStepFailure } from "../resolution-step-failure.js";
 
@@ -127,6 +125,9 @@ import {
   selectAcquisitionQueue,
   AcquiredTreeLimitExceeded,
   measureAcquiredTree,
+  MAX_ACQUIRED_TREE_BYTES,
+  OperationScratchBudget,
+  OperationScratchLimitExceeded,
 } from "../../acquisition/index.js";
 
 /** Publish a phase transition to the lifecycle stream and the journal. */

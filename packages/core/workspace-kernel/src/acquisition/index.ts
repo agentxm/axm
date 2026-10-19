@@ -2,10 +2,11 @@
  * @agentxm/workspace-kernel/acquisition public API.
  *
  * Acquisition of extension content into the workspace: the verified source
- * trees a transition retains, the bounded acquisition queue and tree
- * measurement, canonical package staging, copy, reuse, and swap, on-disk
- * materializability, the archive include predicate, the inherited Git
- * transport context, and the package materialization failure family.
+ * trees a transition retains, the bounded acquisition queue, the operation
+ * scratch budget and tree measurement, canonical package staging, copy,
+ * reuse, and swap, on-disk materializability, the archive include predicate,
+ * the inherited Git transport context, and the package materialization
+ * failure family.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -26,6 +27,15 @@ export {
   MAX_ACQUIRED_TREE_ENTRIES,
   measureAcquiredTree,
 } from "./measure-acquired-tree.js";
+export {
+  MAX_ACQUIRED_TREE_BYTES,
+  MAX_OPERATION_SCRATCH_BYTES,
+  OperationScratchBudget,
+  OperationScratchLimitExceeded,
+  makeOperationScratchBudget,
+  type OperationScratchBudgetService,
+  type OperationScratchReservation,
+} from "./scratch-budget.js";
 
 // Canonical package staging, copy, reuse, and on-disk materializability
 export { prepareCanonicalParents, retireCanonicalDirectory } from "./canonical-parent-receipts.js";

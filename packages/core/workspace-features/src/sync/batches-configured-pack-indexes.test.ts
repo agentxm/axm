@@ -1,3 +1,4 @@
+import { makeOperationRequestBudget, OperationRequestBudget } from "@agentxm/host-primitives";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
@@ -9,7 +10,6 @@ import * as TestClock from "effect/testing/TestClock";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
-import { makeOperationRequestBudget, OperationRequestBudget } from "@agentxm/registry-client";
 import { ResolutionMetadataRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
 import { SyncWorkspace } from "./sync-workspace.js";

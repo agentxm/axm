@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-import { redactCredentialText } from "@agentxm/host-primitives";
+import { redactCredentialText, OperationRequestBudget } from "@agentxm/host-primitives";
 import { createHash } from "node:crypto";
 import * as FileSystem from "effect/FileSystem";
 import * as Array from "effect/Array";
@@ -16,7 +16,6 @@ import { GitObjectIdSchema } from "@agentxm/extension-model/unstable/sources/typ
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
-import { OperationRequestBudget } from "@agentxm/registry-client";
 
 import { GitOperationFailed, type GitOperation } from "../errors.js";
 import { inheritedGitEnvironment } from "../../acquisition/index.js";

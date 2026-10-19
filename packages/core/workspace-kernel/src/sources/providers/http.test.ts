@@ -1,3 +1,8 @@
+import {
+  MAX_ACQUIRED_TREE_BYTES,
+  OperationScratchBudget,
+  makeOperationScratchBudget,
+} from "../../acquisition/index.js";
 import { zipSync } from "fflate";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -5,11 +10,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
-import {
-  MAX_ACQUIRED_TREE_BYTES,
-  OperationScratchBudget,
-  makeOperationScratchBudget,
-} from "@agentxm/registry-client";
 import { ArtifactHttpClient, httpArtifactDigest } from "../http-download.js";
 import { WELL_KNOWN_SCHEMA } from "../well-known-index.js";
 import { createHttpSourceHostProvider } from "./http.js";

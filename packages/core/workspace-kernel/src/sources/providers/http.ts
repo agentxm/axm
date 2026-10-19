@@ -8,12 +8,13 @@ import type { HttpSource } from "@agentxm/extension-model/unstable/sources/types
 import type { HttpSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SourceHostProvider } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import {
+  MAX_ACQUIRED_TREE_ENTRIES,
+  measureAcquiredTree,
   MAX_ACQUIRED_TREE_BYTES,
   MAX_OPERATION_SCRATCH_BYTES,
   OperationScratchBudget,
   makeOperationScratchBudget,
-} from "@agentxm/registry-client";
-import { MAX_ACQUIRED_TREE_ENTRIES, measureAcquiredTree } from "../../acquisition/index.js";
+} from "../../acquisition/index.js";
 import { ArtifactHttpClient, downloadHttpArtifact } from "../http-download.js";
 import { acquireHttpOffer, acquireAcceptedHttpPackage } from "../http-package.js";
 import { parseWellKnownIndex, type SkillArtifactOffer } from "../well-known-index.js";

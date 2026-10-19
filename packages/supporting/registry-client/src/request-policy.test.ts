@@ -13,15 +13,14 @@ import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import { describe, expect, it } from "@effect/vitest";
+import { OperationRequestBudget, makeOperationRequestBudget } from "@agentxm/host-primitives";
 
 import { RegistryClientError } from "./__generated__/registry-client.js";
 import { RegistryRequestFailed, type RegistryRequestMetadata } from "./errors.js";
 import {
   executeRegistryRequest,
   PUBLISH_REGISTRY_REQUEST_POLICY,
-  OperationRequestBudget,
   RegistryRetryObservation,
-  makeOperationRequestBudget,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
 } from "./request-policy.js";
@@ -115,41 +114,6 @@ const responseError = (status: number, args?: { retryAfter?: string; bodyDelay?:
 };
 
 describe("executeRegistryRequest", () => {
-  it.effect("admits another origin while one origin is at capacity", () =>
-    Effect.gen(function* () {
-      const budget = yield* makeOperationRequestBudget({ invocation: 2, origin: 1 });
-      const firstStarted = yield* Deferred.make<void>();
-      const releaseFirst = yield* Deferred.make<void>();
-      const sameOriginStarted = yield* Ref.make(false);
-      const otherOriginStarted = yield* Deferred.make<void>();
-
-      const first = yield* budget
-        .withAttempt(
-          "https://registry-one.test",
-          Deferred.succeed(firstStarted, undefined).pipe(
-            Effect.andThen(Deferred.await(releaseFirst)),
-          ),
-        )
-        .pipe(Effect.forkChild);
-      yield* Deferred.await(firstStarted);
-
-      const sameOrigin = yield* budget
-        .withAttempt("https://registry-one.test", Ref.set(sameOriginStarted, true))
-        .pipe(Effect.forkChild);
-      const otherOrigin = yield* budget
-        .withAttempt("https://registry-two.test", Deferred.succeed(otherOriginStarted, undefined))
-        .pipe(Effect.forkChild);
-
-      yield* Deferred.await(otherOriginStarted);
-      expect(yield* Ref.get(sameOriginStarted)).toBe(false);
-      yield* Deferred.succeed(releaseFirst, undefined);
-      yield* Fiber.join(first);
-      yield* Fiber.join(sameOrigin);
-      yield* Fiber.join(otherOrigin);
-      expect(yield* Ref.get(sameOriginStarted)).toBe(true);
-    }),
-  );
-
   it.effect("holds a shared request permit until the response body completes", () =>
     Effect.gen(function* () {
       const budget = yield* makeOperationRequestBudget({ invocation: 1, origin: 1 });

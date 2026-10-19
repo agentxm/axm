@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
-import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectDefined,
@@ -26,7 +26,8 @@ import {
   planResultUnits,
   property,
 } from "../../test-support/test-helpers.js";
-import { handleSkillsNew, type SkillsNewHandlerArgs } from "./new.js";
+import type { NewExtensionArgs } from "../shared/create-extension-command.js";
+import { handleSkillsNew } from "./new.js";
 
 import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 // -----------------------------------------------------------------------------
@@ -50,10 +51,11 @@ const initWorkspace = (
 
 const defaultArgs = (
   name: string,
-  overrides: Partial<SkillsNewHandlerArgs> = {},
-): SkillsNewHandlerArgs => ({
-  name: extensionName(name),
+  overrides: Partial<NewExtensionArgs> = {},
+): NewExtensionArgs => ({
+  name,
   owner: Option.none(),
+  description: Option.none(),
   preview: false,
   ...overrides,
 });
@@ -243,6 +245,18 @@ describe("skills-new.handler", () => {
             ...defaultArgs("valid-name"),
             name: "-bad-name",
           }).pipe(Effect.flip);
+          expect(getAppError(error).code).toBe("validation");
+        }),
+      );
+    });
+
+    it.effect("rejects name ending with hyphen as a validation failure", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handleSkillsNew(defaultArgs("bad-name-")).pipe(Effect.flip);
           expect(getAppError(error).code).toBe("validation");
         }),
       );

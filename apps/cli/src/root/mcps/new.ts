@@ -1,30 +1,14 @@
-import { creationOwnerFlag } from "../../cli-flags/owner-handle.js";
-import { withParameterDescription } from "../../cli-parameters.js";
-import { descriptionFlag } from "../../cli-flags/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Argument, Command } from "effect/cli";
-
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { Screen } from "../../screen/index.js";
-import { withArgvTracking } from "../../cli-runtime/index.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
-  previewCapabilityFlag,
-  previewableCapabilities,
-  withCommandCapabilities,
-} from "../shared/command-capabilities.js";
-import { runCreateExtensionCommand } from "../shared/create-extension-command.js";
+  makePerTypeNewCommand,
+  runCreateExtensionCommand,
+  type NewExtensionArgs,
+} from "../shared/create-extension-command.js";
 
-export interface McpServersNewHandlerArgs {
-  readonly name: string;
-  readonly description: string;
-  readonly owner: Option.Option<string>;
-  readonly preview: boolean;
-}
-
-export const handleMcpServersNew = (args: McpServersNewHandlerArgs) =>
+export const handleMcpServersNew = (args: NewExtensionArgs) =>
   Effect.gen(function* () {
     const nonInteractive = !(yield* (yield* Screen).canAsk);
     return yield* runCreateExtensionCommand({
@@ -33,7 +17,7 @@ export const handleMcpServersNew = (args: McpServersNewHandlerArgs) =>
         type: "mcp-server",
         name: args.name,
         owner: args.owner,
-        description: args.description.length === 0 ? Option.none() : Option.some(args.description),
+        description: Option.filter(args.description, (description) => description.length > 0),
         nonInteractive,
       },
       suggestions: (candidate) => [
@@ -42,35 +26,14 @@ export const handleMcpServersNew = (args: McpServersNewHandlerArgs) =>
     });
   });
 
-const newConfig = {
-  name: Argument.String("name").pipe(
-    withParameterDescription("Name of the MCP server to create, without owner"),
-  ),
-  description: descriptionFlag,
-  owner: creationOwnerFlag,
-  preview: previewCapabilityFlag(),
-} as const;
-
-export const newCommand = Command.make("new", newConfig, ({ name, description, owner, preview }) =>
-  handleMcpServersNew({
-    name,
-    description: Option.getOrElse(description, () => ""),
-    owner,
-    preview,
-  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime()),
-).pipe(
-  withArgvTracking(newConfig),
-  withCommandCapabilities(previewableCapabilities("authored-source")),
-  Command.withDescription("Create a new MCP server in the project-workspace authoring root"),
-  Command.withExamples([
-    { command: "axm mcps new context", description: "Create a new MCP server manifest" },
-    {
-      command: "axm mcps new context --owner @acme",
-      description: "Create under a specific owner",
-    },
+export const newCommand = makePerTypeNewCommand("mcp-server", {
+  description: "Create a new MCP server in the project-workspace authoring root",
+  extraConfig: {},
+  examples: [
     {
       command: "axm mcps new context --preview",
       description: "Preview the files that would be created",
     },
-  ]),
-);
+  ],
+  handle: handleMcpServersNew,
+});

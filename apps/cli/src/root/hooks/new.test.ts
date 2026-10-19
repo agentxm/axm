@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
-import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,
   expectAppliedPlanResult,
@@ -19,7 +19,9 @@ import {
   makeWorkspaceHandlerTestContext,
   planResultUnits,
 } from "../../test-support/test-helpers.js";
-import { handleHooksNew, type HooksNewHandlerArgs } from "./new.js";
+import { handleHooksNew } from "./new.js";
+
+type HooksNewArgs = Parameters<typeof handleHooksNew>[0];
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -29,12 +31,10 @@ const initWorkspace = (axmDir: string, opts: { owner?: string; agents?: string[]
   writeWorkspaceFiles(axmDir, { agents: opts.agents, owner: opts.owner });
 };
 
-const defaultArgs = (
-  name: string,
-  overrides: Partial<HooksNewHandlerArgs> = {},
-): HooksNewHandlerArgs => ({
-  name: extensionName(name),
+const defaultArgs = (name: string, overrides: Partial<HooksNewArgs> = {}): HooksNewArgs => ({
+  name,
   owner: Option.none(),
+  description: Option.none(),
   runtime: "bash",
   protocol: "claude-code",
   event: "PreToolUse",

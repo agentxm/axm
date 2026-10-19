@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
-import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,
   expectAppliedPlanResult,
@@ -61,8 +61,8 @@ describe("mcps-new.handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleMcpServersNew({
-          name: extensionName("context"),
-          description: "Context server",
+          name: "context",
+          description: Option.some("Context server"),
           owner: Option.none(),
           preview: false,
         });

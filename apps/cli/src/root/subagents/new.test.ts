@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
-import { extensionName, writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
+import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,
   expectAppliedPlanResult,
@@ -24,8 +24,9 @@ import {
   getAppError,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
-} from "../../../test-support/test-helpers.js";
-import { handleSubagentsNew, type SubagentsNewHandlerArgs } from "./handler.js";
+} from "../../test-support/test-helpers.js";
+import type { NewExtensionArgs } from "../shared/create-extension-command.js";
+import { handleSubagentsNew } from "./new.js";
 
 import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 // -----------------------------------------------------------------------------
@@ -51,10 +52,11 @@ const initWorkspace = (
 
 const defaultArgs = (
   name: string,
-  overrides: Partial<SubagentsNewHandlerArgs> = {},
-): SubagentsNewHandlerArgs => ({
-  name: extensionName(name),
+  overrides: Partial<NewExtensionArgs> = {},
+): NewExtensionArgs => ({
+  name,
   owner: Option.none(),
+  description: Option.none(),
   preview: false,
   ...overrides,
 });

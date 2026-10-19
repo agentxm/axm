@@ -1097,9 +1097,9 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm skills new my-skill", "description": "Scaffold a new skill" },
+              { "command": "axm skills new code-review", "description": "Scaffold a new skill" },
               {
-                "command": "axm skills new my-skill --owner @acme",
+                "command": "axm skills new code-review --owner @acme",
                 "description": "Create under a specific owner"
               }
             ],
@@ -2111,19 +2111,19 @@
             ],
             "options": [
               {
-                "name": "description",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Short registry-facing summary shown in listings and search results"
-              },
-              {
                 "name": "owner",
                 "aliases": [],
                 "type": "string",
                 "required": false,
                 "description": "Owner to create under, such as @acme; else the workspace owner, which this sets if unset",
                 "valueName": "@handle"
+              },
+              {
+                "name": "description",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Short registry-facing summary shown in listings and search results"
               },
               {
                 "name": "preview",
@@ -2136,10 +2136,7 @@
             ],
             "globalOptions": [],
             "examples": [
-              {
-                "command": "axm mcps new context",
-                "description": "Create a new MCP server manifest"
-              },
+              { "command": "axm mcps new context", "description": "Scaffold a new MCP server" },
               {
                 "command": "axm mcps new context --owner @acme",
                 "description": "Create under a specific owner"
@@ -3054,11 +3051,11 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm subagents new my-subagent",
+                "command": "axm subagents new researcher",
                 "description": "Scaffold a new subagent"
               },
               {
-                "command": "axm subagents new my-subagent --owner @acme",
+                "command": "axm subagents new researcher --owner @acme",
                 "description": "Create under a specific owner"
               }
             ],
@@ -3929,13 +3926,6 @@
                 "valueName": "@handle"
               },
               {
-                "name": "title",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Display title for the rule"
-              },
-              {
                 "name": "description",
                 "aliases": [],
                 "type": "string",
@@ -3949,6 +3939,13 @@
                 "required": false,
                 "description": "Show what would change without applying it",
                 "default": false
+              },
+              {
+                "name": "title",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Display title for the rule"
               }
             ],
             "globalOptions": [],
@@ -3956,7 +3953,7 @@
               { "command": "axm rules new commit-style", "description": "Scaffold a new rule" },
               {
                 "command": "axm rules new commit-style --owner @acme",
-                "description": "Create a rule under a specific owner"
+                "description": "Create under a specific owner"
               }
             ],
             "subcommands": []
@@ -4772,6 +4769,21 @@
                 "valueName": "@handle"
               },
               {
+                "name": "description",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Short registry-facing summary shown in listings and search results"
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show what would change without applying it",
+                "default": false
+              },
+              {
                 "name": "runtime",
                 "aliases": [],
                 "type": "choice",
@@ -4813,36 +4825,25 @@
                 "type": "string",
                 "required": false,
                 "description": "Native matcher supported by the selected protocol and event"
-              },
-              {
-                "name": "description",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Short registry-facing summary shown in listings and search results"
-              },
-              {
-                "name": "preview",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Show what would change without applying it",
-                "default": false
               }
             ],
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm hooks new tool-audit",
+                "command": "axm hooks new workspace-baseline",
                 "description": "Scaffold a new hook extension"
               },
               {
-                "command": "axm hooks new tool-audit --protocol claude-code --event PostToolUse --matcher Bash",
+                "command": "axm hooks new workspace-baseline --owner @acme",
+                "description": "Create under a specific owner"
+              },
+              {
+                "command": "axm hooks new workspace-baseline --protocol claude-code --event PostToolUse --matcher Bash",
                 "description": "Bind to a specific event and tool matcher"
               },
               {
-                "command": "axm hooks new tool-audit --owner @acme --runtime python",
-                "description": "Create under a specific owner with a Python entrypoint"
+                "command": "axm hooks new workspace-baseline --runtime python",
+                "description": "Create with a Python entrypoint"
               }
             ],
             "subcommands": []
@@ -6110,11 +6111,11 @@
             "examples": [
               {
                 "command": "axm knowledge new platform",
-                "description": "Create a new OKF knowledge bundle"
+                "description": "Scaffold a new knowledge bundle"
               },
               {
                 "command": "axm knowledge new platform --owner @acme",
-                "description": "Create a bundle under a specific owner"
+                "description": "Create under a specific owner"
               }
             ],
             "subcommands": []
@@ -7029,12 +7030,9 @@
             ],
             "globalOptions": [],
             "examples": [
+              { "command": "axm packs new frontend-tools", "description": "Scaffold a new pack" },
               {
-                "command": "axm packs new frontend-tools",
-                "description": "Create an empty pack to bundle extensions"
-              },
-              {
-                "command": "axm packs new frontend-tools --owner @co",
+                "command": "axm packs new frontend-tools --owner @acme",
                 "description": "Create under a specific owner"
               }
             ],

@@ -1,30 +1,15 @@
-import { creationOwnerFlag } from "../../cli-flags/owner-handle.js";
-import { withParameterDescription } from "../../cli-parameters.js";
-import { descriptionFlag } from "../../cli-flags/index.js";
 import * as Option from "effect/Option";
-import { Argument, Command } from "effect/cli";
 
-import { KNOWLEDGE_SOURCE_DIR } from "@agentxm/extension-model/unstable/knowledge";
-import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
-
-import { withArgvTracking } from "../../cli-runtime/index.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
-import {
-  previewCapabilityFlag,
-  previewableCapabilities,
-  withCommandCapabilities,
-} from "../shared/command-capabilities.js";
-import { runCreateExtensionCommand } from "../shared/create-extension-command.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { KNOWLEDGE_SOURCE_DIR } from "@agentxm/extension-model/unstable/knowledge";
 
-export interface KnowledgeNewHandlerArgs {
-  readonly name: string;
-  readonly owner: Option.Option<string>;
-  readonly description: Option.Option<string>;
-  readonly preview: boolean;
-}
+import {
+  makePerTypeNewCommand,
+  runCreateExtensionCommand,
+  type NewExtensionArgs,
+} from "../shared/create-extension-command.js";
 
-export const handleKnowledgeNew = (args: KnowledgeNewHandlerArgs) =>
+export const handleKnowledgeNew = (args: NewExtensionArgs) =>
   runCreateExtensionCommand({
     preview: args.preview,
     request: {
@@ -48,34 +33,8 @@ export const handleKnowledgeNew = (args: KnowledgeNewHandlerArgs) =>
     ],
   });
 
-const newConfig = {
-  name: Argument.String("name").pipe(
-    withParameterDescription("Name of the knowledge bundle to create, without owner"),
-  ),
-  owner: creationOwnerFlag,
-  description: descriptionFlag,
-  preview: previewCapabilityFlag(),
-} as const;
-
-export const newCommand = Command.make("new", newConfig, ({ name, owner, description, preview }) =>
-  handleKnowledgeNew({ name, owner, description, preview }).pipe(
-    withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withRuntime(),
-  ),
-).pipe(
-  withArgvTracking(newConfig),
-  withCommandCapabilities(previewableCapabilities("authored-source")),
-  Command.withDescription(
-    "Create an Open Knowledge Format bundle in the project-workspace authoring root",
-  ),
-  Command.withExamples([
-    {
-      command: "axm knowledge new platform",
-      description: "Create a new OKF knowledge bundle",
-    },
-    {
-      command: "axm knowledge new platform --owner @acme",
-      description: "Create a bundle under a specific owner",
-    },
-  ]),
-);
+export const newCommand = makePerTypeNewCommand("knowledge", {
+  description: "Create an Open Knowledge Format bundle in the project-workspace authoring root",
+  extraConfig: {},
+  handle: handleKnowledgeNew,
+});

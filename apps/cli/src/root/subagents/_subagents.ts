@@ -6,7 +6,7 @@ import { subagentsInstallCommand as installCommand } from "../install/command.js
 import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
 import { listCommand } from "./list.js";
 import { makePerTypeUpdateCommand } from "../update/per-type-command.js";
-import { newCommand } from "./new/command.js";
+import { newCommand } from "./new.js";
 import { subagentsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { makeActivationCommands } from "../activation-handler.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";

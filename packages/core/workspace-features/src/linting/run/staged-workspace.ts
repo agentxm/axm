@@ -113,21 +113,8 @@ const parseIndexEntries = (
     return entries;
   });
 
-const collectBytes = <E>(stream: Stream.Stream<Uint8Array, E>) =>
-  Effect.gen(function* () {
-    const chunks = yield* Stream.runCollect(stream);
-    const totalLength = chunks.reduce((total, chunk) => total + chunk.length, 0);
-    const result = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      result.set(chunk, offset);
-      offset += chunk.length;
-    }
-    return result;
-  });
-
 const collectText = <E>(stream: Stream.Stream<Uint8Array, E>) =>
-  collectBytes(stream).pipe(Effect.map((bytes) => new TextDecoder().decode(bytes)));
+  Stream.mkUint8Array(stream).pipe(Effect.map((bytes) => new TextDecoder().decode(bytes)));
 
 const parseBatchBlobs = (
   bytes: Uint8Array,
@@ -182,7 +169,7 @@ const readIndexEntries = (gitRoot: string) =>
     });
     const result = yield* Effect.all(
       {
-        stdout: collectBytes(handle.stdout),
+        stdout: Stream.mkUint8Array(handle.stdout),
         stderr: collectText(handle.stderr),
         exitCode: handle.exitCode,
       },
@@ -227,7 +214,7 @@ const readIndexBlobs = (args: {
     });
     return yield* Effect.all(
       {
-        stdout: collectBytes(handle.stdout),
+        stdout: Stream.mkUint8Array(handle.stdout),
         stderr: collectText(handle.stderr),
         exitCode: handle.exitCode,
       },

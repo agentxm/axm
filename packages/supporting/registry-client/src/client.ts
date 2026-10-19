@@ -38,7 +38,7 @@ import type {
   ExtensionVisibility,
   Repository,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import type { DiscoverPackagesResponse } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
+import type { DiscoverPackagesResponse } from "./discovery-response.js";
 import type {
   ResolutionMetadataOutcome,
   ResolutionMetadataRequest,

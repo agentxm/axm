@@ -9,9 +9,9 @@ import * as Layer from "effect/Layer";
 import {
   RegistryClientFactory,
   RegistryOperationFailed,
+  type DiscoverPackagesResponse,
   type RegistryClient,
 } from "@agentxm/registry-client";
-import type { DiscoverPackagesResponse } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 
 import { startedUnits } from "../../test-support/presenter-test.js";
 import { expectNoPlanEnvelope, makeCliTestContext } from "../../test-support/test-helpers.js";

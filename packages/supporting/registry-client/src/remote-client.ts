@@ -52,7 +52,6 @@ import {
   type ExtensionIndex,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
 import {
-  DiscoverPackagesResponseSchema,
   MAX_DISCOVERY_DECLARED_EXTENSIONS,
   MAX_DISCOVERY_PACKAGES,
   MAX_DISCOVERY_REQUEST_BYTES,
@@ -107,6 +106,7 @@ import {
   type RegistryRequestReplaySafety,
 } from "./request-policy.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
+import { refineDiscoveryResponse, type DiscoverPackagesResponse } from "./discovery-response.js";
 import type { ExtensionsGet200, ExtensionSummaryPage } from "./__generated__/registry-client.js";
 
 // Reuse the established four-request cap from publish transport. Named and
@@ -1329,10 +1329,7 @@ export const createRemoteRegistryClient = (
   // ---------------------------------------------------------------------------
   const discoverPackages = (
     args: DiscoverPackagesArgs,
-  ): Effect.Effect<
-    import("@agentxm/registry-protocol/unstable/registry/discover-schema").DiscoverPackagesResponse,
-    RegistryClientFailure
-  > => {
+  ): Effect.Effect<DiscoverPackagesResponse, RegistryClientFailure> => {
     const packages = args.packages.map((pkg) => ({
       purl: encodePackageUrl(packageIdentity(pkg.purl)),
       version: pkg.version,
@@ -1395,7 +1392,7 @@ export const createRemoteRegistryClient = (
                 payload: { client: clientMetadata, packages: batch },
                 config: undefined,
               })
-              .pipe(Effect.flatMap(Schema.decodeUnknownEffect(DiscoverPackagesResponseSchema))),
+              .pipe(Effect.flatMap(refineDiscoveryResponse)),
             {
               operation: "discover packages",
               method: "POST",

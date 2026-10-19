@@ -2,7 +2,7 @@
 
 The AXM client's typed representation of the public AgentXM Registry HTTP
 contract: extension index and version entry schemas
-(`./unstable/registry/schema`), discovery responses
+(`./unstable/registry/schema`), discovery requests
 (`./unstable/registry/discover-schema`), publication-set preview and
 validation (`./unstable/registry/publication-set`), publish visibility
 (`./unstable/publish`), and the shared suggested-action and

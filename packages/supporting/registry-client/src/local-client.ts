@@ -56,10 +56,7 @@ import {
   ExtensionIndexSchema,
   type ExtensionIndex,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
-import type {
-  DiscoverPackagesResponse,
-  DiscoveryExtensionResult,
-} from "@agentxm/registry-protocol/unstable/registry/discover-schema";
+import type { DiscoverPackagesResponse, DiscoveryExtensionResult } from "./discovery-response.js";
 import { purlMatch } from "./purl-match.js";
 import {
   PackageUrlSchema,

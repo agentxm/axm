@@ -11,6 +11,7 @@
  * 6. Non-mapping frontmatter (scalar).
  * 7. Valid mapping — zero findings.
  * 8. Missing SKILL.md — zero findings (covered by skill/skill-md-present).
+ * 9. Opening or closing lines that only start with `---` are not delimiters.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -135,6 +136,36 @@ body
       const findings = yield* frontmatterParseableRule.check(makeContext(content));
       expect(findings).toHaveLength(1);
       expect(findings[0]?.message).toMatch(/mapping/i);
+    }),
+  );
+
+  it.effect("flags an opening delimiter line that carries other text", () =>
+    Effect.gen(function* () {
+      const findings = yield* frontmatterParseableRule.check(
+        makeContext("---name: example\ndescription: an example skill\n---\nbody\n"),
+      );
+      expect(findings).toHaveLength(1);
+      expect(findings[0]?.message).toContain("only `---`");
+      expect(findings[0]?.location).toEqual({ file: "SKILL.md", line: 1 });
+    }),
+  );
+
+  it.effect("does not treat a `----` line as the closing delimiter", () =>
+    Effect.gen(function* () {
+      const findings = yield* frontmatterParseableRule.check(
+        makeContext("---\nname: example\ndescription: an example skill\n----\nbody\n"),
+      );
+      expect(findings).toHaveLength(1);
+      expect(findings[0]?.message).toContain("closing `---` delimiter is missing");
+    }),
+  );
+
+  it.effect("accepts CRLF line endings", () =>
+    Effect.gen(function* () {
+      const findings = yield* frontmatterParseableRule.check(
+        makeContext(VALID_FRONTMATTER.replace(/\n/g, "\r\n")),
+      );
+      expect(findings).toEqual([]);
     }),
   );
 });

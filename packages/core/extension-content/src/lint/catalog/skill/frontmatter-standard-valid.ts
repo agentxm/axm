@@ -10,6 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import YAML from "yaml";
+import { findFrontmatterBoundaries } from "../../../content/frontmatter.js";
 import { validateSkillFrontmatter } from "../../../content/skill-content.js";
 import type { SkillRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
@@ -19,13 +20,10 @@ const SKILL_MD = "SKILL.md";
 const decoder = new TextDecoder("utf-8", { fatal: false, ignoreBOM: true });
 
 const parseFrontmatterMapping = (content: string): unknown | undefined => {
-  if (!content.startsWith("---")) return undefined;
-  const openingEnd = content.indexOf("\n");
-  if (openingEnd === -1) return undefined;
-  const closingStart = content.indexOf("\n---", openingEnd);
-  if (closingStart === -1) return undefined;
+  const boundaries = findFrontmatterBoundaries(content);
+  if (boundaries === undefined) return undefined;
   try {
-    const parsed: unknown = YAML.parse(content.slice(openingEnd + 1, closingStart));
+    const parsed: unknown = YAML.parse(content.slice(boundaries.yamlStart, boundaries.yamlEnd));
     return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
       ? parsed
       : undefined;

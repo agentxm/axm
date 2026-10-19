@@ -70,13 +70,23 @@ export const normalizeFrontmatterParseFailure = (
   });
 };
 
+/** Offsets of a frontmatter block inside its document. */
+export interface FrontmatterBoundaries {
+  /** Offset of the first YAML character, just after the opening `---` line. */
+  readonly yamlStart: number;
+  /** Offset of the closing `---` line; the YAML is `[yamlStart, yamlEnd)`. */
+  readonly yamlEnd: number;
+  /** Offset of the first body character after the closing `---` line. */
+  readonly bodyStart: number;
+}
+
 /**
- * Find the frontmatter boundaries in content.
- * Returns [endOfOpening, startOfClosing] indices, or undefined if no frontmatter.
+ * Locate the frontmatter block: an opening line that is exactly `---` at the
+ * start of the document and the next line that is exactly `---`. CRLF line
+ * endings are accepted; a line such as `----` or `---x` is not a delimiter.
+ * Returns `undefined` when either delimiter is missing.
  */
-const findFrontmatterBoundaries = (
-  content: string,
-): { yamlStart: number; yamlEnd: number; bodyStart: number } | undefined => {
+export const findFrontmatterBoundaries = (content: string): FrontmatterBoundaries | undefined => {
   const opening = /^---\r?\n/u.exec(content);
   if (opening === null) return undefined;
   const yamlStart = opening[0].length;

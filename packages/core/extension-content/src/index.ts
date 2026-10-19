@@ -30,7 +30,6 @@ export {
 export {
   type ExtractedSkillMetadata,
   type SkillFrontmatter,
-  SkillFrontmatterSchema,
   type SkillFrontmatterValidation,
   parseSkillMd,
   extractSkillMetadata,

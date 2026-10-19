@@ -1,3 +1,4 @@
+import { parse } from "smol-toml";
 import { describe, expect, it } from "vitest";
 import { renderToml } from "./toml.js";
 import type { SubagentRenderInput } from "../types.js";
@@ -34,6 +35,15 @@ describe("renderToml", () => {
     if (result._tag !== "Rendered") return;
     const content = result.outputs[0]?.content ?? "";
     expect(content).toContain('developer_instructions = """\nLine 1\nLine 2\nLine 3"""');
+  });
+
+  it("keeps a multiline body with backslashes and quote runs exact", () => {
+    const body = 'Match `\\d+` in C:\\work\nQuote """ verbatim';
+    const result = renderToml({ ...baseInput, body });
+    expect(result._tag).toBe("Rendered");
+    if (result._tag !== "Rendered") return;
+    const content = result.outputs[0]?.content ?? "";
+    expect(parse(content)).toMatchObject({ developer_instructions: body });
   });
 
   it("passes arbitrary frontmatter keys through", () => {

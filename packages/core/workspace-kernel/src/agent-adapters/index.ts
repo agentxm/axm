@@ -254,15 +254,6 @@ export {
 } from "./hooks/managed-groups.js";
 
 // Codec wrappers used by the native writers
-export {
-  parseTomlInlineString,
-  parseTomlInlineTableArray,
-  parseTomlValue,
-  stringifyToml,
-  stringifyTomlKey,
-  stringifyTomlLines,
-  stringifyTomlValue,
-} from "./toml.js";
 export { deleteYamlEntry, parseYaml, readYamlEntry, setYamlEntry, setYamlScalar } from "./yaml.js";
 
 // Transient backup for native rewrites

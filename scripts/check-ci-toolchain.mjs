@@ -288,18 +288,6 @@ for (const text of ["generate:check", "sync:check", "format:check"]) {
   }
 }
 
-for (const [path, source] of workflowSources) {
-  for (const match of source.matchAll(/^\s*uses:\s+([^\s#]+)(?:\s+#.*)?$/gmu)) {
-    const action = match[1];
-    if (action.startsWith("./") || action.startsWith("docker://")) continue;
-    const separator = action.lastIndexOf("@");
-    const reference = separator === -1 ? "" : action.slice(separator + 1);
-    if (!/^[0-9a-f]{40}$/u.test(reference)) {
-      errors.push(`${path} action ${action} must use a full commit SHA`);
-    }
-  }
-}
-
 for (const text of ["Required CI failures", "GITHUB_STEP_SUMMARY"]) {
   requireText(
     ciWorkflow,

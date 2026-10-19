@@ -10,8 +10,6 @@ import {
 } from "../extensions/common.js";
 import { VersionRangeSchema } from "../version-constraints/version-constraints.js";
 
-export const HOOK_MANIFEST_FILENAME = "hook.json";
-export const HOOK_EXTENSION_DIR = "hooks";
 export const HOOK_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/hook.schema.json";
 
 export const HookRuntimeSchema = Schema.Literals(["bash", "node", "python"]).annotate({

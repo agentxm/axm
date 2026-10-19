@@ -10,13 +10,13 @@ import * as Path from "effect/Path";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
-  MANIFEST_FILENAME,
   MANIFEST_SCHEMA_URL,
   type SkillManifest,
 } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { manifestText, stageFileAt, type AuthoredScaffold } from "./scaffold.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const SKILL_BODY = "src/SKILL.md";
 const INITIAL_VERSION = decodeVersionSync("0.0.1");
@@ -45,13 +45,13 @@ export const skillScaffold = (args: {
   return {
     subject: "Skill",
     version: INITIAL_VERSION,
-    contentFiles: [MANIFEST_FILENAME, SKILL_BODY],
+    contentFiles: [manifestFilenameForType("skill"), SKILL_BODY],
     entryFile: SKILL_BODY,
     populate: (stagingPath) =>
       Effect.gen(function* () {
         const path = yield* Path.Path;
         yield* stageFileAt({
-          path: path.join(stagingPath, MANIFEST_FILENAME),
+          path: path.join(stagingPath, manifestFilenameForType("skill")),
           contents: manifestText(manifest),
         });
         yield* stageFileAt({

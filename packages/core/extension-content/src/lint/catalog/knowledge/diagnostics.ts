@@ -1,12 +1,10 @@
 import * as Effect from "effect/Effect";
 
-import {
-  KNOWLEDGE_MANIFEST_FILENAME,
-  KNOWLEDGE_SOURCE_DIR,
-} from "@agentxm/extension-model/unstable/knowledge";
+import { KNOWLEDGE_SOURCE_DIR } from "@agentxm/extension-model/unstable/knowledge";
 import { type KnowledgeDiagnosticCode } from "../../../knowledge/index.js";
 import type { KnowledgeRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule, Severity } from "../../rule.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 interface DiagnosticRuleDefinition {
   readonly code: KnowledgeDiagnosticCode;
@@ -34,7 +32,7 @@ const makeDiagnosticRule = (
           location: {
             file:
               diagnostic.code === "missing-manifest-description"
-                ? KNOWLEDGE_MANIFEST_FILENAME
+                ? manifestFilenameForType("knowledge")
                 : diagnostic.relativePath === "."
                   ? KNOWLEDGE_SOURCE_DIR
                   : `${KNOWLEDGE_SOURCE_DIR}/${diagnostic.relativePath}`,

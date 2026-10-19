@@ -49,11 +49,11 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
-import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import {
   retireCanonicalDirectory,
   configuredPacksToDiskRefs,
 } from "@agentxm/workspace-kernel/acquisition";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 // Build pack SetPackArgs from a registry ref
 const buildSetPackArgs = (
@@ -218,7 +218,7 @@ export const PackManagerLive = Layer.effect(
         copyFailure: { code: "internal", detail: (target) => `Failed to retain Pack at ${target}` },
         validate: (stagingPath) =>
           Effect.gen(function* () {
-            const manifestPath = path.join(stagingPath, PACK_MANIFEST_FILENAME);
+            const manifestPath = path.join(stagingPath, manifestFilenameForType("pack"));
             const contents = yield* fs.readFileString(manifestPath).pipe(
               Effect.mapError(
                 (cause) =>

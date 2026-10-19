@@ -28,9 +28,9 @@ import type { PackRuleContext } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { enumerateUnknownTopLevelKeys, structFieldKeys } from "../shared/schema-rule.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULE_ID = "pack/manifest-keys-recognized";
-const PACK_JSON = "pack.json";
 
 const allowedKeys = structFieldKeys(PackManifestSchema);
 
@@ -44,7 +44,7 @@ export const manifestKeysRecognizedRule: AdvisoryRule<PackRuleContext> = {
       enumerateUnknownTopLevelKeys(
         RULE_ID,
         "error",
-        PACK_JSON,
+        manifestFilenameForType("pack"),
         allowedKeys,
         context.subject.packJson,
       ),

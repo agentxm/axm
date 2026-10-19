@@ -26,9 +26,9 @@ import type { SkillRuleContext } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
 import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { enumerateUnknownTopLevelKeys, structFieldKeys } from "../shared/schema-rule.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULE_ID = "skill/manifest-keys-recognized";
-const SKILL_JSON = "skill.json";
 
 const allowedKeys = structFieldKeys(SkillManifestSchema);
 
@@ -45,7 +45,7 @@ export const manifestKeysRecognizedRule: AdvisoryRule<SkillRuleContext> = {
       enumerateUnknownTopLevelKeys(
         RULE_ID,
         "error",
-        SKILL_JSON,
+        manifestFilenameForType("skill"),
         allowedKeys,
         context.subject.skillJson,
       ),

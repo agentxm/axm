@@ -83,6 +83,7 @@ import {
   planPackUninstallGraphReadiness,
   type PackRetirement,
 } from "./readiness.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** How the request named the pack to remove. */
 export type PackUninstallSelector =
@@ -195,7 +196,7 @@ const observePackRetirements = (
       if (observation.status === "usable" || observation.path === undefined) continue;
       retirements.push({
         pack: desiredPackageKey(node.identity),
-        manifestPath: path.join(observation.path, "pack.json"),
+        manifestPath: path.join(observation.path, manifestFilenameForType("pack")),
         reason:
           observation.status === "missing" || observation.status === "incomplete"
             ? "missing"

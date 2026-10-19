@@ -14,7 +14,6 @@ import * as Path from "effect/Path";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
-  MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
   type McpServerManifest,
@@ -22,6 +21,7 @@ import {
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { manifestText, stageFileAt, type AuthoredScaffold } from "./scaffold.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const INITIAL_VERSION = decodeVersionSync("0.1.0");
 const PLACEHOLDER_SERVER_NAMESPACE = "io.github.example";
@@ -58,13 +58,13 @@ export const mcpServerScaffold = (args: {
   return {
     subject: "MCP server",
     version: INITIAL_VERSION,
-    contentFiles: [MCP_SERVER_MANIFEST_FILENAME],
-    entryFile: MCP_SERVER_MANIFEST_FILENAME,
+    contentFiles: [manifestFilenameForType("mcp-server")],
+    entryFile: manifestFilenameForType("mcp-server"),
     populate: (stagingPath) =>
       Effect.gen(function* () {
         const path = yield* Path.Path;
         yield* stageFileAt({
-          path: path.join(stagingPath, MCP_SERVER_MANIFEST_FILENAME),
+          path: path.join(stagingPath, manifestFilenameForType("mcp-server")),
           contents: manifestText(manifest),
         });
       }),

@@ -26,13 +26,11 @@ import {
   runWorkspaceTransaction,
 } from "@agentxm/workspace-kernel/settlement";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import {
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { packManifestArtifact } from "./artifact.js";
 import { hashContent } from "./hash-content.js";
 import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -101,7 +99,11 @@ export const addToPack: OperationHandler<
       return { result: "success", message: "No pack entries added" } satisfies JobStepResult;
     }
 
-    const manifestPath = path.join(layout.authoredRoot("pack"), packName, PACK_MANIFEST_FILENAME);
+    const manifestPath = path.join(
+      layout.authoredRoot("pack"),
+      packName,
+      manifestFilenameForType("pack"),
+    );
     yield* runWorkspaceTransaction({
       targets: [manifestPath],
       transition: Effect.gen(function* () {

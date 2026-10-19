@@ -23,7 +23,6 @@ import {
   parseExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
-import { manifestFilenameForType } from "@agentxm/extension-content";
 import { selectedVisibilityRegistry } from "./registry.js";
 import type {
   VisibilityEvaluation,
@@ -38,6 +37,7 @@ import {
 
 import { PublishFailed } from "../errors.js";
 import { declaredVisibilityIntent } from "../publish/publication.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const ManifestVisibilitySchema = Schema.Struct({
   publish: Schema.optional(

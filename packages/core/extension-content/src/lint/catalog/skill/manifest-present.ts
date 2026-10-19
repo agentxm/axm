@@ -21,14 +21,14 @@
 
 import type { SkillRuleContext } from "../../context.js";
 import { makeManifestPresentRule } from "../shared/manifest-present.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULE_ID = "skill/manifest-present";
-const SKILL_JSON = "skill.json";
 
 export const manifestPresentRule = makeManifestPresentRule<SkillRuleContext>({
   ruleId: RULE_ID,
   description: "Native skills include a root skill.json manifest.",
-  manifestFile: SKILL_JSON,
+  manifestFile: manifestFilenameForType("skill"),
   missingMessage:
     "This AXM skill package is missing its required skill.json manifest. Restore the package manifest before managing it.",
   getFiles: (context) => context.packageFiles,

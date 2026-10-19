@@ -85,8 +85,6 @@ import type {
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/workspace-kernel/sources";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
-  HOOK_EXTENSION_DIR,
-  HOOK_MANIFEST_FILENAME,
   HookManifestSchema,
   type HookBinding,
   type HookManifest,
@@ -105,6 +103,7 @@ import {
   resolveNativeReadLocation,
   type NativeDirectoryInputs,
 } from "@agentxm/workspace-kernel/locations";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 
@@ -321,7 +320,7 @@ export const HookManagerLive = Layer.effect(
           path.join,
           currentLayout(),
           ref,
-          HOOK_EXTENSION_DIR,
+          "hooks",
           ref.name,
         ).canonicalPath;
         if (ref.refType === "workspace") {
@@ -352,13 +351,13 @@ export const HookManagerLive = Layer.effect(
       });
 
     const readManifest = (packageRoot: string) =>
-      fs.readFileString(path.join(packageRoot, HOOK_MANIFEST_FILENAME)).pipe(
+      fs.readFileString(path.join(packageRoot, manifestFilenameForType("hook"))).pipe(
         Effect.flatMap((content) =>
           Effect.try({
             try: (): unknown => JSON.parse(content),
             catch: (error) =>
               new HookDefinitionInvalid({
-                detail: `Failed to parse ${HOOK_MANIFEST_FILENAME}`,
+                detail: `Failed to parse ${manifestFilenameForType("hook")}`,
                 cause: error,
               }),
           }),
@@ -367,7 +366,7 @@ export const HookManagerLive = Layer.effect(
         Effect.mapError(
           (error) =>
             new HookDefinitionInvalid({
-              detail: `Failed to read ${HOOK_MANIFEST_FILENAME}`,
+              detail: `Failed to read ${manifestFilenameForType("hook")}`,
               cause: error,
             }),
         ),
@@ -920,7 +919,7 @@ export const HookManagerLive = Layer.effect(
                   path.join,
                   currentLayout(),
                   ref,
-                  HOOK_EXTENSION_DIR,
+                  "hooks",
                   ref.hook.name,
                 ).canonicalPath;
                 return {

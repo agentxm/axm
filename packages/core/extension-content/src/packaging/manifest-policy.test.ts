@@ -1,15 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import {
-  extensionTypes,
-  type ExtensionType,
-} from "@agentxm/extension-model/unstable/extensions/common";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { ArchiveGuardrailError, type ZipEntry } from "./archive-guardrails.js";
 import {
-  extensionTypeForManifestFilename,
-  MANIFEST_FILENAMES,
-  manifestFilenameForType,
   resolveManifest,
   validateManifestHasNoAgentsField,
   validateDeclaredManifestAlignment,
@@ -46,26 +39,6 @@ const makeReadEntry =
 
     return Effect.succeed(textEncoder.encode(content));
   };
-
-describe("manifestFilenameForType", () => {
-  it("maps every extension type to a manifest file", () => {
-    const filenameByType: Record<ExtensionType, string> = {
-      skill: "skill.json",
-      "mcp-server": "mcp.json",
-      subagent: "subagent.json",
-      pack: "pack.json",
-      rule: "rule.json",
-      hook: "hook.json",
-      knowledge: "knowledge.json",
-    };
-    for (const type of extensionTypes) {
-      expect(manifestFilenameForType(type)).toBe(filenameByType[type]);
-      expect(extensionTypeForManifestFilename(filenameByType[type])).toBe(type);
-      expect(MANIFEST_FILENAMES.has(filenameByType[type])).toBe(true);
-    }
-    expect(extensionTypeForManifestFilename("other.json")).toBeUndefined();
-  });
-});
 
 describe("resolveManifest", () => {
   it.effect("resolves a valid skill manifest", () =>

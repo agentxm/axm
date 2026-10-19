@@ -8,13 +8,6 @@ import {
 } from "../extensions/common.js";
 
 /**
- * Filename for subagent manifest files.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const MANIFEST_FILENAME = "subagent.json";
-
-/**
  * URL for the subagent manifest JSON Schema.
  *
  * @experimental This API is unstable and may change without notice.

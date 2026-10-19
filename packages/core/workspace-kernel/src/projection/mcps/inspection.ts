@@ -17,7 +17,6 @@ import * as Context from "effect/Context";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { McpInspectionError } from "./errors.js";
 import type { ConfiguredAgentOutcome } from "../../operations/index.js";
 import type { McpServerEntry } from "../../workspace-state/index.js";
@@ -42,6 +41,7 @@ import {
   type NativeLocationOutcome,
 } from "../../locations/index.js";
 import { diffAgentEntry } from "./drift.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export type AgentMcpInspectionStatus =
   "unsupported" | "unverified" | "blocked" | "absent" | "match" | "drift";
@@ -336,7 +336,7 @@ const findManifestRoot = (
     const path = yield* Path.Path;
     for (const candidate of canonicalPaths) {
       const resolved = path.resolve(workspaceRoot, candidate);
-      const manifestPath = path.join(resolved, MCP_SERVER_MANIFEST_FILENAME);
+      const manifestPath = path.join(resolved, manifestFilenameForType("mcp-server"));
       if (yield* fs.exists(manifestPath).pipe(Effect.catch(() => Effect.succeed(false)))) {
         return Option.some(resolved);
       }
@@ -478,7 +478,7 @@ const inspectDesiredMcpServerUncached = (
         Option.isNone(manifestRoot) || nativeComponent !== undefined
           ? undefined
           : yield* decodeMcpServerManifestAt(
-              path.join(manifestRoot.value, MCP_SERVER_MANIFEST_FILENAME),
+              path.join(manifestRoot.value, manifestFilenameForType("mcp-server")),
             );
       const groups = yield* resolveConfiguredMcpTargets(args);
       const plan = planMcpServerTargets({

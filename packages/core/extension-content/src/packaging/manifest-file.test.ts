@@ -7,10 +7,10 @@ import * as Path from "effect/Path";
 import {
   extensionTypes,
   type ExtensionType,
+  manifestFilenameForType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { readExtensionManifest } from "./manifest-file.js";
-import { manifestFilenameForType } from "./manifest-policy.js";
 
 const manifests = {
   skill: { owner: "@acme", type: "skill", name: "review", version: "1.0.0" },

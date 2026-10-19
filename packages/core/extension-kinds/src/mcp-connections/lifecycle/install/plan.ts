@@ -56,7 +56,6 @@ import {
   validatePluginMcpServerTargets,
   readPluginMcpDefinition,
 } from "@agentxm/workspace-kernel/agent-adapters";
-import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
   ExtensionNameSchema,
   type ExtensionName,
@@ -81,6 +80,7 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 
 import { settleMcpSourceIdentityFor } from "../../source-identity.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** One MCP connection, its local name, and the inputs the request supplied. */
 export interface McpServerInstallIntent {
@@ -674,7 +674,7 @@ export const planMcpServerInstall: (
         return {};
       }
       const manifest = yield* decodeMcpServerManifestAt(
-        path.join(manifestPath, MCP_SERVER_MANIFEST_FILENAME),
+        path.join(manifestPath, manifestFilenameForType("mcp-server")),
       ).pipe(
         Effect.mapError((cause) =>
           installRefused({

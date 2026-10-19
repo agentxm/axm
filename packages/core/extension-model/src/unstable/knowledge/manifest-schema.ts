@@ -7,8 +7,6 @@ import {
   NonPackManifestFields,
 } from "../extensions/common.js";
 
-export const KNOWLEDGE_MANIFEST_FILENAME = "knowledge.json";
-export const KNOWLEDGE_EXTENSION_DIR = "knowledge";
 export const KNOWLEDGE_SOURCE_DIR = "src";
 export const KNOWLEDGE_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/knowledge.schema.json";
 

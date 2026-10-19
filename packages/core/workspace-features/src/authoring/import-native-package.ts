@@ -3,11 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import {
-  MANIFEST_FILENAMES,
-  manifestFilenameForType,
-  manifestSchemaForType,
-} from "@agentxm/extension-content";
+import { manifestSchemaForType } from "@agentxm/extension-content";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
 import type { AgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { importNativeSubagent } from "./import-native-subagent.js";
@@ -20,6 +16,10 @@ import {
   NativeSubagentImportUnsupported,
 } from "./authored-package-errors.js";
 import { copyExtensionDirectory } from "@agentxm/workspace-kernel/acquisition";
+import {
+  extensionTypeForManifestFilename,
+  manifestFilenameForType,
+} from "@agentxm/extension-model/unstable/extensions/common";
 const NATIVE_IMPORT_VERSION = "0.1.0";
 export interface ImportNativeExtensionPackageArgs {
   readonly sourcePath: string;
@@ -56,7 +56,7 @@ const rejectManagedPackage = (
     const stat = yield* fs.stat(sourcePath).pipe(Effect.mapError(inspectionFailed));
     const directory = stat.type === "Directory" ? sourcePath : path.dirname(sourcePath);
     const entries = yield* fs.readDirectory(directory).pipe(Effect.mapError(inspectionFailed));
-    const manifest = entries.find((entry) => MANIFEST_FILENAMES.has(entry));
+    const manifest = entries.find((entry) => extensionTypeForManifestFilename(entry) !== undefined);
     if (manifest !== undefined) {
       return yield* new NativeImportInvalid({
         detail: `Source is already a managed AXM package (${manifest}); use fork instead of import`,

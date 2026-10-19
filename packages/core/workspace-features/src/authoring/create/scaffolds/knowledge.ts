@@ -11,7 +11,6 @@ import * as Path from "effect/Path";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
-  KNOWLEDGE_MANIFEST_FILENAME,
   KNOWLEDGE_MANIFEST_SCHEMA_URL,
   KNOWLEDGE_SOURCE_DIR,
   type KnowledgeManifest,
@@ -19,6 +18,7 @@ import {
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { manifestText, stageFileAt, type AuthoredScaffold } from "./scaffold.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const BUNDLE_INDEX = `${KNOWLEDGE_SOURCE_DIR}/index.md`;
 const INITIAL_VERSION = decodeVersionSync("0.1.0");
@@ -42,13 +42,13 @@ export const knowledgeScaffold = (args: {
   return {
     subject: "Knowledge bundle",
     version: INITIAL_VERSION,
-    contentFiles: [KNOWLEDGE_MANIFEST_FILENAME, BUNDLE_INDEX],
+    contentFiles: [manifestFilenameForType("knowledge"), BUNDLE_INDEX],
     entryFile: BUNDLE_INDEX,
     populate: (stagingPath) =>
       Effect.gen(function* () {
         const path = yield* Path.Path;
         yield* stageFileAt({
-          path: path.join(stagingPath, KNOWLEDGE_MANIFEST_FILENAME),
+          path: path.join(stagingPath, manifestFilenameForType("knowledge")),
           contents: manifestText(manifest),
         });
         yield* stageFileAt({

@@ -19,10 +19,7 @@ import { resolveNativeReadLocation, type NativeDirectoryInputs } from "../../loc
 import { preflightNativeConfigReaders } from "../native-config-readers.js";
 import { McpConfigInvalid, McpDefinitionInvalid, McpSharedTargetConflict } from "../errors.js";
 import type { CodingAgentFailure } from "../errors.js";
-import {
-  MCP_SERVER_MANIFEST_FILENAME,
-  type McpServerManifest,
-} from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { type McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import type { NativeWriteAuthority } from "../native-write-authority.js";
 import {
   removeAgentMcpConfigs,
@@ -55,6 +52,7 @@ import { decodeMcpServerManifestAt } from "./manifest.js";
 import { readPluginMcpDefinition, type PluginMcpDefinition } from "./plugin-definition.js";
 import type { NativeMcpComponent } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { resolveSharedMcpContainer } from "./shared-target.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** Readback proves native content; running-agent selection remains unobservable here. */
 const describePhysicalConsumers = (args: {
@@ -731,7 +729,7 @@ export const syncManifestMcpServerToAgents = (
     if (args.agentIds.length === 0) return [];
     const path = yield* Path.Path;
     const manifest = yield* decodeMcpServerManifestAt(
-      path.join(args.canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
+      path.join(args.canonicalPath, manifestFilenameForType("mcp-server")),
     );
     const plan = yield* plannedTargets(
       planMcpServerTargets({

@@ -16,6 +16,7 @@ import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agen
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import { renderNativeHookGroup } from "@agentxm/workspace-kernel/agent-adapters";
 import { AuthoringFailed } from "../errors.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const NATIVE_HOOK_BUNDLE_CONFIG = "hooks.json";
 export const NATIVE_HOOK_BUNDLE_METADATA = "hook-bundle.json";
@@ -197,7 +198,13 @@ export const readHookResources = Effect.fn("Hook.readBundleResources")(function*
       relative,
       "Hook resources must use safe package-relative paths.",
     );
-    if (["hook.json", NATIVE_HOOK_BUNDLE_CONFIG, NATIVE_HOOK_BUNDLE_METADATA].includes(relative))
+    if (
+      [
+        manifestFilenameForType("hook"),
+        NATIVE_HOOK_BUNDLE_CONFIG,
+        NATIVE_HOOK_BUNDLE_METADATA,
+      ].includes(relative)
+    )
       return yield* safe(`Resource path is reserved by the native bundle: ${relative}.`);
     const absolute = yield* fs.realPath(path.resolve(realRoot, relative));
     const contained = path.relative(realRoot, absolute);
@@ -364,7 +371,7 @@ export const writeNativeHookImport = Effect.fn("Hook.writePreparedImport")(funct
     yield* fs.writeFile(destination, file.bytes);
   }
   yield* fs.writeFileString(
-    path.join(targetDir, "hook.json"),
+    path.join(targetDir, manifestFilenameForType("hook")),
     `${JSON.stringify(bundle.manifest, null, 2)}\n`,
   );
 });

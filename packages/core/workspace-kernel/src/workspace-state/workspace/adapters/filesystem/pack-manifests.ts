@@ -2,7 +2,6 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
-import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { configuredAuthoredDirectory } from "../../layout.js";
 import { computePackPathsForLayout } from "../../pack-paths.js";
 import {
@@ -10,6 +9,7 @@ import {
   PackManifests,
   type PackManifestObservation,
 } from "../../pack-manifests.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const FilesystemPackManifests = Layer.effect(
   PackManifests,
@@ -31,7 +31,7 @@ export const FilesystemPackManifests = Layer.effect(
                 configuredAuthoredDirectory(workspace.settings, "pack"),
                 name,
               );
-        const manifestPath = path.join(directory, PACK_MANIFEST_FILENAME);
+        const manifestPath = path.join(directory, manifestFilenameForType("pack"));
         return {
           path: manifestPath,
           relativePath: path.relative(relativeTo, manifestPath),

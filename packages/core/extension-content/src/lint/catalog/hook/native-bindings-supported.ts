@@ -2,13 +2,11 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { AGENTS_BY_ID, installable } from "@agentxm/extension-model/unstable/agent-capabilities";
-import {
-  HookManifestSchema,
-  HOOK_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { isManifestJsonParseFailure } from "../shared/manifest-json.js";
 import type { HookRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULE_ID = "hook/native-bindings-supported";
 export const nativeBindingsSupportedRule: AdvisoryRule<HookRuleContext> = {
@@ -36,7 +34,7 @@ export const nativeBindingsSupportedRule: AdvisoryRule<HookRuleContext> = {
             ruleId: RULE_ID,
             severity: "error",
             message: `Implementation '${implementation.id}', binding '${binding.id}': ${verdict.reason}`,
-            location: { file: HOOK_MANIFEST_FILENAME },
+            location: { file: manifestFilenameForType("hook") },
           });
       }
     }

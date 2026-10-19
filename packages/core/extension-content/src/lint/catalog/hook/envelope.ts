@@ -2,10 +2,7 @@
  * `hook/*` manifest envelope — see `../shared/envelope-rules.ts`.
  */
 
-import {
-  HookManifestSchema,
-  HOOK_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type { HookRuleContext } from "../../context.js";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
@@ -13,10 +10,11 @@ import * as Schema from "effect/Schema";
 import { issuesToFindings } from "../../issues-to-findings.js";
 import { isManifestJsonParseFailure } from "../shared/manifest-json.js";
 import { makeManifestEnvelopeRules } from "../shared/envelope-rules.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const envelope = makeManifestEnvelopeRules({
   namespace: "hook",
-  manifestFile: HOOK_MANIFEST_FILENAME,
+  manifestFile: manifestFilenameForType("hook"),
   schema: HookManifestSchema,
   manifestJson: (context: HookRuleContext) => context.subject.hookJson,
   presentDescription: "Hooks include a root hook.json manifest.",
@@ -43,7 +41,7 @@ export const hookEnvelopeRules = {
           : issuesToFindings(
               "hook/manifest-schema-valid",
               "error",
-              HOOK_MANIFEST_FILENAME,
+              manifestFilenameForType("hook"),
               decoded.failure.issue,
             ),
       );

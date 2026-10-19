@@ -6,11 +6,11 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import {
-  MCP_SERVER_MANIFEST_FILENAME,
   McpServerManifestSchema,
   type McpServerManifest,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const decodeMcpServerManifestAt = (
   manifestPath: string,
@@ -55,7 +55,7 @@ export const readMcpServerManifestAt = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const manifestPath = path.join(canonicalPath, MCP_SERVER_MANIFEST_FILENAME);
+    const manifestPath = path.join(canonicalPath, manifestFilenameForType("mcp-server"));
     const exists = yield* fs.exists(manifestPath).pipe(
       Effect.mapError(
         (cause) =>

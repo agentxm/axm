@@ -3,9 +3,9 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
-  HOOK_MANIFEST_FILENAME,
   HOOK_MANIFEST_SCHEMA_URL,
   type HookImplementation,
   type HookManifest,
@@ -120,7 +120,7 @@ export const hookScaffold = (args: {
     ],
   };
   const files = {
-    [HOOK_MANIFEST_FILENAME]: manifestText(manifest),
+    [manifestFilenameForType("hook")]: manifestText(manifest),
     [entrypoint]: entrypointBody(args.runtime),
     "fixtures/applicable.json": manifestText({ hook_event_name: args.event }),
     "fixtures/nonapplicable.json": manifestText({ hook_event_name: "AxmUnrelatedEvent" }),

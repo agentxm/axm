@@ -7,12 +7,12 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { parse as parseToml } from "smol-toml";
 import {
-  MANIFEST_FILENAME,
   SubagentManifestSchema,
   SubagentNativeNameSchema,
   type SubagentManifest,
 } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import { parseFrontmatterEffect } from "./frontmatter.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export class SubagentContentError extends Data.TaggedError("SubagentContentError")<{
   readonly reason: "manifest-invalid" | "reference-invalid" | "content-invalid" | "native-invalid";
@@ -370,13 +370,13 @@ export const loadSubagentPackage = (
               }),
         ),
       );
-    const manifestSource = yield* readFile(MANIFEST_FILENAME);
+    const manifestSource = yield* readFile(manifestFilenameForType("subagent"));
     const manifest: unknown = yield* Effect.try({
       try: (): unknown => JSON.parse(manifestSource),
       catch: () =>
         new SubagentContentError({
           reason: "manifest-invalid",
-          source: MANIFEST_FILENAME,
+          source: manifestFilenameForType("subagent"),
           detail: "Subagent manifest must contain valid JSON.",
         }),
     });
@@ -390,14 +390,17 @@ export const selectSubagentImplementation = (
 ): SelectedSubagentImplementation => {
   const implementation = pkg.implementations[agentId];
   if (implementation?.kind === "native") {
-    return { ...implementation, sourceDependencies: [MANIFEST_FILENAME, implementation.source] };
+    return {
+      ...implementation,
+      sourceDependencies: [manifestFilenameForType("subagent"), implementation.source],
+    };
   }
   const core = pkg.core;
   if (core === undefined) {
     return {
       kind: "unsupported",
       reason: `This package has no implementation for ${agentId}.`,
-      sourceDependencies: [MANIFEST_FILENAME],
+      sourceDependencies: [manifestFilenameForType("subagent")],
     };
   }
   const customization = implementation?.kind === "customized" ? implementation : undefined;
@@ -416,7 +419,7 @@ export const selectSubagentImplementation = (
     configuration: customization?.configuration ?? {},
     sourceDependencies: [
       ...new Set([
-        MANIFEST_FILENAME,
+        manifestFilenameForType("subagent"),
         ...(replacement?.mode === "replace" ? [] : [core.source]),
         ...(replacement === undefined ? [] : [replacement.source]),
       ]),

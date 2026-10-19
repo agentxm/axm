@@ -197,6 +197,7 @@ type ExtensionInstallability = {
  */
 interface ExtensionTypeRow {
   readonly plural: string;
+  readonly manifestFile: string;
   readonly label: string;
   readonly pluralLabel: string;
   readonly sentenceLabel: string;
@@ -223,6 +224,7 @@ interface ExtensionTypeRow {
 export const EXTENSION_TYPE_TABLE = {
   skill: {
     plural: "skills",
+    manifestFile: "skill.json",
     label: "Skill",
     pluralLabel: "Skills",
     sentenceLabel: "skill",
@@ -237,6 +239,7 @@ export const EXTENSION_TYPE_TABLE = {
   },
   "mcp-server": {
     plural: "mcps",
+    manifestFile: "mcp.json",
     label: "MCP Server",
     pluralLabel: "MCP Servers",
     sentenceLabel: "MCP server",
@@ -251,6 +254,7 @@ export const EXTENSION_TYPE_TABLE = {
   },
   subagent: {
     plural: "subagents",
+    manifestFile: "subagent.json",
     label: "Subagent",
     pluralLabel: "Subagents",
     sentenceLabel: "subagent",
@@ -265,6 +269,7 @@ export const EXTENSION_TYPE_TABLE = {
   },
   rule: {
     plural: "rules",
+    manifestFile: "rule.json",
     label: "Rule",
     pluralLabel: "Rules",
     sentenceLabel: "rule",
@@ -279,6 +284,7 @@ export const EXTENSION_TYPE_TABLE = {
   },
   hook: {
     plural: "hooks",
+    manifestFile: "hook.json",
     label: "Hook extension",
     pluralLabel: "Hook extensions",
     sentenceLabel: "hook extension",
@@ -293,6 +299,7 @@ export const EXTENSION_TYPE_TABLE = {
   },
   knowledge: {
     plural: "knowledge",
+    manifestFile: "knowledge.json",
     label: "Knowledge",
     pluralLabel: "Knowledge",
     sentenceLabel: "knowledge bundle",
@@ -307,6 +314,7 @@ export const EXTENSION_TYPE_TABLE = {
   },
   pack: {
     plural: "packs",
+    manifestFile: "pack.json",
     label: "Pack",
     pluralLabel: "Packs",
     sentenceLabel: "pack",
@@ -373,6 +381,23 @@ export const extensionTypePluralLabels: Record<ExtensionTypePlural, string> = Ef
   tableByPlural,
   (row) => row.pluralLabel,
 );
+
+/**
+ * The manifest file name a package of `type` declares at its root.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const manifestFilenameForType = <Type extends ExtensionType>(
+  type: Type,
+): (typeof EXTENSION_TYPE_TABLE)[Type]["manifestFile"] => EXTENSION_TYPE_TABLE[type].manifestFile;
+
+/**
+ * The extension type whose manifest file is named `fileName`, if any.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const extensionTypeForManifestFilename = (fileName: string): ExtensionType | undefined =>
+  extensionTypes.find((type) => EXTENSION_TYPE_TABLE[type].manifestFile === fileName);
 
 export const extensionTypeSentenceLabels: Record<ExtensionType, string> = EffectRecord.map(
   EXTENSION_TYPE_TABLE,

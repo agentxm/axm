@@ -15,6 +15,7 @@ import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   extensionTypes,
+  extensionTypeForManifestFilename,
   extensionTypeLabels,
   extensionTypePluralLabels,
   extensionTypePluralSentenceLabels,
@@ -22,6 +23,7 @@ import {
   ExtensionFqnSchema,
   ExtensionSpecSchema,
   LicenseSchema,
+  manifestFilenameForType,
   PackFqnSchema,
   PackSpecSchema,
 } from "./common.js";
@@ -700,6 +702,23 @@ describe("common schemas", () => {
       expect(extensionTypePluralSentenceLabels.skills).toBe("skills");
       expect(extensionTypePluralSentenceLabels["mcps"]).toBe("MCP servers");
       expect(extensionTypePluralSentenceLabels.packs).toBe("packs");
+    });
+
+    it("names each type's manifest file and maps it back to the type", () => {
+      const filenameByType = {
+        skill: "skill.json",
+        "mcp-server": "mcp.json",
+        subagent: "subagent.json",
+        pack: "pack.json",
+        rule: "rule.json",
+        hook: "hook.json",
+        knowledge: "knowledge.json",
+      } as const;
+      for (const type of extensionTypes) {
+        expect(manifestFilenameForType(type)).toBe(filenameByType[type]);
+        expect(extensionTypeForManifestFilename(filenameByType[type])).toBe(type);
+      }
+      expect(extensionTypeForManifestFilename("other.json")).toBeUndefined();
     });
   });
 

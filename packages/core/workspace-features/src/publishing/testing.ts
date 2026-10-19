@@ -25,7 +25,6 @@ import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
-import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/extension-content";
 
 import {
   GitDirectoryComparison,
@@ -46,6 +45,7 @@ import { OfflineHttpClient, RegistryClientFactoryTest } from "@agentxm/registry-
 
 import type { PublishableType } from "./publishable-types.js";
 import type { PublishRequest } from "./publish/model.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** The owner handle every authored fixture package declares. */
 export const FIXTURE_OWNER = "@acme";
@@ -241,7 +241,7 @@ export const writeAuthoredExtension = (
   const packageDir = nodePath.join(workspaceRoot, authoredDirectory[type], fixture.name);
   fs.mkdirSync(nodePath.join(packageDir, "src"), { recursive: true });
   fs.writeFileSync(
-    nodePath.join(packageDir, MANIFEST_FILENAME_BY_TYPE[type]),
+    nodePath.join(packageDir, manifestFilenameForType(type)),
     `${JSON.stringify(manifestBody(type, fixture, version, description), null, 2)}\n`,
   );
   if (fixture.withoutContent !== true) {

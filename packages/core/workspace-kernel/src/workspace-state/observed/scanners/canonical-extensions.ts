@@ -36,14 +36,11 @@ import {
   decodeExtensionNameSync,
   ExtensionNameSchema,
   ExtensionTypeSchema,
+  extensionTypeForManifestFilename,
+  manifestFilenameForType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import {
-  extensionTypeForManifestFilename,
-  MANIFEST_FILENAME_BY_TYPE,
-  MANIFEST_FILENAMES,
-  extractSkillMetadata,
-} from "@agentxm/extension-content";
+import { extractSkillMetadata } from "@agentxm/extension-content";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Diagnostics } from "../diagnostics.js";
@@ -91,14 +88,14 @@ export const makeCanonicalExtensionsScanner = (
  * without a fixed primary file return `null`.
  *
  * - `skill` → `SKILL.md` (fixed)
- * - `subagent` → `subagent.json` (package root)
+ * - `subagent` → its manifest file (package root)
  */
 const subjectFileNameFor = (type: ExtensionType): string | null => {
   switch (type) {
     case "skill":
       return "SKILL.md";
     case "subagent":
-      return "subagent.json";
+      return manifestFilenameForType("subagent");
     default:
       return null;
   }
@@ -189,7 +186,7 @@ const readNativeIdentity = (
     const identity = yield* Schema.decodeUnknownEffect(
       Schema.fromJsonString(ScannableManifestIdentitySchema),
     )(raw.value).pipe(Effect.option);
-    if (Option.isNone(identity) || MANIFEST_FILENAME_BY_TYPE[identity.value.type] !== filename) {
+    if (Option.isNone(identity) || manifestFilenameForType(identity.value.type) !== filename) {
       if (Option.isNone(fallbackName)) return Option.none();
       return Option.some({
         type: filenameType,
@@ -212,7 +209,7 @@ const inspectAcquiredDirectory = (
     const entries = childPaths.map((childPath) => deps.path.basename(childPath));
 
     const nativeIdentities = (yield* Effect.forEach(
-      entries.filter((entry) => MANIFEST_FILENAMES.has(entry)),
+      entries.filter((entry) => extensionTypeForManifestFilename(entry) !== undefined),
       (filename) => readNativeIdentity(deps, dir, filename),
     )).flatMap(Option.toArray);
     if (nativeIdentities.length > 0) {

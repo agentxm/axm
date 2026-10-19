@@ -7,8 +7,9 @@ import {
   toExtensionTypePlural,
   type ExtensionName,
   type ExtensionType,
+  manifestFilenameForType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { manifestFilenameForType, readExtensionManifest } from "@agentxm/extension-content";
+import { readExtensionManifest } from "@agentxm/extension-content";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { computePackageContentHash } from "../package-hash.js";
 import { WorkspaceSourceInvalid, type PackageContentHashFailed } from "../errors.js";

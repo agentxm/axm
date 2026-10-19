@@ -1,16 +1,18 @@
 import { describe, expect, it } from "@effect/vitest";
-import { extensionTypes } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  extensionTypes,
+  manifestFilenameForType,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import {
   LOCKFILE_NAME,
   SETTINGS_FILENAME,
 } from "@agentxm/extension-model/unstable/workspace-files";
-import { MANIFEST_FILENAME_BY_TYPE } from "../packaging/manifest-policy.js";
 import { describeSchemaDocument, UNKNOWN_DOCUMENT_LABEL } from "./describe-document.js";
 
 describe("describeSchemaDocument", () => {
   it("labels every extension type's manifest", () => {
     for (const type of extensionTypes) {
-      const label = describeSchemaDocument(MANIFEST_FILENAME_BY_TYPE[type]);
+      const label = describeSchemaDocument(manifestFilenameForType(type));
       expect(label, `${type} manifest label`).not.toBe(UNKNOWN_DOCUMENT_LABEL);
       expect(label).toMatch(/ manifest$/);
     }

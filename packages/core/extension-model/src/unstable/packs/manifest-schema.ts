@@ -11,8 +11,6 @@ import {
   PackMemberConstraintMapSchema,
 } from "../extensions/common.js";
 
-export const PACK_MANIFEST_FILENAME = "pack.json";
-
 export const PACK_MANIFEST_SCHEMA_URL = "https://axm.sh/schemas/pack.schema.json";
 
 /**

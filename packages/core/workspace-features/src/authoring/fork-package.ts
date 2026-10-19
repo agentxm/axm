@@ -11,7 +11,6 @@ import {
 } from "./authored-package-errors.js";
 import {
   ManifestIdentitySchema,
-  manifestFilenameForType,
   manifestSchemaForType,
   type ManifestIdentity,
 } from "@agentxm/extension-content";
@@ -22,6 +21,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { copyExtensionDirectory } from "@agentxm/workspace-kernel/acquisition";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const INITIAL_FORK_VERSION = "0.1.0";
 

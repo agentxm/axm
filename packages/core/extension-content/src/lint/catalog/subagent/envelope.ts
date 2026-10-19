@@ -2,16 +2,14 @@
  * `subagent/*` manifest envelope — see `../shared/envelope-rules.ts`.
  */
 
-import {
-  MANIFEST_FILENAME,
-  SubagentManifestSchema,
-} from "@agentxm/extension-model/unstable/subagents/manifest-schema";
+import { SubagentManifestSchema } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import type { SubagentRuleContext } from "../../context.js";
 import { makeManifestEnvelopeRules } from "../shared/envelope-rules.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const subagentEnvelopeRules = makeManifestEnvelopeRules({
   namespace: "subagent",
-  manifestFile: MANIFEST_FILENAME,
+  manifestFile: manifestFilenameForType("subagent"),
   schema: SubagentManifestSchema,
   manifestJson: (context: SubagentRuleContext) => context.subject.subagentJson,
   presentDescription: "Subagents include a root subagent.json manifest.",

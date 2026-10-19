@@ -11,11 +11,11 @@ import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle
 import {
   ManifestError,
   ManifestIdentitySchema,
-  manifestFilenameForType,
   manifestSchemaForType,
   type ExtensionManifest,
   type ManifestIdentity,
 } from "./manifest-policy.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 interface ReadManifestOptions {
   readonly defaultOwner?: Handle;

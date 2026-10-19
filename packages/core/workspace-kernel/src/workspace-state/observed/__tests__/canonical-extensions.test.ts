@@ -19,8 +19,8 @@ import {
   EXTENSION_TYPE_TABLE,
   extensionTypes,
   toExtensionTypePlural,
+  manifestFilenameForType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/extension-content";
 import {
   buildFixture,
   resolveFixtureProjectLayout,
@@ -75,7 +75,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
     Effect.gen(function* () {
       const manifests = Object.fromEntries(
         extensionTypes.map((type) => [
-          `github.com/acme/tools/package/${MANIFEST_FILENAME_BY_TYPE[type]}`,
+          `github.com/acme/tools/package/${manifestFilenameForType(type)}`,
           JSON.stringify({ owner: "@owner", type, name: "review", version: "1.0.0" }),
         ]),
       );
@@ -282,7 +282,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
           extensionTypes.flatMap((type) => {
             const root = `agentxm/@owner/${toExtensionTypePlural(type)}/sample`;
             const manifest = [
-              `${root}/${MANIFEST_FILENAME_BY_TYPE[type]}`,
+              `${root}/${manifestFilenameForType(type)}`,
               JSON.stringify({ owner: "@owner", type, name: "sample", version: "1.0.0" }),
             ] as const;
             return EXTENSION_TYPE_TABLE[type].placement === "container"

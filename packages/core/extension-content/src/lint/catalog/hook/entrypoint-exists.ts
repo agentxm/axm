@@ -3,12 +3,12 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import {
   HookManifestSchema,
-  HOOK_MANIFEST_FILENAME,
   referencedHookPackageFiles,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { isManifestJsonParseFailure } from "../shared/manifest-json.js";
 import type { HookRuleContext } from "../../context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULE_ID = "hook/referenced-files-exist";
 
@@ -43,7 +43,7 @@ export const entrypointExistsRule: AdvisoryRule<HookRuleContext> = {
             ruleId: RULE_ID,
             severity: "error",
             message: `hook.json references missing package file '${file}'. Add the file or update its reference.`,
-            location: { file: HOOK_MANIFEST_FILENAME },
+            location: { file: manifestFilenameForType("hook") },
           });
         }
       }

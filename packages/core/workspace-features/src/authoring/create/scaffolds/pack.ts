@@ -11,13 +11,13 @@ import * as Path from "effect/Path";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
-  PACK_MANIFEST_FILENAME,
   PACK_MANIFEST_SCHEMA_URL,
   type PackManifest,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import { manifestText, stageFileAt, type AuthoredScaffold } from "./scaffold.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const INITIAL_VERSION = decodeVersionSync("0.0.1");
 
@@ -38,13 +38,13 @@ export const packScaffold = (args: {
   return {
     subject: "Pack",
     version: INITIAL_VERSION,
-    contentFiles: [PACK_MANIFEST_FILENAME],
-    entryFile: PACK_MANIFEST_FILENAME,
+    contentFiles: [manifestFilenameForType("pack")],
+    entryFile: manifestFilenameForType("pack"),
     populate: (stagingPath) =>
       Effect.gen(function* () {
         const path = yield* Path.Path;
         yield* stageFileAt({
-          path: path.join(stagingPath, PACK_MANIFEST_FILENAME),
+          path: path.join(stagingPath, manifestFilenameForType("pack")),
           contents: manifestText(manifest),
         });
       }),

@@ -6,39 +6,18 @@ import * as SchemaIssue from "effect/SchemaIssue";
 import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
-  extensionTypes,
+  manifestFilenameForType,
   type ExtensionName,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import {
-  HookManifestSchema,
-  HOOK_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import {
-  KnowledgeManifestSchema,
-  KNOWLEDGE_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
-import {
-  McpServerManifestSchema,
-  MCP_SERVER_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import {
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-} from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import {
-  RuleManifestSchema,
-  RULE_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/rules/manifest-schema";
-import {
-  SkillManifestSchema,
-  MANIFEST_FILENAME as SKILL_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/skills/manifest-schema";
-import {
-  SubagentManifestSchema,
-  MANIFEST_FILENAME as SUBAGENT_MANIFEST_FILENAME,
-} from "@agentxm/extension-model/unstable/subagents/manifest-schema";
+import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
+import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { RuleManifestSchema } from "@agentxm/extension-model/unstable/rules/manifest-schema";
+import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
+import { SubagentManifestSchema } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import { VersionSchema, type Version } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ArchiveGuardrailError, ZipEntry } from "./archive-guardrails.js";
 
@@ -57,26 +36,6 @@ export class ManifestError extends Data.TaggedError("ManifestError")<{
   readonly details?: unknown;
   readonly cause?: unknown;
 }> {}
-
-export const MANIFEST_FILENAME_BY_TYPE = {
-  skill: SKILL_MANIFEST_FILENAME,
-  "mcp-server": MCP_SERVER_MANIFEST_FILENAME,
-  subagent: SUBAGENT_MANIFEST_FILENAME,
-  pack: PACK_MANIFEST_FILENAME,
-  rule: RULE_MANIFEST_FILENAME,
-  hook: HOOK_MANIFEST_FILENAME,
-  knowledge: KNOWLEDGE_MANIFEST_FILENAME,
-} as const satisfies Record<ExtensionType, string>;
-
-export const MANIFEST_FILENAMES: ReadonlySet<string> = new Set(
-  Object.values(MANIFEST_FILENAME_BY_TYPE),
-);
-
-export const extensionTypeForManifestFilename = (fileName: string): ExtensionType | undefined =>
-  extensionTypes.find((type) => MANIFEST_FILENAME_BY_TYPE[type] === fileName);
-
-export const manifestFilenameForType = (type: ExtensionType): string =>
-  MANIFEST_FILENAME_BY_TYPE[type];
 
 export const ManifestIdentitySchema = Schema.Struct({
   owner: HandleSchema.pipe(Schema.annotateKey({ messageMissingKey: "owner is required" })),

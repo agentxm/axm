@@ -45,7 +45,6 @@ import { VersionSchema, type Version } from "@agentxm/extension-model/unstable/v
 import {
   checkForbiddenSourceEntries,
   enforceArchiveSizeLimit,
-  manifestFilenameForType,
   normalizePublishInput,
   validateArchive,
 } from "@agentxm/extension-content";
@@ -71,6 +70,7 @@ import {
   isGlobPattern,
 } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import type { PublishSelectionDecision } from "./result.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const selectableTypes: ReadonlyArray<PublishableType> =
   extensionTypes.filter(isPublishableType);

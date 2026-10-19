@@ -20,9 +20,9 @@ import type { SkillRuleContext } from "../../context.js";
 import type { AdvisoryRule } from "../../rule.js";
 import { SkillManifestSchema } from "@agentxm/extension-model/unstable/skills/manifest-schema";
 import { schemaDecodeFindings } from "../shared/schema-rule.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULE_ID = "skill/manifest-schema-valid";
-const SKILL_JSON = "skill.json";
 
 export const manifestSchemaValidRule: AdvisoryRule<SkillRuleContext> = {
   id: RULE_ID,
@@ -33,12 +33,18 @@ export const manifestSchemaValidRule: AdvisoryRule<SkillRuleContext> = {
     if (!context.subject.isNative) {
       // Non-native skills have no skill.json to schema-validate. The
       // presence rule (manifest-present) does not fire for non-native either.
-      return schemaDecodeFindings(RULE_ID, "error", SKILL_JSON, SkillManifestSchema, undefined);
+      return schemaDecodeFindings(
+        RULE_ID,
+        "error",
+        manifestFilenameForType("skill"),
+        SkillManifestSchema,
+        undefined,
+      );
     }
     return schemaDecodeFindings(
       RULE_ID,
       "error",
-      SKILL_JSON,
+      manifestFilenameForType("skill"),
       SkillManifestSchema,
       context.subject.skillJson,
     );

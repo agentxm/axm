@@ -5,8 +5,8 @@ import type {
   ExtensionType,
   PublishOptions,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { manifestFilenameForType } from "@agentxm/extension-content";
 import { PublishFailed } from "./errors.js";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 export interface PublishFileSelectionOptions {
   readonly include?: ReadonlyArray<string> | undefined;
   readonly exclude?: ReadonlyArray<string> | undefined;

@@ -1,12 +1,20 @@
 import { gzipSync } from "node:zlib";
 import { zipSync } from "fflate";
 import { pack } from "tar-stream";
+import * as Cause from "effect/Cause";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import {
+  OperationExtractionBudget,
+  type OperationExtractionBudgetService,
+} from "@agentxm/registry-client";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { ExternalArchiveInvalid, extractExternalArchive } from "./index.js";
 
@@ -14,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "extensions/acquisition/external-archives-retain-payloads",
   title: "External archives retain package bytes, modes, and contained links",
   statement:
-    "AXM shall acquire ZIP, tar, and gzip-compressed tar payloads without rewriting content or executable modes, retain contained relative symbolic links, and refuse unsafe archive paths, ambiguous members, non-directory ancestors, escaping links, unsupported special entries, and content exceeding bounded acquisition limits.",
+    "AXM shall acquire ZIP, tar, and gzip-compressed tar payloads without rewriting content or executable modes, retain contained relative symbolic links, hold an operation extraction slot while extracting, refuse unsafe archive paths, ambiguous members, non-directory ancestors, escaping links, unsupported special entries, undecodable content, content that differs from its declared sizes, and content exceeding bounded acquisition limits, and leave the staging directory unwritten when refusing content or cancelled during decoding.",
   class: "functional",
   role: "supporting",
   goals: ["trustworthy-distribution", "extension-adoption"],
@@ -138,4 +146,107 @@ describe("External archive payloads", () => {
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );
   }
+
+  for (const [label, declaredSize] of [
+    ["understates", 1],
+    ["overstates", 20],
+  ] as const)
+    it.effect(`refuses a ZIP entry whose metadata ${label} its expanded bytes`, () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-archive-declared-" });
+        const archive = zipSync({ "large.txt": new TextEncoder().encode("longer than four") });
+        const centralDirectory = archive.findIndex(
+          (byte, index) =>
+            byte === 0x50 &&
+            archive[index + 1] === 0x4b &&
+            archive[index + 2] === 0x01 &&
+            archive[index + 3] === 0x02,
+        );
+        expect(centralDirectory).toBeGreaterThanOrEqual(0);
+        const view = new DataView(archive.buffer, archive.byteOffset);
+        view.setUint32(22, declaredSize, true);
+        view.setUint32(centralDirectory + 24, declaredSize, true);
+
+        const failure = yield* extractExternalArchive(archive, "zip", root).pipe(Effect.flip);
+        expect(failure._tag).toBe("ExternalArchiveInvalid");
+        expect(yield* fs.readDirectory(root)).toEqual([]);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    );
+
+  it.effect("refuses ZIP entries whose combined declared size exceeds the limit", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-archive-declared-total-" });
+      const archive = zipSync({
+        "first.txt": new TextEncoder().encode("abc"),
+        "second.txt": new TextEncoder().encode("def"),
+      });
+      const failure = yield* extractExternalArchive(archive, "zip", root, {
+        maxExpandedBytes: 5,
+      }).pipe(Effect.flip);
+      expect(failure.detail).toContain("expanded-byte limit");
+      expect(yield* fs.readDirectory(root)).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("refuses undecodable ZIP data", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-archive-undecodable-" });
+      const failure = yield* extractExternalArchive(
+        new Uint8Array([0x00, 0x01, 0x02, 0x03]),
+        "zip",
+        root,
+      ).pipe(Effect.flip);
+      expect(failure._tag).toBe("ExternalArchiveInvalid");
+      expect(yield* fs.readDirectory(root)).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("leaves the staging directory unwritten when cancelled during decoding", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-archive-interrupted-" });
+      const content = Uint8Array.from({ length: 2 * 1024 * 1024 }, (_, index) => index % 251);
+      const archive = zipSync({ "skill.txt": content }, { level: 0 });
+
+      const worker = yield* extractExternalArchive(archive, "zip", root).pipe(Effect.forkChild);
+      yield* Effect.yieldNow;
+      expect(worker.pollUnsafe()).toBeUndefined();
+
+      yield* Fiber.interrupt(worker);
+      const exit = yield* Fiber.await(worker);
+      expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true);
+      expect(yield* fs.readDirectory(root)).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("extracts only while holding an operation extraction slot", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-archive-budget-" });
+      const requested = yield* Deferred.make<void>();
+      const granted = yield* Deferred.make<void>();
+      const budget: OperationExtractionBudgetService = {
+        withExtraction: (effect) =>
+          Deferred.succeed(requested, undefined).pipe(
+            Effect.andThen(Deferred.await(granted)),
+            Effect.andThen(effect),
+          ),
+      };
+
+      const worker = yield* extractExternalArchive(zip(), "zip", root).pipe(
+        Effect.provideService(OperationExtractionBudget, budget),
+        Effect.forkChild,
+      );
+      yield* Deferred.await(requested);
+      expect(yield* fs.readDirectory(root)).toEqual([]);
+
+      yield* Deferred.succeed(granted, undefined);
+      yield* Fiber.join(worker);
+      expect(yield* fs.readFileString(path.join(root, "SKILL.md"))).toBe("# Original\n");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 });

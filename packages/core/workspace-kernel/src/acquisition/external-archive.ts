@@ -4,15 +4,20 @@ import { extract } from "tar-stream";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
-import { parseZipCentralDirectory } from "@agentxm/extension-content";
 import {
-  extractZip,
-  type ArchiveExtractionLimits,
+  type ArchiveGuardrailError,
+  type ZipEntry,
+  defaultReadEntry,
+  parseZipCentralDirectory,
+} from "@agentxm/extension-content";
+import {
   MAX_ARCHIVE_ENTRIES,
   MAX_BUFFERED_ARCHIVE_BYTES,
   MAX_EXTRACTED_ARCHIVE_BYTES,
+  OperationExtractionBudget,
 } from "@agentxm/registry-client";
 import { validateContainedLink } from "../locations/index.js";
 
@@ -29,7 +34,15 @@ interface ArchiveEntry {
   readonly link?: string;
 }
 
+interface ExternalArchiveLimits {
+  readonly maxCompressedBytes?: number;
+  readonly maxExpandedBytes?: number;
+  readonly maxEntries?: number;
+}
+
 const invalid = (detail: string, cause?: unknown) => new ExternalArchiveInvalid({ detail, cause });
+
+const unreadableZip = (cause: ArchiveGuardrailError) => invalid(cause.message, cause);
 
 /** Validate the whole inventory before any package entry can become a filesystem link. */
 const validateEntries = (entries: ReadonlyArray<ArchiveEntry>, maxEntries: number) =>
@@ -79,7 +92,7 @@ const validateEntries = (entries: ReadonlyArray<ArchiveEntry>, maxEntries: numbe
     }
   });
 
-const decodeTar = (bytes: Uint8Array, limits: Required<ArchiveExtractionLimits>) =>
+const decodeTar = (bytes: Uint8Array, limits: Required<ExternalArchiveLimits>) =>
   Effect.scoped(
     Effect.gen(function* () {
       const parser = yield* Effect.acquireRelease(
@@ -153,12 +166,69 @@ const decodeTar = (bytes: Uint8Array, limits: Required<ArchiveExtractionLimits>)
     }),
   );
 
-/** Extract unchanged ZIP/tar payloads into a caller-owned empty staging directory. */
-export const extractExternalArchive = (
+const S_IFMT = 0o170000;
+const S_IFREG = 0o100000;
+const S_IFDIR = 0o040000;
+const S_IFLNK = 0o120000;
+
+/**
+ * Bound the ZIP inventory by its declared sizes before inflating anything, then
+ * inflate one entry at a time and require each to match its declaration.
+ */
+const decodeZip = (bytes: Uint8Array, limits: Required<ExternalArchiveLimits>) =>
+  Effect.gen(function* () {
+    const inventory = yield* parseZipCentralDirectory(bytes).pipe(Effect.mapError(unreadableZip));
+    const declared: Array<{ readonly entry: ArchiveEntry; readonly zip: ZipEntry }> = [];
+    let declaredBytes = 0;
+    for (const zip of inventory) {
+      const mode = zip.externalAttributes >>> 16;
+      const kind = mode & S_IFMT;
+      if (![0, S_IFREG, S_IFDIR, S_IFLNK].includes(kind))
+        return yield* invalid(`Unsupported ZIP entry kind: ${zip.fileName}`);
+      const directory = zip.fileName.endsWith("/");
+      if ((kind === S_IFDIR && !directory) || (kind === S_IFLNK && directory))
+        return yield* invalid(`Inconsistent ZIP entry kind: ${zip.fileName}`);
+      declaredBytes += zip.uncompressedSize;
+      if (declaredBytes > limits.maxExpandedBytes)
+        return yield* invalid("Archive expanded-byte limit exceeded");
+      declared.push({
+        zip,
+        entry: {
+          name: zip.fileName,
+          kind: kind === S_IFLNK ? "symlink" : directory ? "directory" : "file",
+          mode: mode === 0 ? (directory ? 0o755 : 0o644) : mode & 0o777,
+        },
+      });
+    }
+    yield* validateEntries(
+      declared.map(({ entry }) => entry),
+      limits.maxEntries,
+    );
+    return yield* Effect.forEach(declared, ({ entry, zip }) =>
+      entry.kind === "directory"
+        ? Effect.succeed(entry)
+        : Effect.gen(function* () {
+            yield* Effect.yieldNow;
+            const content = yield* defaultReadEntry(bytes, zip).pipe(
+              Effect.mapError(unreadableZip),
+            );
+            if (content.byteLength !== zip.uncompressedSize)
+              return yield* invalid(`ZIP entry differs from its declared size: ${zip.fileName}`);
+            if (entry.kind === "file") return { ...entry, bytes: content };
+            const link = yield* Effect.try({
+              try: () => new TextDecoder("utf-8", { fatal: true }).decode(content),
+              catch: (cause) => invalid("Invalid link target encoding", cause),
+            });
+            return { ...entry, link };
+          }),
+    );
+  });
+
+const extractArchive = (
   bytes: Uint8Array,
   format: "zip" | "tar" | "tar.gz",
   directory: string,
-  options: ArchiveExtractionLimits = {},
+  options: ExternalArchiveLimits,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -181,27 +251,8 @@ export const extractExternalArchive = (
     if ((yield* fs.readDirectory(directory)).length !== 0)
       return yield* invalid("Archive staging directory must be empty");
     let entries: ReadonlyArray<ArchiveEntry>;
-    if (format === "zip") {
-      const inventory = yield* parseZipCentralDirectory(bytes);
-      const decoded: ArchiveEntry[] = [];
-      for (const entry of inventory) {
-        const mode = entry.externalAttributes >>> 16;
-        const kind = mode & 0o170000;
-        if (![0, 0o100000, 0o040000, 0o120000].includes(kind))
-          return yield* invalid(`Unsupported ZIP entry kind: ${entry.fileName}`);
-        if (
-          (kind === 0o040000 && !entry.fileName.endsWith("/")) ||
-          (kind === 0o120000 && entry.fileName.endsWith("/"))
-        )
-          return yield* invalid(`Inconsistent ZIP entry kind: ${entry.fileName}`);
-        decoded.push({
-          name: entry.fileName,
-          kind: kind === 0o120000 ? "symlink" : entry.fileName.endsWith("/") ? "directory" : "file",
-          mode: mode === 0 ? (entry.fileName.endsWith("/") ? 0o755 : 0o644) : mode & 0o777,
-        });
-      }
-      entries = decoded;
-    } else {
+    if (format === "zip") entries = yield* decodeZip(bytes, limits);
+    else {
       const expanded =
         format === "tar.gz"
           ? yield* Effect.try({
@@ -213,39 +264,26 @@ export const extractExternalArchive = (
             })
           : bytes;
       entries = yield* decodeTar(expanded, limits);
+      yield* validateEntries(entries, limits.maxEntries);
     }
-    yield* validateEntries(entries, limits.maxEntries);
-    if (format === "zip") yield* extractZip(bytes, directory, limits);
-    else
-      for (const entry of entries) {
-        const target = path.join(directory, entry.name);
-        if (entry.kind === "directory") yield* fs.makeDirectory(target, { recursive: true });
-        else {
-          yield* fs.makeDirectory(path.dirname(target), { recursive: true });
-          if (entry.kind === "file" && entry.bytes !== undefined)
-            yield* fs.writeFile(target, entry.bytes);
-        }
+    // Every entry is decoded and checked before the first write.
+    for (const entry of entries) {
+      const target = path.join(directory, entry.name);
+      if (entry.kind === "directory") yield* fs.makeDirectory(target, { recursive: true });
+      else {
+        yield* fs.makeDirectory(path.dirname(target), { recursive: true });
+        if (entry.kind === "file" && entry.bytes !== undefined)
+          yield* fs.writeFile(target, entry.bytes);
       }
+    }
     for (const entry of entries) {
       const target = path.join(directory, entry.name);
       if (entry.kind === "file") yield* fs.chmod(target, entry.mode);
       if (entry.kind === "symlink") {
-        const value =
-          format === "zip"
-            ? yield* fs.readFile(target).pipe(
-                Effect.flatMap((bytes) =>
-                  Effect.try({
-                    try: () => new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-                    catch: (cause) => invalid("Invalid link target encoding", cause),
-                  }),
-                ),
-              )
-            : entry.link;
-        if (value === undefined || value.length === 0)
+        if (entry.link === undefined || entry.link.length === 0)
           return yield* invalid("Missing archive link target");
-        yield* validateContainedLink(directory, target, value);
-        if (format === "zip") yield* fs.remove(target);
-        yield* fs.symlink(value, target);
+        yield* validateContainedLink(directory, target, entry.link);
+        yield* fs.symlink(entry.link, target);
       }
     }
     // Resolve again after all links exist: chained links cannot bypass containment.
@@ -254,6 +292,22 @@ export const extractExternalArchive = (
         const target = path.join(directory, entry.name);
         yield* validateContainedLink(directory, target, yield* fs.readLink(target));
       }
+  });
+
+/**
+ * Extract unchanged ZIP/tar payloads into a caller-owned empty staging
+ * directory, holding the operation's extraction permit when one is provided.
+ */
+export const extractExternalArchive = (
+  bytes: Uint8Array,
+  format: "zip" | "tar" | "tar.gz",
+  directory: string,
+  options: ExternalArchiveLimits = {},
+) =>
+  Effect.gen(function* () {
+    const budget = yield* Effect.serviceOption(OperationExtractionBudget);
+    const extraction = extractArchive(bytes, format, directory, options);
+    return yield* Option.isSome(budget) ? budget.value.withExtraction(extraction) : extraction;
   }).pipe(
     Effect.mapError((cause) =>
       cause instanceof ExternalArchiveInvalid

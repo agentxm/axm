@@ -51,6 +51,7 @@ import {
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
+  type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
   InstructionHealthSchema,
@@ -75,11 +76,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
-import {
-  WorkspaceConfigurationFailed,
-  workspaceChangeFailedToStepFailure,
-  type WorkspaceConfigurationExecutionFailure,
-} from "../errors.js";
+import { WorkspaceConfigurationFailed, workspaceChangeFailedToStepFailure } from "../errors.js";
 import { agentLifecycle, isRetiredAgent, lifecycleWarning } from "./agent-lifecycle.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { dedupe, validateAgentIds } from "./validate-agent-ids.js";
@@ -93,9 +90,6 @@ export type ConfigureAgentsFailure =
   | WorkspaceConfigurationFailed
   | WorkspaceStateReadFailure
   | Effect.Error<ReturnType<typeof detectAgentsForScope>>;
-
-/** Every failure resolving a prepared membership change can surface. */
-export type MembershipExecutionFailure = WorkspaceConfigurationExecutionFailure;
 
 const membershipArtifact = (
   scope: WorkspaceScope,
@@ -421,7 +415,7 @@ export const previewOrApplyAddConfiguredAgents = <MaterializeRequirements = neve
   reconciliation?: MembershipReconciliation<MaterializeRequirements, Output>,
 ): Effect.Effect<
   OperationResolution<Output>,
-  MembershipExecutionFailure,
+  PlanResolutionFailure,
   MembershipExecutionRequirements<MaterializeRequirements>
 > =>
   Effect.gen(function* () {
@@ -576,7 +570,7 @@ export const previewOrApplyRemoveConfiguredAgents = <CleanupRequirements = never
   reconciliation?: MembershipReconciliation<CleanupRequirements, Output>,
 ): Effect.Effect<
   OperationResolution<Output>,
-  MembershipExecutionFailure,
+  PlanResolutionFailure,
   MembershipExecutionRequirements<CleanupRequirements>
 > =>
   Effect.gen(function* () {

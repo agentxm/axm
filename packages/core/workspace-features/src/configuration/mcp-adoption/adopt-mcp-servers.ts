@@ -35,6 +35,7 @@ import {
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
+  type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
   ConfiguredAgentOutcomesProvider,
@@ -51,7 +52,6 @@ import {
   WorkspaceConfigurationFailed,
   configurationFailureToStepFailure,
   workspaceChangeFailedToStepFailure,
-  type WorkspaceConfigurationExecutionFailure,
 } from "../errors.js";
 import { applyMcpAdoption, collectMcpNativeSources, prepareMcpAdoptionTargets } from "./apply.js";
 import { preflightMcpAdoptions, type McpAdoptionPreflight } from "./preflight.js";
@@ -178,11 +178,7 @@ export type AdoptMcpServersRequirements =
 export const previewOrApplyAdoptMcpServers = (
   candidate: AdoptMcpServersCandidate,
   execution: PlanExecution,
-): Effect.Effect<
-  OperationResolution<void>,
-  WorkspaceConfigurationExecutionFailure,
-  AdoptMcpServersRequirements
-> =>
+): Effect.Effect<OperationResolution<void>, PlanResolutionFailure, AdoptMcpServersRequirements> =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;

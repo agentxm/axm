@@ -21,7 +21,6 @@ export {
   type DisableExtensionRequest,
   type ActivationRequirements,
 } from "./activation/set-activation.js";
-export type { ActivationExecutionFailure } from "./activation/errors.js";
 
 export {
   SOURCE_FAMILY_LIFECYCLE_CELLS,

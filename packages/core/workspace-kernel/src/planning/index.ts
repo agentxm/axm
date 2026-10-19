@@ -22,6 +22,7 @@ export { applyPlan, type ApplyPlanOptions, type OperationHandler } from "./plan/
 export {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
+  type PlanResolutionFailure,
   type PrepareExecutionCandidateOptions,
   type ResolveExecutionCandidateOptions,
 } from "./plan/resolve-plan.js";

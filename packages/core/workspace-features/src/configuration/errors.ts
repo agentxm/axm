@@ -10,39 +10,19 @@
 
 import * as Schema from "effect/Schema";
 import {
-  type ApprovalRecoveryMissing,
-  type CandidateFingerprintFailed,
-  type PlanInteractionFailed,
   FailureSuggestedActionSchema,
   makeStepFailure,
   type StepFailure,
 } from "@agentxm/workspace-kernel/operations";
 import type {
   InvalidAgentId,
-  LockfileValidationError,
-  WorkspaceSettingsReadFailure,
   WorkspaceStateMutationFailure,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type {
   WorkspaceRestorationIncomplete,
   WorkspaceTransactionFailure,
-  WorkspaceTransitionAcquireFailure,
 } from "@agentxm/workspace-kernel/settlement";
 import { kernelFailureDetail, renderKernelFailure } from "@agentxm/workspace-kernel/reconciliation";
-
-/**
- * Every failure resolving a prepared change through the plan pipeline can
- * surface: the workspace reads the candidate revalidates against, the
- * approval and interaction refusals, and the transition the apply could not
- * acquire. Step failures are carried inside the resolution, not raised.
- */
-export type WorkspaceConfigurationExecutionFailure =
-  | ApprovalRecoveryMissing
-  | CandidateFingerprintFailed
-  | LockfileValidationError
-  | PlanInteractionFailed
-  | WorkspaceSettingsReadFailure
-  | WorkspaceTransitionAcquireFailure;
 
 /**
  * A workspace configuration flow could not proceed. `category` and `detail`

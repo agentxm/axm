@@ -1435,3 +1435,14 @@ export const resolveExecutionCandidate = <Requirements, Output>(
   execution: PlanExecution,
   options?: ResolveExecutionCandidateOptions<Requirements, Output>,
 ) => Effect.scoped(resolveExecutionCandidateInScope(candidate, execution, options));
+
+/**
+ * Every failure preparing and then resolving an execution candidate can
+ * surface: the workspace reads the candidate is planned and revalidated
+ * against, the approval and interaction refusals, and the transition an apply
+ * could not acquire. Step failures travel inside the resolution rather than
+ * being raised. Derived from both phases, so it follows them exactly.
+ */
+export type PlanResolutionFailure =
+  | Effect.Error<ReturnType<typeof prepareExecutionCandidate<never, never>>>
+  | Effect.Error<ReturnType<typeof resolveExecutionCandidate<never, never>>>;

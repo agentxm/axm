@@ -39,12 +39,9 @@ import {
   observeUnit,
   OperationJournal,
   ResolvePlanInteraction,
-  type ApprovalRecoveryMissing,
-  type CandidateFingerprintFailed,
   type OperationResolution,
   type Plan,
   type PlanExecution,
-  type PlanInteractionFailed,
   type PlannedJobStep,
 } from "@agentxm/workspace-kernel/operations";
 import {
@@ -53,6 +50,7 @@ import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type ExecutionCandidate,
+  type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
   WorkspaceInvariantFacts,
@@ -66,13 +64,8 @@ import {
   WorkspaceLocation,
   WorkspaceRecords,
   type DesiredStateGraph,
-  type LockfileValidationError,
-  type WorkspaceSettingsReadFailure,
 } from "@agentxm/workspace-kernel/workspace-state";
-import type {
-  FootprintRecorder,
-  WorkspaceTransitionAcquireFailure,
-} from "@agentxm/workspace-kernel/settlement";
+import type { FootprintRecorder } from "@agentxm/workspace-kernel/settlement";
 
 import {
   collectUnreachableRetirement,
@@ -150,15 +143,6 @@ export interface SyncWorkspaceCandidate {
 
 /** Every failure settling a reconciliation can surface. */
 export type SyncWorkspaceFailure = SyncPolicyFailure;
-
-/** Every failure resolving a settled reconciliation can surface. */
-export type SyncWorkspaceExecutionFailure =
-  | ApprovalRecoveryMissing
-  | CandidateFingerprintFailed
-  | LockfileValidationError
-  | PlanInteractionFailed
-  | WorkspaceSettingsReadFailure
-  | WorkspaceTransitionAcquireFailure;
 
 const scopeLabelFor = (selection: SyncSelection): string =>
   Option.isSome(selection.target)
@@ -262,7 +246,7 @@ export const prepareSyncWorkspace = (
   request: SyncWorkspaceRequest,
 ): Effect.Effect<
   SyncWorkspaceCandidate | WorkspaceAlreadyReconciled,
-  SyncWorkspaceFailure | SyncWorkspaceExecutionFailure,
+  SyncWorkspaceFailure | PlanResolutionFailure,
   SyncWorkspaceRequirements
 > =>
   Effect.gen(function* () {
@@ -540,11 +524,7 @@ export const prepareSyncWorkspace = (
 export const previewOrApplySyncWorkspace = (
   candidate: SyncWorkspaceCandidate,
   execution: PlanExecution,
-): Effect.Effect<
-  OperationResolution<void>,
-  SyncWorkspaceExecutionFailure,
-  SyncWorkspaceRequirements
-> =>
+): Effect.Effect<OperationResolution<void>, PlanResolutionFailure, SyncWorkspaceRequirements> =>
   resolveExecutionCandidate(candidate.execution, execution, {
     additionalFreshness: () =>
       observationsStillCurrent({

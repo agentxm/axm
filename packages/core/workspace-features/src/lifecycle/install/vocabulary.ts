@@ -7,6 +7,7 @@ import type {
   McpServerManager,
   PackManager,
 } from "@agentxm/workspace-kernel/materialization";
+import type { PlanResolutionFailure } from "@agentxm/workspace-kernel/planning";
 import type { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 /**
  * The vocabulary every install route shares.
@@ -25,23 +26,17 @@ import type {
   StepFailureConversion,
 } from "@agentxm/workspace-kernel/reconciliation";
 import type {
-  ApprovalRecoveryMissing,
-  CandidateFingerprintFailed,
   OperationJournal,
-  PlanInteractionFailed,
   ResolvePlanInteraction,
 } from "@agentxm/workspace-kernel/operations";
 import type {
   ConfiguredAgentOutcomesProvider,
-  LockfileValidationError,
   WorkspaceRecords,
-  WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type {
   FootprintRecorder,
   WorkspaceTransactionScope,
-  WorkspaceTransitionAcquireFailure,
 } from "@agentxm/workspace-kernel/settlement";
 
 /**
@@ -51,14 +46,7 @@ import type {
  * resolution rather than being raised, so the operator still sees what each
  * closure settled.
  */
-export type InstallExecutionFailure =
-  | ApprovalRecoveryMissing
-  | CandidateFingerprintFailed
-  | LockfileValidationError
-  | PlanInteractionFailed
-  | WorkspaceSettingsReadFailure
-  | WorkspaceStateReadFailure
-  | WorkspaceTransitionAcquireFailure;
+export type InstallExecutionFailure = PlanResolutionFailure | WorkspaceStateReadFailure;
 
 /**
  * Everything settling an install reads, and everything resolving the settled

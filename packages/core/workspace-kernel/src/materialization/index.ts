@@ -92,6 +92,7 @@ export {
 
 // The shared manager members and canonical acquisition every kind manager composes
 export {
+  captureManagerServices,
   listMaterializableFromAccepted,
   listMaterializableFromDisk,
   makeBaseManagerMembers,

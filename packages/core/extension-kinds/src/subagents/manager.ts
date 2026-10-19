@@ -1045,7 +1045,6 @@ export const SubagentManagerLive = Layer.effect(
           ),
         });
       }),
-      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies SubagentManagerService;
   }),
 );

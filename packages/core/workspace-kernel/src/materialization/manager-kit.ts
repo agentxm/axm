@@ -1,5 +1,6 @@
 /** Shared lifecycle members for per-type materialization managers. */
 
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
@@ -8,6 +9,11 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
   configuredRowsByName,
   isObservedInstalled,
   prepareAcceptedCanonicalTransition,
@@ -20,6 +26,7 @@ import {
   type WorkspaceRecordsService,
 } from "../workspace-state/index.js";
 import { LifecyclePostconditionViolated } from "../operations/index.js";
+import { SourceHostProviders, WorkspaceCatalog } from "../sources/index.js";
 import type { ExtensionManagerFailure } from "./errors.js";
 import type { ManagerRequirements } from "./manager-contract.js";
 
@@ -91,6 +98,43 @@ export const makeBaseManagerMembers = <
       Effect.map((configured) => Option.fromUndefinedOr(configured[target.name]?.source)),
       Effect.withSpan(`${args.spanPrefix}.getConfiguredSource`),
     ),
+  /** A withdrawn extension releases the accepted resolution recorded under its own name. */
+  withdrawnResolutionKeys: ({ target }: { readonly target: ExtensionTarget }) =>
+    Effect.succeed([target.name]),
+});
+
+/**
+ * Capture the workspace state ports and source integration a manager layer
+ * depends on. `provide` hands exactly those services to a member effect, so
+ * the platform stays in the member's `R` while the layer's own dependencies do
+ * not leak to its callers.
+ */
+export const captureManagerServices = Effect.gen(function* () {
+  const location = yield* WorkspaceLocation;
+  const settings = yield* SettingsReader;
+  const lockfile = yield* LockfileReader;
+  const desiredState = yield* DesiredStateReader;
+  const records = yield* WorkspaceRecords;
+  const sources = yield* SourceHostProviders;
+  const catalog = yield* WorkspaceCatalog;
+  const services = Context.make(WorkspaceLocation, location).pipe(
+    Context.add(SettingsReader, settings),
+    Context.add(LockfileReader, lockfile),
+    Context.add(DesiredStateReader, desiredState),
+    Context.add(WorkspaceRecords, records),
+    Context.add(SourceHostProviders, sources),
+    Context.add(WorkspaceCatalog, catalog),
+  );
+  return {
+    location,
+    settings,
+    lockfile,
+    desiredState,
+    records,
+    sources,
+    catalog,
+    provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provideContext(effect, services),
+  };
 });
 
 export const listMaterializableFromAccepted = <T extends InstallableExtensionType>(args: {

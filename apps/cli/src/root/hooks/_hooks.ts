@@ -20,11 +20,7 @@ const uninstallCommand = makePerTypeUninstallCommand("hook");
 
 const { enableCommand, disableCommand } = makeActivationCommands("hook");
 
-const showCommand = makeExtensionShowCommand({
-  type: "hook",
-  group: "hooks",
-  exampleName: "workspace-baseline",
-});
+const showCommand = makeExtensionShowCommand("hook");
 
 export const hooksCommand = Command.make("hooks").pipe(
   Command.withDescription("Manage hook extensions"),

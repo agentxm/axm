@@ -29,7 +29,7 @@ import {
   type OperationRecoveryContext,
 } from "../../operation-output.js";
 import { INSPECT_INSTALLED } from "../suggested-actions.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { toAppError } from "../../app-error/conversions.js";
 import {
   makeConfirmationRecovery,
@@ -50,7 +50,7 @@ const workspaceUpdateCommand = (
 ): ReadonlyArray<string> =>
   Option.match(type, {
     onNone: () => ["update"],
-    onSome: (value) => [EXTENSION_TYPE_PRESENTATION[value].route, "update"],
+    onSome: (value) => [extensionTypePresentation(value).route, "update"],
   });
 
 /**

@@ -16,11 +16,11 @@ import {
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "./command-capabilities.js";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { ExtensionShowResultSchema, ShowExtension } from "@agentxm/workspace-features/inspection";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { extensionNotInstalledToAppError } from "../inspection-errors.js";
 
 interface ShowDetailRow {
@@ -70,7 +70,7 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
       Effect.fail(extensionNotInstalledToAppError(failure)),
     ),
   );
-  const label = extensionTypeSentenceLabels[args.type];
+  const label = extensionTypePresentation(args.type).noun.singular;
 
   yield* emitResult(result, ExtensionShowResultSchema, () => [
     ...headlineDoc("neutral", `${label} ${args.name}`),
@@ -205,14 +205,12 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
  * Builds one group's `show` verb. Every installable type gets the same argument
  * shape and the same result document; only the type id differs.
  */
-export const makeExtensionShowCommand = (args: {
-  readonly type: InstallableExtensionType;
-  readonly group: string;
-  readonly exampleName: string;
-}) => {
-  const label = extensionTypeSentenceLabels[args.type];
+export const makeExtensionShowCommand = (type: InstallableExtensionType) => {
+  const { route, noun, exampleName } = extensionTypePresentation(type);
   const showConfig = {
-    name: Argument.String("name").pipe(withParameterDescription(`Name of the ${label} to show`)),
+    name: Argument.String("name").pipe(
+      withParameterDescription(`Name of the ${noun.singular} to show`),
+    ),
     scope: scopeFlag,
     agent: agentFlag.pipe(
       withParameterDescription(
@@ -221,22 +219,22 @@ export const makeExtensionShowCommand = (args: {
     ),
   } as const;
   const command = Command.make("show", showConfig, ({ name, scope, agent }) =>
-    handleExtensionShow({ type: args.type, name, agents: agent }).pipe(
+    handleExtensionShow({ type, name, agents: agent }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
-      withRuntime(`${args.group} show`),
+      withRuntime(`${route} show`),
     ),
   ).pipe(withArgvTracking(showConfig));
   return command.pipe(
     withCommandCapabilities(readOnlyCapabilities()),
-    Command.withDescription(`Inspect one installed ${label}`),
+    Command.withDescription(`Inspect one installed ${noun.singular}`),
     Command.withExamples([
       {
-        command: `axm ${args.group} show ${args.exampleName}`,
-        description: `Inspect one installed ${label}`,
+        command: `axm ${route} show ${exampleName}`,
+        description: `Inspect one installed ${noun.singular}`,
       },
       {
-        command: `axm ${args.group} show ${args.exampleName} --scope user`,
-        description: `Inspect a user-level ${label}`,
+        command: `axm ${route} show ${exampleName} --scope user`,
+        description: `Inspect a user-level ${noun.singular}`,
       },
     ]),
   );

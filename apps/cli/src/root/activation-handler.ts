@@ -45,7 +45,7 @@ import {
   withRuntime,
   withWorkspace,
 } from "../runtime.js";
-import { EXTENSION_TYPE_PRESENTATION } from "./extension-type-presentation.js";
+import { extensionTypePresentation } from "./extension-type-presentation.js";
 import { makePublicPositionalPlanInvocation } from "./shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,
@@ -103,7 +103,7 @@ const typedPresentation = (
   request: ActivationRequest,
   enabled: boolean,
 ): ActivationCommandPresentation => {
-  const { route, noun } = EXTENSION_TYPE_PRESENTATION[type];
+  const { route, noun } = extensionTypePresentation(type);
   const verb = enabled ? "enable" : "disable";
   return {
     command: `${route}.${verb}`,
@@ -133,7 +133,7 @@ export const handleDisable = (type: InstallableExtensionType, request: Activatio
   );
 
 const makeActivationCommand = (type: InstallableExtensionType, enabled: boolean) => {
-  const { route, noun, exampleName } = EXTENSION_TYPE_PRESENTATION[type];
+  const { route, noun, exampleName } = extensionTypePresentation(type);
   const verb = enabled ? "enable" : "disable";
   const verbTitle = enabled ? "Enable" : "Disable";
   const config = {
@@ -221,7 +221,7 @@ const makeRootActivationCommand = (enabled: boolean) => {
             command: verb,
             commandPath: [verb],
             recoveryTarget: fqn,
-            planName: `${title} ${EXTENSION_TYPE_PRESENTATION[type].noun.singular}`,
+            planName: `${title} ${extensionTypePresentation(type).noun.singular}`,
             suggestions: [
               { description: "Undo", cmd: `axm ${enabled ? "disable" : "enable"} ${fqn}` },
             ],
@@ -309,7 +309,7 @@ const handleSetActivationBody = <R>(
   prepare: ActivationPreparer<R>,
 ) =>
   Effect.gen(function* () {
-    const { inspect } = EXTENSION_TYPE_PRESENTATION[args.type];
+    const { inspect } = extensionTypePresentation(args.type);
     const candidate = yield* prepare({
       type: args.type,
       name: args.name,

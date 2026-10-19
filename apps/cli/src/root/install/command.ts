@@ -30,7 +30,7 @@ import {
   withRuntime,
   withWorkspace,
 } from "../../runtime.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -48,10 +48,9 @@ const sourceArgument = () =>
   Argument.String("source").pipe(withParameterDescription("Registry FQN, Git locator, or path"));
 
 const selectorFlag = (type: InstallableExtensionType) => {
-  return Flag.String(EXTENSION_TYPE_PRESENTATION[type].selectorFlag).pipe(
-    withParameterDescription(
-      `Select ${EXTENSION_TYPE_PRESENTATION[type].noun.article} ${EXTENSION_TYPE_PRESENTATION[type].noun.singular} by name or glob`,
-    ),
+  const { selectorFlag, noun } = extensionTypePresentation(type);
+  return Flag.String(selectorFlag).pipe(
+    withParameterDescription(`Select ${noun.article} ${noun.singular} by name or glob`),
     Flag.atLeast(0),
   );
 };
@@ -134,14 +133,14 @@ const finishCommand = <Name extends string, Input, ContextInput, E, R>(
     Command.withDescription(
       type === undefined
         ? "Install extensions from a registry, Git, or path source"
-        : `Install ${EXTENSION_TYPE_PRESENTATION[type].noun.plural} from a registry, Git, or path source`,
+        : `Install ${extensionTypePresentation(type).noun.plural} from a registry, Git, or path source`,
     ),
     Command.withExamples([
       {
         command:
           type === undefined
             ? "axm install ./extensions --skill review --rule safe-shell"
-            : `axm ${extensionTypeToPlural[type]} install ./extensions --${EXTENSION_TYPE_PRESENTATION[type].selectorFlag} example`,
+            : `axm ${extensionTypeToPlural[type]} install ./extensions --${extensionTypePresentation(type).selectorFlag} example`,
         description: "Install an explicit selection from one source locator",
       },
       {

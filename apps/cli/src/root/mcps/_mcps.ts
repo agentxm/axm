@@ -20,11 +20,7 @@ const uninstallCommand = makePerTypeUninstallCommand("mcp-server");
 
 const { enableCommand, disableCommand } = makeActivationCommands("mcp-server");
 
-const showCommand = makeExtensionShowCommand({
-  type: "mcp-server",
-  group: "mcps",
-  exampleName: "linear",
-});
+const showCommand = makeExtensionShowCommand("mcp-server");
 
 export const mcpsCommand = Command.make("mcps").pipe(
   Command.withDescription("Manage MCP servers"),

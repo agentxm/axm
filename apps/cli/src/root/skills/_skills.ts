@@ -19,11 +19,7 @@ const uninstallCommand = makePerTypeUninstallCommand("skill");
 
 const { enableCommand, disableCommand } = makeActivationCommands("skill");
 
-const showCommand = makeExtensionShowCommand({
-  type: "skill",
-  group: "skills",
-  exampleName: "code-review",
-});
+const showCommand = makeExtensionShowCommand("skill");
 
 export const skillsCommand = Command.make("skills").pipe(
   Command.withDescription("Manage skills"),

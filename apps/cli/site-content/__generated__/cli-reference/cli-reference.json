@@ -1800,11 +1800,11 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm mcps show linear",
+                "command": "axm mcps show context",
                 "description": "Inspect one installed MCP server"
               },
               {
-                "command": "axm mcps show linear --scope user",
+                "command": "axm mcps show context --scope user",
                 "description": "Inspect a user-level MCP server"
               }
             ],

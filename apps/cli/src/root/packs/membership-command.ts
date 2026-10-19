@@ -19,7 +19,7 @@ import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-kern
 import { makeAppError } from "../../app-error/index.js";
 import { toAppError } from "../../app-error/conversions.js";
 import { emitNoOpOutcome, emitOperationResolution } from "../../operation-output.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
@@ -88,14 +88,14 @@ const body = (args: PackMembershipCommandArgs) =>
       suggestions:
         change === "add"
           ? [
-              EXTENSION_TYPE_PRESENTATION.pack.inspect,
+              extensionTypePresentation("pack").inspect,
               {
                 description: "Remove from pack",
                 cmd: `axm packs remove ${candidate.pack} ${selector}`,
               },
             ]
           : [
-              EXTENSION_TYPE_PRESENTATION.pack.inspect,
+              extensionTypePresentation("pack").inspect,
               {
                 description: "Add to pack",
                 cmd: `axm packs add ${candidate.pack} <extension>`,

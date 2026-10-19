@@ -4,7 +4,8 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { toJsonHelpDoc } from "../../cli-runtime/index.js";
 import { collectHelpFiles } from "../../test-support/command-tree-test-helpers.js";
 import { parseInvocation } from "../../test-support/parser-probe.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { extensionTypePresentation } from "../extension-type-presentation.js";
 
 export const specification = defineSpecification({
   requirement: "cli/help/parameter-grammar-is-explicit",
@@ -27,7 +28,7 @@ describe("Explicit parameter grammar", () => {
       const files = new Map(
         Array.from(yield* collectHelpFiles(), ([route, doc]) => [route, toJsonHelpDoc(doc)]),
       );
-      for (const { route, noun } of Object.values(EXTENSION_TYPE_PRESENTATION)) {
+      for (const { route, noun } of installableExtensionTypes.map(extensionTypePresentation)) {
         for (const [verb, description] of [
           ["new", `Name of the ${noun.singular} to create, without owner`],
           ["enable", `Name or FQN of the ${noun.singular} to enable`],

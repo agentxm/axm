@@ -23,8 +23,6 @@ import { makePlanInvocation } from "./confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface CreateExtensionCommandArgs {
-  /** Telemetry and machine-output command identity, e.g. `skills.new`. */
-  readonly command: string;
   readonly request: CreateExtensionRequest;
   readonly preview: boolean;
   /** What the author does next, rendered from the settled creation. */
@@ -53,7 +51,6 @@ const body = (args: CreateExtensionCommandArgs) =>
 export const runCreateExtensionCommand = (args: CreateExtensionCommandArgs) =>
   withOperationLifecycle(
     {
-      command: args.command,
       mode: args.preview ? "preview" : "apply",
       planName: createExtensionPlanName(args.request.type),
     },

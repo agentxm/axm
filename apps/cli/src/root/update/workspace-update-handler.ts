@@ -93,7 +93,6 @@ export const updateSuggestions =
   };
 
 export interface WorkspaceUpdateHandlerArgs {
-  readonly command: string;
   readonly type: Option.Option<WorkspaceUpdatableType>;
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
@@ -105,7 +104,6 @@ export interface WorkspaceUpdateHandlerArgs {
 export const handleWorkspaceUpdate = (args: WorkspaceUpdateHandlerArgs) =>
   withOperationLifecycle(
     {
-      command: args.command,
       mode: args.flags.preview ? "preview" : "apply",
       planName: args.planName,
       productActivity: { activity: "update", activationEligible: false },

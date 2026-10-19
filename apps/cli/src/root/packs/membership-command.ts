@@ -28,9 +28,6 @@ export interface PackMembershipCommandArgs {
   readonly preview: boolean;
 }
 
-const commandId = (change: PackMembershipRequest["change"]) =>
-  change === "add" ? "packs.add" : "packs.remove";
-
 /**
  * The feature names the packs an ambiguous selector matched; only the
  * transport knows the rest of the invocation, so it is what turns each name
@@ -108,7 +105,6 @@ const body = (args: PackMembershipCommandArgs) =>
 export const runPackMembershipCommand = (args: PackMembershipCommandArgs) =>
   withOperationLifecycle(
     {
-      command: commandId(args.request.change),
       mode: args.preview ? "preview" : "apply",
       planName: packMembershipPlanName(args.request.change),
     },

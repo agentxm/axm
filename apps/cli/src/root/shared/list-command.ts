@@ -55,7 +55,7 @@ export const makePerTypeListCommand = <Row, S extends Schema.Top, E extends Expe
     args: { readonly agents: ReadonlyArray<string> } = { agents: [] },
   ) {
     const { document, rows } = yield* withLiveOperation(
-      { command: `${route}.list`, name: `Inspect ${noun.plural}`, mode: "query" },
+      { name: `Inspect ${noun.plural}`, mode: "query" },
       definition.query(args.agents),
     );
     yield* emitResult(document, definition.schema, () =>
@@ -88,7 +88,7 @@ export const makePerTypeListCommand = <Row, S extends Schema.Top, E extends Expe
   const command = Command.make("list", config, ({ scope, agent }) =>
     handler({ agents: agent }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
-      withRuntime(`${route} list`),
+      withRuntime(),
     ),
   ).pipe(
     withArgvTracking(config),

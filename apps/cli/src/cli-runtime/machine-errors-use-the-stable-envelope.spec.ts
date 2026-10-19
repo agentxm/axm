@@ -168,7 +168,7 @@ describe("Machine error envelope", () => {
           ],
         });
         yield* withOperationLifecycle(
-          { command: "install", mode: "apply", planName: resolution.name },
+          { mode: "apply", planName: resolution.name },
           emitOperationResolution(resolution),
         ).pipe(
           Effect.provideService(TerminalDiagnostics, diagnostics),

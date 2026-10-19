@@ -24,7 +24,6 @@ export interface PacksNewHandlerArgs {
 
 export const handlePacksNew = (args: PacksNewHandlerArgs) =>
   runCreateExtensionCommand({
-    command: "packs.new",
     preview: args.preview,
     request: {
       type: "pack",
@@ -52,7 +51,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, owner, descrip
     owner,
     description,
     preview,
-  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("packs new")),
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime()),
 ).pipe(
   withArgvTracking(newConfig),
   withCommandCapabilities(previewableCapabilities("authored-source")),

@@ -91,7 +91,7 @@ export const handleVisibilityStatus = Effect.fn("Visibility.status")(
   function* (target: string) {
     yield* emitEvaluation(
       yield* withLiveOperation(
-        { command: "visibility.status", name: `Inspect visibility of ${target}`, mode: "query" },
+        { name: `Inspect visibility of ${target}`, mode: "query" },
         ManagePublishedVisibility.status(target),
       ),
     );
@@ -103,7 +103,7 @@ export const handleVisibilityStatus = Effect.fn("Visibility.status")(
 export const handleVisibilitySet = Effect.fn("Visibility.set")(
   function* (target: string, visibility: ExtensionVisibility) {
     const written = yield* withLiveOperation(
-      { command: "visibility.set", name: `Set visibility of ${target}`, mode: "apply" },
+      { name: `Set visibility of ${target}`, mode: "apply" },
       ManagePublishedVisibility.set({
         target,
         visibility,
@@ -118,7 +118,7 @@ export const handleVisibilitySet = Effect.fn("Visibility.set")(
 export const handleVisibilityReconcile = Effect.fn("Visibility.reconcile")(
   function* (target: string) {
     const written = yield* withLiveOperation(
-      { command: "visibility.reconcile", name: `Reconcile visibility of ${target}`, mode: "apply" },
+      { name: `Reconcile visibility of ${target}`, mode: "apply" },
       ManagePublishedVisibility.reconcile({
         target,
       }),

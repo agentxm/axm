@@ -60,7 +60,7 @@ const formatBytes = (bytes: number): string => {
 export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
   const cache = yield* makeUserArchiveCache();
   const status = yield* withLiveOperation(
-    { command: "cache.status", name: "Inspect archive cache", mode: "query" },
+    { name: "Inspect archive cache", mode: "query" },
     observeUnit({ id: "status", label: "archive cache status" }, cache.status()),
   );
   yield* emitResult(status, CacheStatusOutputSchema, () =>
@@ -80,7 +80,7 @@ export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
 export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
   const cache = yield* makeUserArchiveCache();
   const result = yield* withLiveOperation(
-    { command: "cache.verify", name: "Verify archive cache", mode: "apply" },
+    { name: "Verify archive cache", mode: "apply" },
     observeUnit({ id: "verify", label: "cached archives" }, cache.verify()),
   );
   yield* emitResult({ result }, CacheVerifyOutputSchema, () =>
@@ -93,7 +93,7 @@ export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
 export const handleCachePrune = Effect.fn("Cache.prune")(function* () {
   const cache = yield* makeUserArchiveCache();
   const result = yield* withLiveOperation(
-    { command: "cache.prune", name: "Prune archive cache", mode: "apply" },
+    { name: "Prune archive cache", mode: "apply" },
     observeUnit({ id: "prune", label: "expired and excess archives" }, cache.prune()),
   );
   yield* emitResult({ result }, CachePruneOutputSchema, () =>
@@ -108,7 +108,7 @@ const verifyConfig = {} as const;
 const pruneConfig = {} as const;
 
 export const cacheStatusCommand = Command.make("status", statusConfig, () =>
-  handleCacheStatus().pipe(withRuntime("cache status")),
+  handleCacheStatus().pipe(withRuntime()),
 ).pipe(
   withArgvTracking(statusConfig),
   withCommandCapabilities(readOnlyCapabilities()),
@@ -120,7 +120,7 @@ export const cacheStatusCommand = Command.make("status", statusConfig, () =>
 );
 
 export const cacheVerifyCommand = Command.make("verify", verifyConfig, () =>
-  handleCacheVerify().pipe(withRuntime("cache verify")),
+  handleCacheVerify().pipe(withRuntime()),
 ).pipe(
   withArgvTracking(verifyConfig),
   withCommandCapabilities(directWriteCapabilities("application-state")),
@@ -132,7 +132,7 @@ export const cacheVerifyCommand = Command.make("verify", verifyConfig, () =>
 );
 
 export const cachePruneCommand = Command.make("prune", pruneConfig, () =>
-  handleCachePrune().pipe(withRuntime("cache prune")),
+  handleCachePrune().pipe(withRuntime()),
 ).pipe(
   withArgvTracking(pruneConfig),
   withCommandCapabilities(directWriteCapabilities("application-state")),

@@ -920,7 +920,6 @@ describe("root sync handler", () => {
       rendererState.results.length = 0;
       yield* provide(
         runUninstallCommand({
-          command: "mcps.uninstall",
           request: { type: Option.some("mcp-server"), selector: "demo" },
           preview: false,
           recoveryCommand: ["mcps", "uninstall"],

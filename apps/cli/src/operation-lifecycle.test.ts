@@ -39,7 +39,7 @@ describe("withOperationLifecycle", () => {
       const renderer = TestRenderer.make();
       const started = yield* Deferred.make<void>();
       const fiber = yield* withLiveOperation(
-        { command: "install", name: "Install skill", mode: "apply" },
+        { name: "Install skill", mode: "apply" },
         observeUnit(
           { id: "skill:one", label: "one", total: 1 },
           Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
@@ -61,7 +61,7 @@ describe("withOperationLifecycle", () => {
     Effect.gen(function* () {
       const renderer = TestRenderer.make();
       const seen = yield* withLiveOperation(
-        { command: "cache.status", name: "Inspect archive cache", mode: "query" },
+        { name: "Inspect archive cache", mode: "query" },
         Effect.map(Effect.serviceOption(OperationLifecycle), (service) => service._tag === "Some"),
       ).pipe(Effect.provide(renderer.layer));
       expect(seen).toBe(true);
@@ -78,7 +78,7 @@ describe("withOperationLifecycle", () => {
     Effect.gen(function* () {
       const renderer = TestRenderer.make();
       yield* withLiveOperation(
-        { command: "update", name: "Update skill", mode: "apply" },
+        { name: "Update skill", mode: "apply" },
         Effect.gen(function* () {
           const observation = yield* RegistryRetryObservation;
           yield* observation.waiting({
@@ -113,7 +113,7 @@ describe("withOperationLifecycle", () => {
       const preparing = yield* Deferred.make<void>();
       const continuePreparation = yield* Deferred.make<void>();
       const fiber = yield* withOperationLifecycle(
-        { command: "update", mode: "apply", planName: "Update extensions" },
+        { mode: "apply", planName: "Update extensions" },
         Deferred.succeed(preparing, undefined).pipe(
           Effect.andThen(Deferred.await(continuePreparation)),
         ),
@@ -163,7 +163,7 @@ describe("withOperationLifecycle", () => {
       // revalidation through apply.
       let heldAtBodyStart: boolean | undefined;
       yield* withOperationLifecycle(
-        { command: "update", mode: "apply", planName: "Update extensions" },
+        { mode: "apply", planName: "Update extensions" },
         Effect.gen(function* () {
           const scope = yield* WorkspaceTransactionScope;
           heldAtBodyStart = yield* scope.isHeld;

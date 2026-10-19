@@ -142,7 +142,6 @@ const executeInstall = (
   args: InstallHandlerArgs,
   scope: "project" | "user",
   overrides: { readonly ignoreReleaseAge: boolean; readonly replaceUnrecorded: boolean },
-  runtimeName: string,
 ) =>
   validateInstallArgsBeforeWorkspace(args).pipe(
     Effect.flatMap((agents) =>
@@ -199,7 +198,7 @@ const executeInstall = (
     ),
     // First use runs setup before the install, so both read the override.
     withProjectionOutputPosture({ replaceUnrecorded: overrides.replaceUnrecorded }),
-    withRuntime(runtimeName),
+    withRuntime(),
   );
 
 /**
@@ -241,9 +240,8 @@ const typedInstallArgs = (
 });
 
 export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
-  const runtimeName = `${extensionTypePresentation(type).route} install`;
   const run = (args: InstallHandlerArgs, parsed: ParsedTypedInstall) =>
-    executeInstall(args, parsed.scope, parsed, runtimeName);
+    executeInstall(args, parsed.scope, parsed);
   switch (type) {
     case "mcp-server": {
       const config = typedConfig(type, mcpConfig);
@@ -352,7 +350,7 @@ export const installCommand = finishCommand(
       localName: Option.none(),
       bundled: false,
     };
-    return executeInstall(args, parsed.scope, parsed, "install");
+    return executeInstall(args, parsed.scope, parsed);
   }).pipe(withArgvTracking(installConfig)),
 ).pipe(
   Command.withExamples([

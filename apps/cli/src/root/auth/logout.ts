@@ -39,7 +39,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
     const registry = yield* selectedRegistry("Signing out");
 
     const outcome = yield* withLiveOperation(
-      { command: "auth.logout", name: `Sign out of ${registry.host}`, mode: "apply" },
+      { name: `Sign out of ${registry.host}`, mode: "apply" },
       logout(registry),
     );
 
@@ -81,7 +81,7 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
 const logoutConfig = { registry: registryFlag } as const;
 
 export const logoutCommand = Command.make("logout", logoutConfig, ({ registry }) =>
-  handleLogout().pipe(withRuntime("auth logout", { registry })),
+  handleLogout().pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(logoutConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),

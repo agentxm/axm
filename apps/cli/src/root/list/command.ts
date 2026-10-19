@@ -53,7 +53,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
   const screen = yield* Screen;
   const filter = args.outdated ? "outdated" : args.deprecated ? "deprecated" : "all";
   const result = yield* withLiveOperation(
-    { command: "list", name: "List extensions", mode: "query" },
+    { name: "List extensions", mode: "query" },
     observeUnit(
       {
         id: filter === "all" ? "inventory" : "assessment",
@@ -105,7 +105,7 @@ export const listCommand = Command.make(
   ({ scope, type, outdated, deprecated }) =>
     handleList({ types: type, outdated, deprecated }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
-      withRuntime("list"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(listConfig),

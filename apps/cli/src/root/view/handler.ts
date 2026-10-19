@@ -73,7 +73,7 @@ const readAndEmit = (args: {
     const settings = yield* SettingsReader;
     const agents = yield* settings.configuredAgents;
     const result = yield* withLiveOperation(
-      { command: "view", name: `View ${args.handle}`, mode: "query" },
+      { name: `View ${args.handle}`, mode: "query" },
       observeUnit(
         { id: "index", label: `${args.handle} from ${args.targetRegistry.registryName}` },
         Effect.catchTags(

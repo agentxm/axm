@@ -142,7 +142,6 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   // the units of one observed operation; assessment and rendering follow it.
   const result = yield* withLiveOperation(
     {
-      command: "upgrade",
       name: preview ? "Preview AXM upgrade" : "Upgrade AXM",
       mode: preview ? "preview" : "apply",
       ...(preview ? { successOutcome: "previewed" as const } : {}),

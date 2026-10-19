@@ -26,7 +26,7 @@ const statusConfig = { registry: registryFlag, fqn: targetArgument } as const;
 const statusCommand = Command.make("status", statusConfig, ({ fqn, registry }) =>
   handleVisibilityStatus(fqn).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withRuntime("visibility status", { registry }),
+    withRuntime({ registry }),
   ),
 ).pipe(
   withArgvTracking(statusConfig),
@@ -50,7 +50,7 @@ const setConfig = {
   ),
 } as const;
 const setCommand = Command.make("set", setConfig, ({ fqn, visibility, registry }) =>
-  handleVisibilitySet(fqn, visibility).pipe(withRuntime("visibility set", { registry })),
+  handleVisibilitySet(fqn, visibility).pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(setConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
@@ -72,7 +72,7 @@ const reconcileConfig = {
 const reconcileCommand = Command.make("reconcile", reconcileConfig, ({ fqn, registry }) =>
   handleVisibilityReconcile(fqn).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withRuntime("visibility reconcile", { registry }),
+    withRuntime({ registry }),
   ),
 ).pipe(
   withArgvTracking(reconcileConfig),

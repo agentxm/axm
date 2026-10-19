@@ -18,7 +18,7 @@ const unpackConfig = {
 } as const;
 
 export const unpackCommand = Command.make("unpack", unpackConfig, ({ name, scope, preview }) =>
-  handleUnpack({ name, preview }).pipe(withWorkspace(scope), withRuntime("packs unpack")),
+  handleUnpack({ name, preview }).pipe(withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(unpackConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),

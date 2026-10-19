@@ -33,7 +33,7 @@ export const uninstallCommand = Command.make(
       Effect.mapError(failureToAppError),
       Effect.flatMap(() => handleUninstall({ source, preview }).pipe(withWorkspace(scope))),
       withProjectionOutputPosture({ discardModified }),
-      withRuntime("uninstall"),
+      withRuntime(),
     ),
 ).pipe(
   withArgvTracking(uninstallConfig),

@@ -35,7 +35,7 @@ const handleShare = Effect.fn("Share.handle")(function* (config: {
 }) {
   const ecosystem = Option.getOrUndefined(config.ecosystem);
   const result = yield* withLiveOperation(
-    { command: "share", name: "Share authored extensions", mode: "query" },
+    { name: "Share authored extensions", mode: "query" },
     observeUnit(
       { id: "repository", label: "repository share command" },
       ShareWorkspace.query(ecosystem === undefined ? undefined : { ecosystem }).pipe(
@@ -56,7 +56,7 @@ export const shareCommand = Command.make("share", shareConfig, (config) =>
         allowUninitialized: true,
       }),
     );
-  }).pipe(withRuntime("share")),
+  }).pipe(withRuntime()),
 ).pipe(
   withArgvTracking(shareConfig),
   withCommandCapabilities(readOnlyCapabilities()),

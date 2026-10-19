@@ -75,10 +75,7 @@ export const makePerTypePublishCommand = (type: PublishableType) => {
         recoverySelectors: [...parsed.extensions],
         recoveryExcludes: [...parsed.exclude],
       });
-    }).pipe(
-      withWorkspace("project"),
-      withRuntime(`${route} publish`, { registry: parsed.registry }),
-    );
+    }).pipe(withWorkspace("project"), withRuntime({ registry: parsed.registry }));
 
   const finish = <Name extends string, Input, ContextInput, E, R>(
     command: Command.Command<Name, Input, ContextInput, E, R>,

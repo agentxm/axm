@@ -20,7 +20,6 @@ export interface RootUninstallHandlerArgs extends RootUninstallFlags {
 
 export const handleUninstall = (args: RootUninstallHandlerArgs) =>
   runUninstallCommand({
-    command: "uninstall",
     preview: args.preview,
     request: {
       type: Option.none(),

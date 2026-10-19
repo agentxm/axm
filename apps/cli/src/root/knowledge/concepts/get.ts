@@ -28,7 +28,7 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
   options?: { readonly ifRevision?: string; readonly raw?: boolean },
 ) {
   const result = yield* withLiveOperation(
-    { command: "knowledge.concepts.get", name: "Read knowledge concept", mode: "query" },
+    { name: "Read knowledge concept", mode: "query" },
     Effect.catchTags(
       KnowledgeDiscovery.get({
         reference,
@@ -86,7 +86,7 @@ export const getCommand = Command.make("get", getConfig, ({ reference, ifRevisio
       onNone: () => ({}),
       onSome: (value) => ({ ifRevision: value }),
     }),
-  }).pipe(withWorkspace(scope), withRuntime("knowledge concepts get")),
+  }).pipe(withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(getConfig),
   withCommandCapabilities(readOnlyCapabilities()),

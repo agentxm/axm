@@ -23,7 +23,6 @@ export const handleKnowledgeConceptCapabilities = Effect.fn("Knowledge.concepts.
   function* () {
     const result = yield* withLiveOperation(
       {
-        command: "knowledge.concepts.capabilities",
         name: "Inspect knowledge discovery",
         mode: "query",
       },
@@ -48,10 +47,7 @@ export const handleKnowledgeConceptCapabilities = Effect.fn("Knowledge.concepts.
 const capabilitiesConfig = { ...scopeConfig } as const;
 
 export const capabilitiesCommand = Command.make("capabilities", capabilitiesConfig, ({ scope }) =>
-  handleKnowledgeConceptCapabilities().pipe(
-    withWorkspace(scope),
-    withRuntime("knowledge concepts capabilities"),
-  ),
+  handleKnowledgeConceptCapabilities().pipe(withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(capabilitiesConfig),
   withCommandCapabilities(readOnlyCapabilities()),

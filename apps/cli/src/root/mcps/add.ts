@@ -38,7 +38,7 @@ const PLAN_NAME = "Add MCP server";
 
 export const handleMcpsAdd = (args: McpsAddArgs) =>
   withOperationLifecycle(
-    { command: "mcps.add", mode: args.preview ? "preview" : "apply", planName: PLAN_NAME },
+    { mode: args.preview ? "preview" : "apply", planName: PLAN_NAME },
     handleMcpsAddBody(args),
   );
 
@@ -134,7 +134,7 @@ const addConfig = {
 } as const;
 
 export const addCommand = Command.make("add", addConfig, ({ scope, ...args }) =>
-  handleMcpsAdd(args).pipe(withWorkspace(scope), withRuntime("mcps add")),
+  handleMcpsAdd(args).pipe(withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(addConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),

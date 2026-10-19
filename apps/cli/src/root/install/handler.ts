@@ -160,7 +160,6 @@ export const handleInstall = <R = never>(
     const command = commandSegments(args.type);
     const selected = selectedEntries(args.selectors);
     return yield* runInstallCommand({
-      command: command.join("."),
       preview: args.preview,
       request: {
         type: args.type,

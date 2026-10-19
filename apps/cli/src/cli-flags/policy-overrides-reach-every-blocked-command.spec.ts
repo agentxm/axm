@@ -227,7 +227,6 @@ const blockedForms: ReadonlyArray<{
     fixture: heldNewerRelease,
     run: (workspace) =>
       handleWorkspaceUpdate({
-        command: "skills.update",
         type: Option.some("skill"),
         planName: "Update skills",
         planDescription: Option.some("Update configured skills"),

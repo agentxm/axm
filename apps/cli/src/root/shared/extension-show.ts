@@ -65,7 +65,7 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
   readonly agents?: ReadonlyArray<string>;
 }) {
   const result = yield* withLiveOperation(
-    { command: "extension.show", name: "Inspect extension", mode: "query" },
+    { name: "Inspect extension", mode: "query" },
     Effect.catchTag(ShowExtension.query(args), "ExtensionNotInstalled", (failure) =>
       Effect.fail(extensionNotInstalledToAppError(failure)),
     ),
@@ -221,7 +221,7 @@ export const makeExtensionShowCommand = (type: InstallableExtensionType) => {
   const command = Command.make("show", showConfig, ({ name, scope, agent }) =>
     handleExtensionShow({ type, name, agents: agent }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
-      withRuntime(`${route} show`),
+      withRuntime(),
     ),
   ).pipe(withArgvTracking(showConfig));
   return command.pipe(

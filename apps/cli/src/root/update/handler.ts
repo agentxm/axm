@@ -186,7 +186,6 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
   Option.match(args.source, {
     onNone: () =>
       handleWorkspaceUpdate({
-        command: "update",
         type: Option.none(),
         planName: "Update configured extensions",
         planDescription: Option.some("Update configured workspace extensions"),
@@ -195,7 +194,6 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
     onSome: (source) =>
       withOperationLifecycle(
         {
-          command: "update",
           mode: args.preview ? "preview" : "apply",
           planName: "Update configured extensions",
           productActivity: { activity: "update", activationEligible: false },

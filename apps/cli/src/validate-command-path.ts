@@ -10,6 +10,9 @@ const probeFlag = "--axm-command-path-probe";
  * An unrecognized flag stops parsing before operand validation or workspace
  * work; the replacement root handler also prevents command dispatch. Only an
  * unknown command promotes the real parser diagnostics to a usage failure.
+ *
+ * Succeeds with the route the parser resolved: the command words after the
+ * root, for the dispatcher to hand the command it runs.
  */
 export const validateCommandPath = (command: Command.Command.Any, argv: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -23,10 +26,11 @@ export const validateCommandPath = (command: Command.Command.Any, argv: Readonly
       Command.withHandler(() => Effect.void),
       Command.withGlobalFlags(actionSettings),
     );
-    yield* Command.runWith(validationCommand, {
+    return yield* Command.runWith(validationCommand, {
       version: "",
       renderErrors: false,
     })([probeFlag, ...argv]).pipe(
+      Effect.as<ReadonlyArray<string>>([]),
       Effect.provideService(CliConfig.CliConfig, {
         builtIns: config.builtIns.filter((flag) => flag._tag !== "Action"),
       }),
@@ -41,7 +45,7 @@ export const validateCommandPath = (command: Command.Command.Any, argv: Readonly
         );
         return errors.some((entry) => entry._tag === "UnknownSubcommand")
           ? Effect.fail(new CliError.ShowHelp({ commandPath: error.commandPath, errors }))
-          : Effect.void;
+          : Effect.succeed(error.commandPath.slice(1));
       }),
     );
   });

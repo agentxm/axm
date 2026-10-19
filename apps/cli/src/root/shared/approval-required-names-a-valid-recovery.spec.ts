@@ -192,7 +192,6 @@ describe("Approval-required recovery", () => {
         workspace.rendererState.results.splice(0);
 
         yield* handleWorkspaceUpdate({
-          command: "skills.update",
           type: Option.some("skill"),
           planName: "Update skills",
           planDescription: Option.some("Update configured skills"),

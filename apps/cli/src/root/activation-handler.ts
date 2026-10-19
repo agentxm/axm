@@ -65,8 +65,6 @@ interface ActivationCommandArgs extends EnableExtensionRequest {
 }
 
 interface ActivationCommandPresentation {
-  /** The machine-output command identity, such as `skills.enable`. */
-  readonly command: string;
   /** The command path an approval-recovery hint reprints. */
   readonly commandPath: ReadonlyArray<string>;
   readonly planName: string;
@@ -90,7 +88,6 @@ const handleSetActivation = <R>(
 ) =>
   withOperationLifecycle(
     {
-      command: presentation.command,
       mode: args.preview ? "preview" : "apply",
       planName: presentation.planName,
       productActivity: { activity: "configure", activationEligible: args.enabled },
@@ -106,7 +103,6 @@ const typedPresentation = (
   const { route, noun } = extensionTypePresentation(type);
   const verb = enabled ? "enable" : "disable";
   return {
-    command: `${route}.${verb}`,
     commandPath: [route, verb],
     planName: `${enabled ? "Enable" : "Disable"} ${noun.singular}`,
     suggestions: [
@@ -179,7 +175,7 @@ const makeActivationCommand = (type: InstallableExtensionType, enabled: boolean)
               withReleaseAgePosture(ignoreReleaseAge),
               withProjectionOutputPosture({ replaceUnrecorded }),
               withWorkspace(scope),
-              withRuntime(`${route} enable`),
+              withRuntime(),
             ),
         ).pipe(withArgvTracking(enableConfig), describe);
       })()
@@ -189,7 +185,7 @@ const makeActivationCommand = (type: InstallableExtensionType, enabled: boolean)
           handleDisable(type, { name, preview }).pipe(
             withProjectionOutputPosture({ discardModified }),
             withWorkspace(scope),
-            withRuntime(`${route} disable`),
+            withRuntime(),
           ),
         ).pipe(withArgvTracking(disableConfig), describe);
       })();
@@ -218,7 +214,6 @@ const makeRootActivationCommand = (enabled: boolean) => {
         handleSetActivation(
           { type, name: fqn, enabled, preview },
           {
-            command: verb,
             commandPath: [verb],
             recoveryTarget: fqn,
             planName: `${title} ${extensionTypePresentation(type).noun.singular}`,
@@ -266,7 +261,7 @@ const makeRootActivationCommand = (enabled: boolean) => {
               withReleaseAgePosture(ignoreReleaseAge),
               withProjectionOutputPosture({ replaceUnrecorded }),
               withWorkspace(scope),
-              withRuntime("enable"),
+              withRuntime(),
             ),
         ).pipe(withArgvTracking(enableConfig), describe);
       })()
@@ -279,7 +274,7 @@ const makeRootActivationCommand = (enabled: boolean) => {
             runRoot(extension, preview, DisableExtension.prepare).pipe(
               withProjectionOutputPosture({ discardModified }),
               withWorkspace(scope),
-              withRuntime("disable"),
+              withRuntime(),
             ),
         ).pipe(withArgvTracking(disableConfig), describe);
       })();

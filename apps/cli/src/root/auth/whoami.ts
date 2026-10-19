@@ -39,7 +39,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
     const registry = yield* selectedRegistry("Reading the signed-in identity");
 
     const identity = yield* withLiveOperation(
-      { command: "auth.whoami", name: `Check identity on ${registry.host}`, mode: "query" },
+      { name: `Check identity on ${registry.host}`, mode: "query" },
       observeUnit(
         { id: "identity", label: `identity on ${registry.host}` },
         currentIdentity(registry),
@@ -86,7 +86,7 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
 const whoamiConfig = { registry: registryFlag } as const;
 
 export const whoamiCommand = Command.make("whoami", whoamiConfig, ({ registry }) =>
-  handleWhoami().pipe(withRuntime("auth whoami", { registry })),
+  handleWhoami().pipe(withRuntime({ registry })),
 ).pipe(
   withArgvTracking(whoamiConfig),
   withCommandCapabilities(readOnlyCapabilities()),

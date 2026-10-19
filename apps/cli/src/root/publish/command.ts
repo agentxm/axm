@@ -256,7 +256,6 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
     const unattended = !(yield* (yield* Screen).canAsk);
     return yield* withLiveOperation(
       {
-        command: "publish",
         name: "Publish extensions",
         mode: args.preview ? "preview" : "apply",
         productActivity: { activity: "publish", activationEligible: false },
@@ -382,7 +381,7 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
         allowUninitialized: Option.isSome(parsed.from) || Option.isSome(parsed.packageVersion),
       }),
     );
-  }).pipe(withRuntime("publish", { registry: parsed.registry })),
+  }).pipe(withRuntime({ registry: parsed.registry })),
 ).pipe(
   withArgvTracking(publishConfig),
   withCommandCapabilities(

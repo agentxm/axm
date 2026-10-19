@@ -52,6 +52,7 @@ import {
 } from "./runtime.js";
 import { loadVersion } from "./version.js";
 import { validateCommandPath } from "./validate-command-path.js";
+import { CommandRoute } from "./cli-runtime/command-route.js";
 import { groupCapabilities, withCommandCapabilities } from "./root/shared/command-capabilities.js";
 import { ScopedRoutesLive } from "./root/shared/scoped-command.js";
 
@@ -254,7 +255,11 @@ export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
             return yield* error;
           }),
         ),
-        Effect.andThen(Command.runWith(rootCommand, { version, renderErrors: false })(argv)),
+        Effect.flatMap((route) =>
+          Command.runWith(rootCommand, { version, renderErrors: false })(argv).pipe(
+            Effect.provideService(CommandRoute, route),
+          ),
+        ),
         Effect.provideService(Console.Console, bufferedConsole),
       ),
     );

@@ -55,6 +55,7 @@ import {
   type OperationPresentation,
   type SettledOutcome,
 } from "@agentxm/workspace-kernel/operations";
+import { CommandRoute } from "./cli-runtime/command-route.js";
 import { CurrentScreenOperationId, Screen } from "./screen/index.js";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import { isRelativeWithin } from "@agentxm/host-primitives";
@@ -67,8 +68,6 @@ import {
 import { emitOperationResolution } from "./operation-output.js";
 
 export interface OperationLifecycleArgs {
-  /** Command identity, dot-separated as elsewhere (e.g. "skills.update"). */
-  readonly command: string;
   readonly mode: "preview" | "apply";
   /** Operation name for a resolution produced before planning completes. */
   readonly planName: string;
@@ -81,11 +80,7 @@ export interface OperationLifecycleArgs {
   readonly productActivity?: ProductActivityIntent;
 }
 
-const replayCommand = (command: string): string => `axm ${command.split(".").join(" ")}`;
-
 export interface LiveOperationArgs {
-  /** Command identity, dot-separated as elsewhere (e.g. "cache.prune"). */
-  readonly command: string;
   /** Operation name observers render; never a formatted phrase. */
   readonly name: string;
   readonly mode: OperationMode;
@@ -183,7 +178,6 @@ export const withOperationLifecycle = <A, E, R>(
         return yield* restore(
           withLiveOperation(
             {
-              command: args.command,
               name: args.planName,
               mode: args.mode,
               ...(args.productActivity === undefined
@@ -241,7 +235,7 @@ export const withOperationLifecycle = <A, E, R>(
                       ...(args.presentation === undefined
                         ? {}
                         : { presentation: args.presentation }),
-                      replayCommand: replayCommand(args.command),
+                      replayCommand: ["axm", ...(yield* CommandRoute)].join(" "),
                     },
                     state,
                     signal,

@@ -59,7 +59,6 @@ export const makePerTypeUpdateCommand = (type: WorkspaceUpdatableType) => {
       discardModified,
     }) =>
       handleWorkspaceUpdate({
-        command: `${route}.update`,
         type: Option.some(type),
         planName: `Update ${noun.plural}`,
         planDescription: Option.some(`Update configured ${noun.plural}`),
@@ -69,7 +68,7 @@ export const makePerTypeUpdateCommand = (type: WorkspaceUpdatableType) => {
         withReleaseAgePosture(ignoreReleaseAge),
         withProjectionOutputPosture({ replaceUnrecorded, discardModified }),
         withWorkspace(scope),
-        withRuntime(`${route} update`),
+        withRuntime(),
       ),
   ).pipe(
     withArgvTracking(config),

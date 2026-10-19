@@ -34,7 +34,6 @@ export const handleHookImport = (args: {
 }) =>
   withOperationLifecycle(
     {
-      command: "hooks.import",
       mode: args.preview ? "preview" : "apply",
       planName: importNativeExtensionPlanName("hook"),
     },
@@ -90,7 +89,7 @@ const config = {
 } as const;
 
 export const importCommand = Command.make("import", config, (args) =>
-  handleHookImport(args).pipe(Effect.scoped, withWorkspace("project"), withRuntime("hooks import")),
+  handleHookImport(args).pipe(Effect.scoped, withWorkspace("project"), withRuntime()),
 ).pipe(
   withArgvTracking(config),
   withCommandCapabilities(previewableCapabilities("authored-source")),

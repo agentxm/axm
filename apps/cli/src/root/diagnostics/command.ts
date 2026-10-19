@@ -55,7 +55,7 @@ const showCommand = Command.make("show", showConfig, ({ id }) =>
           `Local diagnostic ${reviewed.diagnosticId}\nSHA-256 ${reviewed.sha256}\nReview messages, stacks and paths before sharing.\n\n${reviewed.content}`,
         ),
     );
-  }).pipe(Effect.mapError(failureToAppError), withRuntime("diagnostics show")),
+  }).pipe(Effect.mapError(failureToAppError), withRuntime()),
 ).pipe(
   withArgvTracking(showConfig),
   withCommandCapabilities(readOnlyCapabilities()),
@@ -74,7 +74,7 @@ const exportCommand = Command.make("export", exportConfig, (options) =>
     yield* emitResult(exported, DiagnosticExportDocumentSchema, () =>
       successDoc(`Exported reviewed diagnostic ${exported.diagnosticId} to ${exported.output}.`),
     );
-  }).pipe(Effect.mapError(failureToAppError), withRuntime("diagnostics export")),
+  }).pipe(Effect.mapError(failureToAppError), withRuntime()),
 ).pipe(
   withArgvTracking(exportConfig),
   withCommandCapabilities(directWriteCapabilities("application-state")),

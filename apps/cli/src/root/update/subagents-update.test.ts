@@ -30,7 +30,6 @@ const subagentsUpdate = (args: {
   readonly preview?: boolean;
 }) =>
   handleWorkspaceUpdate({
-    command: "subagents.update",
     type: Option.some("subagent"),
     planName: "Update subagents",
     planDescription: Option.some("Update configured subagents"),

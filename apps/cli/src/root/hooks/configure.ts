@@ -23,7 +23,6 @@ export const handleHookConfigure = (args: {
 }) =>
   withOperationLifecycle(
     {
-      command: "hooks.configure",
       mode: args.preview ? "preview" : "apply",
       planName: "Configure hook extension",
     },
@@ -55,7 +54,7 @@ const config = {
   scope: scopeFlag,
 } as const;
 export const configureCommand = Command.make("configure", config, (args) =>
-  handleHookConfigure(args).pipe(withWorkspace(args.scope), withRuntime("hooks configure")),
+  handleHookConfigure(args).pipe(withWorkspace(args.scope), withRuntime()),
 ).pipe(
   withArgvTracking(config),
   withCommandCapabilities(previewableCapabilities("workspace")),

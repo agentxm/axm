@@ -27,7 +27,7 @@ export const newCommand = Command.make("new", newConfig, ({ name, owner, descrip
     owner,
     description,
     preview,
-  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("subagents new")),
+  }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime()),
 ).pipe(
   withArgvTracking(newConfig),
   withCommandCapabilities(previewableCapabilities("authored-source")),

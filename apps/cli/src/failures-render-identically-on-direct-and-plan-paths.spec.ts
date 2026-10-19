@@ -1042,8 +1042,6 @@ const failingPlan = (failure: StepFailure): Plan => ({
   ],
 });
 
-const PARITY_COMMAND = "failure-parity";
-
 /**
  * A workspace in each scope whose plan pipeline and machine renderer are the
  * product's own, reused across rows so each row runs one plan.
@@ -1083,7 +1081,7 @@ const planView = (failure: WorkspaceFailure, scope: WorkspaceScope) =>
     const log = workspace.streams?.log ?? [];
     const written = log.length;
     const { resolution, emitted } = yield* withOperationLifecycle(
-      { command: PARITY_COMMAND, mode: "apply", planName: "Render a failure" },
+      { mode: "apply", planName: "Render a failure" },
       Effect.gen(function* () {
         const candidate = yield* prepareExecutionCandidate(
           failingPlan(workspaceFailureToStepFailure(failure)),

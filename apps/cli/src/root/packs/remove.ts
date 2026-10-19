@@ -37,7 +37,7 @@ const removeConfig = {
 export const removeCommand = Command.make("remove", removeConfig, ({ pack, extension, preview }) =>
   handlePacksRemove({ pack, extension, preview }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withRuntime("packs remove"),
+    withRuntime(),
   ),
 ).pipe(
   withArgvTracking(removeConfig),

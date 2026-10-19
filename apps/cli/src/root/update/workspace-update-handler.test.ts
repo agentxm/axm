@@ -53,7 +53,6 @@ describe("workspace update handler output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleWorkspaceUpdate({
-          command: "hooks.update",
           type: Option.some("hook"),
           planName: "Update hooks",
           planDescription: Option.some("Update configured hook extensions"),
@@ -79,7 +78,6 @@ describe("workspace update handler output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleWorkspaceUpdate({
-          command: "knowledge.update",
           type: Option.some("knowledge"),
           planName: "Update Knowledge",
           planDescription: Option.some("Update configured Knowledge bundles"),
@@ -105,7 +103,6 @@ describe("workspace update handler output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleWorkspaceUpdate({
-          command: "mcps.update",
           type: Option.some("mcp-server"),
           planName: "Update configured MCP servers",
           planDescription: Option.some("Update configured MCP servers"),
@@ -138,7 +135,6 @@ describe("workspace update handler output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleWorkspaceUpdate({
-          command: "mcps.update",
           type: Option.some("mcp-server"),
           planName: "Update configured MCP servers",
           planDescription: Option.some("Update configured MCP servers"),
@@ -180,7 +176,6 @@ describe("workspace update handler output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleWorkspaceUpdate({
-          command: "mcps.update",
           type: Option.some("mcp-server"),
           planName: "Update configured MCP servers",
           planDescription: Option.some("Update configured MCP servers"),

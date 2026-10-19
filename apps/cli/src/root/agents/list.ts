@@ -51,7 +51,7 @@ const AgentListColumns = [
 
 export const handleAgentsList = Effect.fn("Agents.list")(function* (args: AgentsListArgs) {
   const inventory = yield* withLiveOperation(
-    { command: "agents.list", name: "Inspect coding agents", mode: "query" },
+    { name: "Inspect coding agents", mode: "query" },
     ConfigureAgents.list({
       detected: args.detected,
       available: args.available,
@@ -91,7 +91,7 @@ const listConfig = {
 export const listCommand = Command.make("list", listConfig, ({ scope, detected, available }) =>
   handleAgentsList({ detected, available }).pipe(
     withWorkspace({ scope, allowUninitialized: true }),
-    withRuntime("agents list"),
+    withRuntime(),
   ),
 ).pipe(
   withArgvTracking(listConfig),

@@ -36,7 +36,6 @@ const adoptedCount = (resolution: OperationResolution<unknown>, candidateCount: 
 export const handleMcpsAdopt = (args: McpsAdoptArgs) =>
   withOperationLifecycle(
     {
-      command: "mcps.adopt",
       mode: args.preview ? "preview" : "apply",
       planName: "Adopt MCP servers",
     },
@@ -92,11 +91,7 @@ const adoptConfig = {
 } as const;
 
 export const adoptCommand = Command.make("adopt", adoptConfig, ({ scope, preview, name }) =>
-  handleMcpsAdopt({ preview, name }).pipe(
-    Effect.scoped,
-    withWorkspace(scope),
-    withRuntime("mcps adopt"),
-  ),
+  handleMcpsAdopt({ preview, name }).pipe(Effect.scoped, withWorkspace(scope), withRuntime()),
 ).pipe(
   withArgvTracking(adoptConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),

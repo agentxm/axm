@@ -26,7 +26,6 @@ export interface KnowledgeNewHandlerArgs {
 
 export const handleKnowledgeNew = (args: KnowledgeNewHandlerArgs) =>
   runCreateExtensionCommand({
-    command: "knowledge.new",
     preview: args.preview,
     request: {
       type: "knowledge",
@@ -61,7 +60,7 @@ const newConfig = {
 export const newCommand = Command.make("new", newConfig, ({ name, owner, description, preview }) =>
   handleKnowledgeNew({ name, owner, description, preview }).pipe(
     withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withRuntime("knowledge new"),
+    withRuntime(),
   ),
 ).pipe(
   withArgvTracking(newConfig),

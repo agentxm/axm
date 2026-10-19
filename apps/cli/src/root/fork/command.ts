@@ -36,7 +36,6 @@ export interface ForkHandlerArgs {
 export const handleFork = (args: ForkHandlerArgs) =>
   withOperationLifecycle(
     {
-      command: "fork",
       mode: args.preview ? "preview" : "apply",
       planName: forkExtensionPlanName,
     },
@@ -93,7 +92,7 @@ const config = {
 } as const;
 
 export const forkCommand = Command.make("fork", config, (parsed) =>
-  handleFork(parsed).pipe(Effect.scoped, withWorkspace("project"), withRuntime("fork")),
+  handleFork(parsed).pipe(Effect.scoped, withWorkspace("project"), withRuntime()),
 ).pipe(
   withArgvTracking(config),
   withCommandCapabilities(previewableCapabilities("authored-source")),

@@ -12,7 +12,7 @@ import { handleDiscover } from "./handler.js";
 const discoverConfig = {};
 
 export const discoverCommand = Command.make("discover", discoverConfig, () =>
-  handleDiscover().pipe(withRuntime("discover")),
+  handleDiscover().pipe(withRuntime()),
 ).pipe(
   withArgvTracking(discoverConfig),
   withCommandCapabilities(readOnlyCapabilities()),

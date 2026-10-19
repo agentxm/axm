@@ -32,7 +32,7 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
     });
   }
   const result = yield* withLiveOperation(
-    { command: "knowledge.lint", name: "Validate knowledge bundles", mode: "query" },
+    { name: "Validate knowledge bundles", mode: "query" },
     Effect.catchTags(
       lintKnowledge({
         ...(name === undefined ? {} : { bundle: name }),
@@ -108,7 +108,7 @@ export const lintCommand = Command.make("lint", lintConfig, ({ bundle, path, sco
         Option.map(path, (value) => resolveExecutionPath(paths, directory, value)),
       ),
     ).pipe(withWorkspace(scope));
-  }).pipe(withRuntime("knowledge lint")),
+  }).pipe(withRuntime()),
 ).pipe(
   withArgvTracking(lintConfig),
   withCommandCapabilities(readOnlyCapabilities()),

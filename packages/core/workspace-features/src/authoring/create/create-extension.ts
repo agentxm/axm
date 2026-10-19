@@ -27,6 +27,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import * as Schema from "effect/Schema";
 
 import {
   SkillManager,
@@ -58,10 +59,13 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import {
   toExtensionTypePlural,
   formatFqn,
-  decodeExtensionNameSync,
   type Handle,
   type FqnInvalidError,
 } from "@agentxm/extension-model/unstable/extensions";
+import {
+  EXTENSION_NAME_MAX_LENGTH,
+  ExtensionNameSchema,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import type {
   HookImplementation,
   HookRuntime,
@@ -123,16 +127,13 @@ import { packScaffold } from "./scaffolds/pack.js";
 import { ruleScaffold } from "./scaffolds/rule.js";
 import { skillScaffold } from "./scaffolds/skill.js";
 import { subagentScaffold } from "./scaffolds/subagent.js";
-import {
-  SCAFFOLD_NAME_MAX_LENGTH,
-  SCAFFOLD_NAME_PATTERN,
-  isValidScaffoldName,
-} from "./scaffold-name.js";
 import type { AuthoredScaffold } from "./scaffolds/scaffold.js";
 import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/workspace-kernel/acquisition";
+
+const isExtensionName = Schema.is(ExtensionNameSchema);
 
 // -----------------------------------------------------------------------------
 // Request
@@ -503,13 +504,9 @@ export const prepareCreateExtension: (
     request.owner,
   );
 
-  if (!isValidScaffoldName(request.name)) {
-    return yield* new ScaffoldNameInvalid({
-      subject,
-      name: request.name,
-      pattern: SCAFFOLD_NAME_PATTERN.source,
-      maxLength: SCAFFOLD_NAME_MAX_LENGTH,
-    });
+  const name = request.name;
+  if (!isExtensionName(name)) {
+    return yield* new ScaffoldNameInvalid({ subject, name, maxLength: EXTENSION_NAME_MAX_LENGTH });
   }
 
   // Authored packages live in a project workspace; the user scope holds
@@ -518,13 +515,11 @@ export const prepareCreateExtension: (
     return yield* new AuthoringScopeUnsupported({ subject, scope: layout.scope });
   }
 
-  const name = request.name;
   const scaffold = scaffoldFor(request, owner);
   const location = canonicalLocation(path, layout, request.type, owner, name);
   const authoredPath = path.relative(locationService.baseDir, location);
   const settingsPath = settingsRelativePath(path, locationService, layout);
-  const extensionName = decodeExtensionNameSync(name);
-  const fqn = formatFqn({ owner, type: request.type, name: extensionName });
+  const fqn = formatFqn({ owner, type: request.type, name });
   const { isConfigured, declare } = declaration(
     { settings, settingsWriter, accepted, desiredStateWriter },
     request.type,
@@ -630,7 +625,7 @@ export const prepareCreateExtension: (
         );
       yield* scaffold.populate(stagedPackage);
       return yield* preflightAuthoredNativeProjection({
-        identity: { type: request.type, owner, name: extensionName },
+        identity: { type: request.type, owner, name },
         packageRoot: stagedPackage,
         enabled: request.type !== "hook",
       });
@@ -682,10 +677,10 @@ export const prepareCreateExtension: (
 
   const sourceRef = {
     refType: "workspace",
-    source: { type: "workspace", owner, extensionType: request.type, name: extensionName },
+    source: { type: "workspace", owner, extensionType: request.type, name },
     scope: locationService.scope,
     owner,
-    name: extensionName,
+    name,
     version: scaffold.version,
     sourceHash: computeSourceHash("scaffold"),
     location,
@@ -700,7 +695,7 @@ export const prepareCreateExtension: (
             ...sourceRef,
             type: "skill",
             source: { ...sourceRef.source, extensionType: "skill" as const },
-            skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
+            skill: { name, description: Option.none(), metadata: Option.none() },
           },
           target: { type: "skill", name },
           buildArtifact: ({ change, materialization }) =>
@@ -740,7 +735,7 @@ export const prepareCreateExtension: (
             ...sourceRef,
             type: "subagent",
             source: { ...sourceRef.source, extensionType: "subagent" as const },
-            subagent: { name: extensionName, description: Option.none() },
+            subagent: { name, description: Option.none() },
           },
           target: { type: "subagent", name },
           buildArtifact: ({ change, materialization }) =>
@@ -759,7 +754,7 @@ export const prepareCreateExtension: (
             ...sourceRef,
             type: "rule",
             source: { ...sourceRef.source, extensionType: "rule" as const },
-            rule: { name: extensionName },
+            rule: { name },
           },
           target: { type: "rule", name },
           buildArtifact: ({ change }) =>
@@ -799,7 +794,7 @@ export const prepareCreateExtension: (
             ...sourceRef,
             type: "knowledge",
             source: { ...sourceRef.source, extensionType: "knowledge" as const },
-            knowledge: { name: extensionName },
+            knowledge: { name },
           },
           target: { type: "knowledge", name },
           buildArtifact: ({ change }) =>
@@ -817,7 +812,7 @@ export const prepareCreateExtension: (
             ...sourceRef,
             type: "pack",
             source: { ...sourceRef.source, extensionType: "pack" as const },
-            pack: { name: extensionName, dependencies: {} },
+            pack: { name, dependencies: {} },
           },
           target: { type: "pack", owner, name },
           buildArtifact: () => Effect.succeed(plannedArtifact),

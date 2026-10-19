@@ -47,8 +47,7 @@ export class ScaffoldNameInvalid extends Schema.TaggedError<ScaffoldNameInvalid>
   {
     subject: Schema.String,
     name: Schema.String,
-    /** The pattern source every authored name matches. */
-    pattern: Schema.String,
+    /** The longest name the canonical extension name grammar admits. */
     maxLength: Schema.Number,
   },
 ) {}

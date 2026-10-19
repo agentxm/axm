@@ -1,11 +1,9 @@
 import * as Option from "effect/Option";
 
-import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
-
 import { runCreateExtensionCommand } from "../../shared/create-extension-command.js";
 
 export interface SubagentsNewHandlerArgs {
-  readonly name: ExtensionName;
+  readonly name: string;
   readonly owner: Option.Option<string>;
   readonly description?: Option.Option<string>;
   readonly preview: boolean;

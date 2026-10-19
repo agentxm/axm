@@ -82,12 +82,7 @@ export {
   type AuthoringOwner,
   type AuthoringTarget,
 } from "./create/authoring-owner.js";
-export {
-  SCAFFOLD_NAME_MAX_LENGTH,
-  SCAFFOLD_NAME_PATTERN,
-  isValidScaffoldName,
-  normalizeScaffoldOwner,
-} from "./create/scaffold-name.js";
+export { normalizeScaffoldOwner } from "./create/scaffold-name.js";
 export { hookEntrypointFilename } from "./create/scaffolds/hook.js";
 
 // Changing an authored pack's membership

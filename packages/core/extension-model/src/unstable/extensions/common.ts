@@ -525,7 +525,8 @@ export const SPEC_TRACKED_EXTENSION_TYPES: ReadonlyArray<SpecTrackedType> = exte
   (type): type is SpecTrackedType => EXTENSION_TYPE_TABLE[type].governs !== null,
 );
 
-const EXTENSION_NAME_MAX_LENGTH = 64;
+/** Longest extension name the canonical grammar admits. */
+export const EXTENSION_NAME_MAX_LENGTH = 64;
 const EXTENSION_NAME_PATTERN_SOURCE = "[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?";
 const EXTENSION_NAME_BRAND = "ExtensionName" as const;
 

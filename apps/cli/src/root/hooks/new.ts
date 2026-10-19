@@ -5,10 +5,6 @@ import { descriptionFlag } from "../../cli-flags/index.js";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
-import {
-  decodeExtensionNameSync,
-  type ExtensionName,
-} from "@agentxm/extension-model/unstable/extensions";
 import type {
   HookImplementation,
   HookRuntime,
@@ -27,7 +23,7 @@ import { runCreateExtensionCommand } from "../shared/create-extension-command.js
 const HOOK_RUNTIMES = ["bash", "node", "python"] as const satisfies readonly HookRuntime[];
 
 export interface HooksNewHandlerArgs {
-  readonly name: ExtensionName;
+  readonly name: string;
   readonly owner: Option.Option<string>;
   readonly runtime: HookRuntime;
   readonly protocol: HookImplementation["protocol"];
@@ -86,7 +82,7 @@ export const newCommand = Command.make(
   newConfig,
   ({ name, owner, runtime, protocol, event, matcher, description, preview }) =>
     handleHooksNew({
-      name: decodeExtensionNameSync(name),
+      name,
       owner,
       runtime,
       protocol,

@@ -8,7 +8,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
@@ -136,7 +135,7 @@ describe("hooks-new.handler", () => {
         Effect.gen(function* () {
           const error = yield* handleHooksNew({
             ...defaultArgs("valid"),
-            name: "BadHook" as ExtensionName,
+            name: "BadHook",
           }).pipe(Effect.flip);
           expect(getAppError(error).code).toBe("validation");
         }),

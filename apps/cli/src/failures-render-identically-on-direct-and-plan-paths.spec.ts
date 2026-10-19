@@ -797,7 +797,6 @@ const representatives: Representatives = {
     new ScaffoldNameInvalid({
       subject: "skill",
       name: "Bad Name",
-      pattern: "^[a-z][a-z0-9-]*$",
       maxLength: 64,
     }),
   ],

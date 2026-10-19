@@ -14,7 +14,6 @@ import * as Schema from "effect/Schema";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
@@ -242,7 +241,7 @@ describe("skills-new.handler", () => {
         Effect.gen(function* () {
           const error = yield* handleSkillsNew({
             ...defaultArgs("valid-name"),
-            name: "-bad-name" as ExtensionName,
+            name: "-bad-name",
           }).pipe(Effect.flip);
           expect(getAppError(error).code).toBe("validation");
         }),
@@ -257,7 +256,7 @@ describe("skills-new.handler", () => {
         Effect.gen(function* () {
           const error = yield* handleSkillsNew({
             ...defaultArgs("valid-name"),
-            name: "MySkill" as ExtensionName,
+            name: "MySkill",
           }).pipe(Effect.flip);
           expect(getAppError(error).code).toBe("validation");
         }),
@@ -273,7 +272,7 @@ describe("skills-new.handler", () => {
         Effect.gen(function* () {
           const error = yield* handleSkillsNew({
             ...defaultArgs("valid-name"),
-            name: longName as ExtensionName,
+            name: longName,
           }).pipe(Effect.flip);
           expect(getAppError(error).code).toBe("validation");
         }),

@@ -4,10 +4,6 @@ import { descriptionFlag } from "../../cli-flags/index.js";
 import * as Option from "effect/Option";
 import { Argument, Command } from "effect/cli";
 
-import {
-  decodeExtensionNameSync,
-  type ExtensionName,
-} from "@agentxm/extension-model/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -20,7 +16,7 @@ import {
 import { runCreateExtensionCommand } from "../shared/create-extension-command.js";
 
 export interface SkillsNewHandlerArgs {
-  readonly name: ExtensionName;
+  readonly name: string;
   readonly owner: Option.Option<string>;
   readonly description?: Option.Option<string>;
   readonly preview: boolean;
@@ -52,7 +48,7 @@ const newConfig = {
 
 export const newCommand = Command.make("new", newConfig, ({ name, owner, description, preview }) =>
   handleSkillsNew({
-    name: decodeExtensionNameSync(name),
+    name,
     owner,
     description,
     preview,

@@ -5,10 +5,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command } from "effect/cli";
 
-import {
-  decodeExtensionNameSync,
-  type ExtensionName,
-} from "@agentxm/extension-model/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { Screen } from "../../screen/index.js";
@@ -22,7 +18,7 @@ import {
 import { runCreateExtensionCommand } from "../shared/create-extension-command.js";
 
 export interface McpServersNewHandlerArgs {
-  readonly name: ExtensionName;
+  readonly name: string;
   readonly description: string;
   readonly owner: Option.Option<string>;
   readonly preview: boolean;
@@ -58,7 +54,7 @@ const newConfig = {
 
 export const newCommand = Command.make("new", newConfig, ({ name, description, owner, preview }) =>
   handleMcpServersNew({
-    name: decodeExtensionNameSync(name),
+    name,
     description: Option.getOrElse(description, () => ""),
     owner,
     preview,

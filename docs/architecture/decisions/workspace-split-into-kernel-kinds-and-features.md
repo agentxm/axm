@@ -35,8 +35,8 @@ manager Layer. MCP credentials remain native-host responsibilities. Nested subpa
 as the former `transitions/planning` or `resolution/sources` are retired; a
 slice's `/live` and `/testing` entries are the only second-level subpaths.
 
-**Kernel slices are ordered.** From lowest to highest: `settlement`,
-`operations`, `agent-adapters`, `workspace-state`, `projection`, `acquisition`,
+**Kernel slices are ordered.** From lowest to highest: `locations`,
+`settlement`, `operations`, `agent-adapters`, `workspace-state`, `projection`, `acquisition`,
 `sources`, `resolution`, `planning`, `materialization`, `reconciliation`. A
 kernel slice imports only slices below it. `operations` is a contract slice. It
 holds the plan, operation-resolution, event, journal, interruption, recovery,

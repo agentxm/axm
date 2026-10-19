@@ -4,9 +4,9 @@
  * Acquisition of extension content into the workspace: the verified source
  * trees a transition retains, the bounded acquisition queue, the operation
  * scratch budget and tree measurement, canonical package staging, copy,
- * reuse, and swap, on-disk materializability, the archive include predicate,
- * the inherited Git transport context, and the package materialization
- * failure family.
+ * reuse, and swap, registry package fetch, verify, and extract, on-disk
+ * materializability, the archive include predicate, the inherited Git
+ * transport context, and the package materialization failure family.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -51,6 +51,12 @@ export {
   type MaterializedPackage,
 } from "./canonical-directory.js";
 export { copyExtensionDirectory, DirectoryCopyLimitExceeded } from "./copy-directory.js";
+export {
+  materializeRegistryPackage,
+  materializeRegistryPackageWithTreeIntegrity,
+  type MaterializeRegistryPackageArgs,
+  type RegistryPackageMaterializationMessages,
+} from "./registry-materialization.js";
 export {
   configuredMcpServersToDiskRefs,
   configuredPacksToDiskRefs,

@@ -22,6 +22,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
+import { isLoopbackHostname } from "@agentxm/host-primitives";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
@@ -330,10 +331,9 @@ const deriveAuthorizationOrigin = (endpoint: HttpRegistryEndpoint): string => {
   if (url.origin === "https://registry-dev.agentxm.ai") {
     return "https://web-dev.agentxm.ai";
   }
-  const localHosts = ["localhost", "127.0.0.1", "[::1]"];
   const registryPort = Number(url.port);
   if (
-    localHosts.some((host) => host === url.hostname) &&
+    isLoopbackHostname(url.hostname) &&
     Number.isInteger(registryPort) &&
     registryPort >= 4300 &&
     registryPort <= 4399

@@ -12,7 +12,6 @@ import * as Stdio from "effect/Stdio";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import { DeviceLoginInteraction } from "../authentication/device-login.js";
-import { AuthEnvironment } from "./environment.js";
 import { AuthLoginInteractionLive, browserCommands, osc52Sequence } from "./login-interaction.js";
 
 const ESC = "\u001b";
@@ -81,7 +80,10 @@ const liveInteraction = (options: {
   );
   const layer = Layer.mergeAll(
     AuthLoginInteractionLive.pipe(Layer.provide(Layer.mergeAll(stdio, spawner))),
-    Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord(options.environment)),
+    // The CLI reads its environment with empty values preserved.
+    ConfigProvider.layer(
+      ConfigProvider.fromEnv({ env: options.environment, preserveEmptyStrings: true }),
+    ),
   );
   return { layer, written, spawned };
 };
@@ -124,6 +126,33 @@ describe("copyToClipboard", () => {
       const interaction = yield* DeviceLoginInteraction;
       expect(yield* interaction.copyToClipboard(LINK)).toBe(true);
       expect(written).toEqual([osc52Sequence(LINK, "screen")]);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("over SSH inside an empty TMUX value sends the unwrapped form", () => {
+    const { layer, written } = liveInteraction({
+      environment: { SSH_TTY: "/dev/pts/0", TMUX: "", STY: "" },
+      stdoutIsTerminal: true,
+    });
+
+    return Effect.gen(function* () {
+      const interaction = yield* DeviceLoginInteraction;
+      expect(yield* interaction.copyToClipboard(LINK)).toBe(true);
+      expect(written).toEqual([osc52Sequence(LINK)]);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("treats empty SSH variables as a local session", () => {
+    const { layer, written, spawned } = liveInteraction({
+      environment: { SSH_CLIENT: "", SSH_TTY: "" },
+      stdoutIsTerminal: true,
+    });
+
+    return Effect.gen(function* () {
+      const interaction = yield* DeviceLoginInteraction;
+      expect(yield* interaction.copyToClipboard(LINK)).toBe(false);
+      expect(spawned.length).toBeGreaterThan(0);
+      expect(written).toEqual([]);
     }).pipe(Effect.provide(layer));
   });
 

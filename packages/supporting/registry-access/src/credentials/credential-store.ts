@@ -14,7 +14,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Cache from "effect/Cache";
-import * as ConfigProvider from "effect/ConfigProvider";
 import * as Data from "effect/Data";
 import type * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -30,9 +29,8 @@ import { resolveUserHome, writeFileAtomic } from "@agentxm/host-primitives";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { AuthTokenPolicyRequired, RegistryAccessFailed } from "../authentication/errors.js";
 import {
-  AuthEnvironment,
-  isCI,
   isContainer,
+  isContinuousIntegration,
   isRoot,
   isSSH,
   isWSL,
@@ -523,7 +521,7 @@ export const detectEnvironment = Effect.gen(function* () {
     isSSH: yield* isSSH,
     isContainer: yield* isContainer,
     isWSL: yield* isWSL,
-    isCI: yield* isCI,
+    isCI: yield* isContinuousIntegration,
     isRoot: isRoot(),
     isGenericBunExecutable: isGenericBunExecutable(),
   } satisfies EnvironmentInfo;
@@ -557,7 +555,6 @@ export const CredentialStoreLive = Layer.effect(
     const path = yield* Path.Path;
     const keyringEntry = yield* KeyringEntryLoader;
     const homeDir = yield* resolveUserHome().pipe(
-      Effect.provideServiceEffect(ConfigProvider.ConfigProvider, AuthEnvironment),
       Effect.mapError(
         (cause) =>
           new RegistryAccessFailed({

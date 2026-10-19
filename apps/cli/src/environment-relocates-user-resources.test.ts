@@ -56,13 +56,11 @@ describe("Application-resource home", () => {
         interval: 5,
         expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00Z"),
       };
+      // node:os reads the platform home from the process environment itself.
       for (const [key, value] of Object.entries({
         HOME: fixture.platformHome,
         USERPROFILE: fixture.platformHome,
         HOMEPATH: fixture.platformHome,
-        AXM_USER_HOME: fixture.applicationHome,
-        SSH_CLIENT: "environment-spec",
-        CI: "",
       }))
         vi.stubEnv(key, value);
       // Preserve the existing platform-resource families as adversarial inputs.
@@ -102,7 +100,9 @@ describe("Application-resource home", () => {
       const platform = Layer.mergeAll(
         NodeServices.layer,
         ConfigProvider.layer(
-          ConfigProvider.fromEnv({ env: { AXM_USER_HOME: fixture.applicationHome } }),
+          ConfigProvider.fromEnv({
+            env: { AXM_USER_HOME: fixture.applicationHome, SSH_CLIENT: "environment-spec", CI: "" },
+          }),
         ),
       );
       const services = Layer.mergeAll(

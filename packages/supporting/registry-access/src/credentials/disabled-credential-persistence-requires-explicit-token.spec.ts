@@ -8,7 +8,6 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { CredentialStore } from "./credential-store.js";
 import { AuthTokenPolicyRequired } from "../authentication/errors.js";
 import { currentToken } from "../authentication/identity.js";
-import { AuthEnvironment } from "../adapters/environment.js";
 import { login } from "../authentication/login.js";
 import { PendingDeviceLoginStore } from "../authentication/pending-device-login-store.js";
 import {
@@ -80,7 +79,7 @@ describe("Disabled credential persistence", () => {
       expect(
         yield* currentToken(authSelectedRegistry).pipe(
           Effect.provideService(
-            AuthEnvironment,
+            ConfigProvider.ConfigProvider,
             ConfigProvider.fromEnvRecord({ AXM_TOKEN: "fixture-explicit-token" }),
           ),
         ),
@@ -90,7 +89,7 @@ describe("Disabled credential persistence", () => {
       expect(
         yield* currentToken(authSelectedRegistry).pipe(
           Effect.provideService(
-            AuthEnvironment,
+            ConfigProvider.ConfigProvider,
             ConfigProvider.fromEnvRecord({
               ACTIONS_ID_TOKEN_REQUEST_URL: "https://actions.example.test/token?api-version=2.0",
               ACTIONS_ID_TOKEN_REQUEST_TOKEN: "fixture-request-token",

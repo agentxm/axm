@@ -3,6 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -26,6 +27,21 @@ const pending: PendingDeviceLogin = {
   expiresAt: DateTime.makeUnsafe("2099-08-03T15:10:00Z"),
 };
 
+/**
+ * The live store over the real filesystem. AXM configuration comes from the
+ * provided environment; `HOME` stays a process variable because node:os reads
+ * the platform home from it.
+ */
+const liveStore = (environment: Record<string, string>) =>
+  PendingDeviceLoginStoreLive.pipe(
+    Layer.provide(
+      Layer.merge(
+        NodeServices.layer,
+        ConfigProvider.layer(ConfigProvider.fromEnv({ env: environment })),
+      ),
+    ),
+  );
+
 describe("PendingDeviceLoginStore", () => {
   it.effect("persists and clears one pending flow", () =>
     Effect.gen(function* () {
@@ -48,7 +64,7 @@ describe("PendingDeviceLoginStore", () => {
     const home = mkdtempSync(join(tmpdir(), "axm-pending-login-"));
     const previousHome = process.env["HOME"];
     process.env["HOME"] = home;
-    const layer = PendingDeviceLoginStoreLive.pipe(Layer.provide(NodeServices.layer));
+    const layer = liveStore({});
 
     return Effect.gen(function* () {
       const store = yield* PendingDeviceLoginStore;
@@ -75,7 +91,7 @@ describe("PendingDeviceLoginStore", () => {
     const file = join(directory, "pending-login.json");
     mkdirSync(directory);
     writeFileSync(file, '{"version":1}');
-    const layer = PendingDeviceLoginStoreLive.pipe(Layer.provide(NodeServices.layer));
+    const layer = liveStore({});
 
     return Effect.gen(function* () {
       const store = yield* PendingDeviceLoginStore;
@@ -99,10 +115,8 @@ describe("PendingDeviceLoginStore", () => {
     const realHome = mkdtempSync(join(tmpdir(), "axm-real-home-"));
     const axmUserHome = mkdtempSync(join(tmpdir(), "axm-user-home-"));
     const previousHome = process.env["HOME"];
-    const previousAxmUserHome = process.env["AXM_USER_HOME"];
     process.env["HOME"] = realHome;
-    process.env["AXM_USER_HOME"] = axmUserHome;
-    const layer = PendingDeviceLoginStoreLive.pipe(Layer.provide(NodeServices.layer));
+    const layer = liveStore({ AXM_USER_HOME: axmUserHome });
 
     return Effect.gen(function* () {
       const store = yield* PendingDeviceLoginStore;
@@ -114,8 +128,6 @@ describe("PendingDeviceLoginStore", () => {
         Effect.sync(() => {
           if (previousHome === undefined) delete process.env["HOME"];
           else process.env["HOME"] = previousHome;
-          if (previousAxmUserHome === undefined) delete process.env["AXM_USER_HOME"];
-          else process.env["AXM_USER_HOME"] = previousAxmUserHome;
           rmSync(realHome, { recursive: true, force: true });
           rmSync(axmUserHome, { recursive: true, force: true });
         }),

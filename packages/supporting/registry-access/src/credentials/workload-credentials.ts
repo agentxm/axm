@@ -31,7 +31,7 @@ import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
-import { envOption } from "../adapters/environment.js";
+import { readAuthVariable } from "../adapters/environment.js";
 import { TokenExchange } from "../authentication/auth-client.js";
 import {
   workloadTokenUnavailable,
@@ -61,10 +61,10 @@ export const githubActionsIdentity: Effect.Effect<
   Option.Option<GitHubActionsIdentity>,
   RegistryAccessFailed
 > = Effect.gen(function* () {
-  const optOut = yield* envOption("AXM_TRUSTED_PUBLISHING");
+  const optOut = yield* readAuthVariable("AXM_TRUSTED_PUBLISHING");
   if (!axmBooleanEnabled(Option.getOrUndefined(optOut), true)) return Option.none();
-  const requestUrl = nonEmpty(yield* envOption("ACTIONS_ID_TOKEN_REQUEST_URL"));
-  const requestToken = nonEmpty(yield* envOption("ACTIONS_ID_TOKEN_REQUEST_TOKEN"));
+  const requestUrl = nonEmpty(yield* readAuthVariable("ACTIONS_ID_TOKEN_REQUEST_URL"));
+  const requestToken = nonEmpty(yield* readAuthVariable("ACTIONS_ID_TOKEN_REQUEST_TOKEN"));
   return Option.isSome(requestUrl) && Option.isSome(requestToken)
     ? Option.some(
         new GitHubActionsIdentity({

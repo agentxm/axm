@@ -1,9 +1,10 @@
 import { describe, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { afterEach, beforeEach, expect } from "vitest";
+import { expect } from "vitest";
 
 import { RegistryAccessFailed } from "@agentxm/registry-access/authentication";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
@@ -36,27 +37,15 @@ const credentialStore = (load: CredentialStoreService["load"]) =>
     clear: () => Effect.void,
   });
 
+/** No ambient token is presented, so only stored credentials decide. */
 const makeLayer = (load: CredentialStoreService["load"]) =>
-  Layer.mergeAll(credentialStore(load), RegistryContextTest(DEFAULT_REGISTRY));
+  Layer.mergeAll(
+    credentialStore(load),
+    RegistryContextTest(DEFAULT_REGISTRY),
+    ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })),
+  );
 
 describe("registryLoginSuggestions", () => {
-  let originalToken: string | undefined;
-  let originalTokenFile: string | undefined;
-
-  beforeEach(() => {
-    originalToken = process.env["AXM_TOKEN"];
-    originalTokenFile = process.env["AXM_TOKEN_FILE"];
-    delete process.env["AXM_TOKEN"];
-    delete process.env["AXM_TOKEN_FILE"];
-  });
-
-  afterEach(() => {
-    if (originalToken === undefined) delete process.env["AXM_TOKEN"];
-    else process.env["AXM_TOKEN"] = originalToken;
-    if (originalTokenFile === undefined) delete process.env["AXM_TOKEN_FILE"];
-    else process.env["AXM_TOKEN_FILE"] = originalTokenFile;
-  });
-
   it.effect("suggests login when any consulted registry origin lacks credentials", () =>
     Effect.gen(function* () {
       const suggestions = yield* registryLoginSuggestions([

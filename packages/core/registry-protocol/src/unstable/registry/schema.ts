@@ -17,6 +17,7 @@ import {
   ExtensionFqnSchema,
   ExtensionNameSchema,
   ExtensionTypeSchema,
+  ExtensionVisibilitySchema,
   RepositorySchema,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -166,7 +167,7 @@ export const ExtensionIndexSchema = Schema.Struct({
   bugs: Schema.optional(BugsSchema),
   license: Schema.optional(Schema.String),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
-  visibility: Schema.optional(Schema.Literals(["public", "private"] as const)),
+  visibility: Schema.optional(ExtensionVisibilitySchema),
   archival: Schema.NullOr(ArchivalViewSchema),
   deprecation: Schema.NullOr(DeprecationViewSchema),
   versions: Schema.Array(VersionEntrySchema),

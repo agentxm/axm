@@ -13,6 +13,7 @@ import {
   BugsSchema,
   ExtensionNameSchema,
   ExtensionTypeSchema,
+  ExtensionVisibilitySchema,
   RepositorySchema,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -101,7 +102,7 @@ export type ResolutionMetadataRequest = typeof ResolutionMetadataRequestSchema.T
 
 const CurrentEvidenceFieldsSchema = {
   publisherBindingId: Schema.NonEmptyString,
-  visibility: Schema.Literals(["public", "private"] as const),
+  visibility: ExtensionVisibilitySchema,
   archival: Schema.NullOr(ArchivalViewSchema),
   deprecation: Schema.NullOr(DeprecationViewSchema),
   revision: RevisionSchema,

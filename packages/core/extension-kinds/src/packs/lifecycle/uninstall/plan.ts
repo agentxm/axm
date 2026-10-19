@@ -249,13 +249,7 @@ export const parsePackUninstallSelectors: (
   InstallStepRequirements
 > = Effect.fn("UninstallExtensions.parsePackSelectors")(function* (selector: string) {
   const requested = parseExtensionFqnParts(selector);
-  if (requested !== undefined && requested.type !== "pack") {
-    return yield* installRefused({
-      category: "validation",
-      detail: `Expected a pack identity, received ${selector}`,
-    });
-  }
-  if (requested !== undefined) {
+  if (requested?.type === "pack") {
     return [
       {
         _tag: "ExactFqn" as const,

@@ -68,7 +68,7 @@ import {
 } from "@agentxm/extension-kinds/subagents";
 import type { InstallExecutionFailure, PrepareInstallRequirements } from "../install/vocabulary.js";
 import { resolveRootUninstallIntent } from "./root-intent.js";
-import { refuseUndesiredInstalledTarget, typedUninstallSubject } from "./undesired-target.js";
+import { refuseUndesiredInstalledTarget, typedUninstallSelector } from "./undesired-target.js";
 
 // -----------------------------------------------------------------------------
 // Request
@@ -97,9 +97,10 @@ export interface UninstallExtensionsRequest {
 export interface UninstallExtensionsCandidate {
   readonly type: InstallableExtensionType;
   /**
-   * The selector scoped to the settled type: what a typed route was given,
-   * and the extension name the root form read out of the registry FQN. What
-   * a report names the subject with, whether or not anything matched.
+   * The selector scoped to the settled type: a name or glob as given, or the
+   * extension name a fully qualified selector names (a Pack keeps its
+   * qualified spelling on the typed route). What a report names the subject
+   * with, whether or not anything matched.
    */
   readonly selector: string;
   readonly names: ReadonlyArray<string>;
@@ -201,11 +202,9 @@ export const prepareUninstallExtensions: (
   const acceptedWriter = yield* AcceptedResolutionWriter;
   const resolved = yield* Option.match(request.type, {
     onSome: (type) =>
-      Effect.succeed({
-        type,
-        selector: request.selector,
-        subject: typedUninstallSubject(type, request.selector),
-      }),
+      typedUninstallSelector(type, request.selector).pipe(
+        Effect.map(({ selector, subject }) => ({ type, selector, subject })),
+      ),
     onNone: () =>
       resolveRootUninstallIntent(request.selector).pipe(
         Effect.map((intent) => ({

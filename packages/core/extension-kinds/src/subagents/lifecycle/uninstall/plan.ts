@@ -37,7 +37,6 @@ import {
   makeWorkspaceRetentionPolicy,
   type InstallStepRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import {
   type JobStepArtifact,
   type JobStepArtifactTarget,
@@ -147,13 +146,7 @@ export const parseSubagentUninstallRequest: (
     }
 
     const names =
-      matched.length > 0
-        ? matched
-        : (() => {
-            const parsed = parseExtensionFqnParts(selector);
-            const resolvedName = parsed?.type === "subagent" ? parsed.name : selector;
-            return installedNames.includes(resolvedName) ? [resolvedName] : [];
-          })();
+      matched.length > 0 ? matched : installedNames.includes(selector) ? [selector] : [];
 
     return {
       targets: names.map((name): SubagentExtensionTarget => ({ type: "subagent", name })),

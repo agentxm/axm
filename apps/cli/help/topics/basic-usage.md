@@ -84,7 +84,10 @@ agent's native user root.
 ### Authoring and editing extensions
 
 Authorship derives from the exact `workspace` source in the map entry whose key
-matches the package manifest name. Commands such as `axm <type> new` and `axm
+matches the package manifest name, with matching configured owner and manifest
+authority. The official `@agentxm/skills/axm` entry with `source: workspace` and
+`origin: bundled` is the executable-supplied exception: it is not user-authored
+and is not selected by bare `axm publish`. Commands such as `axm <type> new` and `axm
 adopt <extension>` create this relationship; there is no separate authored
 flag. Edit the canonical package under its configured type root, then run `axm
 sync` to refresh rendered agent artifacts.

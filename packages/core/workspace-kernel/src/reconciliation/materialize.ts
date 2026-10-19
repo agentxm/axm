@@ -36,6 +36,7 @@ import {
   type McpConnectionInstallRequirements,
   type McpServerManagerService,
   type PreparedHookProjection,
+  type RuleManagerService,
   type NativeProjectionOptions,
 } from "../materialization/index.js";
 import {
@@ -544,6 +545,7 @@ export interface CollectedMaterializeSteps {
   /** Whether the desired graph was complete enough for cleanup to run. */
   readonly cleanupSafe: boolean;
   readonly preparedHookProjection?: PreparedHookProjection;
+  readonly preparedRulePlans?: Effect.Success<ReturnType<RuleManagerService["prepareProjection"]>>;
   readonly ruleProjection: NativeProjectionOptions;
   readonly knowledgeProjection: NativeProjectionOptions;
   readonly knowledgeMayChange: boolean;
@@ -1489,7 +1491,10 @@ export const collectMaterializeSteps = (args: {
       nativeInsertionEligibleAgentIds:
         unresolvedPackRoutes(priorHookGraph).length > 0 ? new Set() : addedHookRoutes,
     };
-    if (changedRules.length > 0) yield* ruleManager.prepareProjection(changedRules, ruleProjection);
+    const preparedRulePlans =
+      changedRules.length === 0
+        ? undefined
+        : yield* ruleManager.prepareProjection(changedRules, ruleProjection);
     if (changedKnowledge.length > 0)
       yield* knowledgeManager.prepareProjection(changedKnowledge, knowledgeProjection);
     const inventoryObservations = (yield* Effect.forEach([...inventories], ([type, read]) =>
@@ -1501,6 +1506,7 @@ export const collectMaterializeSteps = (args: {
     )).flat();
     return {
       ...(preparedHookProjection === undefined ? {} : { preparedHookProjection }),
+      ...(preparedRulePlans === undefined ? {} : { preparedRulePlans }),
       ruleProjection,
       knowledgeProjection,
       // The whole-graph sweeps act on absence from the graph, so they wait

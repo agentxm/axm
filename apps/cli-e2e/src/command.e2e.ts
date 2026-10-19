@@ -300,9 +300,11 @@ describe("axm instructions", () => {
         result: {
           enabled: true,
           sourceFileName: "AGENTS.md",
-          items: expect.arrayContaining([expect.objectContaining({ agentId: "claude-code" })]),
+          items: [],
         },
       });
+      expect(fs.existsSync(path.join(workspace.path, "AGENTS.md"))).toBe(false);
+      expect(fs.existsSync(path.join(workspace.path, "CLAUDE.md"))).toBe(false);
       const stderrLines = result.stderr.split("\n").filter((line) => line.trim().length > 0);
       expect(stderrLines.map((line): unknown => JSON.parse(line))).toEqual([
         {

@@ -245,7 +245,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
       expect(sourceOptions(asked)).toEqual([
         ["AGENTS.md", "recommended · existing · 12 lines"],
         ["CLAUDE.md", "existing · 84 lines"],
-        ["GEMINI.md", "will be created"],
+        ["GEMINI.md", "created when content is available"],
         ["Other…", "type a file name"],
       ]);
     }),
@@ -276,7 +276,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
       expect(asked?._tag).toBe("Input");
       expect(asked?.question).toBe("Instructions file name");
       expect(asked?.note).toBe(
-        "Relative to the project root. It will be created if it does not exist.",
+        "Relative to the project root. Created when instruction content is available.",
       );
     }),
   );

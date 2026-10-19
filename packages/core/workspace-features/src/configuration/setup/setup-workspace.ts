@@ -20,7 +20,6 @@ import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
  * @experimental This API is unstable and may change without notice.
  */
 
-import { setupSkillTargets } from "./skill-targets.js";
 import * as Effect from "effect/Effect";
 import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import type * as Config from "effect/Config";
@@ -37,7 +36,6 @@ import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-f
 import { isGitManaged } from "@agentxm/workspace-kernel/sources";
 import {
   CodingAgentRepository,
-  resolveInstructionTarget,
   type CodingAgentRepositoryService,
 } from "@agentxm/workspace-kernel/projection";
 import { ArtifactChangeSchema } from "@agentxm/workspace-kernel/operations";
@@ -77,6 +75,9 @@ import {
 import { WorkspaceConfigurationFailed } from "../errors.js";
 import {
   type SetupPlanRow,
+  SetupPlanActionSchema,
+  SetupPlanDetailSchema,
+  type SetupPlanDetail,
   WorkspaceInitializationInteraction,
 } from "./initialization-interaction.js";
 import {
@@ -105,6 +106,8 @@ const SubagentSummarySchema = Schema.Struct({
 const SetupArtifactTargetSchema = Schema.Struct({
   path: Schema.String,
   change: ArtifactChangeSchema,
+  action: Schema.optional(SetupPlanActionSchema),
+  detail: Schema.optional(SetupPlanDetailSchema),
   agentIds: Schema.optional(Schema.Array(Schema.String)),
 });
 export type SetupArtifactTarget = typeof SetupArtifactTargetSchema.Type;
@@ -176,7 +179,7 @@ const SetupScopeSupportCategorySchema = Schema.Struct({
  * How a preview chose the answers an interactive setup would have asked for.
  */
 const SetupPreviewDefaultsSchema = Schema.Struct({
-  agents: Schema.Literals(["explicit", "detected", "choice-required"] as const),
+  agents: Schema.Literals(["explicit", "detected", "configured", "choice-required"] as const),
   instructions: Schema.optional(
     Schema.Struct({ enabled: Schema.Boolean, fileName: Schema.String }),
   ),
@@ -235,6 +238,7 @@ export interface SetupWorkspaceRequest {
   /** Whether the person named the scope, rather than taking the default. */
   readonly scopeExplicit?: boolean;
   readonly agents?: ReadonlyArray<string>;
+  readonly instructions?: false | { readonly fileName: string };
   /** Approve applying the documented candidate without prompting. */
   readonly yes?: boolean;
   readonly preview?: boolean;
@@ -285,8 +289,12 @@ export const prepareSetupWorkspace = (
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
+    if (request.scope === "user" && request.instructions !== undefined)
+      return yield* new WorkspaceConfigurationFailed({
+        category: "usage",
+        detail: "--instructions is project-only",
+      });
     const path = yield* Path.Path;
-    const fileSystem = yield* FileSystem.FileSystem;
     const userWorkspaceRoot = yield* resolveUserWorkspaceRoot();
     const workspaceDir =
       request.scope === "user"
@@ -296,6 +304,7 @@ export const prepareSetupWorkspace = (
       request.scope === "user"
         ? path.join(userWorkspaceRoot, SETTINGS_FILENAME)
         : path.join(request.projectRoot, SETTINGS_FILENAME);
+    const fileSystem = yield* FileSystem.FileSystem;
     const settingsExist = yield* fileSystem.exists(settingsPath).pipe(
       Effect.mapError(
         (cause) =>
@@ -385,7 +394,7 @@ export interface SetupTransition {
   readonly agentCandidates: ReadonlyArray<SetupAgentCandidate>;
   readonly footprint?: ReadonlyArray<FootprintObservation>;
   readonly outputConcerns?: ReadonlyArray<NativeOutputConcern>;
-  readonly instructionPlan?: ReadonlyArray<SetupPlanRow>;
+  readonly plan?: ReadonlyArray<SetupPlanRow>;
 }
 
 /**
@@ -427,6 +436,9 @@ export const previewOrApplySetupWorkspace = <
       scope: candidate.request.scope,
       projectRoot: candidate.request.projectRoot,
       nonInteractive: candidate.request.nonInteractive,
+      ...(candidate.request.instructions === undefined
+        ? {}
+        : { instructions: candidate.request.instructions }),
       ...(candidate.request.agents !== undefined && candidate.request.agents.length > 0
         ? { agents: candidate.request.agents }
         : {}),
@@ -470,15 +482,17 @@ export const previewOrApplySetupWorkspace = <
 const isKnownAgentId = (id: string): id is MaterializationTargetId =>
   Object.hasOwn(AGENT_DESCRIPTORS, id);
 
-const stepStatus = (status: SetupStatus, hasChange: boolean): SetupPlanStep["status"] =>
-  status === "preview" ? "ready" : hasChange ? "applied" : "unchanged";
+const stepStatus = (
+  status: SetupStatus,
+  targets: ReadonlyArray<SetupArtifactTarget>,
+): SetupPlanStep["status"] => {
+  if (targets.some((target) => target.action === "blocked")) return "blocked";
+  if (!targets.some((target) => target.change !== "unchanged")) return "unchanged";
+  return status === "preview" ? "ready" : status === "initialized" ? "applied" : "unchanged";
+};
 
-const artifactChange = (status: SetupStatus, hasChange: boolean) =>
-  status === "preview"
-    ? ("created" as const)
-    : hasChange
-      ? ("created" as const)
-      : ("unchanged" as const);
+const artifactChange = (targets: ReadonlyArray<SetupArtifactTarget>) =>
+  targets.find((target) => target.change !== "unchanged")?.change ?? "unchanged";
 
 /**
  * How a preview chose its membership candidate: the explicit request when one
@@ -489,9 +503,7 @@ export const previewAgentDefault = (
   candidates: ReadonlyArray<SetupAgentCandidate>,
 ): SetupPreviewDefaults["agents"] => {
   const reasons = candidates.flatMap((entry) =>
-    entry.state === "selected" && entry.selectionReason !== undefined
-      ? [entry.selectionReason]
-      : [],
+    entry.selectionReason !== undefined ? [entry.selectionReason] : [],
   );
   if (reasons.includes("explicit")) return "explicit";
   if (reasons.some((reason) => reason === "project-detected" || reason === "user-detected")) {
@@ -505,8 +517,8 @@ const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
 
 /** Every failure describing the settled setup can surface. */
 export type SetupReportFailure =
+  | Effect.Error<ReturnType<typeof resolveNativeEntry>>
   | WorkspaceConfigurationFailed
-  | Effect.Error<ReturnType<typeof setupSkillTargets>>
   | Effect.Error<ReturnType<typeof scanAllSubagentFiles>>
   | Effect.Error<ReturnType<typeof isGitManaged>>
   | Effect.Error<
@@ -541,7 +553,6 @@ export const reportSetupWorkspace = (
 > =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const fileSystem = yield* FileSystem.FileSystem;
     const { settings, location, wouldInitialize, cancelled, agentCandidates } = request.transition;
     // Settling an existing workspace's instruction choice changes it just as
     // creating it does; only the bundled skill and the wording tell them apart.
@@ -588,35 +599,42 @@ export const reportSetupWorkspace = (
     const resolvedStatus: SetupStatus = cancelled ? "cancelled" : status;
 
     const physicalBaseDir = yield* resolveNativeReferent(location.baseDir);
+    const planBaseDir = scope === "user" ? request.candidate.nativeRoot : physicalBaseDir;
     const gitManaged = scope === "project" && (yield* isGitManaged(location.baseDir));
-    const changeForPath = (filePath: string) =>
-      Effect.gen(function* () {
-        if (resolvedStatus === "already-initialized" || resolvedStatus === "cancelled") {
-          return "unchanged" as const;
-        }
-        if (resolvedStatus === "initialized") {
-          const observed =
-            request.transition.footprint?.filter(
-              (entry) => entry.path === filePath || entry.path.startsWith(filePath + path.sep),
-            ) ?? [];
-          return observed.at(-1)?.change === "removed"
-            ? ("removed" as const)
-            : observed[0]?.change === "created"
-              ? ("created" as const)
-              : observed.length > 0
-                ? ("updated" as const)
-                : ("unchanged" as const);
-        }
-        const instructionRow = request.transition.instructionPlan?.find(
-          (row) => path.join(physicalBaseDir, row.target) === filePath,
-        );
-        if (instructionRow?.action === "in sync") return "unchanged" as const;
-        if (instructionRow?.action === "remove") return "removed" as const;
-        const exists = yield* fileSystem
-          .exists(filePath)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
-        return exists ? ("updated" as const) : ("created" as const);
-      });
+    const changeForPath = (filePath: string): typeof ArtifactChangeSchema.Type => {
+      if (resolvedStatus === "already-initialized" || resolvedStatus === "cancelled") {
+        return "unchanged";
+      }
+      if (resolvedStatus === "initialized") {
+        const observed =
+          request.transition.footprint?.filter(
+            (entry) => entry.path === filePath || entry.path.startsWith(filePath + path.sep),
+          ) ?? [];
+        return observed.at(-1)?.change === "removed"
+          ? "removed"
+          : observed[0]?.change === "created"
+            ? "created"
+            : observed.length > 0
+              ? "updated"
+              : "unchanged";
+      }
+      const row = request.transition.plan?.find(
+        (row) => path.resolve(planBaseDir, row.target) === filePath,
+      );
+      if (row?.change !== undefined) return row.change;
+      switch (row?.action) {
+        case "create":
+        case "link":
+        case "copy":
+          return "created";
+        case "update":
+          return "updated";
+        case "remove":
+          return "removed";
+        default:
+          return "unchanged";
+      }
+    };
     const displayTargetPath = (filePath: string): string => {
       const relative = path.relative(physicalBaseDir, filePath);
       return relative === "" || relative.startsWith("..") || path.isAbsolute(relative)
@@ -627,54 +645,50 @@ export const reportSetupWorkspace = (
       Effect.forEach([...new Set(paths)], (filePath) =>
         Effect.gen(function* () {
           const entry = yield* resolveNativeEntry(filePath);
+          const row = request.transition.plan?.find(
+            (row) => path.resolve(planBaseDir, row.target) === entry.entryPath,
+          );
           return {
+            ...(row === undefined
+              ? {}
+              : {
+                  action: row.action,
+                  detail: row.detail,
+                  ...(row.agentIds === undefined ? {} : { agentIds: row.agentIds }),
+                }),
             path: displayTargetPath(entry.entryPath),
-            change: yield* changeForPath(entry.entryPath),
+            change: changeForPath(entry.entryPath),
           } satisfies SetupArtifactTarget;
         }),
       );
 
-    const workspaceTargets = yield* targetsFor([
-      request.candidate.settingsPath,
-      location.lockPath,
-      ...(gitManaged ? [path.join(location.baseDir, ".gitignore")] : []),
-    ]);
-    const instructionTargets =
-      instructions?.enabled === true
-        ? yield* targetsFor([
-            ...(request.transition.instructionPlan ?? []).map((row) =>
-              path.join(location.baseDir, row.target),
-            ),
-            path.join(location.baseDir, instructions.fileName ?? "AGENTS.md"),
-            ...agentIds.flatMap((agentId) => {
-              if (!isKnownAgentId(agentId)) return [];
-              const resolution = resolveInstructionTarget({
-                instructions: AGENT_DESCRIPTORS[agentId].instructions,
-                sourceFileName: instructions.fileName ?? "AGENTS.md",
-                symlinkSupported: true,
-              });
-              return resolution.action === "write"
-                ? [path.join(location.baseDir, resolution.relativeTarget)]
-                : [];
-            }),
-          ])
-        : [];
-    const skillTargets = yield* Effect.forEach(
-      yield* setupSkillTargets(physicalBaseDir, scope, agentIds),
-      (target) =>
-        Effect.gen(function* () {
-          return {
-            ...target,
-            path: displayTargetPath(target.path),
-            change: yield* changeForPath(target.path),
-          };
-        }),
+    const plan = request.transition.plan ?? [];
+    const plannedPaths = (tags: ReadonlyArray<SetupPlanDetail["_tag"]>) =>
+      plan
+        .filter((row) => tags.includes(row.detail._tag))
+        .map((row) => path.resolve(planBaseDir, row.target));
+    const workspaceTargets = yield* targetsFor(
+      plan.length > 0
+        ? plannedPaths(["settings", "acceptedResolution", "gitignore"])
+        : [
+            request.candidate.settingsPath,
+            location.lockPath,
+            ...(gitManaged ? [path.join(location.baseDir, ".gitignore")] : []),
+          ],
     );
+    const instructionTargets = yield* targetsFor(
+      plannedPaths(["instructionSource", "instructionTarget"]),
+    );
+    const skillTargets = yield* targetsFor(plannedPaths(["bundledSkill"]));
+    const instructionBlocked = instructionTargets.some((target) => target.action === "blocked");
+    const instructionDeferred =
+      plan.some((row) => row.detail._tag === "instructionSource" && row.detail.deferred === true) &&
+      !plan.some((row) => row.detail._tag === "instructionTarget");
 
     const steps: Array<SetupPlanStep> = [
       {
         label: "Workspace configuration",
-        status: stepStatus(resolvedStatus, initialized),
+        status: stepStatus(resolvedStatus, workspaceTargets),
         message: completing
           ? resolvedStatus === "preview"
             ? "Would record the instruction choice"
@@ -687,7 +701,7 @@ export const reportSetupWorkspace = (
         artifact: {
           path: settingsPath,
           scope,
-          change: completing ? "updated" : artifactChange(resolvedStatus, initialized),
+          change: artifactChange(workspaceTargets),
           targets: workspaceTargets,
         },
       },
@@ -695,28 +709,34 @@ export const reportSetupWorkspace = (
     if (instructions !== undefined) {
       steps.push({
         label: "Instruction files",
-        status: stepStatus(resolvedStatus, initialized),
-        message:
-          resolvedStatus === "preview"
-            ? "Would configure instruction files"
-            : initialized
-              ? "Configured instruction files"
-              : "Instruction files already configured",
+        status: stepStatus(resolvedStatus, instructionTargets),
+        message: instructionBlocked
+          ? "An instruction target differs and has no recorded projection"
+          : instructionDeferred
+            ? "Enabled, no instruction content yet"
+            : instructions.enabled === false
+              ? "Instruction management disabled; instruction files left alone"
+              : resolvedStatus === "preview"
+                ? "Would configure instruction files"
+                : initialized
+                  ? "Configured instruction files"
+                  : "Instruction files already configured",
         artifact: {
           path: instructionTargets[0]?.path ?? "instructions",
           scope,
-          change: artifactChange(resolvedStatus, initialized),
+          change: artifactChange(instructionTargets),
           targets: instructionTargets,
         },
       });
     }
     if (request.bundledSkill.installed || (resolvedStatus === "preview" && !completing)) {
-      const change = artifactChange(resolvedStatus, request.bundledSkill.installed);
+      const change = artifactChange(skillTargets);
       steps.push({
         label: "@agentxm/skills/axm",
-        status: stepStatus(resolvedStatus, request.bundledSkill.installed),
-        message:
-          resolvedStatus === "preview"
+        status: stepStatus(resolvedStatus, skillTargets),
+        message: skillTargets.some((target) => target.action === "blocked")
+          ? "A bundled skill target is not owned by AXM"
+          : resolvedStatus === "preview"
             ? "Would install the bundled AXM skill"
             : "Installed the bundled AXM skill",
         artifact: {
@@ -761,17 +781,21 @@ export const reportSetupWorkspace = (
     const message = cancelled
       ? "Setup cancelled — no changes applied"
       : wouldInitialize
-        ? "Setup plan ready"
+        ? blockedCount > 0
+          ? "Setup plan blocked"
+          : "Setup plan ready"
         : completed
           ? instructions?.enabled === true
             ? "Configured instruction files for the existing workspace"
             : "Recorded that this workspace does not manage instruction files"
           : !initialized
-            ? membershipRequested
-              ? "Workspace already initialized; use `axm agents add` or `axm agents remove` to change coding agents"
-              : agents.length > 0
-                ? `Workspace already initialized with agents: ${agentNames}`
-                : "Workspace already initialized with no coding agents"
+            ? request.candidate.request.instructions !== undefined
+              ? "Instruction choice already recorded; use `axm instructions enable` or `axm instructions disable` to change it"
+              : membershipRequested
+                ? "Workspace already initialized; use `axm agents add` or `axm agents remove` to change coding agents"
+                : agents.length > 0
+                  ? `Workspace already initialized with agents: ${agentNames}`
+                  : "Workspace already initialized with no coding agents"
             : agents.length > 0
               ? `Initialized with agents: ${agentNames}`
               : "Workspace initialized with no coding agents";
@@ -810,7 +834,10 @@ export const reportSetupWorkspace = (
       ...(resolvedStatus === "preview"
         ? {
             previewDefaults: {
-              agents: previewAgentDefault(agentCandidates),
+              agents:
+                completing && agentIds.length > 0
+                  ? ("configured" as const)
+                  : previewAgentDefault(agentCandidates),
               ...(instructions === undefined
                 ? {}
                 : {

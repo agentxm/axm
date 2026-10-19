@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "cli/instructions/status-reports-without-changing-state",
   title: "Instruction-file status is inspected without changing workspace state",
   statement:
-    "When instruction-file management status is inspected, AXM shall report whether management is enabled and, when it is, the source file and the managed target for each configured agent together with stale owned aliases, and shall not change settings or instruction files.",
+    "When instruction-file management status is inspected, AXM shall report whether management is enabled and, when it is, the source file and the managed target for each configured agent together with stale owned aliases, and shall not change settings or instruction files. Enabled management with no source, relevant alias, recorded projection, or contribution evidence shall be settled without missing-source findings; actual missing required sources remain diagnostic.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
@@ -188,39 +188,33 @@ describe("Instruction-file status", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("reports a missing selected source without creating the source or its alias", () => {
-    const fixture = fixtureWith(
-      {
-        agents: ["claude-code"],
-        instructionFiles: { fileName: "TEAM.md", gitignoreAliases: false },
-      },
-      { "unrelated.txt": "Authored unrelated bytes.\n" },
-    );
-    const before = fixture.snapshot();
-    return fixture
-      .provide(
-        Effect.gen(function* () {
-          const report = yield* ManageInstructions.status();
+  it.effect(
+    "reports enabled instruction management without content as settled and writes nothing",
+    () => {
+      const fixture = fixtureWith(
+        {
+          agents: ["claude-code"],
+          instructionFiles: { fileName: "TEAM.md", gitignoreAliases: false },
+        },
+        { "unrelated.txt": "Authored unrelated bytes.\n" },
+      );
+      const before = fixture.snapshot();
+      return fixture
+        .provide(
+          Effect.gen(function* () {
+            const report = yield* ManageInstructions.status();
 
-          expect(report.enabled).toBe(true);
-          expect(report.sourceFileName).toBe("TEAM.md");
-          expect(report.missingSources).toEqual([path.join(fixture.root, "TEAM.md")]);
-          expect(report.items).toEqual([
-            expect.objectContaining({
-              agentId: "claude-code",
-              sourceFile: path.join(fixture.root, "TEAM.md"),
-              targetFile: path.join(fixture.root, "CLAUDE.md"),
-              health: "missing-source",
-              ownership: "absent",
-              observedForm: "none",
-            }),
-          ]);
-          expect(report.staleTargets).toEqual([]);
-          expect(fixture.snapshot()).toEqual(before);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+            expect(report.enabled).toBe(true);
+            expect(report.sourceFileName).toBe("TEAM.md");
+            expect(report.missingSources).toEqual([]);
+            expect(report.items).toEqual([]);
+            expect(report.staleTargets).toEqual([]);
+            expect(fixture.snapshot()).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect(
     "distinguishes supported instruction sources from a retired agent without writing",

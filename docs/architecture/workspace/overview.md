@@ -119,6 +119,10 @@ Canonical extension content has one of three authorities:
   drift blocks its use until explicit recovery; ordinary sync does not
   overwrite it.
 - **Bundled:** The running AXM distribution supplies and controls the content.
+  The official AXM skill retains `source: workspace, origin: bundled` in settings;
+  this representation does not grant authorship or bare-publish eligibility.
+  Other workspace authorship requires the exact workspace source, map key matching
+  the manifest name, and the configured owner matching manifest authority.
 
 Project workspaces keep those authorities physically distinct. Authored
 packages live in the type-specific roots declared by `axm.json`, defaulting to

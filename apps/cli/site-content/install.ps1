@@ -79,11 +79,30 @@ function Set-LockBackup {
 
 function Get-AxmVersion {
     param([string]$Path)
-    $output = & $Path --version 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        throw "AXM at $Path did not execute successfully."
+    # A child-only environment preserves even an absent or empty caller value.
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = $Path
+    $start.Arguments = '--version'
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $start.EnvironmentVariables['AXM_TELEMETRY'] = '0'
+    $probe = [Diagnostics.Process]::new()
+    $probe.StartInfo = $start
+    try {
+        if (-not $probe.Start()) { throw "AXM at $Path did not start." }
+        $output = $probe.StandardOutput.ReadToEndAsync()
+        $errors = $probe.StandardError.ReadToEndAsync()
+        $probe.WaitForExit()
+        $errors.GetAwaiter().GetResult() | Out-Null
+        if ($probe.ExitCode -ne 0) {
+            throw "AXM at $Path did not execute successfully."
+        }
+        return ([string]$output.GetAwaiter().GetResult()).Trim()
     }
-    return ([string]$output).Trim()
+    finally {
+        $probe.Dispose()
+    }
 }
 
 function Write-PathGuidance {
@@ -227,7 +246,8 @@ try {
         )
     if (-not $pathMatchesTarget) {
         if ($pathCommand) {
-            $pathVersion = (& $pathCommand.Source --version 2>$null)
+            try { $pathVersion = Get-AxmVersion -Path $pathCommand.Source }
+            catch { $pathVersion = 'unavailable' }
             if ([string]$pathVersion -ne $targetVersion) {
                 Write-Warning "AXM on PATH reports $pathVersion; installed path reports $targetVersion."
             }

@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 
 import { extensionTypePluralSegments } from "@agentxm/extension-model/unstable/extensions";
 
-import { AXM_SKILL_MD } from "./__generated__/bundled-axm-skill.js";
+import { AXM_SKILL_SOURCE_FILES } from "./__generated__/bundled-axm-skill.js";
 import { HELP_TOPIC_KINDS, HELP_TOPIC_NAMES, HELP_TOPICS } from "./__generated__/help-topics.js";
 import { collectHelpFiles, type HelpFiles } from "./test-support/command-tree-test-helpers.js";
 import { perTypeInstallPluralSegments } from "@agentxm/workspace-features/lifecycle";
@@ -147,7 +147,12 @@ const docReferences = (): ReadonlyArray<Reference> => [
   ...HELP_TOPIC_NAMES.filter((name) => HELP_TOPIC_KINDS[name] === "markdown").flatMap((name) =>
     markdownReferences(`axm help ${name}`, HELP_TOPICS[name]),
   ),
-  ...markdownReferences("@agentxm/skills/axm SKILL.md", AXM_SKILL_MD),
+  ...AXM_SKILL_SOURCE_FILES.filter((file) => file.path.endsWith(".md")).flatMap((file) =>
+    markdownReferences(
+      `@agentxm/skills/axm ${file.path}`,
+      Buffer.from(file.base64, "base64").toString("utf8"),
+    ),
+  ),
 ];
 
 const suggestionReferences = (): ReadonlyArray<Reference> => {

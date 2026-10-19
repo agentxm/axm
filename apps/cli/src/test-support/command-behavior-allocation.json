@@ -7320,6 +7320,14 @@
           }
         },
         {
+          "name": "instructions",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
           "name": "yes",
           "rawHelp": {
             "aliases": ["-y"],
@@ -7377,6 +7385,14 @@
             "cli/force-bypasses-only-named-policies"
           ],
           "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:instructions"],
+          "requirements": [
+            "cli/setup/preview-resolves-inputs-without-prompts",
+            "cli/setup/rerun-preserves-existing-configuration"
+          ],
+          "when": "In project scope, selects the instruction source or turns instruction management off."
         }
       ]
     },

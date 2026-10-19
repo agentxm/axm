@@ -125,6 +125,7 @@ describe("Windows workspace mutation contract", () => {
       expect(path.parse(workspace.path).root).toMatch(/^[A-Za-z]:\\$/u);
       expect(workspace.path).toContain(" ");
 
+      fs.writeFileSync(path.join(workspace.path, "AGENTS.md"), "Windows instructions.\n");
       expectSuccess(
         await runCli(
           [

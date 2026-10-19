@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "cli/setup/preview-resolves-inputs-without-prompts",
   title: "A setup preview resolves every input it would otherwise ask about, and says how",
   statement:
-    "When setup runs in preview mode, it shall resolve evidence-backed inputs and disclose when an agent choice is still required among the inputs an interactive run would ask about — the coding agents to configure and the instruction source to use — without raising a prompt, shall present the same candidate whether or not the request preapproved it, and shall name how each default was chosen.",
+    "When setup runs in preview mode, it shall resolve evidence-backed inputs and disclose when an agent choice is still required among the inputs an interactive run would ask about — the coding agents to configure and the instruction source to use — without raising a prompt, shall present the same candidate whether or not the request preapproved it, and shall name how each default was chosen. Project membership shall default only from project evidence; workstation evidence shall remain unselected suggestions, while user scope may select workstation evidence. The candidate report shall exclude undetected, unselected catalog entries. An explicit instruction source or off choice shall bypass its questions and agree between preview and apply.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -58,6 +58,7 @@ describe("Setup preview input resolution", () => {
       readonly scope?: "project" | "user";
       readonly agents?: ReadonlyArray<string>;
       readonly yes?: boolean;
+      readonly instructions?: false | { readonly fileName: string };
     } = {},
   ) => ({
     scope: "project" as const,
@@ -93,7 +94,11 @@ describe("Setup preview input resolution", () => {
               {
                 target: "axm.json",
                 action: "create",
-                detail: { _tag: "settings", agentIds: ["claude-code"] },
+                detail: {
+                  _tag: "settings",
+                  agentIds: ["claude-code"],
+                  instructionFiles: { fileName: "AGENTS.md" },
+                },
               },
               {
                 target: "AGENTS.md",
@@ -136,6 +141,9 @@ describe("Setup preview input resolution", () => {
         Effect.gen(function* () {
           const settled = yield* runSetup(request(created, { agents: ["codex"] }));
 
+          expect(settled.outcome.agentCandidates?.map((candidate) => candidate.id)).toEqual([
+            "codex",
+          ]);
           expect(settled).toMatchObject({
             outcome: {
               status: "preview",
@@ -186,7 +194,7 @@ describe("Setup preview input resolution", () => {
     it.effect(
       `${scope} preview suggests workstation evidence when project evidence is absent`,
       () => {
-        const created = makeSetupFixture({ installedExecutables: ["gemini"] });
+        const created = makeSetupFixture({ installedExecutables: ["gemini", "claude"] });
         cleanups.push(created.cleanup);
         return created
           .provide(
@@ -194,17 +202,26 @@ describe("Setup preview input resolution", () => {
               const before = created.snapshot();
               const settled = yield* runSetup(request(created, { scope }));
               expect(settled.outcome).toMatchObject({
-                agents: [{ id: "gemini-cli", name: "Gemini CLI" }],
-                previewDefaults: { agents: "detected" },
+                agents:
+                  scope === "user"
+                    ? expect.arrayContaining([
+                        { id: "claude-code", name: "Claude Code" },
+                        { id: "gemini-cli", name: "Gemini CLI" },
+                      ])
+                    : [],
+                previewDefaults: { agents: scope === "user" ? "detected" : "choice-required" },
                 agentCandidates: expect.arrayContaining([
                   expect.objectContaining({
                     id: "gemini-cli",
                     projectDetected: false,
                     userDetected: true,
-                    selectionReason: "user-detected",
+                    ...(scope === "user"
+                      ? { selectionReason: "user-detected" }
+                      : { state: "suggested" }),
                   }),
                 ]),
               });
+              expect(settled.outcome.agents).toHaveLength(scope === "user" ? 2 : 0);
               expect(created.snapshot()).toEqual(before);
               expectNoPrompt(created);
             }),
@@ -248,15 +265,11 @@ describe("Setup preview input resolution", () => {
             status: "preview",
             agents: [],
             previewDefaults: { agents: "choice-required" },
-            agentCandidates: expect.arrayContaining([
-              expect.objectContaining({
-                id: "claude-code",
-                state: "available",
-              }),
-            ]),
+
             instructions: { enabled: true, fileName: "AGENTS.md" },
           },
         });
+        expect(projectSettled.outcome.agentCandidates ?? []).toEqual([]);
         expect(userSettled).toMatchObject({ outcome: { status: "preview", scope: "user" } });
         expect(userSettled).not.toMatchObject({
           outcome: { instructions: expect.anything() },
@@ -264,4 +277,80 @@ describe("Setup preview input resolution", () => {
       }).pipe(Effect.provide(NodeServices.layer));
     },
   );
+  for (const instructions of [false, { fileName: "TEAM.md" }, { fileName: "./off" }] as const) {
+    it.effect(
+      `resolves explicit instructions ${JSON.stringify(instructions)} without prompts`,
+      () => {
+        const created = fixture();
+        return created
+          .provide(
+            Effect.gen(function* () {
+              const before = created.snapshot();
+              const preview = yield* runSetup(
+                request(created, { agents: ["claude-code"], instructions }),
+              );
+              expect(preview.outcome.instructions).toMatchObject(
+                instructions === false
+                  ? { enabled: false }
+                  : { enabled: true, fileName: path.normalize(instructions.fileName) },
+              );
+              expectNoPrompt(created);
+              expect(created.snapshot()).toEqual(before);
+              const applied = yield* runSetup({
+                ...request(created, { agents: ["claude-code"], instructions, yes: true }),
+                preview: false,
+                nonInteractive: true,
+              });
+              expect(applied.outcome.instructions).toEqual(preview.outcome.instructions);
+              expect(created.exists("AGENTS.md")).toBe(false);
+              expect(created.exists("CLAUDE.md")).toBe(false);
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      },
+    );
+  }
+
+  for (const instructions of [
+    { fileName: "../outside.md" },
+    { fileName: "/absolute.md" },
+    { fileName: "" },
+  ]) {
+    it.effect(`refuses invalid source ${JSON.stringify(instructions)} before writes`, () => {
+      const created = fixture();
+      return created
+        .provide(
+          Effect.gen(function* () {
+            const before = created.snapshot();
+            const failure = yield* runSetup(
+              request(created, { agents: ["claude-code"], instructions, yes: true }),
+            ).pipe(Effect.flip);
+            expect(failure).toMatchObject({
+              _tag: "WorkspaceConfigurationFailed",
+              category: "validation",
+            });
+            expect(created.snapshot()).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    });
+  }
+  it.effect("rejects project instruction choices in user scope without writes", () => {
+    const created = fixture();
+    return created
+      .provide(
+        Effect.gen(function* () {
+          const before = created.homeSnapshot();
+          const failure = yield* runSetup(
+            request(created, { scope: "user", agents: ["claude-code"], instructions: false }),
+          ).pipe(Effect.flip);
+          expect(failure).toMatchObject({
+            _tag: "WorkspaceConfigurationFailed",
+            category: "usage",
+          });
+          expect(created.homeSnapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 });

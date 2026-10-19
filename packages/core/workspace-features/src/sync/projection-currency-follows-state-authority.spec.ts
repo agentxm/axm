@@ -509,13 +509,8 @@ describe("Generated document projection currency", () => {
                 state: "removed",
               }),
             );
-            expect(operationNativeLocations(planned)).toContainEqual(
-              expect.objectContaining({
-                address: { kind: "entry", path: nodePath.join(workspace.root, "CLAUDE.md") },
-                ownership: "owned",
-                state: "updated",
-                proof: "recorded-instruction-copy",
-              }),
+            expect(planned.units.flatMap((unit) => unit.artifact?.targets ?? [])).toContainEqual(
+              expect.objectContaining({ path: "CLAUDE.md", change: "updated" }),
             );
             expect(workspace.snapshot()).toEqual(before);
             const applied = expectResolved(yield* applySync());
@@ -524,6 +519,14 @@ describe("Generated document projection currency", () => {
             ).toBeUndefined();
             expect(deriveOperationOutcome(applied)).toBe("applied");
             expect(workspace.readFile("AGENTS.md")).toBe(authored);
+            expect(operationNativeLocations(applied)).toContainEqual(
+              expect.objectContaining({
+                address: { kind: "entry", path: nodePath.join(workspace.root, "CLAUDE.md") },
+                ownership: "owned",
+                state: "updated",
+                proof: "recorded-instruction-copy",
+              }),
+            );
             expect(workspace.readFile("CLAUDE.md")).toContain(authored);
             expect(workspace.readFile("CLAUDE.md")).not.toContain("Contribution to remove.");
             expectNothingToReconcile(yield* applySync());

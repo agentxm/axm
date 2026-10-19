@@ -248,7 +248,9 @@ describe("axm setup", () => {
           suggestions: [
             expect.objectContaining({
               description: "Apply setup",
-              cmd: expect.stringContaining("axm setup --yes --scope project --agent"),
+              cmd: expect.stringContaining(
+                "axm setup --yes --non-interactive --scope project --agent",
+              ),
             }),
           ],
         });

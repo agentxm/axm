@@ -1,8 +1,9 @@
 # Getting started
 
 Use this when the current workspace has never been managed by AXM before. It
-walks through first-time setup. After setup succeeds and the selected scope has valid `axm.json`, switch to
-`axm help basic-usage`.
+walks through first-time setup. Finish when setup and verification succeed in the
+selected scope. For later workspace operations, `axm help basic-usage` explains
+its files and authority.
 
 <!-- axm:extension-type-list -->
 
@@ -22,9 +23,11 @@ If this fails, follow the install bootstrap at `https://axm.sh/install.md`
 before continuing. Do not invent a runner fallback such as `bunx`, `pnpx`, or
 `npx` — they skip `axm setup` and split state across cached versions.
 
-## Add AXM CLI to allowed tools
+## If the host blocks an operation
 
-Add the `axm` CLI to the list of allowed tools for your coding agent.
+Use the coding agent's native permission flow for the exact AXM command or
+filesystem/network operation it blocked. Review that operation's scope before
+allowing it; setup needs no blanket all-commands tool grant.
 
 ## Initialize the workspace
 
@@ -39,12 +42,12 @@ detects project and workstation signals separately, presents the proposed agent
 set and file plan, and asks for confirmation before it writes `axm.json` and the
 initial agent membership. Ignored `.axm/` runtime state is created on demand;
 its absence after setup is valid. Project signals are preselected for project setup;
-when no project evidence exists, workstation detections are suggested for
-approval. With no evidence, setup offers all available agents with none
+when no project evidence exists, workstation detections remain visible but
+unselected. Choose membership explicitly. With no evidence, setup offers all available agents with none
 preselected and asks you to choose. Running setup again is a no-op, even
 when different `--agent` flags are supplied, with one exception described
-below. Read `axm help basic-usage` to learn what those files do and which ones
-must be checked in.
+below. `axm help basic-usage` explains those files and their commit policy
+when you need that reference.
 
 Installing into a project that has no settings starts the same setup once you
 have selected what to install, so `axm install <source>` is also a way in. An
@@ -76,6 +79,19 @@ scope:
 axm setup --yes --scope project --agent claude-code --non-interactive
 ```
 
+Repeat `--agent <id>` for every approved agent and carry the resolved instruction
+choice with `--instructions AGENTS.md` (or a custom source filename), or
+`--instructions off`. Omission defaults to enabled `AGENTS.md` for preview and
+unattended setup, and asks interactively. This project-only option settles an
+unresolved choice; use `axm instructions enable/disable` for later changes.
+A file literally named off is selected with `--instructions ./off`.
+
+Enabled setup with no instruction content creates no empty source or aliases.
+Its recorded choice is settled; lint and sync do not require scaffolding. Existing
+content or the first eligible Rule/Knowledge contribution creates the required
+source and aliases through reconciliation. Existing source and alias conflicts
+remain protected and visible in the exact preview.
+
 Repeat `--agent <id>` for every approved agent. An unattended first setup that
 omits `--yes`, an explicit `--scope`, or all `--agent` flags exits with the
 stable reason `approval-required` and writes nothing.
@@ -101,6 +117,10 @@ outcomes. Preview and apply derive this matrix from the same selected agents and
 scope; setup never silently reads or writes the other scope. Human output lists
 only the outcomes that are not `supported`, with their reasons; the JSON matrix
 carries every outcome.
+
+Setup previews include selected and detected candidates. For the complete catalog,
+use `axm agents list --available --json`; the interactive picker still offers all
+valid choices.
 
 After setup, use `axm agents list` to inspect configured and detected coding
 agents. The `Configured`, `Project`, and `Workstation` columns distinguish

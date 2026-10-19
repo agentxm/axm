@@ -319,7 +319,7 @@ describe("setup.handler", () => {
             outcome: "applied",
             planName: "Set up AXM workspace",
             totalSteps: 3,
-            appliedCount: 3,
+            appliedCount: 2,
             steps: [
               expect.objectContaining({
                 label: "Workspace configuration",
@@ -330,7 +330,7 @@ describe("setup.handler", () => {
               }),
               expect.objectContaining({
                 label: "Instruction files",
-                status: "applied",
+                status: "unchanged",
               }),
               expect.objectContaining({
                 label: "@agentxm/skills/axm",
@@ -574,6 +574,7 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           fs.mkdirSync(path.join(tempDir, ".git"));
 
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "Existing instructions\n");
           yield* handleSetup({ scope: "project", agents: ["claude-code"], yes: true });
 
           const settings = readJson(path.join(tempDir, "axm.json"));
@@ -635,6 +636,7 @@ describe("setup.handler", () => {
 
       return provide(
         Effect.gen(function* () {
+          fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "Existing instructions\n");
           yield* handleSetup({ scope: "project", agents: ["claude-code"], yes: true });
 
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(true);
@@ -695,9 +697,29 @@ describe("setup.handler", () => {
           expect(rendererState.suggestions).toEqual([
             {
               description: "Apply setup",
-              cmd: "axm setup --yes --scope project --agent claude-code",
+              cmd: "axm setup --yes --non-interactive --scope project --agent claude-code --instructions AGENTS.md",
             },
           ]);
+        }),
+      );
+    });
+
+    it.effect("quotes an instruction filename in the apply suggestion for the native shell", () => {
+      const { handleSetup, provide, rendererState } = makeSetupTestContext();
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({
+            scope: "project",
+            agents: ["claude-code"],
+            preview: true,
+            instructions: { fileName: "team's rules.md" },
+          });
+          const source =
+            process.platform === "win32" ? "'team''s rules.md'" : "'team'\\''s rules.md'";
+          expect(rendererState.suggestions).toContainEqual({
+            description: "Apply setup",
+            cmd: `axm setup --yes --non-interactive --scope project --agent claude-code --instructions ${source}`,
+          });
         }),
       );
     });
@@ -733,7 +755,7 @@ describe("setup.handler", () => {
               }),
               expect.objectContaining({
                 label: "Instruction files",
-                status: "ready",
+                status: "unchanged",
               }),
               expect.objectContaining({
                 label: "@agentxm/skills/axm",
@@ -757,7 +779,7 @@ describe("setup.handler", () => {
           expect(rendererState.suggestions).toEqual([
             {
               description: "Apply setup",
-              cmd: "axm setup --yes --scope project --agent claude-code",
+              cmd: "axm setup --yes --non-interactive --scope project --agent claude-code --instructions AGENTS.md",
             },
           ]);
         }),
@@ -912,7 +934,14 @@ describe("setup.handler", () => {
             expect.objectContaining({
               label: "Instruction files",
               artifact: expect.objectContaining({
-                targets: [{ path: "AGENTS.md", change: "created" }],
+                targets: [
+                  {
+                    path: "AGENTS.md",
+                    change: "unchanged",
+                    action: "skip",
+                    detail: { _tag: "instructionSource", deferred: true },
+                  },
+                ],
               }),
             }),
           );
@@ -921,11 +950,11 @@ describe("setup.handler", () => {
               label: "@agentxm/skills/axm",
               artifact: expect.objectContaining({
                 targets: expect.arrayContaining([
-                  {
+                  expect.objectContaining({
                     path: ".agents/skills/axm",
                     change: "created",
                     agentIds: ["codex"],
-                  },
+                  }),
                 ]),
               }),
             }),
@@ -1104,15 +1133,12 @@ describe("setup.handler", () => {
             result: {
               agents: [],
               previewDefaults: { agents: "choice-required" },
-              agentCandidates: expect.arrayContaining([
-                expect.objectContaining({ id: "claude-code", state: "available" }),
-              ]),
             },
           });
           expect(rendererState.suggestions).toEqual([
             {
               description: "Choose coding agents",
-              cmd: "axm setup --scope project",
+              cmd: "axm setup --scope project --instructions AGENTS.md",
             },
           ]);
         }),

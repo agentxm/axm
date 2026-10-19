@@ -16,12 +16,12 @@ describe("undetectedAgentOffer", () => {
     );
   });
 
-  it("suggests the workstation's agents first, and only those", () => {
+  it("offers workstation agents first without preselecting them", () => {
     const offer = undetectedAgentOffer([
       { agent: AGENT_DESCRIPTORS.codex, project: false, user: true },
     ]);
 
-    expect(offer.suggestedIds).toEqual(["codex"]);
+    expect(offer.suggestedIds).toEqual([]);
     expect(offer.userDetectedIds).toEqual(["codex"]);
     expect(offer.allAgents[0]?.id).toBe("codex");
   });

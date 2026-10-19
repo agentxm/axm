@@ -315,6 +315,7 @@ export const reconcileInstructionAliases = (
     readonly configuredAgents?: ReadonlyArray<string>;
     readonly eligibleAgentIds?: ReadonlyArray<string>;
     readonly eligibleTargets?: ReadonlyArray<string>;
+    readonly withdrawnSources?: ReadonlyArray<string>;
   } & InstructionOutputOverrides,
 ): Effect.Effect<
   Option.Option<InstructionsSyncResult>,
@@ -332,6 +333,9 @@ export const reconcileInstructionAliases = (
       nativeDirectoryInputs: location.nativeDirectoryInputs,
       configuredAgents: options?.configuredAgents ?? (yield* settings.configuredAgents),
       config: config.value,
+      ...(options?.withdrawnSources === undefined
+        ? {}
+        : { withdrawnSources: options.withdrawnSources }),
       ...(options?.eligibleAgentIds === undefined
         ? {}
         : { eligibleAgentIds: options.eligibleAgentIds }),
@@ -399,6 +403,7 @@ export const observeInstructionSurfacePlans = <E, R>(
       .filter(
         (observation) =>
           !observation.current &&
+          observation.expectedContributors.length > 0 &&
           (observation.unitId === "rule:instructions-region" ||
             observation.unitId === "knowledge:discovery-region"),
       )
@@ -429,8 +434,16 @@ export const observeInstructionSurfacePlans = <E, R>(
       ...new Set(
         routeLocations.flatMap((unit) =>
           unit.aliases
-            .filter((alias) => path.basename(alias) === config.value.fileName)
-            .map((alias) => path.dirname(alias)),
+            .filter((alias) => alias.endsWith(path.sep + path.normalize(config.value.fileName)))
+            .map((alias) =>
+              path.resolve(
+                alias,
+                ...path
+                  .normalize(config.value.fileName)
+                  .split(path.sep)
+                  .map(() => ".."),
+              ),
+            ),
         ),
       ),
     ];
@@ -676,6 +689,13 @@ export const applyInstructionSurfacePlans = <E, R>(
         if (reconcilesAliases && aliases === "reconcile") {
           const posture = yield* ProjectionOutputPosture;
           yield* reconcileInstructionAliases({
+            withdrawnSources: instructionChanges.flatMap((observation) =>
+              (observation.nativeLocations ?? []).flatMap((unit) =>
+                unit.address.kind === "region" && unit.state === "removed"
+                  ? [unit.address.path, ...unit.aliases]
+                  : [],
+              ),
+            ),
             replaceUnrecorded: posture.replaceUnrecorded === true,
             discardModified: posture.discardModified === true,
           });

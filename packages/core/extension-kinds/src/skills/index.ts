@@ -16,6 +16,8 @@ export {
   planSkillInstallationStep,
   type SkillInstallIntent,
 } from "./lifecycle/install/plan.js";
+/** Read-only native artifact admission shared with setup previews. */
+export { inspectSkillAgentArtifact } from "./materialization.js";
 export {
   BundledAxmSkillAsset,
   installBundledAxmSkill,

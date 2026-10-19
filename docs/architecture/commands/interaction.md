@@ -167,7 +167,23 @@ explicit `--scope`, and at least one explicit `--agent`; anything less ends
 with the stable reason `approval-required` and writes nothing
 (`cli/setup/unattended-apply-requires-explicit-intent`). An interactive setup
 without `--yes` collects the same inputs at prompts. Rerunning setup on an
-initialized scope never changes agent membership.
+initialized scope never changes agent membership or a settled instruction choice.
+An explicit project `--instructions <source-file|off>` bypasses only its instruction
+questions; it does not grant approval. It can settle a previously unresolved
+choice under the same approval rules. Later changes use the instruction commands.
+
+Project setup defaults membership only from project detections. Workstation-only
+signals remain visible, unselected choices; user setup continues to use workstation
+evidence. Reports include selected and detected candidates rather than the complete
+catalog; the interactive picker and `agents list --available` retain the catalog.
+A blocked or unresolved preview offers no runnable apply command. An actionable
+suggestion carries its exact scope, agents, instruction choice, non-interactive
+posture and only a replacement override already supplied by the caller.
+
+One typed candidate supplies both confirmation and JSON target facts. Readiness and
+counts follow those facts, including conflicts; a valid blocked assessment remains
+`previewed`, while apply reports the observed transaction footprint. Instruction
+content and alias lifecycle belong to [Instruction files](../workspace/instruction-files.md).
 
 `login` asks one non-plan question: whether to sign in again when a valid
 session already exists. Interactively it asks; `--yes` answers it in every

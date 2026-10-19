@@ -28,10 +28,12 @@ import { evaluateHookAgentOutcome } from "@agentxm/workspace-kernel/projection";
 
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {
+  ExtensionVisibilitySchema,
   extensionTypeToPlural,
   parseExtensionFqnParts,
   type ExtensionFqnParts,
   type ExtensionType,
+  type ExtensionVisibility,
 } from "@agentxm/extension-model/unstable/extensions";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
@@ -56,7 +58,7 @@ const ViewDocumentFields = {
   latest: Schema.optional(ViewVersionSchema),
   versions: Schema.Array(ViewVersionSchema),
   install: Schema.String,
-  visibility: Schema.Literals(["public", "private"] as const),
+  visibility: ExtensionVisibilitySchema,
   lifecycleState: Schema.Literals(["active", "deprecated", "archived"] as const),
   archival: Schema.NullOr(ArchivalViewSchema),
   deprecation: Schema.NullOr(DeprecationViewSchema),
@@ -165,7 +167,7 @@ export const resolveViewHandle = Effect.fn("ViewExtension.resolveHandle")(functi
   return { owner, type: resolved.type, name: resolved.name };
 }, withInspectionReadView);
 
-const toDocument = (index: ExtensionIndex, visibility: "public" | "private"): ViewDocument => {
+const toDocument = (index: ExtensionIndex, visibility: ExtensionVisibility): ViewDocument => {
   const [latest] = index.versions;
   const handle = `${index.owner}/${extensionTypeToPlural[index.type]}/${index.name}`;
   return {

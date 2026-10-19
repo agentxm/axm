@@ -35,7 +35,6 @@ export type {
   OwnerExistsResponse,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
-  ExtensionVisibility,
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
 

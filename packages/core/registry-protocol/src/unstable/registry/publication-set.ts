@@ -131,7 +131,7 @@ export const PackDependencyFindingSchema = Schema.Struct({
     "deprecated",
   ] as const),
   dependency: PackDependencyDescriptorSchema,
-  effectiveVisibility: Schema.optional(Schema.Literals(["public", "private"] as const)),
+  effectiveVisibility: Schema.optional(ExtensionVisibilitySchema),
   lifecycle: Schema.optional(Schema.Literals(["active", "unavailable"] as const)),
   deprecation: Schema.optional(DeprecationViewSchema),
   location: Schema.Struct({ file: Schema.Literal("pack.json") }),

@@ -9748,7 +9748,7 @@
           }
         },
         "install": { "type": "string" },
-        "visibility": { "type": "string", "enum": ["public", "private"] },
+        "visibility": { "$ref": "#/$defs/ExtensionVisibility" },
         "lifecycleState": { "type": "string", "enum": ["active", "deprecated", "archived"] },
         "archival": { "anyOf": [{ "$ref": "#/$defs/ArchivalView" }, { "type": "null" }] },
         "deprecation": { "anyOf": [{ "$ref": "#/$defs/DeprecationView" }, { "type": "null" }] },

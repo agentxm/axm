@@ -9,7 +9,7 @@
  * @packageDocumentation
  */
 
-import type { ExtensionName, ExtensionType } from "../common.js";
+import type { ExtensionName, ExtensionType, ExtensionVisibility } from "../common.js";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type * as Record from "effect/Record";
@@ -74,7 +74,7 @@ export interface GitHostedRefDetails {
 /** Ref details for registry sources. @experimental */
 export interface RegistryRefDetails {
   /** Current invocation resolution evidence. Never reconstructed from accepted state. */
-  readonly visibility?: "public" | "private";
+  readonly visibility?: ExtensionVisibility;
   /** Registry owner that owns the published extension */
   readonly owner: Handle;
   /** Immutable registry publisher epoch. */

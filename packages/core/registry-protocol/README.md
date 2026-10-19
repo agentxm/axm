@@ -64,8 +64,9 @@ manifest validation live in `@agentxm/extension-content`; release selection
 lives in `@agentxm/extension-model`, and release-age policy lives in
 `@agentxm/workspace-kernel/resolution`.
 
-This package is bundled into `axm.sh`; it is not an independently published
-API. Its `./unstable/*` subpaths are workspace-internal boundaries. Ordinary
+This package is published with each `axm.sh` release, at the same version as
+the CLI that bundles it. Every export lives under an explicit `./unstable/*`
+subpath: the surface is unsupported and may change in any release. Ordinary
 users should use the [`axm` CLI](https://axm.sh) instead.
 
 FSL-1.1-MIT © 2025-2026 AgentXM, Inc.

@@ -33,7 +33,11 @@ import type {
 } from "@agentxm/registry-protocol/unstable/registry/schema";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
-import type { Bugs, Repository } from "@agentxm/extension-model/unstable/extensions/common";
+import type {
+  Bugs,
+  ExtensionVisibility,
+  Repository,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import type { DiscoverPackagesResponse } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import type {
   ResolutionMetadataOutcome,
@@ -188,8 +192,6 @@ export interface PublishExtensionArgs {
   readonly publicationDescriptorDigest?: Sha256Hex;
 }
 
-export type ExtensionVisibility = "public" | "private";
-
 export interface PublishPreviewTarget {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -335,7 +337,7 @@ export interface DiscoverPackagesArgs {
  * Represents a single matched extension with its resolved version and integrity.
  */
 export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionType> {
-  readonly visibility?: "public" | "private";
+  readonly visibility?: ExtensionVisibility;
   readonly owner: Handle;
   readonly type: T;
   readonly name: ExtensionName;

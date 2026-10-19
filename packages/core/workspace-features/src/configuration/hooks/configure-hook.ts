@@ -48,7 +48,6 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
   const packageRoot = canonical.value.observation.path;
   const root = path.relative(location.baseDir, packageRoot);
   const { manifest } = yield* readExtensionManifest(packageRoot, "hook");
-  if (manifest.type !== "hook") return yield* fail("The installed package is not a hook extension");
   const resolved = resolveHookConfiguration(manifest, request.configuration);
   if (Result.isFailure(resolved))
     return yield* fail(

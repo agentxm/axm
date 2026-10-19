@@ -65,7 +65,7 @@ import {
   RULES_REGION_OWNER,
 } from "@agentxm/workspace-kernel/projection";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
-import { parseFrontmatterEffect } from "@agentxm/extension-content";
+import { parseFrontmatterEffect, readExtensionManifest } from "@agentxm/extension-content";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/workspace-kernel/sources";
 import {
   makeWorkspaceRelativeSourcePath,
@@ -73,7 +73,6 @@ import {
 } from "@agentxm/extension-model/unstable/path-types";
 import {
   RULE_BODY_FILENAME,
-  RuleManifestSchema,
   type RuleManifest,
 } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
@@ -82,11 +81,9 @@ import {
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
 } from "@agentxm/workspace-kernel/locations";
-import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 const RULES_REGION = "rules";
 
-const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
 /** The parts of one Rule contributor its region generation is computed from. */
@@ -233,25 +230,9 @@ export const RuleManagerLive = Layer.effect(
       });
 
     const readManifest = (packageRoot: string) =>
-      fs.readFileString(path.join(packageRoot, manifestFilenameForType("rule"))).pipe(
-        Effect.flatMap((content) =>
-          Effect.try({
-            try: (): unknown => JSON.parse(content),
-            catch: (error) =>
-              new RuleDefinitionInvalid({
-                detail: `Failed to parse ${manifestFilenameForType("rule")}`,
-                cause: error,
-              }),
-          }),
-        ),
-        Effect.flatMap((content) => decodeRuleManifest(content)),
-        Effect.mapError(
-          (error) =>
-            new RuleDefinitionInvalid({
-              detail: `Failed to read ${manifestFilenameForType("rule")}`,
-              cause: error,
-            }),
-        ),
+      readExtensionManifest(packageRoot, "rule").pipe(
+        Effect.map(({ manifest }) => manifest),
+        Effect.mapError((cause) => new RuleDefinitionInvalid({ detail: cause.detail, cause })),
       );
 
     const sourceFileTarget = () =>

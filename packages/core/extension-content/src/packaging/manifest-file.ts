@@ -21,13 +21,21 @@ interface ReadManifestOptions {
   readonly defaultOwner?: Handle;
 }
 
-interface ReadManifestResult {
+/** The manifest a package of `T` declares. */
+type ManifestOfType<T extends ExtensionType> = Extract<ExtensionManifest, { readonly type: T }>;
+
+interface ReadManifestResult<T extends ExtensionType> {
   readonly path: string;
   readonly fileName: string;
   readonly raw: unknown;
-  readonly manifest: ExtensionManifest;
+  readonly manifest: ManifestOfType<T>;
   readonly identity: ManifestIdentity;
 }
+
+const isManifestOfType = <T extends ExtensionType>(
+  manifest: ExtensionManifest,
+  type: T,
+): manifest is ManifestOfType<T> => manifest.type === type;
 
 const withDefaultOwner = (raw: unknown, defaultOwner: Handle | undefined): unknown =>
   defaultOwner !== undefined &&
@@ -38,11 +46,11 @@ const withDefaultOwner = (raw: unknown, defaultOwner: Handle | undefined): unkno
     ? { ...raw, owner: defaultOwner }
     : raw;
 
-export const readExtensionManifest = (
+export const readExtensionManifest = <T extends ExtensionType>(
   directory: string,
-  type: ExtensionType,
+  type: T,
   options?: ReadManifestOptions,
-): Effect.Effect<ReadManifestResult, ManifestError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<ReadManifestResult<T>, ManifestError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -88,7 +96,7 @@ export const readExtensionManifest = (
       ),
     );
     const raw = withDefaultOwner(parsed, options?.defaultOwner);
-    const manifest = yield* Schema.decodeUnknownEffect(manifestSchemaForType(type))(
+    const decoded = yield* Schema.decodeUnknownEffect(manifestSchemaForType(type))(
       raw,
       type === "hook" ? { onExcessProperty: "error" } : undefined,
     ).pipe(
@@ -101,7 +109,7 @@ export const readExtensionManifest = (
           }),
       ),
     );
-    const identity = yield* Schema.decodeUnknownEffect(ManifestIdentitySchema)(manifest).pipe(
+    const identity = yield* Schema.decodeUnknownEffect(ManifestIdentitySchema)(decoded).pipe(
       Effect.mapError(
         (cause) =>
           new ManifestError({
@@ -111,11 +119,11 @@ export const readExtensionManifest = (
           }),
       ),
     );
-    if (identity.type !== type) {
+    if (!isManifestOfType(decoded, type)) {
       return yield* new ManifestError({
         code: "manifest_schema_invalid",
         detail: `Manifest declared type "${identity.type}" disagrees with ${fileName}.`,
       });
     }
-    return { path: manifestPath, fileName, raw, manifest, identity };
+    return { path: manifestPath, fileName, raw, manifest: decoded, identity };
   });

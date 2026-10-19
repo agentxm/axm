@@ -51,7 +51,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as RcMap from "effect/RcMap";
-import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import { HookDefinitionInvalid } from "./errors.js";
 import {
@@ -85,7 +84,6 @@ import type {
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/workspace-kernel/sources";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
-  HookManifestSchema,
   type HookBinding,
   type HookManifest,
   type HookConfigurationValue,
@@ -95,6 +93,7 @@ import {
   requiredHookRuntimeFiles,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import { readExtensionManifest } from "@agentxm/extension-content";
 import {
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
@@ -103,9 +102,6 @@ import {
   resolveNativeReadLocation,
   type NativeDirectoryInputs,
 } from "@agentxm/workspace-kernel/locations";
-import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
-
-const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 
 interface HookWriterTarget {
   readonly agent: CapabilityAgent;
@@ -351,25 +347,9 @@ export const HookManagerLive = Layer.effect(
       });
 
     const readManifest = (packageRoot: string) =>
-      fs.readFileString(path.join(packageRoot, manifestFilenameForType("hook"))).pipe(
-        Effect.flatMap((content) =>
-          Effect.try({
-            try: (): unknown => JSON.parse(content),
-            catch: (error) =>
-              new HookDefinitionInvalid({
-                detail: `Failed to parse ${manifestFilenameForType("hook")}`,
-                cause: error,
-              }),
-          }),
-        ),
-        Effect.flatMap((content) => decodeHookManifest(content)),
-        Effect.mapError(
-          (error) =>
-            new HookDefinitionInvalid({
-              detail: `Failed to read ${manifestFilenameForType("hook")}`,
-              cause: error,
-            }),
-        ),
+      readExtensionManifest(packageRoot, "hook").pipe(
+        Effect.map(({ manifest }) => manifest),
+        Effect.mapError((cause) => new HookDefinitionInvalid({ detail: cause.detail, cause })),
       );
 
     const validatePackageFiles = (packageRoot: string, manifest: HookManifest) =>

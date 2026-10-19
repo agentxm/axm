@@ -1,14 +1,9 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — package accessors preserve caller-owned foreign read errors until diagnostic translation
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 
-import {
-  KNOWLEDGE_SOURCE_DIR,
-  KnowledgeManifestSchema,
-} from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
-import { ManifestError } from "../packaging/manifest-policy.js";
+import { KNOWLEDGE_SOURCE_DIR } from "@agentxm/extension-model/unstable/knowledge/manifest-schema";
+import { readExtensionManifest } from "../packaging/manifest-file.js";
 import {
   inspectKnowledgeBundle,
   type KnowledgeDiagnostic,
@@ -27,20 +22,8 @@ const missingManifestDescription = (): KnowledgeDiagnostic => ({
 export const readKnowledgePackageManifest = Effect.fn("Knowledge.readPackageManifest")(function* (
   packageRoot: string,
 ) {
-  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const manifestPath = path.join(packageRoot, manifestFilenameForType("knowledge"));
-  const manifestRaw = yield* fs.readFileString(manifestPath);
-  const manifestUnknown = yield* Effect.try({
-    try: (): unknown => JSON.parse(manifestRaw),
-    catch: (cause) =>
-      new ManifestError({
-        code: "manifest_invalid_json",
-        detail: `Failed to parse ${manifestPath}`,
-        details: cause,
-      }),
-  });
-  const manifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(manifestUnknown);
+  const { manifest } = yield* readExtensionManifest(packageRoot, "knowledge");
   const sourceRoot = path.join(packageRoot, KNOWLEDGE_SOURCE_DIR);
   return { sourceRoot, manifest };
 });

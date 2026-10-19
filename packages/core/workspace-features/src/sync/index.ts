@@ -5,7 +5,6 @@ export {
   previewOrApplySyncWorkspace,
   SyncWorkspace,
   type SyncWorkspaceCandidate,
-  type SyncWorkspaceExecutionFailure,
   type SyncWorkspaceFailure,
   type SyncWorkspaceRequest,
   type SyncWorkspaceRequirements,

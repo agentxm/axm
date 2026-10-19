@@ -50,6 +50,7 @@ import {
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
+  type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
   InstructionHealthSchema,
@@ -95,7 +96,6 @@ import {
   WorkspaceConfigurationFailed,
   configurationFailureToStepFailure,
   workspaceChangeFailedToStepFailure,
-  type WorkspaceConfigurationExecutionFailure,
 } from "../errors.js";
 
 // -----------------------------------------------------------------------------
@@ -570,7 +570,7 @@ export const previewOrApplyManageInstructions = (
   execution: PlanExecution,
 ): Effect.Effect<
   OperationResolution<void>,
-  WorkspaceConfigurationExecutionFailure,
+  PlanResolutionFailure,
   ManageInstructionsRequirements
 > =>
   Effect.gen(function* () {

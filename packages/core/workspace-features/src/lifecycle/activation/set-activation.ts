@@ -96,6 +96,7 @@ import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type ExecutionCandidate,
+  type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
   problemsAffectingSubject,
@@ -123,7 +124,6 @@ import {
   WorkspaceTransactionScope,
 } from "@agentxm/workspace-kernel/settlement";
 
-import type { ActivationExecutionFailure } from "./errors.js";
 import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
 
 // -----------------------------------------------------------------------------
@@ -929,7 +929,7 @@ const prepareActivation = <R>(
   prepareRealization: RealizationPreparer<R>,
 ): Effect.Effect<
   ActivationCandidate | ActivationUnchanged,
-  ActivationFailure | ActivationExecutionFailure,
+  ActivationFailure | PlanResolutionFailure,
   ActivationRequirements | R
 > =>
   Effect.gen(function* () {
@@ -941,7 +941,7 @@ const prepareActivation = <R>(
 const previewOrApplyActivation = (
   candidate: ActivationCandidate,
   execution: PlanExecution,
-): Effect.Effect<OperationResolution<void>, ActivationExecutionFailure, ActivationRequirements> =>
+): Effect.Effect<OperationResolution<void>, PlanResolutionFailure, ActivationRequirements> =>
   resolveExecutionCandidate(candidate.execution, execution);
 
 export const EnableExtension = {
@@ -949,7 +949,7 @@ export const EnableExtension = {
     request: EnableExtensionRequest,
   ): Effect.Effect<
     ActivationCandidate | ActivationUnchanged,
-    ActivationFailure | ActivationExecutionFailure,
+    ActivationFailure | PlanResolutionFailure,
     ActivationRequirements | ReleaseAgePosture
   > => prepareActivation({ ...request, enabled: true }, prepareEnabledRealization),
   previewOrApply: previewOrApplyActivation,
@@ -960,7 +960,7 @@ export const DisableExtension = {
     request: DisableExtensionRequest,
   ): Effect.Effect<
     ActivationCandidate | ActivationUnchanged,
-    ActivationFailure | ActivationExecutionFailure,
+    ActivationFailure | PlanResolutionFailure,
     ActivationRequirements
   > => prepareActivation({ ...request, enabled: false }, prepareDisabledRealization),
   previewOrApply: previewOrApplyActivation,

@@ -39,6 +39,7 @@ import {
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
+  type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
   ConfiguredAgentOutcomesProvider,
@@ -52,11 +53,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
-import {
-  WorkspaceConfigurationFailed,
-  workspaceChangeFailedToStepFailure,
-  type WorkspaceConfigurationExecutionFailure,
-} from "../errors.js";
+import { WorkspaceConfigurationFailed, workspaceChangeFailedToStepFailure } from "../errors.js";
 import { kernelFailureToStepFailure } from "@agentxm/workspace-kernel/reconciliation";
 import type { McpConnection, McpAuth } from "@agentxm/workspace-kernel/agent-adapters";
 import {
@@ -344,7 +341,7 @@ export const previewOrApplyAddInlineMcpServer = (
   execution: PlanExecution,
 ): Effect.Effect<
   OperationResolution<void>,
-  WorkspaceConfigurationExecutionFailure,
+  PlanResolutionFailure,
   AddInlineMcpServerRequirements
 > =>
   Effect.gen(function* () {

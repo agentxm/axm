@@ -23,8 +23,8 @@ import {
   type ActivationCandidate,
   type ActivationUnchanged,
   type ActivationFailure,
-  type ActivationExecutionFailure,
 } from "@agentxm/workspace-features/lifecycle";
+import type { PlanResolutionFailure } from "@agentxm/workspace-kernel/planning";
 import { ExtensionFqnSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -79,7 +79,7 @@ type ActivationPreparer<R> = (
   request: EnableExtensionRequest,
 ) => Effect.Effect<
   ActivationCandidate | ActivationUnchanged,
-  ActivationFailure | ActivationExecutionFailure,
+  ActivationFailure | PlanResolutionFailure,
   R
 >;
 

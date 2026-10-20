@@ -37,6 +37,7 @@ import {
   InstallSelectionUnavailable,
   StepFailure,
   defineFailureFamily,
+  diagnosticKindOfTag,
   makeStepFailure,
   operationRefusals,
   type FailureFamily,
@@ -178,7 +179,7 @@ export const renderKernelFailure = (
   const kind = isExtensionKindFailure(failure)
     ? "extension.kind-failure"
     : "_tag" in failure && typeof failure._tag === "string"
-      ? failure._tag.replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase()
+      ? diagnosticKindOfTag(failure._tag)
       : "diagnostic.unclassified";
   return new StepFailure({
     ...rendered,

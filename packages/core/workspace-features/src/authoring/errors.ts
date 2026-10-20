@@ -1,24 +1,16 @@
 /**
- * Typed failures for the extension-authoring feature. The producer owns the
- * category choice and user-facing wording; the application boundary converts
- * the carried fields into its error envelope verbatim.
+ * How the extension-authoring feature refuses a policy step. The producer
+ * owns the category choice and user-facing wording; the kernel's
+ * `OperationRefused` carries them to the application boundary verbatim under
+ * the authoring diagnostic kind.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Schema from "effect/Schema";
-import { FailureSuggestedActionSchema } from "@agentxm/workspace-kernel/operations";
+import { refusalOf } from "@agentxm/workspace-kernel/operations";
 
-/**
- * An authoring policy step could not proceed. The carried fields mirror the
- * application error envelope's inputs 1:1: `category` selects the code,
- * `recover` folds into the leading suggested action, and `detail`,
- * `suggestions`, and `cause` carry over verbatim.
- */
-export class AuthoringFailed extends Schema.TaggedError<AuthoringFailed>()("AuthoringFailed", {
-  category: Schema.Literals(["conflict", "internal", "not_found", "usage", "validation"]),
-  detail: Schema.String,
-  recover: Schema.optional(Schema.String),
-  suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
-  cause: Schema.optional(Schema.Unknown),
-}) {}
+/** Refuse an authoring policy step with the category, wording, and recovery it decided. */
+export const authoringRefused = refusalOf({
+  kind: "authoring-failed",
+  operation: "workspace.operation",
+});

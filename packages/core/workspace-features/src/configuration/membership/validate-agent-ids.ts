@@ -16,7 +16,8 @@ import {
   type HostedAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
-import { WorkspaceConfigurationFailed } from "../errors.js";
+import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
+import { configurationRefused } from "../errors.js";
 
 const configurableAgentIds = new Set<string>(CONFIGURABLE_AGENT_IDS);
 const hostedAgentIds = new Set<string>(HOSTED_AGENT_IDS);
@@ -63,12 +64,12 @@ export const dedupe = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
 
 export const validateAgentIds = (
   ids: ReadonlyArray<string>,
-): Effect.Effect<ReadonlyArray<string>, WorkspaceConfigurationFailed> =>
+): Effect.Effect<ReadonlyArray<string>, OperationRefused> =>
   Effect.gen(function* () {
     for (const id of ids) {
       if (isHostedAgentId(id)) {
         const agent = HOSTED_AGENTS_BY_ID[id];
-        return yield* new WorkspaceConfigurationFailed({
+        return yield* configurationRefused({
           category: "validation",
           detail: `${agent.name} is a hosted agent and cannot be added to local workspace configuration. ${agent.installTarget.instructions}`,
           suggestions: [
@@ -82,7 +83,7 @@ export const validateAgentIds = (
 
       if (!configurableAgentIds.has(id)) {
         const nearest = nearestAgentId(id);
-        return yield* new WorkspaceConfigurationFailed({
+        return yield* configurationRefused({
           category: "validation",
           detail: `Unknown agent ID: ${id}`,
           suggestions: [

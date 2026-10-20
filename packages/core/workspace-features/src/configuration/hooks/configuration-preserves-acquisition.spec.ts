@@ -216,7 +216,10 @@ describe("Configuring installed hook extensions", () => {
             name: "audit",
             configuration: { label: "replacement" },
           }).pipe(Effect.flip);
-          expect(failure).toMatchObject({ _tag: "WorkspaceConfigurationFailed" });
+          expect(failure).toMatchObject({
+            _tag: "OperationRefused",
+            diagnostic: { kind: "workspace-configuration-failed" },
+          });
           expect(world.snapshot()).toEqual(before);
         }),
       )

@@ -12,15 +12,15 @@ import * as Option from "effect/Option";
 
 import * as Effect from "effect/Effect";
 
-import {
-  PublishResultSchema,
-  type PublishResult,
-  type PublishFailed,
-} from "@agentxm/workspace-features/publishing";
+import { PublishResultSchema, type PublishResult } from "@agentxm/workspace-features/publishing";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { emitResult } from "../../screen/index.js";
-import { settleOperation, awaitDrained } from "@agentxm/workspace-kernel/operations";
+import {
+  settleOperation,
+  awaitDrained,
+  type OperationRefused,
+} from "@agentxm/workspace-kernel/operations";
 import { Verbosity } from "../../cli-flags/index.js";
 import {
   setOperationSettlement,
@@ -46,7 +46,7 @@ export const emitPublishResult = (
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
     /** Original typed settlement stays local; the result document is a projection. */
-    readonly originalFailure?: PublishFailed;
+    readonly originalFailure?: OperationRefused;
   },
 ) =>
   Effect.gen(function* () {

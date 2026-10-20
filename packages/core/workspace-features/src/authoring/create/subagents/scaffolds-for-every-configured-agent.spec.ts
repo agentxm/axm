@@ -146,7 +146,8 @@ describe("Creating a subagent", () => {
       const before = created.snapshot();
       const failure = yield* createSubagent(created, "apply").pipe(Effect.flip);
       expect(failure).toMatchObject({
-        _tag: "AuthoringFailed",
+        _tag: "OperationRefused",
+        diagnostic: { kind: "authoring-failed" },
         category: "validation",
         detail: expect.stringContaining("No configured runtime"),
       });

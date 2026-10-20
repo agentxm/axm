@@ -206,8 +206,10 @@ the classes that construct its failures, read lazily, or a recognizer such as a
 brand, and the renderer that covers exactly those failures. A renderer and a
 recognizer that disagree fail to compile. A policy step that refuses settles
 with the one `OperationRefused`, constructed through its family's helper, which
-stamps the family's diagnostic kind: `installRefused` for extension lifecycle
-and `syncRefused` for reconciliation.
+stamps the family's diagnostic kind: `installRefused` for extension lifecycle,
+`syncRefused` for reconciliation, and `authoringRefused`, `configurationRefused`,
+and `publishRefused` for the feature slices. A failure whose producer states no
+diagnostic reads with the kind `diagnosticKindOfTag` derives from its tag.
 
 `workspace-kernel/workspace-state` owns desired and observed workspace state:
 settings, the lockfile, and discovery configuration under `desired/`, the read
@@ -407,9 +409,10 @@ Nx tags.
 | `@agentxm/workspace-features/sharing`         | `role:feature` | The read-only repository sharing document for one authored workspace                                                                                     |
 
 The authoring slice defines its failure family with the kernel's
-`defineFailureFamily`. Publishing and configuration each export the recognizer
-and renderer for their one refusal class. Lifecycle and sync refuse with the
-kernel's `OperationRefused` and own no family of their own.
+`defineFailureFamily` for its specific failures, such as Pack membership edits.
+Every slice refuses a policy step with the kernel's `OperationRefused` through
+its own helper; publishing, configuration, lifecycle, and sync own no family of
+their own.
 Shared feature test support lives in `workspace-features/src/testing/`, which is
 not exported and is importable only from feature test files.
 

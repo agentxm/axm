@@ -47,6 +47,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -76,7 +77,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
-import { WorkspaceConfigurationFailed, workspaceChangeFailedToStepFailure } from "../errors.js";
+import { workspaceChangeFailedToStepFailure, configurationRefused } from "../errors.js";
 import { agentLifecycle, isRetiredAgent, lifecycleWarning } from "./agent-lifecycle.js";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { dedupe, validateAgentIds } from "./validate-agent-ids.js";
@@ -87,7 +88,7 @@ import { dedupe, validateAgentIds } from "./validate-agent-ids.js";
 
 /** Every failure a membership request settles into before it is planned. */
 export type ConfigureAgentsFailure =
-  | WorkspaceConfigurationFailed
+  | OperationRefused
   | WorkspaceStateReadFailure
   | Effect.Error<ReturnType<typeof detectAgentsForScope>>;
 
@@ -179,7 +180,7 @@ export const prepareAddConfiguredAgents = (
     const location = yield* WorkspaceLocation;
 
     if (request.ids.length === 0 && !request.detected) {
-      return yield* new WorkspaceConfigurationFailed({
+      return yield* configurationRefused({
         category: "usage",
         detail: "Provide one or more agent IDs, or pass --detected.",
         suggestions: [
@@ -489,7 +490,7 @@ export const prepareRemoveConfiguredAgents = (
       return unchanged("already-absent", "All requested agents are already absent");
     }
     if (missing.length > 0) {
-      return yield* new WorkspaceConfigurationFailed({
+      return yield* configurationRefused({
         category: "validation",
         detail: `Agent is not configured: ${missing.join(", ")}`,
         suggestions: [{ description: "Inspect configured agents.", cmd: "axm agents list" }],
@@ -501,7 +502,7 @@ export const prepareRemoveConfiguredAgents = (
     // not expect, so every active Pack's membership must be known.
     const unresolved = unresolvedPackRoutes(graph);
     if (unresolved.length > 0) {
-      return yield* new WorkspaceConfigurationFailed({
+      return yield* configurationRefused({
         category: "validation",
         detail: `Cannot safely clean agent projections while a configured Pack's routes are unresolved: ${unresolvedPackRoutesText(unresolved)}`,
         suggestions: [{ description: "Inspect workspace facts.", cmd: "axm lint" }],

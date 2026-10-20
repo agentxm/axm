@@ -11,13 +11,14 @@ import {
   type McpValue,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import type { McpServerEntry } from "@agentxm/workspace-kernel/workspace-state";
-import { WorkspaceConfigurationFailed } from "../errors.js";
+import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
+import { configurationRefused } from "../errors.js";
 
-const refused = (detail: string) => new WorkspaceConfigurationFailed({ category: "usage", detail });
+const refused = (detail: string) => configurationRefused({ category: "usage", detail });
 
 export const parseInlineMcpEnv = (
   values: ReadonlyArray<string>,
-): Effect.Effect<Readonly<Record<string, McpValue>>, WorkspaceConfigurationFailed> =>
+): Effect.Effect<Readonly<Record<string, McpValue>>, OperationRefused> =>
   Effect.gen(function* () {
     const result: Record<string, McpValue> = {};
     for (const item of values) {
@@ -33,7 +34,7 @@ export const parseInlineMcpEnv = (
 export const parseInlineMcpHeaders = (
   values: ReadonlyArray<string>,
   references: ReadonlyArray<string> = [],
-): Effect.Effect<Readonly<Record<string, McpValue>>, WorkspaceConfigurationFailed> =>
+): Effect.Effect<Readonly<Record<string, McpValue>>, OperationRefused> =>
   Effect.gen(function* () {
     const result: Record<string, McpValue> = {};
     const names = new Set<string>();
@@ -80,7 +81,7 @@ export const makeInlineMcpDefinition = (
   },
   headers: Readonly<Record<string, McpValue>>,
   env: Readonly<Record<string, McpValue>> = {},
-): Effect.Effect<McpConnection, WorkspaceConfigurationFailed> =>
+): Effect.Effect<McpConnection, OperationRefused> =>
   Effect.gen(function* () {
     if (
       args.connection !== undefined &&

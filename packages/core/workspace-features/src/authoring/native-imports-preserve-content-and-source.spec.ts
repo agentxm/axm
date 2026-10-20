@@ -189,7 +189,8 @@ describe("Importing native instructions", () => {
           });
         } else {
           expect(failure).toMatchObject({
-            _tag: "AuthoringFailed",
+            _tag: "OperationRefused",
+            diagnostic: { kind: "authoring-failed" },
             category: "validation",
             detail: "Expected a skills target FQN, got @acme/subagents/custom",
           });

@@ -66,6 +66,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import type { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
@@ -97,7 +98,6 @@ import {
   type AuthoredPackageError,
 } from "../authored-package-errors.js";
 import { preflightCreateOnly } from "../create-preflight.js";
-import { AuthoringFailed } from "../errors.js";
 import { requireAuthoredOwner, settingsRelativePath } from "../create/authoring-owner.js";
 import {
   AuthoringScopeUnsupported,
@@ -106,6 +106,7 @@ import {
 } from "../create/errors.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
 import { CreateDestinationExists } from "@agentxm/workspace-kernel/acquisition";
+import { authoringRefused } from "../errors.js";
 
 // -----------------------------------------------------------------------------
 // Request
@@ -166,7 +167,7 @@ export interface AdoptExtensionCandidate {
 /** Every failure settling an adoption can surface before anything is written. */
 export type AdoptExtensionFailure =
   | ExtensionManagerFailure
-  | AuthoringFailed
+  | OperationRefused
   | AuthoredPackageError
   | AuthoringOwnerRequired
   | AuthoringOwnerMismatch
@@ -303,7 +304,7 @@ export const prepareAdoptExtension: (
     }
     const declared = yield* declaration.read;
     if (declared.configured) {
-      return yield* new AuthoringFailed({
+      return yield* authoringRefused({
         category: "conflict",
         detail: `${fqn} is already declared in ${settingsPath}`,
       });
@@ -316,13 +317,12 @@ export const prepareAdoptExtension: (
       scope: location.scope,
       staticPackage: { owner: parsed.owner, name, root: targetDir },
     }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new AuthoringFailed({
-            category: "validation",
-            detail: `The authored package at ${authoredPath} is not a valid ${fqn} package`,
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        authoringRefused({
+          category: "validation",
+          detail: `The authored package at ${authoredPath} is not a valid ${fqn} package`,
+          cause,
+        }),
       ),
     );
   });
@@ -335,7 +335,7 @@ export const prepareAdoptExtension: (
   const mode: AdoptExtensionCandidate["mode"] = authoredExists ? "in-place" : "move";
   yield* mode === "in-place" ? inPlaceRefusals : createOnly;
   if (mode === "move" && acquiredCopy === undefined) {
-    return yield* new AuthoringFailed({
+    return yield* authoringRefused({
       category: "not_found",
       detail: `No acquired copy of ${fqn} is installed in this workspace to adopt`,
     });
@@ -361,7 +361,7 @@ export const prepareAdoptExtension: (
           desiredNodeReachesRow(node, { type: parsed.type, key: acquiredCopy.lockKey ?? "" }),
       );
     if (otherBindings || otherConsumers)
-      return yield* new AuthoringFailed({
+      return yield* authoringRefused({
         category: "conflict",
         detail:
           "This retained package is shared by other selected components; fork it into authorship instead of moving their content",
@@ -471,13 +471,12 @@ export const prepareAdoptExtension: (
             yield* fs.makeDirectory(path.dirname(targetDir), { recursive: true });
             yield* fs.rename(sourceDir, targetDir);
           }).pipe(
-            Effect.mapError(
-              (cause) =>
-                new AuthoringFailed({
-                  category: "internal",
-                  detail: `Could not move ${fqn} into authored package storage`,
-                  cause,
-                }),
+            Effect.mapError((cause) =>
+              authoringRefused({
+                category: "internal",
+                detail: `Could not move ${fqn} into authored package storage`,
+                cause,
+              }),
             ),
           ),
         };

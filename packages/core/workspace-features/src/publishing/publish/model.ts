@@ -56,7 +56,6 @@ import {
   settingsEntries,
 } from "@agentxm/workspace-kernel/workspace-state";
 
-import { PublishFailed } from "../errors.js";
 import { planZipArchive, type ArchivePlan } from "../archive.js";
 import { publishArchiveOptions } from "../publish-selection.js";
 import { runPublishLintGate } from "../lint-gate.js";
@@ -71,6 +70,8 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import type { PublishSelectionDecision } from "./result.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { OperationRefused } from "@agentxm/workspace-kernel/operations";
+import { publishRefused } from "../errors.js";
 
 export const selectableTypes: ReadonlyArray<PublishableType> =
   extensionTypes.filter(isPublishableType);
@@ -90,7 +91,7 @@ interface ValidationDetail {
 }
 
 const validation = (detail: string, over?: ValidationDetail) =>
-  new PublishFailed({ category: "validation", detail, ...over });
+  publishRefused({ category: "validation", detail, ...over });
 
 export const CandidateManifestSchema = Schema.Struct({
   owner: HandleSchema,
@@ -172,12 +173,12 @@ export type PublishCandidate = ExistingVersionCandidate | UploadCandidate;
 export interface PublishPreparationFailure {
   readonly _tag: "PublishPreparationFailure";
   readonly reason: "not_authored";
-  readonly failure: PublishFailed;
+  readonly failure: OperationRefused;
 }
 
 export const preparationFailure = (
   reason: PublishPreparationFailure["reason"],
-  failure: PublishFailed,
+  failure: OperationRefused,
 ): PublishPreparationFailure => ({ _tag: "PublishPreparationFailure", reason, failure });
 
 export interface TargetRegistry {
@@ -410,7 +411,7 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   const path = yield* Path.Path;
   const hasFilters = args.owners.length > 0 || args.types.length > 0 || args.excludes.length > 0;
   if (args.from === undefined && (args.fileInclude !== undefined || args.fileExclude !== undefined))
-    return yield* new PublishFailed({
+    return yield* publishRefused({
       category: "usage",
       detail: "--include-path and --exclude-path require --path",
     });
@@ -424,7 +425,7 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
       hasFilters ||
       args.includeDependencies
     ) {
-      return yield* new PublishFailed({
+      return yield* publishRefused({
         category: "usage",
         detail:
           "Existing-directory publication requires one skill FQN, --path, and --package-version; selection filters and dependency expansion are not applicable.",
@@ -484,7 +485,7 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   }
   if (args.selectors.length > 0 && hasFilters) {
     return yield* Effect.fail(
-      new PublishFailed({
+      publishRefused({
         category: "usage",
         detail: "Selection filters cannot be combined with explicit selectors",
       }),
@@ -766,7 +767,7 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     return yield* Effect.fail(
       preparationFailure(
         "not_authored",
-        new PublishFailed({
+        publishRefused({
           category: "conflict",
           detail: `${selected.fqn} is not authored by this workspace and cannot be published from mutable installed content. Run \`axm adopt ${selected.fqn}\` when this workspace should own it, or \`axm fork ${selected.fqn} <new-extension>\` for a separately authored identity.`,
           suggestions: [
@@ -791,7 +792,7 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   const extensionDir = selected.extensionDir;
   if (extensionDir === undefined) {
     return yield* Effect.fail(
-      new PublishFailed({
+      publishRefused({
         category: "not_found",
         detail: `Canonical package for ${selected.fqn} is not available in this workspace.`,
       }),
@@ -808,9 +809,9 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
             }),
           ),
           Effect.mapError((cause) =>
-            cause instanceof PublishFailed
+            cause instanceof OperationRefused
               ? cause
-              : new PublishFailed({
+              : publishRefused({
                   category: "not_found",
                   detail: `Missing manifest: ${manifestPath}`,
                   cause,

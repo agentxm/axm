@@ -13,8 +13,8 @@ import {
   type RegistryErrorCategory,
 } from "@agentxm/registry-client";
 
-import { PublishFailed } from "./errors.js";
 import { aggregatePublishFailure, publishCause } from "./failure.js";
+import { publishRefused } from "./errors.js";
 
 const retryableMetadata = {
   request: { service: "registry" as const, url: "https://registry.example.test/v1/extensions" },
@@ -140,7 +140,7 @@ describe("publishCause", () => {
   it("redacts a credential the Registry quoted back in its detail", () => {
     expect(
       publishCause(
-        new PublishFailed({
+        publishRefused({
           category: "auth",
           detail: "rejected Authorization: Bearer axm_ses_live_abcdef123456",
         }),

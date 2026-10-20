@@ -42,6 +42,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -69,7 +70,6 @@ import {
 } from "@agentxm/workspace-kernel/settlement";
 
 import { authoredDeclaration } from "../authored-declaration.js";
-import { AuthoringFailed } from "../errors.js";
 import { AuthoringScopeUnsupported } from "../create/errors.js";
 import { authoringStepFailure } from "../step-failure.js";
 import {
@@ -82,6 +82,7 @@ import {
   type AuthoredVersionError,
 } from "./errors.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { authoringRefused } from "../errors.js";
 
 // -----------------------------------------------------------------------------
 // Request
@@ -244,8 +245,8 @@ const nextVersion = (
  * becomes an authoring failure the closure reports rather than a refusal the
  * request phase settles.
  */
-const manifestUnavailableInClosure = (failure: AuthoredManifestUnavailable): AuthoringFailed =>
-  new AuthoringFailed({
+const manifestUnavailableInClosure = (failure: AuthoredManifestUnavailable): OperationRefused =>
+  authoringRefused({
     category: authoredManifestUnavailableCategory(failure),
     detail: authoredManifestUnavailableDetail(failure),
     ...(failure.cause === undefined ? {} : { cause: failure.cause }),
@@ -365,7 +366,7 @@ export const prepareChangeAuthoredVersion: (
           manifestPath,
         ).pipe(Effect.mapError(manifestUnavailableInClosure));
         if (currentVersion !== from) {
-          return yield* new AuthoringFailed({
+          return yield* authoringRefused({
             category: "conflict",
             detail: `Manifest version changed to ${currentVersion} before the bump could be applied: ${manifestPath}`,
           });
@@ -377,13 +378,12 @@ export const prepareChangeAuthoredVersion: (
             `${JSON.stringify({ ...current.manifest, version: to }, null, 2)}${newline}`,
           )
           .pipe(
-            Effect.mapError(
-              (cause) =>
-                new AuthoringFailed({
-                  category: "internal",
-                  detail: `Failed to write manifest: ${manifestPath}`,
-                  cause,
-                }),
+            Effect.mapError((cause) =>
+              authoringRefused({
+                category: "internal",
+                detail: `Failed to write manifest: ${manifestPath}`,
+                cause,
+              }),
             ),
           );
       }),
@@ -397,7 +397,7 @@ export const prepareChangeAuthoredVersion: (
             manifestPath,
           ).pipe(Effect.mapError(manifestUnavailableInClosure));
           if (currentVersion !== to) {
-            return yield* new AuthoringFailed({
+            return yield* authoringRefused({
               category: "internal",
               detail: `Manifest ${manifestPath} declares ${currentVersion} after the bump to ${to}`,
             });

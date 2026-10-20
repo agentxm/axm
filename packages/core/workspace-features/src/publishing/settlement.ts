@@ -8,10 +8,11 @@ import {
   type RegistryClient,
   type RegistryClientFailure,
 } from "@agentxm/registry-client";
-import { PublishFailed } from "./errors.js";
+import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
+import { publishRefused } from "./errors.js";
 
 /** Every failure a publish settlement can surface. */
-export type PublishSettlementFailure = PublishFailed | RegistryClientFailure;
+export type PublishSettlementFailure = OperationRefused | RegistryClientFailure;
 
 export type PublishSettlement = "response" | "readback" | "replay" | "unresolved";
 
@@ -61,7 +62,7 @@ const readback = (
             return version.value.integrity === args.metadata.integrity
               ? Effect.succeed({ kind: "matching" } as const)
               : Effect.fail(
-                  new PublishFailed({
+                  publishRefused({
                     category: "conflict",
                     detail: `Registry version ${args.owner}/${args.type}/${args.name}@${args.version} has different content.`,
                   }),

@@ -19,8 +19,7 @@ import {
   validatePathSafety,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { PlanExecution } from "@agentxm/workspace-kernel/operations";
-import { AuthoringFailed } from "../errors.js";
-import { authoringFailureToStepFailure } from "../step-failure.js";
+import { authoringStepFailure } from "../step-failure.js";
 import {
   NATIVE_HOOK_BUNDLE_CONFIG,
   NATIVE_HOOK_BUNDLE_METADATA,
@@ -29,9 +28,10 @@ import {
   readHookResources,
 } from "./interchange.js";
 import { isLexicallyWithin } from "@agentxm/host-primitives";
+import { authoringRefused } from "../errors.js";
 
 const failed = (detail: string, cause?: unknown) =>
-  new AuthoringFailed({
+  authoringRefused({
     category: "validation",
     detail,
     ...(cause === undefined ? {} : { cause }),
@@ -135,7 +135,7 @@ export const prepareExportHook = Effect.fn("Hook.prepareExport")(function* (requ
     validate: () => Effect.void,
   }).pipe(
     Effect.mapError((cause) =>
-      authoringFailureToStepFailure(failed("Native Hook export could not settle", cause)),
+      authoringStepFailure(failed("Native Hook export could not settle", cause)),
     ),
     Effect.as({
       result: "success" as const,

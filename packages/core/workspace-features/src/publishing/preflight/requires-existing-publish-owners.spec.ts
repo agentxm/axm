@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
-  expectPublishFailed,
+  expectPublishRefused,
   jsonRegistryResponse,
   makeRemotePublishWorld,
   registryProblem,
@@ -56,7 +56,7 @@ describe("Publication owner validation", () => {
         cleanups.push(world.cleanup);
         for (const name of ["review", "deploy"]) world.write("skill", { name });
 
-        const failure = expectPublishFailed(
+        const failure = expectPublishRefused(
           yield* world.provide(runPublish(remoteRequest())).pipe(Effect.flip),
         );
 

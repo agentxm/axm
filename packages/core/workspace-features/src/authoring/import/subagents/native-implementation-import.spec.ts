@@ -236,7 +236,8 @@ describe("Native subagent implementation import", () => {
           if (enable) {
             const failure = yield* Effect.flip(prepare);
             expect(failure).toMatchObject({
-              _tag: "AuthoringFailed",
+              _tag: "OperationRefused",
+              diagnostic: { kind: "authoring-failed" },
               category: "validation",
               detail: expect.stringContaining("No configured runtime"),
             });

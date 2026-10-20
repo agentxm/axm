@@ -1,4 +1,8 @@
-import { HookFixtureResultSchema, type HookTestResult } from "@agentxm/workspace-kernel/operations";
+import {
+  HookFixtureResultSchema,
+  type HookTestResult,
+  OperationRefused,
+} from "@agentxm/workspace-kernel/operations";
 /** Explicit execution of native hook fixtures. Static lifecycle operations never call this. */
 import * as Clock from "effect/Clock";
 import { arch, platform } from "node:os";
@@ -22,13 +26,13 @@ import {
   hookConfigurationHash,
   hookReceiptFilename,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { AuthoringFailed } from "../errors.js";
+import { authoringRefused } from "../errors.js";
 
 /** Limits apply independently to stdin, expected files, and each output stream. */
 export const HOOK_TEST_MAX_BYTES = 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_TIMEOUT_MS = 60_000;
-const failed = (detail: string) => new AuthoringFailed({ category: "validation", detail });
+const failed = (detail: string) => authoringRefused({ category: "validation", detail });
 
 export const collectBounded = <E>(stream: Stream.Stream<Uint8Array, E>) =>
   Effect.gen(function* () {
@@ -100,7 +104,7 @@ export const TestHook = {
     const read = (relative: string) =>
       packageFile(relative).pipe(Effect.flatMap(fs.readFileString));
     const environmentNames = new Set<string>(["PATH", "HOME", "TMPDIR", "SystemRoot", "PATHEXT"]);
-    const value = (input: HookValue): Effect.Effect<string, AuthoringFailed> =>
+    const value = (input: HookValue): Effect.Effect<string, OperationRefused> =>
       Effect.gen(function* () {
         if (typeof input === "string") return input;
         const configured = "config" in input ? values[input.config] : input;
@@ -175,13 +179,10 @@ export const TestHook = {
       ).pipe(
         Effect.timeout(timeout),
         Effect.mapError((error) =>
-          failed(
-            error._tag === "TimeoutError"
-              ? `Hook fixture timed out after ${timeout} ms`
-              : error instanceof AuthoringFailed
-                ? error.detail
-                : "Hook process could not run; verify the declared interpreter is available",
-          ),
+          error._tag === "TimeoutError"
+            ? `Hook fixture timed out after ${timeout} ms`
+            : ((error instanceof OperationRefused ? error.detail : undefined) ??
+              "Hook process could not run; verify the declared interpreter is available"),
         ),
         Effect.result,
       );
@@ -211,7 +212,7 @@ export const TestHook = {
         stdoutMatches,
         stderrMatches,
         detail: Result.isFailure(invocation)
-          ? invocation.failure.detail
+          ? invocation.failure
           : passed
             ? "Expected exit and declared output matched"
             : "Exit or declared output differed; raw output is omitted to protect consumer secrets",

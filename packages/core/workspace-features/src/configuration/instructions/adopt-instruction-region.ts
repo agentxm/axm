@@ -28,11 +28,7 @@ import {
 } from "@agentxm/workspace-kernel/planning";
 import { type Plan, type PlanExecution } from "@agentxm/workspace-kernel/operations";
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
-import {
-  WorkspaceConfigurationFailed,
-  configurationFailureToStepFailure,
-  workspaceChangeFailedToStepFailure,
-} from "../errors.js";
+import { workspaceChangeFailedToStepFailure, configurationRefused } from "../errors.js";
 import type { ManageInstructionsRequirements } from "./manage-instructions.js";
 
 export type AdoptableInstructionRegion = "rules" | "knowledge";
@@ -45,7 +41,7 @@ export const prepareAdoptInstructionRegion = Effect.fn("Instructions.prepareAdop
     const settings = yield* SettingsReader;
     const accepted = yield* AcceptedResolutionWriter;
     const fail = (detail: string, cause?: unknown) =>
-      new WorkspaceConfigurationFailed({
+      configurationRefused({
         category: "conflict",
         detail,
         ...(cause === undefined ? {} : { cause }),
@@ -167,7 +163,7 @@ export const prepareAdoptInstructionRegion = Effect.fn("Instructions.prepareAdop
                         fail("Instruction region adoption could not complete", cause),
                       ),
                     );
-                }).pipe(Effect.mapError(configurationFailureToStepFailure)),
+                }).pipe(Effect.mapError(workspaceChangeFailedToStepFailure)),
                 validate: () => Effect.void,
               }).pipe(
                 Effect.mapError(workspaceChangeFailedToStepFailure),

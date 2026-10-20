@@ -12,8 +12,8 @@ import {
   type AgentOutputObservation,
   type NativeOutputConcern,
 } from "@agentxm/workspace-kernel/projection";
-import { WorkspaceConfigurationFailed } from "../errors.js";
 import { setupSkillTargets } from "./skill-targets.js";
+import { configurationRefused } from "../errors.js";
 
 /** Read only the proposed native skill entries and same-name user readers. */
 export const observeSetupOutputConcerns = (
@@ -128,13 +128,12 @@ export const observeSetupOutputConcerns = (
       ),
     ];
   }).pipe(
-    Effect.mapError(
-      (cause) =>
-        new WorkspaceConfigurationFailed({
-          category: "internal",
-          detail: "Failed to inspect setup's native outputs",
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      configurationRefused({
+        category: "internal",
+        detail: "Failed to inspect setup's native outputs",
+        cause,
+      }),
     ),
   );
 

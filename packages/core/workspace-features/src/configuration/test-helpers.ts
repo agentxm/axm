@@ -6,12 +6,10 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { StepFailure } from "@agentxm/workspace-kernel/operations";
-import { WorkspaceConfigurationFailed } from "./errors.js";
+import { StepFailure, OperationRefused } from "@agentxm/workspace-kernel/operations";
 
 /** Render a failure as the sentence the structural test adapter reports. */
 export const describeTestFailure = (failure: unknown): string => {
-  if (failure instanceof WorkspaceConfigurationFailed) return failure.detail;
   if (typeof failure === "object" && failure !== null) {
     for (const key of ["detail", "subject", "message"] as const) {
       if (key in failure) {
@@ -35,10 +33,10 @@ export const describeTestFailure = (failure: unknown): string => {
 export const testToStepFailure = (failure: unknown): StepFailure =>
   failure instanceof StepFailure
     ? failure
-    : failure instanceof WorkspaceConfigurationFailed
+    : failure instanceof OperationRefused
       ? new StepFailure({
           category: failure.category,
-          detail: failure.detail,
+          detail: describeTestFailure(failure),
           ...(failure.suggestions === undefined ? {} : { suggestions: failure.suggestions }),
           ...(failure.cause === undefined ? {} : { cause: failure.cause }),
         })

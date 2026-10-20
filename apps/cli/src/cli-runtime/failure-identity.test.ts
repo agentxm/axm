@@ -1,4 +1,4 @@
-import { AuthoringFailed } from "@agentxm/workspace-features/authoring";
+import { authoringRefused } from "@agentxm/workspace-features/authoring";
 import { failureToAppError } from "../app-error/conversions.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
@@ -68,7 +68,7 @@ describe("handled failure identity", () => {
 
   it("preserves an admitted authoring producer and its original cause", () => {
     const cause = new Error(SENTINEL);
-    const producer = new AuthoringFailed({
+    const producer = authoringRefused({
       category: "conflict",
       detail: "Authoring refused",
       cause,

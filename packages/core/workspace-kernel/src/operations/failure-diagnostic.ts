@@ -28,6 +28,13 @@ export const FailureDiagnosticSchema = Schema.Struct({
 
 export type FailureDiagnostic = typeof FailureDiagnosticSchema.Type;
 
+/**
+ * The diagnostic kind a tagged failure reads with when its producer states
+ * none: the failure's tag in kebab case.
+ */
+export const diagnosticKindOfTag = (tag: string): string =>
+  tag.replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase();
+
 /** Cause annotation survives nested operation boundaries without changing failure semantics. */
 export class FailureOperation extends Context.Service<FailureOperation, string>()(
   "axm/FailureOperation",

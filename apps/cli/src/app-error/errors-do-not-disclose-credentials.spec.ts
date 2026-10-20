@@ -13,7 +13,7 @@ import {
   refuseRegistryRedirects,
 } from "@agentxm/registry-client";
 import { SettingsDecodeError, selectRegistry } from "@agentxm/workspace-kernel/workspace-state";
-import { PublishFailed, publishCause } from "@agentxm/workspace-features/publishing";
+import { publishCause, publishRefused } from "@agentxm/workspace-features/publishing";
 import { StepFailure, makeOperationResolution } from "@agentxm/workspace-kernel/operations";
 import { GitOperationFailed } from "@agentxm/workspace-kernel/sources";
 
@@ -142,7 +142,7 @@ describe("Credential-safe error reports", () => {
   const gitCredential = "DISPOSABLE_GIT_CREDENTIAL";
   const gitReason = (url: string) =>
     `Failed to compare 'skills/review' with Git HEAD: fatal: unable to access '${url}': bad object HEAD`;
-  const gitAssessmentFailure = new PublishFailed({
+  const gitAssessmentFailure = publishRefused({
     category: "internal",
     detail: `Could not assess the published source state for @acme/skills/review. ${gitReason(
       `https://robot:${gitCredential}@example.test/repo.git`,

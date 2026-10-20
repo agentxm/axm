@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import { PublishFailed } from "./errors.js";
 import {
   makePlatformFileAccessor,
   platformCanonicalLintConfig,
@@ -22,6 +21,8 @@ import {
   subagentRules,
   type LintFinding,
 } from "@agentxm/extension-content/lint";
+import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
+import { publishRefused } from "./errors.js";
 
 interface PublishLintPlatform {
   readonly fs: FileSystem.FileSystem;
@@ -77,7 +78,9 @@ interface PublishLintFinding {
   readonly finding: LintFinding;
 }
 
-export const runPublishLintGate = (args: PublishLintArgs): Effect.Effect<void, PublishFailed> => {
+export const runPublishLintGate = (
+  args: PublishLintArgs,
+): Effect.Effect<void, OperationRefused> => {
   switch (args.type) {
     case "skill":
       // Skill admission is shared by authored and existing-directory archives.
@@ -190,12 +193,12 @@ const collectErrors = <C>(
 
 const failOnErrorFindings =
   (type: PublishLintArgs["type"]) =>
-  (findings: ReadonlyArray<PublishLintFinding>): Effect.Effect<void, PublishFailed> => {
+  (findings: ReadonlyArray<PublishLintFinding>): Effect.Effect<void, OperationRefused> => {
     if (findings.length === 0) {
       return Effect.void;
     }
     return Effect.fail(
-      new PublishFailed({
+      publishRefused({
         category: "validation",
         detail: renderPublishLintFailure(type, findings),
       }),

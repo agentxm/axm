@@ -22,9 +22,9 @@ import {
 import type { DeprecationReason } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { DeprecationReplacementIntent } from "@agentxm/registry-protocol/unstable/registry";
 
-import { PublishFailed } from "../errors.js";
 import { parseExtensionReference } from "./retirement.js";
 import { selectedLifecycleRegistry } from "./registry.js";
+import { publishRefused } from "../errors.js";
 
 /** The edit a caller expressed for one field of the guidance. */
 export interface DeprecationEdit {
@@ -37,7 +37,7 @@ export interface DeprecationEdit {
 }
 
 const validation = (detail: string, suggestions?: ReadonlyArray<{ description: string }>) =>
-  new PublishFailed({
+  publishRefused({
     category: "validation",
     detail,
     ...(suggestions === undefined ? {} : { suggestions }),
@@ -46,14 +46,12 @@ const validation = (detail: string, suggestions?: ReadonlyArray<{ description: s
 const parseReplacementFqn = (input: string) =>
   Effect.gen(function* () {
     const parsed = yield* Effect.fromResult(
-      Result.mapError(
-        parseFqn(input),
-        (cause) =>
-          new PublishFailed({
-            category: "validation",
-            detail: `Invalid fully qualified name: ${input}`,
-            cause,
-          }),
+      Result.mapError(parseFqn(input), (cause) =>
+        publishRefused({
+          category: "validation",
+          detail: `Invalid fully qualified name: ${input}`,
+          cause,
+        }),
       ),
     );
     return yield* Schema.decodeUnknownEffect(ExtensionFqnSchema)(formatFqn(parsed)).pipe(

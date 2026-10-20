@@ -1,4 +1,4 @@
-import { inFailureOperation } from "@agentxm/workspace-kernel/operations";
+import { inFailureOperation, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 /**
  * The publication set: the exact set of versions one invocation asks a
  * Registry to admit, the authoritative preview that admits or blocks it, and
@@ -50,14 +50,14 @@ import {
   type RegistryPublishWarning,
 } from "@agentxm/registry-client";
 
-import { PublishFailed } from "../errors.js";
 import { previewPublishUploadBinding, type ResolvedPublishPreview } from "../authorization.js";
 import { settlePublish } from "../settlement.js";
 
 import type { PublishFailure } from "../failure.js";
 import type { PublishCandidate, TargetRegistry, UploadCandidate } from "./model.js";
+import { publishRefused } from "../errors.js";
 
-const internal = (detail: string) => new PublishFailed({ category: "internal", detail });
+const internal = (detail: string) => publishRefused({ category: "internal", detail });
 
 export const publishTargetKey = (target: {
   readonly owner: Handle;
@@ -79,19 +79,17 @@ const packDependencyDescriptors = Effect.fn("Publish.packDependencyDescriptors")
   return yield* Effect.forEach(Object.entries(dependencies), ([fqn, constraint]) =>
     Effect.gen(function* () {
       const parsed = yield* Effect.fromResult(
-        Result.mapError(
-          parseFqn(fqn),
-          (cause) =>
-            new PublishFailed({
-              category: "validation",
-              detail: `Invalid fully qualified name: ${fqn}`,
-              cause,
-            }),
+        Result.mapError(parseFqn(fqn), (cause) =>
+          publishRefused({
+            category: "validation",
+            detail: `Invalid fully qualified name: ${fqn}`,
+            cause,
+          }),
         ),
       );
       if (parsed.type === "pack") {
         return yield* Effect.fail(
-          new PublishFailed({
+          publishRefused({
             category: "validation",
             detail: `Pack dependency ${fqn} is not a valid non-pack dependency.`,
           }),
@@ -189,7 +187,7 @@ const resolvedPublishPreview = (
   result: PublicationCandidateResult,
   publicationSetDigest: string,
   visibilityInput: PublicationVisibilityInput,
-): Effect.Effect<ResolvedPublishPreview, PublishFailed> =>
+): Effect.Effect<ResolvedPublishPreview, OperationRefused> =>
   result.kind === "resolved" && result.visibility.resolved !== null
     ? Effect.succeed({
         visibility: result.visibility.resolved,
@@ -199,7 +197,7 @@ const resolvedPublishPreview = (
         publicationDescriptorDigest: result.descriptorDigest,
       })
     : Effect.fail(
-        new PublishFailed({
+        publishRefused({
           category: "validation",
           detail: `The registry could not authoritatively preview ${publishTargetKey(result.target)}.`,
         }),
@@ -226,7 +224,7 @@ export const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(f
       pack.findings.filter((finding) => finding.severity === "error"),
     );
     return yield* Effect.fail(
-      new PublishFailed({
+      publishRefused({
         category: "validation",
         detail:
           packErrors[0]?.message ??

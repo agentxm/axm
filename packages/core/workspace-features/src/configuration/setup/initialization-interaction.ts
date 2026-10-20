@@ -1,11 +1,10 @@
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
-import { ArtifactChangeSchema } from "@agentxm/workspace-kernel/operations";
+import { ArtifactChangeSchema, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
 import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
-import type { WorkspaceConfigurationFailed } from "../errors.js";
 
 /**
  * Typed cancellation of workspace initialization. The CLI implementation maps
@@ -114,29 +113,24 @@ export interface WorkspaceInitializationInteractionService {
     readonly userDetectedIds: ReadonlyArray<string>;
     readonly suggestedIds: ReadonlyArray<string>;
     readonly configuredIds: ReadonlyArray<string>;
-  }) => Effect.Effect<
-    ReadonlyArray<string>,
-    WorkspaceInitializationCancelled | WorkspaceConfigurationFailed
-  >;
+  }) => Effect.Effect<ReadonlyArray<string>, WorkspaceInitializationCancelled | OperationRefused>;
   readonly confirmInstructionSync: (options: {
     readonly enabled: boolean;
-  }) => Effect.Effect<boolean, WorkspaceInitializationCancelled | WorkspaceConfigurationFailed>;
+  }) => Effect.Effect<boolean, WorkspaceInitializationCancelled | OperationRefused>;
   readonly selectInstructionSource: (options: {
     readonly defaultFileName: string;
     readonly choices: ReadonlyArray<InstructionSourceChoice>;
-  }) => Effect.Effect<string, WorkspaceInitializationCancelled | WorkspaceConfigurationFailed>;
+  }) => Effect.Effect<string, WorkspaceInitializationCancelled | OperationRefused>;
   readonly confirmSetupPlan: () => Effect.Effect<
     boolean,
-    WorkspaceInitializationCancelled | WorkspaceConfigurationFailed
+    WorkspaceInitializationCancelled | OperationRefused
   >;
   /** Present the agent scan summary. The implementation owns all wording. */
-  readonly presentAgentScan: (
-    scan: SetupAgentScan,
-  ) => Effect.Effect<void, WorkspaceConfigurationFailed>;
+  readonly presentAgentScan: (scan: SetupAgentScan) => Effect.Effect<void, OperationRefused>;
   /** Present the setup plan rows before confirmation. */
   readonly presentSetupPlan: (
     rows: ReadonlyArray<SetupPlanRow>,
-  ) => Effect.Effect<void, WorkspaceConfigurationFailed>;
+  ) => Effect.Effect<void, OperationRefused>;
 }
 
 export class WorkspaceInitializationInteraction extends ServiceMap.Service<
@@ -173,20 +167,17 @@ export const WorkspaceInitializationInteractionTest = (overrides?: {
     readonly userDetectedIds: ReadonlyArray<string>;
     readonly suggestedIds: ReadonlyArray<string>;
     readonly configuredIds: ReadonlyArray<string>;
-  }) => Effect.Effect<
-    ReadonlyArray<string>,
-    WorkspaceInitializationCancelled | WorkspaceConfigurationFailed
-  >;
+  }) => Effect.Effect<ReadonlyArray<string>, WorkspaceInitializationCancelled | OperationRefused>;
   readonly confirmInstructionSync?: (options: {
     readonly enabled: boolean;
-  }) => Effect.Effect<boolean, WorkspaceInitializationCancelled | WorkspaceConfigurationFailed>;
+  }) => Effect.Effect<boolean, WorkspaceInitializationCancelled | OperationRefused>;
   readonly selectInstructionSource?: (options: {
     readonly defaultFileName: string;
     readonly choices: ReadonlyArray<InstructionSourceChoice>;
-  }) => Effect.Effect<string, WorkspaceInitializationCancelled | WorkspaceConfigurationFailed>;
+  }) => Effect.Effect<string, WorkspaceInitializationCancelled | OperationRefused>;
   readonly confirmSetupPlan?: () => Effect.Effect<
     boolean,
-    WorkspaceInitializationCancelled | WorkspaceConfigurationFailed
+    WorkspaceInitializationCancelled | OperationRefused
   >;
 }) => {
   const state: WorkspaceInitializationInteractionTestState = {

@@ -25,12 +25,13 @@ import {
   type PickAsk,
 } from "./screen/index.js";
 import {
-  WorkspaceConfigurationFailed,
   WorkspaceInitializationCancelled,
+  configurationRefused,
   WorkspaceInitializationInteraction,
   type InstructionSourceChoice,
   type WorkspaceInitializationInteractionService,
 } from "@agentxm/workspace-features/configuration";
+import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { setupTelemetryMode, setupTelemetryNotice } from "./root/setup/telemetry-notice.js";
 import { setupAgentScanDoc, setupPlanDoc } from "./root/setup/view.js";
 
@@ -162,16 +163,16 @@ const setupWording: AskFailureWording = {
 };
 
 /**
- * Carry a prompt-guard envelope into the feature's typed failure family; the
+ * Carry a prompt-guard envelope into the feature's refusal; the
  * boundary conversion back is a field copy, so the rendered envelope stays
  * byte-identical. A cancellation passes through as itself.
  */
 const toInteractionFailure = (
   error: AskFailure | WorkspaceInitializationCancelled,
-): WorkspaceConfigurationFailed | WorkspaceInitializationCancelled =>
+): OperationRefused | WorkspaceInitializationCancelled =>
   error instanceof WorkspaceInitializationCancelled
     ? error
-    : new WorkspaceConfigurationFailed(askFailureFields(error, setupWording));
+    : configurationRefused(askFailureFields(error, setupWording));
 
 export const WorkspaceInitializationInteractionLive = Layer.effect(
   WorkspaceInitializationInteraction,
@@ -218,24 +219,22 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
         ),
       presentAgentScan: (scan) =>
         screen.note(setupAgentScanDoc(scan)).pipe(
-          Effect.mapError(
-            (cause) =>
-              new WorkspaceConfigurationFailed({
-                category: "internal",
-                detail: "The agent scan could not be displayed.",
-                cause,
-              }),
+          Effect.mapError((cause) =>
+            configurationRefused({
+              category: "internal",
+              detail: "The agent scan could not be displayed.",
+              cause,
+            }),
           ),
         ),
       presentSetupPlan: (rows) =>
         screen.note(setupPlanDoc(rows)).pipe(
-          Effect.mapError(
-            (cause) =>
-              new WorkspaceConfigurationFailed({
-                category: "internal",
-                detail: "The setup plan could not be displayed.",
-                cause,
-              }),
+          Effect.mapError((cause) =>
+            configurationRefused({
+              category: "internal",
+              detail: "The setup plan could not be displayed.",
+              cause,
+            }),
           ),
         ),
     } satisfies WorkspaceInitializationInteractionService;

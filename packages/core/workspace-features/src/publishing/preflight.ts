@@ -9,15 +9,16 @@ import {
 } from "@agentxm/workspace-kernel/projection";
 import type { PublicationPackResult } from "@agentxm/registry-protocol/unstable/registry";
 import type { RegistryClient, RegistryClientFailure } from "@agentxm/registry-client";
-import { PublishFailed } from "./errors.js";
 import type { PublishableType } from "./publishable-types.js";
+import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
+import { publishRefused } from "./errors.js";
 
 export const nonMonotonicVersionConflict = (args: {
   readonly fqn: string;
   readonly version: Version;
   readonly highestPublished: Version;
-}): PublishFailed =>
-  new PublishFailed({
+}): OperationRefused =>
+  publishRefused({
     category: "conflict",
     detail: `Cannot publish: version ${args.version} is lower than the highest published version ${args.highestPublished} for ${args.fqn}.`,
     suggestions: [
@@ -36,7 +37,7 @@ export const nonMonotonicVersionConflict = (args: {
 export const validatePublishOwners = (
   owners: ReadonlyArray<Handle>,
   client: Pick<RegistryClient, "ownerExists">,
-): Effect.Effect<void, PublishFailed | RegistryClientFailure> =>
+): Effect.Effect<void, OperationRefused | RegistryClientFailure> =>
   Effect.forEach(
     [...new Set(owners)],
     (owner) =>
@@ -44,7 +45,7 @@ export const validatePublishOwners = (
         Effect.flatMap(({ exists }) =>
           exists
             ? Effect.void
-            : new PublishFailed({
+            : publishRefused({
                 category: "not_found",
                 detail: `Publish owner ${owner} does not exist.`,
                 suggestions: [
@@ -141,7 +142,7 @@ export const findPackPublishDivergenceFindings = (args: {
 /** Local Pack-constraint exclusions that block a member's publication. */
 export const localPackConstraintFailures = (
   facts: ReadonlyArray<ExtensionConstraintInvariantFact>,
-): ReadonlyMap<string, PublishFailed> => {
+): ReadonlyMap<string, OperationRefused> => {
   return new Map(
     facts.map((fact) => {
       const memberFqn = fact.subject.identity;
@@ -149,7 +150,7 @@ export const localPackConstraintFailures = (
       const violations = fact.observation.violations ?? [];
       return [
         memberFqn,
-        new PublishFailed({
+        publishRefused({
           category: "validation",
           detail: `${extensionConstraintFactText(fact)}; ${memberFqn}@${memberVersion} is excluded by the current workspace Pack constraints: ${violations
             .map(

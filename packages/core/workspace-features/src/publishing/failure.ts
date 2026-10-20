@@ -3,10 +3,9 @@
  * machine-readable cause the publish result reports for a step that actually
  * failed.
  *
- * The feature renders its own refusal and the kernel renders every family it
- * carries, each once; this module reads that rendering to build the
- * document's cause and to aggregate a run's failures. It words nothing
- * itself.
+ * The kernel renders the feature's refusals and every family they carry,
+ * each once; this module reads that rendering to build the document's cause
+ * and to aggregate a run's failures. It words nothing itself.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -22,17 +21,19 @@ import {
 import type { AuthError } from "@agentxm/registry-access/authentication";
 import { ConfigError } from "effect/Config";
 import { kernelFailureToStepFailure } from "@agentxm/workspace-kernel/reconciliation";
-import type { ErrorCode, StepFailure } from "@agentxm/workspace-kernel/operations";
-
-import { PublishFailed } from "./errors.js";
-import { isPublishFamilyFailure, publishFailureToStepFailure } from "./step-failure.js";
+import {
+  OperationRefused,
+  refusalOf,
+  type ErrorCode,
+  type StepFailure,
+} from "@agentxm/workspace-kernel/operations";
 
 /** Every typed failure a publish use case can surface. */
 export type PublishFailure =
-  PublishFailed | RegistryClientFailure | RegistrySelectionFailure | ConfigError;
+  OperationRefused | RegistryClientFailure | RegistrySelectionFailure | ConfigError;
 
 export const isPublishFailure = (error: unknown): error is PublishFailure =>
-  error instanceof PublishFailed ||
+  error instanceof OperationRefused ||
   error instanceof ConfigError ||
   error instanceof RegistrySourceUnknown ||
   error instanceof RegistrySelectionFailed ||
@@ -62,12 +63,10 @@ const CAUSE_CLASS_BY_CATEGORY: Readonly<Record<ErrorCode, PublishCauseClass>> = 
 
 /**
  * The rendering of a failure a publish use case surfaces, which every reading
- * below shares: the feature's own refusal, or the kernel family it carries.
+ * below shares: the kernel's rendering of the refusal or family it carries.
  */
 export const renderPublishFailure = (failure: PublishFailure | AuthError): StepFailure =>
-  isPublishFamilyFailure(failure)
-    ? publishFailureToStepFailure(failure)
-    : kernelFailureToStepFailure(failure);
+  kernelFailureToStepFailure(failure);
 
 /** True when the request policy proved the failure worth retrying. */
 export const isRetryablePublishFailure = (failure: PublishFailure): boolean =>
@@ -145,7 +144,7 @@ export const publishCause = (failure: PublishFailure) => {
 export const aggregatePublishFailure = (
   failedCount: number,
   failures: ReadonlyArray<PublishFailure>,
-): PublishFailed => {
+): OperationRefused => {
   const [first] = failures;
   const steps = failures.map(renderPublishFailure);
   const [firstStep] = steps;
@@ -156,14 +155,13 @@ export const aggregatePublishFailure = (
     (allRetryable || steps.every((step) => step.category === firstStep.category))
       ? firstStep.category
       : "internal";
-  return new PublishFailed({
+  return refusalOf({
+    kind: steps.every((step) => step.diagnostic?.kind === firstStep?.diagnostic?.kind)
+      ? (firstStep?.diagnostic?.kind ?? "diagnostic.unclassified")
+      : "publish.multiple-failures",
+    operation: "publish.upload",
+  })({
     category,
-    diagnostic: {
-      kind: steps.every((step) => step.diagnostic?.kind === firstStep?.diagnostic?.kind)
-        ? (firstStep?.diagnostic?.kind ?? "diagnostic.unclassified")
-        : "publish.multiple-failures",
-      operation: "publish.upload",
-    },
     cause: failures,
     detail: `Failed to publish ${failedCount} extension${failedCount === 1 ? "" : "s"}${
       firstStep !== undefined && category !== "internal" ? `: ${firstStep.detail}` : ""

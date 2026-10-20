@@ -12,7 +12,7 @@ import {
 
 import { unyank } from "../lifecycle/retirement.js";
 import {
-  expectPublishFailed,
+  expectPublishRefused,
   jsonRegistryResponse,
   makeRegistryManagementWorld,
   registryTarget,
@@ -99,7 +99,7 @@ describe("Exact restoration", () => {
 
         const failure = yield* world.provide(withAuthPorts(Effect.flip(unyank(ref))));
 
-        expect(expectPublishFailed(failure).category).toBe("validation");
+        expect(expectPublishRefused(failure).category).toBe("validation");
         expect(world.requests).toEqual([]);
       }),
     );

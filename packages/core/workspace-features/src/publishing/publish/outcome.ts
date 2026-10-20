@@ -13,13 +13,13 @@ import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/uns
 import type { AuthError } from "@agentxm/registry-access/authentication";
 import {
   StepFailure,
+  refusalOf,
   stepFailureWithCause,
   unitIdOf,
   type OperationJournalState,
 } from "@agentxm/workspace-kernel/operations";
 import type { PreviewPublicationSetResponse } from "@agentxm/registry-protocol/unstable/registry";
 
-import { PublishFailed } from "../errors.js";
 import {
   isPublishFailure,
   publishCause,
@@ -35,6 +35,7 @@ import type {
 } from "./model.js";
 import { publishItemId } from "./publication.js";
 import type { PublishPublicationSet, PublishResultItem } from "./result.js";
+import { publishPolicyRefusal } from "../errors.js";
 
 /**
  * Publish steps settle with the kernel's rendering of the typed failure, and
@@ -48,8 +49,7 @@ export const publishStepFailure = (failure: PublishFailure | AuthError): StepFai
 export const publishStepFailureCause = (failure: StepFailure): PublishFailure =>
   isPublishFailure(failure.cause)
     ? failure.cause
-    : new PublishFailed({
-        ...(failure.diagnostic === undefined ? {} : { diagnostic: failure.diagnostic }),
+    : refusalOf(failure.diagnostic ?? publishPolicyRefusal)({
         category: failure.category,
         detail: failure.detail,
         ...(failure.suggestions === undefined ? {} : { suggestions: failure.suggestions }),

@@ -3,19 +3,20 @@
  * fork and native import, owner policy, and Pack membership edits — and how
  * an authoring closure serializes any failure into the plan-step vocabulary.
  *
- * The authoring family renders here once. Every other family an authoring
- * step can surface renders through the kernel failure rendering, so an
- * authoring step reports the same category, sentence, and recovery a command
- * boundary would print for the same failure.
+ * The authoring family renders here once. An authoring policy refusal, and
+ * every other family an authoring step can surface, renders through the
+ * kernel failure rendering, so an authoring step reports the same category,
+ * sentence, and recovery a command boundary would print for the same failure.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import {
+  type OperationRefused,
   type ScaffoldedExtensionUnresolved,
   defineFailureFamily,
+  diagnosticKindOfTag,
   makeStepFailure,
-  renderCarriedFailure,
   type StepFailure,
 } from "@agentxm/workspace-kernel/operations";
 import type { ExtensionManagerFailure } from "@agentxm/workspace-kernel/materialization";
@@ -36,7 +37,6 @@ import {
 } from "./pack-membership/membership-errors.js";
 import { kernelFailureDetail, renderKernelFailure } from "@agentxm/workspace-kernel/reconciliation";
 
-import { AuthoringFailed } from "./errors.js";
 import {
   AuthoringOwnerMismatch,
   AuthoringOwnerRequired,
@@ -60,7 +60,6 @@ import {
 
 /** Every failure the authoring feature and Pack membership edits construct. */
 export type AuthoringFamilyFailure =
-  | AuthoringFailed
   | CreateNameConfigured
   | CreateDestinationInspectionFailed
   | ForkPackageInvalid
@@ -135,8 +134,6 @@ const packManifestUnavailableFailure = (error: PackManifestUnavailable): StepFai
 /** Translate one authoring or Pack membership failure. */
 const renderAuthoringFailureDetails = (error: AuthoringFamilyFailure): StepFailure => {
   switch (error._tag) {
-    case "AuthoringFailed":
-      return renderCarriedFailure(error);
     case "CreateNameConfigured":
       return makeStepFailure({
         category: "conflict",
@@ -306,7 +303,7 @@ export const authoringFailureToStepFailure = (error: AuthoringFamilyFailure): St
     ...renderAuthoringFailureDetails(error),
     cause: error,
     diagnostic: {
-      kind: error._tag.replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase(),
+      kind: diagnosticKindOfTag(error._tag),
       operation: "workspace.operation",
     },
   });
@@ -315,7 +312,6 @@ export const authoringFailureToStepFailure = (error: AuthoringFamilyFailure): St
 export const authoringFailures = defineFailureFamily({
   classes: () =>
     [
-      AuthoringFailed,
       CreateNameConfigured,
       CreateDestinationInspectionFailed,
       ForkPackageInvalid,
@@ -353,7 +349,7 @@ export type AuthoringStepFailure =
   | ExtensionManagerFailure
   | ScaffoldedExtensionUnresolved
   | AuthoredPackageError
-  | AuthoringFailed
+  | OperationRefused
   | StepFailure;
 
 /** The sentence a transition's deciding failure reads with inside an authoring step. */

@@ -207,7 +207,8 @@ describe("Adopting existing packages", () => {
       const before = created.snapshot();
       const failure = yield* adopt(created, "@acme/skills/shared").pipe(Effect.flip);
       expect(failure).toMatchObject({
-        _tag: "AuthoringFailed",
+        _tag: "OperationRefused",
+        diagnostic: { kind: "authoring-failed" },
         category: "conflict",
         detail: expect.stringContaining("shared"),
       });

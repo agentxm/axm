@@ -13,7 +13,7 @@ import {
   InstallSelectionUnavailable,
 } from "@agentxm/workspace-kernel/operations";
 import { SettingsWriteError } from "@agentxm/workspace-kernel/workspace-state";
-import { WorkspaceConfigurationFailed } from "@agentxm/workspace-features/configuration";
+import { configurationRefused } from "@agentxm/workspace-features/configuration";
 import { WorkspaceRestorationIncomplete } from "@agentxm/workspace-kernel/settlement";
 import {
   AxmSkillGateUnavailable,
@@ -121,7 +121,7 @@ describe("the application boundary projection", () => {
 
   it.effect("names a deciding feature failure through the provided conversion", () =>
     Effect.gen(function* () {
-      const deciding = new WorkspaceConfigurationFailed({
+      const deciding = configurationRefused({
         category: "usage",
         detail: "Name at least one agent",
         recover: "Pass an agent ID.",

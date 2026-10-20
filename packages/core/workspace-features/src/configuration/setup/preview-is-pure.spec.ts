@@ -140,7 +140,10 @@ describe("Setup preview purity", () => {
               Effect.flip,
             );
 
-            expect(failure).toMatchObject({ _tag: "WorkspaceConfigurationFailed" });
+            expect(failure).toMatchObject({
+              _tag: "OperationRefused",
+              diagnostic: { kind: "workspace-configuration-failed" },
+            });
             expect(JSON.stringify(failure)).toContain("not-an-agent");
             expect(fixture.snapshot()).toEqual(before);
             expect(fixture.exists("axm.json")).toBe(false);

@@ -5,7 +5,7 @@ import type {
 } from "@agentxm/registry-access/authentication";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-import type { Doc, Span, WaitView } from "../../screen/index.js";
+import type { Doc, WaitView } from "../../screen/index.js";
 import { headlineDoc, paragraphDoc, successDoc } from "../../screen/index.js";
 
 export interface AuthViewEntry {
@@ -95,18 +95,12 @@ export const pendingDeviceSuggestions = (
   resumeAction(result),
 ];
 
-export const loginSuccessSuggestions = [
+export const loginSuccessSuggestions = (webOrigin: string): ReadonlyArray<SuggestedAction> => [
   { description: "Check active account", cmd: "axm whoami" },
   {
     description: "Create an API token in web settings",
-    url: "https://agentxm.ai/u/settings/tokens",
+    url: `${webOrigin}/u/settings/tokens`,
   },
-] satisfies ReadonlyArray<SuggestedAction>;
-
-/** A value a person copies out of the terminal: never wrapped, split, or cut. */
-const copyable = (label: string, value: string): ReadonlyArray<Span> => [
-  { text: `${label}: ` },
-  { text: value, copyable: true },
 ];
 
 /**
@@ -167,14 +161,6 @@ const handoffBrief = (handoff: HumanHandoff): Doc => {
           text: `Sign-in returns to ${handoff.redirectUri}. On a remote or headless machine, run \`axm login --device-code\`.`,
         },
       ];
-    case "PublishAuthorization":
-      return [
-        {
-          _tag: "paragraph",
-          text: `Review ${String(handoff.candidateCount)} publish candidate${handoff.candidateCount === 1 ? "" : "s"} in the browser.`,
-        },
-        { _tag: "paragraph", text: copyable("Review URL", handoff.authorizationUrl) },
-      ];
   }
 };
 
@@ -185,8 +171,6 @@ const handoffStatus = (handoff: HumanHandoff): string => {
       return "Waiting for you to sign in";
     case "LoopbackLogin":
       return `Waiting for browser sign-in on ${handoff.registryHost}`;
-    case "PublishAuthorization":
-      return "Waiting for your approval in the browser";
   }
 };
 
@@ -197,8 +181,6 @@ const handoffLabel = (handoff: HumanHandoff): string => {
       return "Terminal sign-in";
     case "LoopbackLogin":
       return "Browser sign-in";
-    case "PublishAuthorization":
-      return "Approved in browser";
   }
 };
 
@@ -212,8 +194,6 @@ const handoffDetail = (handoff: HumanHandoff): string => {
       return "approve the sign-in in a browser";
     case "LoopbackLogin":
       return "finish the sign-in in a browser";
-    case "PublishAuthorization":
-      return "approve the exact publication set in a browser";
   }
 };
 
@@ -224,8 +204,6 @@ const handoffSubject = (handoff: HumanHandoff): string => {
       return "device-authorization";
     case "LoopbackLogin":
       return "browser-authorization";
-    case "PublishAuthorization":
-      return "publish-authorization";
   }
 };
 
@@ -264,17 +242,20 @@ const signedInAs = (result: {
   readonly email?: string | undefined;
 }): string | undefined => result.email ?? result.handle;
 
-export const loginSuccessDoc = (result: {
-  readonly registryHost: string;
-  readonly handle?: string | undefined;
-  readonly email?: string | undefined;
-}): Doc => {
+export const loginSuccessDoc = (
+  result: {
+    readonly registryHost: string;
+    readonly handle?: string | undefined;
+    readonly email?: string | undefined;
+  },
+  webOrigin: string,
+): Doc => {
   const account = signedInAs(result);
   return successDoc(
     account === undefined
       ? `Signed in to ${result.registryHost}`
       : `Signed in to ${result.registryHost} as ${account}`,
-    { suggestions: loginSuccessSuggestions },
+    { suggestions: loginSuccessSuggestions(webOrigin) },
   );
 };
 export const loopbackStartView = (start: {

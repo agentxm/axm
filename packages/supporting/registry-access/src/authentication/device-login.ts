@@ -235,7 +235,7 @@ export const initiateDeviceLogin = (
     const registryHost = new URL(endpoint.href).host;
 
     if (!credStore.allowsPersistedCredentials) {
-      return yield* makePersistedCredentialsUnsupportedError();
+      return yield* makePersistedCredentialsUnsupportedError(endpoint.href);
     }
 
     const existing = yield* pendingStore.load();
@@ -306,7 +306,7 @@ export const resumeDeviceLogin = (
     const registryHost = new URL(endpoint.href).host;
 
     if (!credStore.allowsPersistedCredentials) {
-      return yield* makePersistedCredentialsUnsupportedError();
+      return yield* makePersistedCredentialsUnsupportedError(endpoint.href);
     }
 
     const loaded = yield* pendingStore.load();
@@ -452,14 +452,24 @@ export const resumeDeviceLogin = (
 export const runDeviceLogin = (
   endpoint: HttpRegistryEndpoint,
   options: RunDeviceLoginOptions = {},
-) =>
-  Effect.gen(function* () {
-    const pending = yield* initiateDeviceLogin(endpoint, {
-      restart: options.restart ?? false,
+) => {
+  const attempt = (restart: boolean) =>
+    Effect.gen(function* () {
+      const pending = yield* initiateDeviceLogin(endpoint, { restart });
+      const sideEffects = yield* openDeviceHandoff(pending, options);
+      return yield* resumeDeviceLogin(endpoint, {
+        sideEffects,
+        ...(options.timeoutSeconds === undefined ? {} : { timeoutSeconds: options.timeoutSeconds }),
+      });
     });
-    const sideEffects = yield* openDeviceHandoff(pending, options);
-    return yield* resumeDeviceLogin(endpoint, {
-      sideEffects,
-      ...(options.timeoutSeconds === undefined ? {} : { timeoutSeconds: options.timeoutSeconds }),
-    });
-  });
+  return attempt(options.restart ?? false).pipe(
+    Effect.catchIf(
+      (error) => error instanceof RegistryAccessFailed && error.category === "auth_expired",
+      () =>
+        Effect.gen(function* () {
+          yield* (yield* AuthLoginPresenter).noteDeviceCodeReplaced();
+          return yield* attempt(true);
+        }),
+    ),
+  );
+};

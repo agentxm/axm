@@ -58,13 +58,6 @@ export type HumanHandoff =
       readonly redirectUri: string;
       readonly expiresAtMs: number;
       readonly browserOpened: boolean;
-    }
-  /** Review of the exact publication set before Registry capabilities are issued. */
-  | {
-      readonly _tag: "PublishAuthorization";
-      readonly authorizationUrl: string;
-      readonly candidateCount: number;
-      readonly expiresAtMs: number;
     };
 
 /** The link a handoff parks on: what its open key opens and its copy key copies. */
@@ -74,8 +67,6 @@ export const handoffUrl = (handoff: HumanHandoff): string => {
       return handoff.verificationUriComplete;
     case "LoopbackLogin":
       return handoff.authorizeUrl;
-    case "PublishAuthorization":
-      return handoff.authorizationUrl;
   }
 };
 
@@ -110,6 +101,9 @@ export interface AuthLoginPresenterService {
   readonly noteLoopbackBrowserOutcome: (
     opened: boolean,
   ) => Effect.Effect<void, RegistryAccessFailed>;
+  readonly noteDeviceCodeReplaced: () => Effect.Effect<void, RegistryAccessFailed>;
+  readonly noteBrowserSignInRestarted: () => Effect.Effect<void, RegistryAccessFailed>;
+  readonly noteNewAccountDeviceSignIn: () => Effect.Effect<void, RegistryAccessFailed>;
   /** A still-valid session was found for the selected Registry. */
   readonly noteExistingSession: (handle: string) => Effect.Effect<void, RegistryAccessFailed>;
   /** Stored credentials were rejected, so a new sign-in starts. */
@@ -141,6 +135,9 @@ export interface AuthLoginPresenterTestState {
   readonly loopbackStarts: Array<{ readonly redirectUri: string; readonly authorizeUrl: string }>;
   readonly loopbackBrowserOutcomes: Array<boolean>;
   readonly existingSessions: Array<string>;
+  readonly deviceCodeReplacements: Array<true>;
+  readonly browserSignInRestarts: Array<true>;
+  readonly newAccountDeviceSignIns: Array<true>;
   readonly rejectedStoredCredentials: Array<true>;
   readonly deviceCodeFallbacks: Array<DeviceCodeFallbackReason>;
   readonly sessionReplacementPrompts: Array<true>;
@@ -159,6 +156,9 @@ export const AuthLoginPresenterTest = (overrides?: {
     loopbackStarts: [],
     loopbackBrowserOutcomes: [],
     existingSessions: [],
+    deviceCodeReplacements: [],
+    browserSignInRestarts: [],
+    newAccountDeviceSignIns: [],
     rejectedStoredCredentials: [],
     deviceCodeFallbacks: [],
     sessionReplacementPrompts: [],
@@ -191,6 +191,18 @@ export const AuthLoginPresenterTest = (overrides?: {
     noteLoopbackBrowserOutcome: (opened) =>
       Effect.sync(() => {
         state.loopbackBrowserOutcomes.push(opened);
+      }),
+    noteDeviceCodeReplaced: () =>
+      Effect.sync(() => {
+        state.deviceCodeReplacements.push(true);
+      }),
+    noteBrowserSignInRestarted: () =>
+      Effect.sync(() => {
+        state.browserSignInRestarts.push(true);
+      }),
+    noteNewAccountDeviceSignIn: () =>
+      Effect.sync(() => {
+        state.newAccountDeviceSignIns.push(true);
       }),
     noteExistingSession: (handle) =>
       Effect.sync(() => {

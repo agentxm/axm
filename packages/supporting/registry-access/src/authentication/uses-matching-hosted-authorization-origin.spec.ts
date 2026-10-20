@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as DateTime from "effect/DateTime";
 import * as HttpClient from "effect/http/HttpClient";
 import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -52,6 +53,7 @@ describe("Browser sign-in authorization origin", () => {
         const endpoint = decodeHttpRegistryEndpointSync(registry);
         const url = new URL(
           client.buildAuthorizeUrl(endpoint, {
+            expiresAt: DateTime.makeUnsafe("2026-05-12T12:00:00.000Z"),
             challenge: "fixture-challenge",
             state: "fixture-state",
             redirectUri: "http://127.0.0.1:49152/callback",

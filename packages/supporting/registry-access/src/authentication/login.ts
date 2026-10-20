@@ -34,7 +34,7 @@ import type {
 import type { LoginResult } from "./login-output.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
 import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
-import { runLoopbackLogin } from "../adapters/loopback-login.js";
+import { LOOPBACK_TIMEOUT_MINUTES, runLoopbackLogin } from "../adapters/loopback-login.js";
 import { selectLoginStrategy } from "./login-strategy.js";
 import { loginStrategyEnvironment } from "../adapters/environment.js";
 import { credentialKey } from "../credentials/credential-key.js";
@@ -46,6 +46,7 @@ export interface LoginRequest {
   /** Preapproval: start a new sign-in without asking about a valid session. */
   readonly yes: boolean;
   readonly deviceCode: boolean;
+  readonly newAccount: boolean;
   readonly restart: boolean;
   /** Start or resume device sign-in and wait this many seconds for approval. */
   readonly waitForHumanSeconds?: number;
@@ -89,8 +90,8 @@ export const deviceLoginOptions = (
  * How a loopback sign-in that could not complete is classified.
  *
  * A failed bind is recoverable — device-code sign-in replaces it — while an
- * expired wait or a rejected callback is terminal and leaves credentials
- * untouched.
+ * expired replacement wait or a rejected callback is terminal and leaves
+ * credentials untouched.
  */
 export const classifyLoopbackFailure = (
   error: LoopbackLoginFallback | LoopbackCallbackRejected,
@@ -98,7 +99,7 @@ export const classifyLoopbackFailure = (
   error._tag === "LoopbackLoginFallback"
     ? new RegistryAccessFailed({
         category: "auth",
-        detail: "Browser sign-in expired after 5 minutes. No credentials were changed.",
+        detail: `Browser sign-in expired after ${String(LOOPBACK_TIMEOUT_MINUTES)} minutes. No credentials were changed.`,
         suggestions: [
           { description: "Try browser sign-in again.", cmd: "axm login" },
           {
@@ -173,7 +174,7 @@ export const login = Effect.fn("Login.run")(function* (
   if (Option.isSome(incoherent)) return yield* Effect.fail(incoherent.value);
 
   if (!credentials.allowsPersistedCredentials) {
-    return yield* makePersistedCredentialsUnsupportedError();
+    return yield* makePersistedCredentialsUnsupportedError(endpoint.href);
   }
 
   const existing = yield* credentials.load(credentialKey(endpoint));
@@ -218,6 +219,7 @@ export const login = Effect.fn("Login.run")(function* (
   const deviceOptions = (openBrowser: boolean) => deviceLoginOptions(request, openBrowser);
 
   if (strategy === "device-code") {
+    if (request.newAccount && !request.machineOutput) yield* presenter.noteNewAccountDeviceSignIn();
     if (!namesFlow && !resumesPending && !unattended) {
       yield* presenter.noteDeviceCodeFallback("remote-or-headless");
     }
@@ -237,12 +239,19 @@ export const login = Effect.fn("Login.run")(function* (
     return { _tag: "SignedIn", result } as const satisfies LoginOutcome;
   }
 
-  const result = yield* Effect.suspend(() => runLoopbackLogin(endpoint)).pipe(
+  const result = yield* Effect.suspend(() =>
+    runLoopbackLogin(endpoint, { newAccount: request.newAccount }),
+  ).pipe(
     Effect.catchTag("LoopbackLoginFallback", (error) =>
       error.reason === "bind_failed"
         ? presenter
             .noteDeviceCodeFallback("loopback-bind-failed")
-            .pipe(Effect.andThen(runDeviceLogin(endpoint, deviceOptions(true))))
+            .pipe(
+              Effect.andThen(
+                request.newAccount ? presenter.noteNewAccountDeviceSignIn() : Effect.void,
+              ),
+              Effect.andThen(runDeviceLogin(endpoint, deviceOptions(true))),
+            )
         : Effect.fail(classifyLoopbackFailure(error)),
     ),
     Effect.catchTag("LoopbackCallbackRejected", (error) =>

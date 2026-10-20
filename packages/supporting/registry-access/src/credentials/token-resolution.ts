@@ -285,8 +285,8 @@ export const resolveRequiredToken = (
 
     const store = yield* CredentialStore;
     if (!store.allowsPersistedCredentials) {
-      return yield* makePersistedCredentialsUnsupportedError();
+      return yield* makePersistedCredentialsUnsupportedError(endpoint.href);
     }
 
-    return yield* signedOut();
+    return yield* signedOut(endpoint.href);
   });

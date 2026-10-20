@@ -10,6 +10,11 @@
  */
 
 import * as Data from "effect/Data";
+import {
+  decodeHttpRegistryEndpointSync,
+  type HttpRegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { webOriginForRegistry } from "./web-origin.js";
 import { isRegistryClientFailure, type RegistryClientFailure } from "@agentxm/registry-client";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
@@ -51,12 +56,16 @@ export class RegistryAccessFailed extends Data.TaggedError("RegistryAccessFailed
  * a signed-in person can hit may borrow it.
  */
 export class SignedOut extends Data.TaggedError("SignedOut")<{
+  readonly registryUrl: string;
   readonly message: string;
   readonly cause?: unknown;
 }> {}
 
-export const signedOut = (cause?: unknown, message = "You are not signed in."): SignedOut =>
-  new SignedOut({ message, ...(cause === undefined ? {} : { cause }) });
+export const signedOut = (
+  registryUrl: string,
+  cause?: unknown,
+  message = "You are not signed in.",
+): SignedOut => new SignedOut({ registryUrl, message, ...(cause === undefined ? {} : { cause }) });
 
 /**
  * Persisted credentials are unavailable by policy (for example in CI), so an
@@ -64,6 +73,7 @@ export const signedOut = (cause?: unknown, message = "You are not signed in."): 
  * fixed AXM_TOKEN_FILE / token-creation guidance.
  */
 export class AuthTokenPolicyRequired extends Data.TaggedError("AuthTokenPolicyRequired")<{
+  readonly registryUrl: string;
   readonly cause?: unknown;
 }> {}
 
@@ -92,7 +102,8 @@ export class RefreshUnavailable extends Data.TaggedError("RefreshUnavailable")<{
 }> {}
 
 /** Where a person registers a repository's workflow as a trusted publisher. */
-export const TRUSTED_PUBLISHER_SETTINGS_URL = "https://agentxm.ai/u/settings/trusted-publishers";
+export const trustedPublisherSettingsUrl = (endpoint: HttpRegistryEndpoint): string =>
+  `${webOriginForRegistry(endpoint)}/u/settings/trusted-publishers`;
 
 /** Why a GitHub Actions identity could not become a Registry credential. */
 export type WorkloadTokenUnavailableReason =
@@ -121,7 +132,7 @@ const WORKLOAD_TOKEN_UNAVAILABLE_DETAIL: Record<WorkloadTokenUnavailableReason, 
     "The Registry could not be reached to exchange this job's GitHub Actions identity for a token.",
 };
 
-const WORKLOAD_TOKEN_SUGGESTIONS: ReadonlyArray<SuggestedAction> = [
+const workloadTokenSuggestions = (registryUrl: string): ReadonlyArray<SuggestedAction> => [
   {
     description:
       "Add `id-token` with `write` access to the job's `permissions` so it can request a GitHub Actions ID token.",
@@ -129,7 +140,7 @@ const WORKLOAD_TOKEN_SUGGESTIONS: ReadonlyArray<SuggestedAction> = [
   {
     description:
       "Register this repository and workflow as a trusted publisher in AgentXM settings.",
-    url: TRUSTED_PUBLISHER_SETTINGS_URL,
+    url: trustedPublisherSettingsUrl(decodeHttpRegistryEndpointSync(registryUrl)),
   },
   {
     description:
@@ -148,8 +159,11 @@ export const workloadTokenUnavailable = (
     detail: WORKLOAD_TOKEN_UNAVAILABLE_DETAIL[reason],
     suggestions:
       reason === "exchange_unavailable"
-        ? [{ description: "Retry once the Registry is reachable." }, ...WORKLOAD_TOKEN_SUGGESTIONS]
-        : WORKLOAD_TOKEN_SUGGESTIONS,
+        ? [
+            { description: "Retry once the Registry is reachable." },
+            ...workloadTokenSuggestions(registryUrl),
+          ]
+        : workloadTokenSuggestions(registryUrl),
     ...(cause === undefined ? {} : { cause }),
   });
 

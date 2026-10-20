@@ -39,7 +39,7 @@ const pendingAuthorization = {
   verificationUri: "https://identity.example.test/device",
   verificationUriComplete: "https://identity.example.test/device?user_code=ABCD-1234",
   userCode: "ABCD-1234",
-  expiresAt: "1970-01-01T00:01:00.000Z",
+  expiresAt: "1970-01-01T00:15:00.000Z",
   resume: "axm login --device-code --wait-for-human 300 --json",
 } as const;
 

@@ -4021,6 +4021,14 @@
           }
         },
         {
+          "name": "new-account",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "wait-for-human",
           "rawHelp": {
             "aliases": [],
@@ -4084,6 +4092,10 @@
         {
           "parameters": ["flag:registry"],
           "requirements": ["cli/credentials-stay-with-their-registry"]
+        },
+        {
+          "parameters": ["flag:new-account"],
+          "requirements": ["cli/login/new-account-opens-account-creation"]
         }
       ]
     },

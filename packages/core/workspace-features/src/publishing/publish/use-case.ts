@@ -231,8 +231,12 @@ export interface PublishCandidateSet {
 }
 
 /** The one refusal a signed-out publish gets, wherever it is caught. */
-const publishingSignedOut = (registryName: string) =>
-  signedOut(undefined, `Publishing to ${registryName} requires you to be signed in.`);
+const publishingSignedOut = (registry: TargetRegistry) =>
+  signedOut(
+    registry.endpoint.href,
+    undefined,
+    `Publishing to ${registry.name} requires you to be signed in.`,
+  );
 
 /**
  * The pack/member reachability the local workspace represents, derived from
@@ -400,7 +404,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
     Option.isNone(storedToken) &&
     sourceAssessedCandidates.length > 0
   ) {
-    return yield* Effect.fail(publishingSignedOut(registry.name));
+    return yield* Effect.fail(publishingSignedOut(registry));
   }
   const workspaceDefaultVisibility = yield* settings.publishDefaultVisibility;
   const shouldPreviewAuthoritatively =
@@ -638,7 +642,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
    * that one. The plan never applies without the person's own credential.
    */
   const requireSignedIn: Effect.Effect<void, AuthError> = remoteUnauthenticated
-    ? Effect.fail(publishingSignedOut(registry.name))
+    ? Effect.fail(publishingSignedOut(registry))
     : Effect.void;
 
   // Invocation-local evidence of dispatched uploads: which candidates'

@@ -371,7 +371,7 @@ const startPendingDeviceAuthServer = async () => {
         verification_uri: verificationUri,
         verification_uri_complete: `${verificationUri}?user_code=ABCD-1234`,
         interval: 1,
-        expires_in: 600,
+        expires_in: 900,
       });
       return;
     }

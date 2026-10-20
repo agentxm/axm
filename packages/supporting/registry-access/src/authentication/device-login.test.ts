@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import { handle } from "../test-helpers.js";
 
 import { AuthClientTest } from "./auth-client.js";
-import { DeviceLoginCodeExpired, DeviceLoginDenied, RegistryAccessFailed } from "./errors.js";
+import { DeviceLoginDenied, RegistryAccessFailed } from "./errors.js";
 import { CredentialStore, CredentialStoreTest } from "../credentials/credential-store.js";
 import { initiateDeviceLogin, runDeviceLogin, DeviceLoginInteractionTest } from "./device-login.js";
 import { AuthLoginPresenterTest } from "./login-presenter.js";
@@ -28,7 +28,6 @@ const REGISTRY = decodeHttpRegistryEndpointSync(REGISTRY_URL);
 const makeLayers = (opts?: {
   readonly browserOpens?: boolean;
   readonly getMeFails?: boolean;
-  readonly deviceCodeExpired?: boolean;
   readonly deviceLoginDenied?: boolean;
   readonly abandonWaits?: boolean;
 }) => {
@@ -47,22 +46,20 @@ const makeLayers = (opts?: {
         return {
           device_code: "dc-123",
           user_code: "ABCD-1234",
-          verification_uri: "https://auth.agentxm.ai/device",
-          verification_uri_complete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          verification_uri: "https://agentxm.ai/device",
+          verification_uri_complete: "https://agentxm.ai/device?user_code=ABCD-1234",
           interval: 5,
-          expires_in: 600,
+          expires_in: 900,
         };
       }),
     pollDeviceToken: () =>
-      opts?.deviceCodeExpired
-        ? Effect.fail(new DeviceLoginCodeExpired())
-        : opts?.deviceLoginDenied
-          ? Effect.fail(new DeviceLoginDenied())
-          : Effect.succeed({
-              access_token: "axm_ses_new",
-              refresh_token: "axm_ref_new",
-              expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
-            }),
+      opts?.deviceLoginDenied
+        ? Effect.fail(new DeviceLoginDenied())
+        : Effect.succeed({
+            access_token: "axm_ses_new",
+            refresh_token: "axm_ref_new",
+            expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
+          }),
     getMe: () =>
       opts?.getMeFails
         ? Effect.fail(
@@ -110,14 +107,14 @@ describe("runDeviceLogin", () => {
         // Nothing reaches the clipboard unless the person asks during the wait.
         expect(interactionState.copyToClipboardCalls).toEqual([]);
         expect(interactionState.openBrowserCalls).toEqual([
-          "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          "https://agentxm.ai/device?user_code=ABCD-1234",
         ]);
         expect(presenterState.handoffs).toMatchObject([
           {
             _tag: "DeviceLogin",
             registryHost: "registry.agentxm.ai",
-            verificationUri: "https://auth.agentxm.ai/device",
-            verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+            verificationUri: "https://agentxm.ai/device",
+            verificationUriComplete: "https://agentxm.ai/device?user_code=ABCD-1234",
             userCode: "ABCD-1234",
             browserOpened: true,
           },
@@ -148,21 +145,6 @@ describe("runDeviceLogin", () => {
     );
   });
 
-  it.effect("reports server-derived expiry and does not save credentials", () => {
-    const { layer } = makeLayers({ deviceCodeExpired: true });
-
-    return Effect.gen(function* () {
-      const error = yield* Effect.flip(runDeviceLogin(REGISTRY, { openBrowser: false }));
-      expect(error).toMatchObject({
-        category: "auth_expired",
-        detail: "That code expired. Run axm login to get a new one.",
-      });
-
-      const store = yield* CredentialStore;
-      expect((yield* store.load(credentialKey(REGISTRY)))._tag).toBe("None");
-    }).pipe(Effect.provide(layer));
-  });
-
   it.effect("says the sign-in was canceled in the browser and changes nothing", () => {
     const { layer } = makeLayers({ deviceLoginDenied: true });
 
@@ -188,7 +170,7 @@ describe("runDeviceLogin", () => {
       expect(stopped).toMatchObject({
         _tag: "DeviceAuthorizationPending",
         waitEnded: { _tag: "Stopped" },
-        minutesLeft: 10,
+        minutesLeft: 15,
       });
 
       const pendingStore = yield* PendingDeviceLoginStore;
@@ -241,14 +223,14 @@ describe("resumable device login", () => {
           blockedOn: "human",
           retryable: true,
           flow: "started",
-          verificationUri: "https://auth.agentxm.ai/device",
-          verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          verificationUri: "https://agentxm.ai/device",
+          verificationUriComplete: "https://agentxm.ai/device?user_code=ABCD-1234",
           userCode: "ABCD-1234",
           resume: "axm login --device-code --wait-for-human 300 --json",
           action: {
             kind: "open-url",
-            url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-            fallbackUrl: "https://auth.agentxm.ai/device",
+            url: "https://agentxm.ai/device?user_code=ABCD-1234",
+            fallbackUrl: "https://agentxm.ai/device",
             code: "ABCD-1234",
           },
         });

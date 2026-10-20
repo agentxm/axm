@@ -140,7 +140,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
           verification_uri: "https://identity.example.test/device",
           verification_uri_complete: "https://identity.example.test/device?user_code=ABCD-1234",
           interval: 1,
-          expires_in: 60,
+          expires_in: 900,
         };
       }),
     pollDeviceToken: (_endpoint, code) =>
@@ -220,6 +220,7 @@ export const abandoningPresenter = {
 
 /** An unattended device sign-in request reporting through machine output. */
 export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): LoginRequest => ({
+  newAccount: false,
   yes: false,
   deviceCode: true,
   restart: false,

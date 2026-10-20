@@ -59,7 +59,12 @@ describe("registry-access envelope projection", () => {
   });
 
   it("renders the signed-out envelope with the command that ends it", () => {
-    const error = failureToAppError(new SignedOut({ message: "You are not signed in." }));
+    const error = failureToAppError(
+      new SignedOut({
+        registryUrl: "https://registry.agentxm.ai",
+        message: "You are not signed in.",
+      }),
+    );
     expect(error.code).toBe("auth_required");
     expect(error.detail).toBe("You are not signed in.");
     expect(error.blockedOn).toBe("human");
@@ -78,7 +83,9 @@ describe("registry-access envelope projection", () => {
   });
 
   it("renders the ambient-token-policy envelope", () => {
-    const error = failureToAppError(new AuthTokenPolicyRequired({}));
+    const error = failureToAppError(
+      new AuthTokenPolicyRequired({ registryUrl: "https://registry.agentxm.ai" }),
+    );
     expect(error.code).toBe("auth_required");
     expect(error.detail).toBe("No authentication token is available.");
     expect(error.blockedOn).toBe("human");
@@ -92,6 +99,22 @@ describe("registry-access envelope projection", () => {
         url: "https://agentxm.ai/u/settings/tokens",
       },
     ]);
+  });
+
+  it.each([
+    ["https://registry-dev.agentxm.ai", "https://web-dev.agentxm.ai"],
+    ["http://localhost:4310", "http://localhost:4210"],
+    ["https://registry.example.test", "https://registry.example.test"],
+  ])("uses %s for token settings recovery", (registryUrl, webOrigin) => {
+    for (const failure of [
+      new SignedOut({ registryUrl, message: "You are not signed in." }),
+      new AuthTokenPolicyRequired({ registryUrl }),
+    ]) {
+      expect(failureToAppError(failure).suggestions).toContainEqual({
+        description: "Create a personal access token in AgentXM.ai.",
+        url: `${webOrigin}/u/settings/tokens`,
+      });
+    }
   });
 
   it("renders the device-login terminal outcomes verbatim", () => {
@@ -117,8 +140,8 @@ describe("registry-access envelope projection", () => {
         intervalSeconds: 2,
         waitEnded: { _tag: "Elapsed", seconds: 30 },
         minutesLeft: 4,
-        verificationUri: "https://auth.agentxm.ai/device",
-        verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+        verificationUri: "https://agentxm.ai/device",
+        verificationUriComplete: "https://agentxm.ai/device?user_code=ABCD-1234",
         userCode: "ABCD-1234",
         expiresAt: "2026-08-10T16:05:00.000Z",
         resume: "axm login --device-code --wait-for-human 300 --json",
@@ -132,10 +155,10 @@ describe("registry-access envelope projection", () => {
       kind: "open-url",
       purpose: "login",
       registryUrl: "https://registry.example.test",
-      requestRef: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+      requestRef: "https://agentxm.ai/device?user_code=ABCD-1234",
       intervalSeconds: 2,
-      url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-      fallbackUrl: "https://auth.agentxm.ai/device",
+      url: "https://agentxm.ai/device?user_code=ABCD-1234",
+      fallbackUrl: "https://agentxm.ai/device",
       code: "ABCD-1234",
       expiresAt: "2026-08-10T16:05:00.000Z",
       resume: "axm login --device-code --wait-for-human 300 --json",
@@ -160,8 +183,8 @@ describe("registry-access envelope projection", () => {
           intervalSeconds: 2,
           waitEnded: { _tag: "Stopped" },
           minutesLeft,
-          verificationUri: "https://auth.agentxm.ai/device",
-          verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          verificationUri: "https://agentxm.ai/device",
+          verificationUriComplete: "https://agentxm.ai/device?user_code=ABCD-1234",
           userCode: "ABCD-1234",
           expiresAt: "2026-08-10T16:05:00.000Z",
           resume: "axm login --device-code --wait-for-human 300 --json",

@@ -79,7 +79,7 @@ const hookInstallArtifactPath = (entry: HookLockEntry, scope: JobStepArtifact["s
   );
 
 /** What an applied hook install presents, from its accepted lock entry. */
-export const hookInstallArtifact = (args: {
+const hookInstallArtifact = (args: {
   readonly lockEntry: HookLockEntry;
   readonly scope: JobStepArtifact["scope"];
   readonly agents: ReadonlyArray<string>;

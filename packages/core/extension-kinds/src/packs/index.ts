@@ -27,12 +27,9 @@ export {
   packDiscoveryDiagnostics,
   parsePackInstallRequest,
   planPackInstall,
-  preparePackInstallGraph,
   resolvePackSourceRequest,
   type PackInstallIntent,
   type PackInstallRequirements,
-  type PackSourceRequest,
-  type ParsedPackInstallRequest,
 } from "./lifecycle/install/plan.js";
 export {
   finalizePackUninstallIntent,
@@ -44,3 +41,10 @@ export {
   PACK_UNINSTALL_GRAPH_BLOCKER_ID,
   packUninstallRecoveryIdentifiers,
 } from "./lifecycle/uninstall/readiness.js";
+
+// Dependents' inferred types name these, so their declaration emit must be
+// able to; knip skips exports tagged public.
+/** @public */
+export type { PackSourceRequest } from "./lifecycle/install/plan.js";
+/** @public */
+export type { ParsedPackInstallRequest } from "./lifecycle/install/plan.js";

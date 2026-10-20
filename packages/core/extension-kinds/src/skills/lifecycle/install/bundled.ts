@@ -66,7 +66,7 @@ import {
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** One file of the bundled skill's source tree. */
-export interface BundledAxmSkillSourceFile {
+interface BundledAxmSkillSourceFile {
   /** Path relative to the skill's `src` directory. */
   readonly path: string;
   readonly base64: string;
@@ -94,10 +94,10 @@ export class BundledAxmSkillAsset extends ServiceMap.Service<
 
 const BUNDLED_AXM_SKILL_NAME = sanitizeName("axm");
 
-export const BUNDLED_AXM_SKILL_AUTHORED_BLOCKER =
+const BUNDLED_AXM_SKILL_AUTHORED_BLOCKER =
   "The official AXM skill is workspace-authored; bundled recovery will not overwrite its in-flight source.";
 
-export type BundledAxmSkillReadiness =
+type BundledAxmSkillReadiness =
   | { readonly readiness: "ready"; readonly canonicalPath: string }
   | {
       readonly readiness: "error";
@@ -107,11 +107,11 @@ export type BundledAxmSkillReadiness =
     };
 
 /** Where the bundled skill's canonical package sits. */
-export const bundledAxmSkillCanonicalPath = (layout: WorkspaceLayout, path: Path.Path): string =>
+const bundledAxmSkillCanonicalPath = (layout: WorkspaceLayout, path: Path.Path): string =>
   bundledSkillCanonicalRoot(path.join, layout, BUNDLED_AXM_SKILL_NAME);
 
 /** Whether bundled recovery may write, or must preserve an authored copy. */
-export const inspectBundledAxmSkillReadiness = Effect.gen(function* () {
+const inspectBundledAxmSkillReadiness = Effect.gen(function* () {
   const location = yield* WorkspaceLocation;
   const layout = yield* Ref.get(location.layout);
   const settings = yield* SettingsReader;

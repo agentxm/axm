@@ -82,7 +82,7 @@ const RULES_REGION = "rules";
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
 /** The parts of one Rule contributor its region generation is computed from. */
-export interface RuleRegionContributor {
+interface RuleRegionContributor {
   readonly name: string;
   readonly marker: string;
   readonly manifest: RuleManifest;
@@ -90,7 +90,7 @@ export interface RuleRegionContributor {
 }
 
 /** Input-only generation of the Rules region in one planned target. */
-export const rulesRegionGeneration = (
+const rulesRegionGeneration = (
   target: string,
   contributors: ReadonlyArray<RuleRegionContributor>,
 ): ProjectionDigest =>
@@ -107,7 +107,7 @@ export const rulesRegionGeneration = (
   ]);
 
 /** One Rule's block in the region: an optional title heading and its body. */
-export const renderRuleBlock = (args: {
+const renderRuleBlock = (args: {
   readonly manifest: RuleManifest;
   readonly body: string;
 }): string => {

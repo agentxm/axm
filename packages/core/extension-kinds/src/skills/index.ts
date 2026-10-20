@@ -5,11 +5,7 @@
  * @packageDocumentation
  */
 
-export {
-  SkillActivationUnsupported,
-  SkillDefinitionInvalid,
-  SkillMaterializationFailed,
-} from "./errors.js";
+export { SkillDefinitionInvalid, SkillMaterializationFailed } from "./errors.js";
 export {
   buildCompanionPackagesSection,
   planSkillInstall,
@@ -23,8 +19,4 @@ export {
   installBundledAxmSkill,
   planBundledAxmSkillInstall,
 } from "./lifecycle/install/bundled.js";
-export {
-  parseSkillUninstallRequest,
-  planSkillUninstall,
-  type SkillUninstallIntent,
-} from "./lifecycle/uninstall/plan.js";
+export { parseSkillUninstallRequest, planSkillUninstall } from "./lifecycle/uninstall/plan.js";

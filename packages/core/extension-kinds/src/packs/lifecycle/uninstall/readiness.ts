@@ -17,7 +17,7 @@ export const PACK_UNINSTALL_GRAPH_BLOCKER_ID =
 /** Executable Pack-uninstall blocker identities covered by recovery conformance. */
 export const packUninstallRecoveryIdentifiers = [PACK_UNINSTALL_GRAPH_BLOCKER_ID] as const;
 
-export interface PackUninstallGraphBlockerFact {
+interface PackUninstallGraphBlockerFact {
   readonly problemType: DesiredStateProblem["type"];
   readonly packs: ReadonlyArray<string>;
   readonly member?: { readonly type: string; readonly name: string };
@@ -26,7 +26,7 @@ export interface PackUninstallGraphBlockerFact {
 }
 
 /** Why a selected Pack's own package could not be read. */
-export type PackRetirementReason = "missing" | "invalid";
+type PackRetirementReason = "missing" | "invalid";
 
 /**
  * A selected Pack whose own package manifest is confirmed absent or

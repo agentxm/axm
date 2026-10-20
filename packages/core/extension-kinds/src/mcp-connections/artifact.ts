@@ -13,10 +13,10 @@ import {
   type NativeLocationOutcome,
 } from "@agentxm/workspace-kernel/locations";
 
-export const mcpConfigSurface = (scope: WorkspaceScope): string =>
+const mcpConfigSurface = (scope: WorkspaceScope): string =>
   `${settingsDisplayPath(scope)} / ${lockfileDisplayPath(scope)}`;
 
-export const mcpServerSourcePath = (scope: WorkspaceScope, entry: McpServerLockEntry): string =>
+const mcpServerSourcePath = (scope: WorkspaceScope, entry: McpServerLockEntry): string =>
   acquiredExtensionDisplayPathFromLockEntry(
     acquiredRootDisplayPath(scope),
     entry,

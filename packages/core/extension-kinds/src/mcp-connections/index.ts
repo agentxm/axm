@@ -22,12 +22,16 @@ export {
   planMcpServerInstall,
   resolveMcpServerSourceRequest,
   type McpServerInstallIntent,
-  type McpServerInstallSourceRequest,
-  type ParsedMcpServerInstallRequest,
 } from "./lifecycle/install/plan.js";
 export {
   parseMcpServerUninstallRequest,
   planMcpServerUninstall,
-  type McpServerUninstallIntent,
 } from "./lifecycle/uninstall/plan.js";
 export { settleMcpSourceIdentityFor } from "./source-identity.js";
+
+// Dependents' inferred types name these, so their declaration emit must be
+// able to; knip skips exports tagged public.
+/** @public */
+export type { McpServerInstallSourceRequest } from "./lifecycle/install/plan.js";
+/** @public */
+export type { ParsedMcpServerInstallRequest } from "./lifecycle/install/plan.js";

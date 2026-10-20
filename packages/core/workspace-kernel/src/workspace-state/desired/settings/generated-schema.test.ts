@@ -1,3 +1,4 @@
+import * as Predicate from "effect/Predicate";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,12 +13,9 @@ const generatedSchemasDir = resolve(
   "../../../../../../../apps/cli/site-content/__generated__/schemas",
 );
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const readGeneratedSchema = (name: string): Record<string, unknown> => {
   const parsed: unknown = JSON.parse(readFileSync(resolve(generatedSchemasDir, name), "utf8"));
-  if (!isRecord(parsed)) {
+  if (!Predicate.isObject(parsed)) {
     throw new Error(`Expected generated ${name} schema to contain a JSON object.`);
   }
   return parsed;
@@ -41,7 +39,7 @@ const generatedSchemaNames = [
 
 const getRecord = (record: Record<string, unknown>, key: string): Record<string, unknown> => {
   const value = record[key];
-  if (!isRecord(value)) {
+  if (!Predicate.isObject(value)) {
     throw new Error(`Expected ${key} to contain a JSON object.`);
   }
   return value;
@@ -57,7 +55,7 @@ const getPropertyNamesSchema = (
   schema: Record<string, unknown>,
   root: Record<string, unknown> = schema,
 ): Record<string, unknown> => {
-  if (isRecord(schema["propertyNames"])) {
+  if (Predicate.isObject(schema["propertyNames"])) {
     return schema["propertyNames"];
   }
 
@@ -74,7 +72,7 @@ const getPropertyNamesSchema = (
     const entries = schema[composition];
     if (Array.isArray(entries)) {
       for (const entry of entries) {
-        if (isRecord(entry)) {
+        if (Predicate.isObject(entry)) {
           try {
             return getPropertyNamesSchema(entry, root);
           } catch {
@@ -96,7 +94,7 @@ const getStringPattern = (schema: Record<string, unknown>): string | undefined =
   const allOf = schema["allOf"];
   if (Array.isArray(allOf)) {
     for (const entry of allOf) {
-      if (isRecord(entry) && typeof entry["pattern"] === "string") {
+      if (Predicate.isObject(entry) && typeof entry["pattern"] === "string") {
         return entry["pattern"];
       }
     }
@@ -107,7 +105,7 @@ const getStringPattern = (schema: Record<string, unknown>): string | undefined =
 
 const getFirstAnyOfRecord = (schema: Record<string, unknown>): Record<string, unknown> => {
   const anyOf = schema["anyOf"];
-  if (!Array.isArray(anyOf) || !isRecord(anyOf[0])) {
+  if (!Array.isArray(anyOf) || !Predicate.isObject(anyOf[0])) {
     throw new Error("Expected anyOf to contain an object arm.");
   }
   return anyOf[0];
@@ -124,11 +122,11 @@ const getAnnotatedAllOfRecord = (schema: Record<string, unknown>): Record<string
 
   const annotated = allOf.find(
     (entry) =>
-      isRecord(entry) &&
+      Predicate.isObject(entry) &&
       typeof entry["description"] === "string" &&
       Array.isArray(entry["examples"]),
   );
-  if (!isRecord(annotated)) {
+  if (!Predicate.isObject(annotated)) {
     throw new Error("Expected an allOf entry with description and examples.");
   }
   return annotated;
@@ -160,15 +158,17 @@ const findExamplesAnnotation = (
   }
   const allOf = schema["allOf"];
   if (Array.isArray(allOf)) {
-    const annotated = allOf.find((entry) => isRecord(entry) && Array.isArray(entry["examples"]));
-    if (isRecord(annotated)) {
+    const annotated = allOf.find(
+      (entry) => Predicate.isObject(entry) && Array.isArray(entry["examples"]),
+    );
+    if (Predicate.isObject(annotated)) {
       return annotated;
     }
   }
   const anyOf = schema["anyOf"];
   if (Array.isArray(anyOf)) {
     for (const branch of anyOf) {
-      if (!isRecord(branch)) continue;
+      if (!Predicate.isObject(branch)) continue;
       const found = findExamplesAnnotation(rootSchema, branch);
       if (found !== undefined) return found;
     }
@@ -196,20 +196,20 @@ describe("generated schemas", () => {
   it("includes the lint configuration surface", () => {
     const schema = readGeneratedSettingsSchema();
     const definitions = schema["definitions"];
-    expect(isRecord(definitions)).toBe(true);
-    if (!isRecord(definitions)) {
+    expect(Predicate.isObject(definitions)).toBe(true);
+    if (!Predicate.isObject(definitions)) {
       return;
     }
 
     const settingsDefinition = definitions["AxmSettings"];
-    expect(isRecord(settingsDefinition)).toBe(true);
-    if (!isRecord(settingsDefinition)) {
+    expect(Predicate.isObject(settingsDefinition)).toBe(true);
+    if (!Predicate.isObject(settingsDefinition)) {
       return;
     }
 
     const properties = settingsDefinition["properties"];
-    expect(isRecord(properties)).toBe(true);
-    if (!isRecord(properties)) {
+    expect(Predicate.isObject(properties)).toBe(true);
+    if (!Predicate.isObject(properties)) {
       return;
     }
 
@@ -345,7 +345,7 @@ describe("generated schemas", () => {
       expect(entry["examples"]).toEqual(expect.any(Array));
 
       const anyOf = entry["anyOf"];
-      if (!Array.isArray(anyOf) || !isRecord(anyOf[1])) {
+      if (!Array.isArray(anyOf) || !Predicate.isObject(anyOf[1])) {
         throw new Error(`Expected ${name} anyOf to contain an object arm.`);
       }
       const sourceField = getProperty(anyOf[1], "source");
@@ -360,7 +360,7 @@ describe("generated schemas", () => {
 
     const knowledgeEntry = getDefinition(settingsSchema, "KnowledgeEntry");
     const knowledgeArms = knowledgeEntry["anyOf"];
-    if (!Array.isArray(knowledgeArms) || !isRecord(knowledgeArms[1])) {
+    if (!Array.isArray(knowledgeArms) || !Predicate.isObject(knowledgeArms[1])) {
       throw new Error("Expected KnowledgeEntry anyOf to contain an object arm.");
     }
     expect(getProperty(knowledgeArms[1], "instructionEntry")["description"]).toContain(
@@ -407,7 +407,7 @@ describe("generated schemas", () => {
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
     const lockfile = getDefinition(lockSchema, "LockfileEncoded");
     const records = getRecord(getProperty(lockfile, "package"), "items")["anyOf"];
-    if (!Array.isArray(records) || !records.every(isRecord)) {
+    if (!Array.isArray(records) || !records.every(Predicate.isObject)) {
       throw new Error("Expected package record variants.");
     }
     const registryRecord = records.find((variant) =>
@@ -417,7 +417,7 @@ describe("generated schemas", () => {
     expect(getRecord(registryRecord, "properties")).toHaveProperty("manifest-identity");
     expect(getRecord(registryRecord, "properties")).not.toHaveProperty("resolvedSkills");
     const declared = getRecord(getProperty(registryRecord, "dependencies"), "items")["anyOf"];
-    if (!Array.isArray(declared) || !declared.every(isRecord)) {
+    if (!Array.isArray(declared) || !declared.every(Predicate.isObject)) {
       throw new Error("Expected Pack dependency variants.");
     }
     for (const dependency of declared)

@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import {
   AxmSkillCompatibilityPolicy,
   AxmSkillCompatibilityUnavailable,
@@ -17,16 +18,13 @@ import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extens
 import { parseSkillMd } from "@agentxm/extension-content";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const parseManifest = (content: Option.Option<string>) =>
   Option.match(content, {
     onNone: () => ({ official: false, version: null }),
     onSome: (text) => {
       try {
         const value: unknown = JSON.parse(text);
-        if (!isRecord(value)) return { official: false, version: null };
+        if (!Predicate.isReadonlyObject(value)) return { official: false, version: null };
         return {
           official:
             value["owner"] === "@agentxm" && value["type"] === "skill" && value["name"] === "axm",

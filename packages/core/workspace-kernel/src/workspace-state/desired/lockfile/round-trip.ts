@@ -1,4 +1,5 @@
 import * as Equal from "effect/Equal";
+import * as Predicate from "effect/Predicate";
 import { emitToolTables } from "./toml.js";
 import { prepareDocumentRoundTrip, type DocumentRoundTripContext } from "../document-round-trip.js";
 import { LOCKFILE_VERSION } from "./schema.js";
@@ -11,8 +12,6 @@ const tables = ["skills", "subagents", "rules", "hooks", "knowledge", "packs"];
 /** Array tables, dropped when empty so an empty array equals an absent one. */
 const arrays = ["package", "mcp"];
 
-const record = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 const parse = (raw: string): ParsedLockfileToml | undefined => {
   try {
     return parseLockfileToml(raw);
@@ -22,7 +21,7 @@ const parse = (raw: string): ParsedLockfileToml | undefined => {
 };
 const entries = (document: Record<string, unknown>, key: string): Record<string, unknown> => {
   const value = document[key];
-  return record(value) ? value : {};
+  return Predicate.isObject(value) ? value : {};
 };
 const projectionUnits = (
   document: Record<string, unknown>,
@@ -32,7 +31,7 @@ const normalize = (document: Record<string, unknown>): Record<string, unknown> =
   Object.fromEntries(
     Object.entries(document).filter(
       ([key, value]) =>
-        !(tables.includes(key) && record(value) && Object.keys(value).length === 0) &&
+        !(tables.includes(key) && Predicate.isObject(value) && Object.keys(value).length === 0) &&
         !(arrays.includes(key) && Array.isArray(value) && value.length === 0),
     ),
   );
@@ -49,7 +48,7 @@ const bindingUnits = (document: Record<string, unknown>): ReadonlySet<string> =>
   const mcp = document["mcp"];
   if (Array.isArray(mcp))
     for (const binding of mcp)
-      if (record(binding))
+      if (Predicate.isObject(binding))
         units.add(JSON.stringify(["lockfile", "mcp", binding["package"], binding["name"]]));
   return units;
 };

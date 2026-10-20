@@ -9,11 +9,12 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { parseJsonOptional, readAgentExtensions, readFileOptional } from "./reader-io.js";
-import { isTomlTable, parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
+import { parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 import { osHomeDirectory } from "@agentxm/host-primitives";
 
@@ -217,7 +218,7 @@ const parseVersionCatalog = (content: string, source: string): ReadonlyArray<Det
   );
 
   for (const entry of Object.values(libraries)) {
-    if (!isTomlTable(entry)) continue;
+    if (!Predicate.isReadonlyObject(entry)) continue;
 
     let groupId: string | undefined;
     let artifactId: string | undefined;
@@ -238,7 +239,7 @@ const parseVersionCatalog = (content: string, source: string): ReadonlyArray<Det
     const version =
       typeof declaredVersion === "string"
         ? declaredVersion
-        : isTomlTable(declaredVersion) && typeof declaredVersion["ref"] === "string"
+        : Predicate.isReadonlyObject(declaredVersion) && typeof declaredVersion["ref"] === "string"
           ? versions.get(declaredVersion["ref"])
           : undefined;
 

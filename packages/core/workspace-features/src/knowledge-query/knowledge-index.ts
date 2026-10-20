@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as Result from "effect/Result";
 import * as ServiceMap from "effect/Context";
+import * as Predicate from "effect/Predicate";
 import { createHash } from "node:crypto";
 import {
   type KnowledgeBundleFqn,
@@ -114,21 +115,16 @@ const encodeCursor = (payload: KnowledgeCursorPayload): string =>
   Buffer.from(JSON.stringify(payload)).toString("base64url");
 
 const isCursorPayload = (value: unknown): value is KnowledgeCursorPayload => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  if (!Predicate.isObject(value)) return false;
+  const offset = value["offset"];
   return (
-    "version" in value &&
-    value.version === CURSOR_VERSION &&
-    "corpusFingerprint" in value &&
-    typeof value.corpusFingerprint === "string" &&
-    "queryDigest" in value &&
-    typeof value.queryDigest === "string" &&
-    "offset" in value &&
-    typeof value.offset === "number" &&
-    Number.isSafeInteger(value.offset) &&
-    value.offset >= 0 &&
-    "issuedAt" in value &&
-    typeof value.issuedAt === "number" &&
-    Number.isSafeInteger(value.issuedAt)
+    value["version"] === CURSOR_VERSION &&
+    typeof value["corpusFingerprint"] === "string" &&
+    typeof value["queryDigest"] === "string" &&
+    typeof offset === "number" &&
+    Number.isSafeInteger(offset) &&
+    offset >= 0 &&
+    Number.isSafeInteger(value["issuedAt"])
   );
 };
 

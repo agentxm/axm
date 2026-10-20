@@ -1,6 +1,7 @@
 import type * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 import * as Result from "effect/Result";
+import * as Predicate from "effect/Predicate";
 import type {
   McpConfigTarget,
   McpEnvExpansion,
@@ -53,8 +54,6 @@ export interface McpAdoptionPreflight {
   readonly skipped: ReadonlyArray<McpAdoptionFinding>;
   readonly conflicts: ReadonlyArray<McpAdoptionFinding>;
 }
-const record = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 const strings = (value: unknown): value is ReadonlyArray<string> =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
 type NormalizedServer =
@@ -107,7 +106,7 @@ const normalizeServer = (args: {
     field: "env" | "headers",
   ): Readonly<Record<string, McpValue>> | undefined => {
     if (raw === undefined) return {};
-    if (!record(raw)) return undefined;
+    if (!Predicate.isReadonlyObject(raw)) return undefined;
     const result: Record<string, McpValue> = {};
     for (const [key, item] of Object.entries(raw).sort(([a], [b]) => a.localeCompare(b))) {
       if (typeof item !== "string") return undefined;
@@ -230,9 +229,11 @@ const normalizeServer = (args: {
     if (remote.envHeadersKey != null) {
       supported.add(remote.envHeadersKey);
       const mappings = config[remote.envHeadersKey];
-      if (mappings !== undefined && !record(mappings))
+      if (mappings !== undefined && !Predicate.isReadonlyObject(mappings))
         return block("Unsupported environment header bindings");
-      for (const [name, variable] of Object.entries(record(mappings) ? mappings : {})) {
+      for (const [name, variable] of Object.entries(
+        Predicate.isReadonlyObject(mappings) ? mappings : {},
+      )) {
         if (
           typeof variable !== "string" ||
           Object.keys(combined).some((key) => key.toLowerCase() === name.toLowerCase())
@@ -320,7 +321,7 @@ export const preflightMcpAdoptions = (args: {
         skipped.push({ name, reason: "Already configured" });
         continue;
       }
-      if (!record(value)) {
+      if (!Predicate.isReadonlyObject(value)) {
         conflictNames.add(name);
         conflicts.push({ name, reason: "Native MCP entry is not an object" });
         continue;

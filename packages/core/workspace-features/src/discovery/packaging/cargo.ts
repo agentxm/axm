@@ -9,10 +9,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { envOrHomePath, readAgentExtensions, readFileOptional } from "./reader-io.js";
-import { isTomlTable, parseTomlDocument, tomlTable, type TomlTable } from "./toml.js";
+import { parseTomlDocument, tomlTable, type TomlTable } from "./toml.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -55,7 +56,7 @@ const parseDependencyValue = (name: string, value: unknown): CargoDep => {
     return { name, version: value, isPathOrGit: false, packageName: undefined };
   }
 
-  if (isTomlTable(value)) {
+  if (Predicate.isReadonlyObject(value)) {
     if ("path" in value || "git" in value) {
       return { name, version: undefined, isPathOrGit: true, packageName: undefined };
     }

@@ -141,6 +141,35 @@ describe("production source boundary lint rules", () => {
     );
   });
 
+  it("reports hand-written plain-object guards in production source only", async () => {
+    const message =
+      "axm-policy/no-hand-written-object-guard: Use Predicate.isObject or Predicate.isReadonlyObject from effect/Predicate instead of a hand-written non-null, non-array object guard.";
+    const guard = 'const ok = typeof v === "object" && v !== null && !Array.isArray(v);';
+    expect(await violations(guard, PRODUCTION_SOURCE)).toEqual([message]);
+    expect(
+      await violations(
+        'const ok = n > 0 && v !== null && !Array.isArray(v) && typeof v === "object";',
+        PRODUCTION_SOURCE,
+      ),
+    ).toEqual([message]);
+    expect(
+      await violations(
+        'if (typeof v !== "object" || v === null || Array.isArray(v)) throw e;',
+        PRODUCTION_SOURCE,
+      ),
+    ).toEqual([message]);
+    expect(
+      await violations('const ok = typeof v === "object" && v !== null;', PRODUCTION_SOURCE),
+    ).toEqual([]);
+    expect(
+      await violations(
+        'const ok = typeof a === "object" && b !== null && !Array.isArray(a);',
+        PRODUCTION_SOURCE,
+      ),
+    ).toEqual([]);
+    expect(await violations(guard, "apps/cli/src/root/packs/add.test.ts")).toEqual([]);
+  });
+
   it("governs the result shape rather than the word, so prose stays writable", async () => {
     expect(
       await violations(

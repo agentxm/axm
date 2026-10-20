@@ -3,6 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
+import * as Predicate from "effect/Predicate";
 import type {
   CanonicalObservation,
   CanonicalObservationStatus,
@@ -94,13 +95,10 @@ export const selectOfficialAxmSkill = (
   return Option.none();
 };
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const manifestVersion = (content: string): string | null => {
   try {
     const parsed: unknown = JSON.parse(content);
-    if (!isRecord(parsed)) return null;
+    if (!Predicate.isReadonlyObject(parsed)) return null;
     const version = parsed["version"];
     return typeof version === "string" ? version : null;
   } catch {

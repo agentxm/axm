@@ -11,6 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Option from "effect/Option";
 import * as PlatformError from "effect/PlatformError";
+import * as Predicate from "effect/Predicate";
 import { describe, expect, it } from "@effect/vitest";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { afterEach } from "vitest";
@@ -66,16 +67,11 @@ const initializeGit = (root: string): void => {
 /** Declare one more Skill than the workspace has installed. */
 const addDeclaredSkill = (settingsText: string): string => {
   const settings: unknown = JSON.parse(settingsText);
-  if (typeof settings !== "object" || settings === null || Array.isArray(settings)) {
+  if (!Predicate.isObject(settings)) {
     throw new Error("Expected object-valued workspace settings");
   }
-  const configuredSkills = "skills" in settings ? settings.skills : undefined;
-  const skills =
-    typeof configuredSkills === "object" &&
-    configuredSkills !== null &&
-    !Array.isArray(configuredSkills)
-      ? configuredSkills
-      : {};
+  const configuredSkills = settings["skills"];
+  const skills = Predicate.isObject(configuredSkills) ? configuredSkills : {};
   return `${JSON.stringify(
     { ...settings, skills: { ...skills, demo: "@acme/skills/demo" } },
     null,

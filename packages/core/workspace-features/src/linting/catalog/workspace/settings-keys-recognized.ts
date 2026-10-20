@@ -15,6 +15,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import * as Predicate from "effect/Predicate";
 import {
   SETTINGS_KNOWN_KEYS,
   settingsDisplayPath,
@@ -53,15 +54,12 @@ const closestKnownKey = (key: string): string | undefined => {
   return best?.candidate;
 };
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 // `workspace/settings-schema-valid` owns the invalid-JSON arm; this rule stays
 // quiet unless the bytes parse to a plain object.
 const parseJsonRecord = (raw: string): Readonly<Record<string, unknown>> | undefined => {
   try {
     const value: unknown = JSON.parse(raw);
-    return isRecord(value) ? value : undefined;
+    return Predicate.isReadonlyObject(value) ? value : undefined;
   } catch {
     return undefined;
   }

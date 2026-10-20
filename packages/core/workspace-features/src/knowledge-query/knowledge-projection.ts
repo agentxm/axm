@@ -1,3 +1,4 @@
+import * as Predicate from "effect/Predicate";
 import type {
   KnowledgeActorRecord,
   KnowledgeAuthoredLink,
@@ -82,9 +83,6 @@ const pointerToken = (token: string): string | undefined => {
   return token.replace(/~1/gu, "/").replace(/~0/gu, "~");
 };
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 /** Resolve one RFC 6901 JSON Pointer against the preserved frontmatter mapping. */
 export const resolveKnowledgeFrontmatterPointer = (
   frontmatter: Readonly<Record<string, unknown>> | undefined,
@@ -109,7 +107,7 @@ export const resolveKnowledgeFrontmatterPointer = (
       current = current[index];
       continue;
     }
-    if (isRecord(current)) {
+    if (Predicate.isReadonlyObject(current)) {
       if (!Object.prototype.hasOwnProperty.call(current, token)) {
         return { found: false, reason: "not-found" };
       }

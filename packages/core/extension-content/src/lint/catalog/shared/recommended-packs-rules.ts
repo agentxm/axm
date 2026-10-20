@@ -18,6 +18,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Predicate from "effect/Predicate";
 import { splitExtensionReference } from "@agentxm/extension-model/unstable/extensions/common";
 import type { AdvisoryFinding, AdvisoryRule } from "../../rule.js";
 import { isManifestJsonParseFailure } from "./manifest-json.js";
@@ -36,16 +37,17 @@ export interface RecommendedPacksRuleOptions<C> {
   readonly manifestJson: (context: C) => unknown;
 }
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 /**
  * Narrow a caller-decoded manifest value to a plain record, or `undefined`
  * when there is nothing for these rules to read. Absent manifests are the
  * `-present` rule's problem; unparseable ones are the `-schema-valid` rule's.
  */
 const manifestRecord = (input: unknown): Readonly<Record<string, unknown>> | undefined => {
-  if (input === undefined || isManifestJsonParseFailure(input) || !isRecord(input)) {
+  if (
+    input === undefined ||
+    isManifestJsonParseFailure(input) ||
+    !Predicate.isReadonlyObject(input)
+  ) {
     return undefined;
   }
   return input;

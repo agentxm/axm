@@ -3,6 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 
 import {
   ForkPackageConflict,
@@ -36,9 +37,6 @@ export interface ForkExtensionPackageArgs {
   };
   readonly target: ExtensionFqnParts;
 }
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const readJson = (
   filePath: string,
@@ -172,7 +170,7 @@ export const forkExtensionPackage = (
       ),
     );
     yield* validateSourceIdentity(identity, args.sourceIdentity);
-    if (!isRecord(raw)) {
+    if (!Predicate.isReadonlyObject(raw)) {
       return yield* new ForkPackageInvalid({
         detail: `Fork source manifest must contain a JSON object: ${sourceManifestPath}`,
       });

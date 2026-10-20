@@ -11,6 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as JsonPatch from "effect/JsonPatch";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 import { SettingsWriteError } from "./errors.js";
 import { protectWorkspacePath, recordFootprint } from "../../../settlement/index.js";
 import {
@@ -37,6 +38,11 @@ export const createDefaultSettings = (): Settings => ({});
 // Key Ordering
 // -----------------------------------------------------------------------------
 
+const isEmptySettingsConfig = (key: string, value: unknown): boolean => {
+  if (key !== "knowledgeConfig" || !Predicate.isReadonlyObject(value)) return false;
+  return value["instructions"] !== false;
+};
+
 /**
  * Reorder settings keys to match the canonical schema order.
  *
@@ -45,14 +51,6 @@ export const createDefaultSettings = (): Settings => ({});
  *
  * @experimental This API is unstable and may change without notice.
  */
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isEmptySettingsConfig = (key: string, value: unknown): boolean => {
-  if (key !== "knowledgeConfig" || !isRecord(value)) return false;
-  return value["instructions"] !== false;
-};
-
 const orderSettingsRecord = (
   settings: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> => {

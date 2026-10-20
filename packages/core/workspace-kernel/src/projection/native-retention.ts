@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import {
   invalidNativeConfig,
   parseNativeConfigRoot,
@@ -92,7 +93,7 @@ const keyContent = (
         onFailure: invalidNativeConfig(format, unit.address.path),
       });
       for (const key of unit.address.keys) {
-        if (typeof value !== "object" || value === null || Array.isArray(value))
+        if (!Predicate.isObject(value))
           return yield* new ProjectionIoFailed({
             path: unit.address.path,
             step: "inspect",

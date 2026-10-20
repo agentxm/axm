@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 import { McpConnectionSchema } from "@agentxm/workspace-kernel/agent-adapters";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
@@ -10,16 +11,13 @@ import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/mcps-transport-exclusivity";
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const hasOwnValue = (entry: Readonly<Record<string, unknown>>, key: string): boolean =>
   Object.hasOwn(entry, key) && entry[key] !== undefined;
 
 const parseSettings = (bytes: string): Readonly<Record<string, unknown>> | undefined => {
   try {
     const parsed: unknown = JSON.parse(bytes);
-    return isRecord(parsed) ? parsed : undefined;
+    return Predicate.isObject(parsed) ? parsed : undefined;
   } catch {
     return undefined;
   }
@@ -63,9 +61,9 @@ export const mcpServerTransportExclusivityRule: AdvisoryRule<WorkspaceRuleContex
       const settings = parseSettings(raw.success.value.bytes);
       if (settings === undefined) return EMPTY_ADVISORY_FINDINGS;
       const mcpServers = settings["mcpServers"];
-      if (!isRecord(mcpServers)) return EMPTY_ADVISORY_FINDINGS;
+      if (!Predicate.isObject(mcpServers)) return EMPTY_ADVISORY_FINDINGS;
       return Object.entries(mcpServers).flatMap(([name, entry]) => {
-        if (!isRecord(entry)) return [];
+        if (!Predicate.isObject(entry)) return [];
         const reason = transportError(entry);
         return reason === undefined
           ? []

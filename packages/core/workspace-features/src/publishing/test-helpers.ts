@@ -36,6 +36,7 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
+import * as Predicate from "effect/Predicate";
 
 import type { GitDirectoryComparisonService } from "@agentxm/workspace-kernel/sources";
 import { GitDirectoryComparisonTest } from "@agentxm/workspace-kernel/sources/testing";
@@ -230,7 +231,7 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
   };
   const readSettings = (): Readonly<Record<string, unknown>> => {
     const parsed: unknown = JSON.parse(fs.readFileSync(nodePath.join(root, "axm.json"), "utf8"));
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    if (!Predicate.isObject(parsed)) {
       throw new Error("Expected axm.json to contain an object");
     }
     return Object.fromEntries(Object.entries(parsed));

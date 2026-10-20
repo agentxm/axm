@@ -13,13 +13,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
 import { parseNativeConfigRoot, type NativeConfigRootFailure } from "../native-config-syntax.js";
 import { assertNativeMutationWithin } from "../../locations/index.js";
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** Where a native MCP config target lives on disk for this workspace. */
 export const resolveAgentMcpConfigTargetPath = (
@@ -107,7 +105,7 @@ const readServersMap = (
     for (const [index, key] of serversPath.entries()) {
       const value = Object.hasOwn(current, key) ? current[key] : undefined;
       if (value === undefined) return undefined;
-      if (!isRecord(value))
+      if (!Predicate.isObject(value))
         return yield* new McpConfigInvalid({
           detail: `Invalid MCP config format: ${configPath} (${serversPath.slice(0, index + 1).join(".")} must be an object)`,
         });
@@ -188,7 +186,7 @@ export const readNativeMcpServers = (
     Effect.map((servers) =>
       Object.fromEntries(
         Object.entries(servers).filter((entry): entry is [string, Record<string, unknown>] =>
-          isRecord(entry[1]),
+          Predicate.isObject(entry[1]),
         ),
       ),
     ),
@@ -201,6 +199,6 @@ export const readNativeMcpEntry = (
   readNativeMcpValues(args).pipe(
     Effect.map((values) => {
       const entry = values[args.serverName];
-      return isRecord(entry) ? Option.some(entry) : Option.none();
+      return Predicate.isObject(entry) ? Option.some(entry) : Option.none();
     }),
   );

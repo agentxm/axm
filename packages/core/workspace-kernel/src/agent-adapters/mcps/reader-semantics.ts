@@ -7,13 +7,13 @@ import type {
   McpTypeFieldRepresentation,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import * as Option from "effect/Option";
+import * as Predicate from "effect/Predicate";
 
-const record = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 const strings = (value: unknown): value is ReadonlyArray<string> =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
 const stringMap = (value: unknown): value is Readonly<Record<string, string>> =>
-  record(value) && Object.values(value).every((item) => typeof item === "string");
+  Predicate.isReadonlyObject(value) &&
+  Object.values(value).every((item) => typeof item === "string");
 type Transport = "stdio" | "streamable-http" | "sse";
 const discriminatorValue = (field: McpTypeFieldRepresentation, transport: Transport) =>
   typeof field.value === "string"
@@ -82,7 +82,7 @@ export const interpretNativeMcpEntry = (args: {
   readonly envExpansion?: McpEnvExpansion;
 }): Option.Option<Readonly<Record<string, unknown>>> => {
   const { entry, config } = args;
-  if (!record(entry)) return Option.none();
+  if (!Predicate.isReadonlyObject(entry)) return Option.none();
   const activationNames = config.activationField.accepted.flatMap((field) =>
     field === null ? [] : [field.name],
   );

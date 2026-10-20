@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 import { formatSchemaIssuesToLines } from "@agentxm/extension-model/unstable/schema-issues";
 import { LEGACY_LOCK_FILENAME } from "../../workspace/constants.js";
 import type { RawSourceBytes } from "../source-bytes.js";
@@ -76,12 +77,7 @@ export const decodeLockfileBytes = Effect.fn("workspace.read-model.state.lockfil
             })
           : new LockfileParseError({ path, raw: bytes, cause }),
     });
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      !Array.isArray(parsed) &&
-      Object.hasOwn(parsed, "version")
-    ) {
+    if (Predicate.isObject(parsed) && Object.hasOwn(parsed, "version")) {
       const observedVersion: unknown = Reflect.get(parsed, "version");
       if (
         typeof observedVersion === "number" &&

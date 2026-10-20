@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import {
   assertNativeMutationWithinRoots,
   assertNoPhysicalOverlap,
@@ -22,9 +23,6 @@ import {
 } from "./managed-groups.js";
 import { readFileStringIfPresent } from "@agentxm/host-primitives";
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const hooksForOwner = (
   hooks: Readonly<Record<string, unknown>>,
   owner: HookNativeDeclaration,
@@ -33,7 +31,7 @@ const hooksForOwner = (
   for (const [event, groups] of Object.entries(hooks)) {
     if (!Array.isArray(groups)) continue;
     const matching = groups.flatMap((group): ReadonlyArray<Record<string, unknown>> => {
-      if (!isRecord(group)) return [];
+      if (!Predicate.isObject(group)) return [];
       if (!Array.isArray(group["hooks"])) return isDeclaredHookEntry(group, [owner]) ? [group] : [];
       const entries = group["hooks"].filter((entry) => isDeclaredHookEntry(entry, [owner]));
       return entries.length === 0 ? [] : [{ ...group, hooks: entries }];

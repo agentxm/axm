@@ -11,8 +11,4 @@
 
 export { exemptedObligations } from "./exemptions.js";
 export { EXTENSION_LIFECYCLE_CONTRACT } from "./lifecycle.js";
-export {
-  obligationsVerifiedBy,
-  type ObligationId,
-  type ObligationIdForTier,
-} from "./obligations.js";
+export { type ObligationId, type ObligationIdForTier } from "./obligations.js";

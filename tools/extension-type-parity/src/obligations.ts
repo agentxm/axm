@@ -19,14 +19,13 @@
  * Suite that mechanically verifies an obligation. Each conformance suite can
  * only observe its own tier, so every suite filters the ledger by this
  * discriminator before comparing against what it observed.
+ *
+ * @experimental This API is unstable and may change without notice.
  */
-export const OBLIGATION_TIERS = ["core-test", "cli-test", "e2e"] as const;
+export type ObligationTier = "core-test" | "cli-test" | "e2e";
 
 /** @experimental This API is unstable and may change without notice. */
-export type ObligationTier = (typeof OBLIGATION_TIERS)[number];
-
-/** @experimental This API is unstable and may change without notice. */
-export const OBLIGATION_IDS = [
+const OBLIGATION_IDS = [
   "2.6-accepted-resolution",
   "6.1-e2e-install-row",
   "6.2-lifecycle-postconditions",

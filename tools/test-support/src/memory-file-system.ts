@@ -5,12 +5,12 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as PlatformError from "effect/PlatformError";
 
-export interface MemoryFileSystemCall {
+interface MemoryFileSystemCall {
   readonly method: string;
   readonly path: string;
 }
 
-export type MemoryFileType = "directory" | "file" | "symlink";
+type MemoryFileType = "directory" | "file" | "symlink";
 
 export interface FileStore {
   readonly exists: (target: string) => boolean;

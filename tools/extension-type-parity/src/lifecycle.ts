@@ -16,22 +16,16 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** Mutation verbs every registry-distributed extension exposes. */
-export const LIFECYCLE_MUTATION_VERBS = [
-  "install",
-  "update",
-  "enable",
-  "disable",
-  "uninstall",
-] as const;
+const LIFECYCLE_MUTATION_VERBS = ["install", "update", "enable", "disable", "uninstall"] as const;
 
 /** @experimental This API is unstable and may change without notice. */
-export type LifecycleMutationVerb = (typeof LIFECYCLE_MUTATION_VERBS)[number];
+type LifecycleMutationVerb = (typeof LIFECYCLE_MUTATION_VERBS)[number];
 
 /** How user-scope materialization is decided for a type. */
-export type LifecycleScopeSupport = "native" | "agent-capability-dependent";
+type LifecycleScopeSupport = "native" | "agent-capability-dependent";
 
 /** How a type selects a single configured target for update conformance. */
-export type LifecycleUpdateSelection = "all" | "name-filter";
+type LifecycleUpdateSelection = "all" | "name-filter";
 
 /** @experimental This API is unstable and may change without notice. */
 export interface ExtensionLifecycleContract {

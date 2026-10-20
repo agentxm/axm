@@ -3,7 +3,7 @@ import boundaries from "eslint-plugin-boundaries";
 const sourceExtension = "{ts,tsx,mts,cts,js,jsx,mjs,cjs}";
 
 /** The same native file descriptors classify imports and capability graphs. */
-export function capabilityFileRules(elements, declaredRoles = []) {
+function capabilityFileRules(elements, declaredRoles = []) {
   const inCapabilities = (suffix) =>
     elements.flatMap(({ pattern }) => [pattern].flat().map((root) => `${root}/${suffix}`));
   return [

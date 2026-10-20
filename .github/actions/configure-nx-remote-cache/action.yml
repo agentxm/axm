@@ -1,0 +1,90 @@
+name: Configure Nx remote cache
+description: >-
+  Export the stock Nx self-hosted remote-cache client settings
+  (NX_SELF_HOSTED_REMOTE_CACHE_SERVER, NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN
+  and NX_SKIP_REMOTE_CACHE) to later steps of the job, and always export
+  NX_CACHE_FAILURES=false so failed task results are never cached. Remote
+  access is skipped when the repository bypass is true, when the job already
+  sets NX_SKIP_REMOTE_CACHE=true, for Dependabot and for pull requests from
+  forks, and when neither URL nor token is configured. A partial or malformed
+  configuration fails the step instead of silently disabling the cache. The
+  token is masked before it is exported. The action reads only its inputs and
+  the job environment, never the caller's checkout, so other repositories can
+  call it at a full commit SHA.
+
+inputs:
+  bypass:
+    description: >-
+      Repository-level bypass, normally `vars.NX_SKIP_REMOTE_CACHE`. Must be
+      `true`, `false` or empty; `true` disables remote access for the job.
+    required: false
+    default: ""
+  url:
+    description: >-
+      HTTPS origin of the Nx remote-cache server, with an optional port and
+      trailing slash and no path. Empty together with an empty token disables
+      remote caching.
+    required: false
+    default: ""
+  token:
+    description: >-
+      Remote-cache credential. Pass a read-only credential to every consumer and
+      a writer only to a trusted producer job. Must not contain line breaks.
+    required: false
+    default: ""
+  actor:
+    description: >-
+      The triggering actor, normally `github.actor`. Dependabot
+      (`dependabot[bot]`) never receives remote access. Required: an empty
+      value fails the step.
+    required: true
+  fork:
+    description: >-
+      Whether the run comes from a fork pull request, normally
+      `github.event.pull_request.head.repo.fork || false`. Must be `true` or
+      `false`; fork runs never receive remote access.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Configure native Nx remote caching
+      shell: bash
+      env:
+        REMOTE_CACHE_URL: ${{ inputs.url }}
+        REMOTE_CACHE_TOKEN: ${{ inputs.token }}
+        CACHE_BYPASS: ${{ inputs.bypass }}
+        CACHE_ACTOR: ${{ inputs.actor }}
+        CACHE_FORK: ${{ inputs.fork }}
+      run: |
+        echo "NX_CACHE_FAILURES=false" >> "$GITHUB_ENV"
+        if [[ -n "$CACHE_BYPASS" && "$CACHE_BYPASS" != "true" && "$CACHE_BYPASS" != "false" ]]; then
+          echo "::error::NX_SKIP_REMOTE_CACHE repository variable must be true or false"
+          exit 1
+        fi
+        if [[ -z "$CACHE_ACTOR" || ( "$CACHE_FORK" != "true" && "$CACHE_FORK" != "false" ) ]]; then
+          echo "::error::Remote cache setup requires the actor and a true or false fork input"
+          exit 1
+        fi
+        if [[ "$CACHE_BYPASS" == "true" || "${NX_SKIP_REMOTE_CACHE:-false}" == "true" || "$CACHE_ACTOR" == 'dependabot[bot]' || "$CACHE_FORK" == true ]]; then
+          echo "NX_SKIP_REMOTE_CACHE=true" >> "$GITHUB_ENV"
+          exit 0
+        fi
+        if [[ -z "$REMOTE_CACHE_URL" && -z "$REMOTE_CACHE_TOKEN" ]]; then
+          echo "NX_SKIP_REMOTE_CACHE=true" >> "$GITHUB_ENV"
+          exit 0
+        fi
+        if [[ -z "$REMOTE_CACHE_URL" || -z "$REMOTE_CACHE_TOKEN" ]]; then
+          echo "::error::Remote cache requires both URL and credential"
+          exit 1
+        fi
+        if [[ ! "$REMOTE_CACHE_URL" =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?/?$ || "$REMOTE_CACHE_TOKEN" == *$'\n'* || "$REMOTE_CACHE_TOKEN" == *$'\r'* ]]; then
+          echo "::error::Invalid remote cache configuration"
+          exit 1
+        fi
+        echo "::add-mask::$REMOTE_CACHE_TOKEN"
+        {
+          echo "NX_SELF_HOSTED_REMOTE_CACHE_SERVER=${REMOTE_CACHE_URL%/}"
+          echo "NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=$REMOTE_CACHE_TOKEN"
+          echo "NX_SKIP_REMOTE_CACHE=false"
+        } >> "$GITHUB_ENV"

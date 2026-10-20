@@ -21,15 +21,16 @@ import type {
   SkillLockEntry,
   SubagentLockEntry,
 } from "../desired/lockfile/schema.js";
-import type {
-  HookEntry,
-  KnowledgeEntry,
-  McpServerEntry,
-  PackEntry,
-  RuleEntry,
-  Settings,
-  SkillEntry,
-  SubagentEntry,
+import {
+  SETTINGS_ENTRY_KEYS,
+  type HookEntry,
+  type KnowledgeEntry,
+  type McpServerEntry,
+  type PackEntry,
+  type RuleEntry,
+  type Settings,
+  type SkillEntry,
+  type SubagentEntry,
 } from "../desired/settings/schema.js";
 
 /** The settings entry type declared for each installable extension type. */
@@ -125,37 +126,37 @@ export const settingsEntries: {
   readonly [T in InstallableExtensionType]: SettingsEntriesAccessor<SettingsEntryByType[T]>;
 } = {
   skill: settingsAccessor(
-    (settings) => settings.skills ?? {},
-    (settings, skills) => ({ ...settings, skills }),
+    (settings) => settings[SETTINGS_ENTRY_KEYS.skill] ?? {},
+    (settings, entries) => ({ ...settings, [SETTINGS_ENTRY_KEYS.skill]: entries }),
     (enabled) => ({ kind: "configuration", enabled }),
   ),
   pack: settingsAccessor(
-    (settings) => settings.packs ?? {},
-    (settings, packs) => ({ ...settings, packs }),
+    (settings) => settings[SETTINGS_ENTRY_KEYS.pack] ?? {},
+    (settings, entries) => ({ ...settings, [SETTINGS_ENTRY_KEYS.pack]: entries }),
   ),
   "mcp-server": settingsAccessor(
-    (settings) => settings.mcpServers ?? {},
-    (settings, mcpServers) => ({ ...settings, mcpServers }),
+    (settings) => settings[SETTINGS_ENTRY_KEYS["mcp-server"]] ?? {},
+    (settings, entries) => ({ ...settings, [SETTINGS_ENTRY_KEYS["mcp-server"]]: entries }),
     (enabled) => ({ kind: "configuration", enabled, env: {} }),
   ),
   subagent: settingsAccessor(
-    (settings) => settings.subagents ?? {},
-    (settings, subagents) => ({ ...settings, subagents }),
+    (settings) => settings[SETTINGS_ENTRY_KEYS.subagent] ?? {},
+    (settings, entries) => ({ ...settings, [SETTINGS_ENTRY_KEYS.subagent]: entries }),
     (enabled) => ({ kind: "configuration", enabled }),
   ),
   rule: settingsAccessor(
-    (settings) => settings.rules ?? {},
-    (settings, rules) => ({ ...settings, rules }),
+    (settings) => settings[SETTINGS_ENTRY_KEYS.rule] ?? {},
+    (settings, entries) => ({ ...settings, [SETTINGS_ENTRY_KEYS.rule]: entries }),
     (enabled) => ({ kind: "configuration", enabled }),
   ),
   hook: settingsAccessor(
-    (settings) => settings.hooks ?? {},
-    (settings, hooks) => ({ ...settings, hooks }),
+    (settings) => settings[SETTINGS_ENTRY_KEYS.hook] ?? {},
+    (settings, entries) => ({ ...settings, [SETTINGS_ENTRY_KEYS.hook]: entries }),
     (enabled) => ({ kind: "configuration", enabled }),
   ),
   knowledge: settingsAccessor(
-    (settings) => settings.knowledge ?? {},
-    (settings, knowledge) => ({ ...settings, knowledge }),
+    (settings) => settings[SETTINGS_ENTRY_KEYS.knowledge] ?? {},
+    (settings, entries) => ({ ...settings, [SETTINGS_ENTRY_KEYS.knowledge]: entries }),
     (enabled) => ({ kind: "configuration", enabled }),
   ),
 };
@@ -165,31 +166,31 @@ export const lockEntries: {
   readonly [T in InstallableExtensionType]: EntriesAccessor<Lockfile, LockEntryByType[T]>;
 } = {
   skill: accessor(
-    (lockfile) => lockfile.skills,
-    (lockfile, skills) => ({ ...lockfile, skills }),
+    (lockfile) => lockfile[SETTINGS_ENTRY_KEYS.skill],
+    (lockfile, entries) => ({ ...lockfile, [SETTINGS_ENTRY_KEYS.skill]: entries }),
   ),
   pack: accessor(
-    (lockfile) => lockfile.packs ?? {},
-    (lockfile, packs) => ({ ...lockfile, packs }),
+    (lockfile) => lockfile[SETTINGS_ENTRY_KEYS.pack] ?? {},
+    (lockfile, entries) => ({ ...lockfile, [SETTINGS_ENTRY_KEYS.pack]: entries }),
   ),
   "mcp-server": accessor(
-    (lockfile) => lockfile.mcpServers ?? {},
-    (lockfile, mcpServers) => ({ ...lockfile, mcpServers }),
+    (lockfile) => lockfile[SETTINGS_ENTRY_KEYS["mcp-server"]] ?? {},
+    (lockfile, entries) => ({ ...lockfile, [SETTINGS_ENTRY_KEYS["mcp-server"]]: entries }),
   ),
   subagent: accessor(
-    (lockfile) => lockfile.subagents ?? {},
-    (lockfile, subagents) => ({ ...lockfile, subagents }),
+    (lockfile) => lockfile[SETTINGS_ENTRY_KEYS.subagent] ?? {},
+    (lockfile, entries) => ({ ...lockfile, [SETTINGS_ENTRY_KEYS.subagent]: entries }),
   ),
   rule: accessor(
-    (lockfile) => lockfile.rules ?? {},
-    (lockfile, rules) => ({ ...lockfile, rules }),
+    (lockfile) => lockfile[SETTINGS_ENTRY_KEYS.rule] ?? {},
+    (lockfile, entries) => ({ ...lockfile, [SETTINGS_ENTRY_KEYS.rule]: entries }),
   ),
   hook: accessor(
-    (lockfile) => lockfile.hooks ?? {},
-    (lockfile, hooks) => ({ ...lockfile, hooks }),
+    (lockfile) => lockfile[SETTINGS_ENTRY_KEYS.hook] ?? {},
+    (lockfile, entries) => ({ ...lockfile, [SETTINGS_ENTRY_KEYS.hook]: entries }),
   ),
   knowledge: accessor(
-    (lockfile) => lockfile.knowledge ?? {},
-    (lockfile, knowledge) => ({ ...lockfile, knowledge }),
+    (lockfile) => lockfile[SETTINGS_ENTRY_KEYS.knowledge] ?? {},
+    (lockfile, entries) => ({ ...lockfile, [SETTINGS_ENTRY_KEYS.knowledge]: entries }),
   ),
 };

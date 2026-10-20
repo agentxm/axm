@@ -18,6 +18,7 @@ import * as Schema from "effect/Schema";
 
 import type { ExtensionType, Handle } from "@agentxm/extension-model/unstable/extensions";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 
@@ -25,6 +26,7 @@ import {
   ACQUIRED_EXTENSIONS_DIR,
   DEFAULT_AUTHORED_DIRECTORIES,
   resolveAuthoredDirectories,
+  SETTINGS_ENTRY_KEYS,
 } from "../workspace-state/index.js";
 import { SourceNotResolvable } from "./errors.js";
 
@@ -115,13 +117,7 @@ const distributionOptOutsOf = (settings: SourceSettingsDocument): ReadonlySet<st
       }
     }
   };
-  collect("skill", settings.skills);
-  collect("mcp-server", settings.mcpServers);
-  collect("subagent", settings.subagents);
-  collect("rule", settings.rules);
-  collect("hook", settings.hooks);
-  collect("knowledge", settings.knowledge);
-  collect("pack", settings.packs);
+  for (const type of installableExtensionTypes) collect(type, settings[SETTINGS_ENTRY_KEYS[type]]);
   return optOuts;
 };
 

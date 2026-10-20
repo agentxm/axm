@@ -49,6 +49,7 @@ import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/ex
 import {
   DEFAULT_AUTHORED_DIRECTORIES,
   emitLockfileToml,
+  SETTINGS_ENTRY_KEYS,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 export const inspectionRegistryUrl = "https://inspection-registry.example.test";
@@ -574,17 +575,6 @@ export const authoredExtensionFiles = (
   }
 };
 
-/** The settings key each authored type declares its entry under. */
-const authoredSettingsKey = {
-  skill: "skills",
-  "mcp-server": "mcpServers",
-  subagent: "subagents",
-  rule: "rules",
-  hook: "hooks",
-  knowledge: "knowledge",
-  pack: "packs",
-} as const satisfies Record<AuthoringType, string>;
-
 /** A workspace with one authored extension of the given type, configured and present. */
 export const makeAuthoredExtensionFixture = (
   type: AuthoringType,
@@ -595,7 +585,7 @@ export const makeAuthoredExtensionFixture = (
     settings: {
       agents: ["claude-code"],
       owner: "@acme",
-      [authoredSettingsKey[type]]: { [name]: { source: "workspace", enabled: true } },
+      [SETTINGS_ENTRY_KEYS[type]]: { [name]: { source: "workspace", enabled: true } },
     },
     files: authoredExtensionFiles(type, name, version),
   });

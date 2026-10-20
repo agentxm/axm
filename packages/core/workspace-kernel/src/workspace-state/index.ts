@@ -39,7 +39,7 @@ export {
 } from "./workspace/display-paths.js";
 
 // Additional settings and lockfile vocabulary consumed beyond the barrels
-export { SETTINGS_KNOWN_KEYS } from "./desired/settings/schema.js";
+export { SETTINGS_ENTRY_KEYS, SETTINGS_KNOWN_KEYS } from "./desired/settings/schema.js";
 export {
   gitSourceLockFields,
   pathSourceLockFields,

@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { normalizeTypePublishSelection, type PublishRequest } from "../publish/model.js";
-import { authoredSettingsKey } from "../testing.js";
+import { SETTINGS_ENTRY_KEYS } from "@agentxm/workspace-kernel/workspace-state";
 import {
   makePublishWorld,
   publishDocument,
@@ -274,7 +274,7 @@ describe("Type-specific publication selection", () => {
         Effect.gen(function* () {
           const world = makePublishWorld({
             settings: {
-              [authoredSettingsKey[type.type]]: {
+              [SETTINGS_ENTRY_KEYS[type.type]]: {
                 review: { source: "workspace" },
                 redwood: { source: "workspace" },
                 unrelated: { source: "workspace" },

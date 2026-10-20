@@ -5,7 +5,8 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { authoredSettingsKey, makePublishTarget } from "../testing.js";
+import { SETTINGS_ENTRY_KEYS } from "@agentxm/workspace-kernel/workspace-state";
+import { makePublishTarget } from "../testing.js";
 import { RegistrySelectionFailed, RegistrySourceUnknown } from "@agentxm/registry-client";
 import {
   makePublishWorld,
@@ -78,12 +79,12 @@ const makeTwoRegistryWorld = (type: (typeof publicationTypes)[number]) => {
       { name: "distractor", type: "registry", location: distractor.url },
       { name: "selected", type: "registry", location: selected.url },
     ],
-    [authoredSettingsKey[type.type]]: {
+    [SETTINGS_ENTRY_KEYS[type.type]]: {
       review: { source: "workspace" },
       redwood: { source: "workspace" },
       unrelated: { source: "workspace" },
     },
-    [authoredSettingsKey[foreign]]: { review: { source: "workspace" } },
+    [SETTINGS_ENTRY_KEYS[foreign]]: { review: { source: "workspace" } },
   });
   for (const name of ["review", "redwood", "unrelated"]) world.write(type.type, { name });
   world.write(foreign, { name: "review" });

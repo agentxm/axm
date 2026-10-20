@@ -22,10 +22,10 @@ import type { Scope } from "./types.js";
 // ---------------------------------------------------------------------------
 
 /** Decoded `axm.json` payload exposed by the settings cell. */
-export type DecodedSettings = Settings;
+type DecodedSettings = Settings;
 
 /** Decoded `axm.lock` payload exposed by the lockfile cell. */
-export type DecodedLockfile = Lockfile;
+type DecodedLockfile = Lockfile;
 
 /** Cached decoded settings/lockfile cells plus their raw-bytes siblings. */
 export interface ScopedStateLoaders {

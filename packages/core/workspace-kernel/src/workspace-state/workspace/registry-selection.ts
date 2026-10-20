@@ -34,7 +34,7 @@ import { resolveUserWorkspaceLayout } from "./layout.js";
 import { WorkspaceLocation } from "./location.js";
 
 /** One settings document an invocation's Registry selection reads. */
-export interface SettingsDocumentSnapshot {
+interface SettingsDocumentSnapshot {
   readonly path: string;
   /** The decoded document; empty when the file is absent. */
   readonly settings: Settings;
@@ -133,7 +133,7 @@ const defaultReason = (scope: DefaultRegistrySelection["scope"]): RegistrySelect
   scope === "project" ? "project-default" : scope === "user" ? "user-default" : "built-in";
 
 /** The settings-selected default Registry. */
-export const selectDefaultRegistry = (
+const selectDefaultRegistry = (
   snapshot: SourceConfigurationSnapshot,
 ): Result.Result<BoundRegistry, RegistrySelectionFailure> => {
   const selection = defaultRegistrySelection(snapshot.project.settings, snapshot.user.settings);

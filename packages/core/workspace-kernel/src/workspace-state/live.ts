@@ -111,7 +111,7 @@ export const WorkspaceStateLive = (
 > => stateServicesOver(WorkspaceLocationLive(options));
 
 /** The production transaction scope over the located workspace's paths. */
-export const WorkspaceTransactionScopeLive: Layer.Layer<
+const WorkspaceTransactionScopeLive: Layer.Layer<
   WorkspaceTransactionScope,
   never,
   WorkspaceLocation | FileSystem.FileSystem | Path.Path

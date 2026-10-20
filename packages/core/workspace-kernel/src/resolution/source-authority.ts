@@ -6,10 +6,10 @@ import {
   type DesiredNodeIdentity,
 } from "../workspace-state/index.js";
 
-export type SourceAuthorityRelationship =
+type SourceAuthorityRelationship =
   { readonly kind: "root" } | { readonly kind: "member"; readonly root: string };
 
-export interface SourceAuthorityTarget {
+interface SourceAuthorityTarget {
   readonly type: ExtensionType;
   readonly name: string;
   readonly identity: string;
@@ -29,7 +29,7 @@ export interface SourceAuthorityInput {
   readonly allowWorkspaceReplacement?: boolean;
 }
 
-export type SourceAuthorityBlockedCause =
+type SourceAuthorityBlockedCause =
   | "workspace-source-replacement"
   | "workspace-identity-mismatch"
   | "workspace-unusable"

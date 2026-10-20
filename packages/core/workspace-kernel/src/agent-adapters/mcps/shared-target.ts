@@ -30,7 +30,7 @@ export interface SharedMcpTargetMember {
   readonly declaredTarget?: McpConfigTarget;
 }
 
-export interface SharedMcpTargetConflict {
+interface SharedMcpTargetConflict {
   readonly _tag: "conflict";
   readonly path: string;
   readonly agentIds: ReadonlyArray<string>;
@@ -38,7 +38,7 @@ export interface SharedMcpTargetConflict {
   readonly reason: string;
 }
 
-export interface ResolvedSharedMcpTarget {
+interface ResolvedSharedMcpTarget {
   readonly _tag: "resolved";
   readonly path: string;
   readonly agentIds: ReadonlyArray<string>;

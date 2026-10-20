@@ -20,7 +20,7 @@ import type { ProspectivePackRef } from "./desired-state-graph.js";
 import type { PackManifestObservation } from "./pack-manifests.js";
 
 /** Where a Pack document observation came from. */
-export type PackDocumentProvenance =
+type PackDocumentProvenance =
   | { readonly kind: "authored" }
   | {
       /** Accepted dependency authority, independent of installed Pack content. */
@@ -46,7 +46,7 @@ export interface ObservedPackDocument {
 }
 
 /** The role a read path played in the collection. */
-export type DesiredInputRole =
+type DesiredInputRole =
   "settings" | "inherited-settings" | "accepted-resolutions" | "pack-manifest";
 
 /** A path the collection read, or found absent; unreadable paths are recorded too. */

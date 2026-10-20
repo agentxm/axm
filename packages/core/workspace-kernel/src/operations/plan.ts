@@ -39,7 +39,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 export const PlanPolicyIds = ["accept-warnings"] as const;
 
-export const PlanPolicyIdSchema = Schema.Literals(PlanPolicyIds);
+const PlanPolicyIdSchema = Schema.Literals(PlanPolicyIds);
 export type PlanPolicyId = typeof PlanPolicyIdSchema.Type;
 
 /**
@@ -78,8 +78,7 @@ export interface UnitBlocking {
  * `interactive-only` accepts only an affirmative answer at a prompt, so no
  * flag and no unattended mode can satisfy it.
  */
-export const ConfirmableConsentSchema = Schema.Literals(["preapprovable", "interactive-only"]);
-export type ConfirmableConsent = typeof ConfirmableConsentSchema.Type;
+const ConfirmableConsentSchema = Schema.Literals(["preapprovable", "interactive-only"]);
 
 export const PlanRiskConditionSchema = Schema.Union([
   Schema.Struct({
@@ -122,7 +121,7 @@ export interface Operation<TName extends string, TArgs> {
 // -----------------------------------------------------------------------------
 
 export const ArtifactMechanismSchema = Schema.Literals(["symlink", "copy"] as const);
-export type ArtifactMechanism = typeof ArtifactMechanismSchema.Type;
+type ArtifactMechanism = typeof ArtifactMechanismSchema.Type;
 
 /** Resolved manifest changes; null denotes an absent dependency. */
 export const PackMembershipDeltaSchema = Schema.Struct({
@@ -200,7 +199,7 @@ export interface JobStepArtifactTarget {
   readonly lastWrite?: JobStepLastWrite;
 }
 
-export interface JobStepArtifactSource {
+interface JobStepArtifactSource {
   readonly type: string;
   readonly origin: string;
   readonly ref?: string;
@@ -228,7 +227,7 @@ export interface PackMemberSourceSwitchEndpoint {
   readonly resolution: string;
 }
 
-export type PackMemberSourceSwitchDisposition =
+type PackMemberSourceSwitchDisposition =
   "added" | "removed" | "retained" | "source-changed" | "version-changed" | "unchanged";
 
 export interface PackMemberSourceSwitchEvidence {
@@ -318,7 +317,7 @@ export interface WarnJobStep<Requirements = never, Output = never> {
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
-export interface ErrorJobStep {
+interface ErrorJobStep {
   readonly key?: string;
   readonly dependsOn?: ReadonlyArray<string>;
   /** Read-only inputs fingerprinted with this step, distinct from its write footprint. */
@@ -356,7 +355,7 @@ export interface CompletedJobStep<Output = never> {
 // Job and Plan types
 // -----------------------------------------------------------------------------
 
-export type JobExecutionPolicy = "fail-fast" | "best-effort";
+type JobExecutionPolicy = "fail-fast" | "best-effort";
 
 export interface Job<Requirements = never, Output = never> {
   readonly steps: ReadonlyArray<PlannedJobStep<Requirements, Output>>;
@@ -461,7 +460,7 @@ export interface PlanExecutionCapabilities {
 // Executed plan types (after apply)
 // -----------------------------------------------------------------------------
 
-export interface ExecutedJob<Output = never> {
+interface ExecutedJob<Output = never> {
   readonly steps: ReadonlyArray<CompletedJobStep<Output>>;
   readonly concurrency: "unbounded" | number;
   readonly executionPolicy?: JobExecutionPolicy;

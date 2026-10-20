@@ -33,7 +33,7 @@ import type { ManagerRequirements } from "./manager-contract.js";
 type RefFor<T extends InstallableExtensionType> = Extract<ExtensionRef, { readonly type: T }>;
 type TargetFor<T extends InstallableExtensionType> = Extract<ExtensionTarget, { readonly type: T }>;
 
-export const isExtensionRefOfType =
+const isExtensionRefOfType =
   <T extends InstallableExtensionType>(type: T) =>
   (ref: ExtensionRef): ref is Extract<ExtensionRef, { readonly type: T }> =>
     ref.type === type;

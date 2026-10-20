@@ -241,7 +241,7 @@ export type CallerStepFailure<F = never> =
  * output does not depend on which side of the seam rendered the failure; the
  * recipe applies it once, at the edge of the step.
  */
-export interface StepFailureAdapter<F = never> {
+interface StepFailureAdapter<F = never> {
   readonly toStepFailure: (failure: CallerStepFailure<F>) => StepFailure;
 }
 
@@ -1044,14 +1044,14 @@ export interface UninstallOperationArgs<
 }
 
 /** Why an uninstall target's canonical package could not be read. */
-export interface UnreadablePackageRetirement {
+interface UnreadablePackageRetirement {
   /** Workspace path where the unreadable manifest was looked for. */
   readonly manifestPath: string;
   readonly reason: "missing" | "invalid";
 }
 
 /** What an uninstall settled: the declaration, and the canonical content. */
-export interface UninstallSettlement {
+interface UninstallSettlement {
   readonly declaration: "removed" | "absent";
   readonly canonical:
     | "removed"

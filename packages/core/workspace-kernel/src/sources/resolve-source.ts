@@ -233,7 +233,7 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
 // -----------------------------------------------------------------------------
 
 /** Route NameInput through the complete desired extension graph. */
-export const routeNameInput = (
+const routeNameInput = (
   name: string,
   _input: string,
   expectedType: ExtensionType = "skill",
@@ -272,7 +272,7 @@ export const routeNameInput = (
   });
 
 /** Route RegistryPatternInput: find matching registry config and intersect with params. */
-export const routeRegistryInput = (
+const routeRegistryInput = (
   pattern: {
     readonly sourceName: string;
     readonly type: Option.Option<ExtensionTypePlural>;
@@ -391,7 +391,7 @@ export const resolveSource = (
         return yield* resolveSlashInputSource(pattern, parsed.originalInput);
       case "glob-input":
         return yield* new SourceSyntaxInvalid({
-          detail: `Glob patterns are not supported by resolveSource — use resolveSourcePattern instead`,
+          detail: "Glob patterns are not supported where a single source is expected",
         });
       case "workspace-pattern-input":
         return {

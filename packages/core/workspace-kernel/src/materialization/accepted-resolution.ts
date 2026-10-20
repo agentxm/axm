@@ -46,14 +46,14 @@ export class InstallStateMissing extends Data.TaggedError("InstallStateMissing")
 }> {}
 
 /** The content identity a canonical acquisition established, as the lockfile records it. */
-export interface AcquiredContentIdentity {
+interface AcquiredContentIdentity {
   readonly treeIntegrity: TreeIntegrity;
   /** Workspace-root-relative local source path; `None` for non-local refs. */
   readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
 }
 
 /** The lock entry an install records under the extension's configured name. */
-export interface AcceptedResolution<TEntry> {
+interface AcceptedResolution<TEntry> {
   readonly key: string;
   readonly entry: TEntry;
 }

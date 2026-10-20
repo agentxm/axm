@@ -84,7 +84,7 @@ export interface RetireAgentMcpConfigArgs {
   };
 }
 
-export interface AgentMcpConfigWriteTarget {
+interface AgentMcpConfigWriteTarget {
   readonly path: string;
   readonly change: NativeArtifactChange;
   readonly nativeLocation?: NativeLocationOutcome;

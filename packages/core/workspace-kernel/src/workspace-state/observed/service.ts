@@ -67,7 +67,7 @@ import type { Scope } from "./types.js";
 // ---------------------------------------------------------------------------
 
 /** Scoped state cells; `raw(source)` reads cached bytes (absent → `Option.none`). */
-export interface ScopedStateApi {
+interface ScopedStateApi {
   readonly settings: ScopedStateLoaders["settings"];
   readonly lockfile: ScopedStateLoaders["lockfile"];
   readonly raw: (
@@ -79,7 +79,7 @@ export interface ScopedStateApi {
 }
 
 /** Scoped source-host views over the cached settings loader. */
-export interface ScopedSourceHostsApi {
+interface ScopedSourceHostsApi {
   readonly declared: Effect.Effect<ReadonlyArray<SourceHostConfig>, SettingsReadError>;
   readonly effective: Effect.Effect<ReadonlyArray<SourceHostConfig>, SettingsReadError>;
   readonly registryHosts: Effect.Effect<
@@ -92,7 +92,7 @@ export interface ScopedSourceHostsApi {
 }
 
 /** Scoped owner view over the cached settings loader (declared owner; no fallback). */
-export type ScopedOwnerApi = Effect.Effect<Option.Option<Handle>, SettingsReadError>;
+type ScopedOwnerApi = Effect.Effect<Option.Option<Handle>, SettingsReadError>;
 
 /**
  * Workspace read model for a single scope (project or user).

@@ -10,7 +10,7 @@ export interface ConfiguredEntryEnabledState {
 }
 
 /** A configuration-only entry that omits `enabled` inherits an active member. */
-export const isConfiguredEntryEnabled = (entry: ConfiguredEntryEnabledState): boolean =>
+const isConfiguredEntryEnabled = (entry: ConfiguredEntryEnabledState): boolean =>
   entry.enabled !== false;
 
 export const enabledConfiguredEntries = <TEntry extends ConfiguredEntryEnabledState>(

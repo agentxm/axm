@@ -12,7 +12,7 @@ type PackDependencyDeclarationValue =
     };
 
 export type PackDependencyAuthority = "workspace" | "registry";
-export type PackDependencyReachabilityClassification = "satisfying" | "excluded" | "missing";
+type PackDependencyReachabilityClassification = "satisfying" | "excluded" | "missing";
 
 export interface PackDependencyMemberObservation {
   readonly fqn: string;

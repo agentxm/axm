@@ -94,7 +94,7 @@ const explicitRegistrySource = (
   };
 };
 
-export type WorkspacePackDependencyResolution =
+type WorkspacePackDependencyResolution =
   | { readonly kind: "absent" }
   | { readonly kind: "selected"; readonly ref: ExtensionRef }
   | { readonly kind: "blocked"; readonly fact: SourceAuthorityBlockedFact };
@@ -182,7 +182,7 @@ const validateSelectedDependency = (
   });
 };
 
-export interface ResolvedPackDependencies {
+interface ResolvedPackDependencies {
   readonly resolvedSkills: ResolvedPackDependencyMap;
   readonly resolvedMcpServers: ResolvedPackDependencyMap;
   readonly resolvedSubagents: ResolvedPackDependencyMap;

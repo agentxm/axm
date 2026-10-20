@@ -95,6 +95,3 @@ export type NativeFormatFailure =
 
 /** Every failure a `CodingAgent` member may surface. */
 export type CodingAgentFailure = NativeFormatFailure | Config.ConfigError;
-
-/** Every typed failure the agent adapter modules construct. */
-export type AgentAdapterError = AgentDetectionFailed | CodingAgentFailure;

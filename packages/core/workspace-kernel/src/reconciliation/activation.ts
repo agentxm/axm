@@ -245,7 +245,7 @@ const runStep = <R>(step: PlannedJobStep<R>) =>
     : step.run;
 
 /** What realizing a change reported: projection warnings and the artifacts its steps observed. */
-export interface ActivationRealized {
+interface ActivationRealized {
   readonly warnings: ReadonlyArray<string>;
   readonly artifacts: ReadonlyArray<JobStepArtifact>;
 }

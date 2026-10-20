@@ -41,7 +41,7 @@ export interface ConfiguredExtensionObservation {
   readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
 }
 
-export type ConfiguredExtensionObservationsForRequest = (
+type ConfiguredExtensionObservationsForRequest = (
   request: ConfiguredAgentOutcomesRequest,
 ) => Effect.Effect<
   ReadonlyMap<string, ConfiguredExtensionObservation>,

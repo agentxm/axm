@@ -50,7 +50,7 @@ export const problemsAffectingSubject = (
   });
 
 /** The problems about any desired extension of one type. */
-export const problemsAffectingType = (
+const problemsAffectingType = (
   graph: Pick<DesiredStateGraph, "problems">,
   type: ExtensionType,
 ): ReadonlyArray<DesiredStateProblem> =>

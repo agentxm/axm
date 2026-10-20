@@ -11,7 +11,6 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { codingAgentForId } from "../agent-adapters/index.js";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
@@ -24,13 +23,7 @@ import {
   materializationCodingAgents,
   unknownConfiguredAgentIds,
 } from "./agents/selection.js";
-import {
-  emptyProjectionParticipants,
-  ProjectionParticipants,
-  type ProjectionParticipant,
-  type ProjectionParticipantsService,
-  type SubagentProjectionObserver,
-} from "./participants.js";
+import { emptyProjectionParticipants, ProjectionParticipants } from "./participants.js";
 
 /** Apply an already observed snapshot to exercise the freshness boundary. */
 export { applyInstructionProjection } from "./instructions/instructions.js";
@@ -54,15 +47,6 @@ export const codingAgentRepositoryLayer = (
   configuredAgentIds: ReadonlyArray<string>,
 ): Layer.Layer<CodingAgentRepository> =>
   Layer.succeed(CodingAgentRepository, makeCodingAgentRepository(configuredAgentIds));
-
-/** A participant registry with the owners a test declares, and no others. */
-export const makeProjectionParticipants = (args: {
-  readonly aggregates?: ReadonlyArray<ProjectionParticipant>;
-  readonly subagents?: SubagentProjectionObserver;
-}): ProjectionParticipantsService => ({
-  aggregates: args.aggregates ?? [],
-  subagents: args.subagents === undefined ? Option.none() : Option.some(args.subagents),
-});
 
 /** No owners: every projection fact comes from workspace state alone. */
 export const NoProjectionParticipants: Layer.Layer<ProjectionParticipants> = Layer.succeed(

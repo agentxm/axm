@@ -64,7 +64,7 @@ import {
   type WorkspaceTransitionAcquireFailure,
 } from "./errors.js";
 
-export const TRANSITION_LOCK_FILENAME = "workspace-transition.lock";
+const TRANSITION_LOCK_FILENAME = "workspace-transition.lock";
 // Staleness must tolerate a saturated event loop: a heavy apply starves the
 // mtime-update timer, and a slack smaller than the starvation lets a LIVE
 // holder's lock self-declare compromised — after which release refuses and the
@@ -75,7 +75,7 @@ const LOCK_STALE_MILLIS = 30_000;
 const LOCK_UPDATE_MILLIS = 5_000;
 const WAIT_INTERVAL = Duration.millis(250);
 /** How long a contending invocation serializes behind the holder. */
-export const TRANSITION_WAIT_BOUND_MILLIS = 60_000;
+const TRANSITION_WAIT_BOUND_MILLIS = 60_000;
 
 /**
  * What acquisition durably records: the caller's holder description plus the
@@ -96,7 +96,7 @@ export interface HeldWorkspaceTransition {
   readonly createdDirectories: Effect.Effect<ReadonlyArray<ContainerIdentity>>;
 }
 
-export interface AcquireWorkspaceTransitionArgs {
+interface AcquireWorkspaceTransitionArgs {
   readonly workspaceDir: string;
   readonly nativeRoot?: string;
   readonly holder: TransitionLockHolder;

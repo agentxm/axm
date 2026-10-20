@@ -24,7 +24,6 @@ export interface McpServerDeclaration {
   readonly auth?: McpAuth | undefined;
   readonly enabled?: boolean | undefined;
 }
-export type InlineRemoteTransport = "streamable-http" | "sse";
 export type ExpectedAgentEntry =
   | {
       readonly _tag: "projected";

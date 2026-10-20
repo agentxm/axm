@@ -14,10 +14,7 @@ import type {
 } from "@agentxm/extension-model/unstable/sources/types";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 
-export const optionalField = <K extends string, V>(
-  key: K,
-  value: Option.Option<V>,
-): { [P in K]?: V } => {
+const optionalField = <K extends string, V>(key: K, value: Option.Option<V>): { [P in K]?: V } => {
   const fields: { [P in K]?: V } = {};
   if (Option.isSome(value)) {
     fields[key] = value.value;

@@ -20,7 +20,7 @@ import {
 } from "../../workspace-state/index.js";
 
 /** The registry directory segment a type's acquired packages live under. */
-export const registryPluralSegment = (type: ExtensionType): ExtensionTypePlural =>
+const registryPluralSegment = (type: ExtensionType): ExtensionTypePlural =>
   toExtensionTypePlural(type);
 
 /** Workspace-relative path of a ref's acquired (or authored) package. */

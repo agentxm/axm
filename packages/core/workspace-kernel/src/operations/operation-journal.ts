@@ -85,7 +85,7 @@ export const recordOperationJournal = (
   });
 
 /** Merge updates onto the recorded state. No-op when nothing was recorded yet. */
-export const updateOperationJournal = (
+const updateOperationJournal = (
   update: (state: OperationJournalState) => OperationJournalState,
 ): Effect.Effect<void, never, OperationJournal> =>
   Effect.flatMap(OperationJournal, (service) => Ref.update(service.ref, Option.map(update)));

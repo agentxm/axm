@@ -26,7 +26,7 @@ export interface LocatedWorkspace {
   readonly acquiredRoot: AbsolutePath;
 }
 
-export const resolveUserWorkspaceRootPure = (
+const resolveUserWorkspaceRootPure = (
   pathJoin: (...segments: ReadonlyArray<string>) => string,
   homeDir: string,
 ): string => pathJoin(resolveUserAxmHomePure(pathJoin, homeDir), USER_WORKSPACE_DIRECTORY);

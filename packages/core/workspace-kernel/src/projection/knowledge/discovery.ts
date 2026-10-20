@@ -44,7 +44,7 @@ export interface KnowledgeDiscoveryBundle {
   readonly description?: string;
 }
 
-export interface KnowledgeDiscoveryArtifact {
+interface KnowledgeDiscoveryArtifact {
   readonly path: string;
   readonly change: "created" | "updated" | "removed" | "unchanged";
   readonly mechanism?: "symlink" | "copy";
@@ -75,7 +75,7 @@ const normalizeCell = (value: string | undefined): string => {
 const escapeLinkLabel = (value: string): string =>
   normalizeCell(value).replaceAll("[", "\\[").replaceAll("]", "\\]");
 
-export const renderKnowledgeBaseTable = (args: {
+const renderKnowledgeBaseTable = (args: {
   readonly bundles: ReadonlyArray<KnowledgeDiscoveryBundle>;
   readonly instructionsPath: string;
   readonly path: Path.Path;

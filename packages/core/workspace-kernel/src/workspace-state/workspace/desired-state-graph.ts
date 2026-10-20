@@ -271,7 +271,7 @@ const sortConstraintContributors = (
     return byRange === 0 ? left.location.localeCompare(right.location) : byRange;
   });
 
-export const collectDesiredConstraintContributors = (
+const collectDesiredConstraintContributors = (
   origins: ReadonlyArray<DesiredExtensionOrigin>,
 ): ReadonlyArray<DesiredConstraintContributor> =>
   sortConstraintContributors(

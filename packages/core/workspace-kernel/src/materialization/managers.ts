@@ -65,7 +65,7 @@ import type {
 // -----------------------------------------------------------------------------
 
 /** The content identity a canonical acquisition established, when it ran. */
-export interface AcquiredContentFacts extends MaterializationFacts {
+interface AcquiredContentFacts extends MaterializationFacts {
   /** Absent for workspace-authored packages, which carry no accepted tree. */
   readonly treeIntegrity: Option.Option<TreeIntegrity>;
 }
@@ -169,7 +169,7 @@ export class SkillManager extends ServiceMap.Service<SkillManager, SkillManagerS
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface InstallMcpServerOperationArgs {
+interface InstallMcpServerOperationArgs {
   /** Eligibility for canonical package parent cleanup only; never native entry authority. */
   readonly nativeInsertionEligible?: boolean;
   /** Explicit authoring/install authority to select a unique distribution. Never set by sync. */

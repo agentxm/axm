@@ -74,7 +74,7 @@ const missingEntryFailure = (
     ? Option.some(new SettingsEntryMissing({ entryType: type, name }))
     : Option.none();
 
-export const makeSettingsWriter = (
+const makeSettingsWriter = (
   location: WorkspaceLocationService,
   documents: WorkspaceDocumentsService,
   mutex: Semaphore.Semaphore,

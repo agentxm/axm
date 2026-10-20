@@ -171,7 +171,7 @@ const makeSourceLockUnion = <TOwner extends Schema.Top, F extends Schema.Struct.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HttpSkillLockEntrySchema = Schema.Struct({
+const HttpSkillLockEntrySchema = Schema.Struct({
   source: Schema.Struct({
     type: Schema.Literal("http"),
     url: ArtifactUrlSchema,
@@ -207,17 +207,10 @@ export type SkillLockEntry = Schema.Schema.Type<typeof SkillLockEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillsLockMapSchema = Schema.Record(
+const SkillsLockMapSchema = Schema.Record(
   Schema.toEncoded(ExtensionNameSchema),
   SkillLockEntrySchema,
 );
-
-/**
- * Inferred type for SkillsLockMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SkillsLockMap = Schema.Schema.Type<typeof SkillsLockMapSchema>;
 
 // =============================================================================
 // Subagent Lock Entry (union of all source types)
@@ -252,17 +245,10 @@ export type SubagentLockEntry = Schema.Schema.Type<typeof SubagentLockEntrySchem
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentsLockMapSchema = Schema.Record(
+const SubagentsLockMapSchema = Schema.Record(
   Schema.toEncoded(ExtensionNameSchema),
   SubagentLockEntrySchema,
 );
-
-/**
- * Inferred type for SubagentsLockMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SubagentsLockMap = Schema.Schema.Type<typeof SubagentsLockMapSchema>;
 
 // =============================================================================
 // MCP Server Lock Entry (union of all source types, no agents)
@@ -296,14 +282,7 @@ export type McpServerLockEntry = Schema.Schema.Type<typeof McpServerLockEntrySch
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServersLockMapSchema = Schema.Record(Schema.String, McpServerLockEntrySchema);
-
-/**
- * Inferred type for McpServersLockMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type McpServersLockMap = Schema.Schema.Type<typeof McpServersLockMapSchema>;
+const McpServersLockMapSchema = Schema.Record(Schema.String, McpServerLockEntrySchema);
 
 /**
  * Materialized file target recorded for rule and hook lifecycle decisions.
@@ -382,11 +361,10 @@ export type HooksLockMap = Schema.Schema.Type<typeof HooksLockMapSchema>;
 export const KnowledgeLockEntrySchema = makeSourceLockUnion(HandleSchema, {});
 
 export type KnowledgeLockEntry = Schema.Schema.Type<typeof KnowledgeLockEntrySchema>;
-export const KnowledgeLockMapSchema = Schema.Record(
+const KnowledgeLockMapSchema = Schema.Record(
   Schema.toEncoded(ExtensionNameSchema),
   KnowledgeLockEntrySchema,
 );
-export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>;
 
 // =============================================================================
 // Pack Lock Entry
@@ -466,21 +444,6 @@ export const PackLockEntrySchema = Schema.Union([
     description: "Accepted immutable resolution and dependency constraints for a Pack.",
   });
 
-/** Registry variant of the Pack lock entry. @experimental */
-export const RegistryPackLockEntrySchema = Schema.Struct({
-  source: RegistrySourceLocatorSchema,
-  identity: Schema.Struct({ owner: HandleSchema, name: ExtensionNameSchema }),
-  resolved: RegistryAcceptedResolutionSchema,
-  treeIntegrity: TreeIntegritySchema,
-  ...packLockFields,
-})
-  .check(consistentPackDeclaration)
-  .annotate({
-    identifier: "RegistryPackLockEntry",
-    title: "Registry Pack Lock Entry",
-    description: "Accepted immutable resolution for a Registry Pack.",
-  });
-
 /**
  * Inferred type for RegistryPackLockEntry schema.
  *
@@ -518,17 +481,10 @@ export const makeRegistryPackLockEntry = (args: RegistryPackLockEntryArgs): Regi
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PacksLockMapSchema = Schema.Record(
+const PacksLockMapSchema = Schema.Record(
   Schema.toEncoded(ExtensionNameSchema),
   PackLockEntrySchema,
 );
-
-/**
- * Inferred type for PacksLockMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
 
 // =============================================================================
 // Lock entry schemas by extension type
@@ -747,11 +703,10 @@ const StoredBindingsSchema = Schema.Record(
  * Tool-owned tables, preserved on write and never read for installation. Their
  * values are opaque: any TOML value a tool wrote is carried through as parsed.
  */
-export const LockfileToolTablesSchema = Schema.Record(
+const LockfileToolTablesSchema = Schema.Record(
   Schema.String,
   Schema.Record(Schema.String, Schema.Unknown),
 );
-export type LockfileToolTables = typeof LockfileToolTablesSchema.Type;
 
 /**
  * The sole accepted on-disk contract: the data model of the `axm.lock` TOML

@@ -52,12 +52,12 @@ export type CanonicalSubjectType = "rule" | "hook" | "knowledge" | "subagent";
 // Payloads
 // ---------------------------------------------------------------------------
 
-export interface DeclaredExtension<T extends CanonicalSubjectType> {
+interface DeclaredExtension<T extends CanonicalSubjectType> {
   readonly name: ExtensionName;
   readonly entry: SettingsEntryByType[T];
 }
 
-export interface ResolvedExtension<T extends CanonicalSubjectType> {
+interface ResolvedExtension<T extends CanonicalSubjectType> {
   readonly name: ExtensionName;
   readonly lockEntry: LockEntryByType[T];
 }
@@ -77,7 +77,7 @@ export interface ActualExtension<
   readonly packageRoot: string | null;
 }
 
-export interface SubjectPackMember {
+interface SubjectPackMember {
   readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
@@ -90,7 +90,7 @@ export interface InstalledExtension<T extends CanonicalSubjectType, TActual> {
   readonly actual: ReadonlyArray<TActual>;
 }
 
-export interface UnmanagedExtension<T extends CanonicalSubjectType, TActual> {
+interface UnmanagedExtension<T extends CanonicalSubjectType, TActual> {
   readonly key: ExtensionKey<T>;
   readonly actual: TActual;
 }

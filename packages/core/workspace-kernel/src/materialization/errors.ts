@@ -61,7 +61,7 @@ import type { MaterializationError } from "../acquisition/index.js";
  * Every typed failure materialization constructs: the kernel's own families
  * and any failure an extension kind constructs under the kernel's brand.
  */
-export type ExtensionMaterializationError =
+type ExtensionMaterializationError =
   | MaterializationError
   | InstallStateMissing
   | LifecyclePostconditionViolated

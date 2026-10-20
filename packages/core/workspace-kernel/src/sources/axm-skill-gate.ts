@@ -34,7 +34,7 @@ export class AxmSkillGateUnavailable extends Data.TaggedError("AxmSkillGateUnava
 }> {}
 
 /** A candidate extracted to disk for evaluation. */
-export interface AxmSkillCandidate {
+interface AxmSkillCandidate {
   readonly ref: SkillExtensionRef;
   readonly packageRoot: string;
   readonly skillSourcePath: string;

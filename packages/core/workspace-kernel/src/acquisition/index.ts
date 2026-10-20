@@ -17,7 +17,6 @@ export {
   AcquiredContent,
   acquiredDirectoryForRef,
   acquiredFilesForRef,
-  acquiredRegistryPackageFiles,
   sourceRefContentKey,
   recordMaterializedPackage,
 } from "./acquired-content.js";
@@ -33,8 +32,6 @@ export {
   OperationScratchBudget,
   OperationScratchLimitExceeded,
   makeOperationScratchBudget,
-  type OperationScratchBudgetService,
-  type OperationScratchReservation,
 } from "./scratch-budget.js";
 
 // Canonical package staging, copy, reuse, and on-disk materializability
@@ -45,17 +42,13 @@ export {
   materializeExternalPackageWithTreeIntegrity,
   recoverCanonicalDirectory,
   replaceCanonicalDirectory,
-  replaceCanonicalDirectoryWithInspection,
   reusableCanonicalTree,
   type CanonicalDirectoryReplacementError,
-  type MaterializedPackage,
 } from "./canonical-directory.js";
 export { copyExtensionDirectory, DirectoryCopyLimitExceeded } from "./copy-directory.js";
 export {
   materializeRegistryPackage,
   materializeRegistryPackageWithTreeIntegrity,
-  type MaterializeRegistryPackageArgs,
-  type RegistryPackageMaterializationMessages,
 } from "./registry-materialization.js";
 export {
   configuredMcpServersToDiskRefs,
@@ -65,17 +58,13 @@ export {
 } from "./materializable-from-disk.js";
 
 // Which archive paths a package includes
-export { computeDistributionTreeIntegrity, DistributionTreeInvalid } from "./distribution-tree.js";
-export {
-  excludedDistributionLinkTarget,
-  type DistributionLinkEntry,
-} from "./distribution-links.js";
+export { computeDistributionTreeIntegrity } from "./distribution-tree.js";
+export { excludedDistributionLinkTarget } from "./distribution-links.js";
 export {
   resolveFileSelection,
   type FileSelectionInput,
   type ResolvedFileSelection,
   type SelectionDecision,
-  type SelectionPath,
   type SelectionRule,
   type SelectionRuleOrigin,
 } from "./file-selection.js";

@@ -105,7 +105,7 @@ export const manifestInputs = (
         })),
       ];
 
-export interface McpInputFinding {
+interface McpInputFinding {
   readonly code: string;
   readonly inputId: string;
   readonly message: string;

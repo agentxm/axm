@@ -41,6 +41,7 @@ export interface NativeInsertionCapture {
   readonly missingDirectories: ReadonlyArray<string>;
 }
 
+/** @public Inferred projection types name it in emitted declarations. */
 export interface NativeDirectoryCapture {
   readonly target: NativeInsertionTarget;
   readonly physicalPath: string;
@@ -49,7 +50,7 @@ export interface NativeDirectoryCapture {
   readonly eligible: boolean;
 }
 
-export type NativeInsertionResolution =
+type NativeInsertionResolution =
   { readonly kind: "restore-text"; readonly text: string } | { readonly kind: "remove-file" };
 
 /** The pre-mutation preimage of a native target could not be preserved. */

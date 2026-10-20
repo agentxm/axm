@@ -31,18 +31,7 @@ import type {
   DetectedAgent,
 } from "./types.js";
 
-export type {
-  ActualAgent,
-  AgentModule,
-  AgentScannerObservations,
-  AgentSubjectType,
-  DeclaredAgent,
-  DeclaredSettingsShape,
-  DetectedAgent,
-  DetectionStatus,
-} from "./types.js";
-
-export { defineAgentModule } from "./shared.js";
+export type { AgentModule } from "./types.js";
 
 /** Every configurable catalog agent, in canonical order. */
 export const registeredAgentModules: ReadonlyArray<AgentModule<ConfigurableAgentId>> =

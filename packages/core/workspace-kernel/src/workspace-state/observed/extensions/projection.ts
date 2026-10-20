@@ -44,10 +44,10 @@ import { findByName, type RowWithKey } from "./indexByName.js";
 export type TDeclaredEntry<TDeclared> = TDeclared extends ReadonlyArray<infer E> ? E : TDeclared;
 
 /** One entry within a subject's `resolved` payload. */
-export type TResolvedEntry<TResolved> = TResolved extends ReadonlyArray<infer E> ? E : TResolved;
+type TResolvedEntry<TResolved> = TResolved extends ReadonlyArray<infer E> ? E : TResolved;
 
 /** One actual occurrence within a subject's `actual` payload. */
-export type TActualEntry<TActual> = TActual extends ReadonlyArray<infer E> ? E : TActual;
+type TActualEntry<TActual> = TActual extends ReadonlyArray<infer E> ? E : TActual;
 
 // ---------------------------------------------------------------------------
 // Pack-member bindings
@@ -132,7 +132,7 @@ export interface SubjectPolicy<TDeclared, TResolved, TActual, TPackMember, TInst
  * Input passed to `buildInstalledRow`. Carries everything the subject needs
  * to construct its installed row.
  */
-export interface BuildInstalledRowInput<TDeclared, TResolved, TActual, TPackMember> {
+interface BuildInstalledRowInput<TDeclared, TResolved, TActual, TPackMember> {
   readonly name: string;
   readonly installationOrigin: InstallationOrigin<TDeclaredEntry<TDeclared>, TPackMember>;
   readonly activation: ActivationState;

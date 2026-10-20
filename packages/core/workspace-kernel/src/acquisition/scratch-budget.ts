@@ -16,7 +16,7 @@ export class OperationScratchLimitExceeded extends Data.TaggedError(
   readonly requested: number;
 }> {}
 
-export interface OperationScratchReservation {
+interface OperationScratchReservation {
   readonly settle: (actualBytes: number) => Effect.Effect<void, OperationScratchLimitExceeded>;
 }
 

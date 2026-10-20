@@ -22,15 +22,7 @@ import { AxmSkillGateUnavailable } from "./axm-skill-gate.js";
 import { WorkspaceCatalogUnavailable } from "./workspace-catalog.js";
 
 /** Every category a source-resolution failure can carry. Identical strings to the CLI error codes. */
-export const SOURCE_ERROR_CATEGORIES = [
-  "conflict",
-  "internal",
-  "network",
-  "not_found",
-  "validation",
-] as const;
-
-export type SourceErrorCategory = (typeof SOURCE_ERROR_CATEGORIES)[number];
+export type SourceErrorCategory = "conflict" | "internal" | "network" | "not_found" | "validation";
 
 /**
  * Input that does not parse as any source locator grammar the resolver
@@ -124,7 +116,7 @@ export type SourceResolutionFailure =
   | RegistryClientFailure
   | ConfigError;
 
-export const isSourceError = (error: unknown): error is SourceError =>
+const isSourceError = (error: unknown): error is SourceError =>
   error instanceof SourceSyntaxInvalid ||
   error instanceof SourceHostNotConfigured ||
   error instanceof SourceNotResolvable ||

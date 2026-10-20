@@ -33,7 +33,7 @@ export type SubagentSyncFailure = SubagentIoFailed | NativeWriteRefused;
  * Handles directory creation and file writing.
  * Returns a `SubagentSyncOutcome` with the rendered file paths and any warnings.
  */
-export const writeSubagentFiles = (
+const writeSubagentFiles = (
   subagentsDir: string,
   args: AddSubagentArgs,
 ): Effect.Effect<
@@ -271,7 +271,7 @@ export const removeSubagentFiles = (
 /**
  * Convert a non-supported ResolveSubagentsDirOutcome to a SubagentSyncOutcome.
  */
-export const dirOutcomeToSubagentSyncOutcome = (
+const dirOutcomeToSubagentSyncOutcome = (
   outcome: Exclude<ResolveSubagentsDirOutcome, { readonly _tag: "supported" }>,
 ): SubagentSyncOutcome => ({
   _tag: "unsupported",

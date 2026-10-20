@@ -17,7 +17,7 @@ import {
 } from "@agentxm/extension-model/unstable/agents/types";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 
-export const isKnownAgentId = (id: string): id is MaterializationTargetId =>
+const isKnownAgentId = (id: string): id is MaterializationTargetId =>
   Object.hasOwn(AGENT_DESCRIPTORS, id);
 
 /** Every adapter AXM ships, in catalog order. */

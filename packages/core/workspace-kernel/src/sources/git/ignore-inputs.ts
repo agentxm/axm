@@ -8,12 +8,12 @@ import type { SelectionRule } from "../../acquisition/index.js";
 import { isLexicallyWithin, isNotFound } from "@agentxm/host-primitives";
 import { findGitRoot } from "../../locations/index.js";
 
-export class IgnoreDiscoveryFailed extends Data.TaggedError("IgnoreDiscoveryFailed")<{
+class IgnoreDiscoveryFailed extends Data.TaggedError("IgnoreDiscoveryFailed")<{
   readonly detail: string;
   readonly cause?: unknown;
 }> {}
 
-export interface IgnoreSnapshot {
+interface IgnoreSnapshot {
   readonly boundaryRoot: string;
   readonly packageDirectory: string;
   readonly rules: ReadonlyArray<SelectionRule>;

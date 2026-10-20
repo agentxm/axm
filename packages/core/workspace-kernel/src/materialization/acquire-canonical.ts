@@ -39,7 +39,7 @@ import {
   type ArchiveIntegrityMismatch,
 } from "../acquisition/index.js";
 
-export type AcquirableExtensionRef = Exclude<ExtensionRef, { readonly refType: "workspace" }>;
+type AcquirableExtensionRef = Exclude<ExtensionRef, { readonly refType: "workspace" }>;
 
 export interface AcquireCanonicalArgs<E = never> {
   readonly ref: AcquirableExtensionRef;
@@ -72,7 +72,7 @@ export interface AcquiredCanonical {
   readonly reused: boolean;
 }
 
-export const integrityMismatchDetail = (type: ExtensionType, name: string, version: string) =>
+const integrityMismatchDetail = (type: ExtensionType, name: string, version: string) =>
   `Integrity mismatch for ${type}:${name}@${version}`;
 
 export const acquireCanonicalForRef = <E = never>(

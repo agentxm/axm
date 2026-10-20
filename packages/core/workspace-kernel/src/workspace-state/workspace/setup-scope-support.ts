@@ -21,9 +21,9 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
-export type SetupScopeSupportStatus = "supported" | "project-only" | "unsupported" | "refused";
+type SetupScopeSupportStatus = "supported" | "project-only" | "unsupported" | "refused";
 
-export type SetupScopeSupportReasonCode =
+type SetupScopeSupportReasonCode =
   | "supported"
   | "no-configured-agents"
   | "unknown-agent"

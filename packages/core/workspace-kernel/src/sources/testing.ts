@@ -37,7 +37,6 @@ import {
   WorkspaceCatalog,
   type ConfiguredSourceHost,
   type DesiredExtensionGraphView,
-  type SkillCandidates,
 } from "./workspace-catalog.js";
 
 export interface WorkspaceCatalogTestOptions {
@@ -46,7 +45,6 @@ export interface WorkspaceCatalogTestOptions {
   readonly registrySources?: ReadonlyArray<RegistrySourceHost>;
   readonly defaultRegistry?: string;
   readonly desiredExtensionGraph?: DesiredExtensionGraphView;
-  readonly skillCandidates?: SkillCandidates;
 }
 
 /**
@@ -69,13 +67,6 @@ export const WorkspaceCatalogTest = (
     defaultRegistry: Effect.succeed(options.defaultRegistry ?? "agentxm"),
     desiredExtensionGraph: Effect.succeed(
       options.desiredExtensionGraph ?? { nodes: [], problems: [], packMembership: [] },
-    ),
-    skillCandidates: Effect.succeed(
-      options.skillCandidates ?? {
-        names: [],
-        configuredSkills: {},
-        onDiskByName: new Map<string, string>(),
-      },
     ),
   });
 };

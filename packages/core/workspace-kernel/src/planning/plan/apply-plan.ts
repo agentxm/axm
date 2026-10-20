@@ -313,7 +313,7 @@ const executeDependencyAwareJob = <Requirements, Output>(
  * Never fails — catches StepFailure and converts to error results.
  */
 /** Identity of a unit whose run closure is starting. */
-export interface StartedJobStep {
+interface StartedJobStep {
   readonly key?: string;
   readonly label: string;
 }

@@ -60,7 +60,7 @@ import {
  * scenarios that distinguish canonical AXM, external AXM, and agent-rendered
  * skill directories.
  */
-export type SkillDetectionOrigin =
+type SkillDetectionOrigin =
   | { readonly _tag: "canonical-axm-skill" }
   | { readonly _tag: "external-axm-skill" }
   | { readonly _tag: "agent-skill-dir"; readonly agentId: MaterializationTargetId };
@@ -73,22 +73,22 @@ export type SkillDetectionOrigin =
  * One declared skill entry. Wraps the raw settings entry without re-shaping
  * fields; `name` is lifted out for ergonomic lookup.
  */
-export interface DeclaredSkill {
+interface DeclaredSkill {
   readonly name: ExtensionName;
   readonly entry: SkillEntry;
 }
 
 /** Decoded skills declared in `axm.json`. */
-export type DeclaredSkills = ReadonlyArray<DeclaredSkill>;
+type DeclaredSkills = ReadonlyArray<DeclaredSkill>;
 
 /** One resolved skill entry from the lockfile, wrapping the raw lock entry. */
-export interface ResolvedSkill {
+interface ResolvedSkill {
   readonly name: ExtensionName;
   readonly lockEntry: SkillLockEntry;
 }
 
 /** Decoded skills resolved in the lockfile. */
-export type ResolvedSkills = ReadonlyArray<ResolvedSkill>;
+type ResolvedSkills = ReadonlyArray<ResolvedSkill>;
 
 /**
  * One observable skill materialization. Carries the subject-specific origin
@@ -112,14 +112,14 @@ export interface ActualSkill {
 }
 
 /** Actual skills payload — array of observed materialization occurrences. */
-export type ActualSkills = ReadonlyArray<ActualSkill>;
+type ActualSkills = ReadonlyArray<ActualSkill>;
 
 // ---------------------------------------------------------------------------
 // Read-model rows
 // ---------------------------------------------------------------------------
 
 /** Pack-member entry for a skill: per Decision 9 it is the resolved member. */
-export interface SkillPackMember {
+interface SkillPackMember {
   readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
@@ -134,7 +134,7 @@ export interface InstalledSkill {
 }
 
 /** Unmanaged skill row — one actual occurrence not attached to an installed row. */
-export interface UnmanagedSkill {
+interface UnmanagedSkill {
   readonly key: ExtensionKey<"skill">;
   readonly actual: ActualSkill;
 }
@@ -193,7 +193,7 @@ const agentDirToActualSkill = (occ: AgentDirOccurrence, scope: Scope): ActualSki
  * the loader site (Phase 4); the helper just consumes whatever shape the
  * caller passes in.
  */
-export interface SkillScopedLoaders {
+interface SkillScopedLoaders {
   readonly settings: Effect.Effect<Option.Option<Settings>, SettingsReadError>;
   readonly lockfile: Effect.Effect<Option.Option<Lockfile>, LockfileReadError>;
 }
@@ -202,7 +202,7 @@ export interface SkillScopedLoaders {
  * Cached scanner outputs the factory captures. The factory composes
  * canonical-extensions + agent-dir occurrences into the actual skill array.
  */
-export interface SkillScanners {
+interface SkillScanners {
   readonly canonical: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
   readonly agentDir: Effect.Effect<ReadonlyArray<AgentDirOccurrence>>;
 }

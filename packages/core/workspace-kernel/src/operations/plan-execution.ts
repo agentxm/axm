@@ -47,7 +47,7 @@ export type ConfirmableRiskApproval = "preapproved" | "prompt-if-interactive" | 
  * what separates "the person declined to preapprove" from "this request could
  * never have been preapproved".
  */
-export interface RequestedApproval {
+interface RequestedApproval {
   readonly preapproved?: boolean;
 }
 
@@ -59,14 +59,14 @@ export interface RequestedApproval {
  * does not — is what `resolveExecutionCandidate` uses to decide whether an
  * unattended apply blocks naming interactive approval or names a flag.
  */
-export const confirmableRiskApproval = (requested: RequestedApproval): ConfirmableRiskApproval =>
+const confirmableRiskApproval = (requested: RequestedApproval): ConfirmableRiskApproval =>
   requested.preapproved === true
     ? "preapproved"
     : requested.preapproved === false
       ? "prompt-if-interactive"
       : "interactive-only";
 
-export type PlanExecutionRequest =
+type PlanExecutionRequest =
   | { readonly mode: "preview" }
   | {
       readonly mode: "apply";

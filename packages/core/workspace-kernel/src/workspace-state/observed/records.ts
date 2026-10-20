@@ -17,11 +17,10 @@ export const ExtensionInventoryLifecycleSchema = Schema.Literals([
   "unmanaged",
 ]);
 export type ExtensionInventoryLifecycle = typeof ExtensionInventoryLifecycleSchema.Type;
-export const ExtensionInventoryClassificationSchema = Schema.Struct({
+const ExtensionInventoryClassificationSchema = Schema.Struct({
   kind: Schema.Literal("lifecycle"),
   lifecycle: ExtensionInventoryLifecycleSchema,
 });
-export type ExtensionInventoryClassification = typeof ExtensionInventoryClassificationSchema.Type;
 
 export const WorkspaceRecordRowSchema = Schema.Struct({
   scope: Schema.Literals(["project", "user"]),
@@ -47,30 +46,18 @@ export type InstalledRecordRow = WorkspaceRecordRow & {
     readonly lifecycle: "configured" | "implicit";
   };
 };
-export type UnmanagedRecordRow = WorkspaceRecordRow & {
-  readonly classification: {
-    readonly kind: "lifecycle";
-    readonly lifecycle: "leftover" | "undeclared" | "unmanaged";
-  };
-};
 
-export const isConfiguredRecordRow = (row: WorkspaceRecordRow): row is ConfiguredRecordRow =>
+const isConfiguredRecordRow = (row: WorkspaceRecordRow): row is ConfiguredRecordRow =>
   row.classification.lifecycle === "configured" && typeof row.enabled === "boolean";
-export const isInstalledRecordRow = (row: WorkspaceRecordRow): row is InstalledRecordRow =>
+const isInstalledRecordRow = (row: WorkspaceRecordRow): row is InstalledRecordRow =>
   row.classification.lifecycle === "configured" || row.classification.lifecycle === "implicit";
-export const isUnmanagedRecordRow = (row: WorkspaceRecordRow): row is UnmanagedRecordRow =>
-  row.classification.lifecycle === "leftover" ||
-  row.classification.lifecycle === "undeclared" ||
-  row.classification.lifecycle === "unmanaged";
 
-export const configuredRecordRows = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+const configuredRecordRows = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
   rows.filter(isConfiguredRecordRow);
-export const installedRecordRows = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
+const installedRecordRows = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
   rows.filter(isInstalledRecordRow);
-export const unmanagedRecordRows = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
-  rows.filter(isUnmanagedRecordRow);
 
-export const recordRowsByName = <R extends { readonly name: string }>(
+const recordRowsByName = <R extends { readonly name: string }>(
   rows: ReadonlyArray<R>,
 ): Record.ReadonlyRecord<string, R> => {
   const result: globalThis.Record<string, R> = {};
@@ -81,8 +68,6 @@ export const configuredRowsByName = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
   recordRowsByName(configuredRecordRows(rows));
 export const installedRowsByName = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
   recordRowsByName(installedRecordRows(rows));
-export const unmanagedRowsByName = (rows: ReadonlyArray<WorkspaceRecordRow>) =>
-  recordRowsByName(unmanagedRecordRows(rows));
 
 const priority: Readonly<globalThis.Record<ExtensionInventoryLifecycle, number>> = {
   configured: 0,

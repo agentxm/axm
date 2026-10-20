@@ -41,10 +41,10 @@ import { defaultRegistrySelection, mergeSources } from "./registry-selection.js"
 type Read<A> = Effect.Effect<A, WorkspaceSettingsReadFailure>;
 
 /** A configured Registry host. */
-export type RegistrySourceHost = Extract<SourceHostConfig, { readonly type: "registry" }>;
+type RegistrySourceHost = Extract<SourceHostConfig, { readonly type: "registry" }>;
 
 /** A Registry locator bound to the configured source that serves it. */
-export interface BoundRegistrySource {
+interface BoundRegistrySource {
   /** The source the locator spells, or the effective default Registry when it spells none. */
   readonly sourceName: string;
   /** The configured Registry host of that name, when one is configured. */

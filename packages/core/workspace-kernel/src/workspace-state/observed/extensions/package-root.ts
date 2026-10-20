@@ -31,7 +31,7 @@
  * remainder with the separator inferred from `contentLocation`. Returns the
  * empty string if all segments would be dropped.
  */
-export const stripTrailingSegments = (
+const stripTrailingSegments = (
   pathSegments: ReadonlyArray<string>,
   contentLocation: string,
   count: number,

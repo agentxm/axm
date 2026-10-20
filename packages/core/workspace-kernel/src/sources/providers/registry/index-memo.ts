@@ -28,7 +28,7 @@ import type { ResolutionMetadataOutcome } from "@agentxm/registry-protocol/unsta
 import * as Option from "effect/Option";
 
 /** Planning can inspect the same identity under several independent constraints. */
-export const MAX_PACK_INDEX_MEMO_ENTRIES = 256;
+const MAX_PACK_INDEX_MEMO_ENTRIES = 256;
 
 class RegistryIndexKey extends Data.Class<
   GetExtensionIndexArgs & { readonly location: string; readonly sourceName: string }

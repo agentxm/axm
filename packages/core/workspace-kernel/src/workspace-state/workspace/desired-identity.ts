@@ -41,7 +41,7 @@ export type DesiredAuthority =
   "workspace" | "registry" | "git" | "http" | "path" | "bundled" | "inline";
 
 /** The configured Registry a registry-authoritative node binds to. */
-export interface DesiredRegistryBinding {
+interface DesiredRegistryBinding {
   /**
    * The configured source name the declaration binds to: the one it spells,
    * or the effective default Registry. A Pack member declared with an explicit

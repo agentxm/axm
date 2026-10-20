@@ -46,7 +46,7 @@ export type ConfiguredMcpCapability = ReadableMcpCapability & {
   readonly axm: { readonly writer: { readonly config: McpConfig } };
 };
 
-export const isReadableMcpCapability = (
+const isReadableMcpCapability = (
   capability: AgentMcpCapability,
 ): capability is ReadableMcpCapability =>
   "entryDialect" in capability.native && capability.native.entryDialect !== null;
@@ -55,7 +55,7 @@ export const readableMcpCapability = (agentId: string): ReadableMcpCapability | 
   const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
   return isReadableMcpCapability(capability) ? capability : undefined;
 };
-export const isConfiguredMcpCapability = (
+const isConfiguredMcpCapability = (
   capability: AgentMcpCapability,
 ): capability is ConfiguredMcpCapability =>
   capability.axm.writer !== null && isReadableMcpCapability(capability);

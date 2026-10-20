@@ -18,17 +18,13 @@ export * from "./desired/settings/index.js";
 export * from "./desired/lockfile/index.js";
 
 // Knowledge discovery configuration
-export {
-  resolveKnowledgeDiscoveryConfig,
-  type ResolvedKnowledgeDiscoveryConfig,
-} from "./desired/discovery-config.js";
+export { type ResolvedKnowledgeDiscoveryConfig } from "./desired/discovery-config.js";
 
 // Path safety
 export { validatePathSafety, PathTraversalDetected } from "./utils/path-safety.js";
 
 // Workspace-relative display paths
 export {
-  USER_WORKSPACE_DISPLAY_ROOT,
   workspaceFileDisplayPath,
   settingsDisplayPath,
   lockfileDisplayPath,
@@ -48,7 +44,6 @@ export {
 } from "./desired/lockfile/entry-fields.js";
 export { LOCK_ENTRY_SCHEMA_BY_TYPE } from "./desired/lockfile/schema.js";
 export {
-  retainedPackageSourceForRef,
   retainedPackageKeyForRef,
   retainedPackageBindings,
   packageAddressClaimForRef,
@@ -60,17 +55,13 @@ export {
 // Extension path and identity vocabulary
 export {
   ACQUIRED_EXTENSIONS_DIR,
-  isInstallRootStagingName,
   LEGACY_LOCK_FILENAME,
   LOCK_FILENAME,
 } from "./workspace/constants.js";
 export {
   observeInstallRoot,
-  type InstallRootEntry,
   type InstallRootInventory,
   type InstalledPackageEntry,
-  type ObserveInstallRootArgs,
-  type UnrecognizedInstallRootEntry,
 } from "./workspace/install-root.js";
 export {
   acquiredExtensionDisplayPath,
@@ -78,50 +69,33 @@ export {
   BUNDLED_SKILL_OWNER,
   bundledSkillCanonicalRoot,
   computeExtensionPathsForLayout,
-  type ExtensionPathSource,
-  type ExtensionDirPaths,
 } from "./workspace/extension-paths.js";
-export {
-  RenderedFilePathSchema,
-  computeSourceHash,
-  type RenderedFilePath,
-} from "./workspace/rendered-files.js";
+export { computeSourceHash } from "./workspace/rendered-files.js";
 export { computePackageContentHash } from "./workspace/package-hash.js";
 export {
   computeMaterializedTreeIntegrity,
   MaterializedTreeInvalid,
   TreeIntegritySchema,
-  type MaterializedTreeIntegrityOptions,
   type TreeIntegrity,
 } from "./workspace/materialized-tree.js";
 export { sanitizeName } from "./workspace/extension-name.js";
-export { computePackPathsForLayout, type PackDirPath } from "./workspace/pack-paths.js";
+export { computePackPathsForLayout } from "./workspace/pack-paths.js";
 export { computePackManifestContentIdentity } from "./workspace/pack-manifest-content-identity.js";
 export {
   decodePackManifestDocument,
   observePackManifest,
-  PackManifests,
-  type LocatedPackManifest,
   type PackManifestObservation,
-  type PackManifestSchemaIssue,
   type PackManifestsPort,
 } from "./workspace/pack-manifests.js";
-export {
-  MaterializedFileTargetSchema,
-  type MaterializedFileTarget,
-} from "./workspace/materialized-file-target.js";
+export { MaterializedFileTargetSchema } from "./workspace/materialized-file-target.js";
 export {
   computeSkillPathsForLayout,
   readSkillDirectoryName,
   type SkillPathSource,
-  type SkillDirPaths,
 } from "./workspace/skill-paths.js";
 export {
   acquisitionConfiguredEntries,
   enabledConfiguredEntries,
-  isConfiguredEntryEnabled,
-  type ConfiguredEntryAcquisitionState,
-  type ConfiguredEntryEnabledState,
 } from "./workspace/configured-entry.js";
 
 // Rendering of the state and settlement failure families into the
@@ -143,11 +117,9 @@ export {
 export {
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesUnavailable,
-  resolveConfiguredAgentOutcomes,
   resolveConfiguredExtensionObservations,
   type ConfiguredExtensionObservation,
   type ConfiguredAgentOutcomesRequest,
-  type ConfiguredExtensionObservationsForRequest,
   type ConfiguredAgentOutcomesProviderService,
 } from "./workspace/configured-agent-outcomes-provider.js";
 
@@ -156,73 +128,44 @@ export {
   DEFAULT_AUTHORED_DIRECTORIES,
   resolveAuthoredDirectories,
   resolveProjectWorkspaceLayout,
-  resolveProjectWorkspaceStatePaths,
   resolveUserWorkspaceLayout,
   type WorkspaceLayout,
 } from "./workspace/layout.js";
 export {
   USER_WORKSPACE_DIRECTORY,
-  getProjectRuntimeDir,
   locateWorkspace,
   resolveUserAxmHome,
   resolveUserHome,
   resolveUserWorkspaceRoot,
-  resolveUserWorkspaceRootPure,
   type LocatedWorkspace,
 } from "./workspace/paths.js";
 
 // Managed filesystem primitives
-export { createSymlink, type SymlinkResult } from "./workspace/create-symlink.js";
+export { createSymlink } from "./workspace/create-symlink.js";
 
 // Read-model record rows + lifecycle views
 export {
-  configuredRecordRows,
   configuredRowsByName,
-  installedRecordRows,
   installedRowsByName,
-  isConfiguredRecordRow,
-  isInstalledRecordRow,
-  isUnmanagedRecordRow,
-  recordRowsByName,
-  unmanagedRecordRows,
-  unmanagedRowsByName,
   type ConfiguredRecordRow,
-  type InstalledRecordRow,
-  type UnmanagedRecordRow,
-  WorkspaceRecordRowSchema,
-  type WorkspaceRecordRow,
 } from "./observed/records.js";
 
 export {
   effectiveDesiredConstraint,
-  settleDesiredConstraint,
-  settleDesiredNodeConstraint,
   UNCONSTRAINED_DESIRED_NODE,
   isRequiredByAnotherOrigin,
   isSourcedDesiredExtension,
-  originsOutsidePacks,
   type DesiredExtensionNode,
   type DesiredExtensionOrigin,
   type DesiredConstraintConflict,
   type DesiredConstraintContributor,
   type DesiredConstraintProposal,
   type DesiredEffectiveConstraint,
-  type DesiredMemberSubject,
-  type DesiredMembershipUnknownReason,
   type DesiredPackMembership,
-  type DesiredPackRoutes,
   type DesiredStateGraph,
   type DesiredStateProblem,
-  type ProspectivePackRef,
 } from "./workspace/desired-state-graph.js";
 // The explicit input view an evaluation derives from, and the pure evaluation.
-export {
-  type DesiredEvaluationInputs,
-  type DesiredInputRead,
-  type DesiredInputRole,
-  type ObservedPackDocument,
-  type PackDocumentProvenance,
-} from "./workspace/desired-evaluation-inputs.js";
 export { evaluateDesiredState } from "./workspace/desired-state-evaluation.js";
 // Evidence-bearing queries over one evaluation.
 export {
@@ -234,12 +177,9 @@ export {
   desiredStateSettled,
   problemsAffectingPack,
   problemsAffectingSubject,
-  problemsAffectingType,
   unresolvedPackRoutes,
   unresolvedPackRoutesText,
   type DesiredContributorBlockers,
-  type DesiredProblemSubject,
-  type DesiredReachability,
 } from "./workspace/desired-state-queries.js";
 // Whether desired state reaches an accepted lock row.
 export {
@@ -247,7 +187,6 @@ export {
   acceptedRowReachability,
   desiredNodeReachesRow,
   desiredReachesAcceptedRow,
-  type AcceptedRowRef,
 } from "./workspace/accepted-reachability.js";
 // The typed identity a desired-graph node carries.
 export {
@@ -258,21 +197,14 @@ export {
   desiredPackageKey,
   formatDesiredIdentity,
   formatDesiredSourceAuthority,
-  locatorAuthority,
   sameAcceptedResolution,
-  sameDesiredPackage,
   sameSourceAuthority,
   sameSourceIdentity,
   type DesiredAuthority,
   type DesiredNodeIdentity,
-  type DesiredPackIdentity,
-  type DesiredRegistryBinding,
   type DesiredSourceAuthority,
 } from "./workspace/desired-identity.js";
-export {
-  packMemberSourceAuthority,
-  type PackMemberSourceView,
-} from "./workspace/pack-member-source-authority.js";
+export { packMemberSourceAuthority } from "./workspace/pack-member-source-authority.js";
 export {
   desiredStateProblemText,
   desiredStateProblemsText,
@@ -281,15 +213,9 @@ export {
   packManifestUnavailableText,
 } from "./workspace/desired-state-problem-text.js";
 export {
-  authorizeExternalPackRoutes,
-  type ExternalPackRouteAuthorization,
-} from "./workspace/desired-pack-lock.js";
-export {
   observeCanonicalExtension,
   observeAcceptedResolution,
   observeAcceptedCanonicalReuse,
-  canonicalPathForAcceptedExtension,
-  desiredConstraintContributors,
   type RequestedCanonicalRef,
   type CanonicalConstraintContributor,
   type CanonicalConstraintMismatchObservation,
@@ -308,10 +234,7 @@ export {
   usableAcceptedCanonicalFrom,
   usableAcceptedCanonicalObservation,
   usableAcceptedCanonicalRef,
-  type AcceptedCanonicalObservation,
   type AcceptedCanonicalRefError,
-  type UsableAcceptedCanonical,
-  type UsableAcceptedCanonicalObservation,
 } from "./workspace/accepted-canonical-ref.js";
 export { isObservedInstalled } from "./workspace/observed-installed.js";
 
@@ -323,17 +246,12 @@ export {
   acquiredExtensionDisplayPathFromLockEntry,
   extensionPathSourceFromLockEntry,
   lockEntryToRef,
-  lockEntrySource,
   lockEntryToSourceParams,
   lockEntryMatchesSourceLocator,
   lockEntryVersion,
-  isRegistryLockEntry,
   isGitLockEntry,
-  isHttpLockEntry,
   isPathLockEntry,
   type LockEntry,
-  type LockEntryToRefDeps,
-  type LockEntrySourceLookupError,
   type LockEntryToRefError,
 } from "./workspace/lock-entry.js";
 export { McpSourceIdentity, McpSourceKey } from "./workspace/mcp-source-identity.js";
@@ -342,36 +260,23 @@ export { McpSourceIdentity, McpSourceKey } from "./workspace/mcp-source-identity
 export {
   makeWorkspaceReadModel,
   WorkspaceReadModelConfig,
-  type ScopedOwnerApi,
-  type ScopedSourceHostsApi,
-  type ScopedStateApi,
   type WorkspaceReadModel,
-  type WorkspaceReadModelConfigService,
 } from "./observed/service.js";
 export { SCANNER_IO_CONCURRENCY, makeScannerFileSystem } from "./observed/scanners/fs-helpers.js";
-export { AgentRootResolver, AgentRootResolverLive } from "./observed/agent-root-resolver.js";
+export { AgentRootResolverLive } from "./observed/agent-root-resolver.js";
 export {
-  ExtensionInventoryClassificationSchema,
   ExtensionInventoryLifecycleSchema,
   ExtensionInventoryRowSchema,
   ExtensionInventorySchema,
   countExtensionInventory,
-  projectExtensionInventory,
   type ExtensionInventory,
-  type ExtensionInventoryClassification,
   type ExtensionInventoryLifecycle,
   type ExtensionInventoryRow,
 } from "./observed/extensions/inventory.js";
 export {
-  getPriorityDirectories,
-  parsePluginManifests,
-  scanAgentSubagentFiles,
   scanAllSubagentFiles,
   skillsInDir,
   type AgentSubagentSummary,
-  type DetectedSubagentFile,
-  type DiscoveredSkill,
-  type DiscoveryOptions,
 } from "./observed/discovery/index.js";
 export type {
   ActualMcpServer,
@@ -385,7 +290,6 @@ export type {
   InstalledRule,
   InstalledSkill,
   InstalledSubagent,
-  UnmanagedMcpServer,
   PackMemberBinding,
 } from "./observed/extensions/index.js";
 export { packMemberBindings } from "./workspace/desired-pack-members.js";
@@ -400,32 +304,22 @@ export {
 export {
   SettingsReader,
   bindRegistrySource,
-  type BoundRegistrySource,
-  type RegistrySourceHost,
   type SettingsReaderService,
 } from "./workspace/settings-reader.js";
 export {
   BUILT_IN_REGISTRY_NAME,
-  defaultRegistrySelection,
-  readSourceConfigurationSnapshot,
-  selectDefaultRegistry,
   selectRegistry,
-  type DefaultRegistrySelection,
-  type SettingsDocumentSnapshot,
   type SourceConfigurationSnapshot,
 } from "./workspace/registry-selection.js";
-export { LockfileReader, type LockfileReaderService } from "./workspace/lockfile-reader.js";
-export { readOtherScopeState, type OtherScopeState } from "./workspace/other-scope-reader.js";
+export { LockfileReader } from "./workspace/lockfile-reader.js";
+export { readOtherScopeState } from "./workspace/other-scope-reader.js";
 export {
   captureDesiredStateInputs,
   DesiredStateReader,
-  type CaptureDesiredStateInputsArgs,
-  type DesiredStateCandidateInputs,
-  type DesiredStateEvaluation,
   type DesiredStateReaderService,
 } from "./workspace/desired-state-reader.js";
 export { WorkspaceRecords, type WorkspaceRecordsService } from "./workspace/workspace-records.js";
-export { ExtensionPaths, type ExtensionPathsService } from "./workspace/extension-paths-service.js";
+export { ExtensionPaths } from "./workspace/extension-paths-service.js";
 export { SettingsWriter, type SettingsWriterService } from "./workspace/settings-writer.js";
 export {
   AcceptedResolutionWriter,
@@ -433,16 +327,10 @@ export {
 } from "./workspace/accepted-resolution-writer.js";
 export {
   DesiredStateWriter,
-  type DeclareArgsByType,
   type DesiredStateWriterService,
 } from "./workspace/desired-state-writer.js";
 export { settingsEntries, lockEntries } from "./workspace/entry-accessors.js";
-export type {
-  LockEntriesOf,
-  LockEntryByType,
-  SettingsEntriesOf,
-  SettingsEntryByType,
-} from "./workspace/entry-accessors.js";
+export type { LockEntryByType } from "./workspace/entry-accessors.js";
 
 export {
   type WorkspaceStateError,
@@ -453,13 +341,8 @@ export {
   type WorkspaceSettingsMutationFailure,
   type WorkspaceLockfileMutationFailure,
   type WorkspaceStateMutationFailure,
-  type SetSkillArgs,
   type SetPackArgs,
   type SetMcpServerArgs,
-  type SetSubagentArgs,
-  type SetRuleArgs,
-  type SetHookArgs,
-  type SetKnowledgeArgs,
   type ExtensionTarget,
   type ExtensionTargetFor,
   type LockfileState,
@@ -483,7 +366,6 @@ export {
   LockfileIoError,
   LockfileParseError,
   LockfileVersionUnsupported,
-  lockfileRequiresNewerAxm,
   type LockfileReadError,
 } from "./desired/lockfile/errors.js";
 export {
@@ -513,18 +395,10 @@ export {
   WorkspaceSourceInvalid,
 } from "./workspace/errors.js";
 
-export {
-  setupScopeSupport,
-  setupScopeSupportOutcomes,
-  type SetupScopeSupportCategory,
-  type SetupScopeSupportOutcome,
-  type SetupScopeSupportReasonCode,
-  type SetupScopeSupportStatus,
-} from "./workspace/setup-scope-support.js";
+export { setupScopeSupport } from "./workspace/setup-scope-support.js";
 export {
   configuredAgentLifecycleOutcomes,
   EXTENSION_CONFIGURED_AGENT_POLICY,
-  type ConfiguredAgentLifecycleState,
 } from "./workspace/configured-agent-outcomes.js";
 
 export { lockEntrySemanticallyEqual, stableJson } from "./workspace/accepted-resolution-writer.js";
@@ -540,7 +414,5 @@ export {
   readHookEvidence,
 } from "./observed/hooks/evidence.js";
 export { WorkspaceReadViews, withWorkspaceReadView } from "./workspace/read-view.js";
-
-export { WorkspaceDocuments, type WorkspaceDocumentsService } from "./workspace/documents.js";
 
 export { ensureWorkspaceTransientIgnores } from "./workspace/runtime-ignores.js";

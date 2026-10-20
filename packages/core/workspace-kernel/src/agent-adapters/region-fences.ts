@@ -48,7 +48,7 @@ export interface FenceLine {
 }
 
 /** The comment text of a fence, after trimming: `axm:<name>` or `/axm:<name>`. */
-export const FENCE_TEXT = /^(\/?)axm:([a-z0-9][a-z0-9-]*)$/;
+const FENCE_TEXT = /^(\/?)axm:([a-z0-9][a-z0-9-]*)$/;
 
 /** The canonical serialization AXM writes for one fence line (no terminator). */
 export const serializeFence = (

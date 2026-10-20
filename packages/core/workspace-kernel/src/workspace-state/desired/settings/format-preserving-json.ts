@@ -15,16 +15,6 @@ import type * as Schema from "effect/Schema";
 import { applyEdits, modify, type ModificationOptions } from "jsonc-parser";
 import { deriveStructuralInverse } from "../../../locations/index.js";
 
-/**
- * A single JSON modification: set or remove a value at a path.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface JsonModification {
-  readonly path: ReadonlyArray<string | number>;
-  readonly value: unknown;
-}
-
 export type JsonPointerPathResult =
   | {
       readonly _tag: "Success";

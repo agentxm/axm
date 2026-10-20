@@ -74,7 +74,7 @@ export const SettledOutcomeSchema = Schema.Literals([
 });
 export type SettledOutcome = typeof SettledOutcomeSchema.Type;
 
-export const ProgressUnitSchema = Schema.Literals(["bytes", "files", "items"] as const).annotate({
+const ProgressUnitSchema = Schema.Literals(["bytes", "files", "items"] as const).annotate({
   identifier: "ProgressUnit",
   title: "Progress Unit",
   description: "Unit of a continuous progress measurement.",
@@ -87,7 +87,7 @@ export type ProgressUnit = typeof ProgressUnitSchema.Type;
  * observer can say a unit is on its second of three attempts instead of
  * reporting the same state for longer.
  */
-export const ProgressAttemptSchema = Schema.Struct({
+const ProgressAttemptSchema = Schema.Struct({
   n: Schema.Number,
   of: Schema.Number,
 }).annotate({
@@ -103,19 +103,19 @@ const EventBase = {
   atMs: Schema.Number,
 };
 
-export const OperationStartedEventSchema = Schema.TaggedStruct("OperationStarted", {
+const OperationStartedEventSchema = Schema.TaggedStruct("OperationStarted", {
   ...EventBase,
   operationId: Schema.String,
   name: Schema.String,
   mode: OperationModeSchema,
 }).annotate({ identifier: "OperationStartedEvent" });
 
-export const PhaseStartedEventSchema = Schema.TaggedStruct("PhaseStarted", {
+const PhaseStartedEventSchema = Schema.TaggedStruct("PhaseStarted", {
   ...EventBase,
   phase: OperationPhaseSchema,
 }).annotate({ identifier: "PhaseStartedEvent" });
 
-export const UnitStartedEventSchema = Schema.TaggedStruct("UnitStarted", {
+const UnitStartedEventSchema = Schema.TaggedStruct("UnitStarted", {
   ...EventBase,
   unitId: Schema.String,
   label: Schema.String,
@@ -124,7 +124,7 @@ export const UnitStartedEventSchema = Schema.TaggedStruct("UnitStarted", {
   parentUnitId: Schema.optional(Schema.String),
 }).annotate({ identifier: "UnitStartedEvent" });
 
-export const UnitProgressEventSchema = Schema.TaggedStruct("UnitProgress", {
+const UnitProgressEventSchema = Schema.TaggedStruct("UnitProgress", {
   ...EventBase,
   unitId: Schema.String,
   done: Schema.Number,
@@ -141,14 +141,14 @@ export const UnitProgressEventSchema = Schema.TaggedStruct("UnitProgress", {
  * stream learns why while the operation is still running instead of waiting
  * for the result document.
  */
-export const UnitFailureSchema = Schema.Struct({
+const UnitFailureSchema = Schema.Struct({
   category: ErrorCodeSchema,
   detail: Schema.String,
 }).annotate({ identifier: "UnitFailure" });
 
 export type UnitFailure = typeof UnitFailureSchema.Type;
 
-export const UnitResolvedEventSchema = Schema.TaggedStruct("UnitResolved", {
+const UnitResolvedEventSchema = Schema.TaggedStruct("UnitResolved", {
   ...EventBase,
   unitId: Schema.String,
   label: Schema.String,
@@ -158,19 +158,19 @@ export const UnitResolvedEventSchema = Schema.TaggedStruct("UnitResolved", {
   failure: Schema.optional(UnitFailureSchema),
 }).annotate({ identifier: "UnitResolvedEvent" });
 
-export const WaitingEventSchema = Schema.TaggedStruct("Waiting", {
+const WaitingEventSchema = Schema.TaggedStruct("Waiting", {
   ...EventBase,
   blockingClass: BlockingClassSchema,
   subject: Schema.String,
   detail: Schema.String,
 }).annotate({ identifier: "WaitingEvent" });
 
-export const WaitEndedEventSchema = Schema.TaggedStruct("WaitEnded", {
+const WaitEndedEventSchema = Schema.TaggedStruct("WaitEnded", {
   ...EventBase,
   subject: Schema.String,
 }).annotate({ identifier: "WaitEndedEvent" });
 
-export const OperationSettledEventSchema = Schema.TaggedStruct("OperationSettled", {
+const OperationSettledEventSchema = Schema.TaggedStruct("OperationSettled", {
   ...EventBase,
   outcome: SettledOutcomeSchema,
 }).annotate({ identifier: "OperationSettledEvent" });
@@ -196,7 +196,6 @@ export const OperationEventSchema = Schema.Union([
     "One typed lifecycle event of a running AXM operation: operation, phase, unit, waiting, or settlement transition.",
 });
 export type OperationEvent = typeof OperationEventSchema.Type;
-export type OperationEventEncoded = typeof OperationEventSchema.Encoded;
 
 /** Fields the service fills in for every event it publishes. */
 export type OperationEventInput = (seq: number, atMs: number) => OperationEvent;

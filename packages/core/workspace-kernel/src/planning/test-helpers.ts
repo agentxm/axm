@@ -1,4 +1,4 @@
-export const expectDefined = <T>(
+const expectDefined = <T>(
   value: T | null | undefined,
   message = "Expected value to be defined",
 ): T => {

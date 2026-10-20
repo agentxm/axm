@@ -90,7 +90,7 @@ export type FileSpec =
  * inline content) or a `FileSpec` discriminator (for absent/byte-corrupt/
  * schema-invalid).
  */
-export type TreeFiles = Readonly<Record<string, string | FileSpec>>;
+type TreeFiles = Readonly<Record<string, string | FileSpec>>;
 
 /**
  * Per-scope file specs. `settings` and `lockfile` are scoped settings/lockfile

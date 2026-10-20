@@ -17,9 +17,11 @@
 // Manager contract
 export {
   NO_MATERIALIZATION_OBSERVATION,
-  type ManagerRequirements,
+  // Dependents' inferred installation facts name these requirements, so their
+  // declaration emit must be able to; knip skips exports tagged public.
+  /** @public */
   type CanonicalMaterializationRequirements,
-  type MaterializationFacts,
+  type ManagerRequirements,
   type MaterializationObservation,
 } from "./manager-contract.js";
 
@@ -45,7 +47,6 @@ export {
   SkillManager,
   type SkillManagerService,
   SubagentManager,
-  type AcquiredContentFacts,
   type HookManagerService,
   type PreparedHookProjection,
   type HookMaterializationFacts,
@@ -53,7 +54,6 @@ export {
   type KnowledgeMaterializationFacts,
   type KnowledgeSyncResult,
   type InstallMcpServerOperation,
-  type InstallMcpServerOperationArgs,
   type McpConnectionInstallRequirements,
   type McpServerMaterializationFacts,
   type McpServerManagerService,
@@ -66,19 +66,14 @@ export {
 } from "./managers.js";
 
 // Failure vocabulary
-export type { ExtensionManagerFailure, ExtensionMaterializationError } from "./errors.js";
+export type { ExtensionManagerFailure } from "./errors.js";
 export {
   ExtensionKindFailureTypeId,
   failureTag,
   isExtensionKindFailure,
   type ExtensionKindFailure,
 } from "./kind-failure.js";
-export {
-  acceptedResolutionFor,
-  InstallStateMissing,
-  type AcceptedResolution,
-  type AcquiredContentIdentity,
-} from "./accepted-resolution.js";
+export { acceptedResolutionFor, InstallStateMissing } from "./accepted-resolution.js";
 
 // The artifact a skill materialization reports across its agent targets
 export {
@@ -87,7 +82,6 @@ export {
   groupInstallTargetsByDirectory,
   skillArtifactFromTargets,
   type InstallableSkillTarget,
-  type InstallableSkillTargetLocation,
 } from "./skill-artifact.js";
 
 // The shared manager members and canonical acquisition every kind manager composes

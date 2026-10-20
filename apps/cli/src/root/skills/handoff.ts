@@ -52,16 +52,13 @@ export const handleHandoff = (
       const candidate = yield* HandoffSkills.prepare(args).pipe(Effect.mapError(failureToAppError));
       const { execution, recovery } = yield* makePlanInvocation(
         { preview: args.preview },
-        makeConfirmationRecovery(
-          ["skills", "handoff"],
-          [
-            ...args.skills.map((name) => recoveryOption("--skill", publicRecoveryValue(name))),
-            ...(args.all ? [recoverySwitch("--all", true)] : []),
-            ...(args.lockPath === undefined
-              ? []
-              : [recoveryOption("--lock", protectedRecoveryValue())]),
-          ],
-        ),
+        yield* makeConfirmationRecovery([
+          ...args.skills.map((name) => recoveryOption("--skill", publicRecoveryValue(name))),
+          ...(args.all ? [recoverySwitch("--all", true)] : []),
+          ...(args.lockPath === undefined
+            ? []
+            : [recoveryOption("--lock", protectedRecoveryValue())]),
+        ]),
       );
       const result = yield* HandoffSkills.previewOrApply(candidate, execution).pipe(
         Effect.mapError(failureToAppError),

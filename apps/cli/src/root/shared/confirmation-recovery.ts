@@ -29,6 +29,7 @@ import {
   REPLACE_UNRECORDED_FLAG,
 } from "@agentxm/workspace-kernel/projection";
 import { AppError, makeAppError } from "../../app-error/index.js";
+import { CommandRoute } from "../../cli-runtime/command-route.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   installableExtensionTypes,
@@ -38,10 +39,18 @@ import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import { extensionFromStepKey } from "@agentxm/workspace-kernel/reconciliation";
 import { extensionTypePresentation } from "../extension-type-presentation.js";
 
+/**
+ * The invocation as a recovery line replays it: the route the dispatcher
+ * resolved, followed by the route's own arguments. The command words come from
+ * the parser's match against the registered tree, so no route restates its
+ * own place in it.
+ */
 export const makeConfirmationRecovery = (
-  command: ReadonlyArray<string>,
   arguments_: ReadonlyArray<ConfirmationRecoveryArgument>,
-): ConfirmationRecovery => ({ command, arguments: arguments_ });
+): Effect.Effect<ConfirmationRecovery> =>
+  Effect.gen(function* () {
+    return { command: yield* CommandRoute, arguments: arguments_ };
+  });
 
 const explicitGlobalArguments = Effect.gen(function* () {
   const json = Option.exists(Option.flatten(yield* Effect.serviceOption(jsonFlag)), Boolean);
@@ -111,31 +120,27 @@ export const makePlanInvocation = (
 
 export const makePublicPositionalPlanInvocation = (
   intent: RequestedPlanIntent,
-  command: ReadonlyArray<string>,
   positionals: ReadonlyArray<string>,
   acceptedPolicies: ReadonlyArray<PlanPolicyId> = [],
 ): Effect.Effect<PlanInvocation> =>
-  makePlanInvocation(
-    intent,
+  Effect.flatMap(
     makeConfirmationRecovery(
-      command,
       positionals.map((value) => recoveryPositional(publicRecoveryValue(value))),
     ),
-    acceptedPolicies,
+    (recovery) => makePlanInvocation(intent, recovery, acceptedPolicies),
   );
 
 export const makeInstallPlanInvocation = (
   intent: RequestedPlanIntent,
-  command: ReadonlyArray<string>,
   locators: ReadonlyArray<string>,
   arguments_: ReadonlyArray<ConfirmationRecoveryArgument> = [],
 ): Effect.Effect<PlanInvocation> =>
-  makePlanInvocation(
-    intent,
-    makeConfirmationRecovery(command, [
+  Effect.flatMap(
+    makeConfirmationRecovery([
       ...arguments_,
       ...locators.map((value) => recoveryPositional(credentialFreeLocatorRecoveryValue(value))),
     ]),
+    (recovery) => makePlanInvocation(intent, recovery),
   );
 
 /**

@@ -10,6 +10,7 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import { makeWorkspaceLocationMock } from "../../test-support/test-stubs.js";
+import { withCommandRoute } from "../../test-support/test-helpers.js";
 import { makeConfirmationRecovery, makePlanInvocation } from "./confirmation-recovery.js";
 
 describe("confirmation recovery CLI boundary", () => {
@@ -17,10 +18,7 @@ describe("confirmation recovery CLI boundary", () => {
     Effect.gen(function* () {
       const { execution, recovery } = yield* makePlanInvocation(
         { yes: false, preview: false },
-        makeConfirmationRecovery(
-          ["demote"],
-          [recoveryPositional(publicRecoveryValue("code review"))],
-        ),
+        yield* makeConfirmationRecovery([recoveryPositional(publicRecoveryValue("code review"))]),
       );
 
       expect(execution.request).toMatchObject({
@@ -38,6 +36,7 @@ describe("confirmation recovery CLI boundary", () => {
         "axm demote --scope user --verbose 'code review'",
       );
     }).pipe(
+      withCommandRoute("demote"),
       Effect.provide(
         Layer.mergeAll(
           TestFlagsLayer({ json: true, nonInteractive: true, verbose: true }),
@@ -52,7 +51,7 @@ describe("confirmation recovery CLI boundary", () => {
 
   it.effect("maps the parsed intent to the shared execution request", () =>
     Effect.gen(function* () {
-      const recovery = makeConfirmationRecovery(["install"], []);
+      const recovery = yield* makeConfirmationRecovery([]);
       const request = (intent: Parameters<typeof makePlanInvocation>[0]) =>
         Effect.map(makePlanInvocation(intent, recovery), ({ execution }) => execution.request);
       expect(yield* request({ yes: false, preview: true })).toEqual({ mode: "preview" });
@@ -70,6 +69,6 @@ describe("confirmation recovery CLI boundary", () => {
         mode: "apply",
         confirmableRiskApproval: "interactive-only",
       });
-    }),
+    }).pipe(withCommandRoute("install")),
   );
 });

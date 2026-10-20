@@ -54,8 +54,6 @@ import { firstUseWorkspace, type FirstUse } from "./first-use.js";
 export interface InstallCommandArgs<R = never> {
   readonly request: InstallExtensionsRequest;
   readonly preview: boolean;
-  /** The command words a confirmation-recovery line reproduces. */
-  readonly recoveryCommand: ReadonlyArray<string>;
   /** The positional locators that line reproduces. */
   readonly recoveryLocators: ReadonlyArray<string>;
   /** Extra flags that line reproduces, such as `--all` or `--ignore-release-age`. */
@@ -114,7 +112,6 @@ const complete = <R>(args: InstallCommandArgs<R>, selection: InstallExtensionsSe
   Effect.gen(function* () {
     const { execution, recovery } = yield* makeInstallPlanInvocation(
       { preview: args.preview },
-      args.recoveryCommand,
       args.recoveryLocators,
       args.recoveryArguments ?? [],
     );

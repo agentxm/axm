@@ -63,13 +63,10 @@ const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: DemoteHandl
   });
   const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview, yes: args.yes },
-    makeConfirmationRecovery(
-      ["demote"],
-      [
-        recoveryPositional(publicRecoveryValue(args.fqn)),
-        recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
-      ],
-    ),
+    yield* makeConfirmationRecovery([
+      recoveryPositional(publicRecoveryValue(args.fqn)),
+      recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
+    ]),
   );
   const resolution = yield* DemoteToExternalSource.previewOrApply(candidate, execution);
   yield* emitOperationResolution(resolution, { recovery });

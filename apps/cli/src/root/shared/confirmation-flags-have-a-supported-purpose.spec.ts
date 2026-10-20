@@ -25,6 +25,7 @@ import { unrecognizedOptions } from "../../test-support/parser-probe.js";
 import { writeAuthoredSkill } from "../../test-support/publish-harness.js";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { makeSetupSpecContext } from "../../test-support/setup-harness.js";
+import { withCommandRoute } from "../../test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/confirmation-flags-have-a-supported-purpose",
@@ -124,7 +125,8 @@ describe("Advance approval", () => {
       return workspace;
     };
 
-    const demote = (yes: boolean) => handleDemote({ fqn: FQN, source: FQN, yes, preview: false });
+    const demote = (yes: boolean) =>
+      handleDemote({ fqn: FQN, source: FQN, yes, preview: false }).pipe(withCommandRoute("demote"));
 
     it.effect(
       "an unattended apply without approval stops before replacing authority and names the flag",

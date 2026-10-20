@@ -54,18 +54,15 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
 
   const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
-    makeConfirmationRecovery(
-      ["fork"],
-      [
-        ...Option.match(args.from, {
-          onNone: () => [],
-          onSome: (value) => [recoveryOption("--package", publicRecoveryValue(value))],
-        }),
-        recoverySwitch("--enable", args.enable),
-        recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
-        recoveryPositional(publicRecoveryValue(args.target)),
-      ],
-    ),
+    yield* makeConfirmationRecovery([
+      ...Option.match(args.from, {
+        onNone: () => [],
+        onSome: (value) => [recoveryOption("--package", publicRecoveryValue(value))],
+      }),
+      recoverySwitch("--enable", args.enable),
+      recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
+      recoveryPositional(publicRecoveryValue(args.target)),
+    ]),
   );
   const resolution = yield* ForkExtension.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),

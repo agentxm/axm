@@ -71,9 +71,6 @@ export const makePerTypePublishCommand = (type: PublishableType) => {
         scope: "project",
         visibility: parsed.visibility,
         includeDependencies,
-        recoveryCommand: [route, "publish"],
-        recoverySelectors: [...parsed.extensions],
-        recoveryExcludes: [...parsed.exclude],
       });
     }).pipe(withWorkspace("project"), withRuntime({ registry: parsed.registry }));
 

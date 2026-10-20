@@ -7,7 +7,6 @@ import {
   ImportNativeExtension,
   importNativeExtensionPlanName,
 } from "@agentxm/workspace-features/authoring";
-import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import {
   CONFIGURABLE_AGENT_IDS,
   type AgentId,
@@ -54,7 +53,6 @@ export const handleImport = (args: ImportHandlerArgs) =>
   );
 
 const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandlerArgs) {
-  const group = extensionTypeToPlural[args.type];
   const candidate = yield* ImportNativeExtension.prepare({
     type: args.type,
     source: args.source,
@@ -65,17 +63,14 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
 
   const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
-    makeConfirmationRecovery(
-      [group, "import"],
-      [
-        recoverySwitch("--enable", args.enable),
-        ...(args.sourceAgent === undefined
-          ? []
-          : [recoveryOption("--source-agent", publicRecoveryValue(args.sourceAgent))]),
-        recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
-        recoveryPositional(publicRecoveryValue(args.target)),
-      ],
-    ),
+    yield* makeConfirmationRecovery([
+      recoverySwitch("--enable", args.enable),
+      ...(args.sourceAgent === undefined
+        ? []
+        : [recoveryOption("--source-agent", publicRecoveryValue(args.sourceAgent))]),
+      recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
+      recoveryPositional(publicRecoveryValue(args.target)),
+    ]),
   );
   const resolution = yield* ImportNativeExtension.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),

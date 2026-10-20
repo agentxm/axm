@@ -92,7 +92,6 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   // agent materializes installed extensions, which needs a readable lockfile.
   const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
     args,
-    ["agents", "add"],
     candidate.agentIds,
     args.force ? ["accept-warnings"] : [],
   );

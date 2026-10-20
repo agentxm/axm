@@ -11,7 +11,7 @@ import { afterEach } from "vitest";
 
 import { ResolvePlanInteractionLive, classifyError } from "./index.js";
 import { SetupDocumentSchema, handleSetup } from "../root/setup.js";
-import { getAppError } from "../test-support/test-helpers.js";
+import { getAppError, withCommandRoute } from "../test-support/test-helpers.js";
 import { handleDemote } from "../root/demote/command.js";
 import { handleInstall } from "../root/install/handler.js";
 
@@ -258,7 +258,10 @@ describe("Machine mode never prompts", () => {
           source: replacement,
           yes: false,
           preview: false,
-        }).pipe(Effect.provide(Layer.provideMerge(ResolvePlanInteractionLive, workspace.layer)));
+        }).pipe(
+          withCommandRoute("demote"),
+          Effect.provide(Layer.provideMerge(ResolvePlanInteractionLive, workspace.layer)),
+        );
 
         expect(workspace.promptState.confirmCalls).toEqual([]);
         const [entry] = workspace.rendererState.results;

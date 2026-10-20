@@ -73,17 +73,14 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
   // condition, naming interactive approval rather than a flag it lacks.
   const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
-    makeConfirmationRecovery(
-      ["sync"],
-      [
-        ...Option.match(target, {
-          onNone: () => [],
-          onSome: (value) => [recoveryPositional(publicRecoveryValue(value))],
-        }),
-        ...types.map((value) => recoveryOption("--type", publicRecoveryValue(value))),
-        recoverySwitch("--fail-on-change", args.failOnChange === true),
-      ],
-    ),
+    yield* makeConfirmationRecovery([
+      ...Option.match(target, {
+        onNone: () => [],
+        onSome: (value) => [recoveryPositional(publicRecoveryValue(value))],
+      }),
+      ...types.map((value) => recoveryOption("--type", publicRecoveryValue(value))),
+      recoverySwitch("--fail-on-change", args.failOnChange === true),
+    ]),
   );
   const candidate = yield* SyncWorkspace.prepare({ target, types }).pipe(
     Effect.mapError(toAppError),

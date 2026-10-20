@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 
 import { releaseAgeDoc } from "./operation-output.js";
 import { paintText } from "./screen/paint-text.js";
-import { getAppError } from "./test-support/test-helpers.js";
+import { getAppError, withCommandRoute } from "./test-support/test-helpers.js";
 import { handleInstall } from "./root/install/handler.js";
 import { handleSync } from "./root/sync/handler.js";
 import { handleUpdate } from "./root/update/handler.js";
@@ -141,6 +141,7 @@ const withholdingCommands: ReadonlyArray<{
     others: ["axm install", "axm sync", "axm skills update"],
     run: (workspace) =>
       handleUpdate({ source: Option.none(), reinstall: false, preview: false }).pipe(
+        withCommandRoute("update"),
         Effect.provide(workspace.layer),
       ),
   },
@@ -150,6 +151,7 @@ const withholdingCommands: ReadonlyArray<{
     others: ["axm install", "axm sync", "axm skills update"],
     run: (workspace) =>
       handleUpdate({ source: Option.some(FQN), reinstall: false, preview: false }).pipe(
+        withCommandRoute("update"),
         Effect.provide(workspace.layer),
       ),
   },
@@ -163,7 +165,7 @@ const withholdingCommands: ReadonlyArray<{
         planName: "Update skills",
         planDescription: Option.some("Update configured skills"),
         flags: { preview: false },
-      }).pipe(Effect.provide(workspace.layer)),
+      }).pipe(withCommandRoute("skills", "update"), Effect.provide(workspace.layer)),
   },
 ];
 
@@ -185,11 +187,15 @@ const refusingCommands: ReadonlyArray<{
         bindEnv: [],
         localName: Option.none(),
         bundled: false,
-      }).pipe(Effect.provide(workspace.layer)),
+      }).pipe(withCommandRoute("install"), Effect.provide(workspace.layer)),
   },
   {
     command: "axm sync",
-    run: (workspace) => handleSync({ preview: false }).pipe(Effect.provide(workspace.layer)),
+    run: (workspace) =>
+      handleSync({ preview: false }).pipe(
+        withCommandRoute("sync"),
+        Effect.provide(workspace.layer),
+      ),
   },
 ];
 

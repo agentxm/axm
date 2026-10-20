@@ -41,7 +41,7 @@ import {
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { publicRecoveryValue, recoveryOption } from "@agentxm/workspace-kernel/operations";
-import { retrySuggestion } from "../shared/confirmation-recovery.js";
+import { makeConfirmationRecovery, retrySuggestion } from "../shared/confirmation-recovery.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
@@ -343,14 +343,14 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
     const continuation =
       result.hasMore && result.cursor !== null
         ? [
-            retrySuggestion("List the next page of tokens", {
-              command: ["token", "list"],
-              arguments: [
+            retrySuggestion(
+              "List the next page of tokens",
+              yield* makeConfirmationRecovery([
                 recoveryOption("--registry", publicRecoveryValue(registry.endpoint.href)),
                 recoveryOption("--limit", publicRecoveryValue(String(limit))),
                 recoveryOption("--cursor", publicRecoveryValue(result.cursor)),
-              ],
-            }),
+              ]),
+            ),
           ]
         : [];
 

@@ -30,6 +30,7 @@ import {
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../test-support/install-harness.js";
 import { writeAuthoredSkill } from "../../test-support/publish-harness.js";
 import { admitRecoveryArgv } from "../../test-support/recovery-argv-admission.js";
+import { withCommandRoute } from "../../test-support/test-helpers.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 
 export const specification = defineSpecification({
@@ -136,6 +137,7 @@ describe("Approval-required recovery", () => {
         const { workspace, replacement } = authoredWorkspace();
 
         yield* handleDemote({ fqn: FQN, source: replacement, yes: false, preview: false }).pipe(
+          withCommandRoute("demote"),
           Effect.provide(workspace.layer),
         );
 
@@ -197,7 +199,7 @@ describe("Approval-required recovery", () => {
           planDescription: Option.some("Update configured skills"),
           flags: { preview: false },
           selector: { resourceType: "skill", source: Option.none(), nameFilters: [] },
-        }).pipe(Effect.provide(workspace.layer));
+        }).pipe(withCommandRoute("skills", "update"), Effect.provide(workspace.layer));
 
         const [entry] = workspace.rendererState.results;
         expect(entry?.data).toMatchObject({
@@ -251,6 +253,7 @@ describe("Approval-required recovery", () => {
         workspace.rendererState.results.splice(0);
 
         yield* handleUpdate({ source: Option.some(FQN), reinstall: false, preview: false }).pipe(
+          withCommandRoute("update"),
           Effect.provide(workspace.layer),
         );
 
@@ -277,11 +280,9 @@ describe("Approval-required recovery", () => {
 
   it.effect("an activation route names an interactive rerun carrying its name", () =>
     Effect.gen(function* () {
-      const { recovery } = yield* makePublicPositionalPlanInvocation(
-        { preview: false },
-        ["skills", "enable"],
-        [SKILL],
-      );
+      const { recovery } = yield* makePublicPositionalPlanInvocation({ preview: false }, [
+        SKILL,
+      ]).pipe(withCommandRoute("skills", "enable"));
       const [escape] = confirmationRecoverySuggestions(recovery, "interactive");
       const argv = argvOf(escape?.cmd ?? "");
       expect(argv.slice(0, 2)).toEqual(["skills", "enable"]);
@@ -301,14 +302,13 @@ describe("Approval-required recovery", () => {
       const source = "./extensions";
       const { recovery } = yield* makeInstallPlanInvocation(
         { preview: false },
-        ["install"],
         [source],
         [
           recoverySwitch("--all", true),
           recoverySwitch("--bundled", false),
           recoverySwitch("--ignore-release-age", true),
         ],
-      );
+      ).pipe(withCommandRoute("install"));
       const unsettled = [
         unsettledExtension("skill:alpha", "skills/alpha"),
         unsettledExtension("rule:safe-shell", "rules/safe-shell"),
@@ -340,10 +340,9 @@ describe("Approval-required recovery", () => {
       Effect.gen(function* () {
         const { recovery } = yield* makeInstallPlanInvocation(
           { preview: false },
-          ["mcps", "install"],
           ["@acme/mcps/context"],
           [recoveryOption("--env", protectedRecoveryValue())],
-        );
+        ).pipe(withCommandRoute("mcps", "install"));
 
         const retry = retrySuggestion(
           "Try the extension that did not install again",

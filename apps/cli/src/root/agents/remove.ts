@@ -70,7 +70,6 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
 
   const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
     args,
-    ["agents", "remove"],
     candidate.agentIds,
     args.force ? ["accept-warnings"] : [],
   );

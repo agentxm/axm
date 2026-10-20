@@ -24,6 +24,7 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 import { ensureWorkspaceFiles } from "./test-stubs.js";
+import { CommandRoute } from "../cli-runtime/command-route.js";
 import { AppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";
 import { KnowledgeIndexLive } from "@agentxm/workspace-features/knowledge-query/live";
@@ -215,6 +216,15 @@ export const recordingFileSystemLayer = (
       });
     }),
   );
+
+/**
+ * Run an effect as the dispatcher runs a command it resolved to `route`: the
+ * recovery lines a handler renders take their command words from it.
+ */
+export const withCommandRoute =
+  (...route: ReadonlyArray<string>) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    Effect.provideService(effect, CommandRoute, route);
 
 export const expectDefined = <T>(
   value: T | null | undefined,

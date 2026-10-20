@@ -14,6 +14,7 @@ import { makeAgentMembershipFixture } from "../test-support/agent-membership-fix
 import { probeFlag } from "../test-support/parser-probe.js";
 import { handleSync } from "../root/sync/handler.js";
 import { withProjectionOutputPosture } from "../runtime.js";
+import { withCommandRoute } from "../test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/projection-overrides-reach-every-projecting-command",
@@ -202,7 +203,11 @@ describe("Whole-file projection overrides", () => {
         const workspace = unrecordedSubagent();
         const outcome = yield* workspace
           .provide(handleSync({ preview: false }))
-          .pipe(withProjectionOutputPosture({ replaceUnrecorded: false }), Effect.result);
+          .pipe(
+            withProjectionOutputPosture({ replaceUnrecorded: false }),
+            withCommandRoute("sync"),
+            Effect.result,
+          );
 
         expect(workspace.readFile(".claude/agents/planner.md")).toBe("# Written by hand\n");
         expect(workspace.readLockfileText()).not.toContain(".claude/agents/planner.md");

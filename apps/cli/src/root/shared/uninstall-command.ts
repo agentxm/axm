@@ -49,8 +49,6 @@ import { withOperationLifecycle } from "../../operation-lifecycle.js";
 export interface UninstallCommandArgs {
   readonly request: UninstallExtensionsRequest;
   readonly preview: boolean;
-  /** The command words a confirmation-recovery line reproduces. */
-  readonly recoveryCommand: ReadonlyArray<string>;
   /** What the person typed, reproduced as the recovery line's positional. */
   readonly recoveryPositionals: ReadonlyArray<string>;
 }
@@ -92,7 +90,6 @@ const body = (args: UninstallCommandArgs) =>
 
     const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
       { preview: args.preview },
-      args.recoveryCommand,
       args.recoveryPositionals,
     );
     const resolution = yield* UninstallExtensions.previewOrApply(candidate, execution).pipe(
@@ -164,7 +161,6 @@ export const makePerTypeUninstallCommand = (type: InstallableExtensionType) => {
     runUninstallCommand({
       preview,
       request: { type: Option.some(type), selector: name },
-      recoveryCommand: [route, "uninstall"],
       recoveryPositionals: [name],
     }).pipe(withProjectionOutputPosture({ discardModified }), withWorkspace(scope), withRuntime()),
   ).pipe(

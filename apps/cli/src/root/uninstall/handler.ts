@@ -25,6 +25,5 @@ export const handleUninstall = (args: RootUninstallHandlerArgs) =>
       type: Option.none(),
       selector: args.source,
     },
-    recoveryCommand: ["uninstall"],
     recoveryPositionals: [args.source],
   });

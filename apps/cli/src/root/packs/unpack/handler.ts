@@ -29,11 +29,7 @@ export const handleUnpack = (args: UnpackHandlerArgs) =>
 
 const handleUnpackBody = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
   const candidate = yield* PromoteAuthoredPack.prepare({ name: args.name });
-  const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
-    args,
-    ["packs", "unpack"],
-    [args.name],
-  );
+  const { execution, recovery } = yield* makePublicPositionalPlanInvocation(args, [args.name]);
   const resolution = yield* PromoteAuthoredPack.previewOrApply(candidate, execution);
   yield* emitOperationResolution(resolution, { recovery });
 });

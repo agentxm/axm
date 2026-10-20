@@ -31,14 +31,11 @@ export const handleHookExport = (args: {
       const candidate = yield* ExportHook.prepare(args).pipe(Effect.mapError(failureToAppError));
       const { execution, recovery } = yield* makePlanInvocation(
         { preview: args.preview },
-        makeConfirmationRecovery(
-          ["hooks", "export"],
-          [
-            recoveryPositional(publicRecoveryValue(args.directory)),
-            recoveryPositional(publicRecoveryValue(args.destination)),
-            recoveryOption("--implementation", publicRecoveryValue(args.implementation)),
-          ],
-        ),
+        yield* makeConfirmationRecovery([
+          recoveryPositional(publicRecoveryValue(args.directory)),
+          recoveryPositional(publicRecoveryValue(args.destination)),
+          recoveryOption("--implementation", publicRecoveryValue(args.implementation)),
+        ]),
       );
       const resolution = yield* ExportHook.previewOrApply(candidate, execution).pipe(
         Effect.mapError(failureToAppError),

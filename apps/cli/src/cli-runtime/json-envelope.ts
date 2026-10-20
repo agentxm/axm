@@ -61,7 +61,7 @@ export const JsonErrorEnvelopeSchema = Schema.Struct({
 });
 export type JsonErrorEnvelope = typeof JsonErrorEnvelopeSchema.Type;
 
-export const JsonSuccessEnvelopeSchema = Schema.Struct({
+const JsonSuccessEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(true),
   result: Schema.Unknown,
   summary: Schema.optional(Schema.String),
@@ -73,7 +73,7 @@ export const JsonSuccessEnvelopeSchema = Schema.Struct({
 });
 export type JsonSuccessEnvelope = typeof JsonSuccessEnvelopeSchema.Type;
 
-export const JsonOperationFailureEnvelopeSchema = Schema.Struct({
+const JsonOperationFailureEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
   diagnosticId: Schema.optional(Schema.String),
   result: Schema.Unknown,
@@ -96,7 +96,6 @@ export const JsonEnvelopeSchema = Schema.Union([
   title: "JSON Envelope",
   description: "Structured JSON success or error envelope for machine-readable CLI output.",
 });
-export type JsonEnvelope = typeof JsonEnvelopeSchema.Type;
 
 const normalizeResult = (payload: unknown): unknown => {
   if (

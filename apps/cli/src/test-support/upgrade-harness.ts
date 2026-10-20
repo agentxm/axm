@@ -50,9 +50,7 @@ import {
   type RecordedWrite,
 } from "./screen-harness.js";
 
-export { HOMEBREW_EXECUTABLE, LOCAL_VERSION, TARGET_VERSION };
-export type { SubprocessInvocation };
-
+export { LOCAL_VERSION, TARGET_VERSION };
 export interface UpgradeCommandOptions extends SubprocessTestOptions {
   readonly method?: InstallMethodType | undefined;
   readonly requestedVersion?: string | undefined;
@@ -68,7 +66,7 @@ export interface UpgradeCommandOptions extends SubprocessTestOptions {
   readonly advanceMs?: number | undefined;
 }
 
-export interface UpgradeCommandRun {
+interface UpgradeCommandRun {
   /** Every write the command made, in order, across both channels. */
   readonly writes: ReadonlyArray<RecordedWrite>;
   readonly stdout: string;

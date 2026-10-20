@@ -8,9 +8,7 @@ import {
   type NewExtensionArgs,
 } from "../shared/create-extension-command.js";
 
-export const handleRulesNew = (
-  args: NewExtensionArgs & { readonly title: Option.Option<string> },
-) =>
+const handleRulesNew = (args: NewExtensionArgs & { readonly title: Option.Option<string> }) =>
   runCreateExtensionCommand({
     preview: args.preview,
     request: {

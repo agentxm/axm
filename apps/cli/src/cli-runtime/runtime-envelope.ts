@@ -22,6 +22,8 @@ import type { InstallSelectionCancelled } from "@agentxm/workspace-kernel/operat
  * initialization cancellation. The envelope dispatches on the tag alone, so
  * it does not import the feature package (the transitional residue may not
  * depend on features).
+ *
+ * @public Inferred types in this package name it in emitted declarations.
  */
 export interface WorkspaceInitializationCancelled {
   readonly _tag: "WorkspaceInitializationCancelled";
@@ -102,7 +104,6 @@ export type ExpectedCliError =
   | QuestionCancelled
   | WorkspaceInitializationCancelled
   | InstallSelectionCancelled;
-export type CliRuntimeFoundation = Screen | Verbosity;
 
 /**
  * Resolve the AppError rendering for an expected error. Known typed failures

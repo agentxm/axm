@@ -1,49 +1,20 @@
 export type {
-  BlankNode,
-  CalloutNode,
-  Change,
   Doc,
   DocNode,
   Field,
-  FieldsNode,
-  HeadlineNode,
   LedgerColumn,
-  LedgerColumnRole,
   LedgerFold,
-  LedgerNode,
   LedgerRow,
-  LiveMark,
   Mark,
-  MarkdownNode,
-  NextNode,
-  ParagraphNode,
-  PromptChip,
-  PromptNode,
-  RawNode,
-  SectionNode,
   Span,
-  SummaryNode,
   SummaryPart,
-  TableColumn,
-  TableColumnPriority,
-  TableNode,
   Text,
   Tint,
   Tone,
-  TreeItem,
-  TreeNode,
-  WaitNode,
 } from "./doc.js";
-export { plain, text } from "./doc.js";
-export { paintText, type PaintStyle, type PaintWidth } from "./paint-text.js";
-export { asciiGlyphs, unicodeGlyphs, type Glyphs } from "./glyphs.js";
-export { wrapText } from "./wrap-text.js";
-export {
-  STACKED_THRESHOLD,
-  layoutTable,
-  type LayoutColumn,
-  type TableLayout,
-} from "./table-layout.js";
+export { plain } from "./doc.js";
+export { paintText } from "./paint-text.js";
+export { asciiGlyphs, unicodeGlyphs } from "./glyphs.js";
 export {
   promptRequired,
   yesNo,
@@ -56,32 +27,14 @@ export {
   type ConfirmAsk,
   type ConfirmChoice,
   type InputAsk,
-  type InteractiveGuard,
   type PickAsk,
   type PickOption,
   pickAsk,
 } from "./ask/ask.js";
 export { QuestionCancelled } from "./ask/question-cancelled.js";
 export { WaitAbandoned } from "./wait/wait-abandoned.js";
-export { reduceWaitKey, waitKeys, type WaitActions, type WaitView } from "./wait/wait.js";
-export { waitChips, waitDoc, waitSettled } from "./wait/view.js";
-export { parkedOnWait, runStaticWait, runWait } from "./wait/run.js";
-export { Frame, FrameLive } from "./frame.js";
-export {
-  liveColumns,
-  liveRows,
-  paintLivePart,
-  paintScene,
-  type Scene,
-  type TerminalSize,
-} from "./scene.js";
-export {
-  initialProgress,
-  operationElapsedMs,
-  reduceProgress,
-  type ProgressState,
-} from "./progress.js";
-export { progressTransitionDoc } from "./progress-view.js";
+export { type WaitView } from "./wait/wait.js";
+export { FrameLive } from "./frame.js";
 export {
   OutputStreams,
   OutputStreamsLive,
@@ -96,26 +49,14 @@ export {
   CurrentScreenOperationId,
   ScreenLive,
   ScreenMachine,
-  type ResultOptions,
-  type ScreenLogRecord,
 } from "./screen.js";
 export {
-  MachineEventSchema,
   ErrorEventCodeSchema,
   ErrorEventSchema,
   ProgressEventSchema,
   encodeMachineEvent,
   errorEvent,
-  instructionEvent,
-  logEvent,
-  progressEvent,
   suggestionEvent,
-  type ErrorEvent,
-  type ErrorEventCode,
-  type LogEvent,
-  type MachineEvent,
-  type ProgressEvent,
-  type SuggestionEvent,
 } from "./machine-events.js";
 export { ScreenLoggerLive } from "./logger.js";
 export { interruptionFallback } from "./interruption-fallback.js";
@@ -133,9 +74,6 @@ export {
   notTriedReason,
   operationTitle,
   outcomeHeadline,
-  phaseLabel,
-  progressMeasure,
-  remainingTime,
   planVerdict,
   plannedArtifactChange,
   scopePhrase,
@@ -157,20 +95,10 @@ export {
   publishSourceDifferences,
   publishSourceState,
   publishVisibilityOrigin,
-  settledOutcomeTone,
   unitState,
   unitStateChange,
-  waitKeyWord,
 } from "./phrases.js";
-export {
-  displayWidth,
-  padDisplay,
-  renderedRows,
-  stripTerminalFormatting,
-  truncateDisplay,
-  truncateLine,
-  wrapDisplay,
-} from "./width.js";
+export { displayWidth, stripTerminalFormatting } from "./width.js";
 export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";
 export {
   errorDoc,
@@ -182,7 +110,6 @@ export {
   successDoc,
   suggestionsDoc,
 } from "./docs.js";
-export { type BoxOptions, type LogLevel, type LogMessage } from "./output.js";
 export { InteractiveScreen } from "./interactive.js";
 export { MachineScreen } from "./machine.js";
 export { resolveCliOutputPolicy } from "./output-policy.js";

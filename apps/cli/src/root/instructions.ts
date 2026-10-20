@@ -85,7 +85,7 @@ const PLAN_NAME = {
   disable: "Disable instruction-file management",
 } as const;
 
-export const handleInstructionsEnable = (args: {
+const handleInstructionsEnable = (args: {
   readonly fileName: string;
   readonly gitignore: boolean;
   readonly preview?: boolean;

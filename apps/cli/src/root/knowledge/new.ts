@@ -9,7 +9,7 @@ import {
   type NewExtensionArgs,
 } from "../shared/create-extension-command.js";
 
-export const handleKnowledgeNew = (args: NewExtensionArgs) =>
+const handleKnowledgeNew = (args: NewExtensionArgs) =>
   runCreateExtensionCommand({
     preview: args.preview,
     request: {

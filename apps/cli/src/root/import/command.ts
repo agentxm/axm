@@ -43,7 +43,7 @@ interface ImportHandlerArgs {
   readonly sourceAgent?: AgentId;
 }
 
-export const handleImport = (args: ImportHandlerArgs) =>
+const handleImport = (args: ImportHandlerArgs) =>
   withOperationLifecycle(
     {
       mode: args.preview ? "preview" : "apply",

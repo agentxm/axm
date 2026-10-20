@@ -4,7 +4,7 @@ import * as ServiceMap from "effect/Context";
 
 export type VerbosityLevel = "quiet" | "normal" | "verbose" | "debug";
 
-export const LevelOrder = {
+const LevelOrder = {
   quiet: 0,
   normal: 1,
   verbose: 2,

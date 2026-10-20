@@ -94,7 +94,6 @@ export const HelpIndexResultSchema = Schema.Struct({
     }),
   ),
 });
-export type HelpIndexResult = typeof HelpIndexResultSchema.Type;
 
 const JsonSchemaObject = Schema.Record(Schema.String, Schema.Unknown);
 
@@ -110,7 +109,7 @@ export const HelpTopicResultSchema = Schema.Union([
     schema: JsonSchemaObject,
   }),
 ]);
-export type HelpTopicResult = typeof HelpTopicResultSchema.Type;
+type HelpTopicResult = typeof HelpTopicResultSchema.Type;
 
 interface HelpTopicRow {
   readonly topic: HelpTopicName;
@@ -185,7 +184,7 @@ const writeHelpTopic = (name: HelpTopicName) =>
     );
   });
 
-export const resolveCommandPath = (
+const resolveCommandPath = (
   root: Command.Command.Any,
   requestedPath: ReadonlyArray<string>,
 ): { readonly complete: boolean; readonly canonicalPath: ReadonlyArray<string> } => {

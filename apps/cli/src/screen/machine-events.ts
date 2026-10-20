@@ -32,7 +32,6 @@ export const ErrorEventCodeSchema = Schema.Literals([
   ...OPERATION_ERROR_CATEGORIES,
   "interrupted",
 ]).annotate({ identifier: "ErrorEventCode" });
-export type ErrorEventCode = typeof ErrorEventCodeSchema.Type;
 
 export const ErrorEventSchema = Schema.Union([
   Schema.Struct({
@@ -50,7 +49,7 @@ export const ErrorEventSchema = Schema.Union([
 ]).annotate({ identifier: "ErrorEvent" });
 export type ErrorEvent = typeof ErrorEventSchema.Type;
 
-export const SuggestionEventSchema = Schema.Struct({
+const SuggestionEventSchema = Schema.Struct({
   type: Schema.Literal("suggestion"),
   description: Schema.String,
   cmd: Schema.optional(Schema.String),
@@ -58,7 +57,7 @@ export const SuggestionEventSchema = Schema.Struct({
 }).annotate({ identifier: "SuggestionEvent" });
 export type SuggestionEvent = typeof SuggestionEventSchema.Type;
 
-export const InstructionEventSchema = Schema.Struct({
+const InstructionEventSchema = Schema.Struct({
   type: Schema.Literal("instruction"),
   message: Schema.String,
 }).annotate({ identifier: "InstructionEvent" });

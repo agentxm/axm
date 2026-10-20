@@ -15,7 +15,7 @@ import {
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 
-export const LogoutResultSchema = Schema.Struct({
+const LogoutResultSchema = Schema.Struct({
   status: Schema.Literals(["not-logged-in", "logged-out", "logged-out-local-only"] as const),
   registryHost: Schema.String,
   handle: Schema.optional(Schema.String),
@@ -25,8 +25,7 @@ const LogoutDocumentFields = {
 } satisfies Schema.Struct.Fields;
 export const LogoutDocumentSchema = Schema.Struct(LogoutDocumentFields);
 
-export type LogoutResult = typeof LogoutResultSchema.Type;
-export type LogoutDocument = typeof LogoutDocumentSchema.Type;
+type LogoutResult = typeof LogoutResultSchema.Type;
 type LogoutStatus = LogoutResult["status"];
 
 const logoutSuggestions = (status: LogoutStatus): ReadonlyArray<SuggestedAction> =>

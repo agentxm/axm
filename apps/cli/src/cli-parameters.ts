@@ -14,7 +14,7 @@ interface WalkedParam {
   };
 }
 
-export const ParameterChoiceSchema = Schema.Struct({
+const ParameterChoiceSchema = Schema.Struct({
   value: Schema.String,
 });
 

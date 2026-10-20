@@ -48,19 +48,14 @@ export const directoryFlag = GlobalFlag.Setting("axm-directory")({
   ),
 });
 
-export {
-  resolveVerbosityFromArgv,
-  resolveVerbosityLevel,
-  type DiagnosticRequest,
-} from "./resolve-verbosity.js";
-export { isAgentSession, isMachineOutput, promptAvailability } from "./interactivity.js";
+export { resolveVerbosityFromArgv, resolveVerbosityLevel } from "./resolve-verbosity.js";
+export { isAgentSession, promptAvailability } from "./interactivity.js";
 
 // ---------------------------------------------------------------------------
 // Verbosity
 // ---------------------------------------------------------------------------
 
 export {
-  LevelOrder,
   Verbosity,
   type VerbosityLevel,
   makeVerbosityLayer,

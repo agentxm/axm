@@ -19,7 +19,7 @@ export type Change =
  * animates, and `waiting` a unit that has not started. Durable outcomes use
  * their settled mark instead.
  */
-export type LiveMark = "working" | "waiting";
+type LiveMark = "working" | "waiting";
 
 /** Every mark a gutter paints: an outcome, a change operation, or live progress. */
 export type Mark = Change | Status | LiveMark;
@@ -52,7 +52,7 @@ export interface Span {
 
 export type Text = string | ReadonlyArray<Span>;
 
-export interface HeadlineNode {
+interface HeadlineNode {
   readonly _tag: "headline";
   readonly tone: Tone;
   readonly text: Text;
@@ -62,7 +62,7 @@ export interface HeadlineNode {
   readonly verdict?: true;
 }
 
-export interface ParagraphNode {
+interface ParagraphNode {
   readonly _tag: "paragraph";
   readonly text: Text;
   readonly tone?: Tone;
@@ -79,7 +79,7 @@ export interface ParagraphNode {
  * and shortened last, a `fixed` column keeps its natural width, and an
  * `elastic` column takes the spare width and shrinks first.
  */
-export type LedgerColumnRole = "name" | "fixed" | "elastic";
+type LedgerColumnRole = "name" | "fixed" | "elastic";
 
 export interface LedgerColumn {
   readonly header: Text;
@@ -251,7 +251,7 @@ export interface WaitNode {
  * A settled prompt: one gutter line whose answer sits at the value column.
  * The `Screen` appends it when a prompt settles; views never build it.
  */
-export interface AnswerNode {
+interface AnswerNode {
   readonly _tag: "answer";
   readonly label: Text;
   readonly value: Text;
@@ -299,7 +299,7 @@ export interface TableRow {
  * A read-only inventory. Its header and rows sit behind the gutter, so its
  * first column starts at the content column like every marked node.
  */
-export interface TableNode {
+interface TableNode {
   readonly _tag: "table";
   readonly columns: ReadonlyArray<TableColumn>;
   readonly rows: ReadonlyArray<TableRow>;
@@ -312,7 +312,7 @@ export interface Field {
   readonly value: Text;
 }
 
-export interface FieldsNode {
+interface FieldsNode {
   readonly _tag: "fields";
   readonly fields: ReadonlyArray<Field>;
 }
@@ -323,12 +323,12 @@ export interface TreeItem {
   readonly children?: ReadonlyArray<TreeItem>;
 }
 
-export interface TreeNode {
+interface TreeNode {
   readonly _tag: "tree";
   readonly roots: ReadonlyArray<TreeItem>;
 }
 
-export interface NextNode {
+interface NextNode {
   readonly _tag: "next";
   readonly actions: ReadonlyArray<SuggestedAction>;
 }
@@ -337,28 +337,28 @@ export interface SummaryPart {
   readonly text: Text;
 }
 
-export interface SummaryNode {
+interface SummaryNode {
   readonly _tag: "summary";
   readonly parts: ReadonlyArray<SummaryPart>;
 }
 
-export interface SectionNode {
+interface SectionNode {
   readonly _tag: "section";
   readonly title?: Text;
   readonly children: Doc;
 }
 
-export interface MarkdownNode {
+interface MarkdownNode {
   readonly _tag: "markdown";
   readonly content: string;
 }
 
-export interface RawNode {
+interface RawNode {
   readonly _tag: "raw";
   readonly content: string;
 }
 
-export interface BlankNode {
+interface BlankNode {
   readonly _tag: "blank";
 }
 
@@ -381,10 +381,6 @@ export type DocNode =
   | BlankNode;
 
 export type Doc = ReadonlyArray<DocNode>;
-
-export const text = (value: string, options?: Omit<Span, "text">): ReadonlyArray<Span> => [
-  { text: value, ...options },
-];
 
 export const plain = (value: Text): string =>
   typeof value === "string" ? value : value.map((span) => span.text).join("");

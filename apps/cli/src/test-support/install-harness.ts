@@ -101,7 +101,7 @@ export interface SpecWorkspaceOptions {
   readonly registryUrl?: string;
 }
 
-export type SpecFileStore = FileStore;
+type SpecFileStore = FileStore;
 
 export interface SpecWorkspaceStorage {
   readonly root: string;

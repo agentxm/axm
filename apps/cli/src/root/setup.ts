@@ -59,7 +59,6 @@ const SetupDocumentFields = {
   result: SetupOutcomeSchema,
 } satisfies Schema.Struct.Fields;
 export const SetupDocumentSchema = Schema.Struct(SetupDocumentFields);
-export type SetupDocument = typeof SetupDocumentSchema.Type;
 
 const setupCandidateFlags = (args: {
   readonly scope: WorkspaceScope;

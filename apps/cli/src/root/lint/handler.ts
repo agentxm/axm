@@ -33,7 +33,6 @@ const LintJsonDocumentFields = {
   result: LintJsonDocumentSchema,
 } satisfies Schema.Struct.Fields;
 export const LintResultDocumentSchema = Schema.Struct(LintJsonDocumentFields);
-export type LintResultDocument = typeof LintResultDocumentSchema.Type;
 
 export interface HandleLintArgs {
   readonly selection: LintSelection;

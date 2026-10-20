@@ -21,7 +21,7 @@ import { QuestionCancelled } from "../screen/ask/question-cancelled.js";
 import { withAskKind } from "../screen/ask/run.js";
 import { plain, type Doc } from "../screen/doc.js";
 
-export type ScriptedAnswer =
+type ScriptedAnswer =
   | { readonly _tag: "Confirm"; readonly key: string }
   | { readonly _tag: "Choose"; readonly title: string }
   | { readonly _tag: "Pick"; readonly titles: ReadonlyArray<string> }

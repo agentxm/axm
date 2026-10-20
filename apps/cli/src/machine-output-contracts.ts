@@ -19,11 +19,11 @@ import {
   extensionTypes,
 } from "@agentxm/extension-model/unstable/extensions";
 
-export type MachineOutputClass = "formatter-help" | "structured-result" | "json-refused";
-export type HumanOutputKind = "orientation" | "query" | "mutation" | "mixed";
-export type LivenessClass = "immediate" | "progress";
+type MachineOutputClass = "formatter-help" | "structured-result" | "json-refused";
+type HumanOutputKind = "orientation" | "query" | "mutation" | "mixed";
+type LivenessClass = "immediate" | "progress";
 
-export interface MachineOutputFamily {
+interface MachineOutputFamily {
   readonly id: string;
   readonly outputClass: MachineOutputClass;
   readonly humanOutputKind: HumanOutputKind;

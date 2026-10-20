@@ -37,7 +37,7 @@ const argument = Schema.Struct({
     variadic: Schema.optionalKey(ParameterVariadicSchema),
   }),
 });
-export const CommandInventorySchema = Schema.Struct({
+const CommandInventorySchema = Schema.Struct({
   formatVersion: Schema.Literal(1),
   globals: Schema.Record(
     Schema.String,
@@ -77,7 +77,6 @@ export const CommandInventorySchema = Schema.Struct({
     }),
   ),
 });
-export type CommandInventory = typeof CommandInventorySchema.Type;
 
 export const readCommandInventory = () => {
   const value: unknown = JSON.parse(

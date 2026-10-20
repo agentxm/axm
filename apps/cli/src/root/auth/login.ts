@@ -34,7 +34,7 @@ import {
 } from "./view.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 
-export const LoginNoOpResultSchema = Schema.Struct({
+const LoginNoOpResultSchema = Schema.Struct({
   status: Schema.Literal("already-logged-in"),
   registryHost: Schema.String,
   handle: Schema.String,
@@ -44,8 +44,7 @@ const LoginNoOpDocumentFields = {
   result: LoginNoOpResultSchema,
 } satisfies Schema.Struct.Fields;
 export const LoginNoOpDocumentSchema = Schema.Struct(LoginNoOpDocumentFields);
-export type LoginNoOpResult = typeof LoginNoOpResultSchema.Type;
-export type LoginNoOpDocument = typeof LoginNoOpDocumentSchema.Type;
+type LoginNoOpResult = typeof LoginNoOpResultSchema.Type;
 
 const LoginNoOpSuggestions = [
   { description: "Check active account", cmd: "axm whoami" },

@@ -1,11 +1,5 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-// ---------------------------------------------------------------------------
-// Supporting types
-// ---------------------------------------------------------------------------
-
-export type LogLevel = "message" | "info" | "success" | "step" | "warn" | "error";
-
 export type LogMessage =
   | { readonly _tag: "message"; readonly message: string }
   | { readonly _tag: "info"; readonly message: string }
@@ -13,11 +7,6 @@ export type LogMessage =
   | { readonly _tag: "step"; readonly message: string }
   | { readonly _tag: "warn"; readonly message: string }
   | { readonly _tag: "error"; readonly message: string };
-
-export interface TreeNode<T> {
-  readonly data: T;
-  readonly children?: ReadonlyArray<TreeNode<T>>;
-}
 
 export interface BoxOptions {
   readonly contentAlignment?: "left" | "center" | "right";

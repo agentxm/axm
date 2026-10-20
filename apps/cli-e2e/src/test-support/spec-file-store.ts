@@ -12,7 +12,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 /** One directory entry, as the store reports it. */
-export interface SpecDirectoryEntry {
+interface SpecDirectoryEntry {
   readonly name: string;
   readonly type: "file" | "directory" | "symlink";
 }
@@ -21,7 +21,7 @@ export interface SpecDirectoryEntry {
  * The synchronous file operations a fixture needs. Declared here rather than
  * imported: an end-to-end project observes only shipped artifacts.
  */
-export interface SpecFileStore {
+interface SpecFileStore {
   readonly exists: (target: string) => boolean;
   readonly makeDirectory: (target: string) => void;
   readonly makeTempDirectory: (prefix: string) => string;
@@ -35,7 +35,7 @@ export interface SpecFileStore {
   readonly writeFile: (target: string, content: string | Uint8Array) => void;
 }
 
-export interface SpecWorkspaceStorage {
+interface SpecWorkspaceStorage {
   readonly root: string;
   readonly files: SpecFileStore;
 }
@@ -65,7 +65,7 @@ const makeNativeFileStore = (): SpecFileStore => ({
   writeFile: fs.writeFileSync,
 });
 
-export const resolveSpecWorkspaceStorage = (workspace: SpecWorkspaceInput): SpecWorkspaceStorage =>
+const resolveSpecWorkspaceStorage = (workspace: SpecWorkspaceInput): SpecWorkspaceStorage =>
   typeof workspace === "string" ? { root: workspace, files: makeNativeFileStore() } : workspace;
 
 export interface LocalSkillFixture {

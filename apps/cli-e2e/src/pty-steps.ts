@@ -22,7 +22,7 @@ const namedKeys: Readonly<Record<string, string>> = {
 };
 
 /** The key names a step may use, for a message that lists them. */
-export const stepKeyNames: ReadonlyArray<string> = Object.keys(namedKeys).sort();
+const stepKeyNames: ReadonlyArray<string> = Object.keys(namedKeys).sort();
 
 const keyStep = (step: string): Result.Result<ReadonlyArray<PtyAction>, string> => {
   const [name = "", times = "1", ...rest] = step.split("*");

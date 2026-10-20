@@ -44,12 +44,12 @@ export const authoringTypes = [
 ] as const;
 export type AuthoringType = (typeof authoringTypes)[number];
 
-export const writePackageFile = (root: string, relative: string, content: string): void => {
+const writePackageFile = (root: string, relative: string, content: string): void => {
   const target = path.join(root, relative);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, content);
 };
-export const readPackageJson = (root: string, relative: string): unknown =>
+const readPackageJson = (root: string, relative: string): unknown =>
   JSON.parse(fs.readFileSync(path.join(root, relative), "utf8"));
 
 export const writeAuthoringPackage = (

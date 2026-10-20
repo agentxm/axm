@@ -23,7 +23,7 @@ export interface InteractionKey {
   readonly ctrl: boolean;
 }
 
-export const interactionKeyOf = (input: Terminal.UserInput): InteractionKey => ({
+const interactionKeyOf = (input: Terminal.UserInput): InteractionKey => ({
   name: input.key.name,
   ...Option.match(input.input, { onNone: () => ({}), onSome: (char) => ({ char }) }),
   ctrl: input.key.ctrl,

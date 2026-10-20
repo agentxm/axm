@@ -32,7 +32,6 @@ export const WhoamiDocumentSchema = Schema.Struct({
   approvedAt: Schema.NullOr(DateTimeUtcSchema),
   trustedPublisher: Schema.NullOr(Schema.Struct({ name: Schema.String })),
 });
-export type WhoamiDocument = typeof WhoamiDocumentSchema.Type;
 
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(
   function* () {

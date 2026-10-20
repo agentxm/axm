@@ -11,7 +11,7 @@
 
 import * as http from "node:http";
 
-export interface IdTokenRequest {
+interface IdTokenRequest {
   readonly audience: string | null;
   readonly apiVersion: string | null;
   readonly authorization: string | undefined;

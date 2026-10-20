@@ -11,7 +11,7 @@ import {
 } from "../../screen/scene.js";
 
 /** A settled document: printed once to the transcript and bounded by width only. */
-export interface DocumentFixture {
+interface DocumentFixture {
   readonly _tag: "document";
   readonly name: string;
   readonly doc: Doc;
@@ -25,7 +25,7 @@ export interface DocumentFixture {
  * A live scene: the document the live region shows for one bound state, as a
  * pure function of the terminal size. It is bounded by width and height.
  */
-export interface SceneFixture {
+interface SceneFixture {
   readonly _tag: "scene";
   readonly name: string;
   readonly scene: (terminal: TerminalSize) => Doc;
@@ -36,7 +36,7 @@ export interface SceneFixture {
 /**
  * One active region. An interaction takes foreground ownership over activity.
  */
-export interface ComposedFixture {
+interface ComposedFixture {
   readonly _tag: "composed";
   readonly name: string;
   readonly scene: Scene;
@@ -50,7 +50,7 @@ export interface TranscriptCheckpoint {
   readonly scene: Scene;
 }
 
-export interface TranscriptFixture extends TranscriptCheckpoint {
+interface TranscriptFixture extends TranscriptCheckpoint {
   readonly _tag: "transcript";
   readonly name: string;
   readonly widths?: ReadonlyArray<number>;

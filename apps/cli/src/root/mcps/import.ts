@@ -56,7 +56,7 @@ const discoveryFrom = (preflight: McpAdoptionPreflight) => ({
   conflicts: preflight.conflicts.map((finding) => finding.name),
 });
 
-export const handleMcpsImport = (args: McpsImportArgs) =>
+const handleMcpsImport = (args: McpsImportArgs) =>
   withOperationLifecycle(
     {
       mode: args.preview ? "preview" : "apply",

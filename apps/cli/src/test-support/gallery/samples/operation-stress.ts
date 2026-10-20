@@ -24,19 +24,19 @@ import {
   type ResolvedUnit,
 } from "@agentxm/workspace-kernel/operations";
 
-export const updatePresentation: OperationPresentation = operationPresentation({
+const updatePresentation: OperationPresentation = operationPresentation({
   imperative: "update",
   past: "Updated",
   gerund: "Updating",
 });
 
-export const installPresentation: OperationPresentation = operationPresentation({
+const installPresentation: OperationPresentation = operationPresentation({
   imperative: "install",
   past: "Installed",
   gerund: "Installing",
 });
 
-export const syncPresentation: OperationPresentation = operationPresentation({
+const syncPresentation: OperationPresentation = operationPresentation({
   imperative: "sync",
   past: "Synced",
   gerund: "Syncing",
@@ -369,7 +369,7 @@ const resolved = (unit: ResolvedUnit<unknown>, index: number, seq: number): Oper
  * settles in plan order, so a frame cut anywhere in it is a real moment of
  * one operation rather than an assembled state.
  */
-export const liveUpdateLog: ReadonlyArray<OperationEvent> = [
+const liveUpdateLog: ReadonlyArray<OperationEvent> = [
   {
     _tag: "OperationStarted",
     seq: 1,

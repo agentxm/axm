@@ -9,7 +9,7 @@ import { ExecutionDirectory } from "../execution-directory.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { makeSpecWorkspace, type SpecWorkspaceOptions } from "./install-harness.js";
 
-export const readRegistry = "https://read-registry.example.test";
+const readRegistry = "https://read-registry.example.test";
 type ObservedRequest = {
   readonly method: string;
   readonly url: string;

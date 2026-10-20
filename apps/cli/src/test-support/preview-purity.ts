@@ -37,7 +37,7 @@ const isWithin = (root: string, candidate: string): boolean => {
 };
 
 /** Every recorded write whose target lies beneath a protected path. */
-export const protectedWrites = (
+const protectedWrites = (
   root: string,
   writes: ReadonlyArray<FileSystemWriteEvent>,
   protectedPaths: ReadonlyArray<string> = WORKSPACE_PROTECTED_STATE,

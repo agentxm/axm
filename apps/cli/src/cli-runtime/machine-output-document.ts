@@ -21,8 +21,13 @@ export const MachineOutputDocumentSchema = Schema.Union([
   description:
     "One ordinary result or error envelope, or a formatter-owned help or version document.",
 });
-export type MachineOutputDocument = typeof MachineOutputDocumentSchema.Type;
 
+/**
+ * Every machine-output document kind.
+ *
+ * @public The context inventory test reads this declaration as the declared
+ * population of document kinds.
+ */
 export const MachineOutputDocumentKindSchema = Schema.Literals([
   "result-envelope-v1",
   "error-envelope-v1",

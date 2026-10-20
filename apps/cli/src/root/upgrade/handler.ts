@@ -39,7 +39,6 @@ import { loadVersion } from "../../version.js";
 import { upgradeView } from "./view.js";
 
 export const UpgradeDocumentSchema = Schema.Struct({ result: UpgradeAssessmentResultSchema });
-export type UpgradeDocument = typeof UpgradeDocumentSchema.Type;
 
 /**
  * The capability chose the category and the sentence at construction, so the

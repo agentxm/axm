@@ -15,7 +15,7 @@ interface RuntimeCommand extends CliCommand.Command.Any {
   readonly globalFlags?: ReadonlyArray<GlobalFlag.GlobalFlag<unknown>>;
 }
 
-export const CliReferenceExampleSchema = Schema.Struct({
+const CliReferenceExampleSchema = Schema.Struct({
   command: Schema.String,
   description: Schema.optionalKey(Schema.String),
 });
@@ -31,7 +31,7 @@ export interface CliCommandReference {
   readonly subcommands: ReadonlyArray<CliCommandReference>;
 }
 
-export const CliCommandReferenceSchema: Schema.Codec<CliCommandReference> = Schema.Struct({
+const CliCommandReferenceSchema: Schema.Codec<CliCommandReference> = Schema.Struct({
   name: Schema.String,
   aliases: Schema.Array(Schema.String),
   description: Schema.String,
@@ -59,7 +59,7 @@ const hasRuntimeConfig = (command: CliCommand.Command.Any): command is RuntimeCo
   return true;
 };
 
-export const getRuntimeCommand = (command: CliCommand.Command.Any): RuntimeCommand => {
+const getRuntimeCommand = (command: CliCommand.Command.Any): RuntimeCommand => {
   if (!hasRuntimeConfig(command)) {
     throw new Error(`Command ${command.name} does not expose runtime config`);
   }

@@ -25,7 +25,7 @@ import { WorkspaceInspectionFailed } from "@agentxm/workspace-features/inspectio
  * category, title, and wording at construction, so the envelope carries them
  * over 1:1.
  */
-export const lintStagingFailedToAppError = (error: LintStagingFailed): AppError =>
+const lintStagingFailedToAppError = (error: LintStagingFailed): AppError =>
   makeAppError({
     code: error.category,
     ...(error.title === undefined ? {} : { title: error.title }),
@@ -74,7 +74,7 @@ export const coerceConfigurationFailure = (failure: unknown): ExpectedCliError =
  * the category and wording at construction, so the envelope carries them over
  * 1:1 through the same normalization the envelope constructor applies.
  */
-export const workspaceInspectionFailedToAppError = (error: WorkspaceInspectionFailed): AppError =>
+const workspaceInspectionFailedToAppError = (error: WorkspaceInspectionFailed): AppError =>
   makeAppError({
     code: error.category,
     detail: error.detail,

@@ -19,7 +19,7 @@ import {
 } from "../shared/command-capabilities.js";
 import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 
-export const handleHookExport = (args: {
+const handleHookExport = (args: {
   readonly directory: string;
   readonly destination: string;
   readonly implementation: string;

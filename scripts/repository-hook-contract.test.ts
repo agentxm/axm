@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 describe("repository Git hooks", () => {
   it("lints the staged workspace with the source-tree CLI", () => {
-    const content = readFileSync("scripts/check-staged.sh", "utf8");
+    const content = readFileSync("scripts/check-staged.checks.sh", "utf8");
 
     expect(content).toContain(
       "pnpm --config.verify-deps-before-run=error axm:local lint --staged --strict",

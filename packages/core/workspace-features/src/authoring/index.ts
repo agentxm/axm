@@ -25,9 +25,9 @@ export {
   type AuthoredPackageError,
 } from "./authored-package-errors.js";
 export {
+  authoringFailures,
   authoringFailureToStepFailure,
   authoringStepFailure,
-  isAuthoringFamilyFailure,
   type AuthoringFamilyFailure,
   type AuthoringStepFailure,
 } from "./step-failure.js";

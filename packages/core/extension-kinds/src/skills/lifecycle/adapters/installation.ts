@@ -38,10 +38,7 @@ import {
   nativeArtifactLocationOutcomes,
   CodingAgentRepository,
 } from "@agentxm/workspace-kernel/projection";
-import {
-  type ExtensionLifecycleFailed,
-  installRefused,
-} from "@agentxm/workspace-kernel/operations";
+import { installRefused, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import type {
   SkillInstallationFacts,
   SkillInstallationInspection,
@@ -306,7 +303,7 @@ export const skillInstallationFacts = {
   releaseAge,
   readContent: (ref) => readContent(ref).pipe(Effect.mapError(unavailable(ref))),
 } satisfies SkillInstallationFacts<
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   InstallStepRequirements | SkillManager,
   InstallStepRequirements,
   NativeLocationOutcome

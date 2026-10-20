@@ -13,10 +13,13 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { countUnitStates, deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import {
+  countUnitStates,
+  deriveOperationOutcome,
+  OperationRefused,
+} from "@agentxm/workspace-kernel/operations";
 import * as Option from "effect/Option";
 
-import { WorkspaceSyncFailed } from "@agentxm/workspace-kernel/reconciliation";
 import { SubagentManager } from "@agentxm/workspace-kernel/materialization";
 import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -315,8 +318,8 @@ describe("Sync realizes desired workspace state", () => {
             ).toBe(retained);
             expect(workspace.readFile("axm.json")).toBe(settings);
             const refusal = yield* applySync().pipe(Effect.flip);
-            expect(refusal).toBeInstanceOf(WorkspaceSyncFailed);
-            if (refusal instanceof WorkspaceSyncFailed)
+            expect(refusal).toBeInstanceOf(OperationRefused);
+            if (refusal instanceof OperationRefused)
               expect(refusal.detail).toContain("accepted-resolution-incompatible");
           }),
         )

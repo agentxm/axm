@@ -22,8 +22,8 @@ import {
   ScaffoldedExtensionUnresolved,
   StaleExecutionCandidate,
   StepFailure,
-  ExtensionLifecycleFailed,
   InstallSelectionUnavailable,
+  installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { NativeLocationError } from "@agentxm/workspace-kernel/locations";
@@ -213,8 +213,8 @@ import {
 } from "@agentxm/workspace-features/configuration";
 import {
   StepFailureConversion,
-  WorkspaceSyncFailed,
   kernelFailureToStepFailure,
+  syncRefused,
 } from "@agentxm/workspace-kernel/reconciliation";
 
 import { AppError } from "./app-error/index.js";
@@ -833,15 +833,26 @@ const representatives: Representatives = {
     new PackMemberNotFound({ selector: "demo-*", pattern: true }),
   ],
   PackMemberNotDeclared: [new PackMemberNotDeclared({ selector: "demo", pattern: false })],
-  ExtensionLifecycleFailed: [
-    new ExtensionLifecycleFailed({
+  OperationRefused: [
+    installRefused({
       category: "conflict",
       title: "Update refused",
       detail: "The pack owns this constraint.",
       recover: "Update the pack instead.",
       cmd: "axm update @owner/packs/demo",
     }),
-    new ExtensionLifecycleFailed({ category: "validation" }),
+    installRefused({ category: "validation" }),
+    syncRefused({
+      category: "conflict",
+      detail: "A managed region on AGENTS.md is owned by another writer.",
+      suggestions: [{ description: "Resolve the region." }],
+    }),
+    // A cleanup failure inside an uninstall or activation closure.
+    syncRefused({
+      category: "internal",
+      detail: "Failed to remove managed agent artifact: /w/.claude/skills/demo",
+      cause: ioCause,
+    }),
   ],
   InstallSelectionUnavailable: [new InstallSelectionUnavailable({ cause: new Error("closed") })],
   WorkspaceConfigurationFailed: [
@@ -850,19 +861,6 @@ const representatives: Representatives = {
       detail: "Name at least one agent.",
       recover: "Pass an agent ID.",
       cmd: "axm agents add claude-code",
-    }),
-  ],
-  WorkspaceSyncFailed: [
-    new WorkspaceSyncFailed({
-      category: "conflict",
-      detail: "A managed region on AGENTS.md is owned by another writer.",
-      suggestions: [{ description: "Resolve the region." }],
-    }),
-    // A cleanup failure inside an uninstall or activation closure.
-    new WorkspaceSyncFailed({
-      category: "internal",
-      detail: "Failed to remove managed agent artifact: /w/.claude/skills/demo",
-      cause: ioCause,
     }),
   ],
   PublishFailed: [
@@ -1225,7 +1223,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
       const failures = [
         new SignedOut({ message: "You are not signed in." }),
         new DeviceLoginCodeExpired(),
-        new ExtensionLifecycleFailed({
+        installRefused({
           category: "not_found",
           detail: "@acme/skills/private was not found in configured registries",
           suggestions: [
@@ -1293,7 +1291,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
           observedVersion: 8,
           supportedVersion: 7,
         }),
-        new ExtensionLifecycleFailed({ category: "conflict", title: "Update refused" }),
+        installRefused({ category: "conflict", title: "Update refused" }),
         new RegistryProblem({
           category: "unavailable",
           metadata: registryMetadata,
@@ -1312,7 +1310,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
     Effect.gen(function* () {
       const conversion = yield* StepFailureConversion;
       const failures = [
-        new WorkspaceSyncFailed({ category: "conflict", detail: "Owned by another writer." }),
+        syncRefused({ category: "conflict", detail: "Owned by another writer." }),
         new InstructionMaintenanceFailed({ category: "internal", detail: "AGENTS.md failed." }),
         new PackConstraintShadowed({
           packSource: "workspace",

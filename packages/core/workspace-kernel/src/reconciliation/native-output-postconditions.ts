@@ -24,7 +24,8 @@ import {
   readInstructionRows,
   resolveInstructionsConfig,
 } from "../projection/index.js";
-import { WorkspaceSyncFailed } from "./errors.js";
+import { syncRefused } from "./errors.js";
+import { OperationRefused } from "../operations/index.js";
 
 const observeNativeOutputs = (
   subjects?: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>,
@@ -72,7 +73,7 @@ const observeNativeOutputs = (
             (outcome) => outcome.reasonCode === "native-observation-unavailable",
           )
         )
-          return yield* new WorkspaceSyncFailed({
+          return yield* syncRefused({
             category: "conflict",
             detail: `Cannot verify native outputs for ${type} ${name}`,
           });
@@ -152,13 +153,12 @@ export const captureNativeOutputRetention = (expected: ReadonlyArray<NativeLocat
       nativeDirectoryInputs: location.nativeDirectoryInputs,
     });
   }).pipe(
-    Effect.mapError(
-      (cause) =>
-        new WorkspaceSyncFailed({
-          category: "conflict",
-          detail: "Cannot capture retained native content before reconciliation",
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      syncRefused({
+        category: "conflict",
+        detail: "Cannot capture retained native content before reconciliation",
+        cause,
+      }),
     ),
   );
 
@@ -215,16 +215,16 @@ export const validateNativeOutputPostconditions = (
         (actual?.ownership !== "owned" && actual?.ownership !== "declared") ||
         actual.state !== "unchanged"
       )
-        return yield* new WorkspaceSyncFailed({
+        return yield* syncRefused({
           category: "conflict",
           detail: `Required native output does not match desired content after reconciliation: ${expected.address.path}`,
         });
     }
   }).pipe(
     Effect.mapError((cause) =>
-      cause instanceof WorkspaceSyncFailed
+      cause instanceof OperationRefused
         ? cause
-        : new WorkspaceSyncFailed({
+        : syncRefused({
             category: "conflict",
             detail: "Cannot verify final native output postconditions",
             cause,

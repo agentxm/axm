@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
+import { OperationRefused } from "@agentxm/workspace-kernel/operations";
 import {
   applyInstall,
   installRequest,
@@ -66,9 +66,8 @@ describe("Validate locally named MCP install requests", () => {
 
   /** The sentence the refusal names the violated rule in. */
   const refusalDetail = (failure: unknown): string => {
-    expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-    if (!(failure instanceof ExtensionLifecycleFailed))
-      throw new Error("Expected a lifecycle refusal");
+    expect(failure).toBeInstanceOf(OperationRefused);
+    if (!(failure instanceof OperationRefused)) throw new Error("Expected a lifecycle refusal");
     return failure.detail ?? failure.category;
   };
 

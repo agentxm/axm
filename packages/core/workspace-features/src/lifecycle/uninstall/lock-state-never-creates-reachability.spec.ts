@@ -245,7 +245,7 @@ describe("Lock state and desired-state reachability", () => {
             const before = workspace.snapshot();
             const refusal = yield* applySync().pipe(Effect.flip);
             expect(refusal).toMatchObject({
-              _tag: "WorkspaceSyncFailed",
+              _tag: "OperationRefused",
               detail: expect.stringContaining("@acme/packs/toolkit"),
             });
             expect(workspace.snapshot()).toEqual(before);

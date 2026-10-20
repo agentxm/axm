@@ -50,7 +50,7 @@ describe("Sync selector diagnostics", () => {
               previewSync(syncRequest({ target: Option.some(target) })),
             );
             expect(failure).toMatchObject({
-              _tag: "WorkspaceSyncFailed",
+              _tag: "OperationRefused",
               category: target === "@acme/skills/absent" ? "not_found" : "validation",
             });
             if (target !== "@acme/skills/absent") {

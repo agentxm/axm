@@ -17,7 +17,12 @@ import {
   type RegistryAccessFailure,
 } from "@agentxm/registry-access/authentication";
 
-import { makeStepFailure, type ErrorCode, type StepFailure } from "../operations/index.js";
+import {
+  defineFailureFamily,
+  makeStepFailure,
+  type ErrorCode,
+  type StepFailure,
+} from "../operations/index.js";
 import { resolutionFailureToStepFailure } from "../planning/index.js";
 
 // The registry-access category vocabulary and the kernel's must stay the
@@ -38,7 +43,7 @@ const minutes = (count: number): string => (count === 1 ? "1 minute" : `${String
  * position renders recursively, so a diagnostic chain reads each link the way
  * it would read on its own.
  */
-export const registryAccessFailureToStepFailure = (error: RegistryAccessFailure): StepFailure => {
+const registryAccessFailureToStepFailure = (error: RegistryAccessFailure): StepFailure => {
   switch (error._tag) {
     case "RegistryAccessFailed":
       return makeStepFailure({
@@ -149,3 +154,9 @@ export const registryAccessFailureToStepFailure = (error: RegistryAccessFailure)
     }
   }
 };
+
+/** The Registry access failure family, recognized by the capability that constructs it. */
+export const registryAccessFailures = defineFailureFamily({
+  recognizes: isRegistryAccessFailure,
+  render: registryAccessFailureToStepFailure,
+});

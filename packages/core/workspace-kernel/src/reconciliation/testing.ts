@@ -11,10 +11,10 @@
 import * as Layer from "effect/Layer";
 
 import {
-  ExtensionLifecycleFailed,
   OPERATION_ERROR_CATEGORIES,
   StepFailure,
   type ErrorCode,
+  OperationRefused,
 } from "../operations/index.js";
 import { kernelFailureToStepFailure, type KernelFailure } from "./failure-rendering.js";
 import { StepFailureConversion } from "./step-failure-conversion.js";
@@ -45,7 +45,7 @@ const describeFailure = (failure: unknown): string => {
  * (or `internal` when it names none) and its own sentence.
  */
 const toTestStepFailure = (failure: KernelFailure): StepFailure => {
-  if (failure instanceof ExtensionLifecycleFailed) return kernelFailureToStepFailure(failure);
+  if (failure instanceof OperationRefused) return kernelFailureToStepFailure(failure);
   const category: unknown = "category" in failure ? failure.category : undefined;
   return new StepFailure({
     category: isCategory(category) ? category : "internal",

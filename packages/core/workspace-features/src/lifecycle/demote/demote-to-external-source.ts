@@ -78,7 +78,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-  ExtensionLifecycleFailed,
+  installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -172,7 +172,7 @@ const restoreDisabledState = (
 
 /** A replacement no version can satisfy together with the rest of desired state. */
 const constraintRefusal = (subject: string, conflicts: ReadonlyArray<DesiredConstraintConflict>) =>
-  new ExtensionLifecycleFailed({
+  installRefused({
     category: "conflict",
     detail: `Cannot demote ${subject} because configured constraints are unsatisfiable: ${desiredStateProblemsText(conflicts)}`,
     recover: "Choose a replacement source whose range every Pack that requires it admits",
@@ -331,7 +331,7 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
   const parsed = yield* Effect.fromResult(parseFqn(request.fqn));
 
   if (isWorkspaceSourceLocator(request.source)) {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "usage",
       detail: "Demotion target must be a registry, git, or local source",
     });
@@ -340,14 +340,14 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
   const current = yield* configuredEntry(settings, parsed.type, parsed.name);
   const currentSource = entrySource(current);
   if (currentSource === undefined || !isWorkspaceSourceLocator(currentSource)) {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "conflict",
       detail: `${formatFqn(parsed)} is not workspace-sourced`,
     });
   }
 
   if (layout.scope !== "project") {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "usage",
       detail: "Demote is available only for project workspaces",
     });

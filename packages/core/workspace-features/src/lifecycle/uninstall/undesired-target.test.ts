@@ -49,7 +49,7 @@ describe("typedUninstallSelector", () => {
     Effect.gen(function* () {
       const failure = yield* Effect.flip(typedUninstallSelector("rule", "@acme/skills/style"));
       expect(failure).toMatchObject({
-        _tag: "ExtensionLifecycleFailed",
+        _tag: "OperationRefused",
         category: "validation",
         detail: "Expected a rule identity, received @acme/skills/style",
       });

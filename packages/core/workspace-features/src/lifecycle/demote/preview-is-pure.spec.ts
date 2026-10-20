@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 import {
   countUnitStates,
   deriveOperationOutcome,
-  ExtensionLifecycleFailed,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -104,8 +104,8 @@ describe("Demote preview purity", () => {
               source: replacement,
             }).pipe(Effect.flip);
 
-            expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-            if (failure instanceof ExtensionLifecycleFailed) {
+            expect(failure).toBeInstanceOf(OperationRefused);
+            if (failure instanceof OperationRefused) {
               expect(failure.category).toBe("conflict");
             }
             expect(workspace.snapshot()).toEqual(before);

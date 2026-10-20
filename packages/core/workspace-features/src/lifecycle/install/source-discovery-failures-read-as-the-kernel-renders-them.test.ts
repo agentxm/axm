@@ -26,7 +26,7 @@ import {
   type SourceHostProvidersService,
   type SourceResolutionFailure,
 } from "@agentxm/workspace-kernel/sources";
-import type { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
+import { type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { makeLifecycleFixture } from "../testing.js";
 import { discoverInstallRefs } from "./request.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
@@ -58,7 +58,7 @@ const forbidden = new RegistryProblem({
 
 type Discovery = Effect.Effect<
   void,
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   ResolveInstallRequirements
 >;
 

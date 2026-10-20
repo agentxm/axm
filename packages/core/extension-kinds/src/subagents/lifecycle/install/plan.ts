@@ -24,8 +24,8 @@ import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-  type ExtensionLifecycleFailed,
   installRefused,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { DesiredStateReader, WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -44,7 +44,7 @@ export const planSubagentInstall: (
   intent: SubagentInstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | SubagentManager
 > = Effect.fn("InstallExtensions.planSubagents")(function* (intent: SubagentInstallIntent) {
   const subagentManager = yield* SubagentManager;

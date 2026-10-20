@@ -13,9 +13,9 @@
  */
 
 import * as Cause from "effect/Cause";
-import type { ConfigError } from "effect/Config";
+import { ConfigError } from "effect/Config";
 import * as Option from "effect/Option";
-import type {
+import {
   AcceptedResolutionMissing,
   CanonicalPathRemovalError,
   DesiredPackGraphIncomplete,
@@ -33,27 +33,40 @@ import type {
   WorkspaceNotInitialized,
   WorkspaceSourceInvalid,
 } from "./workspace/errors.js";
-import type { ConfiguredAgentOutcomesUnavailable } from "./workspace/configured-agent-outcomes-provider.js";
+import { ConfiguredAgentOutcomesUnavailable } from "./workspace/configured-agent-outcomes-provider.js";
 import type { WorkspaceStateReadFailure } from "./workspace/contracts.js";
-import type { MaterializedTreeInvalid } from "./workspace/materialized-tree.js";
-import { type SkillDiscoveryRootInvalid, type SubagentScanFailed } from "./observed/errors.js";
-import { lockfileRequiresNewerAxm } from "./desired/lockfile/errors.js";
-import type {
+import { MaterializedTreeInvalid } from "./workspace/materialized-tree.js";
+import {
+  SkillDiscoveryRootInvalid,
+  SubagentScanFailed,
+  WorkspaceRootEscape,
+} from "./observed/errors.js";
+import {
+  LockfileDecodeError,
+  LockfileIoError,
+  LockfileParseError,
   LockfileResolvedVersionInvalid,
   LockfileValidationError,
+  LockfileVersionUnsupported,
   LockfileWriteError,
+  lockfileRequiresNewerAxm,
 } from "./desired/lockfile/errors.js";
-import type { SettingsWriteError } from "./desired/settings/errors.js";
-import type { PathTraversalDetected } from "./utils/path-safety.js";
+import {
+  SettingsDecodeError,
+  SettingsIoError,
+  SettingsParseError,
+  SettingsWriteError,
+} from "./desired/settings/errors.js";
+import { PathTraversalDetected } from "./utils/path-safety.js";
 import {
   TransitionLockError,
   TransitionLockUnavailable,
   WorkspaceDirectoryError,
   WorkspaceSnapshotError,
   WorkspaceBoundaryConflict,
+  WorkspaceRestorationError,
+  WorkspaceRestorationIncomplete,
   WorkspaceTransitionCompromised,
-  type WorkspaceRestorationError,
-  type WorkspaceRestorationIncomplete,
   type WorkspaceTransactionFailure,
 } from "../settlement/index.js";
 import {
@@ -61,7 +74,10 @@ import {
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,
   StepFailure,
+  defineFailureFamily,
   makeStepFailure,
+  renderCarriedFailure,
+  type FailureRendering,
 } from "../operations/index.js";
 
 /** AXM's own configuration could not be loaded or did not validate. */
@@ -71,6 +87,12 @@ export const configErrorToStepFailure = (error: ConfigError): StepFailure =>
     detail: "AXM configuration could not be loaded.",
     cause: error,
   });
+
+/** AXM's own configuration failure. */
+export const configFailures = defineFailureFamily({
+  classes: () => [ConfigError] as const,
+  render: configErrorToStepFailure,
+});
 
 /**
  * Translate a scoped settings- or lockfile-read failure, naming the fix. An
@@ -206,11 +228,27 @@ export const workspaceStateReadFailureToStepFailure = (
   }
 };
 
+/** The scoped settings- and lockfile-read failure family. */
+export const workspaceStateReadFailures = defineFailureFamily({
+  classes: () =>
+    [
+      SettingsIoError,
+      SettingsParseError,
+      SettingsDecodeError,
+      LockfileIoError,
+      LockfileParseError,
+      LockfileDecodeError,
+      LockfileVersionUnsupported,
+      WorkspaceRootEscape,
+    ] as const,
+  render: workspaceStateReadFailureToStepFailure,
+});
+
 const causeMessage = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
 /** Every workspace-state failure beside the scoped reads, rendered below. */
-export type WorkspaceStateFailure =
+type WorkspaceStateFailure =
   | RuntimeIgnoreWriteError
   | SettingsWriteError
   | LockfileWriteError
@@ -315,7 +353,7 @@ const symlinkCreationDetail = (error: SymlinkCreationError): string => {
 };
 
 /** Translate one workspace-state read-modify-write or record failure. */
-export const workspaceStateFailureToStepFailure = (error: WorkspaceStateFailure): StepFailure => {
+const workspaceStateFailureToStepFailure = (error: WorkspaceStateFailure): StepFailure => {
   switch (error._tag) {
     case "RuntimeIgnoreWriteError":
       return makeStepFailure({
@@ -470,14 +508,42 @@ export const workspaceStateFailureToStepFailure = (error: WorkspaceStateFailure)
         detail: `Path traversal detected: ${error.path}`,
       });
     case "ConfiguredAgentOutcomesUnavailable":
-      return makeStepFailure({
-        category: error.category,
-        detail: error.detail,
-        suggestions: error.suggestions,
-        cause: error.cause,
-      });
+      return renderCarriedFailure(error);
   }
 };
+
+/** The workspace-state read-modify-write and record failure family. */
+export const workspaceStateFailures = defineFailureFamily({
+  classes: () =>
+    [
+      RuntimeIgnoreWriteError,
+      SettingsWriteError,
+      LockfileWriteError,
+      LockfileValidationError,
+      LockfileResolvedVersionInvalid,
+      WorkspaceLayoutError,
+      WorkspaceNotInitialized,
+      LockedSkillMissing,
+      SettingsEntryMissing,
+      InvalidAgentId,
+      DesiredPackGraphIncomplete,
+      CanonicalPathRemovalError,
+      SymlinkCreationError,
+      LockEntryNameInvalid,
+      LockEntryEndpointConflict,
+      AcceptedResolutionMissing,
+      InlineExtensionSourceMissing,
+      SupersededCanonicalRemovalFailed,
+      PackageContentHashFailed,
+      WorkspaceSourceInvalid,
+      SkillDiscoveryRootInvalid,
+      SubagentScanFailed,
+      MaterializedTreeInvalid,
+      PathTraversalDetected,
+      ConfiguredAgentOutcomesUnavailable,
+    ] as const,
+  render: workspaceStateFailureToStepFailure,
+});
 
 /**
  * Translate a transaction-machinery failure, reproducing each step's detail.
@@ -563,10 +629,22 @@ export const workspaceTransactionFailureToStepFailure = (
   }
 };
 
+/** The transaction-machinery failure family. */
+export const workspaceTransactionFailures = defineFailureFamily({
+  classes: () =>
+    [
+      WorkspaceSnapshotError,
+      WorkspaceDirectoryError,
+      TransitionLockError,
+      TransitionLockUnavailable,
+      WorkspaceTransitionCompromised,
+    ] as const,
+  render: (failure: WorkspaceTransactionFailure) =>
+    workspaceTransactionFailureToStepFailure(failure),
+});
+
 /** Translate a restoration-step failure, reproducing each step's detail. */
-export const workspaceRestorationErrorToStepFailure = (
-  error: WorkspaceRestorationError,
-): StepFailure => {
+const workspaceRestorationErrorToStepFailure = (error: WorkspaceRestorationError): StepFailure => {
   const detail = (): string => {
     switch (error.step) {
       case "foreign-change":
@@ -592,13 +670,6 @@ export const candidateFingerprintFailedToStepFailure = (
     cause: error.cause,
   });
 
-const isWorkspaceTransactionFailure = (failure: unknown): failure is WorkspaceTransactionFailure =>
-  failure instanceof WorkspaceSnapshotError ||
-  failure instanceof WorkspaceDirectoryError ||
-  failure instanceof TransitionLockError ||
-  failure instanceof TransitionLockUnavailable ||
-  failure instanceof WorkspaceTransitionCompromised;
-
 /**
  * The detail of a failure the plan pipeline itself raises: a rendered step
  * failure, a stale candidate, a fingerprint failure, or the transaction
@@ -610,7 +681,7 @@ const planFailureDetail = (failure: unknown): string | undefined => {
   if (failure instanceof CandidateFingerprintFailed) {
     return candidateFingerprintFailedToStepFailure(failure).detail;
   }
-  if (isWorkspaceTransactionFailure(failure)) {
+  if (workspaceTransactionFailures.is(failure)) {
     return workspaceTransactionFailureToStepFailure(failure).detail;
   }
   return undefined;
@@ -677,3 +748,18 @@ export const restorationIncompleteToStepFailure = (
       restoration: error.restorationCause,
     },
   });
+
+/**
+ * The restoration failure family. An incomplete restoration reads its
+ * deciding transition failure through the composer's rendering.
+ */
+export const workspaceRestorationFailures = defineFailureFamily({
+  classes: () => [WorkspaceRestorationError, WorkspaceRestorationIncomplete] as const,
+  render: (
+    failure: WorkspaceRestorationError | WorkspaceRestorationIncomplete,
+    rendering: FailureRendering,
+  ): StepFailure =>
+    failure instanceof WorkspaceRestorationError
+      ? workspaceRestorationErrorToStepFailure(failure)
+      : restorationIncompleteToStepFailure(failure, rendering.detailOf),
+});

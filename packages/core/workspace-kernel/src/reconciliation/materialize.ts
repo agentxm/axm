@@ -110,6 +110,7 @@ import {
   type ConfiguredAgentOutcome,
   type Plan,
   type PlannedJobStep,
+  OperationRefused,
 } from "../operations/index.js";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -125,7 +126,7 @@ import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { WorkspaceSyncFailed, type SyncPolicyFailure } from "./errors.js";
+import { type SyncPolicyFailure, syncRefused } from "./errors.js";
 import { kernelFailureToStepFailure } from "./failure-rendering.js";
 import {
   SYNC_RECOVERY_IDS,
@@ -299,13 +300,12 @@ const skillSyncArtifact = (args: {
       outcome._tag === "supported" ? [{ agentId: agent.id, targetDir: outcome.dir }] : [],
     );
     const directoryName = yield* skillDirectoryNameForRef(args.ref).pipe(
-      Effect.mapError(
-        (cause) =>
-          new WorkspaceSyncFailed({
-            category: "validation",
-            detail: `Cannot read Skill identity for ${args.ref.skill.name}`,
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        syncRefused({
+          category: "validation",
+          detail: `Cannot read Skill identity for ${args.ref.skill.name}`,
+          cause,
+        }),
       ),
     );
     if (Option.isNone(directoryName))
@@ -348,13 +348,12 @@ const skillSyncArtifact = (args: {
     }).pipe(
       Effect.provideService(FileSystem.FileSystem, args.fs),
       Effect.provideService(Path.Path, args.path),
-      Effect.mapError(
-        (cause) =>
-          new WorkspaceSyncFailed({
-            category: "conflict",
-            detail: "Cannot observe planned native Skill locations",
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        syncRefused({
+          category: "conflict",
+          detail: "Cannot observe planned native Skill locations",
+          cause,
+        }),
       ),
     );
     return {
@@ -474,11 +473,7 @@ const resolveDesiredNodeRef = (
   node: DesiredExtensionNode & { readonly source: string },
   observation: CanonicalObservation,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-): Effect.Effect<
-  ResolvedDesiredRef,
-  WorkspaceSyncFailed,
-  ConfiguredEntryResolutionRequirements
-> => {
+): Effect.Effect<ResolvedDesiredRef, OperationRefused, ConfiguredEntryResolutionRequirements> => {
   const annotate = <A>(
     effect: Effect.Effect<
       A,
@@ -489,7 +484,7 @@ const resolveDesiredNodeRef = (
     effect.pipe(
       Effect.mapError((cause) => {
         const rendered = kernelFailureToStepFailure(cause);
-        return new WorkspaceSyncFailed({
+        return syncRefused({
           category: rendered.category,
           detail: `${node.type} ${node.name}: ${rendered.detail}; ${canonicalObservationFactText(node, observation)}`,
           ...(rendered.suggestions === undefined || rendered.suggestions.length === 0
@@ -674,7 +669,7 @@ export const collectMaterializeSteps = (args: {
       return name === undefined || args.packRecovery?.packNames.has(name) !== true;
     });
     if (routeBlockers.length > 0) {
-      return yield* new WorkspaceSyncFailed({
+      return yield* syncRefused({
         category: "conflict",
         detail: `Cannot reconcile the selected incomplete desired extension graph: ${desiredStateProblemsText(routeBlockers)}`,
         suggestions: [
@@ -697,7 +692,7 @@ export const collectMaterializeSteps = (args: {
       Option.isSome(selection.target) &&
       selectedDesiredNodes(desiredState, selection).length === 0
     ) {
-      return yield* new WorkspaceSyncFailed({
+      return yield* syncRefused({
         category: "not_found",
         detail: `No desired extension nodes matched ${selection.target.value}`,
       });
@@ -775,7 +770,7 @@ export const collectMaterializeSteps = (args: {
               accepted === undefined || acceptedOwner === undefined
                 ? desiredPackageKey(node.identity)
                 : `${acceptedOwner}/${toExtensionTypePlural(node.type)}/${accepted.identity.name}`;
-            return yield* new WorkspaceSyncFailed({
+            return yield* syncRefused({
               category: "conflict",
               detail: acceptedResolutionIncompatibleText(
                 makeExtensionConstraintInvariantFact(node, observation),
@@ -784,7 +779,7 @@ export const collectMaterializeSteps = (args: {
             });
           }
           if (accepted !== undefined && observation.status === "wrong-origin")
-            return yield* new WorkspaceSyncFailed({
+            return yield* syncRefused({
               category: "conflict",
               detail: `${node.type} ${node.name}: configured source differs from accepted authority; explicitly reinstall or change source before syncing`,
             });
@@ -794,7 +789,7 @@ export const collectMaterializeSteps = (args: {
               observation.status === "incomplete" ||
               observation.status === "materialization-mismatch")
           ) {
-            return yield* new WorkspaceSyncFailed({
+            return yield* syncRefused({
               category: "conflict",
               detail: `${node.type} ${node.name}: present package content differs from the accepted resolution; repeat its install to restore accepted content before syncing`,
             });
@@ -832,13 +827,12 @@ export const collectMaterializeSteps = (args: {
           ) {
             const acceptedGitRef = ref;
             const files = yield* providers.fetch(acceptedGitRef).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new WorkspaceSyncFailed({
-                    category: "conflict",
-                    detail: `Cannot restore ${node.type} ${node.name} from its accepted ${acceptedGitRef.refType === "http" ? "HTTP artifacts" : `Git commit ${acceptedGitRef.gitCommitSha}`}`,
-                    cause,
-                  }),
+              Effect.mapError((cause) =>
+                syncRefused({
+                  category: "conflict",
+                  detail: `Cannot restore ${node.type} ${node.name} from its accepted ${acceptedGitRef.refType === "http" ? "HTTP artifacts" : `Git commit ${acceptedGitRef.gitCommitSha}`}`,
+                  cause,
+                }),
               ),
             );
             ref = {
@@ -860,13 +854,12 @@ export const collectMaterializeSteps = (args: {
                           : Effect.succeed(undefined)
                         : Effect.succeed(fromFileLocation(ref.location)),
                   ),
-                  Effect.mapError(
-                    (cause) =>
-                      new WorkspaceSyncFailed({
-                        category: "conflict",
-                        detail: `Cannot inspect known Subagent source for ${node.name}`,
-                        cause,
-                      }),
+                  Effect.mapError((cause) =>
+                    syncRefused({
+                      category: "conflict",
+                      detail: `Cannot inspect known Subagent source for ${node.name}`,
+                      cause,
+                    }),
                   ),
                 );
           // One judge for every node, MCP included: the projection decides
@@ -898,7 +891,7 @@ export const collectMaterializeSteps = (args: {
               (outcome) => outcome.outcome === "projected" || outcome.outcome === "current",
             )
           ) {
-            return yield* new WorkspaceSyncFailed({
+            return yield* syncRefused({
               category: "validation",
               detail: `No configured runtime can realize subagent ${node.name}: ${agentOutcomes.map((outcome) => `${outcome.agentId}: ${outcome.reason}`).join("; ")}`,
             });
@@ -967,7 +960,7 @@ export const collectMaterializeSteps = (args: {
     if (!reconciled.some((entry) => entry.materialize)) {
       const blocked = problemBlocked[0];
       if (blocked !== undefined) {
-        return yield* new WorkspaceSyncFailed({
+        return yield* syncRefused({
           category: "conflict",
           detail: `Cannot reconcile ${blocked.node.type} ${blocked.node.name}: ${desiredStateProblemsText(blocked.problems)}`,
           suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
@@ -1205,7 +1198,7 @@ export const collectMaterializeSteps = (args: {
                   const failed = outcomes.filter((outcome) => outcome._tag === "failed");
                   if (failed.length > 0)
                     return Effect.fail(
-                      new WorkspaceSyncFailed({
+                      syncRefused({
                         category: "conflict",
                         detail: failed.map((outcome) => outcome.reason).join("; "),
                       }),
@@ -1244,19 +1237,18 @@ export const collectMaterializeSteps = (args: {
           name: target.name,
           ...(proposed === undefined ? {} : { desired: proposed }),
         }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new WorkspaceSyncFailed({
-                category: "conflict",
-                detail: `Cannot verify the accepted local package for ${target.type} ${target.name}`,
-                cause,
-              }),
+          Effect.mapError((cause) =>
+            syncRefused({
+              category: "conflict",
+              detail: `Cannot verify the accepted local package for ${target.type} ${target.name}`,
+              cause,
+            }),
           ),
         );
         if (Option.isNone(canonical)) return;
         if (canonical.value.accepted?.source.type !== "path") return;
         if (canonical.value.observation.status !== "usable") {
-          return yield* new WorkspaceSyncFailed({
+          return yield* syncRefused({
             category: "conflict",
             detail: `Cannot restore ${target.type} ${target.name} from its accepted local package: the available source does not reproduce the accepted content`,
             suggestions: [
@@ -1602,7 +1594,7 @@ export const collectMaterializeSteps = (args: {
                     expected !== undefined &&
                     Option.getOrUndefined(materialization.treeIntegrity) !== expected.treeIntegrity
                   )
-                    return yield* new WorkspaceSyncFailed({
+                    return yield* syncRefused({
                       category: "conflict",
                       detail: `Hook ${ref.hook.name} changed after projection preparation`,
                     });

@@ -241,8 +241,17 @@ export type {
   SourceBindingProposal,
 } from "./evidence.js";
 
-// The refusal an extension lifecycle operation settles with.
-export { ExtensionLifecycleFailed, installRefused } from "./refusal.js";
+// The refusal a workspace operation settles with, and the lifecycle family's helper.
+export { OperationRefused, installRefused, operationRefusals, refusalOf } from "./refusal.js";
+
+// Failure families: recognition and rendering, each defined once by its owner.
+export {
+  defineFailureFamily,
+  renderCarriedFailure,
+  type FailureFamily,
+  type FailureOf,
+  type FailureRendering,
+} from "./failure-family.js";
 
 // Install selection interaction port.
 export {

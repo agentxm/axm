@@ -99,12 +99,6 @@ export {
 } from "./manager-kit.js";
 export { acquireCanonicalForRef, verifyWorkspaceRefLocation } from "./acquire-canonical.js";
 
-// The kernel renderings of materialization and agent-integration failures
-export {
-  materializationFailureToStepFailure,
-  type MaterializationFamilyFailure,
-} from "./step-failure.js";
-export {
-  agentIntegrationFailureToStepFailure,
-  type AgentIntegrationFailure,
-} from "./agent-integration-step-failure.js";
+// The materialization and agent-integration failure families
+export { materializationFailures } from "./step-failure.js";
+export { agentIntegrationFailures } from "./agent-integration-step-failure.js";

@@ -1,10 +1,10 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import type { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
+import { type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { resolveRootInstallIntent } from "./root-intent.js";
 
-const guidanceOf = (failure: ExtensionLifecycleFailed): string =>
+const guidanceOf = (failure: OperationRefused): string =>
   (failure.suggestions ?? []).map((suggestion) => suggestion.description).join("\n");
 
 describe("resolveRootInstallIntent", () => {

@@ -49,8 +49,8 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-  ExtensionLifecycleFailed,
   installRefused,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
@@ -412,7 +412,7 @@ export const installBundledAxmSkill = Effect.gen(function* () {
       }),
   }).pipe(
     Effect.mapError((cause) =>
-      cause instanceof ExtensionLifecycleFailed
+      cause instanceof OperationRefused
         ? cause
         : installRefused({
             category: "internal",
@@ -431,7 +431,7 @@ export const installBundledAxmSkill = Effect.gen(function* () {
  */
 export const planBundledAxmSkillInstall: Effect.Effect<
   Plan<InstallStepRequirements | BundledAxmSkillAsset>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | StepFailureConversion
 > = Effect.gen(function* () {
   const conversion = yield* StepFailureConversion;

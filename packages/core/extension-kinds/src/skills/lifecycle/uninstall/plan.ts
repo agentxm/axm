@@ -51,8 +51,8 @@ import {
   type JobStepArtifactTarget,
   type Plan,
   type PlannedJobStep,
-  type ExtensionLifecycleFailed,
   installRefused,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 
@@ -97,7 +97,7 @@ export const parseSkillUninstallRequest: (
   selector: string,
 ) => Effect.Effect<
   SkillUninstallIntent,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | ResolveInstallRequirements
 > = Effect.fn("UninstallExtensions.parseSkillRequest")(function* (selector: string) {
   const records = yield* WorkspaceRecords;
@@ -146,7 +146,7 @@ export const planSkillUninstall: (
   intent: SkillUninstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path
 > = Effect.fn("UninstallExtensions.planSkills")(function* (intent: SkillUninstallIntent) {
   const location = yield* WorkspaceLocation;

@@ -35,7 +35,7 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-  type ExtensionLifecycleFailed,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   applyInstructionSurfacePlans,
@@ -64,7 +64,7 @@ export const planRuleInstall: (
   intent: RuleInstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | RuleManager
 > = Effect.fn("InstallExtensions.planRules")(function* (intent: RuleInstallIntent) {
   const location = yield* WorkspaceLocation;

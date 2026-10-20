@@ -23,10 +23,10 @@ import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extens
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 
 import {
-  ExtensionLifecycleFailed,
   InstallSelectionCancelled,
   InstallSelectionInteraction,
   InstallSelectionUnavailable,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { selectAcrossSourceTypes, selectInstallRefs } from "./selection.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
@@ -263,7 +263,7 @@ describe("install source selection", () => {
         all: true,
         nonInteractive: false,
       }).pipe(neverPrompts("An unmatched selection must not prompt"), Effect.flip);
-      expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+      expect(failure).toBeInstanceOf(OperationRefused);
       expect(failure).toMatchObject({ category: "not_found", detail, recover });
     }),
   );
@@ -304,7 +304,7 @@ describe("install source selection", () => {
           selectors: [],
           ...unattended,
         }).pipe(neverPrompts("Non-interactive selection must not prompt"), Effect.flip);
-        expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+        expect(failure).toBeInstanceOf(OperationRefused);
         expect(failure).toMatchObject({ category: "usage", detail, recover });
       }),
   );
@@ -491,7 +491,7 @@ describe("install source selection", () => {
         [acquired(skill("audit-skill", Option.none()), "skills")],
         { type: "skill", selectors: [], all: true, nonInteractive: true },
       ).pipe(neverPrompts("--all selection must not prompt"), Effect.flip);
-      expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+      expect(failure).toBeInstanceOf(OperationRefused);
       expect(failure).toMatchObject({
         category: "not_found",
         detail:

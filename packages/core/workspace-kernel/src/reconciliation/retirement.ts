@@ -26,7 +26,7 @@ import {
 } from "../workspace-state/index.js";
 import { protectWorkspacePath, runWorkspaceTransaction } from "../settlement/index.js";
 import type { PlannedJobStep } from "../operations/index.js";
-import { WorkspaceSyncFailed } from "./errors.js";
+import { syncRefused } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import type { SyncStepRequirements } from "./plan.js";
 import { isLexicallyWithin } from "@agentxm/host-primitives";
@@ -101,13 +101,12 @@ export const collectUnreachableRetirement = (
           const canonical = canonicalPath(row);
           yield* validatePathSafety(path, layout.acquiredRoot, canonical);
           const exists = yield* fs.exists(canonical).pipe(
-            Effect.mapError(
-              (cause) =>
-                new WorkspaceSyncFailed({
-                  category: "internal",
-                  detail: `Cannot inspect ${canonical}`,
-                  cause,
-                }),
+            Effect.mapError((cause) =>
+              syncRefused({
+                category: "internal",
+                detail: `Cannot inspect ${canonical}`,
+                cause,
+              }),
             ),
           );
           const shared = [...retainedPaths].some(
@@ -118,7 +117,7 @@ export const collectUnreachableRetirement = (
           if (exists && !shared) {
             const integrity = yield* computeMaterializedTreeIntegrity(canonical);
             if (integrity !== row.entry.treeIntegrity)
-              return yield* new WorkspaceSyncFailed({
+              return yield* syncRefused({
                 category: "conflict",
                 detail: `Cannot retire unverified acquired content at ${canonical}`,
               });
@@ -131,13 +130,12 @@ export const collectUnreachableRetirement = (
                   scope: location.scope,
                   packageRoot: canonical,
                 }).pipe(
-                  Effect.mapError(
-                    (cause) =>
-                      new WorkspaceSyncFailed({
-                        category: "conflict",
-                        detail: `Cannot inspect retained native references to ${canonical}`,
-                        cause,
-                      }),
+                  Effect.mapError((cause) =>
+                    syncRefused({
+                      category: "conflict",
+                      detail: `Cannot inspect retained native references to ${canonical}`,
+                      cause,
+                    }),
                   ),
                 )
               : [];
@@ -191,7 +189,7 @@ export const collectUnreachableRetirement = (
           const current = yield* (yield* DesiredStateReader).graph();
           const currentLocks = yield* LockfileReader;
           if (retired.some((row) => !unreached(current, row))) {
-            return yield* new WorkspaceSyncFailed({
+            return yield* syncRefused({
               category: "conflict",
               detail: "Desired reachability changed before retirement",
             });
@@ -204,7 +202,7 @@ export const collectUnreachableRetirement = (
             // supersedes); the retired state then already holds.
             if (Option.isNone(accepted)) continue;
             if (!lockEntrySemanticallyEqual(accepted.value, row.entry))
-              return yield* new WorkspaceSyncFailed({
+              return yield* syncRefused({
                 category: "conflict",
                 detail: `Accepted ${row.type} ${row.key} changed before retirement`,
               });
@@ -221,26 +219,25 @@ export const collectUnreachableRetirement = (
                   packageRoot: row.canonical,
                 });
                 if (references.length > 0)
-                  return yield* new WorkspaceSyncFailed({
+                  return yield* syncRefused({
                     category: "conflict",
                     detail: `Native registrations began referencing ${row.canonical} before retirement`,
                   });
               }
               const integrity = yield* computeMaterializedTreeIntegrity(row.canonical);
               if (integrity !== row.entry.treeIntegrity)
-                return yield* new WorkspaceSyncFailed({
+                return yield* syncRefused({
                   category: "conflict",
                   detail: `Acquired content changed before retirement: ${row.canonical}`,
                 });
               yield* protectWorkspacePath(row.canonical);
               yield* fs.remove(row.canonical, { recursive: true }).pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new WorkspaceSyncFailed({
-                      category: "internal",
-                      detail: `Could not retire ${row.canonical}`,
-                      cause,
-                    }),
+                Effect.mapError((cause) =>
+                  syncRefused({
+                    category: "internal",
+                    detail: `Could not retire ${row.canonical}`,
+                    cause,
+                  }),
                 ),
               );
             }
@@ -253,24 +250,23 @@ export const collectUnreachableRetirement = (
             const currentLocks = yield* LockfileReader;
             for (const row of removable) {
               if (Option.isSome(yield* currentLocks.entry(row.type, row.key)))
-                return yield* new WorkspaceSyncFailed({
+                return yield* syncRefused({
                   category: "conflict",
                   detail: `Accepted ${row.type} ${row.key} remains after retirement`,
                 });
               if (
                 row.removeCanonical &&
                 (yield* fs.exists(row.canonical).pipe(
-                  Effect.mapError(
-                    (cause) =>
-                      new WorkspaceSyncFailed({
-                        category: "internal",
-                        detail: `Cannot verify retirement at ${row.canonical}`,
-                        cause,
-                      }),
+                  Effect.mapError((cause) =>
+                    syncRefused({
+                      category: "internal",
+                      detail: `Cannot verify retirement at ${row.canonical}`,
+                      cause,
+                    }),
                   ),
                 ))
               )
-                return yield* new WorkspaceSyncFailed({
+                return yield* syncRefused({
                   category: "conflict",
                   detail: `Acquired content remains after retirement: ${row.canonical}`,
                 });

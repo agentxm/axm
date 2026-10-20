@@ -278,7 +278,7 @@ describe("hook configured-agent outcomes", () => {
           detail: "Hook native locations cannot realize the proposed content",
           cause: [
             {
-              _tag: "ExtensionLifecycleFailed",
+              _tag: "OperationRefused",
               message: "Hook native locations cannot realize the proposed content",
             },
             {

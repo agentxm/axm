@@ -196,9 +196,18 @@ transactions with `runWorkspaceTransaction`.
 
 `workspace-kernel/operations` is the contract every layer above it speaks: the
 plan, operation resolution and events, the operation journal, interruption,
-recovery values, the `StepFailure` family, the `ResolvePlanInteraction` and
-install-selection interaction ports, and the lifecycle refusal. It imports only
-`effect`, the extension model, Registry protocol, and Registry client types.
+recovery values, the `StepFailure` vocabulary, failure families, the
+`ResolvePlanInteraction` and install-selection interaction ports, and the
+operation refusal. It imports only `effect`, the extension model, Registry
+protocol, and Registry client types.
+
+A failure family is defined once, beside its owner, with `defineFailureFamily`:
+the classes that construct its failures, read lazily, or a recognizer such as a
+brand, and the renderer that covers exactly those failures. A renderer and a
+recognizer that disagree fail to compile. A policy step that refuses settles
+with the one `OperationRefused`, constructed through its family's helper, which
+stamps the family's diagnostic kind: `installRefused` for extension lifecycle
+and `syncRefused` for reconciliation.
 
 `workspace-kernel/workspace-state` owns desired and observed workspace state:
 settings, the lockfile, and discovery configuration under `desired/`, the read
@@ -224,10 +233,12 @@ content, and native outputs into a coherent transition. The
 [shared reconciliation decision](decisions/shared-desired-state-reconciliation.md)
 explains why that policy has its own module boundary. Its `live` entry
 registers the kind managers as projection participants and provides the
-configured-agent-outcomes provider over them. It also renders the closed
-`KernelFailure` union through `kernelFailureToStepFailure` and declares the
-`StepFailureConversion` port through which plan steps settle failures; the CLI
-provides that port with the catalog it composes.
+configured-agent-outcomes provider over them. It also lists the kernel slices'
+failure families, whose failures form the closed `KernelFailure` union, renders
+a failure through the family that recognizes it with
+`kernelFailureToStepFailure`, and declares the `StepFailureConversion` port
+through which plan steps settle failures; the CLI provides that port with the
+catalog it composes.
 
 `workspace-kernel/materialization` supplies the shared manager contract, the
 manager registry, and the ports needed by reconciliation. The implementations
@@ -395,8 +406,10 @@ Nx tags.
 | `@agentxm/workspace-features/knowledge-query` | `role:feature` | Knowledge concept resolution, retrieval, search, related concepts, and status                                                                            |
 | `@agentxm/workspace-features/sharing`         | `role:feature` | The read-only repository sharing document for one authored workspace                                                                                     |
 
-The authoring, publishing, and configuration slices each export the recognizer
-and renderer for their own failure family; lifecycle owns no family of its own.
+The authoring slice defines its failure family with the kernel's
+`defineFailureFamily`. Publishing and configuration each export the recognizer
+and renderer for their one refusal class. Lifecycle and sync refuse with the
+kernel's `OperationRefused` and own no family of their own.
 Shared feature test support lives in `workspace-features/src/testing/`, which is
 not exported and is importable only from feature test files.
 

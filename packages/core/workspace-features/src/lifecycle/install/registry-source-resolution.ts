@@ -30,10 +30,7 @@ import {
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
 
-import {
-  type ExtensionLifecycleFailed,
-  installRefused,
-} from "@agentxm/workspace-kernel/operations";
+import { installRefused, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import {
   sourceResolutionFailureDetail,
   sourceResolutionRefused,
@@ -84,7 +81,7 @@ export const resolveConfiguredRegistrySource: (
   args: ConfiguredRegistryLookup,
 ) => Effect.Effect<
   RegistrySource,
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   RegistrySourceProbeRequirements
 > = Effect.fn("InstallExtensions.resolveConfiguredRegistrySource")(function* (
   args: ConfiguredRegistryLookup,
@@ -195,7 +192,7 @@ type ConfiguredDefaultRegistrySourceByNameResolver = (
   args: DefaultRegistryLookup,
 ) => Effect.Effect<
   RegistrySource,
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   DefaultRegistrySourceResolutionRequirements
 >;
 

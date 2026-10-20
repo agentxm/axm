@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
+import { OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { readSettings } from "./test-helpers.js";
 import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 
@@ -55,8 +55,8 @@ describe("Non-installable install sources", () => {
                 installRequest({ subject: { kind: "source", source: name } }),
               ).pipe(Effect.flip);
 
-              expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-              if (failure instanceof ExtensionLifecycleFailed) {
+              expect(failure).toBeInstanceOf(OperationRefused);
+              if (failure instanceof OperationRefused) {
                 expect(failure.category).toBe("usage");
               }
               expect(JSON.stringify(readSettings(workspace))).toBe(settingsBefore);
@@ -80,8 +80,8 @@ describe("Non-installable install sources", () => {
             installRequest({ subject: { kind: "source", source: "@acme/widgets/thing" } }),
           ).pipe(Effect.flip);
 
-          expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-          if (failure instanceof ExtensionLifecycleFailed) {
+          expect(failure).toBeInstanceOf(OperationRefused);
+          if (failure instanceof OperationRefused) {
             expect(["usage", "not_found"]).toContain(failure.category);
           }
           expect(JSON.stringify(readSettings(workspace))).toBe(settingsBefore);

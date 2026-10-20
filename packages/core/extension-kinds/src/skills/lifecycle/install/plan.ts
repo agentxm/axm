@@ -41,7 +41,7 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-  type ExtensionLifecycleFailed,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 
 /** Skills the request selected, and whether to re-materialize regardless. */
@@ -140,13 +140,13 @@ export const planSkillInstallationStep = (
   input: SkillInstallationStepInput,
 ): Effect.Effect<
   PlannedJobStep<InstallStepRequirements>,
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | RegistryClientFactory
 > =>
   Effect.gen(function* () {
     const skillManager = yield* SkillManager;
     const prepared = yield* prepareSkillInstallation<
-      ExtensionLifecycleFailed | Config.ConfigError,
+      OperationRefused | Config.ConfigError,
       InstallStepRequirements | SkillManager,
       InstallStepRequirements,
       NativeLocationOutcome
@@ -175,7 +175,7 @@ export const planSkillInstall: (
   intent: SkillInstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | RegistryClientFactory
 > = Effect.fn("InstallExtensions.planSkills")(function* (intent: SkillInstallIntent) {
   const steps = yield* Effect.forEach(

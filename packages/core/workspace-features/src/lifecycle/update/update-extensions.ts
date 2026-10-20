@@ -86,7 +86,8 @@ import {
   type OperationResolution,
   type Plan,
   type PlanExecution,
-  ExtensionLifecycleFailed,
+  OperationRefused,
+  installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   SourceHostProviders,
@@ -268,7 +269,7 @@ export type UpdateCandidate =
  */
 export type UpdateFailure =
   | Config.ConfigError
-  | ExtensionLifecycleFailed
+  | OperationRefused
   | CandidateFingerprintFailed
   | ExtensionResolutionFailed
   | SourceResolutionFailure
@@ -412,9 +413,9 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
 }) {
   const { intent, ref, versionRange } = args;
-  const mismatch = (): Effect.Effect<never, ExtensionLifecycleFailed> =>
+  const mismatch = (): Effect.Effect<never, OperationRefused> =>
     Effect.fail(
-      new ExtensionLifecycleFailed({
+      installRefused({
         category: "internal",
         detail: `Registry resolved ${intent.target} as ${ref.type}, expected ${intent.type}`,
       }),
@@ -455,13 +456,12 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
       const localName = decodeExtensionNameSync(desired?.name ?? ref.server.name);
       const conversion = yield* StepFailureConversion;
       const sourceKey = yield* settleMcpSourceIdentityFor(graph, ref, localName).pipe(
-        Effect.mapError(
-          (cause) =>
-            new ExtensionLifecycleFailed({
-              category: "conflict",
-              detail: conversion.toStepFailure(cause).detail,
-              cause,
-            }),
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "conflict",
+            detail: conversion.toStepFailure(cause).detail,
+            cause,
+          }),
         ),
       );
       return yield* planMcpServerInstall({
@@ -589,7 +589,7 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
   const evaluatedAtText = DateTime.formatIso(releaseAgeEvaluation.evaluatedAt);
   const source = yield* resolveSource(intent.source);
   if (source.type !== "registry") {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "usage",
       detail: "Root update requires a Registry FQN",
     });
@@ -613,7 +613,7 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
     current.value.refType === "registry" &&
     !versionSatisfiesRequest(current.value.version, normalizeVersionRequest(intent.versionRange))
   ) {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "conflict",
       detail: "The accepted version does not satisfy the requested reinstall constraint",
       suggestions: [{ description: "Omit --reinstall to select a new version" }],
@@ -636,13 +636,13 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
   });
 
   if (selected.kind === "not_found") {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "not_found",
       detail: `Registry extension "${selected.target}" was not found`,
     });
   }
   if (selected.kind === "version_unsatisfied") {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "conflict",
       title: "No compatible version",
       detail: `No visible version of "${selected.target}" satisfies ${selected.requestedRange}`,
@@ -729,17 +729,17 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
 const requirePackMemberRef = (
   intent: RootUpdateIntent,
   ref: ExtensionRef,
-): Effect.Effect<PackMemberRef, ExtensionLifecycleFailed> =>
+): Effect.Effect<PackMemberRef, OperationRefused> =>
   ref.type === "pack"
     ? Effect.fail(
-        new ExtensionLifecycleFailed({
+        installRefused({
           category: "internal",
           detail: `Registry resolved ${intent.target} as an unexpected pack`,
         }),
       )
     : ref.type !== intent.type
       ? Effect.fail(
-          new ExtensionLifecycleFailed({
+          installRefused({
             category: "internal",
             detail: `Registry resolved ${intent.target} as ${ref.type}, expected ${intent.type}`,
           }),

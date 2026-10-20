@@ -9,12 +9,27 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { makeStepFailure, type StepFailure } from "../operations/index.js";
-import type { ProjectionError } from "./errors.js";
-import type { InstructionMaintenanceFailed } from "./instructions/errors.js";
+import {
+  defineFailureFamily,
+  makeStepFailure,
+  renderCarriedFailure,
+  type StepFailure,
+} from "../operations/index.js";
+import {
+  AuthoredContributorUnsupported,
+  ContributorIdentityInvalid,
+  ContributorTreeMismatch,
+  ContributorUnresolved,
+  DesiredStateIncomplete,
+  ManagedRegionViolation,
+  ProjectionIoFailed,
+  ProjectionTargetUnsupported,
+  type ProjectionError,
+} from "./errors.js";
+import { InstructionMaintenanceFailed } from "./instructions/errors.js";
 
 /** Every shared-projection failure, including instruction maintenance. */
-export type ProjectionFamilyFailure = ProjectionError | InstructionMaintenanceFailed;
+type ProjectionFamilyFailure = ProjectionError | InstructionMaintenanceFailed;
 
 /** Translate one shared-projection failure. */
 export const projectionErrorToStepFailure = (error: ProjectionFamilyFailure): StepFailure => {
@@ -69,12 +84,23 @@ export const projectionErrorToStepFailure = (error: ProjectionFamilyFailure): St
         cause: error.cause,
       });
     case "InstructionMaintenanceFailed":
-      return makeStepFailure({
-        category: error.category,
-        detail: error.detail,
-        problem: error.problem,
-        suggestions: error.suggestions,
-        cause: error.cause,
-      });
+      return renderCarriedFailure(error);
   }
 };
+
+/** The shared-projection failure family. */
+export const projectionFailures = defineFailureFamily({
+  classes: () =>
+    [
+      DesiredStateIncomplete,
+      AuthoredContributorUnsupported,
+      ContributorIdentityInvalid,
+      ContributorUnresolved,
+      ContributorTreeMismatch,
+      ProjectionTargetUnsupported,
+      ManagedRegionViolation,
+      ProjectionIoFailed,
+      InstructionMaintenanceFailed,
+    ] as const,
+  render: projectionErrorToStepFailure,
+});

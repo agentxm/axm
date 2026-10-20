@@ -25,7 +25,7 @@ import type {
   JobStepArtifactTarget,
 } from "../operations/index.js";
 import { proposeDesiredState, type DesiredStateProposal } from "./proposed-state.js";
-import { WorkspaceSyncFailed } from "./errors.js";
+import { syncRefused } from "./errors.js";
 import {
   acceptedRowKey,
   acceptedRowReachability,
@@ -96,13 +96,12 @@ export const prepareUninstallArtifact = (
       const absolute = canonical.value.observation.path;
       const relative = path.relative(location.baseDir, absolute);
       const present = yield* fs.exists(absolute).pipe(
-        Effect.mapError(
-          (cause) =>
-            new WorkspaceSyncFailed({
-              category: "internal",
-              detail: `Cannot inspect ${relative}`,
-              cause,
-            }),
+        Effect.mapError((cause) =>
+          syncRefused({
+            category: "internal",
+            detail: `Cannot inspect ${relative}`,
+            cause,
+          }),
         ),
       );
       if (!present)
@@ -141,7 +140,7 @@ export const prepareUninstallArtifact = (
                 }),
           });
           if (retained.length > 0)
-            return yield* new WorkspaceSyncFailed({
+            return yield* syncRefused({
               category: "conflict",
               detail: `Cannot remove canonical package while retained native registrations reference it at ${retained.join(", ")}. Remove those exact registrations explicitly before uninstalling.`,
             });

@@ -47,7 +47,7 @@ import {
   type ProjectionPlan,
 } from "../projection/index.js";
 import type { JobStepArtifact, PlannedJobStep } from "../operations/index.js";
-import { WorkspaceSyncFailed } from "./errors.js";
+import { syncRefused } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import {
   collectMaterializeSteps,
@@ -148,7 +148,7 @@ export const prepareDisabledRealization = (
       });
       const failed = outcomes.filter((outcome) => outcome._tag === "failed");
       if (failed.length > 0)
-        return yield* new WorkspaceSyncFailed({
+        return yield* syncRefused({
           category: "conflict",
           detail: failed.map((outcome) => outcome.reason).join("; "),
         });
@@ -241,7 +241,7 @@ const reconcileAggregateProjections = (
 
 const runStep = <R>(step: PlannedJobStep<R>) =>
   step.readiness === "error"
-    ? new WorkspaceSyncFailed({ category: "conflict", detail: step.errorMessage })
+    ? syncRefused({ category: "conflict", detail: step.errorMessage })
     : step.run;
 
 /** What realizing a change reported: projection warnings and the artifacts its steps observed. */

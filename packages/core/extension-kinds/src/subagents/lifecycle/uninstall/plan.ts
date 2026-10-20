@@ -41,8 +41,8 @@ import {
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type Plan,
-  type ExtensionLifecycleFailed,
   installRefused,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
@@ -126,39 +126,39 @@ const subagentArtifact = (args: {
 /** Expand the selector against installed subagents; a glob may match nothing. */
 export const parseSubagentUninstallRequest: (
   selector: string,
-) => Effect.Effect<SubagentUninstallIntent, ExtensionLifecycleFailed, InstallStepRequirements> =
-  Effect.fn("UninstallExtensions.parseSubagentRequest")(function* (selector: string) {
-    const records = yield* WorkspaceRecords;
-    const rows = yield* records.rows("subagent").pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "internal",
-          detail: "Installed subagents could not be read",
-          cause,
-        }),
-      ),
-    );
-    const installedNames = [...new Set(rows.map((row) => row.name))];
-    const matched = expandGlob(selector, installedNames);
+) => Effect.Effect<SubagentUninstallIntent, OperationRefused, InstallStepRequirements> = Effect.fn(
+  "UninstallExtensions.parseSubagentRequest",
+)(function* (selector: string) {
+  const records = yield* WorkspaceRecords;
+  const rows = yield* records.rows("subagent").pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "internal",
+        detail: "Installed subagents could not be read",
+        cause,
+      }),
+    ),
+  );
+  const installedNames = [...new Set(rows.map((row) => row.name))];
+  const matched = expandGlob(selector, installedNames);
 
-    if (selector.includes("*") && matched.length === 0) {
-      return { targets: [] } satisfies SubagentUninstallIntent;
-    }
+  if (selector.includes("*") && matched.length === 0) {
+    return { targets: [] } satisfies SubagentUninstallIntent;
+  }
 
-    const names =
-      matched.length > 0 ? matched : installedNames.includes(selector) ? [selector] : [];
+  const names = matched.length > 0 ? matched : installedNames.includes(selector) ? [selector] : [];
 
-    return {
-      targets: names.map((name): SubagentExtensionTarget => ({ type: "subagent", name })),
-    } satisfies SubagentUninstallIntent;
-  });
+  return {
+    targets: names.map((name): SubagentExtensionTarget => ({ type: "subagent", name })),
+  } satisfies SubagentUninstallIntent;
+});
 
 /** The closures a settled subagent removal becomes. */
 export const planSubagentUninstall: (
   intent: SubagentUninstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | SubagentManager
 > = Effect.fn("UninstallExtensions.planSubagents")(function* (intent: SubagentUninstallIntent) {
   const location = yield* WorkspaceLocation;

@@ -11,9 +11,9 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
   InstallSelectionInteraction,
-  ExtensionLifecycleFailed,
   deriveOperationOutcome,
   type InstallSelectionCandidate,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { contentUnder, readSettings } from "./test-helpers.js";
 import {
@@ -360,7 +360,7 @@ describe("Select extensions from a supplied source", () => {
         )
         .pipe(Effect.provide(NodeServices.layer), Effect.flip);
 
-      expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+      expect(failure).toBeInstanceOf(OperationRefused);
       expect(failure).toMatchObject({ category: row.category, detail: row.detail });
       expect(world.workspace.snapshot()).toEqual(workspaceBefore);
       expectUnrelatedPreserved(world, unrelated, before);
@@ -416,7 +416,7 @@ describe("Select extensions from a supplied source", () => {
         )
         .pipe(Effect.provide(NodeServices.layer), Effect.flip);
 
-      expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+      expect(failure).toBeInstanceOf(OperationRefused);
       expect(failure).toMatchObject({
         category: "not_found",
         detail: "No subagents matched: missing. Source contains: planner, reviewer",
@@ -601,7 +601,7 @@ describe("Select extensions from a supplied source", () => {
         Effect.flip,
         Effect.tap((failure) =>
           Effect.sync(() => {
-            expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+            expect(failure).toBeInstanceOf(OperationRefused);
             expect(failure).toMatchObject({
               category: "usage",
               detail: "--all cannot be combined with a per-type selector",

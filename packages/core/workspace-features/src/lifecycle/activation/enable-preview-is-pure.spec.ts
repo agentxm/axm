@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 import {
   deriveOperationOutcome,
   previewPlanExecution,
-  ExtensionLifecycleFailed,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { captureCopiedDirectory } from "@agentxm/workspace-kernel/locations";
@@ -401,8 +401,8 @@ describe("Enable preview purity", () => {
                 enabled: true,
               }).pipe(Effect.flip);
 
-              expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-              if (failure instanceof ExtensionLifecycleFailed) {
+              expect(failure).toBeInstanceOf(OperationRefused);
+              if (failure instanceof OperationRefused) {
                 expect(failure.category).toBe("not_found");
                 expect(failure.detail).toBe(unconfigured.detail);
               }

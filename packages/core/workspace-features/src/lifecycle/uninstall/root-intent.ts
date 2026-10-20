@@ -1,10 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import {
-  type ExtensionLifecycleFailed,
-  installRefused,
-} from "@agentxm/workspace-kernel/operations";
+import { installRefused, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { splitExtensionReference } from "@agentxm/extension-model/unstable/extensions";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
@@ -53,7 +50,7 @@ const rootUninstallRegistryOnlyHowToFix = (source: string): string => {
  */
 export const resolveRootUninstallIntent: (
   input: string,
-) => Effect.Effect<RootUninstallIntent, ExtensionLifecycleFailed> = Effect.fn(
+) => Effect.Effect<RootUninstallIntent, OperationRefused> = Effect.fn(
   "UninstallExtensions.resolveRootIntent",
 )(function* (input: string) {
   const source = input.trim();

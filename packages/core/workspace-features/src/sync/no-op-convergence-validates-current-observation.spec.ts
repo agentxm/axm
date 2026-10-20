@@ -79,7 +79,7 @@ describe("Sync no-op observation freshness", () => {
           expect(Result.isFailure(result)).toBe(true);
           if (Result.isFailure(result)) {
             expect(result.failure).toMatchObject({
-              _tag: "WorkspaceSyncFailed",
+              _tag: "OperationRefused",
               category: "conflict",
             });
           }
@@ -128,7 +128,7 @@ describe("Sync no-op observation freshness", () => {
             expect(Result.isFailure(result)).toBe(true);
             if (Result.isFailure(result)) {
               expect(result.failure).toMatchObject({
-                _tag: "WorkspaceSyncFailed",
+                _tag: "OperationRefused",
                 category: "conflict",
               });
             }
@@ -176,7 +176,7 @@ describe("Sync no-op observation freshness", () => {
           expect(Result.isFailure(result)).toBe(true);
           if (Result.isFailure(result)) {
             expect(result.failure).toMatchObject({
-              _tag: "WorkspaceSyncFailed",
+              _tag: "OperationRefused",
               category: "conflict",
             });
           }

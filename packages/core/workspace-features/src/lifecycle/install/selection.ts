@@ -36,15 +36,15 @@ import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extens
 import {
   InstallSelectionInteraction,
   installRefused,
-  type ExtensionLifecycleFailed,
   type InstallSelectionCancelled,
   type InstallSelectionCandidate,
   type InstallSelectionMember,
   type InstallSelectionUnavailable,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 
 export type InstallSelectionFailure =
-  ExtensionLifecycleFailed | InstallSelectionCancelled | InstallSelectionUnavailable;
+  OperationRefused | InstallSelectionCancelled | InstallSelectionUnavailable;
 
 const extensionRefDescription = (ref: ExtensionRef): Option.Option<string> => {
   switch (ref.type) {

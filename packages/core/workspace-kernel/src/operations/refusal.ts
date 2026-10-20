@@ -1,53 +1,58 @@
 /**
- * The refusal an extension lifecycle operation settles with. The producer
- * owns the category choice and user-facing wording; the application boundary
- * converts the carried fields into its error envelope verbatim.
+ * The refusal a workspace operation settles with. The producer owns the
+ * category choice and user-facing wording; the application boundary converts
+ * the carried fields into its error envelope verbatim. Each family that
+ * refuses constructs the refusal through its own helper, which stamps the
+ * family's diagnostic kind.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Schema from "effect/Schema";
 import { FailureMetadataSchema, FailureSuggestedActionSchema, ErrorCodeSchema } from "./errors.js";
-/**
- * A lifecycle policy step could not proceed. The carried fields mirror the
- * application error envelope's inputs 1:1: `category` selects the code,
- * `recover`/`cmd` fold into the leading suggested action, and `title`,
- * `detail`, `metadata`, `retryable`, `suggestions`, and `cause` carry over
- * verbatim.
- */
-export class ExtensionLifecycleFailed extends Schema.TaggedError<ExtensionLifecycleFailed>()(
-  "ExtensionLifecycleFailed",
-  {
-    category: ErrorCodeSchema,
-    title: Schema.optional(Schema.String),
-    detail: Schema.optional(Schema.String),
-    metadata: Schema.optional(FailureMetadataSchema),
-    retryable: Schema.optional(Schema.Boolean),
-    recover: Schema.optional(Schema.String),
-    cmd: Schema.optional(Schema.String),
-    suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
-    cause: Schema.optional(Schema.Unknown),
-  },
-) {}
+import { FailureDiagnosticSchema, type FailureDiagnostic } from "./failure-diagnostic.js";
+import { defineFailureFamily, renderCarriedFailure } from "./failure-family.js";
 
 /**
- * Refuse an install or uninstall with the category, wording, and recovery the
- * feature decided. The application converts the carried fields into its error
- * envelope verbatim, so the producer owns the refusal rather than the shell.
+ * A workspace policy step could not proceed. The carried fields mirror the
+ * application error envelope's inputs 1:1: `category` selects the code,
+ * `recover`/`cmd` fold into the leading suggested action, `diagnostic` names
+ * the refusing family, and `title`, `detail`, `metadata`, `retryable`,
+ * `suggestions`, and `cause` carry over verbatim.
  */
-export const installRefused = (fields: {
-  readonly category: ExtensionLifecycleFailed["category"];
-  readonly detail: string;
-  readonly recover?: string;
-  readonly cmd?: string;
-  readonly suggestions?: ExtensionLifecycleFailed["suggestions"];
-  readonly cause?: unknown;
-}): ExtensionLifecycleFailed =>
-  new ExtensionLifecycleFailed({
-    category: fields.category,
-    detail: fields.detail,
-    ...(fields.recover === undefined ? {} : { recover: fields.recover }),
-    ...(fields.cmd === undefined ? {} : { cmd: fields.cmd }),
-    ...(fields.suggestions === undefined ? {} : { suggestions: fields.suggestions }),
-    ...(fields.cause === undefined ? {} : { cause: fields.cause }),
-  });
+export class OperationRefused extends Schema.TaggedError<OperationRefused>()("OperationRefused", {
+  category: ErrorCodeSchema,
+  diagnostic: FailureDiagnosticSchema,
+  title: Schema.optional(Schema.String),
+  detail: Schema.optional(Schema.String),
+  metadata: Schema.optional(FailureMetadataSchema),
+  retryable: Schema.optional(Schema.Boolean),
+  recover: Schema.optional(Schema.String),
+  cmd: Schema.optional(Schema.String),
+  suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
+  cause: Schema.optional(Schema.Unknown),
+}) {}
+
+/** What a producer states when it refuses; its family's helper names the refusal. */
+type RefusalFields = Omit<ConstructorParameters<typeof OperationRefused>[0], "diagnostic">;
+
+/** Construct a refusal under one family's diagnostic kind. */
+export const refusalOf =
+  (diagnostic: FailureDiagnostic) =>
+  (fields: RefusalFields): OperationRefused =>
+    new OperationRefused({ ...fields, diagnostic });
+
+/**
+ * Refuse an install, update, uninstall, or other extension lifecycle change
+ * with the category, wording, and recovery the feature decided.
+ */
+export const installRefused = refusalOf({
+  kind: "extension-lifecycle-failed",
+  operation: "workspace.operation",
+});
+
+/** Every refusal renders from the fields its producer carried. */
+export const operationRefusals = defineFailureFamily({
+  classes: () => [OperationRefused] as const,
+  render: (failure: OperationRefused) => renderCarriedFailure(failure),
+});

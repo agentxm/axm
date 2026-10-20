@@ -7,20 +7,22 @@
  */
 
 import {
+  ApprovalRecoveryMissing,
+  CandidateFingerprintFailed,
+  LifecyclePostconditionViolated,
+  PlanInteractionFailed,
   STALE_CANDIDATE_DETAIL,
+  ScaffoldedExtensionUnresolved,
+  StaleExecutionCandidate,
+  defineFailureFamily,
   makeStepFailure,
-  type ApprovalRecoveryMissing,
-  type CandidateFingerprintFailed,
-  type LifecyclePostconditionViolated,
-  type PlanInteractionFailed,
-  type ScaffoldedExtensionUnresolved,
-  type StaleExecutionCandidate,
+  renderCarriedFailure,
   type StepFailure,
 } from "../../operations/index.js";
 import { candidateFingerprintFailedToStepFailure } from "../../workspace-state/index.js";
 
 /** Every plan-execution failure the kernel constructs. */
-export type PlanExecutionFailure =
+type PlanExecutionFailure =
   | StaleExecutionCandidate
   | CandidateFingerprintFailed
   | ApprovalRecoveryMissing
@@ -48,7 +50,7 @@ const postconditionDetail = (failure: LifecyclePostconditionViolated): string =>
 };
 
 /** Translate one plan-execution failure. */
-export const planExecutionFailureToStepFailure = (failure: PlanExecutionFailure): StepFailure => {
+const planExecutionFailureToStepFailure = (failure: PlanExecutionFailure): StepFailure => {
   switch (failure._tag) {
     case "StaleExecutionCandidate":
       return makeStepFailure({ category: "conflict", detail: STALE_CANDIDATE_DETAIL });
@@ -60,12 +62,7 @@ export const planExecutionFailureToStepFailure = (failure: PlanExecutionFailure)
         detail: "Apply execution is missing approval recovery metadata",
       });
     case "PlanInteractionFailed":
-      return makeStepFailure({
-        category: failure.category,
-        detail: failure.detail,
-        suggestions: failure.suggestions,
-        cause: failure.cause,
-      });
+      return renderCarriedFailure(failure);
     case "LifecyclePostconditionViolated":
       return makeStepFailure({ category: "internal", detail: postconditionDetail(failure) });
     case "ScaffoldedExtensionUnresolved":
@@ -75,3 +72,17 @@ export const planExecutionFailureToStepFailure = (failure: PlanExecutionFailure)
       });
   }
 };
+
+/** The plan-execution failure family. */
+export const planExecutionFailures = defineFailureFamily({
+  classes: () =>
+    [
+      StaleExecutionCandidate,
+      CandidateFingerprintFailed,
+      ApprovalRecoveryMissing,
+      PlanInteractionFailed,
+      LifecyclePostconditionViolated,
+      ScaffoldedExtensionUnresolved,
+    ] as const,
+  render: planExecutionFailureToStepFailure,
+});

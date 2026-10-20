@@ -20,7 +20,7 @@ interface DetectionResult {
   readonly executablePath: string | null;
 }
 
-export const detectionResult = (method: InstallMethodType): DetectionResult => ({
+const detectionResult = (method: InstallMethodType): DetectionResult => ({
   installMethod: methodName(method),
   detectionSource: method.detectionSource ?? "unknown",
   detectionEvidence: method.evidence ?? [],

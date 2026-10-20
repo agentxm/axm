@@ -31,7 +31,7 @@ import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const InstallMetaDataSchema = Schema.Struct({
+const InstallMetaDataSchema = Schema.Struct({
   schemaVersion: Schema.Literal(2),
   method: InstallMethodLiteral.pipe(
     Schema.annotateKey({ messageMissingKey: "method is required" }),

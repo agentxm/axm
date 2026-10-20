@@ -35,7 +35,7 @@ export interface StartupUpdateCheckOptions {
   readonly context: StartupCheckContext;
 }
 
-export type StartupUpdateCheckOutcome =
+type StartupUpdateCheckOutcome =
   | { readonly _tag: "Skipped" }
   | {
       readonly _tag: "Checked";

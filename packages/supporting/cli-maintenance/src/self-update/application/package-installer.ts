@@ -20,7 +20,7 @@ export type RegistryManagedInstallation = Exclude<
 >;
 export type InstallationInspectionPhase = "pre-mutation" | "post-primary" | "post-fallback";
 
-export interface AvailabilityObservation {
+interface AvailabilityObservation {
   readonly availability: InstallerAvailability;
   readonly commands: ReadonlyArray<CommandRecord>;
   readonly failure?: HomebrewFailure;
@@ -34,7 +34,7 @@ export interface PackageInstallationObservation {
   readonly commands: ReadonlyArray<CommandRecord>;
 }
 
-export interface PackageMutationObservation {
+interface PackageMutationObservation {
   readonly command: RecommendedCommand;
   readonly result: CommandRecord;
 }

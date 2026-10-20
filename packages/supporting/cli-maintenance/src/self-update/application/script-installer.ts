@@ -25,7 +25,7 @@ export class ScriptReleaseAssets extends Context.Service<
   }
 >()("@agentxm/cli-maintenance/self-update/ScriptReleaseAssets") {}
 
-export interface ScriptExecutableObservation {
+interface ScriptExecutableObservation {
   readonly reportedVersion: string | null;
   readonly command: CommandRecord;
 }

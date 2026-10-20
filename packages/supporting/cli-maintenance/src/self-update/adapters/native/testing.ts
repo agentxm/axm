@@ -45,7 +45,6 @@ import {
 } from "../../application/index.js";
 import { toUpgradeAssessment, type UpgradeAssessmentResult } from "../cli/index.js";
 
-export { InstallMethodTest } from "./install-method/install-method.js";
 export { makeUpdateCheckCacheLayer } from "../../composition/native/update-cache.js";
 
 /** The local version every trial reports unless the caller states another. */
@@ -208,7 +207,7 @@ export const makeReleaseOrigin = (options?: {
 };
 
 /** What one upgrade trial published and did. */
-export interface UpgradeTrial {
+interface UpgradeTrial {
   /** Every external command the installer was asked to run. */
   readonly calls: ReadonlyArray<SubprocessInvocation>;
   /** Every install-metadata record the upgrade persisted. */

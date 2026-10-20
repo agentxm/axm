@@ -3,7 +3,7 @@ import type * as Effect from "effect/Effect";
 import type { VersionRelation } from "../domain/index.js";
 import type { UpgradeFailed } from "./errors.js";
 
-export interface ResolvedRelease {
+interface ResolvedRelease {
   readonly tagName: string;
   readonly binaryAssetUrl: string | null;
   readonly checksumAssetUrl: string | null;

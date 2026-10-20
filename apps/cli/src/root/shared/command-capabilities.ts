@@ -66,7 +66,7 @@ export interface CommandCapabilities {
  * declaration yields `undefined`, which the architecture gate treats as an
  * unclassified route.
  */
-export const CommandCapabilitiesAnnotation: ServiceMap.Reference<CommandCapabilities | undefined> =
+const CommandCapabilitiesAnnotation: ServiceMap.Reference<CommandCapabilities | undefined> =
   ServiceMap.Reference<CommandCapabilities | undefined>("axm/command-capabilities", {
     defaultValue: () => undefined,
   });
@@ -78,9 +78,7 @@ export const withCommandCapabilities =
   ): Command.Command<Name, Input, ContextInput, E, R> =>
     Command.annotate(self, CommandCapabilitiesAnnotation, capabilities);
 
-export const readCommandCapabilities = (
-  command: Command.Command.Any,
-): CommandCapabilities | undefined =>
+const readCommandCapabilities = (command: Command.Command.Any): CommandCapabilities | undefined =>
   ServiceMap.get(command.annotations, CommandCapabilitiesAnnotation);
 
 /** A node that only groups subcommands and executes nothing itself. */

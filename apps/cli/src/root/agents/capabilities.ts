@@ -71,7 +71,6 @@ export const AgentCapabilitiesOutputSchema = Schema.Struct({
   items: Schema.Array(AgentCapabilityItemSchema),
   count: Schema.Number,
 });
-export type AgentCapabilitiesOutput = typeof AgentCapabilitiesOutputSchema.Type;
 
 const AgentCapabilityColumns = [
   { header: "Type", priority: "required", value: (row: AgentCapabilityItem) => row.type },

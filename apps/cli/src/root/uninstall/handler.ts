@@ -10,7 +10,7 @@ import * as Option from "effect/Option";
 
 import { runUninstallCommand } from "../shared/uninstall-command.js";
 
-export interface RootUninstallFlags {
+interface RootUninstallFlags {
   readonly preview: boolean;
 }
 

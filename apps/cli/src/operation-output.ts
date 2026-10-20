@@ -95,7 +95,7 @@ export const PLAN_RESULT_CONTRACT = "plan-result-v4";
 // Wire schemas
 // -----------------------------------------------------------------------------
 
-export const AgentCoverageSchema = Schema.Struct({
+const AgentCoverageSchema = Schema.Struct({
   scope: Schema.Literals(["project", "user"] as const),
   agents: Schema.Array(Schema.String),
 }).annotate({
@@ -104,7 +104,6 @@ export const AgentCoverageSchema = Schema.Struct({
   description:
     "Configured agents for which a settled unit observed a retained materialization; native runtime availability is reported separately.",
 });
-export type AgentCoverage = typeof AgentCoverageSchema.Type;
 
 const LastWriteSchema = Schema.Literals(["matches", "modified", "unrecorded"]).annotate({
   identifier: "LastWrite",
@@ -503,7 +502,6 @@ export const PlanResolutionDocumentSchema = Schema.Struct(PlanResolutionDocument
   title: "Plan Resolution Document",
   description: "Top-level machine-output payload for a resolved AXM operation.",
 });
-export type PlanResolutionDocument = typeof PlanResolutionDocumentSchema.Type;
 
 // -----------------------------------------------------------------------------
 // Projection
@@ -1023,12 +1021,6 @@ export interface EmitOperationResolutionOptions {
     readonly conflicting: number;
   };
   readonly targetedUpdate?: TargetedUpdatePublicContext;
-}
-
-export interface EmittedOperationResolution {
-  readonly outcome: OperationOutcome;
-  readonly exitCode: number;
-  readonly emitted: boolean;
 }
 
 /**

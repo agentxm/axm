@@ -4,10 +4,10 @@ import { unicodeGlyphs, type Glyphs } from "./glyphs.js";
 import { displayWidth, truncateLine } from "./width.js";
 import { spansOf, truncateText, wrapText } from "./wrap-text.js";
 
-export const ESC = "\u001b[";
-export const RESET = `${ESC}0m`;
+const ESC = "\u001b[";
+const RESET = `${ESC}0m`;
 /** Reverse video: the terminal's own way to fill a cell behind its text. */
-export const INVERT = `${ESC}7m`;
+const INVERT = `${ESC}7m`;
 export const COLUMN_GAP = 3;
 /**
  * Every marked node paints its mark in this gutter — a space, the mark, and
@@ -18,7 +18,7 @@ export const GUTTER_WIDTH = 5;
  * Preferred width of the key lane between the gutter and the value column,
  * matching the preferred width of a ledger's name column.
  */
-export const KEY_WIDTH = 27;
+const KEY_WIDTH = 27;
 export const MIN_FIELD_VALUE_WIDTH = 12;
 /** `"unbounded"` paints natural widths: no wrapping, truncation, or padding to a terminal width. */
 export type PaintWidth = number | "unbounded";
@@ -68,7 +68,7 @@ export const resolveStyle = (style: PaintStyle): ResolvedStyle => {
   };
 };
 
-export const toneCodes: Readonly<Record<Tone, string>> = {
+const toneCodes: Readonly<Record<Tone, string>> = {
   neutral: "",
   ok: `${ESC}32m`,
   warn: `${ESC}33m`,
@@ -77,7 +77,7 @@ export const toneCodes: Readonly<Record<Tone, string>> = {
   dim: `${ESC}2m`,
 };
 
-export const tintCodes: Readonly<Record<Tint, string>> = {
+const tintCodes: Readonly<Record<Tint, string>> = {
   green: `${ESC}32m`,
   yellow: `${ESC}33m`,
   blue: `${ESC}34m`,
@@ -85,12 +85,12 @@ export const tintCodes: Readonly<Record<Tint, string>> = {
   cyan: `${ESC}36m`,
 };
 
-export const colorCode = (span: Span): string =>
+const colorCode = (span: Span): string =>
   span.tone === undefined && span.tint !== undefined
     ? tintCodes[span.tint]
     : toneCodes[span.tone ?? "neutral"];
 
-export const styleSpan = (span: Span, colors: boolean): string => {
+const styleSpan = (span: Span, colors: boolean): string => {
   if (!colors) return span.text;
   const prefix = `${span.bold === true ? `${ESC}1m` : ""}${span.invert === true ? INVERT : ""}${colorCode(span)}`;
   const linked =

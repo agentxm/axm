@@ -142,7 +142,7 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
 };
 
 /** Every text value a document carries, in document order. */
-export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
+const collectTexts = (doc: Doc): ReadonlyArray<string> => {
   const texts: Array<string> = [];
   forEachText(doc, (value) => texts.push(textOf(value)));
   return texts;

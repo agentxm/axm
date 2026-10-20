@@ -8,13 +8,6 @@ export {
   errorClassForAppErrorCode,
   exitCodeFor,
   makeAppError,
-  type AppErrorClass,
-  type AppErrorAction,
 } from "./app-error.js";
 export { appErrorDoc, renderAppError } from "./view.js";
-export {
-  SerializedErrorCauseSchema,
-  serializeErrorCauseChain,
-  type SerializedErrorCause,
-} from "./cause-chain.js";
 export { redactAppErrorMetadata, redactSuggestedAction } from "./secret-redaction.js";

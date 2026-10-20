@@ -41,7 +41,7 @@ import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { INSPECT_INSTALLED } from "../suggested-actions.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
 
-export interface RootUpdateFlags {
+interface RootUpdateFlags {
   readonly reinstall: boolean;
   readonly preview: boolean;
 }

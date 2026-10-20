@@ -26,12 +26,12 @@ import { TestFlagsLayer } from "../cli-flags/index.js";
 import { CredentialDeliveryFailed, Screen } from "../screen/index.js";
 import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";
 
-export const TOKEN_REGISTRY_URL = "https://registry.agentxm.ai";
+const TOKEN_REGISTRY_URL = "https://registry.agentxm.ai";
 export const SESSION_ACCESS_TOKEN = "axm_ses_fixture";
 export const ISSUED_TOKEN_ID = "token_fixture";
 export const ISSUED_TOKEN_SECRET = "axmt_fixture_secret";
 
-export const issuedToken = {
+const issuedToken = {
   id: ISSUED_TOKEN_ID,
   token: ISSUED_TOKEN_SECRET,
   name: "ci",

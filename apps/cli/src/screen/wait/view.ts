@@ -13,7 +13,7 @@ import { duration, remainingTime, waitKeyWord } from "../phrases.js";
 import type { WaitKeys, WaitView } from "./wait.js";
 
 /** The keys an open wait offers, in paint order; stopping is always offered. */
-export const waitChips = (keys: WaitKeys): ReadonlyArray<PromptChip> => [
+const waitChips = (keys: WaitKeys): ReadonlyArray<PromptChip> => [
   ...(keys.open ? [{ key: "o", word: waitKeyWord("open") }] : []),
   ...(keys.copy ? [{ key: "c", word: waitKeyWord("copy") }] : []),
   { key: "esc", word: waitKeyWord("stop") },

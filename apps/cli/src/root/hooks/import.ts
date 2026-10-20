@@ -24,7 +24,7 @@ import {
 } from "../shared/command-capabilities.js";
 import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 
-export const handleHookImport = (args: {
+const handleHookImport = (args: {
   readonly directory: string;
   readonly target: string;
   readonly protocol: ImportNativeHookRequest["protocol"];

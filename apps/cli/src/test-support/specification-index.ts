@@ -53,7 +53,7 @@ const buildIndex = (): ReadonlyMap<string, string> => {
 let cached: ReadonlyMap<string, string> | undefined;
 
 /** Requirement identity to the absolute path of the file that declares it. */
-export const specificationIndex = (): ReadonlyMap<string, string> => (cached ??= buildIndex());
+const specificationIndex = (): ReadonlyMap<string, string> => (cached ??= buildIndex());
 
 /** The file declaring `identity`, or `undefined` when nothing declares it. */
 export const specificationFileFor = (identity: string): string | undefined =>

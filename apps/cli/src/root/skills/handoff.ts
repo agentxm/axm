@@ -26,7 +26,7 @@ import {
 } from "../shared/command-capabilities.js";
 import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 
-export const handleHandoff = (
+const handleHandoff = (
   args: HandoffRequest & {
     readonly preview: boolean;
     readonly agents: ReadonlyArray<string>;

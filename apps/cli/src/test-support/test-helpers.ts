@@ -74,36 +74,12 @@ import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace-kernel/projection/live";
-export {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-} from "@agentxm/workspace-kernel/projection/live";
 import {
   SourceHostProvidersLive,
   WorkspaceCatalogLive,
 } from "@agentxm/workspace-kernel/sources/live";
-export { SourceHostProvidersLive };
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
-export { KnowledgeIndexLive };
-import {
-  ExtensionKindsLive,
-  HookManagerLive,
-  KnowledgeManagerLive,
-  McpServerManagerLive,
-  PackManagerLive,
-  RuleManagerLive,
-  SkillManagerLive,
-  SubagentManagerLive,
-} from "@agentxm/extension-kinds/live";
-export {
-  HookManagerLive,
-  KnowledgeManagerLive,
-  McpServerManagerLive,
-  PackManagerLive,
-  RuleManagerLive,
-  SkillManagerLive,
-  SubagentManagerLive,
-};
+import { ExtensionKindsLive } from "@agentxm/extension-kinds/live";
 import {
   WorkspaceFailureConversionLive,
   isWorkspaceFailure,
@@ -144,6 +120,7 @@ export interface TestPromptConfig {
   readonly onConfirmApplyChanges?: () => void;
 }
 
+/** @public Inferred types in this package name it in emitted declarations. */
 export interface TestPromptState {
   readonly confirmCalls: Array<{ readonly kind: "resolve-plan" }>;
 }
@@ -596,7 +573,7 @@ const isRepositoryPath = (startDir: string): boolean => {
 };
 
 /** The Registry every CLI test harness binds its transport to and selects by default. */
-export const cliTestRegistryUrl = "https://registry.example.com";
+const cliTestRegistryUrl = "https://registry.example.com";
 
 /** The built-in source a harness workspace selects when its settings name no default. */
 export const cliTestBuiltInSources = (

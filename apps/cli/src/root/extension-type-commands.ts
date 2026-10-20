@@ -25,7 +25,7 @@ import { rulesCommand } from "./rules/_rules.js";
 import { skillsCommand } from "./skills/_skills.js";
 import { subagentsCommand } from "./subagents/_subagents.js";
 
-export const EXTENSION_TYPE_COMMANDS = {
+const EXTENSION_TYPE_COMMANDS = {
   skill: skillsCommand,
   "mcp-server": mcpsCommand,
   subagent: subagentsCommand,

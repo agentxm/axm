@@ -57,7 +57,7 @@ export const trackCliCommand = ({
 // Purposeful product lifecycle
 // ---------------------------------------------------------------------------
 
-export type ProductActivityKind = "configure" | "install" | "publish" | "restore" | "update";
+type ProductActivityKind = "configure" | "install" | "publish" | "restore" | "update";
 
 export interface ProductActivityIntent {
   readonly activity: ProductActivityKind;

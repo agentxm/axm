@@ -22,7 +22,7 @@ export interface AdoptHandlerArgs {
   readonly preview: boolean;
 }
 
-export const handleAdopt = (args: AdoptHandlerArgs) =>
+const handleAdopt = (args: AdoptHandlerArgs) =>
   withOperationLifecycle(
     {
       mode: args.preview ? "preview" : "apply",

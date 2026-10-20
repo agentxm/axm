@@ -5,7 +5,7 @@ import type { TelemetryProperties } from "../telemetry/index.js";
 // Bounded vocabularies
 // ---------------------------------------------------------------------------
 
-export type CommandOutcome =
+type CommandOutcome =
   | "applied"
   | "previewed"
   | "no-op"

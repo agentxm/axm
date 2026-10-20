@@ -22,7 +22,8 @@
   // when its package is clean. Generated clients mirror their contracts whole.
   "ignoreIssues": {
     "*.{ts,mts,cts,js,mjs,cjs}": ["exports", "types"],
-    "{apps,benchmarks,scripts,specifications,tools}/**": ["exports", "types"],
+    "{benchmarks,scripts,specifications,tools}/**": ["exports", "types"],
+    "apps/cli/src/telemetry/__generated__/**": ["exports", "types"],
     "packages/supporting/registry-client/src/__generated__/**": ["exports", "types"],
     // Type tests export their compile-time assertions so the compiler checks
     // them without reporting unused locals; nothing imports them.
@@ -87,6 +88,9 @@
       "includeEntryExports": true,
     },
     "packages/core/extension-kinds": {
+      "includeEntryExports": true,
+    },
+    "apps/cli-e2e": {
       "includeEntryExports": true,
     },
     "packages/core/workspace-kernel": {

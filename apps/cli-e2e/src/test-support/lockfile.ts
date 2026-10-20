@@ -40,7 +40,7 @@ const LockBinding = Schema.Struct({
 });
 
 /** One alias-keyed binding (or `[[mcp]]` row) naming a retained package record. */
-export type LockBinding = typeof LockBinding.Type;
+type LockBinding = typeof LockBinding.Type;
 
 const LockPackage = Schema.Struct({
   id: Schema.String,

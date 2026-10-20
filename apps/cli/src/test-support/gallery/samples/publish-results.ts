@@ -101,7 +101,7 @@ export const admittedSet = (
   })),
 });
 
-export const selection = {
+const selection = {
   mode: "authored",
   scope: "project",
   owners: [handle("@acme")],

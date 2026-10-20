@@ -34,7 +34,7 @@ export const LOGIN_REGISTRY_URL = "https://registry.agentxm.ai";
 export const LOGIN_REGISTRY_HOST = "registry.agentxm.ai";
 export const EXISTING_HANDLE = normalizeHandle("@alice");
 export const EXISTING_ACCESS_TOKEN = "axm_ses_existing";
-export const NEW_ACCESS_TOKEN = "axm_ses_new";
+const NEW_ACCESS_TOKEN = "axm_ses_new";
 export const DEVICE_USER_CODE = "ABCD-1234";
 
 export interface LoginSpecContextOptions {

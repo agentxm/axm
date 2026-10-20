@@ -9,7 +9,7 @@ import { parkedOnWait } from "../screen/wait/run.js";
 import { reduceWaitKey, waitKeys, type WaitActions, type WaitView } from "../screen/wait/wait.js";
 import { waitDoc, waitSettled } from "../screen/wait/view.js";
 
-export type ScriptedWaitAction = "open" | "copy" | "stop" | "settle";
+type ScriptedWaitAction = "open" | "copy" | "stop" | "settle";
 
 export interface WaitScript {
   readonly waits: Array<WaitView>;

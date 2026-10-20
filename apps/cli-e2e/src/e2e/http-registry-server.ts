@@ -38,7 +38,7 @@ const TYPE_BY_PLURAL: Readonly<Record<string, string>> = {
   packs: "pack",
 };
 
-export interface PublishRecord {
+interface PublishRecord {
   readonly owner: string;
   readonly plural: string;
   readonly name: string;
@@ -54,7 +54,7 @@ export interface PublishRecord {
 }
 
 /** Every request the CLI made, in order — the transport contract under test. */
-export interface RequestRecord {
+interface RequestRecord {
   readonly method: string;
   readonly path: string;
   readonly status: number;

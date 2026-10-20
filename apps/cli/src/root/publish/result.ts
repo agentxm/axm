@@ -137,7 +137,7 @@ export const emitPublishResult = (
  * item that never left the process joins the blocked bucket. Either keeps the
  * run out of `no-op`. An interrupted run still reports `interrupted`.
  */
-export const publishResultToSummary = (result: PublishResult) => {
+const publishResultToSummary = (result: PublishResult) => {
   const appliedCount = result.counts.published;
   // A preview leaves every selected item `pending` by construction, so only an
   // apply carries unconfirmed work.

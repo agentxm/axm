@@ -30,7 +30,7 @@ import { PlanResolutionDocumentSchema } from "../operation-output.js";
 
 const strings = Schema.Array(Schema.String);
 const member = Schema.Union([Schema.String, Schema.Boolean, Schema.Null]);
-export const ContextInventorySchema = Schema.Struct({
+const ContextInventorySchema = Schema.Struct({
   formatVersion: Schema.Literal(1),
   commandInventory: Schema.Literal("command-behavior-allocation.json"),
   populations: Schema.Record(
@@ -76,7 +76,6 @@ export const ContextInventorySchema = Schema.Struct({
     }),
   ),
 });
-export type ContextInventory = typeof ContextInventorySchema.Type;
 export type ContextMember = typeof member.Type;
 
 export const readContextInventory = () => {

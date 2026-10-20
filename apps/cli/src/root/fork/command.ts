@@ -33,7 +33,7 @@ export interface ForkHandlerArgs {
   readonly preview: boolean;
 }
 
-export const handleFork = (args: ForkHandlerArgs) =>
+const handleFork = (args: ForkHandlerArgs) =>
   withOperationLifecycle(
     {
       mode: args.preview ? "preview" : "apply",

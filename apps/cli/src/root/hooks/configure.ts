@@ -16,7 +16,7 @@ import { makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { parseHookConfiguration } from "./configuration-input.js";
 
-export const handleHookConfigure = (args: {
+const handleHookConfigure = (args: {
   readonly name: string;
   readonly configuration: string;
   readonly preview: boolean;

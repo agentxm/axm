@@ -38,7 +38,7 @@ import {
 } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
-export interface WorkspaceUpdateFlags {
+interface WorkspaceUpdateFlags {
   readonly preview: boolean;
   readonly reinstall?: boolean;
 }

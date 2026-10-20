@@ -18,9 +18,8 @@ import { envOption } from "@agentxm/host-primitives";
 import { jsonFlag } from "./json-flag.js";
 import { isNonInteractive } from "./non-interactive.js";
 
-export const isMachineOutput: Effect.Effect<boolean> = Effect.map(
-  Effect.serviceOption(jsonFlag),
-  (json) => Option.exists(Option.flatten(json), Boolean),
+const isMachineOutput: Effect.Effect<boolean> = Effect.map(Effect.serviceOption(jsonFlag), (json) =>
+  Option.exists(Option.flatten(json), Boolean),
 );
 
 /** Whether the invocation's flags and environment allow a prompt to open. */

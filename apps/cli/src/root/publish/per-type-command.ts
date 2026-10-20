@@ -26,7 +26,7 @@ const publishCapabilities = previewableCapabilities("registry", {
   inputs: "explicit-or-documented-defaults",
 });
 
-export const makePerTypePublishCommand = (type: PublishableType) => {
+const makePerTypePublishCommand = (type: PublishableType) => {
   const { route } = extensionTypePresentation(type);
   const commonConfig = {
     extensions: Argument.String("name").pipe(

@@ -20,12 +20,12 @@ export interface JsonSubcommandDoc {
   readonly description?: string | undefined;
 }
 
-export interface JsonSubcommandGroupDoc {
+interface JsonSubcommandGroupDoc {
   readonly group?: string | undefined;
   readonly commands: ReadonlyArray<JsonSubcommandDoc>;
 }
 
-export interface JsonExampleDoc {
+interface JsonExampleDoc {
   readonly command: string;
   readonly description?: string | undefined;
 }
@@ -42,22 +42,22 @@ export interface JsonHelpDoc {
   readonly learnMore?: string | undefined;
 }
 
-export const JsonFlagDocSchema = ParameterSchema;
-export const JsonArgDocSchema = ParameterSchema;
+const JsonFlagDocSchema = ParameterSchema;
+const JsonArgDocSchema = ParameterSchema;
 
-export const JsonSubcommandDocSchema = Schema.Struct({
+const JsonSubcommandDocSchema = Schema.Struct({
   name: Schema.String,
   alias: Schema.optional(Schema.String),
   shortDescription: Schema.optional(Schema.String),
   description: Schema.optional(Schema.String),
 });
 
-export const JsonSubcommandGroupDocSchema = Schema.Struct({
+const JsonSubcommandGroupDocSchema = Schema.Struct({
   group: Schema.optional(Schema.String),
   commands: Schema.Array(JsonSubcommandDocSchema),
 });
 
-export const JsonExampleDocSchema = Schema.Struct({
+const JsonExampleDocSchema = Schema.Struct({
   command: Schema.String,
   description: Schema.optional(Schema.String),
 });
@@ -80,10 +80,8 @@ export const JsonVersionDocSchema = Schema.Struct({
   version: Schema.String,
 });
 
-export type JsonVersionDoc = typeof JsonVersionDocSchema.Type;
-
 /** What the formatter writes to Effect CLI's console: one built-in document. */
-export const FormatterDocumentSchema = Schema.Union([JsonHelpDocSchema, JsonVersionDocSchema]);
+const FormatterDocumentSchema = Schema.Union([JsonHelpDocSchema, JsonVersionDocSchema]);
 export type FormatterDocument = typeof FormatterDocumentSchema.Type;
 
 /**
@@ -93,7 +91,7 @@ export type FormatterDocument = typeof FormatterDocumentSchema.Type;
 export const decodeFormatterDocument: (text: string) => Option.Option<FormatterDocument> =
   Schema.decodeUnknownOption(Schema.fromJsonString(FormatterDocumentSchema));
 
-export const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
+const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
   name: flag.name,
   aliases: flag.aliases,
   type: flag.type,

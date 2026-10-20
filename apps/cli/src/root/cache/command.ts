@@ -23,7 +23,6 @@ const CacheStatusSchema = Schema.Struct({
 });
 
 export const CacheStatusOutputSchema = CacheStatusSchema;
-export type CacheStatusOutput = typeof CacheStatusOutputSchema.Type;
 
 const CacheVerifySchema = Schema.Struct({
   checked: Schema.Number,
@@ -32,7 +31,6 @@ const CacheVerifySchema = Schema.Struct({
 });
 
 export const CacheVerifyOutputSchema = Schema.Struct({ result: CacheVerifySchema });
-export type CacheVerifyOutput = typeof CacheVerifyOutputSchema.Type;
 
 const CachePruneSchema = Schema.Struct({
   removed: Schema.Number,
@@ -42,7 +40,6 @@ const CachePruneSchema = Schema.Struct({
 });
 
 export const CachePruneOutputSchema = Schema.Struct({ result: CachePruneSchema });
-export type CachePruneOutput = typeof CachePruneOutputSchema.Type;
 
 const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
@@ -107,7 +104,7 @@ const statusConfig = {} as const;
 const verifyConfig = {} as const;
 const pruneConfig = {} as const;
 
-export const cacheStatusCommand = Command.make("status", statusConfig, () =>
+const cacheStatusCommand = Command.make("status", statusConfig, () =>
   handleCacheStatus().pipe(withRuntime()),
 ).pipe(
   withArgvTracking(statusConfig),
@@ -119,7 +116,7 @@ export const cacheStatusCommand = Command.make("status", statusConfig, () =>
   ]),
 );
 
-export const cacheVerifyCommand = Command.make("verify", verifyConfig, () =>
+const cacheVerifyCommand = Command.make("verify", verifyConfig, () =>
   handleCacheVerify().pipe(withRuntime()),
 ).pipe(
   withArgvTracking(verifyConfig),
@@ -131,7 +128,7 @@ export const cacheVerifyCommand = Command.make("verify", verifyConfig, () =>
   ]),
 );
 
-export const cachePruneCommand = Command.make("prune", pruneConfig, () =>
+const cachePruneCommand = Command.make("prune", pruneConfig, () =>
   handleCachePrune().pipe(withRuntime()),
 ).pipe(
   withArgvTracking(pruneConfig),

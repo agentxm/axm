@@ -53,7 +53,7 @@ import {
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 
-export const TokenListItemSchema = Schema.Struct({
+const TokenListItemSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.NullOr(Schema.String),
   type: Schema.String,
@@ -62,16 +62,15 @@ export const TokenListItemSchema = Schema.Struct({
   expiresAt: DateTimeUtcSchema,
   lastUsedAt: Schema.NullOr(DateTimeUtcSchema),
 });
-export const TokenListDocumentFields = {
+const TokenListDocumentFields = {
   items: Schema.Array(TokenListItemSchema),
   count: Schema.Number,
   hasMore: Schema.Boolean,
   cursor: Schema.NullOr(Schema.String),
 } satisfies Schema.Struct.Fields;
 export const TokenListDocumentSchema = Schema.Struct(TokenListDocumentFields);
-export type TokenListDocument = typeof TokenListDocumentSchema.Type;
 
-export const RevokeTokenResultSchema = Schema.Struct({
+const RevokeTokenResultSchema = Schema.Struct({
   status: Schema.Literal("revoked"),
   tokenId: Schema.String,
 });
@@ -79,7 +78,6 @@ const RevokeTokenDocumentFields = {
   result: RevokeTokenResultSchema,
 } satisfies Schema.Struct.Fields;
 export const RevokeTokenDocumentSchema = Schema.Struct(RevokeTokenDocumentFields);
-export type RevokeTokenDocument = typeof RevokeTokenDocumentSchema.Type;
 
 const RevokeTokenSuggestions = [
   { description: "List remaining tokens", cmd: "axm token list" },

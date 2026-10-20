@@ -242,7 +242,7 @@ const typedInstallArgs = (
   bundled: false,
 });
 
-export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
+const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
   const run = (args: InstallHandlerArgs, parsed: ParsedTypedInstall) =>
     executeInstall(args, parsed.scope, parsed);
   switch (type) {

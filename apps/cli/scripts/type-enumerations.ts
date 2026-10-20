@@ -59,7 +59,7 @@ const joinPhrase = (items: ReadonlyArray<string>): string => {
  * catalog does not describe (containers such as packs) are covered by the prose
  * around the region instead, because they have no summary to render.
  */
-export const extensionTypesTableBlock = (rows: ReadonlyArray<TypeEnumerationRow>): string => {
+const extensionTypesTableBlock = (rows: ReadonlyArray<TypeEnumerationRow>): string => {
   const body = rows.flatMap((row) =>
     row.summary === null
       ? []
@@ -73,7 +73,7 @@ export const extensionTypesTableBlock = (rows: ReadonlyArray<TypeEnumerationRow>
   return ["| Type | What it is | Governing standard |", "| --- | --- | --- |", ...body].join("\n");
 };
 
-export const extensionTypeNamespacesBlock = (rows: ReadonlyArray<TypeEnumerationRow>): string => {
+const extensionTypeNamespacesBlock = (rows: ReadonlyArray<TypeEnumerationRow>): string => {
   const namespaces = rows.map((row) => `\`axm ${row.plural}\``);
   return (
     `Every type has its own subcommand namespace (${namespaces.join(", ")}) ` +
@@ -82,7 +82,7 @@ export const extensionTypeNamespacesBlock = (rows: ReadonlyArray<TypeEnumeration
   );
 };
 
-export const extensionTypeListBlock = (rows: ReadonlyArray<TypeEnumerationRow>): string =>
+const extensionTypeListBlock = (rows: ReadonlyArray<TypeEnumerationRow>): string =>
   `AXM manages ${joinPhrase(rows.map((row) => row.pluralSentenceLabel))}.`;
 
 export const buildRegionBlocks = (

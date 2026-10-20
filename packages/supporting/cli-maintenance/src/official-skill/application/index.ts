@@ -2,7 +2,7 @@ import * as ServiceMap from "effect/Context";
 import * as Data from "effect/Data";
 import type { AxmSkillCompatibility, AxmSkillCompatibilityCandidate } from "../domain/index.js";
 
-export interface AxmSkillCompatibilityPolicyInput {
+interface AxmSkillCompatibilityPolicyInput {
   readonly fqn: string;
   readonly candidate: AxmSkillCompatibilityCandidate | null;
 }

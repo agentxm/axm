@@ -23,8 +23,11 @@
   "ignoreIssues": {
     "*.{ts,mts,cts,js,mjs,cjs}": ["exports", "types"],
     "{apps,benchmarks,scripts,specifications,tools}/**": ["exports", "types"],
-    "packages/core/**": ["exports", "types"],
-    "packages/supporting/{cli-maintenance,registry-access}/**": ["exports", "types"],
+    "packages/core/{extension-content,extension-kinds,extension-model,registry-protocol,workspace-features,workspace-kernel}/**": [
+      "exports",
+      "types",
+    ],
+    "packages/supporting/registry-access/**": ["exports", "types"],
     "packages/supporting/registry-client/src/__generated__/**": ["exports", "types"],
   },
   // Nx infers each project's compiler target; the dual compiler aliases are
@@ -76,6 +79,9 @@
       "includeEntryExports": true,
     },
     "packages/supporting/registry-client": {
+      "includeEntryExports": true,
+    },
+    "packages/supporting/cli-maintenance": {
       "includeEntryExports": true,
     },
     "packages/core/workspace-kernel": {

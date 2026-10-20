@@ -9,7 +9,7 @@ import type {
   RegistryManagedInstallation,
 } from "./package-installer.js";
 
-export type UpgradeExecutionStage =
+type UpgradeExecutionStage =
   | { readonly kind: "availability"; readonly method: RegistryManagedInstallation }
   | {
       readonly kind: "mutation";

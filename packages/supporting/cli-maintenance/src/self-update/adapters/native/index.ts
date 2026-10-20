@@ -11,26 +11,16 @@
  * @packageDocumentation
  */
 
-export { HOMEBREW_FORMULA, HOMEBREW_TAP } from "./package-installers/commands.js";
+export { HOMEBREW_FORMULA } from "./package-installers/commands.js";
+
+export { InstallMethod } from "./install-method/install-method.js";
+
+export { InstallMeta, type InstallMetaData } from "./install-meta/install-meta.js";
 
 export {
-  InstallMethod,
-  detectFromInputs,
-  type InstallMethodInputs,
-  type InstallMethodService,
-} from "./install-method/install-method.js";
-
-export {
-  InstallMeta,
-  readInstallMeta,
-  writeInstallMeta,
-  type InstallMetaData,
-  type InstallMetaService,
-} from "./install-meta/install-meta.js";
-
-export {
+  // The CLI's self-update layer infers this service, so its declaration emit
+  // must be able to name it; knip skips exports tagged public.
+  /** @public */
   Subprocess,
   type CommandResult,
-  type RunCommandOptions,
-  type SubprocessService,
 } from "./subprocess/subprocess.js";

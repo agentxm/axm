@@ -10,15 +10,15 @@ import {
 export const AXM_SKILL_BUNDLED_PREVIEW_COMMAND =
   "axm skills install @agentxm/skills/axm --bundled --preview";
 export const AXM_SKILL_BUNDLED_APPLY_COMMAND = "axm skills install @agentxm/skills/axm --bundled";
-export const AXM_SKILL_REGISTRY_PREVIEW_COMMAND = "axm skills update axm --preview";
-export const AXM_SKILL_REGISTRY_APPLY_COMMAND = "axm skills update axm";
+const AXM_SKILL_REGISTRY_PREVIEW_COMMAND = "axm skills update axm --preview";
+const AXM_SKILL_REGISTRY_APPLY_COMMAND = "axm skills update axm";
 
-export const AxmSkillCompatibilityRecoveryStepSchema = Schema.Struct({
+const AxmSkillCompatibilityRecoveryStepSchema = Schema.Struct({
   boundary: Schema.Literals(["executable", "workspace", "verification"] as const),
   command: Schema.String,
   preview: Schema.Boolean,
 });
-export type AxmSkillCompatibilityRecoveryStep = typeof AxmSkillCompatibilityRecoveryStepSchema.Type;
+type AxmSkillCompatibilityRecoveryStep = typeof AxmSkillCompatibilityRecoveryStepSchema.Type;
 
 export const formatAxmSkillCompatibilityTarget = (target: {
   readonly targetCliVersion: string | null;
@@ -26,7 +26,7 @@ export const formatAxmSkillCompatibilityTarget = (target: {
 }): string =>
   `AXM CLI ${target.targetCliVersion ?? "unknown"} + official AXM skill ${target.targetSkillVersion ?? "unknown"}`;
 
-export const AxmSkillRecoveryReportSchema = Schema.Struct({
+const AxmSkillRecoveryReportSchema = Schema.Struct({
   ...AxmSkillCompatibilityRecoverySchema.fields,
   nextAction: Schema.NullOr(Schema.String),
   steps: Schema.Array(AxmSkillCompatibilityRecoveryStepSchema),

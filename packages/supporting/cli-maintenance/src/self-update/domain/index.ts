@@ -11,7 +11,6 @@ export {
   type DetectionSource,
   type InstallMethodName,
   type InstallMethodType,
-  type UnknownReason,
 } from "./installation.js";
 export {
   classifyVersionRelation,
@@ -37,6 +36,4 @@ export {
   verifyPackageInstallation,
   verifyHomebrewInstallation,
   shouldReinstallHomebrew,
-  type InstallationVerification,
-  type HomebrewInstallation,
 } from "./verification.js";

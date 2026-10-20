@@ -3,7 +3,7 @@ import type { PlatformBinaryInfo } from "../domain/index.js";
 import { CommandRecordSchema } from "./evidence.js";
 import type { VersionResolutionResult } from "./releases.js";
 
-export const ResultStatusSchema = Schema.Literals([
+const ResultStatusSchema = Schema.Literals([
   "preview",
   "upgraded",
   "reinstalled",
@@ -15,7 +15,6 @@ export const ResultStatusSchema = Schema.Literals([
   "manual-action-required",
   "rolled-back",
 ] as const);
-export type ResultStatus = typeof ResultStatusSchema.Type;
 
 export const InstallMethodSchema = Schema.Literals([
   "script",

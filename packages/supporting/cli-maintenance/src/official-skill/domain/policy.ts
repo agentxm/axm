@@ -5,7 +5,7 @@ export const AXM_SKILL_FQN = "@agentxm/skills/axm";
 export const AXM_SKILL_CLI_VERSION_METADATA_KEY = "axm.sh/cli-version";
 export const AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY = "axm.sh/cli-version-range";
 
-export const AxmSkillCompatibilityReasonSchema = Schema.Literals([
+const AxmSkillCompatibilityReasonSchema = Schema.Literals([
   "cli-version-unavailable",
   "axm-skill-missing",
   "axm-skill-manifest-invalid",
@@ -15,9 +15,9 @@ export const AxmSkillCompatibilityReasonSchema = Schema.Literals([
   "skill-release-range-mismatch",
   "cli-version-incompatible",
 ] as const);
-export type AxmSkillCompatibilityReason = typeof AxmSkillCompatibilityReasonSchema.Type;
+type AxmSkillCompatibilityReason = typeof AxmSkillCompatibilityReasonSchema.Type;
 
-export const AxmSkillCompatibilityRecoveryActionSchema = Schema.Literals([
+const AxmSkillCompatibilityRecoveryActionSchema = Schema.Literals([
   "none",
   "inspect-cli",
   "upgrade-cli",
@@ -25,8 +25,6 @@ export const AxmSkillCompatibilityRecoveryActionSchema = Schema.Literals([
   "install-bundled-skill",
   "preserve-authored-skill",
 ] as const);
-export type AxmSkillCompatibilityRecoveryAction =
-  typeof AxmSkillCompatibilityRecoveryActionSchema.Type;
 
 export const AxmSkillCompatibilityRecoverySchema = Schema.Struct({
   action: AxmSkillCompatibilityRecoveryActionSchema,

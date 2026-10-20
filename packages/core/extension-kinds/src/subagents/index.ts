@@ -10,5 +10,4 @@ export { planSubagentInstall, type SubagentInstallIntent } from "./lifecycle/ins
 export {
   parseSubagentUninstallRequest,
   planSubagentUninstall,
-  type SubagentUninstallIntent,
 } from "./lifecycle/uninstall/plan.js";

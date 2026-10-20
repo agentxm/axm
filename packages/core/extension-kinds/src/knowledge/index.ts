@@ -16,5 +16,4 @@ export { planKnowledgeInstall, type KnowledgeInstallIntent } from "./lifecycle/i
 export {
   parseKnowledgeUninstallRequest,
   planKnowledgeUninstall,
-  type KnowledgeUninstallIntent,
 } from "./lifecycle/uninstall/plan.js";

@@ -176,7 +176,7 @@ export type CanonicalReuseContext = {
   readonly accepted: Option.Option<SkillLockEntry>;
 };
 
-export interface MaterializedSkillCanonical {
+interface MaterializedSkillCanonical {
   readonly skillSrcPath: string;
   readonly treeIntegrity?: TreeIntegrity;
 }

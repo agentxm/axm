@@ -84,7 +84,7 @@ const withPlanWarning = (
  * generic metadata bag, where an invalid entry is skipped rather than
  * failing the whole install.
  */
-export const getCompanionPackages = (ref: SkillExtensionRef): ReadonlyArray<PackageUrlParts> => {
+const getCompanionPackages = (ref: SkillExtensionRef): ReadonlyArray<PackageUrlParts> => {
   if (ref.refType === "registry") return ref.packages ?? [];
   return Option.match(ref.skill.metadata, {
     onNone: (): ReadonlyArray<PackageUrlParts> => [],

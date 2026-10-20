@@ -426,7 +426,7 @@ export const resolvePackSourceRequest: (
  * unsupported, every configured `file://` registry is consulted in turn, and
  * every probe is recorded so the operator can see what was tried.
  */
-export const discoverPackRef: (
+const discoverPackRef: (
   request: PackSourceRequest,
 ) => Effect.Effect<
   PackDiscovery,
@@ -654,7 +654,7 @@ export type PackInstallRequirements =
   | SubagentManager;
 
 /** Select a Pack once, before the enclosing install prepares shared native units. */
-export const preparePackInstallGraph = (intent: PackInstallIntent) =>
+const preparePackInstallGraph = (intent: PackInstallIntent) =>
   selectPackGraph(intent).pipe(
     Effect.mapError((cause) => {
       if (cause._tag === "OperationRefused") return cause;

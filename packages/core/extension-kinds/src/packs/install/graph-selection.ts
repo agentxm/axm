@@ -366,7 +366,7 @@ const packMemberEffectiveConstraint = (
   ]);
 };
 
-export const packMemberRangeResolver =
+const packMemberRangeResolver =
   (pack: PackRef, graph: DesiredStateGraph): PackMemberRangeResolver =>
   ({ type, name, declared }) =>
     Result.map(packMemberEffectiveConstraint(pack, graph, { type, name, declared }), (effective) =>
@@ -398,7 +398,7 @@ export const packMemberConflicts = (
  * and every one of its members are still usable. Otherwise there is nothing
  * to preserve, and a `preserve-or-block` operation blocks.
  */
-export const heldPackGraphPreservable: (
+const heldPackGraphPreservable: (
   intent: Pick<PackGraphSelectionRequest, "packToInstall" | "versionRange">,
 ) => Effect.Effect<boolean, OperationRefused, WorkspaceAuthorityRequirements> = Effect.fn(
   "InstallExtensions.heldPackGraphPreservable",

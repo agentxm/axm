@@ -7,8 +7,4 @@
 
 export { RuleDefinitionInvalid } from "./errors.js";
 export { planRuleInstall, type RuleInstallIntent } from "./lifecycle/install/plan.js";
-export {
-  parseRuleUninstallRequest,
-  planRuleUninstall,
-  type RuleUninstallIntent,
-} from "./lifecycle/uninstall/plan.js";
+export { parseRuleUninstallRequest, planRuleUninstall } from "./lifecycle/uninstall/plan.js";

@@ -23,7 +23,7 @@
   "ignoreIssues": {
     "*.{ts,mts,cts,js,mjs,cjs}": ["exports", "types"],
     "{apps,benchmarks,scripts,specifications,tools}/**": ["exports", "types"],
-    "packages/core/{extension-content,extension-kinds,extension-model,registry-protocol,workspace-features}/**": [
+    "packages/core/{extension-content,extension-model,registry-protocol,workspace-features}/**": [
       "exports",
       "types",
     ],
@@ -87,6 +87,9 @@
       "includeEntryExports": true,
     },
     "packages/supporting/registry-access": {
+      "includeEntryExports": true,
+    },
+    "packages/core/extension-kinds": {
       "includeEntryExports": true,
     },
     "packages/core/workspace-kernel": {

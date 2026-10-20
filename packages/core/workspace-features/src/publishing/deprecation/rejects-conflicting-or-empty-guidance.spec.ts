@@ -6,7 +6,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { deprecate } from "../lifecycle/deprecation.js";
 import {
-  expectPublishFailed,
+  expectPublishRefused,
   jsonRegistryResponse,
   makeRegistryManagementWorld,
   observedRevision,
@@ -39,7 +39,7 @@ describe("Valid deprecation guidance", () => {
           throw new Error("Conflicting flags must not contact the Registry");
         });
 
-        const failure = expectPublishFailed(
+        const failure = expectPublishRefused(
           yield* world.provide(
             Effect.flip(
               deprecate({
@@ -70,7 +70,7 @@ describe("Valid deprecation guidance", () => {
             jsonRegistryResponse({ deprecation: null, revision: observedRevision }),
           );
 
-          const failure = expectPublishFailed(
+          const failure = expectPublishRefused(
             yield* world.provide(
               Effect.flip(
                 deprecate({
@@ -105,7 +105,7 @@ describe("Valid deprecation guidance", () => {
         const world = makeRegistryManagementWorld(() =>
           jsonRegistryResponse({ deprecation: null, revision: observedRevision }),
         );
-        const failure = expectPublishFailed(
+        const failure = expectPublishRefused(
           yield* world.provide(
             Effect.flip(
               deprecate({

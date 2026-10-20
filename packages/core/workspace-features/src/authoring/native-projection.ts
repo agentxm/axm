@@ -17,7 +17,11 @@ import {
   type ManagerRequirements,
   type MaterializationObservation,
 } from "@agentxm/workspace-kernel/materialization";
-import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-kernel/operations";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  OperationRefused,
+} from "@agentxm/workspace-kernel/operations";
 import type {
   InstallArtifactPresentation,
   InstallChange,
@@ -26,7 +30,7 @@ import {
   computePackageContentHash,
   WorkspaceLocation,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { AuthoringFailed } from "./errors.js";
+import { authoringRefused } from "./errors.js";
 
 export type AuthoredNativeProjection = Pick<
   JobStepArtifact,
@@ -42,17 +46,16 @@ export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.prefligh
     if (!args.enabled) return yield* Effect.succeed<AuthoredNativeProjection>({});
     const location = yield* WorkspaceLocation;
     const { manifest } = yield* readExtensionManifest(args.packageRoot, "subagent").pipe(
-      Effect.mapError(
-        (cause) =>
-          new AuthoringFailed({
-            category: "validation",
-            detail: "Prepared subagent manifest is invalid",
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        authoringRefused({
+          category: "validation",
+          detail: "Prepared subagent manifest is invalid",
+          cause,
+        }),
       ),
     );
     if (manifest.owner !== args.identity.owner || manifest.name !== args.identity.name) {
-      return yield* new AuthoringFailed({
+      return yield* authoringRefused({
         category: "validation",
         detail: "Prepared subagent identity does not match the requested identity",
       });
@@ -89,7 +92,7 @@ export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.prefligh
       outcomes.length > 0 &&
       !outcomes.some((outcome) => outcome.outcome === "projected" || outcome.outcome === "current")
     ) {
-      return yield* new AuthoringFailed({
+      return yield* authoringRefused({
         category: "validation",
         detail: `No configured runtime can materialize this subagent: ${outcomes.map((outcome) => `${outcome.agentId}: ${outcome.reason}`).join("; ")}`,
       });
@@ -122,7 +125,7 @@ export const preflightAuthoredNativeProjection = (args: {
   readonly enabled: boolean;
 }): Effect.Effect<
   AuthoredNativeProjection,
-  AuthoringFailed | ExtensionManagerFailure,
+  OperationRefused | ExtensionManagerFailure,
   ManagerRequirements | RuleManager | HookManager | KnowledgeManager | SubagentManager
 > =>
   Effect.gen(function* () {
@@ -131,13 +134,12 @@ export const preflightAuthoredNativeProjection = (args: {
       return {};
     const location = yield* WorkspaceLocation;
     const { manifest } = yield* readExtensionManifest(args.packageRoot, args.identity.type).pipe(
-      Effect.mapError(
-        (cause) =>
-          new AuthoringFailed({
-            category: "validation",
-            detail: "Prepared authored package is not valid",
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        authoringRefused({
+          category: "validation",
+          detail: "Prepared authored package is not valid",
+          cause,
+        }),
       ),
     );
     if (
@@ -145,7 +147,7 @@ export const preflightAuthoredNativeProjection = (args: {
       manifest.name !== args.identity.name ||
       manifest.type !== args.identity.type
     ) {
-      return yield* new AuthoringFailed({
+      return yield* authoringRefused({
         category: "validation",
         detail: "Prepared authored package identity does not match the requested identity",
       });

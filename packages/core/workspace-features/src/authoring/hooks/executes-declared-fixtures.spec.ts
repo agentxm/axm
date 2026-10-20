@@ -178,7 +178,10 @@ describe("Explicit Hook fixture execution", () => {
           directory: "hooks/audit",
           fixtures: [invalid === "unknown-selection" ? "missing" : "selected"],
         }).pipe(Effect.flip);
-        expect(error).toMatchObject({ _tag: "AuthoringFailed" });
+        expect(error).toMatchObject({
+          _tag: "OperationRefused",
+          diagnostic: { kind: "authoring-failed" },
+        });
         if (invalid === "omitted-fixture")
           expect(error).toMatchObject({ detail: expect.stringContaining("fixtures/input.json") });
         expect(workspace.snapshot()).toEqual(before);

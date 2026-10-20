@@ -326,7 +326,8 @@ describe("Setup preview input resolution", () => {
               request(created, { agents: ["claude-code"], instructions, yes: true }),
             ).pipe(Effect.flip);
             expect(failure).toMatchObject({
-              _tag: "WorkspaceConfigurationFailed",
+              _tag: "OperationRefused",
+              diagnostic: { kind: "workspace-configuration-failed" },
               category: "validation",
             });
             expect(created.snapshot()).toEqual(before);
@@ -345,7 +346,8 @@ describe("Setup preview input resolution", () => {
             request(created, { scope: "user", agents: ["claude-code"], instructions: false }),
           ).pipe(Effect.flip);
           expect(failure).toMatchObject({
-            _tag: "WorkspaceConfigurationFailed",
+            _tag: "OperationRefused",
+            diagnostic: { kind: "workspace-configuration-failed" },
             category: "usage",
           });
           expect(created.homeSnapshot()).toEqual(before);

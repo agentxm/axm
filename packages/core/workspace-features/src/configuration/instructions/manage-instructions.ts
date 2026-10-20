@@ -46,6 +46,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -93,11 +94,7 @@ import {
   runWorkspaceTransaction,
 } from "@agentxm/workspace-kernel/settlement";
 
-import {
-  WorkspaceConfigurationFailed,
-  configurationFailureToStepFailure,
-  workspaceChangeFailedToStepFailure,
-} from "../errors.js";
+import { workspaceChangeFailedToStepFailure, configurationRefused } from "../errors.js";
 
 // -----------------------------------------------------------------------------
 // Status
@@ -118,7 +115,7 @@ const InstructionStatusItemSchema = Schema.Struct({
 
 /** Every failure observing or planning instruction management can surface. */
 export type ManageInstructionsFailure =
-  | WorkspaceConfigurationFailed
+  | OperationRefused
   | WorkspaceStateReadFailure
   | Effect.Error<ReturnType<typeof observeInstructions>>;
 
@@ -197,8 +194,8 @@ interface InstructionTransition {
   readonly supersededConfig: Option.Option<ResolvedInstructionsConfig>;
   /** Every file the transition creates, updates, or removes. */
   readonly effects: ReadonlyArray<InstructionProjectionEffect>;
-  /** The gate's refusal, when the workspace is not safe to reconcile. */
-  readonly blocked: Option.Option<WorkspaceConfigurationFailed>;
+  /** Why the gate refuses, when the workspace is not safe to reconcile. */
+  readonly blocked: Option.Option<string>;
   readonly scope: WorkspaceScope;
   /** Explicit whole-file overrides the transition applies; both default to `false`. */
   readonly overrides: InstructionOutputOverrides;
@@ -253,7 +250,7 @@ const rawConfigMatches = (
 const reconciliationGate = (
   snapshot: InstructionProjectionSnapshot,
 ): Effect.Effect<
-  Option.Option<WorkspaceConfigurationFailed>,
+  Option.Option<string>,
   never,
   WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > =>
@@ -263,15 +260,7 @@ const reconciliationGate = (
       snapshot,
       workspaceRoot: location.baseDir,
     });
-    return Option.map(
-      failure,
-      (readiness) =>
-        new WorkspaceConfigurationFailed({
-          category: "conflict",
-          detail: instructionReadinessDetail(readiness),
-          cause: readiness,
-        }),
-    );
+    return Option.map(failure, instructionReadinessDetail);
   });
 
 /**
@@ -368,13 +357,12 @@ export const prepareManageInstructions = (
     const ruleManager = yield* RuleManager;
     const ruleEffects = (yield* ruleManager.projectionPlans().pipe(
       Effect.flatMap(observeProjectionPlans),
-      Effect.mapError(
-        (cause) =>
-          new WorkspaceConfigurationFailed({
-            category: "internal",
-            detail: "Rule projections could not be observed before reconciling instructions",
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        configurationRefused({
+          category: "internal",
+          detail: "Rule projections could not be observed before reconciling instructions",
+          cause,
+        }),
       ),
     ))
       .filter((observation) => !observation.current)
@@ -471,8 +459,8 @@ const transitionFailureToStepFailure = (
   failure: { readonly _tag: string } | ExtensionKindFailure,
 ): StepFailure => {
   if (failure instanceof StepFailure) return failure;
-  if (failure instanceof WorkspaceConfigurationFailed) {
-    return configurationFailureToStepFailure(failure);
+  if (failure instanceof OperationRefused) {
+    return workspaceChangeFailedToStepFailure(failure);
   }
   if (failure instanceof InstructionMaintenanceFailed) {
     return new StepFailure({
@@ -499,7 +487,7 @@ const transitionStep = (
     return {
       label: presentation.name,
       readiness: "error",
-      errorMessage: candidate.blocked.value.detail,
+      errorMessage: candidate.blocked.value,
     };
   }
   const transition: Effect.Effect<
@@ -510,7 +498,7 @@ const transitionStep = (
     ? Effect.gen(function* () {
         const config = Option.getOrUndefined(candidate.supersededConfig);
         if (config === undefined) {
-          return yield* new WorkspaceConfigurationFailed({
+          return yield* configurationRefused({
             category: "internal",
             detail: "Instruction management has no recorded configuration to disable",
           });
@@ -521,7 +509,7 @@ const transitionStep = (
     : Effect.gen(function* () {
         const config = candidate.config;
         if (config === false) {
-          return yield* new WorkspaceConfigurationFailed({
+          return yield* configurationRefused({
             category: "internal",
             detail: "Enabling instruction management has no configuration to record",
           });

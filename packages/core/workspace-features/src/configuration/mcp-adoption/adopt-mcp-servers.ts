@@ -31,6 +31,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -48,11 +49,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
-import {
-  WorkspaceConfigurationFailed,
-  configurationFailureToStepFailure,
-  workspaceChangeFailedToStepFailure,
-} from "../errors.js";
+import { workspaceChangeFailedToStepFailure } from "../errors.js";
 import { applyMcpAdoption, collectMcpNativeSources, prepareMcpAdoptionTargets } from "./apply.js";
 import { preflightMcpAdoptions, type McpAdoptionPreflight } from "./preflight.js";
 
@@ -76,7 +73,7 @@ export const prepareAdoptMcpServers = (
   names: ReadonlyArray<string> = [],
 ): Effect.Effect<
   AdoptMcpServersCandidate,
-  WorkspaceConfigurationFailed | Effect.Error<ReturnType<typeof collectMcpNativeSources>>,
+  OperationRefused | Effect.Error<ReturnType<typeof collectMcpNativeSources>>,
   SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
@@ -200,11 +197,7 @@ export const previewOrApplyAdoptMcpServers = (
               message: `Candidates: ${candidate.preflight.candidates.map((entry) => entry.name).join(", ")}`,
               artifact,
               run: applyMcpAdoption(candidate.preflight.candidates).pipe(
-                Effect.mapError((failure) =>
-                  failure instanceof WorkspaceConfigurationFailed
-                    ? configurationFailureToStepFailure(failure)
-                    : workspaceChangeFailedToStepFailure(failure),
-                ),
+                Effect.mapError(workspaceChangeFailedToStepFailure),
                 Effect.map(
                   (nativeLocations) =>
                     ({

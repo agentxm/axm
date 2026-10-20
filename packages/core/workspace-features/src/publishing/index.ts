@@ -9,12 +9,7 @@
  * @packageDocumentation
  */
 
-export { PublishFailed } from "./errors.js";
-export {
-  isPublishFamilyFailure,
-  publishFailureToStepFailure,
-  type PublishFamilyFailure,
-} from "./step-failure.js";
+export { publishRefused } from "./errors.js";
 
 export { PUBLISHABLE_TYPES, isPublishableType, type PublishableType } from "./publishable-types.js";
 

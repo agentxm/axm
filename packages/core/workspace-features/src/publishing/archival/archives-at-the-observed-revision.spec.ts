@@ -8,7 +8,7 @@ import { ArchivalTransitionSchema } from "@agentxm/registry-protocol/unstable/re
 
 import { archive } from "../lifecycle/archival.js";
 import {
-  expectPublishFailed,
+  expectPublishRefused,
   jsonRegistryResponse,
   makeRegistryManagementWorld,
   observedRevision,
@@ -149,7 +149,7 @@ describe("Conditional extension archival", () => {
           clearMessage: true,
         }).pipe(Effect.flip),
       );
-      expect(expectPublishFailed(failure).category).toBe("usage");
+      expect(expectPublishRefused(failure).category).toBe("usage");
       expect(world.requests).toEqual([]);
     });
   });

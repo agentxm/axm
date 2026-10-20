@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 
 import { selectedLifecycleRegistry } from "./registry.js";
 import { parseExtensionReference } from "./retirement.js";
-import { PublishFailed } from "../errors.js";
+import { publishRefused } from "../errors.js";
 
 export const archive = Effect.fn("ArchivePublishedExtension.archive")(function* (input: {
   readonly ref: string;
@@ -20,7 +20,7 @@ export const archive = Effect.fn("ArchivePublishedExtension.archive")(function* 
   readonly clearMessage: boolean;
 }) {
   if (Option.isSome(input.message) && input.clearMessage) {
-    return yield* new PublishFailed({
+    return yield* publishRefused({
       category: "usage",
       detail: "--message and --clear-message cannot be combined",
     });

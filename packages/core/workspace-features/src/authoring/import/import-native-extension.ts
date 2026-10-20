@@ -91,6 +91,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import type { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
@@ -110,9 +111,9 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { authoredDeclaration } from "../authored-declaration.js";
+import { authoringRefused } from "../errors.js";
 import type { AuthoredPackageError } from "../authored-package-errors.js";
 import { preflightCreateOnly } from "../create-preflight.js";
-import { AuthoringFailed } from "../errors.js";
 import { requireAuthoredOwner, settingsRelativePath } from "../create/authoring-owner.js";
 import {
   AuthoringScopeUnsupported,
@@ -258,7 +259,7 @@ export interface ImportNativeExtensionCandidate {
 
 /** Every failure settling a native import can surface before anything is written. */
 export type ImportNativeExtensionFailure =
-  | AuthoringFailed
+  | OperationRefused
   | ExtensionManagerFailure
   | AuthoredPackageError
   | AuthoringOwnerRequired
@@ -332,11 +333,11 @@ const selectNativeMcpCandidate = (
     readonly url: string;
     readonly headers: Readonly<Record<string, McpValue>>;
   },
-  AuthoringFailed
+  OperationRefused
 > => {
   if (discovery.conflicts.length > 0) {
     return Effect.fail(
-      new AuthoringFailed({
+      authoringRefused({
         category: "conflict",
         detail: `MCP package import has ${discovery.conflicts.length} conflicted native candidate(s)`,
       }),
@@ -345,7 +346,7 @@ const selectNativeMcpCandidate = (
   const candidate = discovery.candidates[0];
   if (candidate === undefined || discovery.candidates.length !== 1) {
     return Effect.fail(
-      new AuthoringFailed({
+      authoringRefused({
         category: "validation",
         detail:
           discovery.candidates.length === 0
@@ -356,7 +357,7 @@ const selectNativeMcpCandidate = (
   }
   if (Option.isNone(candidate.remote)) {
     return Effect.fail(
-      new AuthoringFailed({
+      authoringRefused({
         category: "usage",
         detail:
           "This MCP command cannot be represented losslessly as a managed package; adopt it inline with axm mcps adopt --name <name>",
@@ -365,7 +366,7 @@ const selectNativeMcpCandidate = (
   }
   if (typeof candidate.remote.value.url !== "string")
     return Effect.fail(
-      new AuthoringFailed({
+      authoringRefused({
         category: "usage",
         detail:
           "A local symbolic endpoint cannot be published as a fixed remote; retain this connection inline",
@@ -468,13 +469,12 @@ const nativeConversion = Effect.fn("ImportNativeExtension.nativeConversion")(fun
   const source = yield* resolveSource(args.request.source);
   const acquired = yield* acquireExternalSource(source);
   const stagingRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-import-" }).pipe(
-    Effect.mapError(
-      (cause) =>
-        new AuthoringFailed({
-          category: "internal",
-          detail: "Import staging directory could not be created",
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      authoringRefused({
+        category: "internal",
+        detail: "Import staging directory could not be created",
+        cause,
+      }),
     ),
   );
   const stagedPackage = path.join(stagingRoot, "package");
@@ -491,13 +491,12 @@ const nativeConversion = Effect.fn("ImportNativeExtension.nativeConversion")(fun
   });
   const stagedHash = yield* computePackageContentHash(stagedPackage);
   const converted = yield* readExtensionManifest(stagedPackage, args.target.type).pipe(
-    Effect.mapError(
-      (cause) =>
-        new AuthoringFailed({
-          category: "validation",
-          detail: "Converted package manifest is invalid",
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      authoringRefused({
+        category: "validation",
+        detail: "Converted package manifest is invalid",
+        cause,
+      }),
     ),
   );
   return {
@@ -510,13 +509,12 @@ const nativeConversion = Effect.fn("ImportNativeExtension.nativeConversion")(fun
     materialPaths: [acquired.directory, stagedPackage],
     populate: (publicationPath: string) =>
       copyExtensionDirectory(stagedPackage, publicationPath).pipe(
-        Effect.mapError(
-          (cause) =>
-            new AuthoringFailed({
-              category: "internal",
-              detail: "Prepared import could not be staged",
-              cause,
-            }),
+        Effect.mapError((cause) =>
+          authoringRefused({
+            category: "internal",
+            detail: "Prepared import could not be staged",
+            cause,
+          }),
         ),
       ),
     validate: (publicationPath: string) =>
@@ -524,7 +522,7 @@ const nativeConversion = Effect.fn("ImportNativeExtension.nativeConversion")(fun
         Effect.flatMap((currentHash) =>
           currentHash === stagedHash
             ? Effect.void
-            : new AuthoringFailed({
+            : authoringRefused({
                 category: "conflict",
                 detail: "Prepared import content changed before it could be applied",
               }),
@@ -583,13 +581,12 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
             `${JSON.stringify(manifest, null, 2)}\n`,
           )
           .pipe(
-            Effect.mapError(
-              (cause) =>
-                new AuthoringFailed({
-                  category: "internal",
-                  detail: "MCP package manifest could not be staged",
-                  cause,
-                }),
+            Effect.mapError((cause) =>
+              authoringRefused({
+                category: "internal",
+                detail: "MCP package manifest could not be staged",
+                cause,
+              }),
             ),
           );
       }),
@@ -621,9 +618,9 @@ const hookConversion = Effect.fn("ImportNativeExtension.hookConversion")(functio
     ...(request.resources === undefined ? {} : { resources: request.resources }),
   }).pipe(
     Effect.mapError((cause) =>
-      cause instanceof AuthoringFailed
+      cause instanceof OperationRefused
         ? cause
-        : new AuthoringFailed({
+        : authoringRefused({
             category: "validation",
             detail: "Native Hook bundle could not be read",
             cause,
@@ -638,13 +635,12 @@ const hookConversion = Effect.fn("ImportNativeExtension.hookConversion")(functio
     requiredFiles: [manifestFilenameForType("hook"), ...bundle.files.map((file) => file.path)],
     populate: (publicationPath: string) =>
       writeNativeHookImport(publicationPath, bundle).pipe(
-        Effect.mapError(
-          (cause) =>
-            new AuthoringFailed({
-              category: "internal",
-              detail: "Native Hook import could not be staged",
-              cause,
-            }),
+        Effect.mapError((cause) =>
+          authoringRefused({
+            category: "internal",
+            detail: "Native Hook import could not be staged",
+            cause,
+          }),
         ),
       ),
     validate: undefined,
@@ -675,7 +671,7 @@ export const prepareImportNativeExtension: (
 
   const target = yield* Effect.fromResult(parseFqn(request.target));
   if (target.type !== request.type) {
-    return yield* new AuthoringFailed({
+    return yield* authoringRefused({
       category: "validation",
       detail: `Expected a ${extensionTypeToPlural[request.type]} target FQN, got ${request.target}`,
     });
@@ -706,13 +702,12 @@ export const prepareImportNativeExtension: (
   );
   const current = yield* declaration.read;
   const targetExists = yield* fs.exists(targetDir).pipe(
-    Effect.mapError(
-      (cause) =>
-        new AuthoringFailed({
-          category: "internal",
-          detail: "Import target could not be inspected",
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      authoringRefused({
+        category: "internal",
+        detail: "Import target could not be inspected",
+        cause,
+      }),
     ),
   );
   const updateExisting = request.type === "subagent" && targetExists;
@@ -721,13 +716,13 @@ export const prepareImportNativeExtension: (
     current.configured &&
     Option.getOrUndefined(current.source) !== "workspace"
   ) {
-    return yield* new AuthoringFailed({
+    return yield* authoringRefused({
       category: "conflict",
       detail: "Native import cannot replace a non-authored subagent; fork or adopt it first",
     });
   }
   if (updateExisting && !current.configured) {
-    return yield* new AuthoringFailed({
+    return yield* authoringRefused({
       category: "conflict",
       detail:
         "An existing subagent directory must be declared as workspace-authored before importing a runtime implementation",
@@ -741,7 +736,7 @@ export const prepareImportNativeExtension: (
     if (expectedTargetHash === undefined) return yield* createOnly;
     const observed = yield* computePackageContentHash(targetDir);
     if (observed !== expectedTargetHash)
-      return yield* new AuthoringFailed({
+      return yield* authoringRefused({
         category: "conflict",
         detail: "Authored subagent changed after import preparation",
       });
@@ -750,7 +745,7 @@ export const prepareImportNativeExtension: (
       Option.getOrUndefined(latest.source) !== "workspace" ||
       Option.getOrUndefined(latest.enabled) !== Option.getOrUndefined(current.enabled)
     ) {
-      return yield* new AuthoringFailed({
+      return yield* authoringRefused({
         category: "conflict",
         detail: "Authored subagent declaration changed after import preparation",
       });

@@ -78,6 +78,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import type { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
@@ -99,7 +100,6 @@ import {
 import { authoredDeclaration } from "../authored-declaration.js";
 import { authoredNativeArtifact, preflightAuthoredNativeProjection } from "../native-projection.js";
 import { preflightCreateOnly } from "../create-preflight.js";
-import { AuthoringFailed } from "../errors.js";
 import type { AuthoredPackageError } from "../authored-package-errors.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
 import { requireAuthoredOwner, settingsRelativePath } from "../create/authoring-owner.js";
@@ -114,6 +114,7 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/workspace-kernel/acquisition";
+import { authoringRefused } from "../errors.js";
 
 /** The version a fork starts at, regardless of what the source published. */
 const INITIAL_FORK_VERSION = "0.1.0";
@@ -185,7 +186,7 @@ export interface ForkExtensionCandidate {
 /** Every failure settling a fork can surface before anything is written. */
 export type ForkExtensionFailure =
   | ExtensionManagerFailure
-  | AuthoringFailed
+  | OperationRefused
   | AuthoredPackageError
   | AuthoringOwnerRequired
   | AuthoringOwnerMismatch
@@ -264,11 +265,11 @@ const filterForSource = (
 
 const selectPackage = (
   packages: ReadonlyArray<ResolvedExtensionPackage>,
-): Effect.Effect<ResolvedExtensionPackage, AuthoringFailed> => {
+): Effect.Effect<ResolvedExtensionPackage, OperationRefused> => {
   const candidate = packages[0];
   if (candidate === undefined) {
     return Effect.fail(
-      new AuthoringFailed({
+      authoringRefused({
         category: "not_found",
         detail:
           "No managed AXM extension package was found; use skills import or subagents import for supported unmanaged/native content",
@@ -277,7 +278,7 @@ const selectPackage = (
   }
   if (packages.length > 1) {
     return Effect.fail(
-      new AuthoringFailed({
+      authoringRefused({
         category: "validation",
         detail: "The source contains multiple AXM packages; select one with --package <FQN>",
       }),
@@ -375,13 +376,12 @@ export const prepareForkExtension: (
     yield* createOnly;
 
     const stagingRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-fork-" }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new AuthoringFailed({
-            category: "internal",
-            detail: "Fork staging directory could not be created",
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        authoringRefused({
+          category: "internal",
+          detail: "Fork staging directory could not be created",
+          cause,
+        }),
       ),
     );
     const stagedPackage = path.join(stagingRoot, "package");
@@ -446,13 +446,12 @@ export const prepareForkExtension: (
         subject: "Fork target",
         populate: (publicationPath) =>
           copyExtensionDirectory(stagedPackage, publicationPath).pipe(
-            Effect.mapError(
-              (cause) =>
-                new AuthoringFailed({
-                  category: "internal",
-                  detail: `Prepared fork could not be staged for ${authoredPath}`,
-                  cause,
-                }),
+            Effect.mapError((cause) =>
+              authoringRefused({
+                category: "internal",
+                detail: `Prepared fork could not be staged for ${authoredPath}`,
+                cause,
+              }),
             ),
           ),
         validate: (publicationPath) =>
@@ -460,7 +459,7 @@ export const prepareForkExtension: (
             Effect.flatMap((currentHash) =>
               currentHash === stagedHash
                 ? Effect.void
-                : new AuthoringFailed({
+                : authoringRefused({
                     category: "conflict",
                     detail: "Prepared fork content changed before it could be applied",
                   }),

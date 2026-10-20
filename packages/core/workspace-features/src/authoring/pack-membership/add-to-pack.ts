@@ -11,7 +11,6 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
-import { AuthoringFailed } from "../errors.js";
 import { authoringStepFailure } from "../step-failure.js";
 import type {
   Handle,
@@ -31,6 +30,7 @@ import { packManifestArtifact } from "./artifact.js";
 import { hashContent } from "./hash-content.js";
 import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { authoringRefused } from "../errors.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -80,7 +80,7 @@ export const addToPack: OperationHandler<
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
     if (layout.scope !== "project") {
-      return yield* new AuthoringFailed({
+      return yield* authoringRefused({
         category: "validation",
         detail: "Authored packs can only be edited in a project workspace",
       });
@@ -88,7 +88,7 @@ export const addToPack: OperationHandler<
     const { packName, packOwner, additions, manifestHash } = op.args;
     const configured = (yield* (yield* SettingsReader).entries("pack"))[packName];
     if (configured === undefined || !isWorkspaceSourceLocator(configured.source)) {
-      return yield* new AuthoringFailed({
+      return yield* authoringRefused({
         category: "conflict",
         detail: `Pack "${packName}" is not an authored workspace pack`,
         recover: "Only workspace-authored packs can be edited in place.",
@@ -109,21 +109,20 @@ export const addToPack: OperationHandler<
       transition: Effect.gen(function* () {
         // Read and stale-check under the workspace lock.
         const manifestContent = yield* fs.readFileString(manifestPath).pipe(
-          Effect.mapError(
-            (e) =>
-              new AuthoringFailed({
-                category: "not_found",
-                detail: `Pack manifest not found at ${manifestPath}`,
-                suggestions: [{ description: "Ensure the pack exists on disk" }],
-                cause: e,
-              }),
+          Effect.mapError((e) =>
+            authoringRefused({
+              category: "not_found",
+              detail: `Pack manifest not found at ${manifestPath}`,
+              suggestions: [{ description: "Ensure the pack exists on disk" }],
+              cause: e,
+            }),
           ),
         );
 
         // 3. Stale-check: compare content hash
         const currentHash = hashContent(manifestContent);
         if (currentHash !== manifestHash) {
-          return yield* new AuthoringFailed({
+          return yield* authoringRefused({
             category: "conflict",
             detail: `Pack manifest is stale — it was modified since the plan was created`,
             suggestions: [{ description: "Re-run the command to create a fresh plan" }],
@@ -137,7 +136,7 @@ export const addToPack: OperationHandler<
             return parsed;
           },
           catch: (e) =>
-            new AuthoringFailed({
+            authoringRefused({
               category: "validation",
               detail: `Failed to parse pack manifest: ${manifestPath}`,
               cause: e,
@@ -145,13 +144,12 @@ export const addToPack: OperationHandler<
         });
 
         const manifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(json).pipe(
-          Effect.mapError(
-            (e) =>
-              new AuthoringFailed({
-                category: "validation",
-                detail: `Invalid pack manifest: ${manifestPath}`,
-                cause: e,
-              }),
+          Effect.mapError((e) =>
+            authoringRefused({
+              category: "validation",
+              detail: `Invalid pack manifest: ${manifestPath}`,
+              cause: e,
+            }),
           ),
         );
 
@@ -171,13 +169,12 @@ export const addToPack: OperationHandler<
         const validatedUpdatedManifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
           updatedManifest,
         ).pipe(
-          Effect.mapError(
-            (cause) =>
-              new AuthoringFailed({
-                category: "validation",
-                detail: `Updated pack manifest is invalid: ${manifestPath}`,
-                cause,
-              }),
+          Effect.mapError((cause) =>
+            authoringRefused({
+              category: "validation",
+              detail: `Updated pack manifest is invalid: ${manifestPath}`,
+              cause,
+            }),
           ),
         );
 
@@ -185,13 +182,12 @@ export const addToPack: OperationHandler<
         yield* fs
           .writeFileString(manifestPath, JSON.stringify(validatedUpdatedManifest, null, 2) + "\n")
           .pipe(
-            Effect.mapError(
-              (e) =>
-                new AuthoringFailed({
-                  category: "internal",
-                  detail: `Failed to write pack manifest: ${manifestPath}`,
-                  cause: e,
-                }),
+            Effect.mapError((e) =>
+              authoringRefused({
+                category: "internal",
+                detail: `Failed to write pack manifest: ${manifestPath}`,
+                cause: e,
+              }),
             ),
           );
       }),
@@ -201,7 +197,7 @@ export const addToPack: OperationHandler<
             Effect.try({
               try: (): unknown => JSON.parse(content),
               catch: (cause) =>
-                new AuthoringFailed({
+                authoringRefused({
                   category: "validation",
                   detail: `Updated pack manifest could not be parsed: ${manifestPath}`,
                   cause,
@@ -214,18 +210,17 @@ export const addToPack: OperationHandler<
               ([fqn, constraint]) => manifest.dependencies[fqn] === constraint,
             )
               ? Effect.void
-              : new AuthoringFailed({
+              : authoringRefused({
                   category: "internal",
                   detail: `Updated pack manifest did not retain the requested dependencies`,
                 }),
           ),
-          Effect.mapError(
-            (cause) =>
-              new AuthoringFailed({
-                category: "validation",
-                detail: `Updated pack manifest failed postcondition validation`,
-                cause,
-              }),
+          Effect.mapError((cause) =>
+            authoringRefused({
+              category: "validation",
+              detail: `Updated pack manifest failed postcondition validation`,
+              cause,
+            }),
           ),
         ),
     });

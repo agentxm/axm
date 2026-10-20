@@ -82,7 +82,10 @@ describe("Hook extension configuration preview", () => {
               ).toBe("previewed");
             } else {
               expect(valid).toBe(false);
-              expect(candidate.failure).toMatchObject({ _tag: "WorkspaceConfigurationFailed" });
+              expect(candidate.failure).toMatchObject({
+                _tag: "OperationRefused",
+                diagnostic: { kind: "workspace-configuration-failed" },
+              });
             }
             expect(world.snapshot()).toEqual(before);
             expect(world.exists("executed-sentinel")).toBe(false);

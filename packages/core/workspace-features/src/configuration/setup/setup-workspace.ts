@@ -38,7 +38,7 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "@agentxm/workspace-kernel/projection";
-import { ArtifactChangeSchema } from "@agentxm/workspace-kernel/operations";
+import { ArtifactChangeSchema, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import {
   BUNDLED_SKILL_OWNER,
   captureNativeDirectoryInputs,
@@ -72,7 +72,6 @@ import {
   type WorkspaceTransactionFailure,
 } from "@agentxm/workspace-kernel/settlement";
 
-import { WorkspaceConfigurationFailed } from "../errors.js";
 import {
   type SetupPlanRow,
   SetupPlanActionSchema,
@@ -85,6 +84,7 @@ import {
   setupCompletesInstructionChoice,
   type SetupAgentCandidate,
 } from "./initialization.js";
+import { configurationRefused } from "../errors.js";
 
 /** Every failure a setup run can settle into. */
 export type SetupWorkspaceFailure =
@@ -285,12 +285,12 @@ export const prepareSetupWorkspace = (
   request: SetupWorkspaceRequest,
 ): Effect.Effect<
   SetupWorkspaceCandidate | SetupApprovalRequired,
-  WorkspaceConfigurationFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
     if (request.scope === "user" && request.instructions !== undefined)
-      return yield* new WorkspaceConfigurationFailed({
+      return yield* configurationRefused({
         category: "usage",
         detail: "--instructions is project-only",
       });
@@ -306,13 +306,12 @@ export const prepareSetupWorkspace = (
         : path.join(request.projectRoot, SETTINGS_FILENAME);
     const fileSystem = yield* FileSystem.FileSystem;
     const settingsExist = yield* fileSystem.exists(settingsPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new WorkspaceConfigurationFailed({
-            category: "internal",
-            detail: `Failed to inspect setup state: ${workspaceDir}`,
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        configurationRefused({
+          category: "internal",
+          detail: `Failed to inspect setup state: ${workspaceDir}`,
+          cause,
+        }),
       ),
     );
 
@@ -518,7 +517,7 @@ const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
 /** Every failure describing the settled setup can surface. */
 export type SetupReportFailure =
   | Effect.Error<ReturnType<typeof resolveNativeEntry>>
-  | WorkspaceConfigurationFailed
+  | OperationRefused
   | Effect.Error<ReturnType<typeof scanAllSubagentFiles>>
   | Effect.Error<ReturnType<typeof isGitManaged>>
   | Effect.Error<

@@ -78,6 +78,7 @@ import {
   type PlanExecution,
   type PlannedJobStep,
   type CandidateFingerprintFailed,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   CodingAgentRepository,
@@ -110,7 +111,6 @@ import {
   preflightAuthoredNativeProjection,
   type AuthoredNativeProjection,
 } from "../native-projection.js";
-import { AuthoringFailed } from "../errors.js";
 import { preflightCreateOnly } from "../create-preflight.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
 import { resolveAuthoringOwner, settingsRelativePath } from "./authoring-owner.js";
@@ -132,6 +132,7 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
 } from "@agentxm/workspace-kernel/acquisition";
+import { authoringRefused } from "../errors.js";
 
 const isExtensionName = Schema.is(ExtensionNameSchema);
 
@@ -574,7 +575,7 @@ export const prepareCreateExtension: (
         locationService.baseDir,
       );
       if (address.kind !== "absent")
-        return yield* new AuthoringFailed({
+        return yield* authoringRefused({
           category: "validation",
           detail: `Cannot create Skill ${name}: native entry already exists at ${targetPath}`,
         });
@@ -592,16 +593,15 @@ export const prepareCreateExtension: (
       })),
     });
   }).pipe(
-    Effect.mapError(
-      (cause) =>
-        new AuthoringFailed({
-          category: "validation",
-          detail:
-            cause instanceof AuthoringFailed
-              ? cause.detail
-              : "Cannot establish native Skill creation destinations",
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      authoringRefused({
+        category: "validation",
+        detail:
+          cause instanceof OperationRefused
+            ? cause.detail
+            : "Cannot establish native Skill creation destinations",
+        cause,
+      }),
     ),
   );
   const plannedNativeLocations = yield* inspectSkillDestinations;
@@ -614,13 +614,12 @@ export const prepareCreateExtension: (
       const stagedPackage = yield* fs
         .makeTempDirectoryScoped({ prefix: "axm-create-preview-" })
         .pipe(
-          Effect.mapError(
-            (cause) =>
-              new AuthoringFailed({
-                category: "internal",
-                detail: "Could not stage authored package preview",
-                cause,
-              }),
+          Effect.mapError((cause) =>
+            authoringRefused({
+              category: "internal",
+              detail: "Could not stage authored package preview",
+              cause,
+            }),
           ),
         );
       yield* scaffold.populate(stagedPackage);

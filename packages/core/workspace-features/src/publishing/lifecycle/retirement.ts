@@ -26,14 +26,15 @@ import {
   type RegistryExtensionVersionReference,
   type YankCategory,
 } from "@agentxm/registry-client";
-import { PublishFailed } from "../errors.js";
 import { registryTransition } from "./remote-outcome.js";
 import { selectedLifecycleRegistry } from "./registry.js";
+import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
+import { publishRefused } from "../errors.js";
 
 const decodeVersion = Schema.decodeUnknownResult(VersionSchema);
 
 const validation = (detail: string, suggestions?: ReadonlyArray<{ description: string }>) =>
-  new PublishFailed({
+  publishRefused({
     category: "validation",
     detail,
     ...(suggestions === undefined ? {} : { suggestions }),
@@ -42,17 +43,15 @@ const validation = (detail: string, suggestions?: ReadonlyArray<{ description: s
 /** The extension identity a Registry lifecycle write addresses. */
 export const parseExtensionReference = (
   input: string,
-): Effect.Effect<RegistryExtensionReference, PublishFailed> =>
+): Effect.Effect<RegistryExtensionReference, OperationRefused> =>
   Effect.gen(function* () {
     const parsed = yield* Effect.fromResult(
-      Result.mapError(
-        parseFqn(input),
-        (cause) =>
-          new PublishFailed({
-            category: "validation",
-            detail: `Invalid fully qualified name: ${input}`,
-            cause,
-          }),
+      Result.mapError(parseFqn(input), (cause) =>
+        publishRefused({
+          category: "validation",
+          detail: `Invalid fully qualified name: ${input}`,
+          cause,
+        }),
       ),
     );
     return {
@@ -68,7 +67,7 @@ export const parseExtensionReference = (
  */
 export const parseExactVersionReference = (
   input: string,
-): Effect.Effect<RegistryExtensionVersionReference, PublishFailed> =>
+): Effect.Effect<RegistryExtensionVersionReference, OperationRefused> =>
   Effect.gen(function* () {
     const { name, constraint } = splitExtensionReference(input);
     if (constraint === undefined) {
@@ -82,7 +81,7 @@ export const parseExactVersionReference = (
     const decodedVersion = decodeVersion(constraint);
     if (Result.isFailure(decodedVersion)) {
       return yield* Effect.fail(
-        new PublishFailed({
+        publishRefused({
           category: "validation",
           detail: `Expected an exact semantic version in ${input}`,
           cause: decodedVersion.failure,

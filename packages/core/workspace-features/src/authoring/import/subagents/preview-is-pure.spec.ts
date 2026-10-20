@@ -104,7 +104,8 @@ describe("Subagent import preview purity", () => {
       const failure = yield* run.pipe(Effect.flip);
 
       expect(failure).toMatchObject({
-        _tag: "AuthoringFailed",
+        _tag: "OperationRefused",
+        diagnostic: { kind: "authoring-failed" },
         category: "validation",
         detail: `Expected a subagents target FQN, got @acme/skills/${SUBAGENT}`,
       });

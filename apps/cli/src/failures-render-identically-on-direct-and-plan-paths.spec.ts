@@ -55,7 +55,7 @@ import {
   RegistryAccessFailed,
   SignedOut,
 } from "@agentxm/registry-access/authentication";
-import { PublishFailed } from "@agentxm/workspace-features/publishing";
+import { publishRefused } from "@agentxm/workspace-features/publishing";
 import {
   TransitionLockError,
   TransitionLockUnavailable,
@@ -177,7 +177,6 @@ import {
   SourceAuthorityBlocked,
 } from "@agentxm/workspace-kernel/resolution";
 import {
-  AuthoringFailed,
   AuthoringOwnerMismatch,
   AuthoringOwnerRequired,
   AuthoringScopeUnsupported,
@@ -205,12 +204,10 @@ import {
   PackSelectorNotAPack,
   PackSourceMissing,
   ScaffoldNameInvalid,
+  authoringRefused,
   authoringStepFailure,
 } from "@agentxm/workspace-features/authoring";
-import {
-  WorkspaceConfigurationFailed,
-  configurationFailureToStepFailure,
-} from "@agentxm/workspace-features/configuration";
+import { configurationRefused } from "@agentxm/workspace-features/configuration";
 import {
   StepFailureConversion,
   kernelFailureToStepFailure,
@@ -763,13 +760,6 @@ const representatives: Representatives = {
   PackDependencyUnsatisfied: [
     new PackDependencyUnsatisfied({ dependencyTarget: "@owner/skills/demo", constraint: "^1.0.0" }),
   ],
-  AuthoringFailed: [
-    new AuthoringFailed({
-      category: "conflict",
-      detail: "The package is already authored here.",
-      recover: "Choose another name.",
-    }),
-  ],
   CreateNameConfigured: [new CreateNameConfigured({ subject: "Skill", name: "demo" })],
   CreateDestinationInspectionFailed: [
     new CreateDestinationInspectionFailed({ path: "/w/skills/demo", cause: ioCause }),
@@ -853,28 +843,29 @@ const representatives: Representatives = {
       detail: "Failed to remove managed agent artifact: /w/.claude/skills/demo",
       cause: ioCause,
     }),
-  ],
-  InstallSelectionUnavailable: [new InstallSelectionUnavailable({ cause: new Error("closed") })],
-  WorkspaceConfigurationFailed: [
-    new WorkspaceConfigurationFailed({
+    authoringRefused({
+      category: "conflict",
+      detail: "The package is already authored here.",
+      recover: "Choose another name.",
+    }),
+    configurationRefused({
       category: "usage",
       detail: "Name at least one agent.",
       recover: "Pass an agent ID.",
       cmd: "axm agents add claude-code",
     }),
-  ],
-  PublishFailed: [
-    new PublishFailed({
+    publishRefused({
       category: "conflict",
       detail: "Version 1.2.3 already exists.",
       recover: "Bump the version in your manifest.",
     }),
-    new PublishFailed({
+    publishRefused({
       category: "validation",
       detail: "The package is not authored by this workspace.",
       suggestions: [{ description: "Adopt it first.", cmd: "axm adopt @owner/skills/demo" }],
     }),
   ],
+  InstallSelectionUnavailable: [new InstallSelectionUnavailable({ cause: new Error("closed") })],
   RegistryAccessFailed: [
     new RegistryAccessFailed({
       category: "auth_expired",
@@ -1331,7 +1322,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
 
   it("renders authoring and configuration plan steps the same way", () => {
     for (const failure of [
-      new AuthoringFailed({
+      authoringRefused({
         category: "conflict",
         detail: "Already authored.",
         recover: "Rename.",
@@ -1342,13 +1333,13 @@ describe("A failure reads the same on the direct and plan paths", () => {
         rendered(toAppError(failure)),
       );
     }
-    const configuration = new WorkspaceConfigurationFailed({
+    const configuration = configurationRefused({
       category: "usage",
       detail: "Name at least one agent.",
       recover: "Pass an agent ID.",
       cmd: "axm agents add claude-code",
     });
-    expect(rendered(viaPlanStep(configurationFailureToStepFailure(configuration)))).toEqual(
+    expect(rendered(viaPlanStep(kernelFailureToStepFailure(configuration)))).toEqual(
       rendered(toAppError(configuration)),
     );
   });

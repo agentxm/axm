@@ -273,6 +273,7 @@ export {
 export {
   FailureDiagnosticSchema,
   FailureOperation,
+  diagnosticKindOfTag,
   inFailureOperation,
   type FailureDiagnostic,
 } from "./failure-diagnostic.js";

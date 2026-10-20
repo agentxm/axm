@@ -88,7 +88,8 @@ describe("Inline MCP server add preview purity", () => {
             }).pipe(Effect.flip);
 
             expect(failure).toMatchObject({
-              _tag: "WorkspaceConfigurationFailed",
+              _tag: "OperationRefused",
+              diagnostic: { kind: "workspace-configuration-failed" },
               category: "usage",
               detail: expect.stringContaining("only configures inline MCP servers"),
             });

@@ -20,7 +20,8 @@ describe("hook fixture output collection", () => {
         Stream.make(new Uint8Array(HOOK_TEST_MAX_BYTES), Uint8Array.of(0)),
       ).pipe(Effect.flip);
       expect(failure).toMatchObject({
-        _tag: "AuthoringFailed",
+        _tag: "OperationRefused",
+        diagnostic: { kind: "authoring-failed" },
         detail: "Hook output exceeded the 1 MiB limit",
       });
     }),

@@ -17,7 +17,6 @@ import * as Path from "effect/Path";
 import { validateArchive } from "@agentxm/extension-content";
 import { validateContainedLink } from "@agentxm/workspace-kernel/locations";
 import { zipSync, type Zippable } from "fflate";
-import { PublishFailed } from "./errors.js";
 import type {
   ResolvedFileSelection,
   SelectionRuleOrigin,
@@ -26,6 +25,8 @@ import type {
 import { excludedDistributionLinkTarget } from "@agentxm/workspace-kernel/acquisition";
 import { resolvePublishSelection, type PublishFileSelectionOptions } from "./publish-selection.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { OperationRefused } from "@agentxm/workspace-kernel/operations";
+import { publishRefused } from "./errors.js";
 
 // ZIP timestamps have no timezone. fflate serializes Date's local calendar
 // fields, so construct those fields locally to keep the encoded bytes stable
@@ -193,7 +194,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
               decision: resolved.selection.evaluate({ path: relativePath, kind: "file" }),
             });
           } else {
-            return yield* new PublishFailed({
+            return yield* publishRefused({
               category: "validation",
               detail: `Cannot archive unsupported filesystem entry: ${rel}`,
             });
@@ -204,9 +205,9 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       return candidates;
     }).pipe(
       Effect.mapError((cause) =>
-        cause instanceof PublishFailed
+        cause instanceof OperationRefused
           ? cause
-          : new PublishFailed({
+          : publishRefused({
               category: "validation",
               detail: "Failed to read a contained source payload for zip archive",
               cause,
@@ -236,7 +237,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       })),
     );
     if (broken !== undefined) {
-      return yield* new PublishFailed({
+      return yield* publishRefused({
         category: "validation",
         detail:
           broken.kind === "excluded-target"
@@ -253,13 +254,12 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
         ),
       { concurrency: READ_CONCURRENCY },
     ).pipe(
-      Effect.mapError(
-        (cause) =>
-          new PublishFailed({
-            category: "internal",
-            detail: "Failed to read file for zip archive",
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        publishRefused({
+          category: "internal",
+          detail: "Failed to read file for zip archive",
+          cause,
+        }),
       ),
     );
 
@@ -274,7 +274,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       // bytes and bounded source-size accounting.
       try: () => zipSync(zippable, { mtime: DETERMINISTIC_MTIME, level: 0 }),
       catch: (cause) =>
-        new PublishFailed({
+        publishRefused({
           category: "internal",
           detail: "Failed to build zip archive",
           cause,
@@ -283,13 +283,12 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
     // Shared admission also resolves the virtual link graph, including links
     // whose targets change meaning after an earlier link and a '..' segment.
     yield* validateArchive(archive).pipe(
-      Effect.mapError(
-        (cause) =>
-          new PublishFailed({
-            category: "validation",
-            detail: cause.message,
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        publishRefused({
+          category: "validation",
+          detail: cause.message,
+          cause,
+        }),
       ),
     );
     const patternPlans = resolved.selection.rules.map((rule) => ({

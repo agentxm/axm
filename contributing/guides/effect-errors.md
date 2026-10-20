@@ -35,10 +35,11 @@ pairs the family's classes with the renderer that covers exactly them.
 failures of its families, through `kernelFailureToStepFailure`. An extension
 kind's error carries its own wording through the kernel's
 `ExtensionKindFailure` brand, which the materialization family recognizes and
-renders structurally. A lifecycle or reconciliation refusal is the kernel's
-`OperationRefused`, built with `installRefused` or `syncRefused`. The
-authoring feature exports its family, and publishing and configuration each
-export the recognizer and renderer for their one refusal class.
+renders structurally. A policy refusal is the kernel's `OperationRefused`,
+built with its family's helper, which stamps the family's diagnostic kind:
+`installRefused` or `syncRefused` in the kernel, and `authoringRefused`,
+`configurationRefused`, or `publishRefused` in the features. The authoring
+feature exports its family for the failures specific to it.
 [`app-error/failure-catalog`](../../apps/cli/src/app-error/failure-catalog.ts)
 composes them into `WorkspaceFailure`, `workspaceFailureToStepFailure`, and
 `WorkspaceFailureConversionLive`, which `runtime.ts` provides once as the

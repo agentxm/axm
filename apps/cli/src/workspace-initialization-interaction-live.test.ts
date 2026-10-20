@@ -99,7 +99,8 @@ describe("WorkspaceInitializationInteractionLive", () => {
         return yield* interaction.confirmSetupPlan();
       }).pipe(Effect.provide(layer), Effect.flip);
       expect(failure).toMatchObject({
-        _tag: "WorkspaceConfigurationFailed",
+        _tag: "OperationRefused",
+        diagnostic: { kind: "workspace-configuration-failed" },
         category: "internal",
         cause,
       });

@@ -9,7 +9,7 @@
  * @packageDocumentation
  */
 
-export { AuthoringFailed } from "./errors.js";
+export { authoringRefused } from "./errors.js";
 export {
   CreateDestinationInspectionFailed,
   CreateNameConfigured,

@@ -15,15 +15,15 @@ import {
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import { renderNativeHookGroup } from "@agentxm/workspace-kernel/agent-adapters";
-import { AuthoringFailed } from "../errors.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 import { isLexicallyWithin } from "@agentxm/host-primitives";
+import { authoringRefused } from "../errors.js";
 
 export const NATIVE_HOOK_BUNDLE_CONFIG = "hooks.json";
 export const NATIVE_HOOK_BUNDLE_METADATA = "hook-bundle.json";
 const MAX_RESOURCE_BYTES = 256 * 1024 * 1024;
 const MAX_RESOURCE_FILES = 10_000;
-const safe = (detail: string) => new AuthoringFailed({ category: "validation", detail });
+const safe = (detail: string) => authoringRefused({ category: "validation", detail });
 const NativeCommandSchema = Schema.Struct({
   type: Schema.optional(Schema.Literal("command")),
   command: Schema.NonEmptyString,

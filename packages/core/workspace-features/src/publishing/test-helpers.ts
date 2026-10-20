@@ -73,6 +73,7 @@ import {
   previewPlanExecution,
   type PlanExecution,
   type PlanPolicyId,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   PlanInvocationTest,
@@ -81,10 +82,10 @@ import {
 import { layer as WorkspaceStateLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 
+import { isPublishRefusal } from "./errors.js";
 import { normalizePublishResult, type PublishResult } from "./publish/result.js";
 import type { PublishRequest } from "./publish/model.js";
 import { PublishExtensions, type PublishOutcome } from "./publish/use-case.js";
-import { PublishFailed } from "./errors.js";
 import { ProjectRegistryContextTest } from "../testing/workspace-world.js";
 import {
   makePublishTarget,
@@ -417,7 +418,7 @@ export const publishDocument = (outcome: PublishOutcome): PublishResult =>
  * through this helper keeps an example from silently passing on a run that
  * unexpectedly succeeded.
  */
-export const publishFailureOf = (outcome: PublishOutcome): PublishFailed => {
+export const publishFailureOf = (outcome: PublishOutcome): OperationRefused => {
   expect(outcome.disposition._tag).toBe("Failed");
   if (outcome.disposition._tag !== "Failed") {
     throw new Error(`Expected a failed publish, not ${outcome.disposition._tag}`);
@@ -425,11 +426,11 @@ export const publishFailureOf = (outcome: PublishOutcome): PublishFailed => {
   return outcome.disposition.failure;
 };
 
-/** The feature's typed failure, when a run refused before it settled anything. */
-export const expectPublishFailed = (failure: unknown): PublishFailed => {
-  expect(failure).toBeInstanceOf(PublishFailed);
-  if (!(failure instanceof PublishFailed)) {
-    throw new Error(`Expected a PublishFailed, not ${String(failure)}`);
+/** The feature's policy refusal, when a run refused before it settled anything. */
+export const expectPublishRefused = (failure: unknown): OperationRefused => {
+  expect(isPublishRefusal(failure)).toBe(true);
+  if (!isPublishRefusal(failure)) {
+    throw new Error(`Expected a publish policy refusal, not ${String(failure)}`);
   }
   return failure;
 };

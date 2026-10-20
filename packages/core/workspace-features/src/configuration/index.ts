@@ -7,12 +7,7 @@
  * @packageDocumentation
  */
 
-export {
-  WorkspaceConfigurationFailed,
-  configurationFailureToStepFailure,
-  isConfigurationFamilyFailure,
-  type ConfigurationFamilyFailure,
-} from "./errors.js";
+export { configurationRefused } from "./errors.js";
 
 // -----------------------------------------------------------------------------
 // Setup

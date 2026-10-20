@@ -35,7 +35,6 @@ import {
   type MaterializationTargetId,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agents/types";
-import { WorkspaceConfigurationFailed } from "../errors.js";
 import { isGitManaged } from "@agentxm/workspace-kernel/locations";
 import {
   LOCKFILE_NAME,
@@ -77,8 +76,9 @@ import {
   ProjectionOutputPosture,
   type InstructionMechanism,
 } from "@agentxm/workspace-kernel/projection";
+import { configurationRefused } from "../errors.js";
 
-const SELECT_AGENTS_PROMPT_MISSING = new WorkspaceConfigurationFailed({
+const SELECT_AGENTS_PROMPT_MISSING = configurationRefused({
   category: "usage",
   detail: "Interactive prompt required: Select agents to configure",
   suggestions: [{ description: "Provide WorkspaceInitializationInteraction in the runtime." }],
@@ -259,7 +259,7 @@ const readFileOption = (filePath: string) =>
         cause.reason._tag === "NotFound"
           ? Effect.succeed(Option.none<string>())
           : Effect.fail(
-              new WorkspaceConfigurationFailed({
+              configurationRefused({
                 category: "validation",
                 detail: `Cannot read instruction source candidate: ${filePath}`,
                 cause,
@@ -350,23 +350,21 @@ const writeSourceFileIfMissing = (args: {
         Effect.gen(function* () {
           yield* protectWorkspacePath(filePath);
           yield* authority.createParentDirectories(filePath).pipe(
-            Effect.mapError(
-              (error) =>
-                new WorkspaceConfigurationFailed({
-                  category: "internal",
-                  detail: `Failed to create instruction source directory: ${path.dirname(filePath)}`,
-                  cause: error,
-                }),
+            Effect.mapError((error) =>
+              configurationRefused({
+                category: "internal",
+                detail: `Failed to create instruction source directory: ${path.dirname(filePath)}`,
+                cause: error,
+              }),
             ),
           );
           yield* fs.writeFileString(filePath, content).pipe(
-            Effect.mapError(
-              (error) =>
-                new WorkspaceConfigurationFailed({
-                  category: "internal",
-                  detail: `Failed to write instruction source file: ${filePath}`,
-                  cause: error,
-                }),
+            Effect.mapError((error) =>
+              configurationRefused({
+                category: "internal",
+                detail: `Failed to write instruction source file: ${filePath}`,
+                cause: error,
+              }),
             ),
           );
           yield* recordFootprint({ path: filePath, change: "created" });
@@ -508,7 +506,7 @@ const selectSetupAgents = (args: {
       const unrecognized = requested.filter((id) => !isKnownConfigurableAgentId(id));
       if (unrecognized.length > 0) {
         const label = unrecognized.length === 1 ? "agent" : "agents";
-        return yield* new WorkspaceConfigurationFailed({
+        return yield* configurationRefused({
           category: "validation",
           detail: `Unrecognized setup ${label}: ${unrecognized.join(", ")}`,
           suggestions: [{ description: "Show available setup agents.", cmd: "axm setup --help" }],
@@ -519,7 +517,7 @@ const selectSetupAgents = (args: {
       Effect.mapError((error) =>
         error._tag === "ConfigError"
           ? error
-          : new WorkspaceConfigurationFailed({
+          : configurationRefused({
               category: "internal",
               detail: `Failed to detect agents: ${error.message}`,
               cause: error,
@@ -613,7 +611,7 @@ const validateInstructionSource = (workspaceRoot: string, fileName: string) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     if (fileName.trim().length === 0 || fileName === "." || path.isAbsolute(fileName))
-      return yield* new WorkspaceConfigurationFailed({
+      return yield* configurationRefused({
         category: "validation",
         detail: "Instruction source must be a workspace-relative filename",
       });
@@ -622,17 +620,16 @@ const validateInstructionSource = (workspaceRoot: string, fileName: string) =>
       path.resolve(workspaceRoot, fileName),
       "content",
     ).pipe(
-      Effect.mapError(
-        (cause) =>
-          new WorkspaceConfigurationFailed({
-            category: "validation",
-            detail: "Instruction source must be a writable workspace-relative file",
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        configurationRefused({
+          category: "validation",
+          detail: "Instruction source must be a writable workspace-relative file",
+          cause,
+        }),
       ),
     );
     if (entry.kind === "directory")
-      return yield* new WorkspaceConfigurationFailed({
+      return yield* configurationRefused({
         category: "validation",
         detail: "Instruction source must be a file",
       });
@@ -763,29 +760,27 @@ const applyProjectSetup = (args: {
           original.every((byte, index) => expected.value[index] === byte)
         );
       }).pipe(
-        Effect.mapError(
-          (cause) =>
-            new WorkspaceConfigurationFailed({
-              category: "conflict",
-              detail: "Could not verify the instruction source before migration",
-              cause,
-            }),
+        Effect.mapError((cause) =>
+          configurationRefused({
+            category: "conflict",
+            detail: "Could not verify the instruction source before migration",
+            cause,
+          }),
         ),
       );
       if (!safe)
-        return yield* new WorkspaceConfigurationFailed({
+        return yield* configurationRefused({
           category: "conflict",
           detail: "Instruction content changed after setup planning; preview setup again",
         });
       yield* protectWorkspacePath(aliasPath);
       yield* fs.remove(aliasPath).pipe(
-        Effect.mapError(
-          (cause) =>
-            new WorkspaceConfigurationFailed({
-              category: "internal",
-              detail: "Could not replace the seeded instruction file",
-              cause,
-            }),
+        Effect.mapError((cause) =>
+          configurationRefused({
+            category: "internal",
+            detail: "Could not replace the seeded instruction file",
+            cause,
+          }),
         ),
       );
       yield* recordFootprint({ path: aliasPath, change: "removed" });
@@ -845,13 +840,12 @@ const readSettingsFromReadModel = (
     return yield* makeWorkspaceReadModel(scope).pipe(
       Effect.flatMap((readModel) => readModel.state.settings),
       Effect.provide(env),
-      Effect.mapError(
-        (error) =>
-          new WorkspaceConfigurationFailed({
-            category: "validation",
-            detail: "Workspace settings could not be read",
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        configurationRefused({
+          category: "validation",
+          detail: "Workspace settings could not be read",
+          cause: error,
+        }),
       ),
     );
   });
@@ -1160,13 +1154,12 @@ export const ensureUserWorkspaceInitialized = (
     const settingsPath = path.join(workspaceRoot, SETTINGS_FILENAME);
 
     const settingsExists = yield* fs.exists(settingsPath).pipe(
-      Effect.mapError(
-        (error) =>
-          new WorkspaceConfigurationFailed({
-            category: "validation",
-            detail: `Failed to check if settings file exists: ${settingsPath}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        configurationRefused({
+          category: "validation",
+          detail: `Failed to check if settings file exists: ${settingsPath}`,
+          cause: error,
+        }),
       ),
     );
     if (!settingsExists) {

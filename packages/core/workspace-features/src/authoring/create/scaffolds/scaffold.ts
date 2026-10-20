@@ -15,8 +15,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
-
-import { AuthoringFailed } from "../../errors.js";
+import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
+import { authoringRefused } from "../../errors.js";
 
 /** One extension type's contribution to a creation. */
 export interface AuthoredScaffold {
@@ -35,7 +35,7 @@ export interface AuthoredScaffold {
   /** Write the package body into a staging directory. */
   readonly populate: (
     stagingPath: string,
-  ) => Effect.Effect<void, AuthoringFailed, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<void, OperationRefused, FileSystem.FileSystem | Path.Path>;
 }
 
 /** Serialize a manifest the way every authored manifest is written. */
@@ -49,13 +49,12 @@ export const stageDirectory = (directory: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     yield* fs.makeDirectory(directory, { recursive: true }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new AuthoringFailed({
-            category: "internal",
-            detail: `Failed to create the staged directory ${directory}`,
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        authoringRefused({
+          category: "internal",
+          detail: `Failed to create the staged directory ${directory}`,
+          cause,
+        }),
       ),
     );
   });
@@ -65,13 +64,12 @@ export const stageFile = (args: { readonly path: string; readonly contents: stri
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     yield* fs.writeFileString(args.path, args.contents).pipe(
-      Effect.mapError(
-        (cause) =>
-          new AuthoringFailed({
-            category: "internal",
-            detail: `Failed to write the staged file ${args.path}`,
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        authoringRefused({
+          category: "internal",
+          detail: `Failed to write the staged file ${args.path}`,
+          cause,
+        }),
       ),
     );
   });

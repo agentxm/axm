@@ -35,6 +35,7 @@ import {
   type PlanExecution,
   type PlannedJobStep,
   type ReadyJobStep,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -54,7 +55,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
-import { WorkspaceConfigurationFailed, workspaceChangeFailedToStepFailure } from "../errors.js";
+import { workspaceChangeFailedToStepFailure, configurationRefused } from "../errors.js";
 import { kernelFailureToStepFailure } from "@agentxm/workspace-kernel/reconciliation";
 import type { McpConnection, McpAuth } from "@agentxm/workspace-kernel/agent-adapters";
 import {
@@ -124,9 +125,7 @@ export const prepareAddInlineMcpServer = (
   request: AddInlineMcpServerRequest,
 ): Effect.Effect<
   AddInlineMcpServerCandidate | InlineMcpServerUnchanged,
-  | WorkspaceConfigurationFailed
-  | WorkspaceStateReadFailure
-  | Effect.Error<ReturnType<typeof planAddition>>,
+  OperationRefused | WorkspaceStateReadFailure | Effect.Error<ReturnType<typeof planAddition>>,
   SettingsReader | WorkspaceLocation | Effect.Services<ReturnType<typeof planAddition>>
 > =>
   Effect.gen(function* () {
@@ -135,7 +134,7 @@ export const prepareAddInlineMcpServer = (
       request.command === undefined &&
       request.url === undefined
     ) {
-      return yield* new WorkspaceConfigurationFailed({
+      return yield* configurationRefused({
         category: "usage",
         detail: `mcps add only configures inline MCP servers. Use axm mcps install ${request.name} for package or source locators.`,
         suggestions: [
@@ -150,7 +149,7 @@ export const prepareAddInlineMcpServer = (
       [request.command, request.url, request.connection].filter((value) => value !== undefined)
         .length !== 1
     ) {
-      return yield* new WorkspaceConfigurationFailed({
+      return yield* configurationRefused({
         category: "usage",
         detail: "Use exactly one of --command or --url.",
       });

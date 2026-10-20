@@ -222,7 +222,7 @@ describe("Enabling instruction-file management", () => {
                 expect(outcome).toMatchObject({ outcome: "blocked" });
                 expect(
                   "candidate" in outcome && Option.isSome(outcome.candidate.blocked)
-                    ? outcome.candidate.blocked.value.detail
+                    ? outcome.candidate.blocked.value
                     : "",
                 ).toContain("--replace-unrecorded");
                 expect(fixture.snapshot()).toEqual(before);

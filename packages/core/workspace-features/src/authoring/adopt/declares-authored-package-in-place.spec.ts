@@ -137,14 +137,22 @@ describe("Adopting an authored package in place", () => {
           skills: { review: { source: "workspace", enabled: false } },
         });
       },
-      failure: { _tag: "AuthoringFailed", category: "conflict" },
+      failure: {
+        _tag: "OperationRefused",
+        diagnostic: { kind: "authoring-failed" },
+        category: "conflict",
+      },
     },
     {
       refusal: "the authored manifest is missing",
       arrange: (created: AuthoringWorkspace) => {
         created.write("skills/review/notes.txt", "Authored work");
       },
-      failure: { _tag: "AuthoringFailed", category: "validation" },
+      failure: {
+        _tag: "OperationRefused",
+        diagnostic: { kind: "authoring-failed" },
+        category: "validation",
+      },
     },
     {
       refusal: "the authored manifest is not a valid manifest",
@@ -153,7 +161,11 @@ describe("Adopting an authored package in place", () => {
         writeAuthoringPackage(created.root, skill, "review", { parent: "skills" });
         created.write(`skills/review/${skill.manifest}`, "{ not a manifest");
       },
-      failure: { _tag: "AuthoringFailed", category: "validation" },
+      failure: {
+        _tag: "OperationRefused",
+        diagnostic: { kind: "authoring-failed" },
+        category: "validation",
+      },
     },
     {
       refusal: "the authored manifest names another identity",
@@ -163,7 +175,11 @@ describe("Adopting an authored package in place", () => {
           owner: "@other",
         });
       },
-      failure: { _tag: "AuthoringFailed", category: "validation" },
+      failure: {
+        _tag: "OperationRefused",
+        diagnostic: { kind: "authoring-failed" },
+        category: "validation",
+      },
     },
     {
       refusal: "an installed copy also exists under another source directory",

@@ -1,17 +1,18 @@
 /**
- * Typed failures for workspace configuration flows. The producer owns the
- * category choice and user-facing wording, and the kernel renders the carried
- * fields once for every path. The CLI's interaction implementation also maps
- * prompt-guard failures into this family, so setup prompts surface through
- * the same rendering.
+ * How workspace configuration flows refuse, and how a configuration change
+ * serializes its failures. The producer owns the category choice and
+ * user-facing wording; the kernel's `OperationRefused` carries them under the
+ * configuration diagnostic kind and the kernel renders them once for every
+ * path. The CLI's interaction implementation also refuses through this
+ * helper for prompt-guard failures, so setup prompts surface through the same
+ * rendering.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Schema from "effect/Schema";
 import {
-  FailureSuggestedActionSchema,
-  renderCarriedFailure,
+  refusalOf,
+  type OperationRefused,
   type StepFailure,
 } from "@agentxm/workspace-kernel/operations";
 import type {
@@ -22,63 +23,33 @@ import type {
   WorkspaceRestorationIncomplete,
   WorkspaceTransactionFailure,
 } from "@agentxm/workspace-kernel/settlement";
-import { kernelFailureDetail, renderKernelFailure } from "@agentxm/workspace-kernel/reconciliation";
+import { kernelFailureToStepFailure } from "@agentxm/workspace-kernel/reconciliation";
 
 /**
- * A workspace configuration flow could not proceed. `category` and `detail`
- * carry the boundary rendering 1:1.
+ * Refuse a workspace configuration flow with the category, wording, and
+ * recovery it decided.
  */
-export class WorkspaceConfigurationFailed extends Schema.TaggedError<WorkspaceConfigurationFailed>()(
-  "WorkspaceConfigurationFailed",
-  {
-    category: Schema.Literals(["conflict", "internal", "usage", "validation"]),
-    detail: Schema.String,
-    suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
-    recover: Schema.optional(Schema.String),
-    cmd: Schema.optional(Schema.String),
-    cause: Schema.optional(Schema.Unknown),
-  },
-) {}
-
-/** Every failure the configuration feature constructs. */
-export type ConfigurationFamilyFailure = WorkspaceConfigurationFailed;
-
-/** Whether an untyped failure is one the configuration feature constructs. */
-export const isConfigurationFamilyFailure = (
-  failure: unknown,
-): failure is ConfigurationFamilyFailure => failure instanceof WorkspaceConfigurationFailed;
+export const configurationRefused = refusalOf({
+  kind: "workspace-configuration-failed",
+  operation: "workspace.operation",
+});
 
 /**
- * Render a workspace configuration failure. The producer already chose the
- * category and the sentence, so both carry over unchanged, `recover` and
- * `cmd` lead the suggestions, and the failure reads the same whether it
- * surfaced from a step or from `prepare`.
- */
-export const configurationFailureToStepFailure = (
-  failure: ConfigurationFamilyFailure,
-): StepFailure => renderCarriedFailure(failure);
-
-/**
- * Every failure a workspace change this feature plans can surface: the
- * workspace's own read and write failures, the transaction machinery's, and
- * a step that already speaks the serialized vocabulary.
+ * Every failure a workspace change this feature plans can surface: its own
+ * refusal, the workspace's read and write failures, the transaction
+ * machinery's, and a step that already speaks the serialized vocabulary.
  */
 export type WorkspaceChangeFailure =
   | InvalidAgentId
+  | OperationRefused
   | StepFailure
   | WorkspaceRestorationIncomplete
   | WorkspaceStateMutationFailure
   | WorkspaceTransactionFailure;
-
-/** The sentence a transition's deciding failure reads with inside a configuration change. */
-const configurationFailureDetail = (failure: unknown): string | undefined =>
-  isConfigurationFamilyFailure(failure)
-    ? configurationFailureToStepFailure(failure).detail
-    : kernelFailureDetail(failure);
 
 /**
  * Serialize a workspace change failure into the plan-step vocabulary: the
  * same rendering the command boundary projects for that failure.
  */
 export const workspaceChangeFailedToStepFailure = (failure: WorkspaceChangeFailure): StepFailure =>
-  renderKernelFailure(failure, { detailOf: configurationFailureDetail });
+  kernelFailureToStepFailure(failure);

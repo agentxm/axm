@@ -48,11 +48,7 @@ import {
 } from "@agentxm/workspace-kernel/projection";
 import { nativeUnitKey, type NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
 
-import {
-  WorkspaceConfigurationFailed,
-  configurationFailureToStepFailure,
-  workspaceChangeFailedToStepFailure,
-} from "../errors.js";
+import { workspaceChangeFailedToStepFailure, configurationRefused } from "../errors.js";
 
 /** What the workspace must report once the transition has settled. */
 export type MembershipTransition =
@@ -144,8 +140,8 @@ const verifyTransition = (
         ? transition.agentIds.filter((agentId) => !configured.has(agentId))
         : transition.agentIds.filter((agentId) => configured.has(agentId));
     if (unmet.length === 0) return;
-    return yield* configurationFailureToStepFailure(
-      new WorkspaceConfigurationFailed({
+    return yield* workspaceChangeFailedToStepFailure(
+      configurationRefused({
         category: "internal",
         detail:
           transition.kind === "add"

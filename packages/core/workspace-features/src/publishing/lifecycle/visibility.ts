@@ -35,9 +35,9 @@ import {
   WorkspaceLocation,
 } from "@agentxm/workspace-kernel/workspace-state";
 
-import { PublishFailed } from "../errors.js";
 import { declaredVisibilityIntent } from "../publish/publication.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { publishRefused } from "../errors.js";
 
 const ManifestVisibilitySchema = Schema.Struct({
   publish: Schema.optional(
@@ -46,7 +46,7 @@ const ManifestVisibilitySchema = Schema.Struct({
 });
 
 const validation = (detail: string, suggestions?: ReadonlyArray<{ description: string }>) =>
-  new PublishFailed({
+  publishRefused({
     category: "validation",
     detail,
     ...(suggestions === undefined ? {} : { suggestions }),
@@ -70,13 +70,12 @@ export const parseVisibilityTarget = (input: string) =>
       );
     }
     const fqn = yield* Schema.decodeUnknownEffect(ExtensionFqnSchema)(input).pipe(
-      Effect.mapError(
-        (cause) =>
-          new PublishFailed({
-            category: "validation",
-            detail: `Invalid extension target: ${input}`,
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        publishRefused({
+          category: "validation",
+          detail: `Invalid extension target: ${input}`,
+          cause,
+        }),
       ),
     );
     return { parts, fqn } satisfies VisibilityTarget;
@@ -112,13 +111,12 @@ export const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent
           : Option.none(),
       ),
     ),
-    Effect.mapError(
-      (cause) =>
-        new PublishFailed({
-          category: "validation",
-          detail: `Unable to observe the declared package for ${formatFqn(parts)}.`,
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      publishRefused({
+        category: "validation",
+        detail: `Unable to observe the declared package for ${formatFqn(parts)}.`,
+        cause,
+      }),
     ),
   );
   const manifest = yield* Option.match(authoredRoot, {
@@ -128,25 +126,23 @@ export const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent
       return fs.readFileString(manifestPath).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(ManifestVisibilitySchema))),
         Effect.map(Option.some),
-        Effect.mapError(
-          (cause) =>
-            new PublishFailed({
-              category: "validation",
-              detail: `Unable to read visibility intent from ${manifestPath}.`,
-              cause,
-            }),
+        Effect.mapError((cause) =>
+          publishRefused({
+            category: "validation",
+            detail: `Unable to read visibility intent from ${manifestPath}.`,
+            cause,
+          }),
         ),
       );
     },
   });
   const workspaceDefault = yield* settings.publishDefaultVisibility.pipe(
-    Effect.mapError(
-      (cause) =>
-        new PublishFailed({
-          category: "validation",
-          detail: "Unable to read workspace publication visibility.",
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      publishRefused({
+        category: "validation",
+        detail: "Unable to read workspace publication visibility.",
+        cause,
+      }),
     ),
   );
   const manifestVisibility = Option.isSome(manifest)
@@ -169,7 +165,7 @@ export const status = Effect.fn("ManagePublishedVisibility.status")(function* (t
 const requireEstablishedVisibility = (target: string, evaluation: VisibilityEvaluation) =>
   evaluation.actual === null
     ? Option.some(
-        new PublishFailed({
+        publishRefused({
           category: "not_found",
           detail: `${target} has no established Registry visibility.`,
         }),
@@ -199,7 +195,7 @@ export const set = Effect.fn("ManagePublishedVisibility.set")(function* (
   const actual = evaluation.actual;
   if (actual === null) {
     return yield* Effect.fail(
-      new PublishFailed({
+      publishRefused({
         category: "internal",
         detail: "The Registry visibility evaluation lost its established value.",
       }),
@@ -235,7 +231,7 @@ export const reconcile = Effect.fn("ManagePublishedVisibility.reconcile")(functi
   const actual = evaluation.actual;
   if (actual === null) {
     return yield* Effect.fail(
-      new PublishFailed({
+      publishRefused({
         category: "internal",
         detail: "The Registry visibility evaluation lost its established value.",
       }),

@@ -23,10 +23,10 @@ import {
   computePackageContentHash,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { type PlanExecution } from "@agentxm/workspace-kernel/operations";
-import { WorkspaceConfigurationFailed, configurationFailureToStepFailure } from "../errors.js";
+import { workspaceChangeFailedToStepFailure, configurationRefused } from "../errors.js";
 
 const fail = (detail: string, cause?: unknown) =>
-  new WorkspaceConfigurationFailed({
+  configurationRefused({
     category: "validation",
     detail,
     ...(cause === undefined ? {} : { cause }),
@@ -97,7 +97,7 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
     validate: () => Effect.void,
   }).pipe(
     Effect.mapError((cause) =>
-      configurationFailureToStepFailure(
+      workspaceChangeFailedToStepFailure(
         fail("Hook extension configuration could not settle", cause),
       ),
     ),

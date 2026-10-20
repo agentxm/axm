@@ -12,7 +12,7 @@ import {
 
 import { yank } from "../lifecycle/retirement.js";
 import {
-  expectPublishFailed,
+  expectPublishRefused,
   jsonRegistryResponse,
   makeRegistryManagementWorld,
   registryTarget,
@@ -150,7 +150,7 @@ describe("Yank selection", () => {
           withAuthPorts(Effect.flip(yank({ ref, allVersions: false }))),
         );
 
-        expect(expectPublishFailed(failure).category).toBe("validation");
+        expect(expectPublishRefused(failure).category).toBe("validation");
         expect(world.requests).toEqual([]);
       }),
     );

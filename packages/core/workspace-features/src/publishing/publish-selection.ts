@@ -5,8 +5,8 @@ import type {
   ExtensionType,
   PublishOptions,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { PublishFailed } from "./errors.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { publishRefused } from "./errors.js";
 export interface PublishFileSelectionOptions {
   readonly include?: ReadonlyArray<string> | undefined;
   readonly exclude?: ReadonlyArray<string> | undefined;
@@ -36,8 +36,8 @@ export const resolvePublishSelection = (
             packageRoot: directory,
             ...(options.boundaryRoot === undefined ? {} : { boundaryRoot: options.boundaryRoot }),
           }).pipe(
-            Effect.mapError(
-              (cause) => new PublishFailed({ category: "validation", detail: cause.detail, cause }),
+            Effect.mapError((cause) =>
+              publishRefused({ category: "validation", detail: cause.detail, cause }),
             ),
           )
         : { packageDirectory: "", rules: [], fingerprint: "explicit" };
@@ -51,7 +51,7 @@ export const resolvePublishSelection = (
     if (requiredManifest !== undefined) {
       const mandatory = selection.evaluate({ path: requiredManifest, kind: "file" });
       if (!mandatory.included)
-        return yield* new PublishFailed({
+        return yield* publishRefused({
           category: "validation",
           detail: `publish.exclude pattern "${mandatory.decidingRule?.pattern ?? "unknown"}" removes "${requiredManifest}"; the package cannot be published without it.`,
         });

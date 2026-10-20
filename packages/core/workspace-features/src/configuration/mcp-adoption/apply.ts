@@ -53,14 +53,13 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 import { kernelFailureToStepFailure } from "@agentxm/workspace-kernel/reconciliation";
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
-import { WorkspaceConfigurationFailed } from "../errors.js";
 import type { McpNativeAdoption, McpAdoptionCandidate, McpNativeSource } from "./preflight.js";
+import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
+import { configurationRefused } from "../errors.js";
 
-const nativeFailureToConfigurationFailed = (
-  failure: CodingAgentFailure,
-): WorkspaceConfigurationFailed => {
+const nativeFailureToConfigurationFailed = (failure: CodingAgentFailure): OperationRefused => {
   const rendered = kernelFailureToStepFailure(failure);
-  return new WorkspaceConfigurationFailed({
+  return configurationRefused({
     category:
       rendered.category === "validation" ||
       rendered.category === "conflict" ||
@@ -75,8 +74,8 @@ const nativeFailureToConfigurationFailed = (
 const readFailureToConfigurationFailed = (failure: {
   readonly _tag: "McpConfigInvalid" | "McpConfigIoFailed";
   readonly detail: string;
-}): WorkspaceConfigurationFailed =>
-  new WorkspaceConfigurationFailed({
+}): OperationRefused =>
+  configurationRefused({
     category: failure._tag === "McpConfigInvalid" ? "validation" : "internal",
     detail: failure.detail,
     cause: failure,
@@ -207,12 +206,11 @@ export const collectMcpNativeSources = (
     }
     if (location.scope === "project" && agentIds.includes("github-copilot-cli")) {
       const gitRoot = yield* findGitRoot(location.baseDir).pipe(
-        Effect.mapError(
-          () =>
-            new WorkspaceConfigurationFailed({
-              category: "validation",
-              detail: "Cannot inspect native MCP discovery boundary",
-            }),
+        Effect.mapError(() =>
+          configurationRefused({
+            category: "validation",
+            detail: "Cannot inspect native MCP discovery boundary",
+          }),
         ),
       );
       // Ancestors above the workspace up to its checkout root also configure Copilot.
@@ -249,7 +247,7 @@ const adoptNativeMcpEntry = (
   configuredAgentIds: ReadonlyArray<string>,
 ): Effect.Effect<
   ReadonlyArray<NativeLocationOutcome>,
-  WorkspaceConfigurationFailed,
+  OperationRefused,
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
@@ -266,7 +264,7 @@ const adoptNativeMcpEntry = (
           serverName: adoption.name,
         }).pipe(Effect.mapError(readFailureToConfigurationFailed));
     if (Option.isNone(entry) || !Equal.equals(entry.value, adoption.expectedEntry)) {
-      return yield* new WorkspaceConfigurationFailed({
+      return yield* configurationRefused({
         category: "conflict",
         detail: `MCP server ${adoption.name} changed before import`,
       });
@@ -313,7 +311,7 @@ const candidateMatchesSettings = (
 
 const validateAdoption = (
   adoption: McpNativeAdoption,
-): Effect.Effect<void, WorkspaceConfigurationFailed, FileSystem.FileSystem> =>
+): Effect.Effect<void, OperationRefused, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const raw = yield* readNativeMcpConfig(adoption.filePath).pipe(
       Effect.mapError(readFailureToConfigurationFailed),
@@ -328,7 +326,7 @@ const validateAdoption = (
           serverName: adoption.name,
         }).pipe(Effect.mapError(readFailureToConfigurationFailed));
     if (Option.isNone(entry)) {
-      return yield* new WorkspaceConfigurationFailed({
+      return yield* configurationRefused({
         category: "validation",
         detail: `Failed to validate adopted MCP server ${adoption.name}`,
       });
@@ -358,7 +356,7 @@ export const prepareMcpAdoptionTargets = (candidates: ReadonlyArray<McpAdoptionC
           Option.isNone(raw) ||
           createHash("sha256").update(raw.value).digest("hex") !== adoption.fingerprint
         )
-          return yield* new WorkspaceConfigurationFailed({
+          return yield* configurationRefused({
             category: "conflict",
             detail: "Native MCP source document changed after discovery; discover the batch again",
           });
@@ -474,7 +472,7 @@ export const applyMcpAdoption = (candidates: ReadonlyArray<McpAdoptionCandidate>
           const configured = yield* settings.entries("mcp-server");
           for (const candidate of candidates) {
             if (!candidateMatchesSettings(candidate, configured[candidate.name])) {
-              return yield* new WorkspaceConfigurationFailed({
+              return yield* configurationRefused({
                 category: "validation",
                 detail: `Failed to validate imported MCP server ${candidate.name}`,
               });
@@ -489,7 +487,7 @@ export const applyMcpAdoption = (candidates: ReadonlyArray<McpAdoptionCandidate>
               canonicalPaths: [],
             }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
             if (!inspection.current)
-              return yield* new WorkspaceConfigurationFailed({
+              return yield* configurationRefused({
                 category: "validation",
                 detail: `Imported MCP server ${candidate.name} failed native value readback`,
               });

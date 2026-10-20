@@ -8,7 +8,7 @@ import { VisibilityMutationResultSchema } from "@agentxm/registry-protocol/unsta
 
 import { reconcile } from "../lifecycle/visibility.js";
 import {
-  expectPublishFailed,
+  expectPublishRefused,
   jsonRegistryResponse,
   observedRevision,
   registryProblem,
@@ -118,7 +118,7 @@ describe("Repository visibility reconciliation", () => {
 
         const failed = yield* world.provide(Effect.flip(reconcile({ target: registryTarget })));
 
-        expect(expectPublishFailed(failed).category).toBe(
+        expect(expectPublishRefused(failed).category).toBe(
           failure === "not-established" ? "not_found" : "validation",
         );
         expect(world.requests.map(({ method }) => method)).toEqual(

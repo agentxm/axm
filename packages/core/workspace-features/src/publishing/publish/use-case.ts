@@ -76,6 +76,7 @@ import {
   type PlanExecution,
   type PlanRiskCondition,
   type PlannedJobStep,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -89,7 +90,6 @@ import {
   WorkspaceTransactionScopes,
 } from "@agentxm/workspace-kernel/settlement";
 
-import { PublishFailed } from "../errors.js";
 import {
   aggregatePublishFailure,
   publishCause,
@@ -137,12 +137,13 @@ import {
   publishTargetKey,
 } from "./publication.js";
 import type { PublishPublicationSet, PublishResult, PublishResultItem } from "./result.js";
+import { isPublishRefusal, publishRefused } from "../errors.js";
 
-const internal = (detail: string) => new PublishFailed({ category: "internal", detail });
+const internal = (detail: string) => publishRefused({ category: "internal", detail });
 
 /** Name the candidate and keep the Git reason when its source state cannot be assessed. */
 const sourceAssessmentFailed = (fqn: string) => (cause: GitOperationFailed) =>
-  new PublishFailed({
+  publishRefused({
     category: "internal",
     detail: `Could not assess the published source state for ${fqn}. ${cause.detail}`,
     cause,
@@ -161,7 +162,11 @@ export type PublishSelectionSummary = Omit<
  */
 export type PublishDisposition =
   | { readonly _tag: "Completed" }
-  | { readonly _tag: "Failed"; readonly failure: PublishFailed; readonly blocking?: OperationBlock }
+  | {
+      readonly _tag: "Failed";
+      readonly failure: OperationRefused;
+      readonly blocking?: OperationBlock;
+    }
   | { readonly _tag: "Interrupted"; readonly signal: "SIGINT" | "SIGTERM" };
 
 /**
@@ -440,7 +445,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
     ? authoritativePreview.failure
     : undefined;
   const authoritativeFailurePreview =
-    authoritativeFailure === undefined || authoritativeFailure._tag !== "PublishFailed"
+    authoritativeFailure === undefined || !isPublishRefusal(authoritativeFailure)
       ? undefined
       : Option.getOrUndefined(
           Schema.decodeUnknownOption(PreviewPublicationSetResponseSchema)(
@@ -714,7 +719,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
           sha512Integrity(observed.archive) !== candidate.integrity ||
           observed.policyFingerprint !== candidate.policyFingerprint
         ) {
-          return yield* new PublishFailed({
+          return yield* publishRefused({
             category: "conflict",
             detail: `Publish source content or selection policy changed after preparation for ${candidate.fqn}; no upload was attempted.`,
           });
@@ -733,7 +738,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
         if (current.fingerprint !== planned.fingerprint) {
           return yield* Effect.fail(
-            new PublishFailed({
+            publishRefused({
               category: "conflict",
               detail: `Publish source state changed after planning for ${candidate.fqn}; no upload was attempted.`,
             }),
@@ -792,13 +797,12 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-publish-" }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new PublishFailed({
-                category: "internal",
-                detail: "Could not create publication coordination directory.",
-                cause,
-              }),
+          Effect.mapError((cause) =>
+            publishRefused({
+              category: "internal",
+              detail: "Could not create publication coordination directory.",
+              cause,
+            }),
           ),
         );
         const scopes = yield* WorkspaceTransactionScopes;
@@ -1036,7 +1040,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
     planFailed && !request.preview
       ? {
           _tag: "Failed",
-          failure: new PublishFailed({
+          failure: publishRefused({
             category: planFailureCategory,
             detail: staleCandidate
               ? "Workspace material changed after planning; no upload was attempted."
@@ -1058,7 +1062,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         : unconfirmed.length > 0
           ? {
               _tag: "Failed",
-              failure: new PublishFailed({
+              failure: publishRefused({
                 category: "issues",
                 detail: `No publication was confirmed; ${unconfirmed.length} extension${
                   unconfirmed.length === 1 ? "" : "s"
@@ -1091,7 +1095,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
       ? {
           failure: publishCause(
             staleCandidate || resolution.failure === undefined
-              ? new PublishFailed({
+              ? publishRefused({
                   category: planFailureCategory,
                   detail: staleCandidate
                     ? "Workspace material changed after planning; no upload was attempted."

@@ -40,7 +40,7 @@ export const specification = defineSpecification({
 const faults = [
   { fault: "different-type", tag: "ForkPackageInvalid", category: "validation" },
   { fault: "occupied", tag: "CreateDestinationExists", category: "conflict" },
-  { fault: "ambiguous", tag: "AuthoringFailed", category: "validation" },
+  { fault: "ambiguous", tag: "OperationRefused", category: "validation" },
 ] as const;
 
 describe("Fork refusal", () => {
@@ -96,7 +96,8 @@ describe("Fork refusal", () => {
       }).pipe(Effect.scoped, Effect.provide(authoringWorkspaceLayer(created)), Effect.flip);
 
       expect(failure).toMatchObject({
-        _tag: "AuthoringFailed",
+        _tag: "OperationRefused",
+        diagnostic: { kind: "authoring-failed" },
         category: "validation",
         detail: "The source contains multiple AXM packages; select one with --package <FQN>",
       });

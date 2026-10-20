@@ -92,7 +92,11 @@ describe("Skill creation preview purity", () => {
       created.write(`.claude/skills/${SKILL}/SKILL.md`, "Foreign instructions\n");
       const before = created.tree();
       const failure = yield* previewCreation(created, Option.none()).pipe(Effect.flip);
-      expect(failure).toMatchObject({ _tag: "AuthoringFailed", category: "validation" });
+      expect(failure).toMatchObject({
+        _tag: "OperationRefused",
+        diagnostic: { kind: "authoring-failed" },
+        category: "validation",
+      });
       expect(created.tree()).toEqual(before);
       expect(created.read(`.claude/skills/${SKILL}/SKILL.md`)).toBe("Foreign instructions\n");
     }),

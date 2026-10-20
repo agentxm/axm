@@ -1032,7 +1032,7 @@ describe("checkout credentials", () => {
   });
 });
 
-describe("native cache setup trust and configuration", () => {
+describe("native cache setup forwarding", () => {
   it("forwards repository bypass for every configured cache consumer and producer", () => {
     const directory = path.join(repoRoot, ".github/workflows");
     for (const filename of fs.readdirSync(directory).filter((name) => name.endsWith(".yml"))) {
@@ -1075,145 +1075,35 @@ describe("native cache setup trust and configuration", () => {
       }
     }
   });
-  const scenarios = [
-    { name: "unconfigured", url: "", token: "", code: 0, enabled: false },
-    {
-      name: "reader",
-      repositoryBypass: "false",
-      url: "https://cache.example.test/",
-      token: "fixture-reader",
-      code: 0,
-      enabled: true,
-    },
-    {
-      name: "URL without credential",
-      repositoryBypass: "false",
-      url: "https://cache.example.test",
-      token: "",
-      code: 1,
-      enabled: false,
-    },
-    { name: "credential without URL", url: "", token: "fixture-reader", code: 1, enabled: false },
-    {
-      name: "invalid origin",
-      url: "https://cache.example.test/path",
-      token: "fixture-reader",
-      code: 1,
-      enabled: false,
-    },
-    {
-      name: "newline credential",
-      url: "https://cache.example.test",
-      token: "fixture\nreader",
-      code: 1,
-      enabled: false,
-    },
-    {
-      name: "fork",
-      url: "https://cache.example.test",
-      token: "",
-      fork: "true",
-      code: 0,
-      enabled: false,
-    },
-    {
-      name: "Dependabot",
-      url: "https://cache.example.test",
-      token: "",
-      actor: "dependabot[bot]",
-      code: 0,
-      enabled: false,
-    },
-    {
-      name: "repository bypass without credential",
-      url: "https://cache.example.test",
-      token: "",
-      repositoryBypass: "true",
-      code: 0,
-      enabled: false,
-    },
-    {
-      name: "repository bypass with credential",
-      url: "https://cache.example.test",
-      token: "fixture-reader",
-      repositoryBypass: "true",
-      code: 0,
-      enabled: false,
-    },
-    {
-      name: "invalid repository bypass",
-      url: "https://cache.example.test",
-      token: "fixture-reader",
-      repositoryBypass: "tru",
-      code: 1,
-      enabled: false,
-    },
-    {
-      name: "explicit bypass",
-      url: "https://cache.example.test",
-      token: "",
-      bypass: "true",
-      code: 0,
-      enabled: false,
-    },
-  ];
-  for (const scenario of scenarios) {
-    it(`handles ${scenario.name}`, () => {
-      const action: unknown = YAML.parse(
-        fs.readFileSync(path.join(repoRoot, ".github/actions/setup-workspace/action.yml"), "utf8"),
-      );
-      if (typeof action !== "object" || action === null || !("runs" in action))
-        throw new Error("Missing setup action");
-      const runs = action.runs;
-      if (
-        typeof runs !== "object" ||
-        runs === null ||
-        !("steps" in runs) ||
-        !Array.isArray(runs.steps)
-      )
-        throw new Error("Missing action steps");
-      const step: unknown = runs.steps.find(
-        (candidate: unknown) =>
-          typeof candidate === "object" &&
-          candidate !== null &&
-          "name" in candidate &&
-          candidate.name === "Configure native Nx remote caching",
-      );
-      if (
-        typeof step !== "object" ||
-        step === null ||
-        !("run" in step) ||
-        typeof step.run !== "string"
-      )
-        throw new Error("Missing native cache setup");
-      expect(step).toHaveProperty("env.CACHE_BYPASS", "${{ inputs.remote-cache-bypass }}");
-      const directory = fs.mkdtempSync(path.join(tmpdir(), "nx-setup-"));
-      const environmentFile = path.join(directory, "environment");
-      fs.writeFileSync(environmentFile, "");
-      try {
-        const result = spawnSync("bash", ["-e", "-c", step.run], {
-          encoding: "utf8",
-          env: {
-            ...process.env,
-            GITHUB_ENV: environmentFile,
-            REMOTE_CACHE_URL: scenario.url,
-            REMOTE_CACHE_TOKEN: scenario.token,
-            CACHE_BYPASS: "repositoryBypass" in scenario ? scenario.repositoryBypass : "",
-            CACHE_ACTOR: "actor" in scenario ? scenario.actor : "fixture-user",
-            CACHE_FORK: "fork" in scenario ? scenario.fork : "false",
-            NX_SKIP_REMOTE_CACHE: "bypass" in scenario ? scenario.bypass : "false",
-          },
-        });
-        expect(result.status).toBe(scenario.code);
-        const values = fs.readFileSync(environmentFile, "utf8");
-        expect(values).toContain("NX_CACHE_FAILURES=false");
-        expect(values.includes("NX_SKIP_REMOTE_CACHE=false")).toBe(scenario.enabled);
-        expect(values.includes("NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=")).toBe(scenario.enabled);
-      } finally {
-        fs.rmSync(directory, { recursive: true, force: true });
-      }
+  it("setup-workspace delegates to the remote-cache action with the job's trust facts", () => {
+    const action: unknown = YAML.parse(
+      fs.readFileSync(path.join(repoRoot, ".github/actions/setup-workspace/action.yml"), "utf8"),
+    );
+    if (typeof action !== "object" || action === null || !("runs" in action))
+      throw new Error("Missing setup action");
+    const runs = action.runs;
+    if (
+      typeof runs !== "object" ||
+      runs === null ||
+      !("steps" in runs) ||
+      !Array.isArray(runs.steps)
+    )
+      throw new Error("Missing action steps");
+    const step: unknown = runs.steps.find(
+      (candidate: unknown) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        "uses" in candidate &&
+        candidate.uses === "./.github/actions/configure-nx-remote-cache",
+    );
+    expect(step).toHaveProperty("with", {
+      bypass: "${{ inputs.remote-cache-bypass }}",
+      url: "${{ inputs.remote-cache-url }}",
+      token: "${{ inputs.remote-cache-token }}",
+      actor: "${{ github.actor }}",
+      fork: "${{ github.event.pull_request.head.repo.fork || false }}",
     });
-  }
+  });
 });
 
 describe("main cache warming coverage", () => {

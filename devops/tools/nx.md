@@ -45,7 +45,10 @@ root `.env.local`. Keep tokens out of source, logs, and release assets. Set
 set `NX_SKIP_NX_CACHE=true` as well for complete re-execution.
 
 GitHub's setup action accepts `NX_REMOTE_CACHE_URL` and the read-only
-`NX_REMOTE_CACHE_READ_TOKEN`. A repository variable `NX_SKIP_REMOTE_CACHE=true`
+`NX_REMOTE_CACHE_READ_TOKEN`, and delegates to the self-contained
+[remote-cache action](../../.github/actions/configure-nx-remote-cache/action.yml),
+whose input descriptions state its trust rules; other repositories may call it
+at a full commit SHA. A repository variable `NX_SKIP_REMOTE_CACHE=true`
 disables remote consumers and warming, including during initial rollout before
 reader installation. Its value must be `true`, `false`, or absent. An invocation's
 native bypass also remains effective. Fully absent configuration disables remote access;

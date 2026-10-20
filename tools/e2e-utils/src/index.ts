@@ -1,22 +1,11 @@
-export {
-  expectExitCode,
-  expectNonInteractiveFailure,
-  expectNonInteractiveSuccess,
-  expectStderr,
-  expectStdout,
-  getOutput,
-  parseJsonOutput,
-  parseNdjsonOutput,
-} from "./assertions.js";
 export { copyFixture } from "./fixtures.js";
 export { withoutLocalGitEnvironment } from "./git-environment.js";
-export {
-  isAgent,
-  isCI,
-  isHumanInteractive,
-  isInteractive,
-  type InteractionEnvOptions,
-} from "./interaction.js";
 export { createBinaryRunner, createCliRunner, runCommand } from "./runner.js";
 export { createTempDir } from "./temp-dir.js";
-export type { CliResult, RunCliOptions, TempDirContext } from "./types.js";
+export type {
+  // Dependents' inferred runner and fixture types name this, so their
+  // declaration emit must be able to; knip skips exports tagged public.
+  /** @public */
+  CliResult,
+  RunCliOptions,
+} from "./types.js";

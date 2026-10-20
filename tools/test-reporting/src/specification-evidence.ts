@@ -31,7 +31,7 @@ const InputSnapshot = Schema.Struct({
  * during execution. `unlabelled` records that no purpose reached the
  * receipt, so a specification run without its labelling is never a pass.
  */
-export const RECEIPT_PURPOSES = [...TEST_PURPOSES, "unlabelled"] as const;
+const RECEIPT_PURPOSES = [...TEST_PURPOSES, "unlabelled"] as const;
 const FileEvidence = Schema.Struct({
   source: Schema.NonEmptyString,
   /** Nx project whose test target executed the file. */
@@ -46,7 +46,7 @@ const FileEvidence = Schema.Struct({
   moduleFailed: Schema.Boolean,
   filtered: Schema.Boolean,
 });
-export const EvidenceRunSchema = Schema.Struct({
+const EvidenceRunSchema = Schema.Struct({
   format: Schema.Literal(3),
   suite: Schema.NonEmptyString,
   task: Schema.NullOr(ExecutionTarget),

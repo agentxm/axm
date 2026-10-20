@@ -49,7 +49,7 @@ export const capabilityElements = [
   { type: "test-support", pattern: "tools/specification-metadata/src", partialMatch: false },
 ];
 
-export const capabilityRoots = [
+const capabilityRoots = [
   "packages/core/extension-kinds/src/mcp-connections/lifecycle/domain",
   // Enforce the extracted application contracts. The remaining install,
   // projection, and source-acquisition implementations still need migration.

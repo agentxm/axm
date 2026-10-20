@@ -22,7 +22,7 @@
   // when its package is clean. Generated clients mirror their contracts whole.
   "ignoreIssues": {
     "*.{ts,mts,cts,js,mjs,cjs}": ["exports", "types"],
-    "{benchmarks,scripts,specifications,tools}/**": ["exports", "types"],
+    "{benchmarks,scripts,specifications}/**": ["exports", "types"],
     "apps/cli/src/telemetry/__generated__/**": ["exports", "types"],
     "packages/supporting/registry-client/src/__generated__/**": ["exports", "types"],
     // Type tests export their compile-time assertions so the compiler checks
@@ -93,6 +93,15 @@
     "apps/cli-e2e": {
       "includeEntryExports": true,
     },
+    "tools/e2e-utils": {
+      "includeEntryExports": true,
+    },
+    "tools/test-reporting": {
+      "includeEntryExports": true,
+    },
+    "tools/test-support": {
+      "includeEntryExports": true,
+    },
     "packages/core/workspace-kernel": {
       "includeEntryExports": true,
       "entry": ["src/**/*.type-test.ts"],
@@ -111,6 +120,7 @@
       "ignoreDependencies": ["@effect/platform-node-shared"],
     },
     "tools/extension-type-parity": {
+      "includeEntryExports": true,
       "entry": ["scripts/generate-e2e-extension-matrix.ts"],
     },
   },

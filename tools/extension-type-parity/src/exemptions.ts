@@ -46,7 +46,7 @@ export interface ParityExemption {
  * obligation. A future row uses the {@link ParityExemption} shape without
  * `seed: true` (the shrink-only check rejects new seeded rows).
  */
-export const PARITY_EXEMPTIONS: Record<CatalogExtensionType, ReadonlyArray<ParityExemption>> = {
+const PARITY_EXEMPTIONS: Record<CatalogExtensionType, ReadonlyArray<ParityExemption>> = {
   skill: [],
   "mcp-server": [],
   subagent: [],
@@ -68,12 +68,4 @@ export const exemptedObligations = (
     rows
       .filter((row) => PARITY_OBLIGATIONS[row.obligation].verifiedBy === tier)
       .map((row) => row.obligation),
-  );
-
-/** Every ledgered row, flattened with its type, for reporting and scripts. */
-export const parityExemptionRows = (): ReadonlyArray<
-  ParityExemption & { readonly type: CatalogExtensionType }
-> =>
-  EffectRecord.toEntries(PARITY_EXEMPTIONS).flatMap(([type, rows]) =>
-    rows.map((row) => ({ ...row, type })),
   );

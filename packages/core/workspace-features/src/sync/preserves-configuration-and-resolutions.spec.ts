@@ -34,10 +34,10 @@ import {
   makeFileRegistry,
   makeSyncFixture,
   previewSync,
-  writeLocalSkillPackage,
   type FileRegistry,
   type SyncFixture,
 } from "../testing/sync-fixture.js";
+import { writeLocalSkillPackage } from "../testing/local-packages.js";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/preserves-configuration-and-resolutions",

@@ -11,8 +11,8 @@ import {
   makeFileRegistry,
   makeSyncFixture,
   syncRequest,
-  writeLocalSkillPackage,
 } from "../testing/sync-fixture.js";
+import { writeLocalSkillPackage } from "../testing/local-packages.js";
 
 describe("Sync inventory observation", () => {
   const cleanups: Array<() => void> = [];

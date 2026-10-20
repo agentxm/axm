@@ -11,7 +11,6 @@
  * Only test-purpose files import it; nothing in production source does.
  */
 
-import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
@@ -22,12 +21,14 @@ import * as HttpClient from "effect/http/HttpClient";
 
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
+import { DEFAULT_AUTHORED_DIRECTORIES } from "@agentxm/workspace-kernel/workspace-state";
 import { previewPlanExecution, type PlanExecution } from "@agentxm/workspace-kernel/operations";
 import {
   ResolvePlanInteractionTest,
   preapprovedPlanExecution,
   type ResolvePlanInteractionTestState,
 } from "@agentxm/workspace-kernel/planning/testing";
+import { writeMinimalPackage } from "./local-packages.js";
 import { makeWorkspaceWorld, withAllManagers, withLiveSources } from "./workspace-world.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 
@@ -194,81 +195,19 @@ export const expectResolved = (
 // Package fixtures
 // -----------------------------------------------------------------------------
 
-const writePackageFile = (packageRoot: string, relative: string, contents: string): void => {
-  const file = nodePath.join(packageRoot, relative);
-  fs.mkdirSync(nodePath.dirname(file), { recursive: true });
-  fs.writeFileSync(file, contents);
-};
-
-/** A local skill package under `<root>/vendor/<name>`, as the product writes one. */
-export const writeLocalSkillPackage = (
-  root: string,
-  fixture: { readonly name: string; readonly description?: string; readonly version?: string },
-): string => {
-  const description = fixture.description ?? `The ${fixture.name} skill.`;
-  const packageRoot = nodePath.join(root, "vendor", fixture.name);
-  writePackageFile(
-    packageRoot,
-    "skill.json",
-    `${JSON.stringify(
-      {
-        $schema: "https://axm.sh/schemas/skill.schema.json",
-        owner: "@acme",
-        type: "skill",
-        name: fixture.name,
-        version: fixture.version ?? "1.0.0",
-        description,
-      },
-      null,
-      2,
-    )}\n`,
-  );
-  writePackageFile(
-    packageRoot,
-    "src/SKILL.md",
-    `---\nname: "${fixture.name}"\ndescription: "${description}"\n---\n\n# ${fixture.name}\n\n${description}\n`,
-  );
-  return packageRoot;
-};
-
-/** A workspace-authored rule package under `<root>/rules/<name>`. */
+/** A workspace-authored rule package under its authored directory, with `body` as its guidance. */
 export const writeAuthoredRule = (root: string, name: string, body: string): void => {
-  const packageRoot = nodePath.join(root, "rules", name);
-  writePackageFile(
-    packageRoot,
-    "rule.json",
-    `${JSON.stringify({
-      $schema: "https://axm.sh/schemas/rule.schema.json",
-      owner: "@acme",
-      type: "rule",
-      name,
-      version: "1.0.0",
-      description: `Guidance for ${name}.`,
-    })}\n`,
-  );
-  writePackageFile(packageRoot, "src/RULE.md", `${body}\n`);
+  writeMinimalPackage(nodePath.join(root, DEFAULT_AUTHORED_DIRECTORIES.rule, name), "rule", {
+    name,
+    body,
+  });
 };
 
-/** A workspace-authored Knowledge bundle under `<root>/knowledge/<name>`. */
+/** A workspace-authored Knowledge bundle under its authored directory. */
 export const writeAuthoredKnowledge = (root: string, name: string, description: string): void => {
-  const packageRoot = nodePath.join(root, "knowledge", name);
-  writePackageFile(
-    packageRoot,
-    "knowledge.json",
-    `${JSON.stringify({
-      $schema: "https://axm.sh/schemas/knowledge.schema.json",
-      owner: "@acme",
-      type: "knowledge",
-      name,
-      version: "1.0.0",
-      description,
-      format: { name: "okf", version: "0.2" },
-      bundleRoot: "src",
-    })}\n`,
-  );
-  writePackageFile(
-    packageRoot,
-    "src/index.md",
-    `---\nokf_version: "0.2"\ndescription: "${description}"\n---\n\n# ${name}\n`,
+  writeMinimalPackage(
+    nodePath.join(root, DEFAULT_AUTHORED_DIRECTORIES.knowledge, name),
+    "knowledge",
+    { name, description },
   );
 };

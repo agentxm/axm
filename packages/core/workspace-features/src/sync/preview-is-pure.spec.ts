@@ -7,7 +7,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { writeLocalSubagentPackage } from "../testing/local-packages.js";
+import { writeLocalSkillPackage, writeLocalSubagentPackage } from "../testing/local-packages.js";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { SyncWorkspace } from "./index.js";
 import { syncRequest } from "./testing.js";
@@ -24,7 +24,6 @@ import {
   expectResolved,
   makeSyncFixture,
   previewSync,
-  writeLocalSkillPackage,
   writeAuthoredKnowledge,
   writeAuthoredRule,
   type SyncFixture,

@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
 import type { SourceHostProvidersService } from "@agentxm/workspace-kernel/sources";
 import { isolatedGitEnv } from "@agentxm/workspace-kernel/sources/testing";
-import { writeLocalSkillPackage } from "../../testing/sync-fixture.js";
+import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { makeLocatorSourceView } from "./git-discovery.js";
 
 const git = (directory: string, args: ReadonlyArray<string>): string =>

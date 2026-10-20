@@ -11,38 +11,33 @@
  * @internal Test-only. Not part of the package's public API.
  */
 
-import * as fs from "node:fs";
 import * as nodePath from "node:path";
+
+import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  DEFAULT_AUTHORED_DIRECTORIES,
+  SETTINGS_ENTRY_KEYS,
+} from "@agentxm/workspace-kernel/workspace-state";
+
+import { writeMinimalPackage } from "../../testing/local-packages.js";
+
+const authoringRow = <T extends ExtensionType>(type: T) => ({
+  type,
+  plural: DEFAULT_AUTHORED_DIRECTORIES[type],
+  settingsKey: SETTINGS_ENTRY_KEYS[type],
+  manifest: manifestFilenameForType(type),
+});
 
 /** The seven types, with the names their settings and manifests use. */
 export const authoringTypes = [
-  {
-    type: "skill",
-    plural: "skills",
-    settingsKey: "skills",
-    manifest: "skill.json",
-  },
-  {
-    type: "subagent",
-    plural: "subagents",
-    settingsKey: "subagents",
-    manifest: "subagent.json",
-  },
-  {
-    type: "mcp-server",
-    plural: "mcps",
-    settingsKey: "mcpServers",
-    manifest: "mcp.json",
-  },
-  { type: "rule", plural: "rules", settingsKey: "rules", manifest: "rule.json" },
-  { type: "hook", plural: "hooks", settingsKey: "hooks", manifest: "hook.json" },
-  {
-    type: "knowledge",
-    plural: "knowledge",
-    settingsKey: "knowledge",
-    manifest: "knowledge.json",
-  },
-  { type: "pack", plural: "packs", settingsKey: "packs", manifest: "pack.json" },
+  authoringRow("skill"),
+  authoringRow("subagent"),
+  authoringRow("mcp-server"),
+  authoringRow("rule"),
+  authoringRow("hook"),
+  authoringRow("knowledge"),
+  authoringRow("pack"),
 ] as const;
 
 export type AuthoringType = (typeof authoringTypes)[number];
@@ -54,116 +49,10 @@ export const authoringTypeFor = (type: AuthoringType["type"]): AuthoringType => 
   return row;
 };
 
-const writeFileAt = (target: string, contents: string): void => {
-  fs.mkdirSync(nodePath.dirname(target), { recursive: true });
-  fs.writeFileSync(target, contents);
-};
-
-interface PackageFixture {
-  readonly name: string;
-  readonly owner: string;
-  readonly version: string;
-  readonly description: string;
-}
-
-const manifestFor = (
-  row: AuthoringType,
-  fixture: PackageFixture,
-): Readonly<Record<string, unknown>> => {
-  const base = {
-    $schema: `https://axm.sh/schemas/${row.type === "mcp-server" ? "mcp" : row.type}.schema.json`,
-    owner: fixture.owner,
-    type: row.type,
-    name: fixture.name,
-    version: fixture.version,
-    description: fixture.description,
-    license: "MIT",
-  };
-  switch (row.type) {
-    case "subagent":
-      return { ...base, core: { instructions: `src/${fixture.name}.md` } };
-    case "hook":
-      return {
-        ...base,
-        implementations: ["claude-code", "codex"].map((protocol) => ({
-          id: protocol,
-          protocol,
-          bindings: [
-            {
-              id: "before-write",
-              event: "PreToolUse",
-              matcher: "Write",
-              handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
-            },
-          ],
-        })),
-      };
-    case "knowledge":
-      return { ...base, format: { name: "okf", version: "0.2" }, bundleRoot: "src" };
-    case "pack":
-      return { ...base, dependencies: {} };
-    case "mcp-server":
-      return {
-        ...base,
-        server: {
-          name: `ai.agentxm.spec/${fixture.name}`,
-          description: fixture.description,
-          version: fixture.version,
-          packages: [
-            {
-              registryType: "npm",
-              identifier: `@acme/${fixture.name}`,
-              version: fixture.version,
-              transport: { type: "stdio" },
-            },
-          ],
-        },
-      };
-    default:
-      return base;
-  }
-};
-
-const writeBody = (row: AuthoringType, packageRoot: string, fixture: PackageFixture): void => {
-  switch (row.type) {
-    case "skill":
-      writeFileAt(
-        nodePath.join(packageRoot, "src", "SKILL.md"),
-        `---\nname: "${fixture.name}"\ndescription: "${fixture.description}"\n---\n\n# ${fixture.name}\n\n${fixture.description}\n`,
-      );
-      return;
-    case "subagent":
-      writeFileAt(
-        nodePath.join(packageRoot, "src", `${fixture.name}.md`),
-        `# ${fixture.name}\n\n${fixture.description}\n`,
-      );
-      return;
-    case "rule":
-      writeFileAt(
-        nodePath.join(packageRoot, "src", "RULE.md"),
-        `Guidance for ${fixture.name}: ${fixture.description}\n`,
-      );
-      return;
-    case "hook":
-      writeFileAt(
-        nodePath.join(packageRoot, "src", "hook.sh"),
-        `#!/usr/bin/env bash\necho "${fixture.name}"\n`,
-      );
-      return;
-    case "knowledge":
-      writeFileAt(
-        nodePath.join(packageRoot, "src", "index.md"),
-        `---\nokf_version: "0.2"\ndescription: "${fixture.description}"\n---\n\n# ${fixture.name}\n`,
-      );
-      return;
-    case "mcp-server":
-    case "pack":
-      return;
-  }
-};
-
 /**
- * Write a complete package of one type under `root`.
+ * Write a complete package of one type under `root`: the type's minimal
+ * package with a license, plus `notes.txt`, whose bytes prove an operation
+ * carried the whole package rather than its manifest.
  *
  * By default it lands in `vendor/<name>`, the shape a fork or import reads
  * from; `parent` relocates it, which is how an adoption's acquired copy is
@@ -179,23 +68,16 @@ export const writeAuthoringPackage = (
     readonly owner?: string;
     readonly description?: string;
   } = {},
-): string => {
-  const fixture: PackageFixture = {
-    name,
-    owner: options.owner ?? "@acme",
-    version: options.version ?? "1.2.3",
-    description: options.description ?? `The ${name} ${row.type}.`,
-  };
-  const packageRoot = nodePath.join(root, options.parent ?? "vendor", name);
-  fs.mkdirSync(packageRoot, { recursive: true });
-  writeFileAt(
-    nodePath.join(packageRoot, row.manifest),
-    `${JSON.stringify(manifestFor(row, fixture), null, 2)}\n`,
+): string =>
+  writeMinimalPackage(
+    nodePath.join(root, options.parent ?? "vendor", name),
+    row.type,
+    {
+      name,
+      owner: options.owner ?? "@acme",
+      version: options.version ?? "1.2.3",
+      ...(options.description === undefined ? {} : { description: options.description }),
+      license: "MIT",
+    },
+    { "notes.txt": "Author notes preserved across the operation.\n" },
   );
-  writeBody(row, packageRoot, fixture);
-  writeFileAt(
-    nodePath.join(packageRoot, "notes.txt"),
-    "Author notes preserved across the operation.\n",
-  );
-  return packageRoot;
-};

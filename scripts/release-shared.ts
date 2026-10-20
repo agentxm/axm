@@ -121,7 +121,7 @@ export interface AxmSkillCompatibilityDeclaration {
   readonly cliVersionRange: string;
 }
 
-export const readSkillCompatibilityFromContent = (
+const readSkillCompatibilityFromContent = (
   content: string,
   source: string,
 ): AxmSkillCompatibilityDeclaration => {
@@ -143,7 +143,7 @@ export const readSkillCompatibility = (
 ): AxmSkillCompatibilityDeclaration =>
   readSkillCompatibilityFromContent(readFileSync(path, "utf8"), path);
 
-export const readSkillCompatibilityAtRef = (
+const readSkillCompatibilityAtRef = (
   ref: string,
   path: string = AXM_SKILL_DOCUMENT_PATH,
 ): AxmSkillCompatibilityDeclaration =>
@@ -395,7 +395,7 @@ export const parseGitHubRuns = (value: string): GitHubRun[] => {
   });
 };
 
-export const listCiRunsForCommit = (sha: string): GitHubRun[] => {
+const listCiRunsForCommit = (sha: string): GitHubRun[] => {
   const output = capture("gh", [
     "run",
     "list",

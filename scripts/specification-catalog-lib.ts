@@ -70,7 +70,7 @@ export interface CatalogExecutionBinding extends ExecutionBinding {
   readonly source: string;
 }
 
-export interface CatalogProductGoal {
+interface CatalogProductGoal {
   readonly id: string;
   readonly outcome: string;
   readonly status: "active" | "retired";
@@ -96,7 +96,7 @@ const REQUIREMENT_ROLE_LABELS: Readonly<Record<(typeof REQUIREMENT_ROLE_ORDER)[n
 };
 
 /** The local product-goal registry stays beside the generated catalog. */
-export const PRODUCT_GOALS_SOURCE = "specifications/product-goals.ts";
+const PRODUCT_GOALS_SOURCE = "specifications/product-goals.ts";
 
 type LiteralValue =
   string | number | boolean | readonly LiteralValue[] | { readonly [key: string]: LiteralValue };

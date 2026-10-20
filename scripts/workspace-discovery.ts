@@ -58,7 +58,7 @@ export interface Workspace {
   readonly read: (filePath: string) => string;
 }
 
-export interface WorkspaceSeed {
+interface WorkspaceSeed {
   readonly describe: string;
   readonly root: string;
   readonly projects: readonly WorkspaceProject[];
@@ -111,7 +111,7 @@ const projectFromDeclaration = (projectFile: string, declaration: string): Works
 };
 
 /** Builds a workspace from explicit projects and files; ownership is the nearest project root. */
-export const makeWorkspace = (seed: WorkspaceSeed): Workspace => {
+const makeWorkspace = (seed: WorkspaceSeed): Workspace => {
   const projects = [...seed.projects].sort((left, right) => left.root.localeCompare(right.root));
   const byName = new Map(projects.map((project) => [project.name, project]));
   const ownerOf = (filePath: string): WorkspaceProject | undefined => {
@@ -253,9 +253,7 @@ export const productionProjects = (workspace: Workspace): readonly WorkspaceProj
   workspace.projects.filter((project) => hasDomain(project) || hasTag(project, "role:application"));
 
 /** Projects that bind boundary executions to requirement identities. */
-export const discoverExecutionBindingProjects = (
-  workspace: Workspace,
-): readonly WorkspaceProject[] =>
+const discoverExecutionBindingProjects = (workspace: Workspace): readonly WorkspaceProject[] =>
   workspace.projects.filter((project) => hasTag(project, "role:e2e"));
 
 /**

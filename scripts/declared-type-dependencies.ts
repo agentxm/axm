@@ -31,7 +31,7 @@ import {
 } from "@nx/devkit";
 
 /** The scope whose cross-package references this guard judges. */
-export const GUARDED_SCOPE = "@agentxm/";
+const GUARDED_SCOPE = "@agentxm/";
 
 /** One package's built declarations, as the guard reads them. */
 export interface DeclarationSubject {

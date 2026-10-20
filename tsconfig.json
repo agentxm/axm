@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.base.json",
-  "files": ["allurerc.ts"],
+  "files": ["allurerc.ts", "specifications/product-goals.ts"],
   "include": [],
   "references": [],
   "compilerOptions": {

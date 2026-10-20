@@ -87,7 +87,7 @@ const PublishReasonSchema = Schema.Literals([
   description: "Reason a publish item was skipped or errored.",
 });
 
-export const PublishAdvisoryFindingSchema = Schema.Struct({
+const PublishAdvisoryFindingSchema = Schema.Struct({
   ruleId: Schema.String,
   severity: Schema.Literal("warning"),
   message: Schema.String,
@@ -97,7 +97,6 @@ export const PublishAdvisoryFindingSchema = Schema.Struct({
   title: "Publish Advisory Finding",
   description: "A non-gating structured warning observed during publication.",
 });
-export type PublishAdvisoryFinding = typeof PublishAdvisoryFindingSchema.Type;
 
 const PublishPhaseSchema = Schema.Literals([
   "selection",
@@ -397,7 +396,7 @@ const selectionCounts = (
   unmatched: decisions.filter((decision) => decision.disposition === "unmatched").length,
 });
 
-export const executionStatus = (
+const executionStatus = (
   mode: PublishResult["mode"],
   results: ReadonlyArray<PublishResultItem>,
   failure: PublishResult["execution"]["failure"] | undefined,

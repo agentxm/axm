@@ -22,7 +22,7 @@ import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/te
 import { PromoteAuthoredPack, type PromoteAuthoredPackRequest } from "./promote-authored-pack.js";
 
 export const PACK = "toolkit";
-export const MEMBERS = ["review", "test-helper"] as const;
+const MEMBERS = ["review", "test-helper"] as const;
 export const MEMBER_VERSION = "1.2.3";
 
 /** Settle an unpack and preview it: nothing is written. */
@@ -69,11 +69,7 @@ export const makePackWorld = (
  * An authored Pack manifest recording the named members as dependencies —
  * the shape `axm packs new` plus `axm packs add` leaves behind.
  */
-export const writeAuthoredPack = (
-  root: string,
-  name: string,
-  members: ReadonlyArray<string>,
-): string => {
+const writeAuthoredPack = (root: string, name: string, members: ReadonlyArray<string>): string => {
   const packageRoot = nodePath.join(root, "packs", name);
   fs.mkdirSync(packageRoot, { recursive: true });
   fs.writeFileSync(

@@ -39,7 +39,7 @@ import { authoringRefused } from "../errors.js";
 /**
  * Args for the add-to-pack operation.
  */
-export interface AddToPackOperationArgs {
+interface AddToPackOperationArgs {
   /** Pack name (without owner). */
   readonly packName: string;
   /** Pack owner (e.g., "@myorg"). */

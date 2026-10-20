@@ -28,7 +28,7 @@ import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registr
  * - `update-available` — a newer version exists within the same major line.
  * - `major-update-available` — a newer major version exists.
  */
-export type CurrencyStatus = "current" | "update-available" | "major-update-available";
+type CurrencyStatus = "current" | "update-available" | "major-update-available";
 
 /**
  * Result of a currency check for a single extension.

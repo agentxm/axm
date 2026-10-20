@@ -39,7 +39,7 @@ export interface AuthoredMcpPreferences {
 }
 
 /** What the workspace currently declares about one name of one type. */
-export interface AuthoredDeclarationState {
+interface AuthoredDeclarationState {
   /** Whether any entry of this type carries this name. */
   readonly configured: boolean;
   /** The activation the existing entry carries, or none when undeclared. */

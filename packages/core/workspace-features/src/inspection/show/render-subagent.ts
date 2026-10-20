@@ -40,7 +40,7 @@ export const SubagentRenderResultSchema = Schema.Struct({
   artifacts: Schema.Array(Schema.Struct({ path: Schema.String, content: Schema.String })),
   qualifications: Schema.Array(Schema.String),
 });
-export type SubagentRenderResult = typeof SubagentRenderResultSchema.Type;
+type SubagentRenderResult = typeof SubagentRenderResultSchema.Type;
 
 /** Render one catalog runtime without modifying membership, canonical content, or projections. */
 export const RenderSubagent = {

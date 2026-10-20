@@ -56,7 +56,7 @@ export interface ConfiguredUpdateSelector {
 }
 
 /** What a selector resolved to. */
-export type ConfiguredUpdateSelection =
+type ConfiguredUpdateSelection =
   /** No selector was given: every configured entry of the type is in scope. */
   | { readonly _tag: "All" }
   /** The selector matched these installed names. */

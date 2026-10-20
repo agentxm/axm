@@ -95,7 +95,7 @@ const inspectInstalled = Effect.fn("Knowledge.lintInstalled")(function* (bundle?
   );
 });
 
-export interface LintKnowledgeResult {
+interface LintKnowledgeResult {
   readonly document: KnowledgeLintQueryResult;
   /** How many bundles were validated, for the success sentence. */
   readonly bundleCount: number;

@@ -23,7 +23,7 @@ import {
 } from "./authoring-workspace.js";
 
 /** One member the workspace holds, and how it holds it. */
-export interface PackMemberFixture {
+interface PackMemberFixture {
   readonly type: "skill" | "rule";
   readonly name: string;
   readonly version: string;

@@ -18,7 +18,6 @@ import {
   KnowledgeRevisionSchema,
   parseConceptRef,
 } from "@agentxm/extension-model/unstable/knowledge";
-import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { captureInstalledKnowledgeCorpus } from "./corpus/installed-corpus.js";
 import type {
@@ -41,12 +40,6 @@ import {
   makeKnowledgeQueryRequest,
   type KnowledgeQueryRequest,
 } from "./query/request.js";
-
-/** Every discovery operation reports the same two refusals it cannot recover from. */
-export type KnowledgeDiscoveryOutcome<A> =
-  | { readonly outcome: "corpus-changing" }
-  | { readonly outcome: "cursor-expired" }
-  | ({ readonly outcome: "ready" } & A);
 
 const decodeRevision = Schema.decodeUnknownResult(KnowledgeRevisionSchema);
 
@@ -232,4 +225,4 @@ export const KnowledgeDiscovery = {
   }),
 };
 
-export type { KnowledgeQueryRequest, WorkspaceScope };
+export type { KnowledgeQueryRequest };

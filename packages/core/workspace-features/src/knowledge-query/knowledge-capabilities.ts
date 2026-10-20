@@ -9,7 +9,7 @@ import {
   KNOWLEDGE_SEARCHABLE_FIELDS,
 } from "./knowledge-query.js";
 
-export const KNOWLEDGE_DISCOVERY_CAPABILITIES_CONTRACT_ID = "knowledge-discovery-capabilities-v1";
+const KNOWLEDGE_DISCOVERY_CAPABILITIES_CONTRACT_ID = "knowledge-discovery-capabilities-v1";
 
 export const KnowledgeDiscoveryCapabilitiesSchema = Schema.Struct({
   contract: Schema.Literal(KNOWLEDGE_DISCOVERY_CAPABILITIES_CONTRACT_ID),

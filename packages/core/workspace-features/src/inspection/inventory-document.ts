@@ -24,7 +24,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 
 /** Acquisition authority, distinct from workspace management and native placement. */
-export const ExtensionListSourceSchema = Schema.Union([
+const ExtensionListSourceSchema = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("registry"),
     locator: Schema.String,

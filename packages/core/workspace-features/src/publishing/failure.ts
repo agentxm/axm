@@ -40,7 +40,7 @@ export const isPublishFailure = (error: unknown): error is PublishFailure =>
   isRegistryClientFailure(error);
 
 /** Error classes the publish document reports beside the category. */
-export type PublishCauseClass = "internal" | "user" | "external";
+type PublishCauseClass = "internal" | "user" | "external";
 
 const CAUSE_CLASS_BY_CATEGORY: Readonly<Record<ErrorCode, PublishCauseClass>> = {
   issues: "user",
@@ -69,7 +69,7 @@ export const renderPublishFailure = (failure: PublishFailure | AuthError): StepF
   kernelFailureToStepFailure(failure);
 
 /** True when the request policy proved the failure worth retrying. */
-export const isRetryablePublishFailure = (failure: PublishFailure): boolean =>
+const isRetryablePublishFailure = (failure: PublishFailure): boolean =>
   renderPublishFailure(failure).metadata?.requestPolicy?.retryable === true;
 
 /** The Registry problem code, when the failure carried one. */

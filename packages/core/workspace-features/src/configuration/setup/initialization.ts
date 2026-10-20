@@ -1017,7 +1017,7 @@ const configureProjectWorkspace = (args: {
     };
   });
 
-export const initializeProjectWorkspace = (localDir: string, options: WorkspaceStateOptions) =>
+const initializeProjectWorkspace = (localDir: string, options: WorkspaceStateOptions) =>
   configureProjectWorkspace({
     localDir,
     options,
@@ -1144,10 +1144,7 @@ const workspaceInitializationState = (
  *
  * @param workspaceRoot - Path to the user workspace root
  */
-export const ensureUserWorkspaceInitialized = (
-  workspaceRoot: string,
-  options: WorkspaceStateOptions,
-) =>
+const ensureUserWorkspaceInitialized = (workspaceRoot: string, options: WorkspaceStateOptions) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -1211,10 +1208,7 @@ const completesInstructionChoice = (settings: Settings, options: WorkspaceStateO
  * @param options - workspace-state options
  * @returns Effect yielding local Settings
  */
-export const ensureProjectWorkspaceInitialized = (
-  localDir: string,
-  options: WorkspaceStateOptions,
-) =>
+const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceStateOptions) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const userHome = yield* resolveUserHome();

@@ -90,14 +90,14 @@ import { authoringRefused } from "../errors.js";
 // -----------------------------------------------------------------------------
 
 /** The relative bumps a manifest version can take. */
-export type VersionBumpRule = "patch" | "minor" | "major" | "prerelease";
+type VersionBumpRule = "patch" | "minor" | "major" | "prerelease";
 
 /** How the next version is decided: by rule, or stated exactly. */
 export type AuthoredVersionChange =
   | { readonly _tag: "Increment"; readonly rule: VersionBumpRule }
   | { readonly _tag: "Exact"; readonly version: string };
 
-export interface ChangeAuthoredVersionRequest {
+interface ChangeAuthoredVersionRequest {
   /** Owner-qualified identity of the authored package, as the person typed it. */
   readonly fqn: string;
   readonly change: AuthoredVersionChange;
@@ -108,11 +108,11 @@ export interface ChangeAuthoredVersionRequest {
 // -----------------------------------------------------------------------------
 
 /** What the version step requires when it runs. */
-export type ChangeAuthoredVersionRequirements =
+type ChangeAuthoredVersionRequirements =
   FileSystem.FileSystem | Path.Path | WorkspaceTransactionScope;
 
 /** A settled version change: the manifest is read, the next version decided, nothing written. */
-export interface ChangeAuthoredVersionCandidate {
+interface ChangeAuthoredVersionCandidate {
   readonly type: ExtensionType;
   /** Owner-qualified identity, canonically formatted. */
   readonly fqn: string;
@@ -126,7 +126,7 @@ export interface ChangeAuthoredVersionCandidate {
 }
 
 /** Every failure settling a version change can surface before anything is written. */
-export type ChangeAuthoredVersionFailure =
+type ChangeAuthoredVersionFailure =
   | AuthoredVersionError
   | AuthoringScopeUnsupported
   | LockfileValidationError
@@ -136,7 +136,7 @@ export type ChangeAuthoredVersionFailure =
   | FqnInvalidError;
 
 /** Everything settling a version change reads before it freezes a candidate. */
-export type PrepareChangeAuthoredVersionRequirements =
+type PrepareChangeAuthoredVersionRequirements =
   | FileSystem.FileSystem
   | Path.Path
   | AcceptedResolutionWriter
@@ -258,7 +258,7 @@ export const changeAuthoredVersionPlanName = "Update extension version";
 // -----------------------------------------------------------------------------
 
 /** Settle a version change without writing anything. */
-export const prepareChangeAuthoredVersion: (
+const prepareChangeAuthoredVersion: (
   request: ChangeAuthoredVersionRequest,
 ) => Effect.Effect<
   ChangeAuthoredVersionCandidate,
@@ -439,7 +439,7 @@ export const prepareChangeAuthoredVersion: (
 // -----------------------------------------------------------------------------
 
 /** Preview or apply a settled version change, resolving to one operation outcome. */
-export const previewOrApplyChangeAuthoredVersion = (
+const previewOrApplyChangeAuthoredVersion = (
   candidate: ChangeAuthoredVersionCandidate,
   execution: PlanExecution,
 ) => resolveExecutionCandidate(candidate.execution, execution);

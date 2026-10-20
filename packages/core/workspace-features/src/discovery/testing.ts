@@ -29,7 +29,6 @@ import {
   type RegistryResponseFixture,
 } from "@agentxm/registry-client/testing";
 
-export { testRegistryUrl } from "@agentxm/registry-client/testing";
 export type {
   ObservedRegistryRequest,
   RegistryResponseFixture,

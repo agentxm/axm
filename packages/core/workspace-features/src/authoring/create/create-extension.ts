@@ -149,31 +149,31 @@ interface CreateRequestBase {
   readonly owner: Option.Option<string>;
 }
 
-export interface CreateSkillRequest extends CreateRequestBase {
+interface CreateSkillRequest extends CreateRequestBase {
   readonly type: "skill";
 }
-export interface CreateSubagentRequest extends CreateRequestBase {
+interface CreateSubagentRequest extends CreateRequestBase {
   readonly type: "subagent";
 }
-export interface CreateRuleRequest extends CreateRequestBase {
+interface CreateRuleRequest extends CreateRequestBase {
   readonly type: "rule";
   readonly title: Option.Option<string>;
 }
-export interface CreateHookRequest extends CreateRequestBase {
+interface CreateHookRequest extends CreateRequestBase {
   readonly type: "hook";
   readonly runtime: HookRuntime;
   readonly protocol: HookImplementation["protocol"];
   readonly event: string;
   readonly matcher: Option.Option<string>;
 }
-export interface CreateKnowledgeRequest extends CreateRequestBase {
+interface CreateKnowledgeRequest extends CreateRequestBase {
   readonly type: "knowledge";
   readonly description: Option.Option<string>;
 }
-export interface CreatePackRequest extends CreateRequestBase {
+interface CreatePackRequest extends CreateRequestBase {
   readonly type: "pack";
 }
-export interface CreateMcpServerRequest extends CreateRequestBase {
+interface CreateMcpServerRequest extends CreateRequestBase {
   readonly type: "mcp-server";
   readonly description: Option.Option<string>;
   /**
@@ -203,7 +203,7 @@ export type CreatableExtensionType = CreateExtensionRequest["type"];
 // -----------------------------------------------------------------------------
 
 /** What every step in this creation may require when it runs. */
-export type CreateExtensionRequirements =
+type CreateExtensionRequirements =
   | SubagentManager
   | RuleManager
   | HookManager
@@ -239,7 +239,7 @@ export interface CreateExtensionCandidate {
 }
 
 /** Every failure settling a creation can surface before anything is written. */
-export type CreateExtensionFailure =
+type CreateExtensionFailure =
   | AuthoringStepFailure
   | AuthoringOwnerRequired
   | AuthoringOwnerMismatch
@@ -249,7 +249,7 @@ export type CreateExtensionFailure =
   | FqnInvalidError;
 
 /** Everything settling a creation reads before it freezes a candidate. */
-export type PrepareCreateExtensionRequirements =
+type PrepareCreateExtensionRequirements =
   | ManagerRequirements
   | FileSystem.FileSystem
   | Path.Path
@@ -483,7 +483,7 @@ const authoredStep = <TRef extends ExtensionRef, TFacts>(
  * and again inside the transaction so a candidate that went stale between
  * preview and apply writes nothing.
  */
-export const prepareCreateExtension: (
+const prepareCreateExtension: (
   request: CreateExtensionRequest,
 ) => Effect.Effect<
   CreateExtensionCandidate,
@@ -882,7 +882,7 @@ export const prepareCreateExtension: (
 // -----------------------------------------------------------------------------
 
 /** Preview or apply a settled creation, resolving to one operation outcome. */
-export const previewOrApplyCreateExtension = (
+const previewOrApplyCreateExtension = (
   candidate: CreateExtensionCandidate,
   execution: PlanExecution,
 ) => resolveExecutionCandidate(candidate.execution, execution);

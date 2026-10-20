@@ -36,7 +36,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 
 /** The Registry an accepted resolution in these specifications came from. */
-export const SPEC_REGISTRY_ENDPOINT = "https://registry.example.com/";
+const SPEC_REGISTRY_ENDPOINT = "https://registry.example.com/";
 
 /**
  * The settings `sources` row that gives the Registry a declaration-time name.

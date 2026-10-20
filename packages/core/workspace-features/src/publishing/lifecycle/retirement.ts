@@ -65,7 +65,7 @@ export const parseExtensionReference = (
  * Yank and un-yank address one immutable version. The exact-version grammar
  * is required so no invocation can retire more than the caller named.
  */
-export const parseExactVersionReference = (
+const parseExactVersionReference = (
   input: string,
 ): Effect.Effect<RegistryExtensionVersionReference, OperationRefused> =>
   Effect.gen(function* () {

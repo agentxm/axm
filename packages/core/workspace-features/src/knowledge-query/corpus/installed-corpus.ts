@@ -36,7 +36,7 @@ export interface CapturedInstalledBundle {
   readonly sourceRoot: string;
 }
 
-export type InstalledKnowledgeCorpus =
+type InstalledKnowledgeCorpus =
   | {
       readonly outcome: "ready";
       readonly snapshot: KnowledgeIndexSnapshot;

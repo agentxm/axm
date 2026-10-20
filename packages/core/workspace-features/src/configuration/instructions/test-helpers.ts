@@ -14,12 +14,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 
-import {
-  ManageInstructions,
-  type InstructionsUnchanged,
-  type ManageInstructionsCandidate,
-  type ManageInstructionsRequest,
-} from "./manage-instructions.js";
+import { ManageInstructions, type ManageInstructionsRequest } from "./manage-instructions.js";
 
 const run = (request: ManageInstructionsRequest, mode: "apply" | "preview") =>
   Effect.gen(function* () {
@@ -37,14 +32,6 @@ export const applyInstructionsRequest = (request: ManageInstructionsRequest) =>
 
 export const previewInstructionsRequest = (request: ManageInstructionsRequest) =>
   run(request, "preview");
-
-export type InstructionsRunOutcome =
-  | InstructionsUnchanged
-  | {
-      readonly candidate: ManageInstructionsCandidate;
-      readonly resolution: Effect.Success<ReturnType<typeof ManageInstructions.previewOrApply>>;
-      readonly outcome: ReturnType<typeof deriveOperationOutcome>;
-    };
 
 /** A platform whose symlink creation is refused, so aliases fall back to copies. */
 export const makeSymlinkRefusingPlatform = () => {

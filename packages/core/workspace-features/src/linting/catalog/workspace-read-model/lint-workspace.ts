@@ -112,7 +112,7 @@ import { manifestFilenameForType } from "@agentxm/extension-model/unstable/exten
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface LintWorkspaceView {
+interface LintWorkspaceView {
   readonly installedSkills: ReadonlyArray<InstalledSkillInfo>;
   readonly installedPacks: ReadonlyArray<InstalledPackInfo>;
   readonly subagentContexts: ReadonlyArray<ManifestRuleContext<SubagentContent>>;
@@ -1111,7 +1111,7 @@ const acquiredPackageDisplayRoot = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const acquiredSkillDisplayRoot = (
+const acquiredSkillDisplayRoot = (
   scope: "project" | "user",
   entry: SkillLockEntry,
   name: string,
@@ -1123,7 +1123,7 @@ export const acquiredSkillDisplayRoot = (
 /**
  * Options for building an `InstalledSkillInfo` from an accepted acquired skill.
  */
-export interface BuildAcquiredInstalledSkillInfoArgs {
+interface BuildAcquiredInstalledSkillInfoArgs {
   readonly platform: {
     readonly fs: FileSystem.FileSystem;
     readonly path: Path.Path;
@@ -1139,7 +1139,7 @@ export interface BuildAcquiredInstalledSkillInfoArgs {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const buildAcquiredInstalledSkillInfo = (
+const buildAcquiredInstalledSkillInfo = (
   args: BuildAcquiredInstalledSkillInfoArgs,
 ): InstalledSkillInfo => {
   const packageRoot = args.platform.path.resolve(

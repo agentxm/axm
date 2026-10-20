@@ -33,7 +33,6 @@ import * as Effect from "effect/Effect";
 import {
   composePath,
   type LintConfig,
-  platformCanonicalLintConfig,
   type Evaluated,
   evaluateContexts,
   type LintFinding,
@@ -213,7 +212,7 @@ export const collectRenderedFindings = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const countFindings = (findings: ReadonlyArray<RenderedFinding>): FindingCounts => {
+const countFindings = (findings: ReadonlyArray<RenderedFinding>): FindingCounts => {
   let errors = 0;
   let warnings = 0;
   let infos = 0;
@@ -340,7 +339,7 @@ export const resolveLintExitCategory = (args: {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string> => {
+const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string> => {
   void config;
   return [];
 };
@@ -404,9 +403,3 @@ export const toLintJsonDocument = (args: {
     driftBanner: summary.driftBanner,
   };
 };
-
-// -----------------------------------------------------------------------------
-// Re-exports that CLI callers use alongside the runner
-// -----------------------------------------------------------------------------
-
-export { platformCanonicalLintConfig };

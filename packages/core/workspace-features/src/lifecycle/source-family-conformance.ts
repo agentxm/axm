@@ -31,19 +31,19 @@ export const SOURCE_FAMILY_LIFECYCLE_OPERATIONS = [
 export type SourceFamilyLifecycleOperation = (typeof SOURCE_FAMILY_LIFECYCLE_OPERATIONS)[number];
 
 /** A source-family lifecycle cell is implemented and expected to succeed. */
-export interface SupportedLifecycleCell {
+interface SupportedLifecycleCell {
   readonly outcome: "supported";
 }
 
 /** A lifecycle operation deliberately does not apply to a source family. */
-export interface UnsupportedLifecycleCell {
+interface UnsupportedLifecycleCell {
   readonly outcome: "unsupported-by-design";
   /** Stable public design reason, not an implementation gap. */
   readonly decision: string;
 }
 
 /** A required lifecycle cell whose implementation has not landed yet. */
-export interface BlockedLifecycleCell {
+interface BlockedLifecycleCell {
   readonly outcome: "blocked";
   readonly reason: string;
 }
@@ -95,7 +95,7 @@ const workspaceFamilyOperations: Record<
  * two explicit exceptions: they have no lock resolution to reacquire and are
  * advanced by editing their authored content before sync.
  */
-export const SOURCE_FAMILY_LIFECYCLE_OUTCOMES: Record<
+const SOURCE_FAMILY_LIFECYCLE_OUTCOMES: Record<
   ExtensionSourceFamily,
   Record<SourceFamilyLifecycleOperation, SourceFamilyLifecycleOutcome>
 > = EffectRecord.fromEntries(

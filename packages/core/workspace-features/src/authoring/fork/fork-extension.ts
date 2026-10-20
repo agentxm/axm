@@ -123,7 +123,7 @@ const INITIAL_FORK_VERSION = "0.1.0";
 // Request
 // -----------------------------------------------------------------------------
 
-export interface ForkExtensionRequest {
+interface ForkExtensionRequest {
   /** Registry, workspace, local, or Git AXM package source, as typed. */
   readonly source: string;
   /** Owner-qualified identity the fork will carry. */
@@ -144,7 +144,7 @@ export interface ForkExtensionRequest {
 // -----------------------------------------------------------------------------
 
 /** What every step in a fork may require when it runs. */
-export type ForkExtensionRequirements =
+type ForkExtensionRequirements =
   | SubagentManager
   | RuleManager
   | HookManager
@@ -164,7 +164,7 @@ export type ForkExtensionRequirements =
   | CodingAgentRepository;
 
 /** A settled fork: every decision is made and nothing under the workspace is written. */
-export interface ForkExtensionCandidate {
+interface ForkExtensionCandidate {
   readonly type: ExtensionType;
   /** Owner-qualified identity of the fork. */
   readonly fqn: string;
@@ -184,7 +184,7 @@ export interface ForkExtensionCandidate {
 }
 
 /** Every failure settling a fork can surface before anything is written. */
-export type ForkExtensionFailure =
+type ForkExtensionFailure =
   | ExtensionManagerFailure
   | OperationRefused
   | AuthoredPackageError
@@ -200,7 +200,7 @@ export type ForkExtensionFailure =
   | FqnInvalidError;
 
 /** Everything settling a fork reads before it freezes a candidate. */
-export type PrepareForkExtensionRequirements =
+type PrepareForkExtensionRequirements =
   | ManagerRequirements
   | FileSystem.FileSystem
   | Path.Path
@@ -314,7 +314,7 @@ export const forkExtensionPlanName = "Fork AXM extension package";
 // -----------------------------------------------------------------------------
 
 /** Settle a fork and stage its content without writing anything to the workspace. */
-export const prepareForkExtension: (
+const prepareForkExtension: (
   request: ForkExtensionRequest,
 ) => Effect.Effect<ForkExtensionCandidate, ForkExtensionFailure, PrepareForkExtensionRequirements> =
   Effect.fn("ForkExtension.prepare")(function* (request) {
@@ -552,10 +552,8 @@ export const prepareForkExtension: (
 // -----------------------------------------------------------------------------
 
 /** Preview or apply a settled fork, resolving to one operation outcome. */
-export const previewOrApplyForkExtension = (
-  candidate: ForkExtensionCandidate,
-  execution: PlanExecution,
-) => resolveExecutionCandidate(candidate.execution, execution);
+const previewOrApplyForkExtension = (candidate: ForkExtensionCandidate, execution: PlanExecution) =>
+  resolveExecutionCandidate(candidate.execution, execution);
 
 /** The fork use case: settle a request, then preview or apply it. */
 export const ForkExtension = {

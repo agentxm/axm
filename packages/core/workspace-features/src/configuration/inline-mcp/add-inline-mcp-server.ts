@@ -96,7 +96,11 @@ interface InlineMcpServerAddition {
   readonly scope: WorkspaceScope;
 }
 
-/** A settled inline add and the execution candidate it plans. */
+/**
+ * A settled inline add and the execution candidate it plans.
+ *
+ * @public Inferred types in this package name it in emitted declarations.
+ */
 export interface AddInlineMcpServerCandidate {
   readonly _tag: "AddInlineMcpServer";
   readonly name: string;
@@ -109,7 +113,11 @@ export interface AddInlineMcpServerCandidate {
   readonly nativeTargetsCurrent: Effect.Effect<boolean, never, AddInlineMcpServerRequirements>;
 }
 
-/** The recorded entry already says exactly what the request asked for. */
+/**
+ * The recorded entry already says exactly what the request asked for.
+ *
+ * @public Inferred types in this package name it in emitted declarations.
+ */
 export interface InlineMcpServerUnchanged {
   readonly _tag: "Unchanged";
   readonly name: string;
@@ -121,7 +129,7 @@ export interface InlineMcpServerUnchanged {
  * definition the workspace can record. A request whose recorded entry already
  * matches is reported as unchanged.
  */
-export const prepareAddInlineMcpServer = (
+const prepareAddInlineMcpServer = (
   request: AddInlineMcpServerRequest,
 ): Effect.Effect<
   AddInlineMcpServerCandidate | InlineMcpServerUnchanged,
@@ -334,7 +342,7 @@ const projectStep = (
 });
 
 /** Every service an inline MCP change and its plan resolution need. */
-export type AddInlineMcpServerRequirements =
+type AddInlineMcpServerRequirements =
   | ConfiguredAgentOutcomesProvider
   | FileSystem.FileSystem
   | FootprintRecorder
@@ -433,7 +441,7 @@ const planAddition = (candidate: InlineMcpServerAddition) =>
   });
 
 /** Preview or apply the inline add a request settled and planned. */
-export const previewOrApplyAddInlineMcpServer = (
+const previewOrApplyAddInlineMcpServer = (
   candidate: AddInlineMcpServerCandidate,
   execution: PlanExecution,
 ): Effect.Effect<

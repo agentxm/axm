@@ -89,7 +89,7 @@ import {
 import { collectConfiguredPackRecovery } from "./configured-pack-recovery.js";
 
 /** Everything a sync plan's steps need when they run. */
-export type SyncWorkspaceRequirements =
+type SyncWorkspaceRequirements =
   | ConfiguredAgentOutcomesProvider
   | ConfiguredEntryResolutionRequirements
   | FootprintRecorder
@@ -121,7 +121,7 @@ export interface SyncWorkspaceRequest {
 }
 
 /** The workspace already matches what it declares. */
-export interface WorkspaceAlreadyReconciled {
+interface WorkspaceAlreadyReconciled {
   readonly _tag: "AlreadyReconciled";
   readonly message: string;
   readonly planName: string;
@@ -142,7 +142,7 @@ export interface SyncWorkspaceCandidate {
 }
 
 /** Every failure settling a reconciliation can surface. */
-export type SyncWorkspaceFailure = SyncPolicyFailure;
+type SyncWorkspaceFailure = SyncPolicyFailure;
 
 const scopeLabelFor = (selection: SyncSelection): string =>
   Option.isSome(selection.target)
@@ -205,7 +205,7 @@ const selectionTouches = (
  * inside its own membership closure. The steps are planned against the
  * membership that closure is about to record, not the one on disk.
  */
-export const planWorkspaceMaterialization = (args: {
+const planWorkspaceMaterialization = (args: {
   readonly selection?: SyncSelection;
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
@@ -242,7 +242,7 @@ export const planWorkspaceMaterialization = (args: {
  * lockfile is the exception — a lockfile needing recovery is planned work even
  * when nothing else diverged.
  */
-export const prepareSyncWorkspace = (
+const prepareSyncWorkspace = (
   request: SyncWorkspaceRequest,
 ): Effect.Effect<
   SyncWorkspaceCandidate | WorkspaceAlreadyReconciled,
@@ -521,7 +521,7 @@ export const prepareSyncWorkspace = (
  * advance, so the execution the caller supplies carries no interactive
  * approval; a plan that turns out to need one stops before mutating.
  */
-export const previewOrApplySyncWorkspace = (
+const previewOrApplySyncWorkspace = (
   candidate: SyncWorkspaceCandidate,
   execution: PlanExecution,
 ): Effect.Effect<OperationResolution<void>, PlanResolutionFailure, SyncWorkspaceRequirements> =>

@@ -35,11 +35,7 @@ import {
   type WorkspaceStateReadFailure,
 } from "@agentxm/workspace-kernel/workspace-state";
 
-import {
-  mcpServerListRows,
-  type McpServerListRow,
-  type McpServerResolution,
-} from "./mcp-servers.js";
+import { mcpServerListRows, type McpServerListRow } from "./mcp-servers.js";
 import { buildInventoryDocument, type ExtensionInventoryDocument } from "../inventory-document.js";
 import { mcpServerListDocument, type McpServerListQueryResult } from "./mcp-servers.js";
 import type { TypeListRow } from "./type-list-row.js";
@@ -301,4 +297,4 @@ export const listMcpServers: (request: {
   return { inventory: augmented, rows, document: mcpServerListDocument({ document, rows }) };
 }, withInspectionReadView);
 
-export type { McpServerListRow, McpServerResolution };
+export type { McpServerListRow };

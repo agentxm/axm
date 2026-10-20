@@ -34,7 +34,7 @@ import { kernelFailureToStepFailure } from "@agentxm/workspace-kernel/reconcilia
 
 export type ExtensionListFilter = "all" | "outdated" | "deprecated";
 
-export type ExtensionAssessmentState =
+type ExtensionAssessmentState =
   | "not-checked"
   | "current"
   | "available"
@@ -44,6 +44,7 @@ export type ExtensionAssessmentState =
   | "unknown"
   | "not-applicable";
 
+/** @public Inferred types in this package name it in emitted declarations. */
 export interface ExtensionAssessment {
   readonly state: ExtensionAssessmentState;
   readonly reason?: string;

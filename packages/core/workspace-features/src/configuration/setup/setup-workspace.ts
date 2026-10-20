@@ -87,7 +87,7 @@ import {
 import { configurationRefused } from "../errors.js";
 
 /** Every failure a setup run can settle into. */
-export type SetupWorkspaceFailure =
+type SetupWorkspaceFailure =
   | Effect.Error<ReturnType<typeof bootstrapWorkspace>>
   | WorkspaceTransactionFailure
   | WorkspaceRestorationIncomplete;
@@ -138,7 +138,7 @@ const SetupPlanStepSchema = Schema.Struct({
   message: Schema.optional(Schema.String),
   artifact: Schema.optional(SetupPlanStepArtifactSchema),
 });
-export type SetupPlanStep = typeof SetupPlanStepSchema.Type;
+type SetupPlanStep = typeof SetupPlanStepSchema.Type;
 
 const SetupAgentCandidateSchema = Schema.Struct({
   id: Schema.String,
@@ -378,7 +378,11 @@ export const prepareSetupWorkspace = (
 // previewOrApply
 // -----------------------------------------------------------------------------
 
-/** What the initialization settled, before it is described as an outcome. */
+/**
+ * What the initialization settled, before it is described as an outcome.
+ *
+ * @public Inferred types in this package name it in emitted declarations.
+ */
 export interface SetupTransition {
   readonly settings: Settings;
   readonly location: LocatedWorkspace;
@@ -404,10 +408,7 @@ export interface SetupTransition {
  * the transaction scope, and a run that fails halfway must leave the
  * directory as it found it.
  */
-export const previewOrApplySetupWorkspace = <
-  BundledSkillError = never,
-  BundledSkillRequirements = never,
->(
+const previewOrApplySetupWorkspace = <BundledSkillError = never, BundledSkillRequirements = never>(
   candidate: SetupWorkspaceCandidate,
   options?: {
     /**
@@ -498,7 +499,7 @@ const artifactChange = (targets: ReadonlyArray<SetupArtifactTarget>) =>
  * was given, otherwise detection where it produced a strong signal, otherwise
  * an unresolved choice when there is no evidence.
  */
-export const previewAgentDefault = (
+const previewAgentDefault = (
   candidates: ReadonlyArray<SetupAgentCandidate>,
 ): SetupPreviewDefaults["agents"] => {
   const reasons = candidates.flatMap((entry) =>
@@ -515,7 +516,7 @@ const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
   acquiredDisplayPath(scope, `registry.agentxm.ai/${BUNDLED_SKILL_OWNER}/skills/axm`);
 
 /** Every failure describing the settled setup can surface. */
-export type SetupReportFailure =
+type SetupReportFailure =
   | Effect.Error<ReturnType<typeof resolveNativeEntry>>
   | OperationRefused
   | Effect.Error<ReturnType<typeof scanAllSubagentFiles>>
@@ -527,13 +528,13 @@ export type SetupReportFailure =
     >;
 
 /** The bundled AXM skill installation the application settled, if it ran. */
-export interface BundledSkillReport {
+interface BundledSkillReport {
   readonly installed: boolean;
   /** The skill package version the running executable ships. */
   readonly version: string;
 }
 
-export interface SetupReportRequest {
+interface SetupReportRequest {
   readonly candidate: SetupWorkspaceCandidate;
   readonly transition: SetupTransition;
   readonly bundledSkill: BundledSkillReport;
@@ -543,7 +544,7 @@ export interface SetupReportRequest {
  * Describe the settled setup: which files the workspace now occupies, which
  * agents it configures, and what the same request would do again.
  */
-export const reportSetupWorkspace = (
+const reportSetupWorkspace = (
   request: SetupReportRequest,
 ): Effect.Effect<
   SetupOutcome,

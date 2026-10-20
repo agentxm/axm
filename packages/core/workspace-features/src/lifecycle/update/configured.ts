@@ -218,7 +218,7 @@ type WorkspaceUpdateCollectorContext =
  * Name selector shared by every collector. `undefined` means "no selector was
  * given" and is distinct from an empty set, which selects nothing.
  */
-export interface WorkspaceUpdateNameSelection {
+interface WorkspaceUpdateNameSelection {
   readonly names: ReadonlySet<string> | undefined;
 }
 

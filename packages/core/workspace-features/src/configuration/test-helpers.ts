@@ -9,7 +9,7 @@ import * as path from "node:path";
 import { StepFailure, OperationRefused } from "@agentxm/workspace-kernel/operations";
 
 /** Render a failure as the sentence the structural test adapter reports. */
-export const describeTestFailure = (failure: unknown): string => {
+const describeTestFailure = (failure: unknown): string => {
   if (typeof failure === "object" && failure !== null) {
     for (const key of ["detail", "subject", "message"] as const) {
       if (key in failure) {

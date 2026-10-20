@@ -54,18 +54,18 @@ export interface KnowledgeIndexSnapshot {
   readonly concepts: ReadonlyArray<KnowledgeIndexedConcept>;
 }
 
-export interface KnowledgeMatchSpan {
+interface KnowledgeMatchSpan {
   readonly clauseIndex: number;
   readonly field: KnowledgeSearchableField;
   readonly start: number;
   readonly end: number;
 }
 
-export interface KnowledgeResultPassage extends KnowledgeBodyPassage {
+interface KnowledgeResultPassage extends KnowledgeBodyPassage {
   readonly spans: ReadonlyArray<KnowledgeMatchSpan>;
 }
 
-export interface KnowledgeConceptResult {
+interface KnowledgeConceptResult {
   readonly ref: ResolvedConceptRef;
   readonly orderingKey: string;
   readonly matchedFields: ReadonlyArray<KnowledgeSearchableField>;

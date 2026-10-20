@@ -45,7 +45,7 @@ export const manifestText = (manifest: unknown): string => `${JSON.stringify(man
  * Create a directory inside the staging tree, reporting the failure as an
  * authoring failure rather than a raw platform error.
  */
-export const stageDirectory = (directory: string) =>
+const stageDirectory = (directory: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     yield* fs.makeDirectory(directory, { recursive: true }).pipe(
@@ -60,7 +60,7 @@ export const stageDirectory = (directory: string) =>
   });
 
 /** Write one staged file, naming the file in the failure. */
-export const stageFile = (args: { readonly path: string; readonly contents: string }) =>
+const stageFile = (args: { readonly path: string; readonly contents: string }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     yield* fs.writeFileString(args.path, args.contents).pipe(

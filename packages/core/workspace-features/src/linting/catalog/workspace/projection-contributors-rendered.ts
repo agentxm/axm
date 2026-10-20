@@ -26,7 +26,7 @@ export const projectionContributorsRenderedRule: AdvisoryRule<WorkspaceRuleConte
     }),
 };
 
-export const findingsForProjectionExclusions = (
+const findingsForProjectionExclusions = (
   facts: ReadonlyArray<ProjectionInvariantFact>,
 ): ReadonlyArray<LintFinding> =>
   facts.flatMap((fact) =>

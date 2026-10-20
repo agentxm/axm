@@ -64,7 +64,7 @@ export const KnowledgeListQueryResultSchema = Schema.Struct({
   ...ExtensionInventoryDocumentFields,
   items: Schema.Array(BundleSchema),
 });
-export type KnowledgeListQueryResult = typeof KnowledgeListQueryResultSchema.Type;
+type KnowledgeListQueryResult = typeof KnowledgeListQueryResultSchema.Type;
 
 export interface KnowledgeListRow {
   readonly management: ExtensionListItem["management"];

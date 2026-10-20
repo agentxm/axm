@@ -3,16 +3,12 @@ import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-
 import { acquiredDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
-export const packManifestPath = (
-  scope: JobStepArtifact["scope"],
-  owner: Handle,
-  name: string,
-): string =>
+const packManifestPath = (scope: JobStepArtifact["scope"], owner: Handle, name: string): string =>
   scope === "project"
     ? `packs/${name}/${manifestFilenameForType("pack")}`
     : acquiredDisplayPath(scope, `${owner}/packs/${name}/${manifestFilenameForType("pack")}`);
 
-export const packManifestTarget = (
+const packManifestTarget = (
   scope: JobStepArtifact["scope"],
   owner: Handle,
   name: string,

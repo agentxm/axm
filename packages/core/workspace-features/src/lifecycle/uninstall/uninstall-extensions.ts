@@ -94,7 +94,7 @@ export interface UninstallExtensionsRequest {
  * is the type the removal settled on, which the root form derived from the
  * FQN; `names` are the extensions it will withdraw.
  */
-export interface UninstallExtensionsCandidate {
+interface UninstallExtensionsCandidate {
   readonly type: InstallableExtensionType;
   /**
    * The selector scoped to the settled type: a name or glob as given, or the
@@ -111,7 +111,7 @@ export interface UninstallExtensionsCandidate {
 }
 
 /** Every failure settling a removal can surface before anything is written. */
-export type UninstallExtensionsFailure = OperationRefused | InstallExecutionFailure;
+type UninstallExtensionsFailure = OperationRefused | InstallExecutionFailure;
 
 /** Everything settling a removal reads before it freezes a candidate. */
 export type PrepareUninstallRequirements = PrepareInstallRequirements | PackUninstallRequirements;
@@ -191,7 +191,7 @@ const planForType = (
 // -----------------------------------------------------------------------------
 
 /** Settle a removal without writing anything. */
-export const prepareUninstallExtensions: (
+const prepareUninstallExtensions: (
   request: UninstallExtensionsRequest,
 ) => Effect.Effect<
   UninstallExtensionsCandidate,
@@ -410,7 +410,7 @@ export const prepareUninstallExtensions: (
 // -----------------------------------------------------------------------------
 
 /** Preview or apply a settled removal, resolving to one operation outcome. */
-export const previewOrApplyUninstallExtensions = (
+const previewOrApplyUninstallExtensions = (
   candidate: UninstallExtensionsCandidate,
   execution: PlanExecution,
 ): Effect.Effect<OperationResolution, UninstallExtensionsFailure, PrepareUninstallRequirements> =>

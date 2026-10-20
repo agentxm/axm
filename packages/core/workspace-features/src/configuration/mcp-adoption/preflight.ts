@@ -18,7 +18,6 @@ import {
   type McpValue,
 } from "@agentxm/workspace-kernel/agent-adapters";
 
-export type InlineMcpDefinition = McpConnection;
 export interface McpNativeSource {
   readonly agentId: string;
   readonly dialect: McpEntryDialect;
@@ -45,7 +44,7 @@ export interface McpAdoptionCandidate {
   readonly auth?: McpAuth;
   readonly adoptions: ReadonlyArray<McpNativeAdoption>;
 }
-export interface McpAdoptionFinding {
+interface McpAdoptionFinding {
   readonly name: string;
   readonly reason: string;
 }

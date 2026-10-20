@@ -23,12 +23,7 @@ import {
 
 import { writeMinimalPackage } from "../../testing/local-packages.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
-import {
-  EnableExtension,
-  DisableExtension,
-  type ActivationUnchanged,
-  type ActivationCandidate,
-} from "./set-activation.js";
+import { EnableExtension, DisableExtension } from "./set-activation.js";
 
 interface ActivationRequest {
   readonly type: ExtensionType;
@@ -105,12 +100,3 @@ const run = (request: ActivationRequest, mode: "apply" | "preview") =>
 export const previewActivation = (request: ActivationRequest) => run(request, "preview");
 
 export const applyActivation = (request: ActivationRequest) => run(request, "apply");
-
-export type ActivationRunOutcome =
-  | ActivationUnchanged
-  | {
-      readonly _tag: "Resolved";
-      readonly candidate: ActivationCandidate;
-      readonly resolution: Effect.Success<ReturnType<typeof DisableExtension.previewOrApply>>;
-      readonly outcome: ReturnType<typeof deriveOperationOutcome>;
-    };

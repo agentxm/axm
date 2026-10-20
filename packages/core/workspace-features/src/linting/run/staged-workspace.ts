@@ -18,7 +18,7 @@ import { createHash } from "node:crypto";
 import { LintStagingFailed } from "./errors.js";
 import { detectGitRoot } from "@agentxm/workspace-kernel/locations";
 
-export interface StagedWorkspace {
+interface StagedWorkspace {
   readonly gitRoot: string;
   readonly snapshotRoot: string;
   readonly workspaceRoot: string;

@@ -12,7 +12,7 @@ import {
 import { tokenizeKnowledgeSearchText } from "@agentxm/extension-content/knowledge";
 import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "./knowledge-capabilities.js";
 
-export type KnowledgeRelation = "outgoing" | "backlink";
+type KnowledgeRelation = "outgoing" | "backlink";
 
 export interface KnowledgeRelatedConcept {
   readonly ref: ResolvedConceptRef;
@@ -128,7 +128,7 @@ export const relatedKnowledgeConcepts = (
   return results.sort((left, right) => left.orderingKey.localeCompare(right.orderingKey));
 };
 
-export interface KnowledgeResolveCandidate {
+interface KnowledgeResolveCandidate {
   readonly ref: ResolvedConceptRef;
   readonly title?: string;
   readonly reason: "exact-reference" | "exact-concept-id" | "exact-title" | "token-match";

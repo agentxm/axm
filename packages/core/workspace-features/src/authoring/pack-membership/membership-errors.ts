@@ -79,18 +79,3 @@ export class PackMemberNotDeclared extends Data.TaggedError("PackMemberNotDeclar
   readonly selector: string;
   readonly pattern: boolean;
 }> {}
-
-/** Every refusal the pack-membership use case constructs. */
-export type PackMembershipError =
-  | PackSelectorNotAPack
-  | PackNotConfigured
-  | PackSelectorAmbiguous
-  | PackSourceMissing
-  | PackNotAuthored
-  | PackOwnerUnconfigured
-  | PackManifestUnavailable
-  | PackGraphInvalid
-  | PackMemberAmbiguous
-  | PackMemberUnmanaged
-  | PackMemberNotFound
-  | PackMemberNotDeclared;

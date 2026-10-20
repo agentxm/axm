@@ -1,6 +1,6 @@
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
-import { ArtifactChangeSchema, type OperationRefused } from "@agentxm/workspace-kernel/operations";
+import type { ArtifactChange, OperationRefused } from "@agentxm/workspace-kernel/operations";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
@@ -90,14 +90,13 @@ export const SetupPlanDetailSchema = Schema.Union([
   }),
 ]);
 export type SetupPlanDetail = typeof SetupPlanDetailSchema.Type;
-export const SetupPlanRowSchema = Schema.Struct({
-  target: Schema.String,
-  action: SetupPlanActionSchema,
-  change: Schema.optional(ArtifactChangeSchema),
-  detail: SetupPlanDetailSchema,
-  agentIds: Schema.optional(Schema.Array(Schema.String)),
-});
-export type SetupPlanRow = typeof SetupPlanRowSchema.Type;
+export interface SetupPlanRow {
+  readonly target: string;
+  readonly action: SetupPlanAction;
+  readonly change?: ArtifactChange | undefined;
+  readonly detail: SetupPlanDetail;
+  readonly agentIds?: ReadonlyArray<string> | undefined;
+}
 
 /** Agent-detection summary presented before agent selection. */
 export interface SetupAgentScan {

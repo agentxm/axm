@@ -18,136 +18,48 @@ export {
   type ActivationCandidate,
   type ActivationFailure,
   type EnableExtensionRequest,
-  type DisableExtensionRequest,
-  type ActivationRequirements,
 } from "./activation/set-activation.js";
-
-export {
-  SOURCE_FAMILY_LIFECYCLE_CELLS,
-  SOURCE_FAMILY_LIFECYCLE_OPERATIONS,
-  SOURCE_FAMILY_LIFECYCLE_OUTCOMES,
-  type BlockedLifecycleCell,
-  type SourceFamilyLifecycleCell,
-  type SourceFamilyLifecycleOperation,
-  type SourceFamilyLifecycleOutcome,
-  type SupportedLifecycleCell,
-  type UnsupportedLifecycleCell,
-} from "./source-family-conformance.js";
-
-export {
-  PUBLISHER_CHANGE_CONDITION_ID,
-  publisherChangeRiskCondition,
-  withPublisherTrust,
-  withPublisherTrustConditions,
-} from "./publisher-binding.js";
 
 // Install: acquiring extensions from an explicit source or the bundled skill.
 export {
   InstallExtensions,
-  selectInstallExtensions,
-  planInstallExtensions,
-  prepareInstallExtensions,
-  previewOrApplyInstallExtensions,
-  type InstallDiagnostics,
   type InstallExtensionsCandidate,
-  type InstallExtensionsResult,
-  type InstallExtensionsFailure,
   type InstallExtensionsRequest,
   type InstallExtensionsSelection,
   type InstallExtensionSelectors,
   type InstallSubject,
   installSelectorsFor,
 } from "./install/install-extensions.js";
-export {
-  selectInstallRefs,
-  type InstallSelectionFailure,
-  type InstallSelectionRequest,
-} from "./install/selection.js";
-export { type PrepareInstallRequirements } from "./install/vocabulary.js";
-export { resolveRootInstallIntent, type RootInstallIntent } from "./install/root-intent.js";
-export { installCommandFor, perTypeInstallPluralSegments } from "./install/per-type-install.js";
+export { selectInstallRefs } from "./install/selection.js";
+export { perTypeInstallPluralSegments } from "./install/per-type-install.js";
 
 // Uninstall: withdrawing extensions, as one use case behind every spelling.
 export { MigrateDeprecated } from "./migrate-deprecated.js";
 export {
   UninstallExtensions,
-  prepareUninstallExtensions,
-  previewOrApplyUninstallExtensions,
-  type PrepareUninstallRequirements,
-  type UninstallExtensionsCandidate,
-  type UninstallExtensionsFailure,
   type UninstallExtensionsRequest,
 } from "./uninstall/uninstall-extensions.js";
-export { resolveRootUninstallIntent, type RootUninstallIntent } from "./uninstall/root-intent.js";
+export { resolveRootUninstallIntent } from "./uninstall/root-intent.js";
 
 // Update: the atomicity a workspace-wide sweep declares.
-export {
-  WORKSPACE_UPDATE_ATOMICITY,
-  WORKSPACE_UPDATE_EXECUTION_CAPABILITIES,
-} from "./update/atomicity.js";
+export { WORKSPACE_UPDATE_ATOMICITY } from "./update/atomicity.js";
 
 // Update: advancing what the workspace already accepted, for a named
 // extension or for the configured entries as a whole.
 export {
   UpdateExtensions,
-  prepareUpdate,
-  previewOrApplyUpdate,
   contextForResolution,
-  type BlockedUpdateCandidate,
-  type ConfiguredUpdateRequest,
-  type NothingConfiguredUpdateCandidate,
-  type PlannedUpdateCandidate,
-  type PrepareUpdateRequirements,
-  type PreservedUpdateCandidate,
-  type TargetedUpdateRequest,
   type UpdateCandidate,
-  type UpdateFailure,
-  type UpdateRequest,
-  type UpdateResult,
-  type UpdateRequirements,
   type UpdateSubjectType,
 } from "./update/update-extensions.js";
-export {
-  type ConfiguredUpdateSelection,
-  type ConfiguredUpdateSelector,
-  type ConfiguredUpdateSelectorType,
-} from "./update/selector.js";
-export { resolveRootUpdateIntent, type RootUpdateIntent } from "./update/root-request.js";
-export { TARGETED_UPDATE_STALE_DETAIL } from "./update/targeted-plan.js";
-
-export {
-  makeWorkspaceUpdatePlan,
-  type ConfiguredUpdateFailure,
-  type WorkspaceUpdatableType,
-  type WorkspaceUpdatePlanRequest,
-  type WorkspaceUpdatePlanResult,
-} from "./update/configured.js";
+export { type ConfiguredUpdateSelector } from "./update/selector.js";
+export { type WorkspaceUpdatableType } from "./update/configured.js";
 
 // Unpack: promoting a Pack's members to direct declarations.
-export {
-  PromoteAuthoredPack,
-  preparePromoteAuthoredPack,
-  previewOrApplyPromoteAuthoredPack,
-  type PreparePromoteAuthoredPackRequirements,
-  type PromoteAuthoredPackCandidate,
-  type PromoteAuthoredPackFailure,
-  type PromoteAuthoredPackRequest,
-  type PromoteAuthoredPackRequirements,
-  type PromotedPackMember,
-} from "./unpack/promote-authored-pack.js";
+export { PromoteAuthoredPack } from "./unpack/promote-authored-pack.js";
 
 // Demote: returning a workspace-authored package to an external source.
-export {
-  DEMOTE_RISK_CONDITION_ID,
-  DemoteToExternalSource,
-  prepareDemote,
-  previewOrApplyDemote,
-  type DemoteCandidate,
-  type DemoteFailure,
-  type DemoteRequest,
-  type DemoteRequirements,
-  type PrepareDemoteRequirements,
-} from "./demote/demote-to-external-source.js";
+export { DemoteToExternalSource } from "./demote/demote-to-external-source.js";
 
 export { HandoffSkills, type HandoffRequest } from "./handoff.js";
 

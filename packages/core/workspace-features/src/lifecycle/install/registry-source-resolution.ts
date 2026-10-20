@@ -42,7 +42,7 @@ type DefaultRegistrySourceResolutionRequirements =
   RegistrySourceProbeRequirements | WorkspaceCatalog;
 
 /** How to declare a registry when none is configured for the requested owner. */
-export const ADD_REGISTRY_SOURCE: SuggestedAction = {
+const ADD_REGISTRY_SOURCE: SuggestedAction = {
   description: "Add a registry under `sources` in workspace settings",
   cmd: "axm help settings",
 };
@@ -182,7 +182,7 @@ export const resolveConfiguredRegistrySource: (
 });
 
 /** Which bare name to resolve against the default registry. */
-export interface DefaultRegistryLookup {
+interface DefaultRegistryLookup {
   readonly name: string;
   readonly extensionType: InstallableRegistryType;
   readonly options: Option.Option<RegistryResolutionOptions>;

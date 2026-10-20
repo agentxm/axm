@@ -51,7 +51,7 @@ import { nativeUnitKey, type NativeLocationOutcome } from "@agentxm/workspace-ke
 import { workspaceChangeFailedToStepFailure, configurationRefused } from "../errors.js";
 
 /** What the workspace must report once the transition has settled. */
-export type MembershipTransition =
+type MembershipTransition =
   | { readonly kind: "add"; readonly agentIds: ReadonlyArray<string> }
   | { readonly kind: "remove"; readonly agentIds: ReadonlyArray<string> };
 

@@ -54,12 +54,12 @@ const validation = (detail: string, suggestions?: ReadonlyArray<{ description: s
 
 type FqnParts = NonNullable<ReturnType<typeof parseExtensionFqnParts>>;
 
-export interface VisibilityTarget {
+interface VisibilityTarget {
   readonly parts: FqnParts;
   readonly fqn: typeof ExtensionFqnSchema.Type;
 }
 
-export const parseVisibilityTarget = (input: string) =>
+const parseVisibilityTarget = (input: string) =>
   Effect.gen(function* () {
     const parts = parseExtensionFqnParts(input);
     if (parts === undefined) {
@@ -85,7 +85,7 @@ export const parseVisibilityTarget = (input: string) =>
  * The visibility this repository declares for the target: its authored
  * manifest's decision, else the workspace publication default.
  */
-export const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent")(function* (
+const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent")(function* (
   parts: FqnParts,
 ) {
   const location = yield* WorkspaceLocation;

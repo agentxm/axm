@@ -14,10 +14,6 @@ export {
 } from "./errors.js";
 
 export {
-  assessExtensionListItems,
-  collectExtensionListItems,
-  type ExtensionAssessment,
-  type ExtensionAssessmentState,
   type ExtensionListFilter,
   type AssessedExtensionListItem,
 } from "./extension-list/assessment.js";
@@ -27,8 +23,6 @@ export {
   ExtensionListDocumentSchema,
   ListExtensions,
   type ExtensionListDocument,
-  type ListExtensionsRequest,
-  type ListExtensionsResult,
 } from "./extension-list/list-extensions.js";
 export {
   listHooks,
@@ -43,29 +37,14 @@ export {
   type TypeListResult,
 } from "./type-list/type-lists.js";
 export type { TypeListRow } from "./type-list/type-list-row.js";
-export {
-  McpServerListQueryResultSchema,
-  type McpServerListQueryResult,
-  type McpServerListRow,
-} from "./type-list/mcp-servers.js";
+export { McpServerListQueryResultSchema, type McpServerListRow } from "./type-list/mcp-servers.js";
 export {
   EXTENSION_SHOW_ITEM_FIELDS,
   ExtensionShowResultSchema,
   ShowExtension,
-  type ExtensionShowResult,
-  type ShowExtensionRequest,
 } from "./show/show-extension.js";
-export {
-  RenderSubagent,
-  SubagentRenderResultSchema,
-  type SubagentRenderResult,
-} from "./show/render-subagent.js";
-export {
-  PackShowResultSchema,
-  ShowPack,
-  type PackShowResult,
-  type ShowPackRequest,
-} from "./packs/show-pack.js";
+export { RenderSubagent, SubagentRenderResultSchema } from "./show/render-subagent.js";
+export { PackShowResultSchema, ShowPack, type PackShowResult } from "./packs/show-pack.js";
 export {
   resolveViewHandle,
   resolveViewRegistry,
@@ -73,25 +52,18 @@ export {
   ViewDocumentSchema,
   ViewExtension,
   ViewFieldValueSchema,
-  type ReadPublishedExtensionRequest,
   type ViewDocument,
   type ViewExtensionResult,
-  type ViewField,
   type ViewFieldValue,
   type ViewTargetRegistry,
 } from "./view/view-extension.js";
 export {
   KnowledgeListQueryResultSchema,
   ListKnowledge,
-  type KnowledgeListQueryResult,
   type KnowledgeListRow,
 } from "./knowledge/list-knowledge.js";
 
 export {
-  ExtensionListItemSchema,
-  ExtensionListSourceSchema,
   ExtensionInventoryDocumentSchema,
-  type ExtensionListItem,
-  type ExtensionListSource,
   type ExtensionInventoryDocument,
 } from "./inventory-document.js";

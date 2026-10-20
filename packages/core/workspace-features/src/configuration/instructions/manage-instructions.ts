@@ -114,7 +114,7 @@ const InstructionStatusItemSchema = Schema.Struct({
 });
 
 /** Every failure observing or planning instruction management can surface. */
-export type ManageInstructionsFailure =
+type ManageInstructionsFailure =
   | OperationRefused
   | WorkspaceStateReadFailure
   | Effect.Error<ReturnType<typeof observeInstructions>>;
@@ -146,7 +146,7 @@ const DISABLED_STATUS: InstructionsStatus = {
  * does not manage instruction files reports that, rather than an empty
  * observation of a configuration it does not have.
  */
-export const instructionsStatus = (): Effect.Effect<
+const instructionsStatus = (): Effect.Effect<
   InstructionsStatus,
   Effect.Error<ReturnType<typeof observeInstructions>>,
   SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path | LockfileReader
@@ -175,7 +175,11 @@ export type ManageInstructionsRequest =
     }
   | { readonly action: "disable" };
 
-/** A request the workspace already satisfies. */
+/**
+ * A request the workspace already satisfies.
+ *
+ * @public Inferred types in this package name it in emitted declarations.
+ */
 export interface InstructionsUnchanged {
   readonly _tag: "Unchanged";
   readonly action: "enable" | "disable";
@@ -201,7 +205,11 @@ interface InstructionTransition {
   readonly overrides: InstructionOutputOverrides;
 }
 
-/** A settled instruction transition and the execution candidate it plans. */
+/**
+ * A settled instruction transition and the execution candidate it plans.
+ *
+ * @public Inferred types in this package name it in emitted declarations.
+ */
 export interface ManageInstructionsCandidate extends InstructionTransition {
   readonly execution: ExecutionCandidate<ManageInstructionsRequirements>;
 }
@@ -270,7 +278,7 @@ const reconciliationGate = (
  * than planned: enabling the configuration that is already recorded, and
  * whose targets are already current, changes nothing.
  */
-export const prepareManageInstructions = (
+const prepareManageInstructions = (
   request: ManageInstructionsRequest,
 ): Effect.Effect<
   ManageInstructionsCandidate | InstructionsUnchanged,
@@ -591,7 +599,7 @@ const planTransition = (transition: InstructionTransition) =>
   });
 
 /** Preview or apply the transition a request settled and planned. */
-export const previewOrApplyManageInstructions = (
+const previewOrApplyManageInstructions = (
   candidate: ManageInstructionsCandidate,
   execution: PlanExecution,
 ): Effect.Effect<

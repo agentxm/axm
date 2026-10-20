@@ -425,6 +425,25 @@ declare — resolving a plan, observing an interruption signal, workspace
 initialization, and the authentication presenters — are typed services the
 application binds.
 
+Three features build their plan in `previewOrApply` rather than in `prepare`,
+so their candidates carry the decisions a plan is built from instead of a
+prepared execution:
+
+- Configured-agent membership receives its reconciliation steps from the
+  application after `prepare`. The application plans those steps through the
+  sync feature from the prepared candidate, so they cannot be an input to
+  `prepare`; the membership change and the steps still settle as one closure.
+- Publishing plans at upload time. Its steps close over per-invocation `Ref`s
+  and a journal and footprint recorder scoped to the run, and apply revalidates
+  the sources it planned against before it uploads.
+- MCP server adoption plans in `previewOrApply` because `axm mcps import` calls
+  its `prepare` only to discover native servers. Planning in `prepare` would
+  run lockfile reconciliation and report a planning phase for a candidate that
+  command discards.
+
+Within configuration, hook configuration and instruction-region adoption
+follow the documented shape.
+
 The linting slice does not absorb contract-level validation used by
 publication and Registry ingestion; that lives with `extension-content` and
 `registry-protocol`. It composes facts and findings about installed and

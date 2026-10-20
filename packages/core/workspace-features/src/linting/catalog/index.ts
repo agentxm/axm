@@ -22,15 +22,7 @@ import { workspaceRules } from "./workspace.js";
 import { repositoryWorkspaceRules } from "./workspace.js";
 export { liveOnlyWorkspaceRules, repositoryWorkspaceRules, workspaceRules } from "./workspace.js";
 // Workspace read-model builder helpers.
-export {
-  buildLintWorkspace,
-  buildAcquiredInstalledSkillInfo,
-  acquiredSkillDisplayRoot,
-  type BuildLintWorkspaceArgs,
-  type BuildAcquiredInstalledSkillInfoArgs,
-  type LintWorkspaceBuild,
-  type LintWorkspaceView,
-} from "./workspace-read-model/lint-workspace.js";
+export { buildLintWorkspace } from "./workspace-read-model/lint-workspace.js";
 const repositoryViews = Object.freeze(["filesystem", "git-index"] as const);
 const liveWorkspaceView = Object.freeze(["filesystem"] as const);
 

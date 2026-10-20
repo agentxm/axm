@@ -14,20 +14,9 @@ import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 
-export const REGISTRY_TRANSITION_CONTRACT = "registry-transition-v1" as const;
+const REGISTRY_TRANSITION_CONTRACT = "registry-transition-v1" as const;
 
-export const RegistryTransitionActionSchema = Schema.Literals([
-  "yank",
-  "unyank",
-  "deprecate",
-  "undeprecate",
-  "archive",
-  "unarchive",
-  "visibility-set",
-  "visibility-reconcile",
-]).annotate({ identifier: "RegistryTransitionAction" });
-
-export const RegistryTransitionDispositionSchema = Schema.Literals([
+const RegistryTransitionDispositionSchema = Schema.Literals([
   "changed",
   "already-current",
 ]).annotate({ identifier: "RegistryTransitionDisposition" });
@@ -91,7 +80,6 @@ export const RegistryTransitionSchema = Schema.Union([
 });
 
 export type RegistryTransition = typeof RegistryTransitionSchema.Type;
-export type RegistryTransitionAction = typeof RegistryTransitionActionSchema.Type;
 
 type TransitionInput<T> = T extends RegistryTransition ? Omit<T, "contract" | "restorable"> : never;
 

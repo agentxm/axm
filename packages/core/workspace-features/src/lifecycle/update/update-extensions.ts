@@ -146,7 +146,7 @@ import { wrapTargetedUpdatePlan } from "./targeted-plan.js";
 // -----------------------------------------------------------------------------
 
 /** Advance one extension the person named by its Registry identity. */
-export interface TargetedUpdateRequest {
+interface TargetedUpdateRequest {
   readonly kind: "targeted";
   readonly reinstall?: boolean;
   /** The Registry FQN, optionally carrying a version range. */
@@ -156,7 +156,7 @@ export interface TargetedUpdateRequest {
 }
 
 /** Sweep the configured entries, optionally narrowed by type and selection. */
-export interface ConfiguredUpdateRequest {
+interface ConfiguredUpdateRequest {
   readonly kind: "configured";
   readonly reinstall?: boolean;
   /** Restrict the sweep to one extension type. */
@@ -180,7 +180,7 @@ export type UpdateRequest = TargetedUpdateRequest | ConfiguredUpdateRequest;
 // -----------------------------------------------------------------------------
 
 /** What every step in an update may require when it runs. */
-export type UpdateRequirements = InstallStepRequirements;
+type UpdateRequirements = InstallStepRequirements;
 
 /** The seven manager services a planned update may reach for. */
 type UpdateManagers =
@@ -196,7 +196,7 @@ type UpdateManagers =
 export type UpdateSubjectType = WorkspaceUpdatableType | "mixed";
 
 /** A settled update that has work to execute. */
-export interface PlannedUpdateCandidate {
+interface PlannedUpdateCandidate {
   readonly outcome: "planned";
   readonly skillCandidates: ReadonlyArray<SkillAcquisitionCandidate>;
   /** The type this advance is about, or `mixed` when a sweep spans types. */
@@ -216,7 +216,7 @@ export interface PlannedUpdateCandidate {
 }
 
 /** A settled update that is refused, with the fact that refuses it. */
-export interface BlockedUpdateCandidate {
+interface BlockedUpdateCandidate {
   readonly outcome: "blocked";
   readonly name: string;
   readonly detail: string;
@@ -230,7 +230,7 @@ export interface BlockedUpdateCandidate {
 }
 
 /** A settled update whose current version is preserved by release-age policy. */
-export interface PreservedUpdateCandidate {
+interface PreservedUpdateCandidate {
   readonly outcome: "preserved";
   readonly name: string;
   readonly description: string;
@@ -267,7 +267,7 @@ export type UpdateCandidate =
  * canonical resolution behind one entry can produce; and the lockfile-health
  * probe an update consults before it decides anything.
  */
-export type UpdateFailure =
+type UpdateFailure =
   | Config.ConfigError
   | OperationRefused
   | CandidateFingerprintFailed
@@ -277,7 +277,7 @@ export type UpdateFailure =
   | LockfileValidationError;
 
 /** Everything settling an update reads before it freezes a candidate. */
-export type PrepareUpdateRequirements =
+type PrepareUpdateRequirements =
   | PrepareInstallRequirements
   | UpdateRequirements
   | UpdateManagers
@@ -891,7 +891,7 @@ const prepareConfigured = Effect.fn("UpdateExtensions.prepareConfigured")(functi
  * Settle an update: read the request, decide what may advance, and freeze
  * either the execution candidate or the reason there is nothing to execute.
  */
-export const prepareUpdate: (
+const prepareUpdate: (
   request: UpdateRequest,
 ) => Effect.Effect<UpdateCandidate, UpdateFailure, PrepareUpdateRequirements> = Effect.fn(
   "UpdateExtensions.prepare",
@@ -950,12 +950,12 @@ const settledResolution = (
  * application reports it as the no-op it is, so this takes only the
  * candidates that do describe an operation.
  */
-export interface UpdateResult {
+interface UpdateResult {
   readonly resolution: OperationResolution;
   readonly installedSkills: ReadonlyArray<InstalledSkill>;
 }
 
-export const previewOrApplyUpdate = (
+const previewOrApplyUpdate = (
   candidate: Exclude<UpdateCandidate, NothingConfiguredUpdateCandidate>,
   execution: PlanExecution,
 ) =>

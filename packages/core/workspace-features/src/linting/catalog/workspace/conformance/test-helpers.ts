@@ -15,9 +15,9 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 import type { WorkspaceRuleContext } from "../../../workspace-context.js";
 
-export type WorkspaceContextFixture = () => Effect.Effect<WorkspaceRuleContext>;
+type WorkspaceContextFixture = () => Effect.Effect<WorkspaceRuleContext>;
 
-export type ExpectedWorkspaceFinding = Omit<AdvisoryFinding, "kind" | "ruleId" | "severity">;
+type ExpectedWorkspaceFinding = Omit<AdvisoryFinding, "kind" | "ruleId" | "severity">;
 
 /** Executable satisfied, violated, and optional inapplicable evidence for one rule. */
 export interface WorkspaceRuleConformanceCase {

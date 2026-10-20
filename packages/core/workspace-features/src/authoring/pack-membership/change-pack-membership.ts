@@ -94,14 +94,14 @@ export interface PackMembershipRequest {
 }
 
 /** What a membership step requires when it runs. */
-export type PackMembershipRequirements =
+type PackMembershipRequirements =
   | FileSystem.FileSystem
   | Path.Path
   | SettingsReader
   | WorkspaceLocation
   | WorkspaceTransactionScope;
 
-export interface PackMembershipChange {
+interface PackMembershipChange {
   readonly _tag: "Change";
   readonly change: "add" | "remove";
   /** Configured name of the pack being edited. */
@@ -111,14 +111,11 @@ export interface PackMembershipChange {
   readonly execution: ExecutionCandidate<PackMembershipRequirements>;
 }
 
-export interface PackMembershipUnchanged {
+interface PackMembershipUnchanged {
   readonly _tag: "NoChange";
   readonly change: "add" | "remove";
   readonly pack: string;
 }
-
-/** A settled membership request: either a delta to resolve, or nothing to do. */
-export type PackMembershipCandidate = PackMembershipChange | PackMembershipUnchanged;
 
 // -----------------------------------------------------------------------------
 // Member candidates
@@ -192,7 +189,7 @@ const memberCandidates = Effect.fn("ChangePackMembership.memberCandidates")(func
 // -----------------------------------------------------------------------------
 
 /** Settle a membership change without writing anything. */
-export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(function* (
+const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(function* (
   request: PackMembershipRequest,
 ) {
   const location = yield* WorkspaceLocation;
@@ -444,10 +441,8 @@ export const packMembershipPlanName = (change: "add" | "remove"): string =>
 // -----------------------------------------------------------------------------
 
 /** Preview or apply a settled membership change. */
-export const previewOrApplyPackMembership = (
-  candidate: PackMembershipChange,
-  execution: PlanExecution,
-) => resolveExecutionCandidate(candidate.execution, execution);
+const previewOrApplyPackMembership = (candidate: PackMembershipChange, execution: PlanExecution) =>
+  resolveExecutionCandidate(candidate.execution, execution);
 
 /** The pack-membership use case: settle a request, then preview or apply it. */
 export const ChangePackMembership = {

@@ -33,7 +33,7 @@ export class ShareFailed extends Schema.TaggedError<ShareFailed>()("ShareFailed"
   detail: Schema.String,
 }) {}
 
-export const SharedExtensionSchema = Schema.Struct({
+const SharedExtensionSchema = Schema.Struct({
   type: ExtensionTypeSchema,
   name: Schema.String,
   selector: Schema.String,
@@ -68,10 +68,10 @@ export const packageMetadataEcosystems = [
   "zig",
 ] as const;
 
-export const PackageMetadataEcosystemSchema = Schema.Literals(packageMetadataEcosystems);
+const PackageMetadataEcosystemSchema = Schema.Literals(packageMetadataEcosystems);
 export type PackageMetadataEcosystem = typeof PackageMetadataEcosystemSchema.Type;
 
-export const SharedPackageMetadataSchema = Schema.Struct({
+const SharedPackageMetadataSchema = Schema.Struct({
   ecosystem: PackageMetadataEcosystemSchema,
   location: Schema.String,
   tag: Schema.String,

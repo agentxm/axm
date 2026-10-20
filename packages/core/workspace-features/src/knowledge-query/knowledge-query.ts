@@ -60,14 +60,14 @@ const nonEmptyValue = Schema.NonEmptyString.annotate({
   description: "A non-empty decoded query value.",
 });
 
-export const KnowledgeTextClauseSchema = Schema.Union([
+const KnowledgeTextClauseSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("term"), value: nonEmptyValue }),
   Schema.Struct({ kind: Schema.Literal("phrase"), value: nonEmptyValue }),
   Schema.Struct({ kind: Schema.Literal("literal"), value: nonEmptyValue }),
 ]).annotate({ identifier: "KnowledgeTextClause" });
 export type KnowledgeTextClause = typeof KnowledgeTextClauseSchema.Type;
 
-export const KnowledgeQueryClauseSchema = Schema.Union([
+const KnowledgeQueryClauseSchema = Schema.Union([
   KnowledgeTextClauseSchema,
   Schema.Struct({
     kind: Schema.Literal("field"),

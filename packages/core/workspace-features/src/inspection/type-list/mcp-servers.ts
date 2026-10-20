@@ -58,7 +58,7 @@ export const McpServerListQueryResultSchema = Schema.Struct({
 });
 export type McpServerListQueryResult = typeof McpServerListQueryResultSchema.Type;
 
-export type McpServerResolution = typeof McpServerResolutionSchema.Type;
+type McpServerResolution = typeof McpServerResolutionSchema.Type;
 
 export interface McpServerListRow extends TypeListRow {
   /** The workspace-local connection name; not the published identity. */

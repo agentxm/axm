@@ -13,7 +13,7 @@ import type { ResolvedFileSelection } from "@agentxm/workspace-kernel/acquisitio
 
 const PUBLIC_DIFFERENCE_LIMIT = 50;
 
-export interface PublishSourceDifference {
+interface PublishSourceDifference {
   readonly path: string;
   readonly change: "added" | "modified" | "deleted";
 }

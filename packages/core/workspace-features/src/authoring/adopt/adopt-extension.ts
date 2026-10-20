@@ -112,7 +112,7 @@ import { authoringRefused } from "../errors.js";
 // Request
 // -----------------------------------------------------------------------------
 
-export interface AdoptExtensionRequest {
+interface AdoptExtensionRequest {
   /** Canonical, owner-qualified identity of the package being adopted. */
   readonly fqn: string;
   /**
@@ -127,7 +127,7 @@ export interface AdoptExtensionRequest {
 // -----------------------------------------------------------------------------
 
 /** What every step in an adoption may require when it runs. */
-export type AdoptExtensionRequirements =
+type AdoptExtensionRequirements =
   | SubagentManager
   | RuleManager
   | HookManager
@@ -143,7 +143,7 @@ export type AdoptExtensionRequirements =
   | CodingAgentRepository;
 
 /** A settled adoption: every decision is made and nothing is written. */
-export interface AdoptExtensionCandidate {
+interface AdoptExtensionCandidate {
   readonly type: ExtensionType;
   readonly fqn: string;
   readonly owner: Handle;
@@ -165,7 +165,7 @@ export interface AdoptExtensionCandidate {
 }
 
 /** Every failure settling an adoption can surface before anything is written. */
-export type AdoptExtensionFailure =
+type AdoptExtensionFailure =
   | ExtensionManagerFailure
   | OperationRefused
   | AuthoredPackageError
@@ -180,7 +180,7 @@ export type AdoptExtensionFailure =
   | FqnInvalidError;
 
 /** Everything settling an adoption reads before it freezes a candidate. */
-export type PrepareAdoptExtensionRequirements =
+type PrepareAdoptExtensionRequirements =
   | ManagerRequirements
   | FileSystem.FileSystem
   | Path.Path
@@ -227,7 +227,7 @@ export const adoptExtensionPlanName = "Adopt workspace extension";
 // -----------------------------------------------------------------------------
 
 /** Settle an adoption without writing anything. */
-export const prepareAdoptExtension: (
+const prepareAdoptExtension: (
   request: AdoptExtensionRequest,
 ) => Effect.Effect<
   AdoptExtensionCandidate,
@@ -554,7 +554,7 @@ export const prepareAdoptExtension: (
 // -----------------------------------------------------------------------------
 
 /** Preview or apply a settled adoption, resolving to one operation outcome. */
-export const previewOrApplyAdoptExtension = (
+const previewOrApplyAdoptExtension = (
   candidate: AdoptExtensionCandidate,
   execution: PlanExecution,
 ) => resolveExecutionCandidate(candidate.execution, execution);

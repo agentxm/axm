@@ -120,7 +120,7 @@ const commandHandler = (native: typeof NativeCommandSchema.Type, protocol: Confi
     } satisfies HookBinding["handler"];
   });
 
-export const parseNativeHookDocument = Effect.fn("Hook.parseNativeDocument")(function* (
+const parseNativeHookDocument = Effect.fn("Hook.parseNativeDocument")(function* (
   input: unknown,
   protocol: ConfigurableAgentId,
 ) {

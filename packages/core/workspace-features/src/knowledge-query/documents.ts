@@ -25,7 +25,7 @@ import { KnowledgeQuerySchema } from "./knowledge-query.js";
 const FrontmatterWireSchema = Schema.Record(Schema.String, Schema.Json);
 
 /** Preserve the core source mapping while validating JSON compatibility on encoding. */
-export const FrontmatterDocumentSchema = FrontmatterWireSchema.pipe(
+const FrontmatterDocumentSchema = FrontmatterWireSchema.pipe(
   Schema.decodeTo(
     Schema.toType(Schema.Record(Schema.String, Schema.Unknown)),
     SchemaTransformation.transformEffect<Readonly<Record<string, unknown>>, Schema.JsonObject>({
@@ -55,7 +55,7 @@ const KnowledgePassageSchema = Schema.Struct({
   spans: Schema.Array(KnowledgeMatchSpanSchema),
 });
 
-export const KnowledgeConceptResultSchema = Schema.Struct({
+const KnowledgeConceptResultSchema = Schema.Struct({
   ref: ResolvedConceptRefSchema,
   orderingKey: Schema.String,
   matchedFields: Schema.Array(Schema.String),

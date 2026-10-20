@@ -28,8 +28,6 @@ import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/li
 import { captureInstalledKnowledgeCorpus } from "./corpus/installed-corpus.js";
 import { KnowledgeIndexLive } from "./live.js";
 
-export const knowledgeBundleFqn = "@acme/knowledge/platform";
-
 /** Minimal YAML emitter for fixture frontmatter: scalars and string arrays. */
 const yamlFrontmatter = (values: Readonly<Record<string, unknown>>): string =>
   Object.entries(values)

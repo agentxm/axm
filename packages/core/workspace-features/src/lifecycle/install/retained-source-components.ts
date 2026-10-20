@@ -35,7 +35,7 @@ import { installRefused } from "@agentxm/workspace-kernel/operations";
 import { sourceResolutionRefused } from "@agentxm/workspace-kernel/reconciliation";
 
 /** Discover additional components of retained Git packages at their accepted commits. */
-export const findRetainedGitComponents = (source: GitSource, type: ExtensionType) =>
+const findRetainedGitComponents = (source: GitSource, type: ExtensionType) =>
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
     const location = yield* WorkspaceLocation;

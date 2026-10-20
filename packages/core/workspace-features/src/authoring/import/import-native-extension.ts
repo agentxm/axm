@@ -154,13 +154,13 @@ interface ImportRequestBase {
   readonly enable: boolean;
 }
 
-export interface ImportNativeSkillRequest extends ImportRequestBase {
+interface ImportNativeSkillRequest extends ImportRequestBase {
   readonly type: "skill";
   /** Local or Git native source, as the person typed it. */
   readonly source: string;
 }
 
-export interface ImportNativeSubagentRequest extends ImportRequestBase {
+interface ImportNativeSubagentRequest extends ImportRequestBase {
   readonly type: "subagent";
   readonly source: string;
   readonly sourceAgent?: AgentId;
@@ -201,7 +201,7 @@ export interface NativeMcpDiscovery {
   readonly conflicts: ReadonlyArray<string>;
 }
 
-export interface ImportNativeMcpServerRequest extends ImportRequestBase {
+interface ImportNativeMcpServerRequest extends ImportRequestBase {
   readonly type: "mcp-server";
   readonly discovery: NativeMcpDiscovery;
   /**
@@ -212,7 +212,7 @@ export interface ImportNativeMcpServerRequest extends ImportRequestBase {
 }
 
 /** What a person asked to import. */
-export type ImportNativeExtensionRequest =
+type ImportNativeExtensionRequest =
   | ImportNativeSkillRequest
   | ImportNativeSubagentRequest
   | ImportNativeMcpServerRequest
@@ -223,7 +223,7 @@ export type ImportNativeExtensionRequest =
 // -----------------------------------------------------------------------------
 
 /** What every step in a native import may require when it runs. */
-export type ImportNativeExtensionRequirements =
+type ImportNativeExtensionRequirements =
   | SubagentManager
   | ManagerRequirements
   | RecipeRequirements
@@ -241,7 +241,7 @@ export type ImportNativeExtensionRequirements =
   | CodingAgentRepository;
 
 /** A settled import: every decision is made and nothing under the workspace is written. */
-export interface ImportNativeExtensionCandidate {
+interface ImportNativeExtensionCandidate {
   readonly type: NativeImportType;
   readonly fqn: string;
   readonly owner: Handle;
@@ -258,7 +258,7 @@ export interface ImportNativeExtensionCandidate {
 }
 
 /** Every failure settling a native import can surface before anything is written. */
-export type ImportNativeExtensionFailure =
+type ImportNativeExtensionFailure =
   | OperationRefused
   | ExtensionManagerFailure
   | AuthoredPackageError
@@ -274,7 +274,7 @@ export type ImportNativeExtensionFailure =
   | FqnInvalidError;
 
 /** Everything settling a native import reads before it freezes a candidate. */
-export type PrepareImportNativeExtensionRequirements =
+type PrepareImportNativeExtensionRequirements =
   | ManagerRequirements
   | FileSystem.FileSystem
   | Path.Path
@@ -653,7 +653,7 @@ const hookConversion = Effect.fn("ImportNativeExtension.hookConversion")(functio
 // -----------------------------------------------------------------------------
 
 /** Settle a native import and stage its converted content, writing nothing. */
-export const prepareImportNativeExtension: (
+const prepareImportNativeExtension: (
   request: ImportNativeExtensionRequest,
 ) => Effect.Effect<
   ImportNativeExtensionCandidate,
@@ -940,7 +940,7 @@ export const prepareImportNativeExtension: (
 // -----------------------------------------------------------------------------
 
 /** Preview or apply a settled native import, resolving to one operation outcome. */
-export const previewOrApplyImportNativeExtension = (
+const previewOrApplyImportNativeExtension = (
   candidate: ImportNativeExtensionCandidate,
   execution: PlanExecution,
 ) => resolveExecutionCandidate(candidate.execution, execution);

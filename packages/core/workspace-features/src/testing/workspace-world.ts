@@ -168,7 +168,7 @@ export const refusingSourceProviders = Layer.succeed(SourceHostProviders, {
   origin: () => "fixture",
 });
 
-export const refusingHttpClient = Layer.succeed(
+const refusingHttpClient = Layer.succeed(
   HttpClient.HttpClient,
   HttpClient.make(() => Effect.die("no HTTP request in this fixture")),
 );

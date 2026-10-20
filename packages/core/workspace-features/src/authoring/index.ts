@@ -22,52 +22,21 @@ export {
   NativeImportUnsupported,
   NativeSubagentRuntimeRequired,
   NativeSubagentImportUnsupported,
-  type AuthoredPackageError,
 } from "./authored-package-errors.js";
 export {
   authoringFailures,
   authoringFailureToStepFailure,
   authoringStepFailure,
   type AuthoringFamilyFailure,
-  type AuthoringStepFailure,
 } from "./step-failure.js";
-
-export { forkExtensionPackage, type ForkExtensionPackageArgs } from "./fork-package.js";
-export {
-  importNativeExtensionPackage,
-  type ImportNativeExtensionPackageArgs,
-  type NativeImportError,
-} from "./import-native-package.js";
-
-export { preflightCreateOnly, type CreateOnlyPreflightArgs } from "./create-preflight.js";
-
-export {
-  authoredDeclaration,
-  type AuthoredDeclaration,
-  type AuthoredDeclarationState,
-} from "./authored-declaration.js";
-
-export { markerFqnForRef, type MarkerFqnRef } from "./marker-fqn.js";
 
 // Creating a new authored extension
 export {
   CreateExtension,
   createExtensionPlanName,
-  prepareCreateExtension,
-  previewOrApplyCreateExtension,
   type CreatableExtensionType,
   type CreateExtensionCandidate,
-  type CreateExtensionFailure,
   type CreateExtensionRequest,
-  type CreateExtensionRequirements,
-  type CreateHookRequest,
-  type CreateKnowledgeRequest,
-  type CreateMcpServerRequest,
-  type CreatePackRequest,
-  type CreateRuleRequest,
-  type CreateSkillRequest,
-  type CreateSubagentRequest,
-  type PrepareCreateExtensionRequirements,
 } from "./create/create-extension.js";
 export {
   AuthoringOwnerMismatch,
@@ -75,27 +44,11 @@ export {
   AuthoringScopeUnsupported,
   ScaffoldNameInvalid,
 } from "./create/errors.js";
-export {
-  requireAuthoredOwner,
-  resolveAuthoringOwner,
-  settingsRelativePath,
-  type AuthoringOwner,
-  type AuthoringTarget,
-} from "./create/authoring-owner.js";
-export { normalizeScaffoldOwner } from "./create/scaffold-name.js";
-export { hookEntrypointFilename } from "./create/scaffolds/hook.js";
-
 // Changing an authored pack's membership
 export {
   ChangePackMembership,
   packMembershipPlanName,
-  preparePackMembership,
-  previewOrApplyPackMembership,
-  type PackMembershipCandidate,
-  type PackMembershipChange,
   type PackMembershipRequest,
-  type PackMembershipRequirements,
-  type PackMembershipUnchanged,
 } from "./pack-membership/change-pack-membership.js";
 export {
   PackGraphInvalid,
@@ -110,76 +63,27 @@ export {
   PackSelectorAmbiguous,
   PackSelectorNotAPack,
   PackSourceMissing,
-  type PackMembershipError,
 } from "./pack-membership/membership-errors.js";
 
 // Forking a managed package into workspace authorship
-export {
-  ForkExtension,
-  forkExtensionPlanName,
-  prepareForkExtension,
-  previewOrApplyForkExtension,
-  type ForkExtensionCandidate,
-  type ForkExtensionFailure,
-  type ForkExtensionRequest,
-  type ForkExtensionRequirements,
-  type PrepareForkExtensionRequirements,
-} from "./fork/fork-extension.js";
+export { ForkExtension, forkExtensionPlanName } from "./fork/fork-extension.js";
 
 // Adopting an acquired package into workspace authorship
-export {
-  AdoptExtension,
-  adoptExtensionPlanName,
-  prepareAdoptExtension,
-  previewOrApplyAdoptExtension,
-  type AdoptExtensionCandidate,
-  type AdoptExtensionFailure,
-  type AdoptExtensionRequest,
-  type AdoptExtensionRequirements,
-  type PrepareAdoptExtensionRequirements,
-} from "./adopt/adopt-extension.js";
+export { AdoptExtension, adoptExtensionPlanName } from "./adopt/adopt-extension.js";
 
 // Importing native content as an authored package
 export {
   ImportNativeExtension,
   importNativeExtensionPlanName,
-  prepareImportNativeExtension,
-  previewOrApplyImportNativeExtension,
-  type ImportNativeExtensionCandidate,
-  type ImportNativeExtensionFailure,
-  type ImportNativeExtensionRequest,
-  type ImportNativeExtensionRequirements,
-  type ImportNativeMcpServerRequest,
   type ImportNativeHookRequest,
-  type ImportNativeSkillRequest,
-  type ImportNativeSubagentRequest,
-  type NativeImportType,
   type NativeMcpCandidate,
-  type NativeMcpDiscovery,
-  type PrepareImportNativeExtensionRequirements,
 } from "./import/import-native-extension.js";
 
 // Changing an authored manifest's version
 export {
   ChangeAuthoredVersion,
   changeAuthoredVersionPlanName,
-  prepareChangeAuthoredVersion,
-  previewOrApplyChangeAuthoredVersion,
   type AuthoredVersionChange,
-  type ChangeAuthoredVersionCandidate,
-  type ChangeAuthoredVersionFailure,
-  type ChangeAuthoredVersionRequest,
-  type ChangeAuthoredVersionRequirements,
-  type PrepareChangeAuthoredVersionRequirements,
-  type VersionBumpRule,
 } from "./version/change-authored-version.js";
-export {
-  AuthoredManifestUnavailable,
-  VersionTargetIdentityMismatch,
-  VersionTargetInvalid,
-  VersionTargetNotAuthored,
-  type AuthoredVersionError,
-} from "./version/errors.js";
-
-export { TestHook, HOOK_TEST_MAX_BYTES } from "./hooks/test-hook.js";
+export { TestHook } from "./hooks/test-hook.js";
 export { ExportHook } from "./hooks/export-hook.js";

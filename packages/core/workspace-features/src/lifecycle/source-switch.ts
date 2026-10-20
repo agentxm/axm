@@ -39,7 +39,7 @@ import {
   resolveFileSelection,
 } from "@agentxm/workspace-kernel/acquisition";
 
-export const SOURCE_SWITCH_CONDITION_ID = "source-authority-change";
+const SOURCE_SWITCH_CONDITION_ID = "source-authority-change";
 const SOURCE_SWITCH_STATE_CONDITION_ID = "source-switch-current-state";
 
 const REGISTRY_GUARANTEES = [

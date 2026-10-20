@@ -37,13 +37,13 @@ export interface KnowledgeSearchableUnit {
   readonly passageIndex?: number;
 }
 
-export interface KnowledgeOutgoingLink extends KnowledgeAuthoredLink {
+interface KnowledgeOutgoingLink extends KnowledgeAuthoredLink {
   readonly origin: "authored";
   readonly sourceConceptId: string;
   readonly sourceRelativePath: string;
 }
 
-export interface KnowledgeBacklink {
+interface KnowledgeBacklink {
   readonly origin: "derived-backlink";
   readonly sourceConceptId: string;
   readonly sourceRelativePath: string;

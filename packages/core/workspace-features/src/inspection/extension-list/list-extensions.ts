@@ -107,7 +107,7 @@ const coverageFor = (items: ReadonlyArray<AssessedExtensionListItem>) => ({
   notApplicable: items.filter((item) => item.assessment.state === "not-applicable").length,
 });
 
-export interface ListExtensionsResult {
+interface ListExtensionsResult {
   readonly document: ExtensionListDocument;
   /** The kept items with their full assessments, for rendering. */
   readonly items: ReadonlyArray<AssessedExtensionListItem>;

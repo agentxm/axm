@@ -231,8 +231,6 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
   };
 };
 
-export type InspectionFixture = ReturnType<typeof makeInspectionFixture>;
-
 /** A published skill index, as the Registry returns it. */
 export interface PublishedSkillIndex {
   readonly versions: ReadonlyArray<{ readonly version: string; readonly published: string }>;
@@ -494,7 +492,7 @@ export const authoredManifestPath = (type: AuthoringType, name: string): string 
  * fixture that flattened it would be describing a workspace the product never
  * writes.
  */
-export const authoredExtensionFiles = (
+const authoredExtensionFiles = (
   type: AuthoringType,
   name: string,
   version = "1.2.3",

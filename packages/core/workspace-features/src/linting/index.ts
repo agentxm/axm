@@ -1,96 +1,41 @@
 // Rule-context types and narrow file accessor interfaces
-export type { WorkspaceRuleContext, WorkspaceSubject } from "./workspace-context.js";
-
 // Catalog table — the exhaustive group -> rules / group -> contexts mapping
 // the runner drives off.
-export {
-  CATALOG_GROUP_ORDER,
-  LIVE_ONLY_LINT_CATALOGS,
-  REPOSITORY_LINT_CATALOGS,
-  emptyCatalogRuleContexts,
-  lintCatalogsForView,
-  type CatalogContext,
-  type CatalogGroup,
-  type CatalogRuleContexts,
-  type LintView,
-} from "./catalog-contexts.js";
+export { type LintView } from "./catalog-contexts.js";
 
 // `--json` document schema + derived types
 export {
-  LintInputSchema,
   LintJsonDocumentSchema,
   LintJsonFindingSchema,
-  type LintInput,
   type LintJsonDocument,
-  type LintJsonFinding,
 } from "./json-schema.js";
 export { findingsForProjectionOwnership } from "./catalog/workspace/projection-ownership-valid.js";
-export { findingsForProjectionExclusions } from "./catalog/workspace/projection-contributors-rendered.js";
-
 // Lint runner (Phase 5) — reusable primitives the `axm lint` CLI composes
 // over. Keeps the CLI command file a thin surface over flag parsing and
 // rendering per task 5.11.
-export {
-  collectRenderedFindings,
-  countFindings,
-  detectPublishGateDrift,
-  evaluateAllCatalogs,
-  resolveLintExitCategory,
-  summarizeEvaluations,
-  toLintJsonDocument,
-  type FindingCounts,
-  type GroupEvaluations,
-  type LintExitCategory,
-  type LintSummary,
-  type RenderedFinding,
-} from "./runner.js";
+export { type FindingCounts, type RenderedFinding } from "./runner.js";
 export { DETERMINED_REPAIR_RULE_IDS } from "./run/settings.js";
 
 // Rule catalogs and their stable metadata.
-export {
-  allCatalogErrorRuleIds,
-  allCatalogRuleMetadata,
-  allCatalogRuleIds,
-  buildAcquiredInstalledSkillInfo,
-  buildLintWorkspace,
-  acquiredSkillDisplayRoot,
-  liveOnlyWorkspaceRules,
-  repositoryWorkspaceRules,
-  workspaceRules,
-  type BuildAcquiredInstalledSkillInfoArgs,
-  type BuildLintWorkspaceArgs,
-  type LintWorkspaceBuild,
-  type LintWorkspaceView,
-} from "./catalog/index.js";
+export { allCatalogErrorRuleIds, allCatalogRuleIds } from "./catalog/index.js";
 
 // Lint-run policy: root resolution, settings-derived configuration,
 // determined repairs, staged Git-index input, and path remapping.
 export { LintStagingFailed } from "./run/errors.js";
-export {
-  isolatedGitEnvironment,
-  materializeGitIndexWorkspace,
-  type StagedWorkspace,
-} from "./run/staged-workspace.js";
-export {
-  applyDeterminedRepairs,
-  lintConfigFromSettings,
-  remapLintSummaryPaths,
-  resolveLintRoot,
-  type PathRemapper,
-} from "./run/settings.js";
+export { remapLintSummaryPaths, resolveLintRoot } from "./run/settings.js";
 
 // The lint application API: admit a request, then report the workspace's
 // facts (or repair the determined ones first).
 export {
   LintWorkspace,
-  admitLintRequest,
-  fixLintWorkspace,
   lintSelectionRoot,
   lintSelectionLayer,
   queryLintWorkspace,
   type LintSelection,
-  type LintWorkspaceFailure,
-  type LintWorkspaceRequest,
-  type LintWorkspaceRequirements,
   type LintWorkspaceResult,
 } from "./run/lint-workspace.js";
+
+// Dependents' inferred types name these, so their declaration emit must be
+// able to; knip skips exports tagged public.
+/** @public */
+export type { LintWorkspaceRequirements } from "./run/lint-workspace.js";

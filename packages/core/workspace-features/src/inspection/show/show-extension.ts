@@ -110,7 +110,7 @@ export const ExtensionShowResultSchema = Schema.Struct({
   agentOutcomes: Schema.Array(ShowAgentOutcomeSchema),
   mcp: Schema.optionalKey(McpFactsSchema),
 });
-export type ExtensionShowResult = typeof ExtensionShowResultSchema.Type;
+type ExtensionShowResult = typeof ExtensionShowResultSchema.Type;
 
 /** Field order of `item`, pinned so every `<type> show` stays uniform. */
 export const EXTENSION_SHOW_ITEM_FIELDS = Object.keys(ShowItemSchema.fields);

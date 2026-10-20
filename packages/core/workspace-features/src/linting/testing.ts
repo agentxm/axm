@@ -256,7 +256,7 @@ export const OFFICIAL_AXM_SKILL_PACKAGE_ROOT =
 export const EXTRANEOUS_AXM_SKILL_PACKAGE_ROOT = "agent_extensions/agentxm/@agentxm/skills/axm";
 
 /** Where a workspace that authors its own `axm` skill keeps it. */
-export const AUTHORED_AXM_SKILL_PACKAGE_ROOT = "skills/axm";
+const AUTHORED_AXM_SKILL_PACKAGE_ROOT = "skills/axm";
 
 /** The agent directory entry `claude-code` reads a project skill from. */
 export const CLAUDE_CODE_SKILLS_DIR = ".claude/skills";
@@ -284,7 +284,7 @@ export type OfficialAxmSkillState =
   | "official-unreadable";
 
 /** The two rules that decide what lint says about the official AXM skill. */
-export const OFFICIAL_AXM_SKILL_RULE_IDS = [
+const OFFICIAL_AXM_SKILL_RULE_IDS = [
   "workspace/axm-skill-declared",
   "workspace/axm-skill-compatible",
 ] as const;
@@ -309,7 +309,7 @@ export const isolateOfficialAxmSkillRules = (): Readonly<
 export const FIXTURE_CLI_VERSION = "1.2.3";
 
 /** The prerelease CLI release the in-range prerelease fixture runs as. */
-export const FIXTURE_PRERELEASE_CLI_VERSION = "1.3.0-preview.1";
+const FIXTURE_PRERELEASE_CLI_VERSION = "1.3.0-preview.1";
 
 /** The bounded, wildcard-free range the fixture skills declare. */
 /** The bounded CLI range every compatible official-skill fixture declares. */

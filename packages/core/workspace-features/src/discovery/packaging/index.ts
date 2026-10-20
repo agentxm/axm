@@ -1,8 +1,4 @@
-export type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
-
-export { detectPackages } from "./detect.js";
-
-export { readLocalRecommendations } from "./read.js";
+export type { PackageDetector, PackageReader } from "./types.js";
 
 // Tier 1
 import { npmDetector, npmReader } from "./npm.js";
@@ -45,60 +41,18 @@ import type { PackageDetector, PackageReader } from "./types.js";
 export {
   // Tier 1
   npmDetector,
-  npmReader,
   golangDetector,
-  golangReader,
-  pypiDetector,
-  pypiReader,
+
   // Tier 2
-  cargoDetector,
-  cargoReader,
-  gemDetector,
-  gemReader,
   mavenDetector,
-  mavenReader,
   nugetDetector,
-  nugetReader,
+
   // Tier 3
   composerDetector,
-  composerReader,
-  swiftDetector,
-  swiftReader,
-  hexDetector,
-  hexReader,
-  pubDetector,
-  pubReader,
-  dockerDetector,
-  dockerReader,
-  cocoapodsDetector,
-  cocoapodsReader,
-  condaDetector,
-  condaReader,
+
   // Tier 4
-  conanDetector,
-  conanReader,
-  cranDetector,
-  cranReader,
-  huggingfaceReader,
-  cpanDetector,
-  cpanReader,
-  hackageDetector,
-  hackageReader,
-  juliaDetector,
-  juliaReader,
-  luarocksDetector,
-  luarocksReader,
-  opamDetector,
-  opamReader,
-  bazelDetector,
-  bazelReader,
+
   // Tier 5
-  zigDetector,
-  zigReader,
-  jsrDetector,
-  denoReader,
-  mojoDetector,
-  mojoReader,
 };
 
 /**

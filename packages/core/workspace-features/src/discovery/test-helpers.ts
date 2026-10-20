@@ -7,13 +7,10 @@ import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
-import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import type { PackageType } from "@agentxm/extension-model/unstable/packaging";
 import {
   makeRegistryClientFactory,
   type RegistryClient,
@@ -34,10 +31,7 @@ export const registryFactoryForClient = (
   wire: () => Effect.die("Discovery never authenticates with a Registry"),
 });
 
-export const packageType = (value: string): PackageType =>
-  Schema.decodeUnknownSync(PackageTypeSchema)(value);
-
-export const discoveryRegistryUrl = "https://discovery-registry.example.test";
+const discoveryRegistryUrl = "https://discovery-registry.example.test";
 
 export interface ObservedRegistryRequest {
   readonly method: string;

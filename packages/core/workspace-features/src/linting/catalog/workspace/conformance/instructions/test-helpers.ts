@@ -21,7 +21,7 @@ import {
   type WorkspaceRuleConformanceCase,
 } from "../test-helpers.js";
 
-export const instructionRoot = "/workspace";
+const instructionRoot = "/workspace";
 
 export const baseInstructionStatus: InstructionsStatus = {
   enabled: true,

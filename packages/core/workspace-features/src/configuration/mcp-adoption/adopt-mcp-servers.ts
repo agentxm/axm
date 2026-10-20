@@ -56,6 +56,7 @@ import { preflightMcpAdoptions, type McpAdoptionPreflight } from "./preflight.js
 const plural = (count: number, singular: string): string =>
   `${String(count)} ${singular}${count === 1 ? "" : "s"}`;
 
+/** @public Inferred types in this package name it in emitted declarations. */
 export interface AdoptMcpServersCandidate {
   readonly _tag: "AdoptMcpServers";
   /** Every unmanaged server the workspace found, classified. */
@@ -69,7 +70,7 @@ export interface AdoptMcpServersCandidate {
  * the workspace itself declare. Nothing is written; the candidate names the
  * servers that can be adopted, the ones that conflict, and the ones skipped.
  */
-export const prepareAdoptMcpServers = (
+const prepareAdoptMcpServers = (
   names: ReadonlyArray<string> = [],
 ): Effect.Effect<
   AdoptMcpServersCandidate,
@@ -151,7 +152,7 @@ const importArtifact = (
 };
 
 /** Every service an inline adoption and its plan resolution need. */
-export type AdoptMcpServersRequirements =
+type AdoptMcpServersRequirements =
   | ConfiguredAgentOutcomesProvider
   | FileSystem.FileSystem
   | NativeWriteAuthority
@@ -172,7 +173,7 @@ export type AdoptMcpServersRequirements =
  * the readback before it settles: a half-adopted server would look managed
  * without being managed.
  */
-export const previewOrApplyAdoptMcpServers = (
+const previewOrApplyAdoptMcpServers = (
   candidate: AdoptMcpServersCandidate,
   execution: PlanExecution,
 ): Effect.Effect<OperationResolution<void>, PlanResolutionFailure, AdoptMcpServersRequirements> =>

@@ -77,7 +77,7 @@ export const selectableTypes: ReadonlyArray<PublishableType> =
   extensionTypes.filter(isPublishableType);
 
 /** Whether the run publishes everything authored or an explicit selection. */
-export type PublishSelectionMode = "authored" | "explicit";
+type PublishSelectionMode = "authored" | "explicit";
 
 interface ValidationDetail {
   readonly recover?: string;
@@ -93,7 +93,7 @@ interface ValidationDetail {
 const validation = (detail: string, over?: ValidationDetail) =>
   publishRefused({ category: "validation", detail, ...over });
 
-export const CandidateManifestSchema = Schema.Struct({
+const CandidateManifestSchema = Schema.Struct({
   owner: HandleSchema,
   type: ExtensionTypeSchema,
   name: ExtensionNameSchema,
@@ -145,7 +145,7 @@ interface CandidateVersion extends SelectedEntry {
  * A selected version the Registry already has. Its presence settles it: no
  * local content is linted, archived, or compared.
  */
-export interface ExistingVersionCandidate extends CandidateVersion {
+interface ExistingVersionCandidate extends CandidateVersion {
   readonly action: "skip";
 }
 
@@ -176,7 +176,7 @@ export interface PublishPreparationFailure {
   readonly failure: OperationRefused;
 }
 
-export const preparationFailure = (
+const preparationFailure = (
   reason: PublishPreparationFailure["reason"],
   failure: OperationRefused,
 ): PublishPreparationFailure => ({ _tag: "PublishPreparationFailure", reason, failure });
@@ -247,7 +247,7 @@ export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
   });
 });
 
-export const sourceType = (source: string): SourceType => {
+const sourceType = (source: string): SourceType => {
   if (isWorkspaceSourceLocator(source)) return "workspace";
   if (
     source.startsWith("github:") ||
@@ -287,68 +287,68 @@ const identityFromSource = (entry: CatalogEntry): SelectedEntry | undefined => {
  * Resolve a configured entry's published identity: from a Registry-qualified
  * source string, else from the manifest of the managed package on disk.
  */
-export const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage")(
-  function* (entry: CatalogEntry) {
-    // The canonical observation is the one judge of where the package sits
-    // and, for an authored package, whether its manifest is this workspace's.
-    const accepted = yield* acceptedCanonicalObservation({ type: entry.type, name: entry.name });
-    const extensionDir = Option.getOrUndefined(
-      Option.flatMap(accepted, ({ observation }) => Option.fromUndefinedOr(observation.path)),
-    );
-    const parsedIdentity = identityFromSource(entry);
-    if (parsedIdentity !== undefined) {
-      return extensionDir === undefined ? parsedIdentity : { ...parsedIdentity, extensionDir };
-    }
-    if (Option.isNone(accepted) || extensionDir === undefined) return undefined;
+const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage")(function* (
+  entry: CatalogEntry,
+) {
+  // The canonical observation is the one judge of where the package sits
+  // and, for an authored package, whether its manifest is this workspace's.
+  const accepted = yield* acceptedCanonicalObservation({ type: entry.type, name: entry.name });
+  const extensionDir = Option.getOrUndefined(
+    Option.flatMap(accepted, ({ observation }) => Option.fromUndefinedOr(observation.path)),
+  );
+  const parsedIdentity = identityFromSource(entry);
+  if (parsedIdentity !== undefined) {
+    return extensionDir === undefined ? parsedIdentity : { ...parsedIdentity, extensionDir };
+  }
+  if (Option.isNone(accepted) || extensionDir === undefined) return undefined;
 
-    const desiredIdentity = accepted.value.desired.identity;
-    const authored = desiredIdentity.authority === "workspace";
-    // A declared authored package whose manifest names another owner, type,
-    // or name is not this workspace's package: nothing publishes it as such.
-    if (authored && accepted.value.observation.status === "wrong-origin") return undefined;
-    const authoredIdentity =
-      desiredIdentity.authority === "workspace"
-        ? parseExtensionFqnParts(desiredIdentity.fqn)
-        : undefined;
-    if (authored && authoredIdentity === undefined) return undefined;
+  const desiredIdentity = accepted.value.desired.identity;
+  const authored = desiredIdentity.authority === "workspace";
+  // A declared authored package whose manifest names another owner, type,
+  // or name is not this workspace's package: nothing publishes it as such.
+  if (authored && accepted.value.observation.status === "wrong-origin") return undefined;
+  const authoredIdentity =
+    desiredIdentity.authority === "workspace"
+      ? parseExtensionFqnParts(desiredIdentity.fqn)
+      : undefined;
+  if (authored && authoredIdentity === undefined) return undefined;
 
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const manifestPath = path.join(extensionDir, manifestFilenameForType(entry.type));
-    const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
-    if (Option.isNone(raw)) return undefined;
-    const json = yield* Effect.sync((): unknown => {
-      try {
-        return JSON.parse(raw.value);
-      } catch {
-        return undefined;
-      }
-    });
-    const manifest = Schema.decodeUnknownOption(CandidateManifestSchema)(json);
-    if (
-      Option.isNone(manifest) ||
-      manifest.value.type !== entry.type ||
-      manifest.value.name !== entry.name
-    ) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const manifestPath = path.join(extensionDir, manifestFilenameForType(entry.type));
+  const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
+  if (Option.isNone(raw)) return undefined;
+  const json = yield* Effect.sync((): unknown => {
+    try {
+      return JSON.parse(raw.value);
+    } catch {
       return undefined;
     }
-    const identity = authoredIdentity ?? manifest.value;
-    return {
-      ...entry,
-      owner: identity.owner,
-      fqn: formatFqn(identity),
-      sourceType: sourceType(entry.source),
-      authored,
-      extensionDir,
-      declaredVersion: manifest.value.version,
-      ...(manifest.value.dependencies === undefined
-        ? {}
-        : { declaredDependencies: manifest.value.dependencies }),
-    } satisfies SelectedEntry;
-  },
-);
+  });
+  const manifest = Schema.decodeUnknownOption(CandidateManifestSchema)(json);
+  if (
+    Option.isNone(manifest) ||
+    manifest.value.type !== entry.type ||
+    manifest.value.name !== entry.name
+  ) {
+    return undefined;
+  }
+  const identity = authoredIdentity ?? manifest.value;
+  return {
+    ...entry,
+    owner: identity.owner,
+    fqn: formatFqn(identity),
+    sourceType: sourceType(entry.source),
+    authored,
+    extensionDir,
+    declaredVersion: manifest.value.version,
+    ...(manifest.value.dependencies === undefined
+      ? {}
+      : { declaredDependencies: manifest.value.dependencies }),
+  } satisfies SelectedEntry;
+});
 
-export const parseRootSelector = (selector: string) => {
+const parseRootSelector = (selector: string) => {
   if (selector.startsWith("@")) {
     if (isGlobPattern(selector)) {
       const [owner, plural, name, extra] = selector.split("/");
@@ -387,7 +387,7 @@ export const parseRootSelector = (selector: string) => {
   return Effect.succeed({ type, name });
 };
 
-export const matchesSelector = (entry: SelectedEntry, selector: string): boolean => {
+const matchesSelector = (entry: SelectedEntry, selector: string): boolean => {
   const typeName = `${extensionTypeToPlural[entry.type]}/${entry.name}`;
   const candidates = [entry.fqn, typeName];
   return isGlobPattern(selector)

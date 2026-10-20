@@ -31,7 +31,7 @@ import {
   type WorkspaceLocation,
 } from "@agentxm/workspace-kernel/workspace-state";
 
-export const PUBLISHER_CHANGE_CONDITION_ID = "publisher-ownership-change";
+const PUBLISHER_CHANGE_CONDITION_ID = "publisher-ownership-change";
 
 const ACCEPTED_RESOLUTION_UNREADABLE_ID = "accepted-resolution-unreadable";
 
@@ -39,7 +39,7 @@ const ACCEPTED_RESOLUTION_UNREADABLE_ID = "accepted-resolution-unreadable";
  * The interactive-only condition a plan carries when any of its steps
  * replaces an accepted publisher binding.
  */
-export const publisherChangeRiskCondition = (
+const publisherChangeRiskCondition = (
   transitions: ReadonlyArray<PublisherBindingTransition>,
 ): PlanRiskCondition | undefined =>
   transitions.length === 0
@@ -54,7 +54,7 @@ export const publisherChangeRiskCondition = (
       };
 
 /** Append the publisher-change condition for the given transitions, if any. */
-export const withPublisherTrustConditions = <R, O>(
+const withPublisherTrustConditions = <R, O>(
   plan: Plan<R, O>,
   transitions: ReadonlyArray<PublisherBindingTransition>,
 ): Plan<R, O> => {

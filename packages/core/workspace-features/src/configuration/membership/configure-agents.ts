@@ -108,6 +108,8 @@ const membershipArtifact = (
 /**
  * A request that changes nothing still has an answer: what it named and why
  * the workspace already satisfies it.
+ *
+ * @public Inferred types in this package name it in emitted declarations.
  */
 export interface ConfiguredAgentsUnchanged {
   readonly _tag: "Unchanged";
@@ -118,7 +120,7 @@ export interface ConfiguredAgentsUnchanged {
 }
 
 /** A retired agent detection found, and why a person should know about it. */
-export interface RetiredAgentNotice {
+interface RetiredAgentNotice {
   readonly agentId: string;
   /** The vendor-lifecycle sentence, and that detection did not configure it. */
   readonly detail: string;
@@ -143,6 +145,7 @@ export interface AddConfiguredAgentsRequest {
   readonly acceptWarnings?: boolean;
 }
 
+/** @public Inferred types in this package name it in emitted declarations. */
 export interface AddConfiguredAgentsCandidate {
   readonly _tag: "AddConfiguredAgents";
   /** The agents this change configures, in the order they were decided. */
@@ -168,7 +171,7 @@ export interface AddConfiguredAgentsCandidate {
  * vendor retired them: a retired agent is a deliberate choice, never a
  * consequence of having it installed.
  */
-export const prepareAddConfiguredAgents = (
+const prepareAddConfiguredAgents = (
   request: AddConfiguredAgentsRequest,
 ): Effect.Effect<
   AddConfiguredAgentsCandidate | ConfiguredAgentsUnchanged,
@@ -253,7 +256,7 @@ export const prepareAddConfiguredAgents = (
  * inside this change's closure so membership and realized outputs settle
  * together.
  */
-export interface MembershipReconciliation<Requirements, Output> {
+interface MembershipReconciliation<Requirements, Output> {
   readonly steps: ReadonlyArray<PlannedJobStep<Requirements, Output>>;
 }
 
@@ -262,7 +265,7 @@ export interface MembershipReconciliation<Requirements, Output> {
  * transition its steps settle inside. `Requirements` carries whatever the
  * reconciliation steps the application supplied still need.
  */
-export type MembershipExecutionRequirements<Requirements> =
+type MembershipExecutionRequirements<Requirements> =
   | Requirements
   | ConfiguredAgentOutcomesProvider
   | DesiredStateReader
@@ -410,7 +413,7 @@ const addPlan = <Requirements, Output>(
  * transaction only settles once the workspace reports the arriving agents as
  * configured.
  */
-export const previewOrApplyAddConfiguredAgents = <MaterializeRequirements = never, Output = void>(
+const previewOrApplyAddConfiguredAgents = <MaterializeRequirements = never, Output = void>(
   candidate: AddConfiguredAgentsCandidate,
   execution: PlanExecution,
   reconciliation?: MembershipReconciliation<MaterializeRequirements, Output>,
@@ -444,11 +447,12 @@ export interface RemoveConfiguredAgentsRequest {
 }
 
 /** The projection state the workspace is reconciled to once the agents leave. */
-export interface DepartingAgentReconciliation {
+interface DepartingAgentReconciliation {
   readonly desiredAgentIds: ReadonlySet<string>;
   readonly expectedNames: Readonly<Record<PerAgentType, ReadonlySet<string>>>;
 }
 
+/** @public Inferred types in this package name it in emitted declarations. */
 export interface RemoveConfiguredAgentsCandidate {
   readonly _tag: "RemoveConfiguredAgents";
   readonly agentIds: ReadonlyArray<string>;
@@ -470,7 +474,7 @@ export interface RemoveConfiguredAgentsCandidate {
  * complete desired graph — without one, AXM cannot tell its own output from
  * a person's file, so it refuses rather than guess.
  */
-export const prepareRemoveConfiguredAgents = (
+const prepareRemoveConfiguredAgents = (
   request: RemoveConfiguredAgentsRequest,
 ): Effect.Effect<
   RemoveConfiguredAgentsCandidate | ConfiguredAgentsUnchanged,
@@ -565,7 +569,7 @@ const removePlan = <Requirements, Output>(
  * planned run before the membership writes and inside the same transaction,
  * so a cleanup that cannot complete leaves the agent configured.
  */
-export const previewOrApplyRemoveConfiguredAgents = <CleanupRequirements = never, Output = void>(
+const previewOrApplyRemoveConfiguredAgents = <CleanupRequirements = never, Output = void>(
   candidate: RemoveConfiguredAgentsCandidate,
   execution: PlanExecution,
   reconciliation?: MembershipReconciliation<CleanupRequirements, Output>,
@@ -603,7 +607,7 @@ const ConfiguredAgentRowSchema = Schema.Struct({
   /** Whether the vendor still maintains the agent: active, deprecated, retired. */
   lifecycle: AgentLifecycleStateSchema,
 });
-export type ConfiguredAgentRow = typeof ConfiguredAgentRowSchema.Type;
+type ConfiguredAgentRow = typeof ConfiguredAgentRowSchema.Type;
 
 export const ConfiguredAgentInventorySchema = Schema.Struct({
   items: Schema.Array(ConfiguredAgentRowSchema),

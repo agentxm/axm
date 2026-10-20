@@ -61,7 +61,7 @@ export const validatePublishOwners = (
   );
 
 /** One suggested follow-up carried by a publish advisory finding. */
-export interface PublishAdvisorySuggestion {
+interface PublishAdvisorySuggestion {
   readonly description: string;
   readonly cmd?: string;
   readonly url?: string;

@@ -51,7 +51,7 @@ export interface ArchivePlanEntry {
 }
 
 /** Match accounting for one effective selection rule. */
-export interface ArchivePlanPattern {
+interface ArchivePlanPattern {
   readonly pattern: string;
   readonly matchCount: number;
   readonly origin: SelectionRuleOrigin;
@@ -69,7 +69,7 @@ export interface ArchivePlan {
 }
 
 /** Deterministic archive bytes paired with the exact plan that produced them. */
-export interface PlannedZipArchive {
+interface PlannedZipArchive {
   readonly archive: Uint8Array;
   readonly plan: ArchivePlan;
   readonly selection: ResolvedFileSelection;

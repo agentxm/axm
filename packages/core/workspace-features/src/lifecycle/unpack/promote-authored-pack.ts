@@ -78,10 +78,10 @@ export interface PromoteAuthoredPackRequest {
 }
 
 /** What every step in this transition may require when it runs. */
-export type PromoteAuthoredPackRequirements = InstallStepRequirements;
+type PromoteAuthoredPackRequirements = InstallStepRequirements;
 
 /** One member the transition promotes, and how it was declared before. */
-export interface PromotedPackMember {
+interface PromotedPackMember {
   readonly type: DesiredExtensionNode["type"];
   readonly name: string;
   /** True when the workspace already declared this member directly. */
@@ -92,7 +92,7 @@ export interface PromotedPackMember {
  * A settled unpack: membership is proven, every member's accepted identity is
  * readable, and nothing is written.
  */
-export interface PromoteAuthoredPackCandidate {
+interface PromoteAuthoredPackCandidate {
   /** The Pack's desired-state identity, as the transition reports it. */
   readonly packIdentity: string;
   readonly packName: string;
@@ -105,12 +105,10 @@ export interface PromoteAuthoredPackCandidate {
  * the feature's own refusals plus whatever reading the desired graph, the
  * accepted identities, and the transition it composes surfaced.
  */
-export type PromoteAuthoredPackFailure = Effect.Error<ReturnType<typeof settleUnpack>>;
+type PromoteAuthoredPackFailure = Effect.Error<ReturnType<typeof settleUnpack>>;
 
 /** Everything settling an unpack reads before it freezes a candidate. */
-export type PreparePromoteAuthoredPackRequirements = Effect.Services<
-  ReturnType<typeof settleUnpack>
->;
+type PreparePromoteAuthoredPackRequirements = Effect.Services<ReturnType<typeof settleUnpack>>;
 
 // -----------------------------------------------------------------------------
 // Promotion
@@ -389,7 +387,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
   } satisfies PromoteAuthoredPackCandidate;
 });
 
-export const preparePromoteAuthoredPack: (
+const preparePromoteAuthoredPack: (
   request: PromoteAuthoredPackRequest,
 ) => Effect.Effect<
   PromoteAuthoredPackCandidate,
@@ -402,7 +400,7 @@ export const preparePromoteAuthoredPack: (
 // -----------------------------------------------------------------------------
 
 /** Preview or apply a settled unpack, resolving to one operation outcome. */
-export const previewOrApplyPromoteAuthoredPack = (
+const previewOrApplyPromoteAuthoredPack = (
   candidate: PromoteAuthoredPackCandidate,
   execution: PlanExecution,
 ) => resolveExecutionCandidate(candidate.execution, execution);

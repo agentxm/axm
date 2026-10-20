@@ -150,17 +150,14 @@ const sourceAssessmentFailed = (fqn: string) => (cause: GitOperationFailed) =>
   });
 
 /** The selection facts one publish result reports. */
-export type PublishSelectionSummary = Omit<
-  PublishResult["selection"],
-  "counts" | "dependencyInclusion"
->;
+type PublishSelectionSummary = Omit<PublishResult["selection"], "counts" | "dependencyInclusion">;
 
 /**
  * How an invocation must terminate once its result document is reported. A
  * failure that stopped the plan before execution carries the plan's typed
  * block, so the application exits it the way it exits every blocked plan.
  */
-export type PublishDisposition =
+type PublishDisposition =
   | { readonly _tag: "Completed" }
   | {
       readonly _tag: "Failed";
@@ -193,7 +190,7 @@ export interface PublishOutcome {
 }
 
 /** A prepared publish run: either already settled, or ready to resolve. */
-export type PublishPreparation =
+type PublishPreparation =
   | { readonly _tag: "Settled"; readonly outcome: PublishOutcome }
   | { readonly _tag: "Ready"; readonly candidate: PublishCandidateSet };
 
@@ -1115,4 +1112,4 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
 /** The application API for publishing workspace-authored extensions. */
 export const PublishExtensions = { prepare, previewOrApply } as const;
 
-export type { OperationJournal, PublishPlanOutput };
+export type { PublishPlanOutput };

@@ -72,7 +72,7 @@ const LintJsonSummarySchema = Schema.Struct({
   description: "Finding counts by severity plus the derived exit category.",
 });
 
-export const LintInputSchema = Schema.Union([
+const LintInputSchema = Schema.Union([
   Schema.Struct({ view: Schema.Literal("filesystem") }),
   Schema.Struct({
     view: Schema.Literal("git-index"),

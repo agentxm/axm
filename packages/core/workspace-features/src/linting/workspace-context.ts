@@ -181,7 +181,7 @@ export interface WorkspaceProjectionsAccessor {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface WorkspaceInstalledExtensionAccessor {
+interface WorkspaceInstalledExtensionAccessor {
   readonly manifests: Effect.Effect<ReadonlyArray<InstalledExtensionManifest>>;
 }
 
@@ -206,7 +206,7 @@ export interface InstalledExtensionManifest {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface WorkspaceSubject {
+interface WorkspaceSubject {
   readonly root: string;
   readonly scope: "project" | "user";
 }

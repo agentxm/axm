@@ -42,12 +42,9 @@ import {
   refusingSourceProviders,
   withKindManagers,
 } from "../testing/workspace-world.js";
-import {
-  WorkspaceInitializationInteractionTest,
-  type WorkspaceInitializationInteractionTestState,
-} from "./setup/initialization-interaction.js";
+import { WorkspaceInitializationInteractionTest } from "./setup/initialization-interaction.js";
 
-export { WorkspaceInitializationInteractionTest, type WorkspaceInitializationInteractionTestState };
+export { WorkspaceInitializationInteractionTest };
 
 export interface ConfigurationFixtureOptions {
   /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
@@ -223,3 +220,8 @@ export const makeSetupFixture = (options: SetupFixtureOptions = {}) => {
 };
 
 export type SetupFixture = ReturnType<typeof makeSetupFixture>;
+
+// Dependents' inferred types name these, so their declaration emit must be
+// able to; knip skips exports tagged public.
+/** @public */
+export type { WorkspaceInitializationInteractionTestState } from "./setup/initialization-interaction.js";

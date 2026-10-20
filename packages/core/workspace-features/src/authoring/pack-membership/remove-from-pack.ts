@@ -34,7 +34,7 @@ import { authoringRefused } from "../errors.js";
 /**
  * Args for the remove-from-pack operation.
  */
-export interface RemoveFromPackOperationArgs {
+interface RemoveFromPackOperationArgs {
   /** Pack name (without owner). */
   readonly packName: string;
   /** Pack owner (e.g., "@myorg"). */

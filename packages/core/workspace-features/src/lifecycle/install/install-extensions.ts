@@ -179,7 +179,7 @@ export interface InstallExtensionsRequest {
  * decision depends on: which registries were consulted, and which packages
  * the selected extensions declare themselves compatible with.
  */
-export interface InstallDiagnostics {
+interface InstallDiagnostics {
   readonly resolutionLines: ReadonlyArray<string>;
   readonly companionPackages: ReadonlyArray<string>;
 }
@@ -201,7 +201,7 @@ export interface InstallExtensionsCandidate {
  * A configured entry's resolution refusal travels with its own category and
  * sentence rather than as this feature's generic refusal.
  */
-export type InstallExtensionsFailure =
+type InstallExtensionsFailure =
   | Config.ConfigError
   | OperationRefused
   | ExtensionResolutionFailed
@@ -878,7 +878,7 @@ const settleLocatorInstall = (source: string, request: InstallExtensionsRequest)
   });
 
 /** Settle what an install takes, asking where the request left it open. */
-export const selectInstallExtensions: (
+const selectInstallExtensions: (
   request: InstallExtensionsRequest,
 ) => Effect.Effect<
   InstallExtensionsSelection,
@@ -1031,7 +1031,7 @@ const planSelection = (
   });
 
 /** Plan a settled selection into a candidate without writing anything. */
-export const planInstallExtensions: (
+const planInstallExtensions: (
   request: InstallExtensionsRequest,
   selection: InstallExtensionsSelection,
 ) => Effect.Effect<
@@ -1060,7 +1060,7 @@ export const planInstallExtensions: (
 // -----------------------------------------------------------------------------
 
 /** Settle an install without writing anything: select, then plan. */
-export const prepareInstallExtensions = (
+const prepareInstallExtensions = (
   request: InstallExtensionsRequest,
 ): Effect.Effect<
   InstallExtensionsCandidate,
@@ -1081,10 +1081,9 @@ export const prepareInstallExtensions = (
  * step requirements plus the operation boundary that presents, journals, and
  * applies it.
  */
-export type ResolveInstallExtensionsRequirements =
-  PrepareInstallRequirements | BundledAxmSkillAsset;
+type ResolveInstallExtensionsRequirements = PrepareInstallRequirements | BundledAxmSkillAsset;
 
-export interface InstallExtensionsResult {
+interface InstallExtensionsResult {
   readonly resolution: OperationResolution;
   readonly installedSkills: ReadonlyArray<InstalledSkill>;
   /**
@@ -1104,7 +1103,7 @@ const instructionFilesPendingFor = (types: ReadonlyArray<InstallableExtensionTyp
   });
 
 /** Preview or apply a settled install, resolving to one operation outcome. */
-export const previewOrApplyInstallExtensions = (
+const previewOrApplyInstallExtensions = (
   candidate: InstallExtensionsCandidate,
   execution: PlanExecution,
 ): Effect.Effect<

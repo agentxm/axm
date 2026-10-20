@@ -103,14 +103,14 @@ export interface DemoteRequest {
 export const DEMOTE_RISK_CONDITION_ID = "replace-workspace-authority";
 
 /** Everything a demotion step may require when it runs. */
-export type DemoteRequirements = InstallStepRequirements;
+type DemoteRequirements = InstallStepRequirements;
 
 /**
  * A settled demotion: the replacement is resolved, the refusals are past, and
  * nothing is written. The identity fields answer what the application renders
  * around the frozen candidate.
  */
-export interface DemoteCandidate {
+interface DemoteCandidate {
   readonly type: ExtensionType;
   readonly name: string;
   /** Owner-qualified identity of the package being demoted. */
@@ -125,10 +125,10 @@ export interface DemoteCandidate {
  * the feature's own refusals, the identity grammar, and whatever resolving
  * the replacement against its source surfaced.
  */
-export type DemoteFailure = Effect.Error<ReturnType<typeof settleDemotion>>;
+type DemoteFailure = Effect.Error<ReturnType<typeof settleDemotion>>;
 
 /** Everything settling a demotion reads before it freezes a candidate. */
-export type PrepareDemoteRequirements = Effect.Services<ReturnType<typeof settleDemotion>>;
+type PrepareDemoteRequirements = Effect.Services<ReturnType<typeof settleDemotion>>;
 
 // -----------------------------------------------------------------------------
 // Configured entry facts
@@ -416,7 +416,7 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
   } satisfies DemoteCandidate;
 });
 
-export const prepareDemote: (
+const prepareDemote: (
   request: DemoteRequest,
 ) => Effect.Effect<DemoteCandidate, DemoteFailure, PrepareDemoteRequirements> = settleDemotion;
 
@@ -425,7 +425,7 @@ export const prepareDemote: (
 // -----------------------------------------------------------------------------
 
 /** Preview or apply a settled demotion, resolving to one operation outcome. */
-export const previewOrApplyDemote = (candidate: DemoteCandidate, execution: PlanExecution) =>
+const previewOrApplyDemote = (candidate: DemoteCandidate, execution: PlanExecution) =>
   resolveExecutionCandidate(candidate.execution, execution);
 
 /** The demotion use case: settle a request, then preview or apply it. */

@@ -13,71 +13,22 @@ export { publishRefused } from "./errors.js";
 
 export { PUBLISHABLE_TYPES, isPublishableType, type PublishableType } from "./publishable-types.js";
 
-export { runPublishLintGate, type PublishLintArgs } from "./lint-gate.js";
-export { publishArchiveOptions, resolvePublishSelection } from "./publish-selection.js";
+export { planZipArchive } from "./archive.js";
 
-export {
-  buildZipArchive,
-  planZipArchive,
-  type ArchivePlan,
-  type ArchivePlanEntry,
-  type ArchivePlanPattern,
-  type BuildZipArchiveOptions,
-  type PlannedZipArchive,
-} from "./archive.js";
+export { publishAuthenticationPreconditions } from "./authorization.js";
 
-export {
-  assessPublishSourceState,
-  publishSourceRiskCondition,
-  type PublishSourceAssessment,
-  type PublishSourceDifference,
-  type PublishSourceState,
-} from "./source-state.js";
+export { buildPublishJobs } from "./jobs.js";
 
-export {
-  settlePublish,
-  type PublishSettlement,
-  type PublishSettlementFailure,
-  type SettledPublish,
-} from "./settlement.js";
+export { publishRecoverySelection } from "./recovery.js";
 
-export {
-  previewPublishUploadBinding,
-  publishAuthenticationPreconditions,
-  type ResolvedPublishPreview,
-} from "./authorization.js";
-
-export { buildPublishJobs, type PublishPlanCandidate } from "./jobs.js";
-
-export { publishRecoverySelection, type PublishRecoveryItem } from "./recovery.js";
-
-export {
-  findPackPublishDivergenceFindings,
-  localPackConstraintFailures,
-  nonMonotonicVersionConflict,
-  validatePublishOwners,
-  type LocalPackConstraintCandidate,
-  type PublishAdvisoryFinding,
-  type PublishAdvisorySuggestion,
-} from "./preflight.js";
+export { findPackPublishDivergenceFindings, validatePublishOwners } from "./preflight.js";
 
 // Typed publish failures and the redacted cause the result reports
-export {
-  aggregatePublishFailure,
-  isPublishFailure,
-  isRetryablePublishFailure,
-  publishCause,
-  publishFailureProblemCode,
-  type PublishCauseClass,
-  type PublishFailure,
-} from "./failure.js";
+export { publishCause } from "./failure.js";
 
 // The publish result contract (`publish-result-v3`)
 export {
-  PublishAdvisoryFindingSchema,
   PublishResultSchema,
-  classifyPublishResults,
-  executionStatus,
   normalizePublishResult,
   type PublishPublicationSet,
   type PublishResult,
@@ -90,59 +41,26 @@ export {
 export {
   normalizeTypePublishSelection,
   selectableTypes,
-  type ExistingVersionCandidate,
-  type PublishCandidate,
   type PublishRequest,
-  type PublishSelectionMode,
-  type UploadCandidate,
 } from "./publish/model.js";
 
 // Settlement rules that keep an unconfirmed run from reading as a publication
-export { interruptedPublishResults, unconfirmedPublishOutcomes } from "./publish/outcome.js";
-
 // The declared visibility one publication carries
-export { declaredVisibilityIntent } from "./publish/publication.js";
-
 // The publish application API
 export {
   PublishExtensions,
   prepare,
   previewOrApply,
-  type PublishCandidateSet,
-  type PublishDisposition,
   type PublishOutcome,
-  type PublishPreparation,
-  type PublishSelectionSummary,
 } from "./publish/use-case.js";
 
 // Published-extension lifecycle: the honest Registry transition outcome
 export {
-  REGISTRY_TRANSITION_CONTRACT,
   RegistryTransitionSchema,
   registryTransition,
   type RegistryTransition,
-  type RegistryTransitionAction,
 } from "./lifecycle/remote-outcome.js";
-export {
-  RetirePublishedVersion,
-  parseExactVersionReference,
-  parseExtensionReference,
-  unyank,
-  yank,
-  type YankRequest,
-} from "./lifecycle/retirement.js";
-export { ArchivePublishedExtension, archive, unarchive } from "./lifecycle/archival.js";
-export {
-  DeprecatePublishedExtension,
-  deprecate,
-  undeprecate,
-  type DeprecationEdit,
-} from "./lifecycle/deprecation.js";
-export {
-  ManagePublishedVisibility,
-  parseVisibilityTarget,
-  repositoryVisibilityIntent,
-  type VisibilitySetRequest,
-  type VisibilityTarget,
-  type VisibilityWriteRequest,
-} from "./lifecycle/visibility.js";
+export { RetirePublishedVersion } from "./lifecycle/retirement.js";
+export { ArchivePublishedExtension } from "./lifecycle/archival.js";
+export { DeprecatePublishedExtension } from "./lifecycle/deprecation.js";
+export { ManagePublishedVisibility } from "./lifecycle/visibility.js";

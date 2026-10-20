@@ -11,7 +11,7 @@ import { FrontmatterParseFailure, parseFrontmatterEffect } from "../content/fron
 import { matchesKnowledgeSearchQuery, type KnowledgeSearchQuery } from "./knowledge-search.js";
 
 /** OKF dialect versions this inspector understands. */
-export type OkfVersion = "0.2";
+type OkfVersion = "0.2";
 
 /** Actor that produced or confirmed a concept, per the OKF actor convention. */
 export interface KnowledgeActorRecord {

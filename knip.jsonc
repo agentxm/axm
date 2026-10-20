@@ -23,7 +23,6 @@
   "ignoreIssues": {
     "*.{ts,mts,cts,js,mjs,cjs}": ["exports", "types"],
     "{apps,benchmarks,scripts,specifications,tools}/**": ["exports", "types"],
-    "packages/core/{extension-content,extension-model,registry-protocol}/**": ["exports", "types"],
     "packages/supporting/registry-client/src/__generated__/**": ["exports", "types"],
     // Type tests export their compile-time assertions so the compiler checks
     // them without reporting unused locals; nothing imports them.

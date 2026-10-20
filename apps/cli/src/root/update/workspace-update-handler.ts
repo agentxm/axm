@@ -29,7 +29,6 @@ import {
   type OperationRecoveryContext,
 } from "../../operation-output.js";
 import { INSPECT_INSTALLED } from "../suggested-actions.js";
-import { extensionTypePresentation } from "../extension-type-presentation.js";
 import { toAppError } from "../../app-error/conversions.js";
 import {
   makeConfirmationRecovery,
@@ -43,15 +42,6 @@ export interface WorkspaceUpdateFlags {
   readonly preview: boolean;
   readonly reinstall?: boolean;
 }
-
-/** The route a person reruns to confirm this sweep. */
-const workspaceUpdateCommand = (
-  type: Option.Option<WorkspaceUpdatableType>,
-): ReadonlyArray<string> =>
-  Option.match(type, {
-    onNone: () => ["update"],
-    onSome: (value) => [extensionTypePresentation(value).route, "update"],
-  });
 
 /**
  * What the sweep offers next. A constraint contradiction is a choice to make,
@@ -153,7 +143,7 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
   const posture = yield* ReleaseAgePosture;
   const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.flags.preview },
-    makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
+    yield* makeConfirmationRecovery([
       recoverySwitch("--reinstall", args.flags.reinstall === true),
       recoverySwitch("--ignore-release-age", posture === "ignore"),
       ...(candidate.outcome === "planned" ? (candidate.selectedNames ?? []) : []).map((name) =>

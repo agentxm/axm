@@ -38,7 +38,6 @@ const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerA
   );
   const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
     { preview: args.preview },
-    ["adopt"],
     [args.fqn],
   );
   const resolution = yield* AdoptExtension.previewOrApply(candidate, execution).pipe(

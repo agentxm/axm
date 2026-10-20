@@ -34,11 +34,7 @@ const handleMigrate = (fqn: string, preview: boolean) =>
       const candidate = yield* MigrateDeprecated.prepare(fqn).pipe(
         Effect.mapError(failureToAppError),
       );
-      const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
-        { preview },
-        ["migrate"],
-        [fqn],
-      );
+      const { execution, recovery } = yield* makePublicPositionalPlanInvocation({ preview }, [fqn]);
       const resolution = yield* MigrateDeprecated.previewOrApply(candidate, execution).pipe(
         Effect.mapError(failureToAppError),
       );

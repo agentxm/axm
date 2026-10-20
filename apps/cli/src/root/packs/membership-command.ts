@@ -69,13 +69,10 @@ const body = (args: PackMembershipCommandArgs) =>
 
     const { execution, recovery } = yield* makePlanInvocation(
       { preview: args.preview },
-      makeConfirmationRecovery(
-        ["packs", change],
-        [
-          recoveryPositional(publicRecoveryValue(pack)),
-          recoveryPositional(publicRecoveryValue(selector)),
-        ],
-      ),
+      yield* makeConfirmationRecovery([
+        recoveryPositional(publicRecoveryValue(pack)),
+        recoveryPositional(publicRecoveryValue(selector)),
+      ]),
     );
     const resolution = yield* ChangePackMembership.previewOrApply(candidate, execution).pipe(
       Effect.mapError(toAppError),

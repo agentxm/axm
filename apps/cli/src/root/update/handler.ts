@@ -48,7 +48,6 @@ export interface RootUpdateFlags {
 
 export interface RootUpdateHandlerArgs extends RootUpdateFlags {
   readonly source: Option.Option<string>;
-  readonly recoveryCommand?: ReadonlyArray<string>;
 }
 
 /**
@@ -144,7 +143,7 @@ const targetedInvocation = (args: RootUpdateHandlerArgs, source: string) =>
     const posture = yield* ReleaseAgePosture;
     return yield* makePlanInvocation(
       { preview: args.preview },
-      makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
+      yield* makeConfirmationRecovery([
         recoverySwitch("--reinstall", args.reinstall),
         recoverySwitch("--ignore-release-age", posture === "ignore"),
         recoveryPositional(credentialFreeLocatorRecoveryValue(source)),

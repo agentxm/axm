@@ -68,9 +68,6 @@ export interface RootPublishHandlerArgs {
   readonly scope: WorkspaceScope;
   readonly visibility: Option.Option<ExtensionVisibility>;
   readonly includeDependencies: boolean;
-  readonly recoveryCommand?: ReadonlyArray<string>;
-  readonly recoverySelectors?: ReadonlyArray<string>;
-  readonly recoveryExcludes?: ReadonlyArray<string>;
 }
 
 /**
@@ -84,7 +81,6 @@ export const makeExactPublishRecovery = (
     | "backfill"
     | "visibility"
     | "acceptWarnings"
-    | "recoveryCommand"
     | "from"
     | "packageVersion"
     | "fileInclude"
@@ -92,34 +88,29 @@ export const makeExactPublishRecovery = (
   >,
   candidateFqns: ReadonlyArray<string>,
 ) =>
-  makeConfirmationRecovery(
-    [...(args.recoveryCommand ?? ["publish"])],
-    [
-      ...Option.match(args.registry, {
-        onNone: () => [],
-        onSome: (registryName) => [recoveryOption("--registry", publicRecoveryValue(registryName))],
-      }),
-      ...(args.from === undefined
-        ? []
-        : [recoveryOption("--path", publicRecoveryValue(args.from))]),
-      ...(args.packageVersion === undefined
-        ? []
-        : [recoveryOption("--package-version", publicRecoveryValue(args.packageVersion))]),
-      ...(args.fileInclude ?? []).map((pattern) =>
-        recoveryOption("--include-path", publicRecoveryValue(pattern)),
-      ),
-      ...(args.fileExclude ?? []).map((pattern) =>
-        recoveryOption("--exclude-path", publicRecoveryValue(pattern)),
-      ),
-      recoverySwitch("--backfill", args.backfill),
-      recoverySwitch("--accept-warnings", args.acceptWarnings),
-      ...Option.match(args.visibility, {
-        onNone: () => [],
-        onSome: (visibility) => [recoveryOption("--visibility", publicRecoveryValue(visibility))],
-      }),
-      ...candidateFqns.map((fqn) => recoveryPositional(publicRecoveryValue(fqn))),
-    ],
-  );
+  makeConfirmationRecovery([
+    ...Option.match(args.registry, {
+      onNone: () => [],
+      onSome: (registryName) => [recoveryOption("--registry", publicRecoveryValue(registryName))],
+    }),
+    ...(args.from === undefined ? [] : [recoveryOption("--path", publicRecoveryValue(args.from))]),
+    ...(args.packageVersion === undefined
+      ? []
+      : [recoveryOption("--package-version", publicRecoveryValue(args.packageVersion))]),
+    ...(args.fileInclude ?? []).map((pattern) =>
+      recoveryOption("--include-path", publicRecoveryValue(pattern)),
+    ),
+    ...(args.fileExclude ?? []).map((pattern) =>
+      recoveryOption("--exclude-path", publicRecoveryValue(pattern)),
+    ),
+    recoverySwitch("--backfill", args.backfill),
+    recoverySwitch("--accept-warnings", args.acceptWarnings),
+    ...Option.match(args.visibility, {
+      onNone: () => [],
+      onSome: (visibility) => [recoveryOption("--visibility", publicRecoveryValue(visibility))],
+    }),
+    ...candidateFqns.map((fqn) => recoveryPositional(publicRecoveryValue(fqn))),
+  ]);
 
 const publishRequest = (args: RootPublishHandlerArgs, unattended: boolean): PublishRequest => ({
   ...(args.from === undefined ? {} : { from: args.from }),
@@ -176,7 +167,7 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
       : yield* Effect.gen(function* () {
           const invocation = yield* makePlanInvocation(
             { preview: args.preview },
-            makeExactPublishRecovery(args, outcome.recovery?.remainingItems ?? []),
+            yield* makeExactPublishRecovery(args, outcome.recovery?.remainingItems ?? []),
           );
           const cmd = renderConfirmationRecoveryCommand(invocation.recovery, {
             approval: "none",
@@ -273,10 +264,14 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
             return yield* reportPublishOutcome(args, preparation.outcome, startedAtMs);
           }
           const { execution } = yield* restore(
-            makePlanInvocation(
-              { preview: args.preview },
+            Effect.flatMap(
               makeExactPublishRecovery(args, preparation.candidate.candidateFqns),
-              args.acceptWarnings ? ["accept-warnings"] : [],
+              (recovery) =>
+                makePlanInvocation(
+                  { preview: args.preview },
+                  recovery,
+                  args.acceptWarnings ? ["accept-warnings"] : [],
+                ),
             ),
           );
           // The feature settles an interruption into an outcome behind its own

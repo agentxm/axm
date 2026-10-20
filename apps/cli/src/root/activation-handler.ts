@@ -65,8 +65,6 @@ interface ActivationCommandArgs extends EnableExtensionRequest {
 }
 
 interface ActivationCommandPresentation {
-  /** The command path an approval-recovery hint reprints. */
-  readonly commandPath: ReadonlyArray<string>;
   readonly planName: string;
   readonly recoveryTarget?: string;
   /** What a settled change offers after the type's inspection command. */
@@ -101,9 +99,7 @@ const typedPresentation = (
   enabled: boolean,
 ): ActivationCommandPresentation => {
   const { route, noun } = extensionTypePresentation(type);
-  const verb = enabled ? "enable" : "disable";
   return {
-    commandPath: [route, verb],
     planName: `${enabled ? "Enable" : "Disable"} ${noun.singular}`,
     suggestions: [
       {
@@ -214,7 +210,6 @@ const makeRootActivationCommand = (enabled: boolean) => {
         handleSetActivation(
           { type, name: fqn, enabled, preview },
           {
-            commandPath: [verb],
             recoveryTarget: fqn,
             planName: `${title} ${extensionTypePresentation(type).noun.singular}`,
             suggestions: [
@@ -320,11 +315,9 @@ const handleSetActivationBody = <R>(
       return;
     }
 
-    const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
-      args,
-      presentation.commandPath,
-      [presentation.recoveryTarget ?? candidate.name],
-    );
+    const { execution, recovery } = yield* makePublicPositionalPlanInvocation(args, [
+      presentation.recoveryTarget ?? candidate.name,
+    ]);
     const resolution = yield* DisableExtension.previewOrApply(candidate, execution).pipe(
       Effect.mapError(failureToAppError),
     );

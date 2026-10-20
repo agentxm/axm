@@ -50,8 +50,7 @@ const handleMcpsAdoptBody = Effect.fn("Mcps.adopt")(function* (args: McpsAdoptAr
 
   const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
-    makeConfirmationRecovery(
-      ["mcps", "adopt"],
+    yield* makeConfirmationRecovery(
       (args.name ?? []).map((name) => recoveryOption("--name", publicRecoveryValue(name))),
     ),
   );

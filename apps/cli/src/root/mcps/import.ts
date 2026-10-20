@@ -79,14 +79,11 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
   }).pipe(Effect.mapError(failureToAppError));
   const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
-    makeConfirmationRecovery(
-      ["mcps", "import"],
-      [
-        recoverySwitch("--enable", args.enable),
-        recoveryPositional(publicRecoveryValue(args.name)),
-        recoveryPositional(publicRecoveryValue(args.target)),
-      ],
-    ),
+    yield* makeConfirmationRecovery([
+      recoverySwitch("--enable", args.enable),
+      recoveryPositional(publicRecoveryValue(args.name)),
+      recoveryPositional(publicRecoveryValue(args.target)),
+    ]),
   );
   const resolution = yield* ImportNativeExtension.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),

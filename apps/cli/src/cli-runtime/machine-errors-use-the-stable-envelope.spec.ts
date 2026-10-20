@@ -26,6 +26,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
 import { parserRejection } from "../test-support/parser-probe.js";
 import { writeAuthoredSkill } from "../test-support/publish-harness.js";
+import { withCommandRoute } from "../test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/machine-errors-use-the-stable-envelope",
@@ -207,7 +208,7 @@ describe("Machine error envelope", () => {
           source: replacement,
           yes: false,
           preview: false,
-        }).pipe(Effect.provide(workspace.layer));
+        }).pipe(withCommandRoute("demote"), Effect.provide(workspace.layer));
 
         expect(workspace.rendererState.results).toHaveLength(1);
         const [entry] = workspace.rendererState.results;

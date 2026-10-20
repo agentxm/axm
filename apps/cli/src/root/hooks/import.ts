@@ -49,18 +49,15 @@ export const handleHookImport = (args: {
       }).pipe(Effect.mapError(failureToAppError));
       const { execution, recovery } = yield* makePlanInvocation(
         { preview: args.preview },
-        makeConfirmationRecovery(
-          ["hooks", "import"],
-          [
-            recoveryPositional(publicRecoveryValue(args.directory)),
-            recoveryPositional(publicRecoveryValue(args.target)),
-            recoveryOption("--protocol", publicRecoveryValue(args.protocol)),
-            recoveryOption("--file", publicRecoveryValue(args.file)),
-            ...args.resource.map((resource) =>
-              recoveryOption("--resource", publicRecoveryValue(resource)),
-            ),
-          ],
-        ),
+        yield* makeConfirmationRecovery([
+          recoveryPositional(publicRecoveryValue(args.directory)),
+          recoveryPositional(publicRecoveryValue(args.target)),
+          recoveryOption("--protocol", publicRecoveryValue(args.protocol)),
+          recoveryOption("--file", publicRecoveryValue(args.file)),
+          ...args.resource.map((resource) =>
+            recoveryOption("--resource", publicRecoveryValue(resource)),
+          ),
+        ]),
       );
       const resolution = yield* ImportNativeExtension.previewOrApply(candidate, execution).pipe(
         Effect.mapError(failureToAppError),

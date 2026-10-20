@@ -14,6 +14,7 @@ import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-h
 import { snapshotTree } from "@agentxm/test-support";
 import { ResolvePlanInteractionLive } from "./resolve-plan-interaction-live.js";
 import { Screen, OutputWriteFailed } from "../screen/index.js";
+import { withCommandRoute } from "../test-support/test-helpers.js";
 
 const plan: Plan = {
   _tag: "Plan",
@@ -109,7 +110,10 @@ describe("ResolvePlanInteractionLive", () => {
           source: replacement,
           yes: false,
           preview: false,
-        }).pipe(Effect.provide(Layer.provideMerge(ResolvePlanInteractionLive, workspace.layer)));
+        }).pipe(
+          withCommandRoute("demote"),
+          Effect.provide(Layer.provideMerge(ResolvePlanInteractionLive, workspace.layer)),
+        );
 
         // Stdout is a styled terminal, so the words are read without their styling.
         const output = [

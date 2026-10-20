@@ -18,6 +18,7 @@ import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { handleListTokens, TokenListDocumentSchema } from "./token.js";
+import { withCommandRoute } from "../../test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/token/list/reports-token-inventory",
@@ -179,7 +180,9 @@ describe("Token inventory", () => {
             const layer = Layer.provideMerge(AuthLoginPresenterLive, ports);
 
             return Effect.gen(function* () {
-              yield* handleListTokens(selected ? { limit: 7, cursor: "selected-page" } : {});
+              yield* handleListTokens(selected ? { limit: 7, cursor: "selected-page" } : {}).pipe(
+                withCommandRoute("token", "list"),
+              );
               expect(requests).toEqual([
                 selected ? { limit: 7, cursor: "selected-page" } : { limit: 50 },
               ]);

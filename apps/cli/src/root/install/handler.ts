@@ -45,12 +45,6 @@ export interface InstallHandlerArgs {
   readonly bundled: boolean;
 }
 
-const commandSegments = (type: Option.Option<InstallableExtensionType>): ReadonlyArray<string> =>
-  Option.match(type, {
-    onNone: () => ["install"],
-    onSome: (value) => [extensionTypeToPlural[value], "install"],
-  });
-
 const selectedEntries = (selectors: InstallExtensionSelectors) =>
   installableExtensionTypes.flatMap((type) =>
     installSelectorsFor(selectors, type).map((name) => ({ type, name })),
@@ -157,7 +151,6 @@ export const handleInstall = <R = never>(
     const nonInteractive = !(yield* (yield* Screen).canAsk);
     const ignoreReleaseAge = (yield* ReleaseAgePosture) === "ignore";
     const source = args.source.value;
-    const command = commandSegments(args.type);
     const selected = selectedEntries(args.selectors);
     return yield* runInstallCommand({
       preview: args.preview,
@@ -179,7 +172,6 @@ export const handleInstall = <R = never>(
           : "Install extensions",
         planDescription: Option.none(),
       },
-      recoveryCommand: command,
       recoveryLocators: [source],
       recoveryArguments: [
         ...requestedAgents.map((agent) => recoveryOption("--agent", publicRecoveryValue(agent))),

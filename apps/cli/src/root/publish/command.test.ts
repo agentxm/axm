@@ -35,6 +35,7 @@ import {
   expectRecord,
   makeWorkspaceHandlerTestContext,
   property,
+  withCommandRoute,
 } from "../../test-support/test-helpers.js";
 import {
   exactVersion,
@@ -521,6 +522,7 @@ describe("root publish", () => {
         Effect.gen(function* () {
           const exit = yield* handleRootPublish(args(registry, { preview: false })).pipe(
             differsFromHead,
+            withCommandRoute("publish"),
             Effect.exit,
           );
 
@@ -1332,100 +1334,106 @@ describe("root publish", () => {
 });
 
 describe("publish recovery", () => {
-  it("retains the upstream directory and publisher version in recovery", () => {
-    const recovery = makeExactPublishRecovery(
-      {
-        from: "/workspace/upstream",
-        fileInclude: ["**", "!*.test.ts"],
-        fileExclude: ["/drafts/"],
-        packageVersion: "1.2.3",
-        registry: Option.some("private"),
-        backfill: true,
-        acceptWarnings: true,
-        visibility: Option.none(),
-      },
-      ["@acme/skills/review"],
-    );
-    expect(renderConfirmationRecoveryCommand(recovery, { approval: "none" })).toBe(
-      "axm publish --registry private --path /workspace/upstream --package-version 1.2.3 --include-path '**' --include-path '!*.test.ts' --exclude-path /drafts/ --backfill --accept-warnings @acme/skills/review",
-    );
-  });
+  it.effect("retains the upstream directory and publisher version in recovery", () =>
+    Effect.gen(function* () {
+      const recovery = yield* makeExactPublishRecovery(
+        {
+          from: "/workspace/upstream",
+          fileInclude: ["**", "!*.test.ts"],
+          fileExclude: ["/drafts/"],
+          packageVersion: "1.2.3",
+          registry: Option.some("private"),
+          backfill: true,
+          acceptWarnings: true,
+          visibility: Option.none(),
+        },
+        ["@acme/skills/review"],
+      );
+      expect(renderConfirmationRecoveryCommand(recovery, { approval: "none" })).toBe(
+        "axm publish --registry private --path /workspace/upstream --package-version 1.2.3 --include-path '**' --include-path '!*.test.ts' --exclude-path /drafts/ --backfill --accept-warnings @acme/skills/review",
+      );
+    }).pipe(withCommandRoute("publish")),
+  );
 
-  it("replays the exact admitted identities through the generic root command", () => {
-    const recovery = makeExactPublishRecovery(
-      {
-        registry: Option.some("private"),
-        backfill: false,
-        acceptWarnings: false,
-        visibility: Option.some("private"),
-      },
-      ["@acme/skills/review", "@acme/packs/toolkit"],
-    );
+  it.effect("replays the exact admitted identities through the generic root command", () =>
+    Effect.gen(function* () {
+      const recovery = yield* makeExactPublishRecovery(
+        {
+          registry: Option.some("private"),
+          backfill: false,
+          acceptWarnings: false,
+          visibility: Option.some("private"),
+        },
+        ["@acme/skills/review", "@acme/packs/toolkit"],
+      );
 
-    expect(renderConfirmationRecoveryCommand(recovery, { approval: "none" })).toBe(
-      "axm publish --registry private --visibility private @acme/skills/review @acme/packs/toolkit",
-    );
-  });
+      expect(renderConfirmationRecoveryCommand(recovery, { approval: "none" })).toBe(
+        "axm publish --registry private --visibility private @acme/skills/review @acme/packs/toolkit",
+      );
+    }).pipe(withCommandRoute("publish")),
+  );
 
-  it("selects only failed items and dependents blocked by them", () => {
-    const base = {
-      owner: handle("@acme"),
-      type: "skill" as const,
-      sourceType: "workspace" as const,
-      authored: true,
-      phase: "upload_execution" as const,
-    };
-    const items: ReadonlyArray<PublishResultItem> = [
-      {
-        ...base,
-        id: "@acme/skills/published",
-        name: extensionName("published"),
-        action: "publish",
-        reason: "selected",
-        status: "success",
-      },
-      {
-        ...base,
-        id: "@acme/skills/review",
-        name: extensionName("review"),
-        action: "error",
-        reason: "upload_failed",
-        status: "failed",
-      },
-      {
-        ...base,
-        id: "@acme/packs/toolkit",
-        type: "pack",
-        name: extensionName("toolkit"),
-        action: "error",
-        phase: "dependency_execution",
-        reason: "blocked_by_dependency",
-        status: "blocked",
-        blockedBy: ["@acme/skills/review"],
-      },
-    ];
-    const selection = publishRecoverySelection(items);
+  it.effect("selects only failed items and dependents blocked by them", () =>
+    Effect.gen(function* () {
+      const base = {
+        owner: handle("@acme"),
+        type: "skill" as const,
+        sourceType: "workspace" as const,
+        authored: true,
+        phase: "upload_execution" as const,
+      };
+      const items: ReadonlyArray<PublishResultItem> = [
+        {
+          ...base,
+          id: "@acme/skills/published",
+          name: extensionName("published"),
+          action: "publish",
+          reason: "selected",
+          status: "success",
+        },
+        {
+          ...base,
+          id: "@acme/skills/review",
+          name: extensionName("review"),
+          action: "error",
+          reason: "upload_failed",
+          status: "failed",
+        },
+        {
+          ...base,
+          id: "@acme/packs/toolkit",
+          type: "pack",
+          name: extensionName("toolkit"),
+          action: "error",
+          phase: "dependency_execution",
+          reason: "blocked_by_dependency",
+          status: "blocked",
+          blockedBy: ["@acme/skills/review"],
+        },
+      ];
+      const selection = publishRecoverySelection(items);
 
-    expect(selection).toEqual({
-      remainingItems: ["@acme/skills/review", "@acme/packs/toolkit"],
-      blockedDependents: ["@acme/packs/toolkit"],
-    });
-    expect(
-      renderConfirmationRecoveryCommand(
-        makeExactPublishRecovery(
-          {
-            registry: Option.some("private"),
+      expect(selection).toEqual({
+        remainingItems: ["@acme/skills/review", "@acme/packs/toolkit"],
+        blockedDependents: ["@acme/packs/toolkit"],
+      });
+      expect(
+        renderConfirmationRecoveryCommand(
+          yield* makeExactPublishRecovery(
+            {
+              registry: Option.some("private"),
 
-            backfill: false,
-            acceptWarnings: false,
-            visibility: Option.none(),
-          },
-          selection.remainingItems,
+              backfill: false,
+              acceptWarnings: false,
+              visibility: Option.none(),
+            },
+            selection.remainingItems,
+          ),
+          { approval: "none" },
         ),
-        { approval: "none" },
-      ),
-    ).toBe("axm publish --registry private @acme/skills/review @acme/packs/toolkit");
-  });
+      ).toBe("axm publish --registry private @acme/skills/review @acme/packs/toolkit");
+    }).pipe(withCommandRoute("publish")),
+  );
 });
 
 describe("root publish dependency planning", () => {

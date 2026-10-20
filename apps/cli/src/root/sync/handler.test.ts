@@ -922,7 +922,6 @@ describe("root sync handler", () => {
         runUninstallCommand({
           request: { type: Option.some("mcp-server"), selector: "demo" },
           preview: false,
-          recoveryCommand: ["mcps", "uninstall"],
           recoveryPositionals: ["demo"],
         }),
       );

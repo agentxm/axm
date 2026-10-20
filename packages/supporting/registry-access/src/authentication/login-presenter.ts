@@ -29,7 +29,7 @@ export type AuthLoginProgress =
 export type SessionReplacementDecision = "replace" | "keep";
 
 /** Why sign-in fell back to the device-code flow. */
-export type DeviceCodeFallbackReason = "remote-or-headless" | "loopback-bind-failed";
+type DeviceCodeFallbackReason = "remote-or-headless" | "loopback-bind-failed";
 
 /**
  * One handoff to a person, as the terminal must show it while the command is

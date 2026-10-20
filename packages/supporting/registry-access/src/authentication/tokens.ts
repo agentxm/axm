@@ -25,7 +25,6 @@ import {
   type CreatedTokenResponse,
   type TokenPermissionsRequest,
 } from "./auth-client.js";
-import { CredentialStore } from "../credentials/credential-store.js";
 import { RegistryAccessFailed, type AuthError } from "./errors.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
 import type { SelectedRegistry } from "./selected-registry.js";
@@ -33,10 +32,10 @@ import { requireSignedIn } from "./identity.js";
 import { maxTokenLifetimeSeconds, type TokenPermissionLevel } from "./tokens/permissions.js";
 
 /** A token may live no less than an hour. Its ceiling depends on what it can do. */
-export const MIN_TOKEN_LIFETIME_SECONDS = 3_600;
+const MIN_TOKEN_LIFETIME_SECONDS = 3_600;
 
 /** The authority a new token carries. */
-export interface TokenAuthorityRequest {
+interface TokenAuthorityRequest {
   readonly owners: ReadonlyArray<string>;
   readonly extensions: ReadonlyArray<string>;
   readonly permission: TokenPermissionLevel;
@@ -81,7 +80,7 @@ export const parseExpiresInSeconds = (raw: string): Effect.Effect<number, Regist
  * Enforce the accepted lifetime window. A token that can change the registry is
  * worth more than one that can only read it, so the two do not share a ceiling.
  */
-export const validateExpiresInSeconds = (
+const validateExpiresInSeconds = (
   expiresIn: number,
   permission: TokenPermissionLevel,
 ): Effect.Effect<number, RegistryAccessFailed> => {
@@ -98,7 +97,7 @@ export const validateExpiresInSeconds = (
 };
 
 /** Only the authority a caller actually asked for reaches the Registry. */
-export const tokenPermissions = (request: TokenAuthorityRequest): TokenPermissionsRequest => ({
+const tokenPermissions = (request: TokenAuthorityRequest): TokenPermissionsRequest => ({
   ...(request.owners.length > 0 ? { owners: request.owners } : {}),
   ...(request.extensions.length > 0 ? { extensions: request.extensions } : {}),
   permission: request.permission,
@@ -180,6 +179,3 @@ export const listTokens = Effect.fn("Tokens.list")(function* (
     authClient.listTokens(registry.endpoint, page),
   );
 });
-
-/** Declared for the reader; every member keeps these in `R`. */
-export type TokenRequirements = AuthClient | CredentialStore | AuthLoginPresenter;

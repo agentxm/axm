@@ -17,49 +17,21 @@ export {
   SignedOut,
   TRUSTED_PUBLISHER_SETTINGS_URL,
   WorkloadTokenUnavailable,
-  isAuthError,
   isRegistryAccessFailure,
   signedOut,
   type AuthError,
-  type RegistryAccessErrorCategory,
   type RegistryAccessFailure,
 } from "./errors.js";
 
-export type {
-  AuthClientService,
-  DeviceFlowResponse,
-  MeResponse,
-  PollResult,
-} from "./auth-client.js";
-export { AuthClient, TokenExchange, pollOnce } from "./auth-client.js";
-export type { NormalizedTokenResponse } from "./oauth-contract.js";
+export type { MeResponse } from "./auth-client.js";
+export { AuthClient } from "./auth-client.js";
+export type { DeviceLoginPendingResult } from "./device-login.js";
+export { DeviceLoginInteraction, DeviceLoginPendingDocumentSchema } from "./device-login.js";
 
-export type {
-  DeviceLoginInteractionService,
-  DeviceLoginPendingResult,
-  ResumeDeviceLoginOptions,
-} from "./device-login.js";
-export {
-  DeviceLoginInteraction,
-  DeviceLoginPendingDocumentSchema,
-  DeviceLoginPendingResultSchema,
-  initiateDeviceLogin,
-  resumeDeviceLogin,
-  runDeviceLogin,
-  type RunDeviceLoginOptions,
-} from "./device-login.js";
-
-export {
-  LoginDocumentSchema,
-  LoginResultSchema,
-  makeLoginResult,
-  type LoginDocument,
-  type LoginResult,
-} from "./login-output.js";
+export { LoginDocumentSchema } from "./login-output.js";
 export type {
   AuthLoginPresenterService,
   AuthLoginProgress,
-  DeviceCodeFallbackReason,
   HumanHandoff,
   SessionReplacementDecision,
 } from "./login-presenter.js";
@@ -67,32 +39,16 @@ export { AuthLoginPresenter, handoffUrl } from "./login-presenter.js";
 
 export { selectedRegistry, type SelectedRegistry } from "./selected-registry.js";
 
+export { classifyLoopbackFailure, deviceLoginOptions, login, type LoginOutcome } from "./login.js";
+export { logout } from "./logout.js";
+export { currentIdentity, currentToken, isSignedIn } from "./identity.js";
 export {
-  classifyLoopbackFailure,
-  deviceLoginOptions,
-  login,
-  type LoginOutcome,
-  type LoginRequest,
-} from "./login.js";
-export { logout, type LogoutOutcome } from "./logout.js";
-export {
-  currentIdentity,
-  currentToken,
-  isSignedIn,
-  requireSignedIn,
-  type RegistryIdentity,
-} from "./identity.js";
-export {
-  MIN_TOKEN_LIFETIME_SECONDS,
   createToken,
   listTokens,
   parseExpiresInSeconds,
   revokeToken,
-  tokenPermissions,
-  validateExpiresInSeconds,
   type CreateTokenRequest,
   type CreatedToken,
-  type TokenAuthorityRequest,
 } from "./tokens.js";
 
 export {
@@ -101,22 +57,16 @@ export {
   describeTokenPermissions,
   readTokenPermissions,
   type TokenPermissionLevel,
-  type TokenPermissions,
 } from "./tokens/permissions.js";
 
-export {
-  selectLoginStrategy,
-  type LoginStrategy,
-  type LoginStrategyEnvironment,
-  type LoginStrategyOptions,
-} from "./login-strategy.js";
-
-export type { AuthLoginInteractionService } from "../adapters/login-interaction.js";
-export { AuthLoginInteraction } from "../adapters/login-interaction.js";
 export { LoopbackCallbackRejected, LoopbackLoginFallback } from "../adapters/loopback-server.js";
 
-export type {
-  PendingDeviceLogin,
-  PendingDeviceLoginStoreService,
-} from "./pending-device-login-store.js";
-export { PendingDeviceLoginSchema, PendingDeviceLoginStore } from "./pending-device-login-store.js";
+export { PendingDeviceLoginStore } from "./pending-device-login-store.js";
+
+// Dependents' inferred handler and test-layer types require these services,
+// so their declaration emit must be able to name them; knip skips exports
+// tagged public.
+/** @public */
+export { AuthLoginInteraction } from "../adapters/login-interaction.js";
+/** @public */
+export { TokenExchange } from "./auth-client.js";

@@ -63,7 +63,7 @@ export const authFailureDetail = (failure: unknown): string | undefined =>
   failure instanceof RegistryAccessFailed ? failure.detail : undefined;
 
 export const authRegistry = "https://registry.example.test";
-export const otherAuthRegistry = "https://other.example.test";
+const otherAuthRegistry = "https://other.example.test";
 export const authRegistryHost = "registry.example.test";
 export const authEndpoint = decodeHttpRegistryEndpointSync(authRegistry);
 export const otherAuthEndpoint = decodeHttpRegistryEndpointSync(otherAuthRegistry);
@@ -79,7 +79,7 @@ export const authHandle = normalizeHandle("@alice");
 export const authEmail = "alice@example.test";
 export const authExpiry = DateTime.makeUnsafe("2099-01-01T00:00:00.000Z");
 
-export const storedAuthCredentials = {
+const storedAuthCredentials = {
   access_token: "fixture-stored-access",
   refresh_token: "fixture-stored-refresh",
   expires_at: authExpiry,

@@ -513,7 +513,7 @@ const isGenericBunExecutable = (): boolean => {
   return executable.endsWith("/bun") || executable.endsWith("/bun.exe");
 };
 
-export const detectEnvironment = Effect.gen(function* () {
+const detectEnvironment = Effect.gen(function* () {
   return {
     isSSH: yield* isSSH,
     isContainer: yield* isContainer,

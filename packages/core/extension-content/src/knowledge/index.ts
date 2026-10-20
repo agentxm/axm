@@ -24,11 +24,14 @@ export {
   type KnowledgeDocumentKind,
   type KnowledgeFrontmatterParseDetails,
   type KnowledgeInspection,
+  type KnowledgeLinkResolution,
+  type KnowledgeLinkSuffix,
   type KnowledgeTrustTier,
   collectKnowledgeBundleEntries,
   inspectKnowledgeBundle,
   inspectKnowledgeEntries,
   openKnowledgeConcept,
+  resolveKnowledgeLink,
   searchKnowledgeConcepts,
 } from "./okf.js";
 export { inspectKnowledgePackage, readKnowledgePackageManifest } from "./package-inspection.js";

@@ -10,6 +10,7 @@ import {
   inspectKnowledgeBundle,
   inspectKnowledgeEntries,
   openKnowledgeConcept,
+  resolveKnowledgeLink,
   searchKnowledgeConcepts,
 } from "./okf.js";
 
@@ -676,5 +677,153 @@ layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format 
       expect(warningCodes.has("embedded-html")).toBe(true);
       expect(warningCodes.has("unreferenced-asset")).toBe(true);
     }).pipe(Effect.scoped),
+  );
+
+  const linkBundleFiles = new Set([
+    "index.md",
+    "LICENSE",
+    "faq.md",
+    "faq/index.md",
+    "guides/index.md",
+    "guides/setup.md",
+    "guides/install.md",
+    "guides/my notes.md",
+    "guides/data.csv",
+    "images/diagram.png",
+    "reference/index.md",
+  ]);
+
+  it.each([
+    ["a relative Markdown path", "install.md", { path: "guides/install.md", kind: "markdown" }],
+    ["a dot-relative path", "./install.md", { path: "guides/install.md", kind: "markdown" }],
+    ["a parent path", "../index.md", { path: "index.md", kind: "markdown" }],
+    [
+      "a bundle-absolute path",
+      "/reference/index.md",
+      { path: "reference/index.md", kind: "markdown" },
+    ],
+    ["an extensionless path", "install", { path: "guides/install.md", kind: "markdown" }],
+    ["a directory with a slash", "/reference/", { path: "reference/index.md", kind: "markdown" }],
+    [
+      "a directory without a slash",
+      "../reference",
+      { path: "reference/index.md", kind: "markdown" },
+    ],
+    [
+      "a document before a same-named directory index",
+      "../faq",
+      { path: "faq.md", kind: "markdown" },
+    ],
+    ["a percent-encoded path", "my%20notes.md", { path: "guides/my notes.md", kind: "markdown" }],
+    ["an asset", "../images/diagram.png", { path: "images/diagram.png", kind: "asset" }],
+    ["an extensionless asset", "/LICENSE", { path: "LICENSE", kind: "asset" }],
+  ])("resolves %s", (_name, target, expected) => {
+    const resolution = resolveKnowledgeLink("guides/setup.md", target, linkBundleFiles);
+    expect(resolution).toEqual(
+      expected.kind === "markdown"
+        ? {
+            _tag: "resolved",
+            path: expected.path,
+            kind: "markdown",
+            conceptId: expected.path.replace(/\.md$/, ""),
+          }
+        : { _tag: "resolved", path: expected.path, kind: "asset" },
+    );
+  });
+
+  it.each([
+    [
+      "a query and fragment",
+      "install.md?view=raw#steps",
+      {
+        _tag: "resolved",
+        path: "guides/install.md",
+        kind: "markdown",
+        conceptId: "guides/install",
+        query: "view=raw",
+        fragment: "steps",
+      },
+    ],
+    [
+      "a fragment on an extensionless path",
+      "install#steps",
+      {
+        _tag: "resolved",
+        path: "guides/install.md",
+        kind: "markdown",
+        conceptId: "guides/install",
+        fragment: "steps",
+      },
+    ],
+    [
+      "a fragment containing a question mark",
+      "install.md#why?",
+      {
+        _tag: "resolved",
+        path: "guides/install.md",
+        kind: "markdown",
+        conceptId: "guides/install",
+        fragment: "why?",
+      },
+    ],
+    [
+      "an asset fragment",
+      "data.csv#L2",
+      { _tag: "resolved", path: "guides/data.csv", kind: "asset", fragment: "L2" },
+    ],
+    ["a fragment alone", "#overview", { _tag: "same-document", fragment: "overview" }],
+    ["a query alone", "?tab=2", { _tag: "same-document", query: "tab=2" }],
+    ["a missing document", "missing.md", { _tag: "missing", path: "guides/missing.md" }],
+    [
+      "a missing extensionless path",
+      "missing#top",
+      { _tag: "missing", path: "guides/missing", fragment: "top" },
+    ],
+    ["malformed percent-encoding", "%E0%A4%A", { _tag: "missing", path: "guides/%E0%A4%A" }],
+    ["a relative escape", "../../outside.md", { _tag: "escaped" }],
+    ["a bundle-absolute escape", "/../outside.md", { _tag: "escaped" }],
+    ["a URL", "https://example.com/guide.md", { _tag: "external" }],
+    ["a protocol-relative URL", "//cdn.example.com/diagram.png", { _tag: "external" }],
+    ["a mail address", "mailto:team@example.com", { _tag: "external" }],
+  ])("classifies %s", (_name, target, expected) => {
+    expect(resolveKnowledgeLink("guides/setup.md", target, linkBundleFiles)).toEqual(expected);
+  });
+
+  it.effect("records the resolver's concept for every authored link", () =>
+    Effect.gen(function* () {
+      const targets = [
+        "install",
+        "/reference/",
+        "../reference",
+        "../faq",
+        "my%20notes.md",
+        "../images/diagram.png",
+        "#overview",
+        "missing.md",
+        "../../outside.md",
+        "https://example.com/guide.md",
+      ];
+      const body = `# Setup\n\n${targets.map((target) => `- [Link](${target})`).join("\n")}\n`;
+      const inspected = yield* inspectKnowledgeEntries(
+        [...linkBundleFiles].map((relativePath) => ({
+          relativePath,
+          type: "File",
+          size: 0n,
+        })),
+        (relativePath) => Effect.succeed(relativePath === "guides/setup.md" ? body : "# Page\n"),
+      );
+      const recorded = openKnowledgeConcept(inspected.concepts, "guides/setup")?.authoredLinks.map(
+        (link) => link.resolvedConceptId,
+      );
+      expect(recorded).toEqual(
+        targets.map((target) => {
+          const resolution = resolveKnowledgeLink("guides/setup.md", target, linkBundleFiles);
+          return resolution._tag === "resolved" && resolution.kind === "markdown"
+            ? resolution.conceptId
+            : undefined;
+        }),
+      );
+      expect(recorded).toContain("reference/index");
+    }),
   );
 });

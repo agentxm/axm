@@ -45,8 +45,8 @@ import {
   type PlannedJobStep,
   type ArtifactChange,
   type ConfiguredAgentOutcome,
-  type ExtensionLifecycleFailed,
   installRefused,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   applyInstructionSurfacePlans,
@@ -104,7 +104,7 @@ export const planHookInstall: (
   intent: HookInstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | HookManager
 > = Effect.fn("InstallExtensions.planHooks")(function* (intent: HookInstallIntent) {
   const configuredRef = intent.refs[0];

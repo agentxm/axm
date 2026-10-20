@@ -49,11 +49,7 @@ export {
   registrySourcePath,
 } from "./extensions/registry-source-artifact.js";
 
-export {
-  WorkspaceSyncFailed,
-  type SyncPolicyFailure,
-  type WorkspaceSyncCleanupFailure,
-} from "./errors.js";
+export { syncRefused, type SyncPolicyFailure, type WorkspaceSyncCleanupFailure } from "./errors.js";
 export {
   StepFailureConversion,
   withAdaptedStepFailures,
@@ -128,7 +124,6 @@ export {
   kernelFailureToStepFailure,
   renderKernelFailure,
   type KernelFailure,
-  type KernelFailureRendering,
 } from "./failure-rendering.js";
 
 export {

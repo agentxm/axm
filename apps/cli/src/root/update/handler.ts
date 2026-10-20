@@ -204,9 +204,7 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
           }),
         },
         handleTargetedUpdateBody(args, source).pipe(
-          Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
-            Effect.fail(toAppError(failure)),
-          ),
+          Effect.catchTag("OperationRefused", (failure) => Effect.fail(toAppError(failure))),
         ),
       ),
   });

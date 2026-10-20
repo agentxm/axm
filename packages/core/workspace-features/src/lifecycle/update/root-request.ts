@@ -15,7 +15,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
+import { OperationRefused, installRefused } from "@agentxm/workspace-kernel/operations";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { ExtensionName, Handle } from "@agentxm/extension-model/unstable/extensions";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
@@ -63,13 +63,13 @@ const rootUpdateRegistryOnlyHowToFix = (source: string): string => {
  */
 export const resolveRootUpdateIntent: (
   input: string,
-) => Effect.Effect<RootUpdateIntent, ExtensionLifecycleFailed> = Effect.fn(
+) => Effect.Effect<RootUpdateIntent, OperationRefused> = Effect.fn(
   "UpdateExtensions.readRootRequest",
 )(function* (input: string) {
   const source = input.trim();
 
   if (!source.startsWith("@")) {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "usage",
       detail: "Root update only accepts registry FQNs",
       suggestions: [{ description: rootUpdateRegistryOnlyHowToFix(source) }],

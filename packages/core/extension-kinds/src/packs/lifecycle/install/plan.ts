@@ -89,8 +89,8 @@ import {
   type JobStepArtifactTarget,
   type Plan,
   type PlannedJobStep,
-  type ExtensionLifecycleFailed,
   installRefused,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   SourceHostProviders,
@@ -169,7 +169,7 @@ export const discoverPackRefs: (
   request: PackSourceRequest,
 ) => Effect.Effect<
   ReadonlyArray<PackRef>,
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   ResolveInstallRequirements
 > = Effect.fn("InstallExtensions.discoverPackRefs")(function* (request: PackSourceRequest) {
   if (request.source.type === "registry") {
@@ -293,7 +293,7 @@ export interface PackInstallArgs {
 /** Read the pack source grammar: which owner, which pack, which range. */
 export const parsePackInstallRequest: (
   args: PackInstallArgs,
-) => Effect.Effect<ParsedPackInstallRequest, ExtensionLifecycleFailed, ResolveInstallRequirements> =
+) => Effect.Effect<ParsedPackInstallRequest, OperationRefused, ResolveInstallRequirements> =
   Effect.fn("InstallExtensions.parsePackRequest")(function* (args: PackInstallArgs) {
     const settings = yield* SettingsReader;
     const trimmed = args.source.trim();
@@ -397,28 +397,29 @@ export const parsePackInstallRequest: (
 /** Resolve the source the parsed pack request names. */
 export const resolvePackSourceRequest: (
   request: ParsedPackInstallRequest,
-) => Effect.Effect<PackSourceRequest, ExtensionLifecycleFailed, ResolveInstallRequirements> =
-  Effect.fn("InstallExtensions.resolvePackSource")(function* (request: ParsedPackInstallRequest) {
-    const source = yield* resolveSource(request.resolvedInput).pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "validation",
-          detail: `Invalid source: ${cause.message}`,
-          suggestions: [{ description: "Use @owner/packs/pack-name or just pack-name." }],
-          cause,
-        }),
-      ),
-    );
-    return {
-      source,
-      owner: request.owner,
-      packName: request.packName,
-      versionRange: request.versionRange,
-      ...(request.sourceResolution === undefined
-        ? {}
-        : { sourceResolution: request.sourceResolution }),
-    };
-  });
+) => Effect.Effect<PackSourceRequest, OperationRefused, ResolveInstallRequirements> = Effect.fn(
+  "InstallExtensions.resolvePackSource",
+)(function* (request: ParsedPackInstallRequest) {
+  const source = yield* resolveSource(request.resolvedInput).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "validation",
+        detail: `Invalid source: ${cause.message}`,
+        suggestions: [{ description: "Use @owner/packs/pack-name or just pack-name." }],
+        cause,
+      }),
+    ),
+  );
+  return {
+    source,
+    owner: request.owner,
+    packName: request.packName,
+    versionRange: request.versionRange,
+    ...(request.sourceResolution === undefined
+      ? {}
+      : { sourceResolution: request.sourceResolution }),
+  };
+});
 
 /**
  * Find the pack. When the first host cannot answer because remote reads are
@@ -429,7 +430,7 @@ export const discoverPackRef: (
   request: PackSourceRequest,
 ) => Effect.Effect<
   PackDiscovery,
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   ResolveInstallRequirements
 > = Effect.fn("InstallExtensions.discoverPack")(function* (request: PackSourceRequest) {
   const settings = yield* SettingsReader;
@@ -656,7 +657,7 @@ export type PackInstallRequirements =
 export const preparePackInstallGraph = (intent: PackInstallIntent) =>
   selectPackGraph(intent).pipe(
     Effect.mapError((cause) => {
-      if (cause._tag === "ExtensionLifecycleFailed") return cause;
+      if (cause._tag === "OperationRefused") return cause;
       const memberFailure = failureDetail(cause);
       const identity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
       return installRefused({
@@ -670,646 +671,644 @@ export const preparePackInstallGraph = (intent: PackInstallIntent) =>
 /** The single atomic closure a settled pack intent becomes. */
 export const planPackInstall: (
   intent: PackInstallIntent,
-) => Effect.Effect<
-  Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
-  PackInstallRequirements
-> = Effect.fn("InstallExtensions.planPack")(function* (intent: PackInstallIntent) {
-  const conversion = yield* StepFailureConversion;
-  const location = yield* WorkspaceLocation;
-  const path = yield* Path.Path;
-  const packManager = yield* PackManager;
-  const skillManager = yield* SkillManager;
-  const subagentManager = yield* SubagentManager;
-  const ruleManager = yield* RuleManager;
-  const hookManager = yield* HookManager;
-  const knowledgeManager = yield* KnowledgeManager;
-  const mcpServerManager = yield* McpServerManager;
+) => Effect.Effect<Plan<InstallStepRequirements>, OperationRefused, PackInstallRequirements> =
+  Effect.fn("InstallExtensions.planPack")(function* (intent: PackInstallIntent) {
+    const conversion = yield* StepFailureConversion;
+    const location = yield* WorkspaceLocation;
+    const path = yield* Path.Path;
+    const packManager = yield* PackManager;
+    const skillManager = yield* SkillManager;
+    const subagentManager = yield* SubagentManager;
+    const ruleManager = yield* RuleManager;
+    const hookManager = yield* HookManager;
+    const knowledgeManager = yield* KnowledgeManager;
+    const mcpServerManager = yield* McpServerManager;
 
-  const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
-  const selection = intent.preparedSelection ?? (yield* preparePackInstallGraph(intent));
-  if (selection.kind === "authority-blocked") {
-    const suggestions = selection.blockers
-      .flatMap((fact) => fact.recovery)
-      .filter(
-        (suggestion, index, all) =>
-          all.findIndex((candidate) => candidate.description === suggestion.description) === index,
-      );
-    return {
-      _tag: "Plan",
-      name: "Install pack",
-      description: Option.some("Workspace source authority prevents this pack graph transition."),
-      jobs: [
-        {
-          concurrency: 1,
-          steps: [
-            {
-              readiness: "error",
-              label: packIdentity,
-              errorMessage: selection.blockers.map((fact) => fact.detail).join("; "),
-              blockingConditionIds: selection.blockers.map((fact) => fact.id),
-              artifact: {
-                path: "pack graph",
-                scope: location.scope,
-                change: "unchanged",
-                fileCount: 0,
+    const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
+    const selection = intent.preparedSelection ?? (yield* preparePackInstallGraph(intent));
+    if (selection.kind === "authority-blocked") {
+      const suggestions = selection.blockers
+        .flatMap((fact) => fact.recovery)
+        .filter(
+          (suggestion, index, all) =>
+            all.findIndex((candidate) => candidate.description === suggestion.description) ===
+            index,
+        );
+      return {
+        _tag: "Plan",
+        name: "Install pack",
+        description: Option.some("Workspace source authority prevents this pack graph transition."),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "error",
+                label: packIdentity,
+                errorMessage: selection.blockers.map((fact) => fact.detail).join("; "),
+                blockingConditionIds: selection.blockers.map((fact) => fact.id),
+                artifact: {
+                  path: "pack graph",
+                  scope: location.scope,
+                  change: "unchanged",
+                  fileCount: 0,
+                },
               },
-            },
-          ],
-        },
-      ],
-      presentation: operationPresentation(
-        { imperative: "install", past: "Installed", gerund: "Installing" },
-        "pack",
-      ),
-      riskConditions: selection.blockers.map((fact) => ({
-        level: "blocked" as const,
-        id: fact.id,
-        detail: fact.detail,
-        errorCode: "conflict" as const,
-      })),
-      failureSuggestions: suggestions,
-    } satisfies Plan<InstallStepRequirements>;
-  }
-  if (selection.kind === "constraint-blocked") {
-    return configuredPackConstraintBlockPlan({
-      operation: "install",
-      problems: selection.conflicts,
-      blockedPackLabels: [packIdentity],
-    });
-  }
-  if (selection.kind === "accepted-incompatible") {
-    const detail = acceptedResolutionIncompatibleText(selection.mismatch.fact);
-    return {
-      _tag: "Plan",
-      name: "Install pack",
-      description: Option.some(
-        "A member's accepted resolution no longer satisfies its effective constraint",
-      ),
-      presentation: operationPresentation(
-        { imperative: "install", past: "Installed", gerund: "Installing" },
-        "pack",
-      ),
-      jobs: [
-        {
-          concurrency: 1,
-          steps: [
-            {
-              readiness: "error",
-              label: packIdentity,
-              errorMessage: detail,
-              blockingConditionIds: [ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID],
-              artifact: {
-                path: "pack graph",
-                scope: location.scope,
-                change: "unchanged",
-                fileCount: 0,
-              },
-            },
-          ],
-        },
-      ],
-      riskConditions: [
-        {
+            ],
+          },
+        ],
+        presentation: operationPresentation(
+          { imperative: "install", past: "Installed", gerund: "Installing" },
+          "pack",
+        ),
+        riskConditions: selection.blockers.map((fact) => ({
           level: "blocked" as const,
-          id: ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
-          detail,
+          id: fact.id,
+          detail: fact.detail,
           errorCode: "conflict" as const,
-        },
-      ],
-      failureSuggestions: [acceptedResolutionIncompatibleRecovery(selection.mismatch.fqn)],
-    } satisfies Plan<InstallStepRequirements>;
-  }
-  const releaseAge = {
-    evaluatedAt: DateTime.formatIso(intent.releaseAgeEvaluation.evaluatedAt),
-    holdbacks: normalizeReleaseAgeRecords(selection.holdbacks),
-    bypasses: normalizeReleaseAgeRecords(selection.bypasses),
-  };
-
-  if (selection.kind === "held") {
-    const presentation = operationPresentation(
-      { imperative: "install", past: "Installed", gerund: "Installing" },
-      "pack",
-    );
-    if (selection.preserved) {
+        })),
+        failureSuggestions: suggestions,
+      } satisfies Plan<InstallStepRequirements>;
+    }
+    if (selection.kind === "constraint-blocked") {
+      return configuredPackConstraintBlockPlan({
+        operation: "install",
+        problems: selection.conflicts,
+        blockedPackLabels: [packIdentity],
+      });
+    }
+    if (selection.kind === "accepted-incompatible") {
+      const detail = acceptedResolutionIncompatibleText(selection.mismatch.fact);
       return {
         _tag: "Plan",
         name: "Install pack",
         description: Option.some(
-          "The current pack graph is unchanged while a required release ages",
+          "A member's accepted resolution no longer satisfies its effective constraint",
         ),
-        presentation,
-        jobs: [],
-        releaseAge,
+        presentation: operationPresentation(
+          { imperative: "install", past: "Installed", gerund: "Installing" },
+          "pack",
+        ),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "error",
+                label: packIdentity,
+                errorMessage: detail,
+                blockingConditionIds: [ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID],
+                artifact: {
+                  path: "pack graph",
+                  scope: location.scope,
+                  change: "unchanged",
+                  fileCount: 0,
+                },
+              },
+            ],
+          },
+        ],
+        riskConditions: [
+          {
+            level: "blocked" as const,
+            id: ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
+            detail,
+            errorCode: "conflict" as const,
+          },
+        ],
+        failureSuggestions: [acceptedResolutionIncompatibleRecovery(selection.mismatch.fqn)],
       } satisfies Plan<InstallStepRequirements>;
     }
-    // The refusal is a step as well as a risk, so a sweep that composes this
-    // Pack's steps into one plan still refuses it.
+    const releaseAge = {
+      evaluatedAt: DateTime.formatIso(intent.releaseAgeEvaluation.evaluatedAt),
+      holdbacks: normalizeReleaseAgeRecords(selection.holdbacks),
+      bypasses: normalizeReleaseAgeRecords(selection.bypasses),
+    };
+
+    if (selection.kind === "held") {
+      const presentation = operationPresentation(
+        { imperative: "install", past: "Installed", gerund: "Installing" },
+        "pack",
+      );
+      if (selection.preserved) {
+        return {
+          _tag: "Plan",
+          name: "Install pack",
+          description: Option.some(
+            "The current pack graph is unchanged while a required release ages",
+          ),
+          presentation,
+          jobs: [],
+          releaseAge,
+        } satisfies Plan<InstallStepRequirements>;
+      }
+      // The refusal is a step as well as a risk, so a sweep that composes this
+      // Pack's steps into one plan still refuses it.
+      return {
+        _tag: "Plan",
+        name: "Install pack",
+        description: Option.some(
+          "The selected pack graph includes a release held by the minimum release age",
+        ),
+        presentation,
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "error",
+                label: packIdentity,
+                errorMessage: `Pack ${packIdentity} requires a release the minimum release age still holds back, and no complete usable accepted resolution can be preserved`,
+                blockingConditionIds: [HELD_PACK_RELEASE_BLOCKER_ID],
+                artifact: {
+                  path: "pack graph",
+                  scope: location.scope,
+                  change: "unchanged",
+                  fileCount: 0,
+                },
+              },
+            ],
+          },
+        ],
+        releaseAge,
+        riskConditions: [
+          {
+            level: "blocked" as const,
+            id: HELD_PACK_RELEASE_BLOCKER_ID,
+            detail: "The selected pack graph has no complete usable accepted resolution.",
+            errorCode: "conflict" as const,
+          },
+        ],
+      } satisfies Plan<InstallStepRequirements>;
+    }
+
+    const { authority, proposedGraph, refs } = selection;
+    const graph = authority.graph;
+    const hookRefs = refs.filter((ref) => ref.type === "hook");
+    const priorNativeAuthority = yield* captureAgentOutputAuthority().pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "conflict",
+          detail: "Cannot establish prior Pack native ownership",
+          cause,
+        }),
+      ),
+    );
+    const hookProjection = {
+      priorAuthority: priorNativeAuthority,
+      nativeInsertionEligibleNames: new Set(
+        hookRefs
+          .filter(
+            (ref) =>
+              desiredReachability(graph, { type: "hook", name: ref.hook.name }).decision ===
+              "not-reached",
+          )
+          .map((ref) => ref.hook.name),
+      ),
+    };
+    if (hookRefs.length > 0)
+      yield* hookManager
+        .prepareProjection(
+          (intent.projectionRefs ?? refs)
+            .filter((ref) => ref.type === "hook")
+            .filter((ref) =>
+              proposedGraph.nodes.some(
+                (node) => node.type === "hook" && node.name === ref.hook.name && node.enabled,
+              ),
+            ),
+          { ...hookProjection, desiredGraph: proposedGraph },
+        )
+        .pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "conflict",
+              detail: "Pack Hook native locations cannot represent the proposed graph",
+              cause,
+            }),
+          ),
+        );
+    const ruleRefs = refs.filter((ref) => ref.type === "rule");
+    const knowledgeRefs = refs.filter((ref) => ref.type === "knowledge");
+    const ruleProjection = {
+      priorAuthority: priorNativeAuthority,
+      nativeInsertionEligibleNames: new Set(
+        ruleRefs
+          .filter(
+            (ref) =>
+              desiredReachability(graph, { type: "rule", name: ref.rule.name }).decision ===
+              "not-reached",
+          )
+          .map((ref) => ref.rule.name),
+      ),
+    };
+    const knowledgeProjection = {
+      priorAuthority: priorNativeAuthority,
+      nativeInsertionEligibleNames: new Set(
+        knowledgeRefs
+          .filter(
+            (ref) =>
+              desiredReachability(graph, { type: "knowledge", name: ref.knowledge.name })
+                .decision === "not-reached",
+          )
+          .map((ref) => ref.knowledge.name),
+      ),
+    };
+    if (ruleRefs.length > 0)
+      yield* ruleManager
+        .prepareProjection(
+          (intent.projectionRefs ?? refs)
+            .filter((ref) => ref.type === "rule")
+            .filter((ref) =>
+              proposedGraph.nodes.some(
+                (node) => node.type === "rule" && node.name === ref.rule.name && node.enabled,
+              ),
+            ),
+          { ...ruleProjection, desiredGraph: proposedGraph },
+        )
+        .pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "conflict",
+              detail: "Pack Rule native locations cannot represent the proposed graph",
+              cause,
+            }),
+          ),
+        );
+    if (knowledgeRefs.length > 0)
+      yield* knowledgeManager
+        .prepareProjection(
+          (intent.projectionRefs ?? refs)
+            .filter((ref) => ref.type === "knowledge")
+            .filter((ref) =>
+              proposedGraph.nodes.some(
+                (node) =>
+                  node.type === "knowledge" && node.name === ref.knowledge.name && node.enabled,
+              ),
+            ),
+          { ...knowledgeProjection, desiredGraph: proposedGraph },
+        )
+        .pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "conflict",
+              detail: "Pack Knowledge native locations cannot represent the proposed graph",
+              cause,
+            }),
+          ),
+        );
+    const currentPackNode = graph.nodes.find(
+      (node) => node.type === "pack" && node.name === intent.packToInstall.pack.name,
+    );
+    const preservedPackActivation = currentPackNode?.enabled ?? true;
+    // Installing is also the recovery path for a configured pack whose canonical
+    // manifest or accepted resolution is unavailable. Preserve fail-closed
+    // cleanup by suppressing dropped-member removal until the pre-install graph
+    // is complete.
+
+    const installSteps = yield* Effect.forEach(
+      refs,
+      (
+        ref,
+      ): Effect.Effect<
+        PlannedJobStep<InstallStepRequirements>,
+        never,
+        | HookManager
+        | KnowledgeManager
+        | McpServerManager
+        | RuleManager
+        | SkillManager
+        | SubagentManager
+        | WorkspaceLocation
+        | InstallStepRequirements
+      > =>
+        ref.type === "pack"
+          ? Effect.succeed(
+              buildInstallOperation(packManager, {
+                toStepFailure: conversion.toStepFailure,
+                ref,
+                nativeInsertionEligible:
+                  desiredReachability(graph, targetFromRef(ref)).decision === "not-reached",
+                declaration: { name: ref.pack.name, versionRange: intent.versionRange },
+                ...(intent.forceCanonical === true ? { force: true } : {}),
+                buildArtifact: ({ change }) =>
+                  Effect.succeed(registrySourceArtifact({ ref, scope: location.scope, change })),
+              }),
+            )
+          : buildPackMemberStep({
+              ref,
+              force: intent.forceCanonical === true,
+              authorizeDistributionSelection: true,
+              nativeInsertionEligible:
+                desiredReachability(graph, targetFromRef(ref)).decision === "not-reached",
+              nonInteractive: intent.nonInteractive,
+              strictAgentSync: true,
+              desiredEnabled:
+                proposedGraph.nodes.find(
+                  (node) => node.type === ref.type && node.name === targetFromRef(ref).name,
+                )?.enabled ?? preservedPackActivation,
+              toStepFailure: conversion.toStepFailure,
+            }),
+      { concurrency: 1 },
+    );
+
+    const acquisitionRefs = yield* Effect.forEach(refs, (ref) =>
+      Effect.gen(function* () {
+        if (intent.forceCanonical === true || ref.type === "pack" || ref.refType === "workspace")
+          return ref;
+        const canonical = yield* usableAcceptedCanonical({
+          type: ref.type,
+          name: targetFromRef(ref).name,
+        }).pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "internal",
+              detail: `Accepted canonical content for ${targetFromRef(ref).name} could not be inspected`,
+              cause,
+            }),
+          ),
+        );
+        return Option.isSome(canonical) &&
+          sourceRefContentKey(canonical.value.ref) === sourceRefContentKey(ref)
+          ? undefined
+          : ref;
+      }),
+    );
+
+    const acceptedPack = yield* (yield* LockfileReader)
+      .acceptedEntry("pack", intent.packToInstall.name)
+      .pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "internal",
+            detail: `The accepted dependencies for Pack ${packIdentity} could not be read`,
+            cause,
+          }),
+        ),
+      );
+    const previousMemberIdentities = new Set(
+      Object.keys(Option.isSome(acceptedPack) ? acceptedPack.value.dependencies : {}).flatMap(
+        (fqn) => {
+          const member = parseExtensionFqnParts(fqn);
+          return member === undefined || member.type === "pack"
+            ? []
+            : [`${member.type}:${member.name}`];
+        },
+      ),
+    );
+    const previousMembers = yield* Effect.forEach(
+      graph.nodes.filter(
+        (node) => node.type !== "pack" && previousMemberIdentities.has(`${node.type}:${node.name}`),
+      ),
+      (node) =>
+        acceptedLockedResolutionRef({ type: node.type, name: node.name }).pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "internal",
+              detail: `The accepted source for pack member ${node.identity} could not be reconstructed`,
+              cause,
+            }),
+          ),
+          Effect.map(
+            Option.match({
+              onNone: () => [],
+              onSome: (ref) => [
+                {
+                  ref,
+                  retained: isRequiredByAnotherOrigin(node, [packIdentity]),
+                },
+              ],
+            }),
+          ),
+        ),
+      { concurrency: 1 },
+    ).pipe(Effect.map((members) => members.flat()));
+
+    const nextDependencies = collectResolvedDependencyNames(refs);
+    const unresolvedDroppedTargets: ReadonlyArray<DroppedPackDependency> = previousMembers.flatMap(
+      ({ ref, retained }) => {
+        if (ref.type === "pack" || retained || nextDependencies[ref.type].has(ref.name)) return [];
+        return [{ target: targetFromRef(ref) }];
+      },
+    );
+    const droppedTargets = yield* Effect.forEach(
+      unresolvedDroppedTargets,
+      (dropped) =>
+        acceptedLockedCanonicalPath({
+          type: dropped.target.type,
+          name: dropped.target.name,
+        }).pipe(
+          Effect.map((canonicalPath) => ({
+            ...dropped,
+            sourcePath: Option.match(canonicalPath, {
+              onNone: () => toLabel(dropped.target),
+              onSome: (value) => path.relative(location.baseDir, value),
+            }),
+          })),
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "internal",
+              detail: `Accepted canonical path for ${dropped.target.name} could not be read`,
+              cause,
+            }),
+          ),
+        ),
+      { concurrency: 1 },
+    );
+
+    const uninstallSteps = droppedTargets.map(
+      ({ target }): PlannedJobStep<InstallStepRequirements> => {
+        switch (target.type) {
+          case "skill":
+            return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
+              toStepFailure: conversion.toStepFailure,
+              target,
+            });
+          case "mcp-server":
+            return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
+              toStepFailure: conversion.toStepFailure,
+              target,
+            });
+          case "subagent":
+            return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
+              toStepFailure: conversion.toStepFailure,
+              target,
+            });
+          case "rule":
+            return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
+              toStepFailure: conversion.toStepFailure,
+              target,
+              enclosingClosure: { projections: [target.type] },
+            });
+          case "hook":
+            return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
+              toStepFailure: conversion.toStepFailure,
+              target,
+              enclosingClosure: { projections: [target.type] },
+            });
+          case "knowledge":
+            return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
+              toStepFailure: conversion.toStepFailure,
+              target,
+              enclosingClosure: { projections: [target.type] },
+            });
+        }
+      },
+    );
+
+    const resolvedTargets = refs.map(targetFromRef);
+    // The desired-state graph alone decides a member's activation, so the
+    // postcondition expects what the proposed graph already settled: an
+    // activation preference survives a Pack replacement because the graph binds
+    // it, not because this planner recomputes it. A member the proposed graph
+    // does not hold yet — a fresh install — gets no activation expectation.
+    const expectedMemberActivation = (target: PackDependencyTarget): boolean | undefined =>
+      proposedGraph.nodes.find((node) => node.type === target.type && node.name === target.name)
+        ?.enabled;
+    const artifactTargets: ReadonlyArray<JobStepArtifactTarget> = [
+      ...refs.map((ref): JobStepArtifactTarget => {
+        const target = targetFromRef(ref);
+        if (ref.refType === "workspace") return { path: ref.location, change: "unchanged" };
+        return {
+          path: registrySourcePath(ref, location.scope),
+          change: graph.nodes.some((node) => node.type === target.type && node.name === target.name)
+            ? "updated"
+            : "created",
+        };
+      }),
+      ...droppedTargets.map((dropped): JobStepArtifactTarget => ({
+        path: dropped.sourcePath,
+        change: "removed",
+      })),
+    ];
+    const projectionStep =
+      intent.deferProjections === true
+        ? Option.none<PlannedJobStep<InstallStepRequirements>>()
+        : yield* buildAggregateProjectionStep({
+            nativeProjections: {
+              hook: hookProjection,
+              rule: ruleProjection,
+              knowledge: knowledgeProjection,
+            },
+            types: new Set([
+              ...refs.map((ref) => ref.type),
+              ...droppedTargets.map(({ target }) => target.type),
+            ]),
+          });
+    // The pack's own row reads this closure's artifact, so it carries the same
+    // version facts a member's artifact does: a pack that commits showed `-`
+    // where every leaf showed what it moved to.
+    const packRef = refs.find((ref) => ref.type === "pack");
+    const packVersion =
+      packRef?.refType === "registry" || packRef?.refType === "workspace"
+        ? packRef.version
+        : undefined;
+    const acceptedPackRef = yield* acceptedLockedResolutionRef({
+      type: "pack",
+      name: intent.packToInstall.name,
+    }).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: `The accepted source for Pack ${packIdentity} could not be reconstructed`,
+          cause,
+        }),
+      ),
+    );
+    const previousPackVersion = Option.match(acceptedPackRef, {
+      onNone: () => undefined,
+      onSome: (ref) =>
+        ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined,
+    });
+    const graphStep = yield* buildReconciliationClosure({
+      toStepFailure: conversion.toStepFailure,
+      label: packIdentity,
+      ...(desiredReachability(graph, { type: "pack", name: intent.packToInstall.name }).decision ===
+      "not-reached"
+        ? { documentRoundTrip: { identity: packIdentity, mode: "introduce" as const } }
+        : {}),
+      message: `Installed ${packIdentity} and ${refs.length - 1} pack member${refs.length === 2 ? "" : "s"}`,
+      artifact: {
+        path: "pack graph",
+        scope: location.scope,
+        change: "updated",
+        fileCount: refs.length + droppedTargets.length,
+        targets: artifactTargets,
+        ...(packVersion === undefined ? {} : { version: packVersion }),
+        ...(previousPackVersion === undefined || previousPackVersion === packVersion
+          ? {}
+          : { previousVersion: previousPackVersion }),
+      },
+      children: [
+        ...installSteps.map((step, index) => ({
+          step,
+          coverage: packInstallCoverage(refs[index]),
+        })),
+        ...uninstallSteps.map((step) => ({ step, coverage: "ineligible" as const })),
+        ...Option.toArray(projectionStep).map((step) => ({
+          step,
+          coverage: "ineligible" as const,
+        })),
+      ],
+      // The plan was built against one workspace authority; if that authority
+      // moved, this candidate describes a decision that is no longer available.
+      preTransition: Effect.gen(function* () {
+        const refreshed = yield* scanWorkspaceAuthority(intent.packToInstall);
+        if (refreshed.blockers.length > 0 || refreshed.fingerprint !== authority.fingerprint) {
+          return yield* installRefused({
+            category: "conflict",
+            detail: "Workspace source authority changed before the pack transition applied",
+            suggestions:
+              refreshed.blockers.length === 0
+                ? [{ description: "Rerun the command to resolve a fresh pack candidate." }]
+                : refreshed.blockers.flatMap((fact) => fact.recovery),
+          });
+        }
+      }).pipe(Effect.asVoid),
+      validate: validatePackGraphPostcondition({
+        requiredPacks: [
+          {
+            name: intent.packToInstall.name,
+            identity: packIdentity,
+            enabled: preservedPackActivation,
+          },
+        ],
+        requiredMembers: resolvedTargets.flatMap((target) => {
+          if (target.type === "pack") return [];
+          const enabled = expectedMemberActivation(target);
+          return enabled === undefined
+            ? [{ type: target.type, name: target.name, packIdentity }]
+            : [{ type: target.type, name: target.name, packIdentity, enabled }];
+        }),
+        absent: droppedTargets.map(({ target }) => target),
+      }),
+    });
+
     return {
       _tag: "Plan",
       name: "Install pack",
-      description: Option.some(
-        "The selected pack graph includes a release held by the minimum release age",
+      description: Option.none(),
+      presentation: operationPresentation(
+        { imperative: "install", past: "Installed", gerund: "Installing" },
+        "pack",
       ),
-      presentation,
       jobs: [
         {
           concurrency: 1,
           steps: [
             {
-              readiness: "error",
-              label: packIdentity,
-              errorMessage: `Pack ${packIdentity} requires a release the minimum release age still holds back, and no complete usable accepted resolution can be preserved`,
-              blockingConditionIds: [HELD_PACK_RELEASE_BLOCKER_ID],
-              artifact: {
-                path: "pack graph",
-                scope: location.scope,
-                change: "unchanged",
-                fileCount: 0,
+              ...graphStep,
+              acquisitionRefs: acquisitionRefs.filter((ref) => ref !== undefined),
+              sourceBinding: {
+                extensionType: "pack",
+                target: intent.packToInstall.pack.name,
+                ref: intent.packToInstall,
+                members: refs.filter((ref) => ref.type !== "pack"),
+                previousMembers,
               },
             },
           ],
         },
       ],
       releaseAge,
-      riskConditions: [
-        {
-          level: "blocked" as const,
-          id: HELD_PACK_RELEASE_BLOCKER_ID,
-          detail: "The selected pack graph has no complete usable accepted resolution.",
-          errorCode: "conflict" as const,
-        },
-      ],
     } satisfies Plan<InstallStepRequirements>;
-  }
-
-  const { authority, proposedGraph, refs } = selection;
-  const graph = authority.graph;
-  const hookRefs = refs.filter((ref) => ref.type === "hook");
-  const priorNativeAuthority = yield* captureAgentOutputAuthority().pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "conflict",
-        detail: "Cannot establish prior Pack native ownership",
-        cause,
-      }),
-    ),
-  );
-  const hookProjection = {
-    priorAuthority: priorNativeAuthority,
-    nativeInsertionEligibleNames: new Set(
-      hookRefs
-        .filter(
-          (ref) =>
-            desiredReachability(graph, { type: "hook", name: ref.hook.name }).decision ===
-            "not-reached",
-        )
-        .map((ref) => ref.hook.name),
-    ),
-  };
-  if (hookRefs.length > 0)
-    yield* hookManager
-      .prepareProjection(
-        (intent.projectionRefs ?? refs)
-          .filter((ref) => ref.type === "hook")
-          .filter((ref) =>
-            proposedGraph.nodes.some(
-              (node) => node.type === "hook" && node.name === ref.hook.name && node.enabled,
-            ),
-          ),
-        { ...hookProjection, desiredGraph: proposedGraph },
-      )
-      .pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "conflict",
-            detail: "Pack Hook native locations cannot represent the proposed graph",
-            cause,
-          }),
-        ),
-      );
-  const ruleRefs = refs.filter((ref) => ref.type === "rule");
-  const knowledgeRefs = refs.filter((ref) => ref.type === "knowledge");
-  const ruleProjection = {
-    priorAuthority: priorNativeAuthority,
-    nativeInsertionEligibleNames: new Set(
-      ruleRefs
-        .filter(
-          (ref) =>
-            desiredReachability(graph, { type: "rule", name: ref.rule.name }).decision ===
-            "not-reached",
-        )
-        .map((ref) => ref.rule.name),
-    ),
-  };
-  const knowledgeProjection = {
-    priorAuthority: priorNativeAuthority,
-    nativeInsertionEligibleNames: new Set(
-      knowledgeRefs
-        .filter(
-          (ref) =>
-            desiredReachability(graph, { type: "knowledge", name: ref.knowledge.name }).decision ===
-            "not-reached",
-        )
-        .map((ref) => ref.knowledge.name),
-    ),
-  };
-  if (ruleRefs.length > 0)
-    yield* ruleManager
-      .prepareProjection(
-        (intent.projectionRefs ?? refs)
-          .filter((ref) => ref.type === "rule")
-          .filter((ref) =>
-            proposedGraph.nodes.some(
-              (node) => node.type === "rule" && node.name === ref.rule.name && node.enabled,
-            ),
-          ),
-        { ...ruleProjection, desiredGraph: proposedGraph },
-      )
-      .pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "conflict",
-            detail: "Pack Rule native locations cannot represent the proposed graph",
-            cause,
-          }),
-        ),
-      );
-  if (knowledgeRefs.length > 0)
-    yield* knowledgeManager
-      .prepareProjection(
-        (intent.projectionRefs ?? refs)
-          .filter((ref) => ref.type === "knowledge")
-          .filter((ref) =>
-            proposedGraph.nodes.some(
-              (node) =>
-                node.type === "knowledge" && node.name === ref.knowledge.name && node.enabled,
-            ),
-          ),
-        { ...knowledgeProjection, desiredGraph: proposedGraph },
-      )
-      .pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "conflict",
-            detail: "Pack Knowledge native locations cannot represent the proposed graph",
-            cause,
-          }),
-        ),
-      );
-  const currentPackNode = graph.nodes.find(
-    (node) => node.type === "pack" && node.name === intent.packToInstall.pack.name,
-  );
-  const preservedPackActivation = currentPackNode?.enabled ?? true;
-  // Installing is also the recovery path for a configured pack whose canonical
-  // manifest or accepted resolution is unavailable. Preserve fail-closed
-  // cleanup by suppressing dropped-member removal until the pre-install graph
-  // is complete.
-
-  const installSteps = yield* Effect.forEach(
-    refs,
-    (
-      ref,
-    ): Effect.Effect<
-      PlannedJobStep<InstallStepRequirements>,
-      never,
-      | HookManager
-      | KnowledgeManager
-      | McpServerManager
-      | RuleManager
-      | SkillManager
-      | SubagentManager
-      | WorkspaceLocation
-      | InstallStepRequirements
-    > =>
-      ref.type === "pack"
-        ? Effect.succeed(
-            buildInstallOperation(packManager, {
-              toStepFailure: conversion.toStepFailure,
-              ref,
-              nativeInsertionEligible:
-                desiredReachability(graph, targetFromRef(ref)).decision === "not-reached",
-              declaration: { name: ref.pack.name, versionRange: intent.versionRange },
-              ...(intent.forceCanonical === true ? { force: true } : {}),
-              buildArtifact: ({ change }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: location.scope, change })),
-            }),
-          )
-        : buildPackMemberStep({
-            ref,
-            force: intent.forceCanonical === true,
-            authorizeDistributionSelection: true,
-            nativeInsertionEligible:
-              desiredReachability(graph, targetFromRef(ref)).decision === "not-reached",
-            nonInteractive: intent.nonInteractive,
-            strictAgentSync: true,
-            desiredEnabled:
-              proposedGraph.nodes.find(
-                (node) => node.type === ref.type && node.name === targetFromRef(ref).name,
-              )?.enabled ?? preservedPackActivation,
-            toStepFailure: conversion.toStepFailure,
-          }),
-    { concurrency: 1 },
-  );
-
-  const acquisitionRefs = yield* Effect.forEach(refs, (ref) =>
-    Effect.gen(function* () {
-      if (intent.forceCanonical === true || ref.type === "pack" || ref.refType === "workspace")
-        return ref;
-      const canonical = yield* usableAcceptedCanonical({
-        type: ref.type,
-        name: targetFromRef(ref).name,
-      }).pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "internal",
-            detail: `Accepted canonical content for ${targetFromRef(ref).name} could not be inspected`,
-            cause,
-          }),
-        ),
-      );
-      return Option.isSome(canonical) &&
-        sourceRefContentKey(canonical.value.ref) === sourceRefContentKey(ref)
-        ? undefined
-        : ref;
-    }),
-  );
-
-  const acceptedPack = yield* (yield* LockfileReader)
-    .acceptedEntry("pack", intent.packToInstall.name)
-    .pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "internal",
-          detail: `The accepted dependencies for Pack ${packIdentity} could not be read`,
-          cause,
-        }),
-      ),
-    );
-  const previousMemberIdentities = new Set(
-    Object.keys(Option.isSome(acceptedPack) ? acceptedPack.value.dependencies : {}).flatMap(
-      (fqn) => {
-        const member = parseExtensionFqnParts(fqn);
-        return member === undefined || member.type === "pack"
-          ? []
-          : [`${member.type}:${member.name}`];
-      },
-    ),
-  );
-  const previousMembers = yield* Effect.forEach(
-    graph.nodes.filter(
-      (node) => node.type !== "pack" && previousMemberIdentities.has(`${node.type}:${node.name}`),
-    ),
-    (node) =>
-      acceptedLockedResolutionRef({ type: node.type, name: node.name }).pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "internal",
-            detail: `The accepted source for pack member ${node.identity} could not be reconstructed`,
-            cause,
-          }),
-        ),
-        Effect.map(
-          Option.match({
-            onNone: () => [],
-            onSome: (ref) => [
-              {
-                ref,
-                retained: isRequiredByAnotherOrigin(node, [packIdentity]),
-              },
-            ],
-          }),
-        ),
-      ),
-    { concurrency: 1 },
-  ).pipe(Effect.map((members) => members.flat()));
-
-  const nextDependencies = collectResolvedDependencyNames(refs);
-  const unresolvedDroppedTargets: ReadonlyArray<DroppedPackDependency> = previousMembers.flatMap(
-    ({ ref, retained }) => {
-      if (ref.type === "pack" || retained || nextDependencies[ref.type].has(ref.name)) return [];
-      return [{ target: targetFromRef(ref) }];
-    },
-  );
-  const droppedTargets = yield* Effect.forEach(
-    unresolvedDroppedTargets,
-    (dropped) =>
-      acceptedLockedCanonicalPath({
-        type: dropped.target.type,
-        name: dropped.target.name,
-      }).pipe(
-        Effect.map((canonicalPath) => ({
-          ...dropped,
-          sourcePath: Option.match(canonicalPath, {
-            onNone: () => toLabel(dropped.target),
-            onSome: (value) => path.relative(location.baseDir, value),
-          }),
-        })),
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "internal",
-            detail: `Accepted canonical path for ${dropped.target.name} could not be read`,
-            cause,
-          }),
-        ),
-      ),
-    { concurrency: 1 },
-  );
-
-  const uninstallSteps = droppedTargets.map(
-    ({ target }): PlannedJobStep<InstallStepRequirements> => {
-      switch (target.type) {
-        case "skill":
-          return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: conversion.toStepFailure,
-            target,
-          });
-        case "mcp-server":
-          return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: conversion.toStepFailure,
-            target,
-          });
-        case "subagent":
-          return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: conversion.toStepFailure,
-            target,
-          });
-        case "rule":
-          return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: conversion.toStepFailure,
-            target,
-            enclosingClosure: { projections: [target.type] },
-          });
-        case "hook":
-          return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: conversion.toStepFailure,
-            target,
-            enclosingClosure: { projections: [target.type] },
-          });
-        case "knowledge":
-          return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
-            toStepFailure: conversion.toStepFailure,
-            target,
-            enclosingClosure: { projections: [target.type] },
-          });
-      }
-    },
-  );
-
-  const resolvedTargets = refs.map(targetFromRef);
-  // The desired-state graph alone decides a member's activation, so the
-  // postcondition expects what the proposed graph already settled: an
-  // activation preference survives a Pack replacement because the graph binds
-  // it, not because this planner recomputes it. A member the proposed graph
-  // does not hold yet — a fresh install — gets no activation expectation.
-  const expectedMemberActivation = (target: PackDependencyTarget): boolean | undefined =>
-    proposedGraph.nodes.find((node) => node.type === target.type && node.name === target.name)
-      ?.enabled;
-  const artifactTargets: ReadonlyArray<JobStepArtifactTarget> = [
-    ...refs.map((ref): JobStepArtifactTarget => {
-      const target = targetFromRef(ref);
-      if (ref.refType === "workspace") return { path: ref.location, change: "unchanged" };
-      return {
-        path: registrySourcePath(ref, location.scope),
-        change: graph.nodes.some((node) => node.type === target.type && node.name === target.name)
-          ? "updated"
-          : "created",
-      };
-    }),
-    ...droppedTargets.map((dropped): JobStepArtifactTarget => ({
-      path: dropped.sourcePath,
-      change: "removed",
-    })),
-  ];
-  const projectionStep =
-    intent.deferProjections === true
-      ? Option.none<PlannedJobStep<InstallStepRequirements>>()
-      : yield* buildAggregateProjectionStep({
-          nativeProjections: {
-            hook: hookProjection,
-            rule: ruleProjection,
-            knowledge: knowledgeProjection,
-          },
-          types: new Set([
-            ...refs.map((ref) => ref.type),
-            ...droppedTargets.map(({ target }) => target.type),
-          ]),
-        });
-  // The pack's own row reads this closure's artifact, so it carries the same
-  // version facts a member's artifact does: a pack that commits showed `-`
-  // where every leaf showed what it moved to.
-  const packRef = refs.find((ref) => ref.type === "pack");
-  const packVersion =
-    packRef?.refType === "registry" || packRef?.refType === "workspace"
-      ? packRef.version
-      : undefined;
-  const acceptedPackRef = yield* acceptedLockedResolutionRef({
-    type: "pack",
-    name: intent.packToInstall.name,
-  }).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: `The accepted source for Pack ${packIdentity} could not be reconstructed`,
-        cause,
-      }),
-    ),
-  );
-  const previousPackVersion = Option.match(acceptedPackRef, {
-    onNone: () => undefined,
-    onSome: (ref) =>
-      ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined,
   });
-  const graphStep = yield* buildReconciliationClosure({
-    toStepFailure: conversion.toStepFailure,
-    label: packIdentity,
-    ...(desiredReachability(graph, { type: "pack", name: intent.packToInstall.name }).decision ===
-    "not-reached"
-      ? { documentRoundTrip: { identity: packIdentity, mode: "introduce" as const } }
-      : {}),
-    message: `Installed ${packIdentity} and ${refs.length - 1} pack member${refs.length === 2 ? "" : "s"}`,
-    artifact: {
-      path: "pack graph",
-      scope: location.scope,
-      change: "updated",
-      fileCount: refs.length + droppedTargets.length,
-      targets: artifactTargets,
-      ...(packVersion === undefined ? {} : { version: packVersion }),
-      ...(previousPackVersion === undefined || previousPackVersion === packVersion
-        ? {}
-        : { previousVersion: previousPackVersion }),
-    },
-    children: [
-      ...installSteps.map((step, index) => ({
-        step,
-        coverage: packInstallCoverage(refs[index]),
-      })),
-      ...uninstallSteps.map((step) => ({ step, coverage: "ineligible" as const })),
-      ...Option.toArray(projectionStep).map((step) => ({
-        step,
-        coverage: "ineligible" as const,
-      })),
-    ],
-    // The plan was built against one workspace authority; if that authority
-    // moved, this candidate describes a decision that is no longer available.
-    preTransition: Effect.gen(function* () {
-      const refreshed = yield* scanWorkspaceAuthority(intent.packToInstall);
-      if (refreshed.blockers.length > 0 || refreshed.fingerprint !== authority.fingerprint) {
-        return yield* installRefused({
-          category: "conflict",
-          detail: "Workspace source authority changed before the pack transition applied",
-          suggestions:
-            refreshed.blockers.length === 0
-              ? [{ description: "Rerun the command to resolve a fresh pack candidate." }]
-              : refreshed.blockers.flatMap((fact) => fact.recovery),
-        });
-      }
-    }).pipe(Effect.asVoid),
-    validate: validatePackGraphPostcondition({
-      requiredPacks: [
-        {
-          name: intent.packToInstall.name,
-          identity: packIdentity,
-          enabled: preservedPackActivation,
-        },
-      ],
-      requiredMembers: resolvedTargets.flatMap((target) => {
-        if (target.type === "pack") return [];
-        const enabled = expectedMemberActivation(target);
-        return enabled === undefined
-          ? [{ type: target.type, name: target.name, packIdentity }]
-          : [{ type: target.type, name: target.name, packIdentity, enabled }];
-      }),
-      absent: droppedTargets.map(({ target }) => target),
-    }),
-  });
-
-  return {
-    _tag: "Plan",
-    name: "Install pack",
-    description: Option.none(),
-    presentation: operationPresentation(
-      { imperative: "install", past: "Installed", gerund: "Installing" },
-      "pack",
-    ),
-    jobs: [
-      {
-        concurrency: 1,
-        steps: [
-          {
-            ...graphStep,
-            acquisitionRefs: acquisitionRefs.filter((ref) => ref !== undefined),
-            sourceBinding: {
-              extensionType: "pack",
-              target: intent.packToInstall.pack.name,
-              ref: intent.packToInstall,
-              members: refs.filter((ref) => ref.type !== "pack"),
-              previousMembers,
-            },
-          },
-        ],
-      },
-    ],
-    releaseAge,
-  } satisfies Plan<InstallStepRequirements>;
-});

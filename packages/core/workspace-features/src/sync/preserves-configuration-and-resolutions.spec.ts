@@ -14,8 +14,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
-import { WorkspaceSyncFailed } from "@agentxm/workspace-kernel/reconciliation";
+import { deriveOperationOutcome, OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   SHARED_MEMBER,
@@ -137,7 +136,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           workspace.writeFile(`${CANONICAL}/src/SKILL.md`, "Locally edited acquired content.\n");
           const before = workspace.snapshot();
           const refusal = yield* applySync().pipe(Effect.flip);
-          expect(refusal).toMatchObject({ _tag: "WorkspaceSyncFailed", category: "conflict" });
+          expect(refusal).toMatchObject({ _tag: "OperationRefused", category: "conflict" });
           expect(workspace.snapshot()).toEqual(before);
         }),
       )
@@ -165,7 +164,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           });
           const before = workspace.snapshot();
           const failure = yield* applySync().pipe(Effect.flip);
-          expect(failure).toBeInstanceOf(WorkspaceSyncFailed);
+          expect(failure).toBeInstanceOf(OperationRefused);
           expect(workspace.snapshot()).toEqual(before);
         }),
       )
@@ -202,7 +201,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             const failure = yield* applySync().pipe(Effect.flip);
 
             expect(failure).toMatchObject({
-              _tag: "WorkspaceSyncFailed",
+              _tag: "OperationRefused",
               detail: sharedMemberOutsidePinFact({
                 registry: published.source.name,
                 pin: SHARED_MEMBER_PIN.inside,
@@ -314,8 +313,8 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           remote.replaceHistory();
           const before = workspace.snapshot();
           const refusal = yield* applySync().pipe(Effect.flip);
-          expect(refusal).toBeInstanceOf(WorkspaceSyncFailed);
-          if (!(refusal instanceof WorkspaceSyncFailed)) {
+          expect(refusal).toBeInstanceOf(OperationRefused);
+          if (!(refusal instanceof OperationRefused)) {
             throw new Error(`Expected a sync refusal, got ${String(refusal)}`);
           }
           expect(refusal.category).toBe("conflict");
@@ -358,8 +357,8 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             workspace.remove(gitPackagePath(remote.url, `vendor/${SKILL}`));
             const before = workspace.snapshot();
             const refusal = yield* applySync().pipe(Effect.flip);
-            expect(refusal).toBeInstanceOf(WorkspaceSyncFailed);
-            if (!(refusal instanceof WorkspaceSyncFailed)) {
+            expect(refusal).toBeInstanceOf(OperationRefused);
+            if (!(refusal instanceof OperationRefused)) {
               throw new Error(`Expected a sync refusal, got ${String(refusal)}`);
             }
             expect(refusal.detail, JSON.stringify(refusal)).toContain("accepted Git commit");

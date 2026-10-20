@@ -21,7 +21,6 @@ import {
   collectCleanupStep,
   buildReconciliationClosure,
   StepFailureConversion,
-  type WorkspaceSyncFailed,
   nameFromLabel,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { expectedProjectionNames } from "@agentxm/workspace-kernel/projection";
@@ -34,7 +33,8 @@ import {
   type OperationResolution,
   type Plan,
   type PlanExecution,
-  ExtensionLifecycleFailed,
+  OperationRefused,
+  installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -111,7 +111,7 @@ export interface UninstallExtensionsCandidate {
 }
 
 /** Every failure settling a removal can surface before anything is written. */
-export type UninstallExtensionsFailure = ExtensionLifecycleFailed | InstallExecutionFailure;
+export type UninstallExtensionsFailure = OperationRefused | InstallExecutionFailure;
 
 /** Everything settling a removal reads before it freezes a candidate. */
 export type PrepareUninstallRequirements = PrepareInstallRequirements | PackUninstallRequirements;
@@ -222,13 +222,12 @@ export const prepareUninstallExtensions: (
   const proposal = yield* proposeDesiredState(
     planned.names.map((name) => ({ kind: "remove", type: resolved.type, name })),
   ).pipe(
-    Effect.mapError(
-      (cause) =>
-        new ExtensionLifecycleFailed({
-          category: "conflict",
-          detail: "Cannot derive desired state after uninstall",
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "conflict",
+        detail: "Cannot derive desired state after uninstall",
+        cause,
+      }),
     ),
   );
   // The plan's own name stands whichever spelling produced it: the removal a
@@ -243,13 +242,12 @@ export const prepareUninstallExtensions: (
       : yield* Effect.forEach(planned.names, (name) =>
           prepareUninstallArtifact({ type: leafType, name }, proposal),
         ).pipe(
-          Effect.mapError(
-            (cause) =>
-              new ExtensionLifecycleFailed({
-                category: "conflict",
-                detail: "Cannot establish uninstall effects",
-                cause,
-              }),
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "conflict",
+              detail: "Cannot establish uninstall effects",
+              cause,
+            }),
           ),
         );
   const artifactByName = new Map(
@@ -289,13 +287,12 @@ export const prepareUninstallExtensions: (
                 : [],
             ),
           ).pipe(
-            Effect.mapError(
-              (cause) =>
-                new ExtensionLifecycleFailed({
-                  category: "conflict",
-                  detail: "Cannot observe retained native outputs",
-                  cause,
-                }),
+            Effect.mapError((cause) =>
+              installRefused({
+                category: "conflict",
+                detail: "Cannot observe retained native outputs",
+                cause,
+              }),
             ),
           );
           // Native MCP and Hook withdrawal belongs to the targeted manager.
@@ -308,13 +305,12 @@ export const prepareUninstallExtensions: (
                   subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
                   adapter: conversion,
                 }).pipe(
-                  Effect.mapError(
-                    (cause) =>
-                      new ExtensionLifecycleFailed({
-                        category: "conflict",
-                        detail: "Cannot establish owned uninstall outputs",
-                        cause,
-                      }),
+                  Effect.mapError((cause) =>
+                    installRefused({
+                      category: "conflict",
+                      detail: "Cannot establish owned uninstall outputs",
+                      cause,
+                    }),
                   ),
                 );
           const removal = {
@@ -336,10 +332,7 @@ export const prepareUninstallExtensions: (
               ),
             ),
           };
-          return yield* buildReconciliationClosure<
-            WorkspaceSyncFailed,
-            PrepareUninstallRequirements
-          >({
+          return yield* buildReconciliationClosure<OperationRefused, PrepareUninstallRequirements>({
             label: step.label,
             message: artifact.references?.some(
               (reference) =>

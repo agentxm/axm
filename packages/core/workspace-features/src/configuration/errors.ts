@@ -11,7 +11,7 @@
 import * as Schema from "effect/Schema";
 import {
   FailureSuggestedActionSchema,
-  makeStepFailure,
+  renderCarriedFailure,
   type StepFailure,
 } from "@agentxm/workspace-kernel/operations";
 import type {
@@ -56,15 +56,7 @@ export const isConfigurationFamilyFailure = (
  */
 export const configurationFailureToStepFailure = (
   failure: ConfigurationFamilyFailure,
-): StepFailure =>
-  makeStepFailure({
-    category: failure.category,
-    detail: failure.detail,
-    recover: failure.recover,
-    cmd: failure.cmd,
-    suggestions: failure.suggestions,
-    cause: failure.cause,
-  });
+): StepFailure => renderCarriedFailure(failure);
 
 /**
  * Every failure a workspace change this feature plans can surface: the

@@ -52,7 +52,7 @@ export const handleDemote = (args: DemoteHandlerArgs) =>
       planName: "Demote workspace extension",
     },
     handleDemoteBody(args).pipe(
-      Effect.catchTag("ExtensionLifecycleFailed", (failure) => Effect.fail(toAppError(failure))),
+      Effect.catchTag("OperationRefused", (failure) => Effect.fail(toAppError(failure))),
     ),
   );
 

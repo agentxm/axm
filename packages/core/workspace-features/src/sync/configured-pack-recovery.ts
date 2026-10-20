@@ -40,10 +40,7 @@ import {
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
 } from "@agentxm/workspace-kernel/resolution";
-import type {
-  ExtensionLifecycleFailed,
-  PlannedJobStep,
-} from "@agentxm/workspace-kernel/operations";
+import { type PlannedJobStep, OperationRefused } from "@agentxm/workspace-kernel/operations";
 import {
   prepareConfiguredPackIntent,
   readProposedGraph,
@@ -72,13 +69,13 @@ import {
   selectedDesiredNodes,
   SYNC_RECOVERY_IDS,
   targetFromRef,
-  WorkspaceSyncFailed,
   type ConfiguredEntryResolutionRequirements,
   type ConfiguredPackRecovery,
   type StepFailureConversionService,
   type SyncPolicyFailure,
   type SyncSelection,
   type SyncStepRequirements,
+  syncRefused,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 
@@ -125,8 +122,8 @@ const recoveryStep = (args: {
   });
 
 /** A lifecycle refusal carried into sync with its own category and sentence. */
-const recoveryRefused = (failure: ExtensionLifecycleFailed): WorkspaceSyncFailed =>
-  new WorkspaceSyncFailed({
+const recoveryRefused = (failure: OperationRefused): OperationRefused =>
+  syncRefused({
     category:
       failure.category === "not_found" ||
       failure.category === "validation" ||
@@ -224,9 +221,7 @@ export const collectConfiguredPackRecovery = (args: {
           forceCanonical: true,
         }).pipe(
           Effect.map((resolve) => ({ name, resolve })),
-          Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
-            Effect.fail(recoveryRefused(failure)),
-          ),
+          Effect.catchTag("OperationRefused", (failure) => Effect.fail(recoveryRefused(failure))),
         ),
       { concurrency },
     );
@@ -236,9 +231,7 @@ export const collectConfiguredPackRecovery = (args: {
       ({ name, resolve }) =>
         resolve.pipe(
           Effect.map((prepared) => ({ name, ...prepared })),
-          Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
-            Effect.fail(recoveryRefused(failure)),
-          ),
+          Effect.catchTag("OperationRefused", (failure) => Effect.fail(recoveryRefused(failure))),
         ),
       { concurrency },
     );
@@ -279,9 +272,7 @@ export const collectConfiguredPackRecovery = (args: {
           // same authority, constraint gate, member resolver, and the
           // install's declared held-release policy.
           const selection = yield* selectPackGraph({ ...intent, desiredGraph: proposedGraph }).pipe(
-            Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
-              Effect.fail(recoveryRefused(failure)),
-            ),
+            Effect.catchTag("OperationRefused", (failure) => Effect.fail(recoveryRefused(failure))),
           );
           if (selection.kind === "authority-blocked") {
             return blocked(selection.blockers.map((fact) => fact.detail).join("; "));
@@ -360,13 +351,12 @@ export const collectConfiguredPackRecovery = (args: {
                 : ref;
             }),
           ).pipe(
-            Effect.mapError(
-              (cause) =>
-                new WorkspaceSyncFailed({
-                  category: "internal",
-                  detail: `Accepted canonical content for ${identity} could not be inspected`,
-                  cause,
-                }),
+            Effect.mapError((cause) =>
+              syncRefused({
+                category: "internal",
+                detail: `Accepted canonical content for ${identity} could not be inspected`,
+                cause,
+              }),
             ),
           );
           return {
@@ -405,7 +395,7 @@ export const collectConfiguredPackRecovery = (args: {
                         Option.isNone(canonical) ||
                         canonical.value.observation.status !== "usable"
                       ) {
-                        return yield* new WorkspaceSyncFailed({
+                        return yield* syncRefused({
                           category: "conflict",
                           detail: `Recovered ${ref.type} ${target} does not satisfy desired state`,
                         });

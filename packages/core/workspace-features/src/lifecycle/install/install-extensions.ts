@@ -38,9 +38,9 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-  type ExtensionLifecycleFailed,
   installRefused,
   InstallSelectionInteraction,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -203,7 +203,7 @@ export interface InstallExtensionsCandidate {
  */
 export type InstallExtensionsFailure =
   | Config.ConfigError
-  | ExtensionLifecycleFailed
+  | OperationRefused
   | ExtensionResolutionFailed
   | InstallSelectionFailure
   | InstallExecutionFailure;
@@ -291,7 +291,7 @@ const parseSourceInstallRequest = (
   names: ReadonlyArray<string>,
 ): Effect.Effect<
   ParsedInstallRequest,
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   ResolveInstallRequirements
 > => {
   switch (type) {
@@ -774,7 +774,7 @@ const planSettledType = (
 };
 
 const isNoMatch = (failure: InstallExtensionsFailure): boolean =>
-  failure._tag === "ExtensionLifecycleFailed" &&
+  failure._tag === "OperationRefused" &&
   (failure.category === "not_found" || failure.category === "usage");
 
 const nothingInstallable = installRefused({

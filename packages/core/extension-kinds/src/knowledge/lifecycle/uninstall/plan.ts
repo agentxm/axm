@@ -35,8 +35,8 @@ import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/pat
 import {
   type Plan,
   type PlannedJobStep,
-  ExtensionLifecycleFailed,
   installRefused,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { resolveInstructionsConfig } from "@agentxm/workspace-kernel/projection";
 
@@ -56,7 +56,7 @@ export const parseKnowledgeUninstallRequest: (
   selector: string,
 ) => Effect.Effect<
   KnowledgeUninstallIntent,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | KnowledgeManager | FileSystem.FileSystem | Path.Path
 > = Effect.fn("UninstallExtensions.parseKnowledgeRequest")(function* (selector: string) {
   const location = yield* WorkspaceLocation;
@@ -101,7 +101,7 @@ const inspectOwnership: (
   target: KnowledgeExtensionTarget,
 ) => Effect.Effect<
   KnowledgeUninstallOwnership,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | FileSystem.FileSystem | Path.Path
 > = Effect.fn("UninstallExtensions.inspectKnowledgeOwnership")(function* (
   target: KnowledgeExtensionTarget,
@@ -178,7 +178,7 @@ export const planKnowledgeUninstall: (
   intent: KnowledgeUninstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | KnowledgeManager | FileSystem.FileSystem | Path.Path
 > = Effect.fn("UninstallExtensions.planKnowledge")(function* (intent: KnowledgeUninstallIntent) {
   const desiredState = yield* DesiredStateReader;

@@ -129,12 +129,14 @@ export {
 export {
   candidateFingerprintFailedToStepFailure,
   configErrorToStepFailure,
+  configFailures,
   restorationIncompleteToStepFailure,
-  workspaceRestorationErrorToStepFailure,
-  workspaceStateFailureToStepFailure,
+  workspaceRestorationFailures,
+  workspaceStateFailures,
+  workspaceStateReadFailures,
   workspaceStateReadFailureToStepFailure,
+  workspaceTransactionFailures,
   workspaceTransactionFailureToStepFailure,
-  type WorkspaceStateFailure,
 } from "./step-failures.js";
 
 // Plan-facing workspace vocabulary

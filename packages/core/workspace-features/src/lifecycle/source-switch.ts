@@ -29,8 +29,8 @@ import {
   type SourceSwitchEndpoint,
   type SourceSwitchEvidence,
   type SourceSwitchFamily,
-  type ExtensionLifecycleFailed,
   installRefused,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import type { PrepareInstallRequirements } from "./install/vocabulary.js";
 import { sourceResolutionRefused } from "@agentxm/workspace-kernel/reconciliation";
@@ -159,7 +159,7 @@ const classifyPackMembers = (
   targetMembers: ReadonlyArray<ExtensionRef>,
 ): Effect.Effect<
   ReadonlyArray<PackMemberSourceSwitchEvidence>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   PrepareInstallRequirements
 > =>
   Effect.gen(function* () {
@@ -213,7 +213,7 @@ const comparableTreeIntegrity = (
   ref: ExtensionRef,
   compareWithRegistry: boolean,
   originalFiles?: { readonly directory: string; readonly publicationBoundaryRoot?: string },
-): Effect.Effect<string, ExtensionLifecycleFailed, PrepareInstallRequirements> =>
+): Effect.Effect<string, OperationRefused, PrepareInstallRequirements> =>
   Effect.gen(function* () {
     if (!compareWithRegistry) {
       return yield* computeMaterializedTreeIntegrity(directory).pipe(
@@ -317,7 +317,7 @@ const comparableTreeIntegrity = (
 const proposedTreeIntegrity = (
   ref: ExtensionRef,
   compareWithRegistry: boolean,
-): Effect.Effect<string, ExtensionLifecycleFailed, PrepareInstallRequirements> =>
+): Effect.Effect<string, OperationRefused, PrepareInstallRequirements> =>
   Effect.gen(function* () {
     const providers = yield* SourceHostProviders;
     const files = yield* providers
@@ -388,7 +388,7 @@ const blockedStep = <R, O>(
 /** Classify every acquired install proposal against the accepted source authority. */
 export const withSourceSwitches = <R, O>(
   plan: Plan<R, O>,
-): Effect.Effect<Plan<R, O>, ExtensionLifecycleFailed, PrepareInstallRequirements | R> =>
+): Effect.Effect<Plan<R, O>, OperationRefused, PrepareInstallRequirements | R> =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;

@@ -4,8 +4,8 @@ import { it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 
-import { ExtensionLifecycleFailed, StepFailure } from "../operations/index.js";
-import { StepFailureConversion, WorkspaceSyncFailed } from "./index.js";
+import { StepFailure, installRefused } from "../operations/index.js";
+import { StepFailureConversion, syncRefused } from "./index.js";
 import { WorkspaceRestorationIncomplete } from "../settlement/index.js";
 import { StepFailureConversionTest } from "./testing.js";
 
@@ -13,7 +13,7 @@ describe("./testing.js", () => {
   it.effect("renders an operation refusal one-to-one", () =>
     Effect.gen(function* () {
       const conversion = yield* StepFailureConversion;
-      const refusal = new ExtensionLifecycleFailed({
+      const refusal = installRefused({
         category: "not_found",
         title: "Not installed",
         detail: 'skill "missing" is not installed',
@@ -36,7 +36,7 @@ describe("./testing.js", () => {
   it.effect("keeps any other failure's own category and sentence", () =>
     Effect.gen(function* () {
       const conversion = yield* StepFailureConversion;
-      const failure = new WorkspaceSyncFailed({
+      const failure = syncRefused({
         category: "conflict",
         detail: "A managed region on AGENTS.md is owned by another writer.",
       });

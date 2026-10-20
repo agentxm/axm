@@ -18,10 +18,7 @@ import {
   desiredPackageKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 
-import {
-  type ExtensionLifecycleFailed,
-  installRefused,
-} from "@agentxm/workspace-kernel/operations";
+import { installRefused, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 
 interface RequiredPack {
   readonly name: string;
@@ -49,7 +46,7 @@ export const validatePackGraphPostcondition = (args: {
   readonly requiredMembers?: ReadonlyArray<RequiredMember>;
   readonly absent?: ReadonlyArray<AbsentNode>;
   readonly inactive?: ReadonlyArray<AbsentNode>;
-}): Effect.Effect<void, ExtensionLifecycleFailed, DesiredStateReader> =>
+}): Effect.Effect<void, OperationRefused, DesiredStateReader> =>
   Effect.gen(function* () {
     const desiredState = yield* DesiredStateReader;
     const graph = yield* desiredState.graph().pipe(

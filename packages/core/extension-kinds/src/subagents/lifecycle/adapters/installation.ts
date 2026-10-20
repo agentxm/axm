@@ -6,12 +6,12 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Option from "effect/Option";
-import { type ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
+import { type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import type { SubagentInstallationFacts } from "../application/installation.js";
 import type { InstallStepRequirements } from "@agentxm/workspace-kernel/reconciliation";
 
 export const subagentInstallationFacts: SubagentInstallationFacts<
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements
 > = {
   workspace: Effect.gen(function* () {

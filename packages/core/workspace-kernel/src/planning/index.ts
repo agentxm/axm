@@ -27,12 +27,8 @@ export {
   type ResolveExecutionCandidateOptions,
 } from "./plan/resolve-plan.js";
 
-// Conversion of the plan-execution failure family into the serialized step
-// vocabulary.
-export {
-  planExecutionFailureToStepFailure,
-  type PlanExecutionFailure,
-} from "./plan/step-failure-conversions.js";
+// The plan-execution failure family.
+export { planExecutionFailures } from "./plan/step-failure-conversions.js";
 
 export {
   isExecutionCandidateFresh,
@@ -53,6 +49,6 @@ export {
   registryOperationUnsupportedStepFailure,
   registrySelectionFailedStepFailure,
   registrySourceUnknownStepFailure,
+  resolutionFailures,
   resolutionFailureToStepFailure,
-  type ResolutionFamilyFailure,
 } from "./resolution-step-failure.js";

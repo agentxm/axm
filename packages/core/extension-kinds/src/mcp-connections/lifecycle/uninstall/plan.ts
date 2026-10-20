@@ -32,7 +32,7 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-  type ExtensionLifecycleFailed,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 
 /** One MCP connection removal. */
@@ -50,7 +50,7 @@ export const planMcpServerUninstall: (
   intent: McpServerUninstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | McpServerManager | FileSystem.FileSystem | Path.Path
 > = Effect.fn("UninstallExtensions.planMcpServers")(function* (intent: McpServerUninstallIntent) {
   const location = yield* WorkspaceLocation;

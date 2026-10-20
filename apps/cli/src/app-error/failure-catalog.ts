@@ -15,8 +15,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import {
+  authoringFailures,
   authoringFailureToStepFailure,
-  isAuthoringFamilyFailure,
   type AuthoringFamilyFailure,
 } from "@agentxm/workspace-features/authoring";
 import {
@@ -49,7 +49,7 @@ export type WorkspaceFailure =
 /** Whether an untyped failure is one the application renders. */
 export const isWorkspaceFailure = (failure: unknown): failure is WorkspaceFailure =>
   isKernelFailure(failure) ||
-  isAuthoringFamilyFailure(failure) ||
+  authoringFailures.is(failure) ||
   isPublishFamilyFailure(failure) ||
   isConfigurationFamilyFailure(failure);
 
@@ -62,7 +62,7 @@ const workspaceFailureDetail = (failure: unknown): string | undefined =>
  * is already rendered and passes through unchanged.
  */
 export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFailure => {
-  if (isAuthoringFamilyFailure(failure)) return authoringFailureToStepFailure(failure);
+  if (authoringFailures.is(failure)) return authoringFailureToStepFailure(failure);
   if (isPublishFamilyFailure(failure)) return publishFailureToStepFailure(failure);
   if (isConfigurationFamilyFailure(failure)) return configurationFailureToStepFailure(failure);
   return renderKernelFailure(failure, { detailOf: workspaceFailureDetail });

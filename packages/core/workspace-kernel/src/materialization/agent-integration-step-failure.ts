@@ -11,7 +11,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type {
+import {
   AgentDetectionFailed,
   HookConfigInvalid,
   HookIoFailed,
@@ -23,12 +23,12 @@ import type {
   NativeWriteRefused,
   TransientBackupFailed,
 } from "../agent-adapters/index.js";
-import { makeStepFailure, type StepFailure } from "../operations/index.js";
+import { defineFailureFamily, makeStepFailure, type StepFailure } from "../operations/index.js";
 import { WorkspaceBoundaryConflict, WorkspaceSnapshotError } from "../settlement/index.js";
 import { workspaceTransactionFailureToStepFailure } from "../workspace-state/index.js";
 
 /** Every agent-integration failure, beside a retained write backup that wraps one. */
-export type AgentIntegrationFailure =
+type AgentIntegrationFailure =
   | AgentDetectionFailed
   | HookConfigInvalid
   | HookIoFailed
@@ -97,3 +97,21 @@ export const agentIntegrationFailureToStepFailure = (
       });
   }
 };
+
+/** The agent-integration failure family. */
+export const agentIntegrationFailures = defineFailureFamily({
+  classes: () =>
+    [
+      AgentDetectionFailed,
+      HookConfigInvalid,
+      HookIoFailed,
+      TransientBackupFailed,
+      SubagentIoFailed,
+      McpConfigInvalid,
+      McpConfigIoFailed,
+      McpDefinitionInvalid,
+      McpSharedTargetConflict,
+      NativeWriteRefused,
+    ] as const,
+  render: agentIntegrationFailureToStepFailure,
+});

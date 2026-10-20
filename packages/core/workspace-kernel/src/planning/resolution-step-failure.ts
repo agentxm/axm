@@ -12,7 +12,7 @@
  */
 
 import * as Option from "effect/Option";
-import type {
+import {
   RegistryOperationFailed,
   RegistryOperationUnsupported,
   RegistryProblem,
@@ -22,18 +22,10 @@ import type {
 } from "@agentxm/registry-client";
 
 import {
-  LockfileDecodeError,
-  LockfileIoError,
-  LockfileParseError,
-  LockfileVersionUnsupported,
-  SettingsDecodeError,
-  SettingsIoError,
-  SettingsParseError,
-  WorkspaceRootEscape,
-  type WorkspaceStateReadFailure,
+  workspaceStateReadFailures,
   workspaceStateReadFailureToStepFailure,
 } from "../workspace-state/index.js";
-import type {
+import {
   ExtensionResolutionFailed,
   PackConstraintShadowed,
   PackDependencyConflict,
@@ -43,17 +35,19 @@ import type {
   SourceAuthorityBlocked,
 } from "../resolution/index.js";
 import {
+  AxmSkillGateUnavailable,
+  GitOperationFailed,
+  SourceHostNotConfigured,
+  SourceNetworkFailure,
+  SourceNotResolvable,
+  SourceSyntaxInvalid,
+  WorkspaceCatalogUnavailable,
   sourceResolutionFailureCategory,
-  type AxmSkillGateUnavailable,
-  type GitOperationFailed,
-  type SourceHostNotConfigured,
-  type SourceNetworkFailure,
-  type SourceNotResolvable,
-  type SourceSyntaxInvalid,
-  type WorkspaceCatalogUnavailable,
 } from "../sources/index.js";
 import {
+  defineFailureFamily,
   makeStepFailure,
+  renderCarriedFailure,
   type FailureSuggestedAction,
   type StepFailure,
 } from "../operations/index.js";
@@ -76,7 +70,7 @@ export const registryOperationUnsupportedStepFailure = (
   });
 
 /** Every source, registry, and dependency-resolution failure. */
-export type ResolutionFamilyFailure =
+type ResolutionFamilyFailure =
   | SourceSyntaxInvalid
   | SourceHostNotConfigured
   | SourceNotResolvable
@@ -97,16 +91,6 @@ export type ResolutionFamilyFailure =
   | PackConstraintShadowed
   | PackDependencyMissing
   | PackDependencyUnsatisfied;
-
-const isWorkspaceStateReadFailure = (value: unknown): value is WorkspaceStateReadFailure =>
-  value instanceof SettingsIoError ||
-  value instanceof SettingsParseError ||
-  value instanceof SettingsDecodeError ||
-  value instanceof LockfileIoError ||
-  value instanceof LockfileParseError ||
-  value instanceof LockfileDecodeError ||
-  value instanceof LockfileVersionUnsupported ||
-  value instanceof WorkspaceRootEscape;
 
 /**
  * The recovery for an unknown Registry source: the selection that named it,
@@ -172,7 +156,7 @@ export const registrySourceUnknownStepFailure = (error: RegistrySourceUnknown): 
  * usage error.
  */
 export const registrySelectionFailedStepFailure = (error: RegistrySelectionFailed): StepFailure =>
-  isWorkspaceStateReadFailure(error.cause)
+  workspaceStateReadFailures.is(error.cause)
     ? workspaceStateReadFailureToStepFailure(error.cause)
     : makeStepFailure({
         category: "usage",
@@ -250,7 +234,7 @@ export const resolutionFailureToStepFailure = (error: ResolutionFamilyFailure): 
     case "WorkspaceCatalogUnavailable":
       // The catalog carries the workspace failure it could not read past; a
       // recognized one renders exactly as it does wherever else it surfaces.
-      return isWorkspaceStateReadFailure(error.cause)
+      return workspaceStateReadFailures.is(error.cause)
         ? workspaceStateReadFailureToStepFailure(error.cause)
         : makeStepFailure({
             category: sourceResolutionFailureCategory(error),
@@ -290,15 +274,7 @@ export const resolutionFailureToStepFailure = (error: ResolutionFamilyFailure): 
     case "RegistrySelectionFailed":
       return registrySelectionFailedStepFailure(error);
     case "ExtensionResolutionFailed":
-      return makeStepFailure({
-        category: error.category,
-        title: error.title,
-        detail: error.detail,
-        recover: error.recover,
-        cmd: error.cmd,
-        suggestions: error.suggestions,
-        cause: error.cause,
-      });
+      return renderCarriedFailure(error);
     case "SourceAuthorityBlocked":
       return makeStepFailure({
         category: "conflict",
@@ -324,3 +300,31 @@ export const resolutionFailureToStepFailure = (error: ResolutionFamilyFailure): 
       });
   }
 };
+
+/** The source, registry, and dependency-resolution failure family. */
+export const resolutionFailures = defineFailureFamily({
+  classes: () =>
+    [
+      SourceSyntaxInvalid,
+      SourceHostNotConfigured,
+      SourceNotResolvable,
+      SourceNetworkFailure,
+      GitOperationFailed,
+      WorkspaceCatalogUnavailable,
+      AxmSkillGateUnavailable,
+      RegistryProblem,
+      RegistryRequestFailed,
+      RegistryOperationFailed,
+      RegistryOperationUnsupported,
+      RegistrySourceUnknown,
+      RegistrySelectionFailed,
+      ExtensionResolutionFailed,
+      SourceAuthorityBlocked,
+      PackDependencyInvalid,
+      PackDependencyConflict,
+      PackConstraintShadowed,
+      PackDependencyMissing,
+      PackDependencyUnsatisfied,
+    ] as const,
+  render: resolutionFailureToStepFailure,
+});

@@ -1,7 +1,7 @@
 ---
 status: active
-last-reviewed: 2026-09-26
-version: 0.6.0
+last-reviewed: 2026-10-20
+version: 0.7.0
 description: Consult when an AXM service or command can fail. Defines the AXM-only AppError, registry translation, cancellation, and runtime-boundary policy.
 depends-on:
   - ./effect.md
@@ -29,12 +29,16 @@ service errors -> command translation -> AppError | PromptCancelled -> runtime
 ```
 
 Every typed workspace failure is rendered once, into a `StepFailure`, by its
-owner. `@agentxm/workspace-kernel` renders the closed `KernelFailure` union
-through `kernelFailureToStepFailure`. An extension kind's error carries its own
-wording through the kernel's `ExtensionKindFailure` brand, which
-`materializationFailureToStepFailure` renders structurally. The authoring,
-publishing, and configuration features each export the recognizer and renderer
-for their own family.
+owner. Each owner defines its failure family with `defineFailureFamily`, which
+pairs the family's classes with the renderer that covers exactly them.
+`@agentxm/workspace-kernel` renders the closed `KernelFailure` union, the
+failures of its families, through `kernelFailureToStepFailure`. An extension
+kind's error carries its own wording through the kernel's
+`ExtensionKindFailure` brand, which the materialization family recognizes and
+renders structurally. A lifecycle or reconciliation refusal is the kernel's
+`OperationRefused`, built with `installRefused` or `syncRefused`. The
+authoring feature exports its family, and publishing and configuration each
+export the recognizer and renderer for their one refusal class.
 [`app-error/failure-catalog`](../../apps/cli/src/app-error/failure-catalog.ts)
 composes them into `WorkspaceFailure`, `workspaceFailureToStepFailure`, and
 `WorkspaceFailureConversionLive`, which `runtime.ts` provides once as the

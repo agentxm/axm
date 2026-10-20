@@ -21,7 +21,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
-import { ExtensionLifecycleFailed, installRefused } from "@agentxm/workspace-kernel/operations";
+import { installRefused, OperationRefused } from "@agentxm/workspace-kernel/operations";
 
 /** The single extension a literal uninstall selector names. */
 export interface UninstallSubject {
@@ -53,7 +53,7 @@ export interface TypedUninstallSelector {
 export const typedUninstallSelector = (
   type: InstallableExtensionType,
   selector: string,
-): Effect.Effect<TypedUninstallSelector, ExtensionLifecycleFailed> => {
+): Effect.Effect<TypedUninstallSelector, OperationRefused> => {
   const trimmed = selector.trim();
   if (trimmed.includes("*")) return Effect.succeed({ selector: trimmed, subject: undefined });
   const fqn = parseExtensionFqnParts(trimmed);
@@ -76,7 +76,7 @@ export const typedUninstallSelector = (
 };
 
 const readFailed = (cause: unknown) =>
-  new ExtensionLifecycleFailed({
+  installRefused({
     category: "internal",
     detail: "Installed packages could not be observed",
     cause,
@@ -110,7 +110,7 @@ export const refuseUndesiredInstalledTarget = Effect.fn(
     subject.owner === undefined
       ? subject.name
       : `${subject.owner}/${toExtensionTypePlural(subject.type)}/${subject.name}`;
-  return yield* new ExtensionLifecycleFailed({
+  return yield* installRefused({
     category: "conflict",
     title: "Extension is not configured",
     detail: `${subject.type} ${identity} is installed but not configured; axm sync removes installed packages that are not configured.`,

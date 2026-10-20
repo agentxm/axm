@@ -1,10 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import {
-  type ExtensionLifecycleFailed,
-  installRefused,
-} from "@agentxm/workspace-kernel/operations";
+import { installRefused, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
@@ -50,7 +47,7 @@ const rootInstallRegistryOnlyHowToFix = (source: string): string => {
  */
 export const resolveRootInstallIntent: (
   input: string,
-) => Effect.Effect<RootInstallIntent, ExtensionLifecycleFailed> = Effect.fn(
+) => Effect.Effect<RootInstallIntent, OperationRefused> = Effect.fn(
   "InstallExtensions.resolveRootIntent",
 )(function* (input: string) {
   const source = input.trim();

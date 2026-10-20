@@ -249,7 +249,7 @@ describe("Install realizes the extension for configured agents", () => {
             expect(applied._tag).toBe(preview._tag);
             if (preview._tag === "Failure") {
               expect(preview.failure).toMatchObject({
-                _tag: "ExtensionLifecycleFailed",
+                _tag: "OperationRefused",
                 category: "conflict",
                 cause: {
                   _tag: "InstructionMaintenanceFailed",
@@ -271,7 +271,7 @@ describe("Install realizes the extension for configured agents", () => {
             }
             if (applied._tag === "Failure") {
               expect(applied.failure).toMatchObject({
-                _tag: "ExtensionLifecycleFailed",
+                _tag: "OperationRefused",
                 category: "conflict",
                 cause: {
                   _tag: "InstructionMaintenanceFailed",

@@ -11,22 +11,27 @@
 
 import {
   FRONTMATTER_PARSE_FALLBACK_REASON,
-  type FrontmatterParseFailure,
-  type SubagentContentError,
+  FrontmatterParseFailure,
+  SubagentContentError,
 } from "@agentxm/extension-content";
 import { EXTENSION_TYPE_TABLE } from "@agentxm/extension-model/unstable/extensions/common";
-import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
-import type { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
+import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
+import { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
 import {
-  type AxmSkillIncompatible,
+  AxmSkillIncompatible,
   formatAxmSkillCompatibilityTarget,
   renderAxmSkillRecovery,
 } from "@agentxm/cli-maintenance/official-skill/domain";
 
-import { makeStepFailure, type StepFailure } from "../operations/index.js";
-import type { InstallStateMissing } from "./accepted-resolution.js";
+import {
+  defineFailureFamily,
+  makeStepFailure,
+  renderCarriedFailure,
+  type StepFailure,
+} from "../operations/index.js";
+import { InstallStateMissing } from "./accepted-resolution.js";
 import { isExtensionKindFailure, type ExtensionKindFailure } from "./kind-failure.js";
-import type {
+import {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
   CreateDestinationExists,
@@ -36,7 +41,7 @@ import type {
 } from "../acquisition/index.js";
 
 /** Every failure package acquisition and the per-type managers construct. */
-export type MaterializationFamilyFailure =
+type MaterializationFamilyFailure =
   | PackageMaterializationFailed
   | StagedPackageInvalid
   | CanonicalPackageProbeFailed
@@ -85,20 +90,8 @@ const axmSkillIncompatibleFailure = (error: AxmSkillIncompatible): StepFailure =
 };
 
 /** Translate one acquisition, manager, or extension-content failure. */
-export const materializationFailureToStepFailure = (
-  error: MaterializationFamilyFailure,
-): StepFailure => {
-  if (isExtensionKindFailure(error)) {
-    return makeStepFailure({
-      category: error.category,
-      detail: error.detail,
-      problem: error.problem,
-      recover: error.recover,
-      cmd: error.cmd,
-      suggestions: error.suggestions,
-      cause: error.cause,
-    });
-  }
+const materializationFailureToStepFailure = (error: MaterializationFamilyFailure): StepFailure => {
+  if (isExtensionKindFailure(error)) return renderCarriedFailure(error);
   switch (error._tag) {
     case "PackageMaterializationFailed":
       return makeStepFailure({
@@ -179,3 +172,27 @@ export const materializationFailureToStepFailure = (
       });
   }
 };
+
+/**
+ * The extension-materialization failure family. A failure an extension kind
+ * constructs is recognized by its brand, so the kernel names no kind.
+ */
+export const materializationFailures = defineFailureFamily({
+  classes: () =>
+    [
+      PackageMaterializationFailed,
+      StagedPackageInvalid,
+      CanonicalPackageProbeFailed,
+      PackageCopyFailed,
+      ArchiveIntegrityMismatch,
+      CreateDestinationExists,
+      InstallStateMissing,
+      AxmSkillCompatibilityUnavailable,
+      AxmSkillIncompatible,
+      FqnInvalidError,
+      FrontmatterParseFailure,
+      SubagentContentError,
+    ] as const,
+  recognizes: isExtensionKindFailure,
+  render: materializationFailureToStepFailure,
+});

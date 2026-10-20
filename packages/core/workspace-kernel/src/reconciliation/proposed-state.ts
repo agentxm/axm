@@ -7,7 +7,7 @@ import {
   DesiredStateReader,
   type Settings,
 } from "../workspace-state/index.js";
-import { WorkspaceSyncFailed } from "./errors.js";
+import { syncRefused } from "./errors.js";
 
 /** A command's explicit change to intent; reconciliation itself supplies none. */
 export type DesiredStateChange =
@@ -56,7 +56,7 @@ export const proposeDesiredState = (changes: ReadonlyArray<DesiredStateChange>) 
         (entry) => entry.type === change.type && entry.name === change.name,
       );
       if (node === undefined) {
-        return yield* new WorkspaceSyncFailed({
+        return yield* syncRefused({
           category: "not_found",
           detail: `Desired ${change.type} "${change.name}" was not found`,
         });

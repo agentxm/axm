@@ -29,7 +29,8 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-  ExtensionLifecycleFailed,
+  OperationRefused,
+  installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
@@ -73,7 +74,7 @@ const validatePostcondition = (args: {
   readonly expected: TargetedUpdateContext;
   readonly actual: TargetedUpdateContext;
   readonly explicitRange?: string;
-}): Effect.Effect<void, ExtensionLifecycleFailed, never> =>
+}): Effect.Effect<void, OperationRefused, never> =>
   // Without a requested range the direct declaration keeps its own; with
   // one, the declaration must now carry exactly that range.
   preservesOwnership(
@@ -83,7 +84,7 @@ const validatePostcondition = (args: {
   )
     ? Effect.void
     : Effect.fail(
-        new ExtensionLifecycleFailed({
+        installRefused({
           category: "internal",
           detail:
             args.explicitRange === undefined
@@ -136,7 +137,7 @@ export const wrapTargetedUpdatePlan = (args: {
           fresh.fingerprint === args.context.fingerprint
             ? Effect.void
             : Effect.fail(
-                new ExtensionLifecycleFailed({
+                installRefused({
                   category: "conflict",
                   detail: TARGETED_UPDATE_STALE_DETAIL,
                 }),

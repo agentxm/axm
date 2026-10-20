@@ -6,10 +6,7 @@ import * as Option from "effect/Option";
 
 import { OperationJournal } from "@agentxm/workspace-kernel/operations";
 
-import {
-  StepFailureConversion,
-  WorkspaceSyncFailed,
-} from "@agentxm/workspace-kernel/reconciliation";
+import { StepFailureConversion, syncRefused } from "@agentxm/workspace-kernel/reconciliation";
 import { makeSyncPortsTest, syncRequest } from "./testing.js";
 
 describe("./testing.js", () => {
@@ -19,7 +16,7 @@ describe("./testing.js", () => {
       const conversion = yield* StepFailureConversion;
       expect(
         conversion.toStepFailure(
-          new WorkspaceSyncFailed({ category: "validation", detail: "Nothing to reconcile." }),
+          syncRefused({ category: "validation", detail: "Nothing to reconcile." }),
         ).detail,
       ).toBe("Nothing to reconcile.");
       // A run that has presented nothing has asked a person for nothing.

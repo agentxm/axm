@@ -19,6 +19,7 @@ import * as Ref from "effect/Ref";
 
 import {
   StepFailure,
+  makeStepFailure,
   type JobStepResult,
   type PlannedJobStep,
 } from "@agentxm/workspace-kernel/operations";
@@ -220,8 +221,8 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
           ),
         );
         const retained = yield* captureNativeOutputRetention(required).pipe(
-          Effect.mapError(
-            (cause) => new StepFailure({ category: cause.category, detail: cause.detail, cause }),
+          Effect.mapError((cause) =>
+            makeStepFailure({ category: cause.category, detail: cause.detail, cause }),
           ),
         );
         const results: Array<JobStepResult<Output>> = [];
@@ -300,9 +301,8 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
               required,
               retained,
             ).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new StepFailure({ category: cause.category, detail: cause.detail, cause }),
+              Effect.mapError((cause) =>
+                makeStepFailure({ category: cause.category, detail: cause.detail, cause }),
               ),
             ),
           ),

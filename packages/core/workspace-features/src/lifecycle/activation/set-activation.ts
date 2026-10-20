@@ -90,7 +90,8 @@ import {
   type PlanExecution,
   type PlannedJobStep,
   type ConfiguredAgentOutcome,
-  ExtensionLifecycleFailed,
+  OperationRefused,
+  installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -167,9 +168,9 @@ interface SettledActivation {
   /** What the graph will say, and how the change is realized. */
   readonly realization: ActivationRealization;
   /** The refusal that stops the change before it is offered, when there is one. */
-  readonly blocked: Option.Option<ExtensionLifecycleFailed>;
+  readonly blocked: Option.Option<OperationRefused>;
   /** The refusal the change meets when it runs: what it needs is not there to project. */
-  readonly refusal: Option.Option<ExtensionLifecycleFailed>;
+  readonly refusal: Option.Option<OperationRefused>;
   /** A holdback or lifecycle warning the operator sees before approving. */
   readonly warning: Option.Option<string>;
   /** Per-agent outcomes this change projects, where the type reports them. */
@@ -179,7 +180,7 @@ interface SettledActivation {
 /** Every failure settling an activation request can surface. */
 export type ActivationFailure =
   | AcceptedCanonicalRefError
-  | ExtensionLifecycleFailed
+  | OperationRefused
   | ExtensionManagerFailure
   | ExtensionResolutionFailed
   | PackDependencyResolutionFailure
@@ -282,17 +283,17 @@ const alreadySettled = (request: SetActivationRequest, name: string): Activation
 const notHeld = (
   request: SetActivationRequest,
   name: string,
-): Effect.Effect<ActivationUnchanged, ExtensionLifecycleFailed> => {
+): Effect.Effect<ActivationUnchanged, OperationRefused> => {
   switch (request.type) {
     case "skill":
     case "subagent":
-      return new ExtensionLifecycleFailed({
+      return installRefused({
         category: "not_found",
         detail: `${quotedSubject(request.type, name)} is not installed`,
       });
     case "knowledge":
     case "pack":
-      return new ExtensionLifecycleFailed({
+      return installRefused({
         category: "not_found",
         detail: `${quotedSubject(request.type, name)} is not configured`,
       });
@@ -330,7 +331,7 @@ const requireDecidableProposal = (
     ...problemsAffectingSubject(proposal.after, subject),
   ];
   if (routes.length === 0 && problems.length === 0) return Effect.void;
-  return new ExtensionLifecycleFailed({
+  return installRefused({
     category: "conflict",
     detail: `Activation of ${subject.type} ${subject.name} requires decidable desired state: ${[
       ...(routes.length === 0 ? [] : [unresolvedPackRoutesText(routes)]),
@@ -429,12 +430,12 @@ const activationArtifact = (
 /** The first materialize step the plan cannot run, as the refusal it names. */
 const blockedMaterialization = (
   realization: ActivationRealization,
-): Option.Option<ExtensionLifecycleFailed> =>
+): Option.Option<OperationRefused> =>
   Option.flatMap(realization.materialization, (collected) =>
     Option.map(
       Option.fromUndefinedOr(collected.steps.find((step) => step.readiness === "error")),
       (step) =>
-        new ExtensionLifecycleFailed({
+        installRefused({
           category: "conflict",
           detail: step.readiness === "error" ? step.errorMessage : "Activation cannot proceed",
         }),
@@ -447,32 +448,30 @@ const blockedMaterialization = (
 
 /** The gate every shared instruction-surface writer passes before it can write. */
 const instructionGate = (): Effect.Effect<
-  Option.Option<ExtensionLifecycleFailed>,
+  Option.Option<OperationRefused>,
   ExtensionManagerFailure,
   FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation | LockfileReader
 > =>
   Effect.gen(function* () {
     const config = yield* activeInstructionsConfig();
-    if (Option.isNone(config)) return Option.none<ExtensionLifecycleFailed>();
+    if (Option.isNone(config)) return Option.none<OperationRefused>();
     const snapshot = yield* observeInstructions({ config: config.value });
     const location = yield* WorkspaceLocation;
     const readiness = yield* instructionReconciliationReadiness({
       snapshot,
       workspaceRoot: location.baseDir,
     });
-    return Option.map(
-      readiness,
-      (failure) =>
-        new ExtensionLifecycleFailed({
-          category: "conflict",
-          detail: instructionReadinessDetail(failure),
-          cause: failure,
-        }),
+    return Option.map(readiness, (failure) =>
+      installRefused({
+        category: "conflict",
+        detail: instructionReadinessDetail(failure),
+        cause: failure,
+      }),
     );
   });
 
 const conflictFrom = (detail: string) => (cause: SyncPolicyFailure) =>
-  new ExtensionLifecycleFailed({ category: "conflict", detail, cause });
+  installRefused({ category: "conflict", detail, cause });
 
 /**
  * Settle a leaf activation: the graph decides whether the request changes
@@ -500,17 +499,7 @@ const settleLeaf = <R>(
     if (current === undefined) return yield* notHeld(request, name);
     const proposal = yield* proposeDesiredState([
       { kind: "activation", type: request.type, name, enabled: request.enabled },
-    ]).pipe(
-      Effect.catchTag(
-        "WorkspaceSyncFailed",
-        (failure) =>
-          new ExtensionLifecycleFailed({
-            category: failure.category,
-            detail: failure.detail,
-            cause: failure,
-          }),
-      ),
-    );
+    ]);
     yield* requireDecidableProposal(proposal, { type: request.type, name });
     // Enabling an MCP server always re-projects it, so an agent whose native
     // entry drifted is brought back even when desired state already agrees.
@@ -530,7 +519,7 @@ const settleLeaf = <R>(
     const refusal =
       canonical !== undefined && canonical.observation.status !== "usable"
         ? Option.some(
-            new ExtensionLifecycleFailed({
+            installRefused({
               category: drifted ? "conflict" : "not_found",
               detail: drifted
                 ? `Present ${request.type} content for "${name}" differs from the accepted resolution`
@@ -550,10 +539,10 @@ const settleLeaf = <R>(
                   ],
             }),
           )
-        : Option.none<ExtensionLifecycleFailed>();
+        : Option.none<OperationRefused>();
     const subject = findNode(proposal.after, request.type, name);
     if (subject === undefined) {
-      return yield* new ExtensionLifecycleFailed({
+      return yield* installRefused({
         category: "internal",
         detail: `Desired ${request.type} "${name}" left the graph while settling its activation`,
       });
@@ -561,7 +550,7 @@ const settleLeaf = <R>(
     const gate =
       request.type === "rule" || request.type === "knowledge"
         ? yield* instructionGate()
-        : Option.none<ExtensionLifecycleFailed>();
+        : Option.none<OperationRefused>();
     const realization: ActivationRealization = Option.isSome(refusal)
       ? {
           proposal,
@@ -642,13 +631,12 @@ const settlePack = <R>(
     const proposal = yield* proposeDesiredState([
       { kind: "activation", type: "pack", name: request.name, enabled: request.enabled },
     ]).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ExtensionLifecycleFailed({
-            category: "conflict",
-            detail: "Cannot derive Pack activation",
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "conflict",
+          detail: "Cannot derive Pack activation",
+          cause,
+        }),
       ),
     );
     // Every other active Pack's routes must be established, and enabling
@@ -660,7 +648,7 @@ const settlePack = <R>(
       ...unresolvedPackRoutes(proposal.after),
     ];
     if (unresolved.length > 0) {
-      return yield* new ExtensionLifecycleFailed({
+      return yield* installRefused({
         category: "conflict",
         detail: `Cannot ${request.enabled ? "enable" : "disable"} the pack while desired state is unresolved: ${unresolvedPackRoutesText(unresolved)}`,
         suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
@@ -668,7 +656,7 @@ const settlePack = <R>(
     }
     const packNode = findNode(proposal.before, "pack", request.name);
     if (packNode === undefined) {
-      return yield* new ExtensionLifecycleFailed({
+      return yield* installRefused({
         category: "not_found",
         detail: `Pack "${request.name}" was not found`,
       });
@@ -683,7 +671,7 @@ const settlePack = <R>(
         })
       : [];
     if (conflicts.length > 0) {
-      return yield* new ExtensionLifecycleFailed({
+      return yield* installRefused({
         category: "conflict",
         detail: `Cannot enable the pack: configured constraints are unsatisfiable: ${desiredStateProblemsText(conflicts)}`,
         recover: "Change the direct declaration or the Pack that requires a version outside it",
@@ -708,7 +696,7 @@ const settlePack = <R>(
       (node) => node.type === "rule" || node.type === "hook" || node.type === "knowledge",
     )
       ? yield* instructionGate()
-      : Option.none<ExtensionLifecycleFailed>();
+      : Option.none<OperationRefused>();
     const realization = yield* prepareRealization({
       proposal,
       subjects: members,
@@ -803,7 +791,7 @@ const validatePackActivation = (candidate: {
     const graph = yield* desiredState.graph();
     const packNode = findNode(graph, "pack", candidate.name);
     if (packNode === undefined || packNode.enabled !== candidate.enabled) {
-      return yield* new ExtensionLifecycleFailed({
+      return yield* installRefused({
         category: "conflict",
         detail: `Pack "${candidate.name}" did not reach the ${
           candidate.enabled ? "enabled" : "disabled"
@@ -815,7 +803,7 @@ const validatePackActivation = (candidate: {
       (member) => findNode(graph, member.type, member.name)?.enabled === true,
     );
     if (stillActive.length > 0) {
-      return yield* new ExtensionLifecycleFailed({
+      return yield* installRefused({
         category: "conflict",
         detail: `Disabling "${candidate.name}" left members active: ${stillActive
           .map((member) => `${member.type} ${member.name}`)
@@ -838,17 +826,7 @@ const activationStep = (candidate: SettledActivation): PlannedJobStep<Activation
     };
   }
   const { artifact, realization } = candidate;
-  const transition = realizeActivation(realization).pipe(
-    Effect.catchTag(
-      "WorkspaceSyncFailed",
-      (failure) =>
-        new ExtensionLifecycleFailed({
-          category: failure.category,
-          detail: failure.detail,
-          cause: failure,
-        }),
-    ),
-  );
+  const transition = realizeActivation(realization);
   return {
     key: `${candidate.type}:${candidate.name}`,
     label: candidate.name,

@@ -60,7 +60,8 @@ import {
   type Plan,
   type PlannedJobStep,
   type JobStepResult,
-  ExtensionLifecycleFailed,
+  OperationRefused,
+  installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
@@ -164,7 +165,7 @@ export type WorkspaceUpdatableType = InstallableExtensionType;
  * its source surfaced, and the workspace reads the sweep performs.
  */
 export type ConfiguredUpdateFailure =
-  | ExtensionLifecycleFailed
+  | OperationRefused
   | Effect.Error<ReturnType<typeof resolveConfiguredSkill>>
   | WorkspaceStateReadFailure
   | WorkspaceSettingsReadFailure;
@@ -522,7 +523,7 @@ const prepareUpdateIntent = <TIntent, R>(
     if (Option.isSome(accepted) && accepted.value.ref.refType !== "registry") {
       const intent = args.makeIntent(accepted.value.ref, accepted.value.versionRange);
       if (intent === undefined)
-        return yield* new ExtensionLifecycleFailed({
+        return yield* installRefused({
           category: "internal",
           detail: `Accepted ${args.type} resolution returned ${accepted.value.ref.type}`,
         });
@@ -580,14 +581,14 @@ const prepareUpdateIntent = <TIntent, R>(
       if (Option.isSome(registryResolution)) {
         const resolution = registryResolution.value;
         if (resolution.kind === "not_found") {
-          return yield* new ExtensionLifecycleFailed({
+          return yield* installRefused({
             category: "not_found",
             detail: `Configured extension "${resolution.target}" could not be found in its source`,
             suggestions: configuredNotFoundSuggestions(resolution.target),
           });
         }
         if (resolution.kind === "version_unsatisfied") {
-          return yield* new ExtensionLifecycleFailed({
+          return yield* installRefused({
             category: "conflict",
             title: "No compatible version",
             detail: `${resolution.target} has no visible version satisfying ${resolution.requestedRange}`,
@@ -609,7 +610,7 @@ const prepareUpdateIntent = <TIntent, R>(
         }
         const intent = args.makeIntent(resolution.ref, resolution.versionRange);
         if (intent === undefined) {
-          return yield* new ExtensionLifecycleFailed({
+          return yield* installRefused({
             category: "internal",
             detail: `Configured ${args.type} resolution returned ${resolution.ref.type}`,
           });
@@ -632,7 +633,7 @@ const prepareUpdateIntent = <TIntent, R>(
       const resolved = yield* args.fallback;
       const intent = args.makeIntent(resolved.ref, resolved.versionRange);
       if (intent === undefined) {
-        return yield* new ExtensionLifecycleFailed({
+        return yield* installRefused({
           category: "internal",
           detail: `Configured ${args.type} resolution returned ${resolved.ref.type}`,
         });
@@ -733,13 +734,12 @@ const resolveMcpServerIntent = (
       resolution.intent.ref,
       resolution.intent.localName,
     ).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ExtensionLifecycleFailed({
-            category: "conflict",
-            detail: conversion.toStepFailure(cause).detail,
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "conflict",
+          detail: conversion.toStepFailure(cause).detail,
+          cause,
+        }),
       ),
     );
     return {

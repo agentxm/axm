@@ -9,10 +9,7 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import {
-  installRefused,
-  type ExtensionLifecycleFailed,
-} from "@agentxm/workspace-kernel/operations";
+import { installRefused, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import {
   installableExtensionTypePluralSegments,
   isInstallableExtensionTypePlural,
@@ -47,38 +44,38 @@ export const decodeRootRegistryFqn: (options: {
   readonly grammar: string;
   readonly source: string;
   readonly fqn: string;
-}) => Effect.Effect<RootRegistryFqn, ExtensionLifecycleFailed> = Effect.fn(
-  "RootRegistryFqn.decode",
-)(function* ({ verb, grammar, source, fqn }) {
-  const segments = source.split("/");
-  const pluralType = segments.length === 3 ? segments[1] : undefined;
-  const unsupportedType = `Use ${grammar}. Supported plural types: ${supportedTypes}.`;
+}) => Effect.Effect<RootRegistryFqn, OperationRefused> = Effect.fn("RootRegistryFqn.decode")(
+  function* ({ verb, grammar, source, fqn }) {
+    const segments = source.split("/");
+    const pluralType = segments.length === 3 ? segments[1] : undefined;
+    const unsupportedType = `Use ${grammar}. Supported plural types: ${supportedTypes}.`;
 
-  const ref = yield* decodeRegistrySourceRef(fqn).pipe(
-    Effect.mapError((error) =>
-      pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)
-        ? installRefused({
-            category: "not_found",
-            detail: `${capitalized(verb)} source uses an unsupported plural type`,
-            suggestions: [{ description: unsupportedType }],
-            cause: error,
-          })
-        : installRefused({
-            category: "validation",
-            detail: `${capitalized(verb)} source must be a registry FQN`,
-            suggestions: [{ description: `Use ${grammar} with one of: ${supportedTypes}.` }],
-            cause: error,
-          }),
-    ),
-  );
+    const ref = yield* decodeRegistrySourceRef(fqn).pipe(
+      Effect.mapError((error) =>
+        pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)
+          ? installRefused({
+              category: "not_found",
+              detail: `${capitalized(verb)} source uses an unsupported plural type`,
+              suggestions: [{ description: unsupportedType }],
+              cause: error,
+            })
+          : installRefused({
+              category: "validation",
+              detail: `${capitalized(verb)} source must be a registry FQN`,
+              suggestions: [{ description: `Use ${grammar} with one of: ${supportedTypes}.` }],
+              cause: error,
+            }),
+      ),
+    );
 
-  if (!isInstallableExtensionTypePlural(ref.type)) {
-    return yield* installRefused({
-      category: "usage",
-      detail: `Root ${verb} does not support that extension type`,
-      suggestions: [{ description: unsupportedType }],
-    });
-  }
+    if (!isInstallableExtensionTypePlural(ref.type)) {
+      return yield* installRefused({
+        category: "usage",
+        detail: `Root ${verb} does not support that extension type`,
+        suggestions: [{ description: unsupportedType }],
+      });
+    }
 
-  return { ref, type: toInstallableExtensionType(ref.type) };
-});
+    return { ref, type: toInstallableExtensionType(ref.type) };
+  },
+);

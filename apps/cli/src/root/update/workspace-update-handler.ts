@@ -114,7 +114,7 @@ export const handleWorkspaceUpdate = (args: WorkspaceUpdateHandlerArgs) =>
       ),
     },
     handleWorkspaceUpdateBody(args).pipe(
-      Effect.catchTag("ExtensionLifecycleFailed", (failure) => Effect.fail(toAppError(failure))),
+      Effect.catchTag("OperationRefused", (failure) => Effect.fail(toAppError(failure))),
     ),
   );
 

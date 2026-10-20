@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 
-import { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
+import { OperationRefused } from "@agentxm/workspace-kernel/operations";
 import type { LifecycleFixture } from "../testing.js";
 import {
   previewActivation,
@@ -183,8 +183,8 @@ describe("Disable preview purity", () => {
                 enabled: false,
               }).pipe(Effect.flip);
 
-              expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-              if (failure instanceof ExtensionLifecycleFailed) {
+              expect(failure).toBeInstanceOf(OperationRefused);
+              if (failure instanceof OperationRefused) {
                 expect(failure.category).toBe("not_found");
                 expect(failure.detail).toBe(unconfigured.detail);
               }

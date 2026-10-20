@@ -11,7 +11,7 @@ import {
   SourceHostProviders,
   type SourceHostProvidersService,
 } from "@agentxm/workspace-kernel/sources";
-import { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
+import { OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { makeLifecycleFixture } from "../testing.js";
 import { makeInstallWorld } from "../../testing/install-world.js";
 import {
@@ -87,8 +87,8 @@ describe("source-backed install requests", () => {
       const failure = yield* fixture.provide(
         parseLocatorInstallRequest("subagent", { source, names: [] }).pipe(Effect.flip),
       );
-      expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-      if (!(failure instanceof ExtensionLifecycleFailed)) return;
+      expect(failure).toBeInstanceOf(OperationRefused);
+      if (!(failure instanceof OperationRefused)) return;
       expect(failure.category).toBe("usage");
       expect(failure.detail).toContain("git-scp-address");
     }).pipe(Effect.provide(NodeServices.layer)),
@@ -134,8 +134,8 @@ describe("source-backed install requests", () => {
             Effect.flip,
           ),
         );
-        expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-        if (!(failure instanceof ExtensionLifecycleFailed)) continue;
+        expect(failure).toBeInstanceOf(OperationRefused);
+        if (!(failure instanceof OperationRefused)) continue;
         expect(failure.category).toBe("not_found");
         expect(failure.detail).toBe(sentence);
         expect(failure.suggestions).toEqual(

@@ -8,7 +8,7 @@ import {
   type JobStepResult,
   type Plan,
   type StepFailure,
-  ExtensionLifecycleFailed,
+  installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { SettingsWriter } from "@agentxm/workspace-kernel/workspace-state";
 import { recordFootprint } from "@agentxm/workspace-kernel/settlement";
@@ -75,7 +75,7 @@ describe("targeted update transaction", () => {
     const step = plan.jobs[0]?.steps[0];
     return step === undefined || step.readiness === "error"
       ? Effect.fail(
-          new ExtensionLifecycleFailed({
+          installRefused({
             category: "internal",
             detail: "Expected a runnable step",
           }),

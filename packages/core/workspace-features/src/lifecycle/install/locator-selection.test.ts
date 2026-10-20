@@ -9,10 +9,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import {
-  ExtensionLifecycleFailed,
-  deriveOperationOutcome,
-} from "@agentxm/workspace-kernel/operations";
+import { deriveOperationOutcome, OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { writeLocalRulePackage, writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 
@@ -117,7 +114,7 @@ describe("root locator install selection", () => {
         )
         .pipe(Effect.provide(NodeServices.layer), Effect.flip);
 
-      expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+      expect(failure).toBeInstanceOf(OperationRefused);
       expect(failure).toMatchObject({
         category: "usage",
         detail: "A per-type selector or --all is required when no prompt can open",
@@ -146,7 +143,7 @@ describe("root locator install selection", () => {
           )
           .pipe(Effect.provide(NodeServices.layer), Effect.flip);
 
-        expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+        expect(failure).toBeInstanceOf(OperationRefused);
         expect(failure).toMatchObject({
           category: "not_found",
           detail: "No skills matched: missing. Source contains: code-review",

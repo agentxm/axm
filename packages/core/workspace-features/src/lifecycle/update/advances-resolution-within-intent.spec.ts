@@ -10,10 +10,13 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { countUnitStates, deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import {
+  countUnitStates,
+  deriveOperationOutcome,
+  OperationRefused,
+} from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
-import { WorkspaceSyncFailed } from "@agentxm/workspace-kernel/reconciliation";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
@@ -913,7 +916,7 @@ describe.each(["configured", "targeted", "type-group"] as const)(
                   ...resolution.units.map((unit) => unit.message ?? ""),
                 ].join(" ");
               }),
-              Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
+              Effect.catchTag("OperationRefused", (failure) =>
                 Effect.succeed(failure.detail ?? ""),
               ),
             ),
@@ -984,7 +987,7 @@ describe("an accepted prerelease an unconstrained declaration does not admit", (
             const before = workspace.snapshot();
 
             const refusal = yield* applySync().pipe(Effect.flip);
-            if (!(refusal instanceof WorkspaceSyncFailed)) throw refusal;
+            if (!(refusal instanceof OperationRefused)) throw refusal;
             expect(refusal.category).toBe("conflict");
             expect(refusal.detail).toContain(`constraints=*; accepted version=${PRERELEASE}`);
             expect(refusal.detail).toContain("reason=accepted-resolution-incompatible");

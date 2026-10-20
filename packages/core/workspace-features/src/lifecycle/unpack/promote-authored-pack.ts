@@ -57,7 +57,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-  ExtensionLifecycleFailed,
+  installRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -175,7 +175,7 @@ const promoteToDirectSettings = (
         });
       case "pack":
         return Effect.fail(
-          new ExtensionLifecycleFailed({
+          installRefused({
             category: "validation",
             detail: `Nested pack member "${node.name}" cannot be unpacked`,
           }),
@@ -235,7 +235,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
   const graph = yield* desiredState.graph();
   const unresolved = unresolvedPackRoutes(graph);
   if (unresolved.length > 0) {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "validation",
       detail: `Cannot unpack "${request.name}" while a configured Pack's routes are unresolved: ${unresolvedPackRoutesText(unresolved)}`,
       suggestions: problemsAffectingPack(graph, unresolved[0]?.pack ?? "").map((problem) => ({
@@ -246,7 +246,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
 
   const packNode = graph.nodes.find((node) => node.type === "pack" && node.name === request.name);
   if (packNode === undefined || packNode.type !== "pack") {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "not_found",
       detail: `Pack "${request.name}" is not configured`,
       suggestions: [{ description: "Install the pack first.", cmd: "axm packs install <source>" }],
@@ -261,7 +261,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
       name: node.name,
     });
     if (Option.isNone(canonical)) {
-      return yield* new ExtensionLifecycleFailed({
+      return yield* installRefused({
         category: "not_found",
         detail: `Accepted ${node.type} identity for "${node.name}" is unavailable`,
         suggestions: [reconcileSuggestion(desiredPackageKey(packNode.identity))],
@@ -272,7 +272,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
 
   const packRef = yield* acceptedRefFor(packNode);
   if (packRef.type !== "pack") {
-    return yield* new ExtensionLifecycleFailed({
+    return yield* installRefused({
       category: "not_found",
       detail: `Accepted pack identity for "${request.name}" is invalid`,
       suggestions: [reconcileSuggestion(desiredPackageKey(packNode.identity))],
@@ -292,7 +292,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
     Effect.fn("PromoteAuthoredPack.member")(function* (node) {
       const ref = yield* acceptedRefFor(node);
       if (ref.type === "pack") {
-        return yield* new ExtensionLifecycleFailed({
+        return yield* installRefused({
           category: "not_found",
           detail: `Accepted ${node.type} identity for "${node.name}" is invalid`,
           suggestions: [reconcileSuggestion(desiredPackageKey(packNode.identity))],

@@ -9,10 +9,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import {
-  deriveOperationOutcome,
-  ExtensionLifecycleFailed,
-} from "@agentxm/workspace-kernel/operations";
+import { deriveOperationOutcome, OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { snapshotTree } from "@agentxm/workspace-kernel/workspace-state/testing";
@@ -305,8 +302,8 @@ describe("Demoting workspace authorship", () => {
               source: `@acme/skills/${REVIEW}@^2.0.0`,
             }).pipe(Effect.flip);
 
-            expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-            if (failure instanceof ExtensionLifecycleFailed) {
+            expect(failure).toBeInstanceOf(OperationRefused);
+            if (failure instanceof OperationRefused) {
               expect(failure.category).toBe("conflict");
               expect(failure.detail).toContain("unsatisfiable");
             }
@@ -334,8 +331,8 @@ describe("Demoting workspace authorship", () => {
               source: fault === "workspace-source" ? "workspace" : replacement,
             }).pipe(Effect.flip);
 
-            expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-            if (failure instanceof ExtensionLifecycleFailed) {
+            expect(failure).toBeInstanceOf(OperationRefused);
+            if (failure instanceof OperationRefused) {
               expect(failure.category).toBe(fault === "workspace-source" ? "usage" : "conflict");
             }
             expect(snapshotTree(workspace.root)).toEqual(before);

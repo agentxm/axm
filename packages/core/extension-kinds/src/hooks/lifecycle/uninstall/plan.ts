@@ -34,8 +34,8 @@ import {
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type Plan,
-  type ExtensionLifecycleFailed,
   installRefused,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 
 /** One hooks-package removal. */
@@ -66,39 +66,36 @@ const hookUninstallArtifactTargets = (
 /** Settle whether this hook extension has anything to remove. */
 export const parseHookUninstallRequest: (
   selector: string,
-) => Effect.Effect<
-  HookUninstallIntent,
-  ExtensionLifecycleFailed,
-  InstallStepRequirements | HookManager
-> = Effect.fn("UninstallExtensions.parseHookRequest")(function* (selector: string) {
-  const hookManager = yield* HookManager;
-  const target: HookExtensionTarget = { type: "hook", name: selector.trim() };
-  return yield* Effect.gen(function* () {
-    const configured =
-      hookManager.getConfiguredSource === undefined
-        ? Option.none<string>()
-        : yield* hookManager.getConfiguredSource({ target });
-    const installed = yield* hookManager.isInstalled({ target });
-    return Option.isNone(configured) && !installed
-      ? ({ targets: [] } satisfies HookUninstallIntent)
-      : ({ targets: [target] } satisfies HookUninstallIntent);
-  }).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: `Hooks package "${target.name}" declaration could not be read`,
-        cause,
-      }),
-    ),
-  );
-});
+) => Effect.Effect<HookUninstallIntent, OperationRefused, InstallStepRequirements | HookManager> =
+  Effect.fn("UninstallExtensions.parseHookRequest")(function* (selector: string) {
+    const hookManager = yield* HookManager;
+    const target: HookExtensionTarget = { type: "hook", name: selector.trim() };
+    return yield* Effect.gen(function* () {
+      const configured =
+        hookManager.getConfiguredSource === undefined
+          ? Option.none<string>()
+          : yield* hookManager.getConfiguredSource({ target });
+      const installed = yield* hookManager.isInstalled({ target });
+      return Option.isNone(configured) && !installed
+        ? ({ targets: [] } satisfies HookUninstallIntent)
+        : ({ targets: [target] } satisfies HookUninstallIntent);
+    }).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: `Hooks package "${target.name}" declaration could not be read`,
+          cause,
+        }),
+      ),
+    );
+  });
 
 /** The closures a settled hooks-package removal becomes. */
 export const planHookUninstall: (
   intent: HookUninstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | HookManager
 > = Effect.fn("UninstallExtensions.planHooks")(function* (intent: HookUninstallIntent) {
   const location = yield* WorkspaceLocation;

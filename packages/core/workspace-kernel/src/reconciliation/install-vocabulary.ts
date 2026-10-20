@@ -30,7 +30,7 @@ import type {
   SourceResolutionFailure,
   WorkspaceCatalog,
 } from "../sources/index.js";
-import { ExtensionLifecycleFailed, installRefused } from "../operations/index.js";
+import { installRefused, OperationRefused } from "../operations/index.js";
 import type { CodingAgentRepository, WorkspaceInvariantFacts } from "../projection/index.js";
 import type {
   AcceptedCanonicalRefError,
@@ -105,11 +105,11 @@ export type ResolveInstallRequirements =
  */
 export const sourceResolutionRefused = (
   cause: SourceResolutionFailure,
-  suggestions: NonNullable<ExtensionLifecycleFailed["suggestions"]> = [],
-): ExtensionLifecycleFailed => {
+  suggestions: NonNullable<OperationRefused["suggestions"]> = [],
+): OperationRefused => {
   const rendered = kernelFailureToStepFailure(cause);
   const carried = [...(rendered.suggestions ?? []), ...suggestions];
-  return new ExtensionLifecycleFailed({
+  return installRefused({
     category: rendered.category,
     ...(rendered.title === undefined ? {} : { title: rendered.title }),
     detail: rendered.detail,
@@ -129,8 +129,7 @@ export const sourceResolutionFailureDetail = (cause: SourceResolutionFailure): s
  * install refusal, plus the resolution refusal a configured source carries
  * through with its own category and sentence.
  */
-export type ConfiguredInstallFailure =
-  ExtensionLifecycleFailed | ExtensionResolutionFailed | ConfigError;
+export type ConfiguredInstallFailure = OperationRefused | ExtensionResolutionFailed | ConfigError;
 
 /**
  * A resolution refusal already carries its own category and fact sentence —

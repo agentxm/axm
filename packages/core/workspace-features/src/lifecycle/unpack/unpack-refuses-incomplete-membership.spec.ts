@@ -10,7 +10,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { snapshotTree } from "@agentxm/workspace-kernel/workspace-state/testing";
 
-import { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
+import { OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { applyUnpack, makePackWorld, seedAuthoredPackWorkspace, PACK } from "./test-helpers.js";
 
 export const specification = defineSpecification({
@@ -71,8 +71,8 @@ describe("Unpack refusal", () => {
             name: fault === "missing-pack" ? "absent" : PACK,
           }).pipe(Effect.flip);
 
-          expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-          if (failure instanceof ExtensionLifecycleFailed) {
+          expect(failure).toBeInstanceOf(OperationRefused);
+          if (failure instanceof OperationRefused) {
             expect(failure.category).toBe(category);
           }
           expect(snapshotTree(root)).toEqual(before);

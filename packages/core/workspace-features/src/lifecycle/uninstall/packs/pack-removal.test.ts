@@ -231,7 +231,7 @@ describe("pack removal", () => {
           const error = yield* removePack("@acme/skills/toolkit").pipe(Effect.flip);
 
           expect(error).toMatchObject({
-            _tag: "ExtensionLifecycleFailed",
+            _tag: "OperationRefused",
             category: "validation",
           });
         }),

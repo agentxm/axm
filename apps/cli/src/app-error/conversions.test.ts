@@ -197,8 +197,8 @@ describe("CLI selection failure rendering", () => {
         all: false,
         nonInteractive: true,
       }).pipe(Effect.provide(neverPrompts), Effect.flip);
-      expect(failure._tag).toBe("ExtensionLifecycleFailed");
-      if (failure._tag !== "ExtensionLifecycleFailed") return;
+      expect(failure._tag).toBe("OperationRefused");
+      if (failure._tag !== "OperationRefused") return;
       expect(isWorkspaceFailure(failure)).toBe(true);
       expect(toAppError(failure)).toMatchObject({
         code: "not_found",

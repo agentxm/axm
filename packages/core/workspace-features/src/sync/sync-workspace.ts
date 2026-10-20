@@ -70,7 +70,6 @@ import type { FootprintRecorder } from "@agentxm/workspace-kernel/settlement";
 import {
   collectUnreachableRetirement,
   StepFailureConversion,
-  WorkspaceSyncFailed,
   type SyncPolicyFailure,
   collectMaterializeSteps,
   type CollectedMaterializeSteps,
@@ -85,6 +84,7 @@ import {
   SYNC_PLAN_DESCRIPTION,
   SYNC_PLAN_NAME,
   type SyncStepRequirements,
+  syncRefused,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { collectConfiguredPackRecovery } from "./configured-pack-recovery.js";
 
@@ -254,7 +254,7 @@ export const prepareSyncWorkspace = (
       Option.isSome(request.target) &&
       parseExtensionFqnParts(request.target.value) === undefined
     ) {
-      return yield* new WorkspaceSyncFailed({
+      return yield* syncRefused({
         category: "validation",
         detail: `Invalid sync target ${request.target.value}; expected @owner/type/name.`,
         suggestions: [
@@ -460,7 +460,7 @@ export const prepareSyncWorkspace = (
         inventories: collected.inventoryObservations,
       }))
     ) {
-      return yield* new WorkspaceSyncFailed({
+      return yield* syncRefused({
         category: "conflict",
         detail: "Workspace observations changed during sync planning; retry the command",
       });

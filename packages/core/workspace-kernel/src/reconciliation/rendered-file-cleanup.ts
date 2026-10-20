@@ -46,7 +46,8 @@ import {
   type ProjectionRowChange,
 } from "../workspace-state/index.js";
 import { protectWorkspacePath, recordFootprint, retireWorkspacePath } from "../settlement/index.js";
-import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
+import { type WorkspaceSyncCleanupFailure, syncRefused } from "./errors.js";
+import type { OperationRefused } from "../operations/index.js";
 
 export interface ReconcileAgentOutputsResult {
   readonly removedPaths: ReadonlyArray<string>;
@@ -82,7 +83,7 @@ const inventory = (
   args: ReconcileAgentOutputsArgs,
 ): Effect.Effect<
   AgentOutputInventory,
-  WorkspaceSyncFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   | CodingAgentRepository
   | FileSystem.FileSystem
   | Path.Path
@@ -123,7 +124,7 @@ const inventory = (
   });
 
 const cleanupFailure = (detail: string, cause: unknown) =>
-  new WorkspaceSyncFailed({ category: "internal", detail, cause });
+  syncRefused({ category: "internal", detail, cause });
 
 const removeOwnedFile = (
   fs: FileSystem.FileSystem,

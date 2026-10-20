@@ -72,8 +72,8 @@ import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-  type ExtensionLifecycleFailed,
   installRefused,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
@@ -128,7 +128,7 @@ const readDesiredGraph = Effect.gen(function* () {
 export const validateResolvedPackUninstallTargets = (
   graph: DesiredStateGraph,
   targets: ReadonlyArray<ResolvedPackUninstallTarget>,
-): Effect.Effect<void, ExtensionLifecycleFailed> =>
+): Effect.Effect<void, OperationRefused> =>
   Effect.gen(function* () {
     for (const expected of targets) {
       const current = graph.nodes.find(
@@ -214,7 +214,7 @@ const observePackRetirements = (
 export const validatePackRetirementFacts = (args: {
   readonly planned: ReadonlyArray<PackRetirement>;
   readonly observed: ReadonlyArray<PackRetirement> | undefined;
-}): Effect.Effect<void, ExtensionLifecycleFailed> => {
+}): Effect.Effect<void, OperationRefused> => {
   if (
     args.observed !== undefined &&
     retirementSetKey(args.observed) === retirementSetKey(args.planned)
@@ -245,7 +245,7 @@ export const parsePackUninstallSelectors: (
   selector: string,
 ) => Effect.Effect<
   ReadonlyArray<PackUninstallSelector>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements
 > = Effect.fn("UninstallExtensions.parsePackSelectors")(function* (selector: string) {
   const requested = parseExtensionFqnParts(selector);
@@ -270,35 +270,34 @@ export const parsePackUninstallSelectors: (
 /** Resolve the selectors against the desired graph. */
 export const finalizePackUninstallIntent: (
   selectors: ReadonlyArray<PackUninstallSelector>,
-) => Effect.Effect<PackUninstallIntent, ExtensionLifecycleFailed, InstallStepRequirements> =
-  Effect.fn("UninstallExtensions.finalizePackIntent")(function* (
-    selectors: ReadonlyArray<PackUninstallSelector>,
-  ) {
-    const graph = yield* readDesiredGraph;
-    const targets = new Map<string, ResolvedPackUninstallTarget>();
-    for (const selector of selectors) {
-      const name = selector._tag === "ExactFqn" ? selector.identity.name : selector.name;
-      const candidates = graph.nodes.filter(
-        (candidate) => candidate.type === "pack" && candidate.name === name,
-      );
-      for (const node of candidates) {
-        const identity = parseExtensionFqnParts(desiredPackageKey(node.identity));
-        if (identity === undefined || identity.type !== "pack") {
-          return yield* identityValidationError(formatDesiredIdentity(node.identity));
-        }
-        if (selector._tag === "ExactFqn" && identity.owner !== selector.identity.owner) continue;
-        // One target per desired node, however many selectors name it.
-        targets.set(`${node.type}:${node.name}`, {
-          type: "pack",
-          name: identity.name,
-          owner: identity.owner,
-          authority: node.identity.authority,
-          desiredIdentity: node.identity,
-        });
+) => Effect.Effect<PackUninstallIntent, OperationRefused, InstallStepRequirements> = Effect.fn(
+  "UninstallExtensions.finalizePackIntent",
+)(function* (selectors: ReadonlyArray<PackUninstallSelector>) {
+  const graph = yield* readDesiredGraph;
+  const targets = new Map<string, ResolvedPackUninstallTarget>();
+  for (const selector of selectors) {
+    const name = selector._tag === "ExactFqn" ? selector.identity.name : selector.name;
+    const candidates = graph.nodes.filter(
+      (candidate) => candidate.type === "pack" && candidate.name === name,
+    );
+    for (const node of candidates) {
+      const identity = parseExtensionFqnParts(desiredPackageKey(node.identity));
+      if (identity === undefined || identity.type !== "pack") {
+        return yield* identityValidationError(formatDesiredIdentity(node.identity));
       }
+      if (selector._tag === "ExactFqn" && identity.owner !== selector.identity.owner) continue;
+      // One target per desired node, however many selectors name it.
+      targets.set(`${node.type}:${node.name}`, {
+        type: "pack",
+        name: identity.name,
+        owner: identity.owner,
+        authority: node.identity.authority,
+        desiredIdentity: node.identity,
+      });
     }
-    return { packsToUninstall: [...targets.values()] };
-  });
+  }
+  return { packsToUninstall: [...targets.values()] };
+});
 
 /** Everything the pack removal reads and writes through. */
 export type PackUninstallRequirements =
@@ -318,385 +317,389 @@ export type PackUninstallRequirements =
 /** The single atomic closure a settled pack removal becomes. */
 export const planPackUninstall: (
   intent: PackUninstallIntent,
-) => Effect.Effect<
-  Plan<PackUninstallRequirements>,
-  ExtensionLifecycleFailed,
-  PackUninstallRequirements
-> = Effect.fn("UninstallExtensions.planPacks")(function* (intent: PackUninstallIntent) {
-  const conversion = yield* StepFailureConversion;
-  const location = yield* WorkspaceLocation;
-  const layout = yield* Ref.get(location.layout);
-  const desiredState = yield* DesiredStateReader;
-  const path = yield* Path.Path;
-  const packManager = yield* PackManager;
-  const skillManager = yield* SkillManager;
-  const subagentManager = yield* SubagentManager;
-  const ruleManager = yield* RuleManager;
-  const hookManager = yield* HookManager;
-  const knowledgeManager = yield* KnowledgeManager;
-  const mcpServerManager = yield* McpServerManager;
+) => Effect.Effect<Plan<PackUninstallRequirements>, OperationRefused, PackUninstallRequirements> =
+  Effect.fn("UninstallExtensions.planPacks")(function* (intent: PackUninstallIntent) {
+    const conversion = yield* StepFailureConversion;
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    const desiredState = yield* DesiredStateReader;
+    const path = yield* Path.Path;
+    const packManager = yield* PackManager;
+    const skillManager = yield* SkillManager;
+    const subagentManager = yield* SubagentManager;
+    const ruleManager = yield* RuleManager;
+    const hookManager = yield* HookManager;
+    const knowledgeManager = yield* KnowledgeManager;
+    const mcpServerManager = yield* McpServerManager;
 
-  const observedGraph = yield* readDesiredGraph;
-  const priorNativeAuthority = yield* captureAgentOutputAuthority().pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "conflict",
-        detail: "Cannot establish prior Pack native ownership",
-        cause,
-      }),
-    ),
-  );
-  const graphReadiness = planPackUninstallGraphReadiness(
-    observedGraph,
-    intent.packsToUninstall.map((pack) => desiredPackageKey(pack.desiredIdentity)),
-    location.scope,
-  );
-  if (graphReadiness.readiness === "blocked") {
-    return {
-      _tag: "Plan",
-      name: "Uninstall packs",
-      description: Option.some("Pack graph readiness prevents this uninstall."),
-      presentation: uninstallPresentation,
-      jobs: [
-        {
-          concurrency: 1,
-          steps: [
-            {
-              readiness: "error",
-              label:
-                intent.packsToUninstall
-                  .map((pack) => formatDesiredIdentity(pack.desiredIdentity))
-                  .join(", ") || "Pack graph",
-              errorMessage: graphReadiness.detail,
-              blockingConditionIds: [PACK_UNINSTALL_GRAPH_BLOCKER_ID],
-              artifact: {
-                path: "pack graph",
-                scope: location.scope,
-                change: "unchanged",
-                fileCount: 0,
-                targets: graphReadiness.facts.flatMap((fact) =>
-                  fact.authoritativeLocations.map((location) => ({
-                    path: location,
-                    change: "unchanged" as const,
-                  })),
-                ),
-              },
-            },
-          ],
-        },
-      ],
-      riskConditions: [
-        {
-          level: "blocked",
-          id: PACK_UNINSTALL_GRAPH_BLOCKER_ID,
-          detail: graphReadiness.detail,
-          errorCode: "conflict",
-        },
-      ],
-    } satisfies Plan<InstallStepRequirements>;
-  }
-
-  if (intent.packsToUninstall.length === 0) {
-    return {
-      _tag: "Plan",
-      name: "Uninstall packs",
-      description: Option.none(),
-      presentation: uninstallPresentation,
-      jobs: [{ concurrency: 1, steps: [] }],
-    } satisfies Plan<InstallStepRequirements>;
-  }
-
-  const graph = graphReadiness.graph;
-  const plannedRetirements = yield* observePackRetirements(
-    graph,
-    intent.packsToUninstall,
-    graphReadiness.retirements,
-  );
-  const retirementByIdentity = new Map(
-    plannedRetirements.map((retirement) => [retirement.pack, retirement]),
-  );
-  // Physical preservation is selected per Pack; its accepted dependency graph
-  // still identifies the members whose remaining reachability is evaluated.
-  const retirementByPackName = new Map<string, PackRetirement>(
-    intent.packsToUninstall.flatMap((pack) => {
-      const retirement = retirementByIdentity.get(desiredPackageKey(pack.desiredIdentity));
-      return retirement === undefined ? [] : [[pack.name, retirement] as const];
-    }),
-  );
-
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, conversion.toStepFailure);
-
-  const allTargets = new Map<string, ExtensionTarget>();
-  for (const pack of intent.packsToUninstall) {
-    allTargets.set(`pack:${pack.name}`, pack);
-  }
-  const removingPackIdentities = new Set(
-    intent.packsToUninstall.map((pack) => desiredPackageKey(pack.desiredIdentity)),
-  );
-  for (const node of graph.nodes) {
-    if (node.type === "pack") continue;
-    const removedOrigin = node.origins.some(
-      (origin) => origin.type === "pack" && removingPackIdentities.has(origin.pack.fqn),
+    const observedGraph = yield* readDesiredGraph;
+    const priorNativeAuthority = yield* captureAgentOutputAuthority().pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "conflict",
+          detail: "Cannot establish prior Pack native ownership",
+          cause,
+        }),
+      ),
     );
-    if (!removedOrigin || isRequiredByAnotherOrigin(node, removingPackIdentities)) continue;
-    allTargets.set(`${node.type}:${node.name}`, { type: node.type, name: node.name });
-  }
-
-  // Remove members while their pack-derived desired state is still
-  // observable, then retire the owning pack.
-  const packTargets = [...allTargets.values()].filter((target) => target.type === "pack");
-  const depTargets = [...allTargets.values()].filter((target) => target.type !== "pack");
-  const orderedTargets = [...depTargets, ...packTargets];
-  // The closure withdraws exclusive member preferences along with their last
-  // owning Pack, so native preflight must see that complete final graph.
-  const withdrawals = orderedTargets.map((target) => ({
-    kind: "remove" as const,
-    type: target.type,
-    name: target.name,
-  }));
-  const proposal = yield* proposeDesiredState(withdrawals).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "conflict",
-        detail: "Pack retirement intent could not be evaluated",
-        cause,
-      }),
-    ),
-  );
-  const artifacts = yield* Effect.forEach(orderedTargets, (target) =>
-    prepareUninstallArtifact(target, proposal, { nativeCleanup: "retain" }),
-  ).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "conflict",
-        detail: "Pack retirement effects could not be established",
-        cause,
-      }),
-    ),
-  );
-  const artifactTargets = artifacts
-    .flatMap((artifact) => artifact.targets ?? [])
-    .filter(
-      (target, index, all) =>
-        all.findIndex(
-          (candidate) => candidate.path === target.path && candidate.change === target.change,
-        ) === index,
+    const graphReadiness = planPackUninstallGraphReadiness(
+      observedGraph,
+      intent.packsToUninstall.map((pack) => desiredPackageKey(pack.desiredIdentity)),
+      location.scope,
     );
-
-  const steps = orderedTargets.map((target): PlannedJobStep<InstallStepRequirements> => {
-    switch (target.type) {
-      case "pack": {
-        const retirement = retirementByPackName.get(target.name);
-        return buildUninstallOperation(packManager, retentionPolicy, {
-          target,
-          toStepFailure: conversion.toStepFailure,
-          ...(retirement === undefined
-            ? {}
-            : {
-                retirement: {
-                  // Results name workspace-relative paths, so the same
-                  // retirement reads identically from any workspace.
-                  manifestPath: path.relative(location.baseDir, retirement.manifestPath),
-                  reason: retirement.reason,
+    if (graphReadiness.readiness === "blocked") {
+      return {
+        _tag: "Plan",
+        name: "Uninstall packs",
+        description: Option.some("Pack graph readiness prevents this uninstall."),
+        presentation: uninstallPresentation,
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "error",
+                label:
+                  intent.packsToUninstall
+                    .map((pack) => formatDesiredIdentity(pack.desiredIdentity))
+                    .join(", ") || "Pack graph",
+                errorMessage: graphReadiness.detail,
+                blockingConditionIds: [PACK_UNINSTALL_GRAPH_BLOCKER_ID],
+                artifact: {
+                  path: "pack graph",
+                  scope: location.scope,
+                  change: "unchanged",
+                  fileCount: 0,
+                  targets: graphReadiness.facts.flatMap((fact) =>
+                    fact.authoritativeLocations.map((location) => ({
+                      path: location,
+                      change: "unchanged" as const,
+                    })),
+                  ),
                 },
-              }),
-        });
-      }
-      case "skill":
-        return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: conversion.toStepFailure,
-          target,
-        });
-      case "mcp-server":
-        return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
-          nativeCleanup: "retain",
-          toStepFailure: conversion.toStepFailure,
-          target,
-        });
-      case "subagent":
-        return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: conversion.toStepFailure,
-          target,
-        });
-      case "rule":
-        return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: conversion.toStepFailure,
-          target,
-          enclosingClosure: { projections: [target.type] },
-        });
-      case "hook":
-        return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
-          nativeCleanup: "retain",
-          toStepFailure: conversion.toStepFailure,
-          target,
-          enclosingClosure: { projections: [target.type] },
-        });
-      case "knowledge":
-        return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
-          toStepFailure: conversion.toStepFailure,
-          target,
-          enclosingClosure: { projections: [target.type] },
-        });
-    }
-  });
-
-  const affectedMembers = graph.nodes.flatMap((node) =>
-    node.type !== "pack" &&
-    node.origins.some(
-      (origin) => origin.type === "pack" && removingPackIdentities.has(origin.pack.fqn),
-    )
-      ? [{ type: node.type, name: node.name }]
-      : [],
-  );
-  const retainedMembers = affectedMembers.filter((member) =>
-    proposal.after.nodes.some(
-      (node) => node.enabled && node.type === member.type && node.name === member.name,
-    ),
-  );
-  const retainedNativeOutputs = yield* captureRequiredNativeOutputs(retainedMembers).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "conflict",
-        detail: "Cannot observe retained Pack native outputs",
-        cause,
-      }),
-    ),
-  );
-  const cleanup =
-    plannedRetirements.length > 0
-      ? Option.none()
-      : yield* collectCleanupStep({
-          expectedNames: expectedProjectionNames(proposal.after),
-          subjects: [...orderedTargets, ...affectedMembers],
-          adapter: {
-            toStepFailure: (cause: KernelFailure) =>
-              conversion.toStepFailure(
-                installRefused({
-                  category: "conflict",
-                  detail: ("detail" in cause ? cause.detail : undefined) ?? failureTag(cause),
-                  cause,
-                }),
-              ),
+              },
+            ],
           },
-        }).pipe(
+        ],
+        riskConditions: [
+          {
+            level: "blocked",
+            id: PACK_UNINSTALL_GRAPH_BLOCKER_ID,
+            detail: graphReadiness.detail,
+            errorCode: "conflict",
+          },
+        ],
+      } satisfies Plan<InstallStepRequirements>;
+    }
+
+    if (intent.packsToUninstall.length === 0) {
+      return {
+        _tag: "Plan",
+        name: "Uninstall packs",
+        description: Option.none(),
+        presentation: uninstallPresentation,
+        jobs: [{ concurrency: 1, steps: [] }],
+      } satisfies Plan<InstallStepRequirements>;
+    }
+
+    const graph = graphReadiness.graph;
+    const plannedRetirements = yield* observePackRetirements(
+      graph,
+      intent.packsToUninstall,
+      graphReadiness.retirements,
+    );
+    const retirementByIdentity = new Map(
+      plannedRetirements.map((retirement) => [retirement.pack, retirement]),
+    );
+    // Physical preservation is selected per Pack; its accepted dependency graph
+    // still identifies the members whose remaining reachability is evaluated.
+    const retirementByPackName = new Map<string, PackRetirement>(
+      intent.packsToUninstall.flatMap((pack) => {
+        const retirement = retirementByIdentity.get(desiredPackageKey(pack.desiredIdentity));
+        return retirement === undefined ? [] : [[pack.name, retirement] as const];
+      }),
+    );
+
+    const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, conversion.toStepFailure);
+
+    const allTargets = new Map<string, ExtensionTarget>();
+    for (const pack of intent.packsToUninstall) {
+      allTargets.set(`pack:${pack.name}`, pack);
+    }
+    const removingPackIdentities = new Set(
+      intent.packsToUninstall.map((pack) => desiredPackageKey(pack.desiredIdentity)),
+    );
+    for (const node of graph.nodes) {
+      if (node.type === "pack") continue;
+      const removedOrigin = node.origins.some(
+        (origin) => origin.type === "pack" && removingPackIdentities.has(origin.pack.fqn),
+      );
+      if (!removedOrigin || isRequiredByAnotherOrigin(node, removingPackIdentities)) continue;
+      allTargets.set(`${node.type}:${node.name}`, { type: node.type, name: node.name });
+    }
+
+    // Remove members while their pack-derived desired state is still
+    // observable, then retire the owning pack.
+    const packTargets = [...allTargets.values()].filter((target) => target.type === "pack");
+    const depTargets = [...allTargets.values()].filter((target) => target.type !== "pack");
+    const orderedTargets = [...depTargets, ...packTargets];
+    // The closure withdraws exclusive member preferences along with their last
+    // owning Pack, so native preflight must see that complete final graph.
+    const withdrawals = orderedTargets.map((target) => ({
+      kind: "remove" as const,
+      type: target.type,
+      name: target.name,
+    }));
+    const proposal = yield* proposeDesiredState(withdrawals).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "conflict",
+          detail: "Pack retirement intent could not be evaluated",
+          cause,
+        }),
+      ),
+    );
+    const artifacts = yield* Effect.forEach(orderedTargets, (target) =>
+      prepareUninstallArtifact(target, proposal, { nativeCleanup: "retain" }),
+    ).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "conflict",
+          detail: "Pack retirement effects could not be established",
+          cause,
+        }),
+      ),
+    );
+    const artifactTargets = artifacts
+      .flatMap((artifact) => artifact.targets ?? [])
+      .filter(
+        (target, index, all) =>
+          all.findIndex(
+            (candidate) => candidate.path === target.path && candidate.change === target.change,
+          ) === index,
+      );
+
+    const steps = orderedTargets.map((target): PlannedJobStep<InstallStepRequirements> => {
+      switch (target.type) {
+        case "pack": {
+          const retirement = retirementByPackName.get(target.name);
+          return buildUninstallOperation(packManager, retentionPolicy, {
+            target,
+            toStepFailure: conversion.toStepFailure,
+            ...(retirement === undefined
+              ? {}
+              : {
+                  retirement: {
+                    // Results name workspace-relative paths, so the same
+                    // retirement reads identically from any workspace.
+                    manifestPath: path.relative(location.baseDir, retirement.manifestPath),
+                    reason: retirement.reason,
+                  },
+                }),
+          });
+        }
+        case "skill":
+          return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
+            toStepFailure: conversion.toStepFailure,
+            target,
+          });
+        case "mcp-server":
+          return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
+            nativeCleanup: "retain",
+            toStepFailure: conversion.toStepFailure,
+            target,
+          });
+        case "subagent":
+          return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
+            toStepFailure: conversion.toStepFailure,
+            target,
+          });
+        case "rule":
+          return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
+            toStepFailure: conversion.toStepFailure,
+            target,
+            enclosingClosure: { projections: [target.type] },
+          });
+        case "hook":
+          return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
+            nativeCleanup: "retain",
+            toStepFailure: conversion.toStepFailure,
+            target,
+            enclosingClosure: { projections: [target.type] },
+          });
+        case "knowledge":
+          return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
+            toStepFailure: conversion.toStepFailure,
+            target,
+            enclosingClosure: { projections: [target.type] },
+          });
+      }
+    });
+
+    const affectedMembers = graph.nodes.flatMap((node) =>
+      node.type !== "pack" &&
+      node.origins.some(
+        (origin) => origin.type === "pack" && removingPackIdentities.has(origin.pack.fqn),
+      )
+        ? [{ type: node.type, name: node.name }]
+        : [],
+    );
+    const retainedMembers = affectedMembers.filter((member) =>
+      proposal.after.nodes.some(
+        (node) => node.enabled && node.type === member.type && node.name === member.name,
+      ),
+    );
+    const retainedNativeOutputs = yield* captureRequiredNativeOutputs(retainedMembers).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "conflict",
+          detail: "Cannot observe retained Pack native outputs",
+          cause,
+        }),
+      ),
+    );
+    const cleanup =
+      plannedRetirements.length > 0
+        ? Option.none()
+        : yield* collectCleanupStep({
+            expectedNames: expectedProjectionNames(proposal.after),
+            subjects: [...orderedTargets, ...affectedMembers],
+            adapter: {
+              toStepFailure: (cause: KernelFailure) =>
+                conversion.toStepFailure(
+                  installRefused({
+                    category: "conflict",
+                    detail: ("detail" in cause ? cause.detail : undefined) ?? failureTag(cause),
+                    cause,
+                  }),
+                ),
+            },
+          }).pipe(
+            Effect.mapError((cause) =>
+              installRefused({
+                category: "conflict",
+                detail: "Cannot establish owned Pack uninstall outputs",
+                cause,
+              }),
+            ),
+          );
+    const projectionStep = yield* buildAggregateProjectionStep({
+      types: new Set(orderedTargets.map((target) => target.type)),
+      nativeProjections: {
+        hook: { priorAuthority: priorNativeAuthority },
+        rule: { priorAuthority: priorNativeAuthority },
+        knowledge: { priorAuthority: priorNativeAuthority },
+      },
+    });
+    const registrationOnly =
+      plannedRetirements.length === 0
+        ? ""
+        : ` (${plannedRetirements.length} pack${plannedRetirements.length === 1 ? "" : "s"} unregistered without removing package content)`;
+    const graphStep = yield* buildReconciliationClosure<
+      OperationRefused,
+      PackUninstallRequirements
+    >({
+      toStepFailure: conversion.toStepFailure,
+      ...(intent.packsToUninstall.length === 1 && intent.packsToUninstall[0] !== undefined
+        ? {
+            documentRoundTrip: {
+              identity: `${intent.packsToUninstall[0].owner}/packs/${intent.packsToUninstall[0].name}`,
+              mode: "withdraw" as const,
+            },
+          }
+        : {}),
+      label: `${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"}`,
+      message: `Uninstalled ${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"} and ${depTargets.length} exclusive member${depTargets.length === 1 ? "" : "s"}${registrationOnly}`,
+      artifact: {
+        path: artifacts[0]?.path ?? path.relative(location.baseDir, layout.settingsPath),
+        scope: location.scope,
+        change: "removed",
+        fileCount: orderedTargets.length,
+        targets: artifactTargets,
+        references: artifacts.flatMap((artifact) => artifact.references ?? []),
+        managedRegions: artifacts.flatMap((artifact) => artifact.managedRegions ?? []),
+      },
+      children: [
+        ...Option.toArray(cleanup).map((step) => ({ step, coverage: "ineligible" as const })),
+        ...steps.map((step) => ({ step, coverage: "ineligible" as const })),
+        ...Option.toArray(projectionStep).map((step) => ({
+          step,
+          coverage: "ineligible" as const,
+        })),
+      ],
+      preTransition: Effect.gen(function* () {
+        const currentProposal = yield* proposeDesiredState(withdrawals).pipe(
           Effect.mapError((cause) =>
             installRefused({
               category: "conflict",
-              detail: "Cannot establish owned Pack uninstall outputs",
+              detail: "Cannot preview Pack withdrawal",
               cause,
             }),
           ),
         );
-  const projectionStep = yield* buildAggregateProjectionStep({
-    types: new Set(orderedTargets.map((target) => target.type)),
-    nativeProjections: {
-      hook: { priorAuthority: priorNativeAuthority },
-      rule: { priorAuthority: priorNativeAuthority },
-      knowledge: { priorAuthority: priorNativeAuthority },
-    },
-  });
-  const registrationOnly =
-    plannedRetirements.length === 0
-      ? ""
-      : ` (${plannedRetirements.length} pack${plannedRetirements.length === 1 ? "" : "s"} unregistered without removing package content)`;
-  const graphStep = yield* buildReconciliationClosure<
-    ExtensionLifecycleFailed,
-    PackUninstallRequirements
-  >({
-    toStepFailure: conversion.toStepFailure,
-    ...(intent.packsToUninstall.length === 1 && intent.packsToUninstall[0] !== undefined
-      ? {
-          documentRoundTrip: {
-            identity: `${intent.packsToUninstall[0].owner}/packs/${intent.packsToUninstall[0].name}`,
-            mode: "withdraw" as const,
-          },
-        }
-      : {}),
-    label: `${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"}`,
-    message: `Uninstalled ${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"} and ${depTargets.length} exclusive member${depTargets.length === 1 ? "" : "s"}${registrationOnly}`,
-    artifact: {
-      path: artifacts[0]?.path ?? path.relative(location.baseDir, layout.settingsPath),
-      scope: location.scope,
-      change: "removed",
-      fileCount: orderedTargets.length,
-      targets: artifactTargets,
-      references: artifacts.flatMap((artifact) => artifact.references ?? []),
-      managedRegions: artifacts.flatMap((artifact) => artifact.managedRegions ?? []),
-    },
-    children: [
-      ...Option.toArray(cleanup).map((step) => ({ step, coverage: "ineligible" as const })),
-      ...steps.map((step) => ({ step, coverage: "ineligible" as const })),
-      ...Option.toArray(projectionStep).map((step) => ({
-        step,
-        coverage: "ineligible" as const,
-      })),
-    ],
-    preTransition: Effect.gen(function* () {
-      const currentProposal = yield* proposeDesiredState(withdrawals).pipe(
-        Effect.mapError((cause) =>
-          installRefused({ category: "conflict", detail: "Cannot preview Pack withdrawal", cause }),
+        const options = {
+          priorAuthority: priorNativeAuthority,
+          desiredGraph: currentProposal.after,
+        };
+        yield* Effect.all([
+          ruleManager.projectionPlans(options),
+          hookManager.projectionPlans(options),
+          knowledgeManager.projectionPlans(options),
+        ]).pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "conflict",
+              detail: "Pack native withdrawal is blocked",
+              cause,
+            }),
+          ),
+        );
+        const currentGraph = yield* readDesiredGraph;
+        yield* validateResolvedPackUninstallTargets(currentGraph, intent.packsToUninstall);
+        const currentReadiness = planPackUninstallGraphReadiness(
+          currentGraph,
+          intent.packsToUninstall.map((pack) => desiredPackageKey(pack.desiredIdentity)),
+          location.scope,
+        );
+        yield* validatePackRetirementFacts({
+          planned: plannedRetirements,
+          observed:
+            currentReadiness.readiness === "ready"
+              ? yield* observePackRetirements(
+                  currentGraph,
+                  intent.packsToUninstall,
+                  currentReadiness.retirements,
+                )
+              : undefined,
+        });
+      }),
+      validate: validatePackGraphPostcondition({ absent: orderedTargets }),
+      captureNativeRetention: (expected) =>
+        captureNativeOutputRetention([...retainedNativeOutputs, ...expected]).pipe(
+          Effect.mapError((cause) =>
+            installRefused({ category: "conflict", detail: cause.detail, cause }),
+          ),
         ),
-      );
-      const options = { priorAuthority: priorNativeAuthority, desiredGraph: currentProposal.after };
-      yield* Effect.all([
-        ruleManager.projectionPlans(options),
-        hookManager.projectionPlans(options),
-        knowledgeManager.projectionPlans(options),
-      ]).pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "conflict",
-            detail: "Pack native withdrawal is blocked",
-            cause,
-          }),
+      validateNativeOutputs: (locations, expected, retained) =>
+        validateNativeOutputPostconditions(
+          locations,
+          [...retainedNativeOutputs, ...expected],
+          retained,
+        ).pipe(
+          Effect.mapError((cause) =>
+            installRefused({ category: "conflict", detail: cause.detail, cause }),
+          ),
         ),
-      );
-      const currentGraph = yield* readDesiredGraph;
-      yield* validateResolvedPackUninstallTargets(currentGraph, intent.packsToUninstall);
-      const currentReadiness = planPackUninstallGraphReadiness(
-        currentGraph,
-        intent.packsToUninstall.map((pack) => desiredPackageKey(pack.desiredIdentity)),
-        location.scope,
-      );
-      yield* validatePackRetirementFacts({
-        planned: plannedRetirements,
-        observed:
-          currentReadiness.readiness === "ready"
-            ? yield* observePackRetirements(
-                currentGraph,
-                intent.packsToUninstall,
-                currentReadiness.retirements,
-              )
-            : undefined,
-      });
-    }),
-    validate: validatePackGraphPostcondition({ absent: orderedTargets }),
-    captureNativeRetention: (expected) =>
-      captureNativeOutputRetention([...retainedNativeOutputs, ...expected]).pipe(
-        Effect.mapError((cause) =>
-          installRefused({ category: "conflict", detail: cause.detail, cause }),
-        ),
-      ),
-    validateNativeOutputs: (locations, expected, retained) =>
-      validateNativeOutputPostconditions(
-        locations,
-        [...retainedNativeOutputs, ...expected],
-        retained,
-      ).pipe(
-        Effect.mapError((cause) =>
-          installRefused({ category: "conflict", detail: cause.detail, cause }),
-        ),
-      ),
-  });
+    });
 
-  return {
-    _tag: "Plan",
-    name:
-      intent.packsToUninstall.length === 1
-        ? "Uninstall pack"
-        : `Uninstall ${intent.packsToUninstall.length} packs`,
-    description: Option.none(),
-    presentation: uninstallPresentation,
-    jobs: [{ concurrency: 1, steps: [graphStep] }],
-  } satisfies Plan<PackUninstallRequirements>;
-});
+    return {
+      _tag: "Plan",
+      name:
+        intent.packsToUninstall.length === 1
+          ? "Uninstall pack"
+          : `Uninstall ${intent.packsToUninstall.length} packs`,
+      description: Option.none(),
+      presentation: uninstallPresentation,
+      jobs: [{ concurrency: 1, steps: [graphStep] }],
+    } satisfies Plan<PackUninstallRequirements>;
+  });

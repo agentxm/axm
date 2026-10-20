@@ -13,7 +13,9 @@
 
 import {
   type ScaffoldedExtensionUnresolved,
+  defineFailureFamily,
   makeStepFailure,
+  renderCarriedFailure,
   type StepFailure,
 } from "@agentxm/workspace-kernel/operations";
 import type { ExtensionManagerFailure } from "@agentxm/workspace-kernel/materialization";
@@ -87,60 +89,6 @@ export type AuthoringFamilyFailure =
   | PackMemberNotFound
   | PackMemberNotDeclared;
 
-/**
- * Every class whose instances this feature renders, read when a failure is
- * recognized rather than at module load, so a class is never read before its
- * module has loaded.
- */
-const authoringFailureClasses = () =>
-  [
-    AuthoringFailed,
-    CreateNameConfigured,
-    CreateDestinationInspectionFailed,
-    ForkPackageInvalid,
-    ForkPackageConflict,
-    ForkPackageFailed,
-    NativeImportUnsupported,
-    NativeSubagentRuntimeRequired,
-    NativeSubagentImportUnsupported,
-    NativeImportInvalid,
-    NativeImportConflict,
-    NativeImportFailed,
-    AuthoringOwnerRequired,
-    AuthoringOwnerMismatch,
-    ScaffoldNameInvalid,
-    AuthoringScopeUnsupported,
-    PackSelectorNotAPack,
-    PackNotConfigured,
-    PackSelectorAmbiguous,
-    PackSourceMissing,
-    PackNotAuthored,
-    PackOwnerUnconfigured,
-    PackManifestUnavailable,
-    PackGraphInvalid,
-    PackMemberAmbiguous,
-    PackMemberUnmanaged,
-    PackMemberNotFound,
-    PackMemberNotDeclared,
-  ] as const;
-
-// The recognized classes and the rendered family are the same set: a failure
-// this feature renders but cannot recognize, or the reverse, is a compile
-// error here.
-type RecognizedAuthoringFailure = InstanceType<ReturnType<typeof authoringFailureClasses>[number]>;
-const _recognizesEveryRenderedFailure = (
-  failure: AuthoringFamilyFailure,
-): RecognizedAuthoringFailure => failure;
-const _rendersEveryRecognizedFailure = (
-  failure: RecognizedAuthoringFailure,
-): AuthoringFamilyFailure => failure;
-void _recognizesEveryRenderedFailure;
-void _rendersEveryRecognizedFailure;
-
-/** Whether an untyped failure is one the authoring feature renders. */
-export const isAuthoringFamilyFailure = (failure: unknown): failure is AuthoringFamilyFailure =>
-  authoringFailureClasses().some((failureClass) => failure instanceof failureClass);
-
 const authoringOwnerRequiredFailure = (error: AuthoringOwnerRequired): StepFailure => {
   const [candidate] = error.candidates;
   return makeStepFailure({
@@ -188,13 +136,7 @@ const packManifestUnavailableFailure = (error: PackManifestUnavailable): StepFai
 const renderAuthoringFailureDetails = (error: AuthoringFamilyFailure): StepFailure => {
   switch (error._tag) {
     case "AuthoringFailed":
-      return makeStepFailure({
-        category: error.category,
-        detail: error.detail,
-        recover: error.recover,
-        suggestions: error.suggestions,
-        cause: error.cause,
-      });
+      return renderCarriedFailure(error);
     case "CreateNameConfigured":
       return makeStepFailure({
         category: "conflict",
@@ -369,6 +311,42 @@ export const authoringFailureToStepFailure = (error: AuthoringFamilyFailure): St
     },
   });
 
+/** The authoring and Pack membership failure family. */
+export const authoringFailures = defineFailureFamily({
+  classes: () =>
+    [
+      AuthoringFailed,
+      CreateNameConfigured,
+      CreateDestinationInspectionFailed,
+      ForkPackageInvalid,
+      ForkPackageConflict,
+      ForkPackageFailed,
+      NativeImportUnsupported,
+      NativeSubagentRuntimeRequired,
+      NativeSubagentImportUnsupported,
+      NativeImportInvalid,
+      NativeImportConflict,
+      NativeImportFailed,
+      AuthoringOwnerRequired,
+      AuthoringOwnerMismatch,
+      ScaffoldNameInvalid,
+      AuthoringScopeUnsupported,
+      PackSelectorNotAPack,
+      PackNotConfigured,
+      PackSelectorAmbiguous,
+      PackSourceMissing,
+      PackNotAuthored,
+      PackOwnerUnconfigured,
+      PackManifestUnavailable,
+      PackGraphInvalid,
+      PackMemberAmbiguous,
+      PackMemberUnmanaged,
+      PackMemberNotFound,
+      PackMemberNotDeclared,
+    ] as const,
+  render: authoringFailureToStepFailure,
+});
+
 /** Every failure an authoring closure can settle a plan step with. */
 export type AuthoringStepFailure =
   | NativeLocationError
@@ -380,7 +358,7 @@ export type AuthoringStepFailure =
 
 /** The sentence a transition's deciding failure reads with inside an authoring step. */
 const authoringFailureDetail = (failure: unknown): string | undefined =>
-  isAuthoringFamilyFailure(failure)
+  authoringFailures.is(failure)
     ? authoringFailureToStepFailure(failure).detail
     : kernelFailureDetail(failure);
 
@@ -389,6 +367,6 @@ const authoringFailureDetail = (failure: unknown): string | undefined =>
  * same rendering the command boundary projects for that failure.
  */
 export const authoringStepFailure = (failure: AuthoringStepFailure): StepFailure =>
-  isAuthoringFamilyFailure(failure)
+  authoringFailures.is(failure)
     ? authoringFailureToStepFailure(failure)
     : renderKernelFailure(failure, { detailOf: authoringFailureDetail });

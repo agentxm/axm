@@ -27,10 +27,7 @@ import {
   type RegistryLookupProbe,
   type SourceResolutionFailure,
 } from "@agentxm/workspace-kernel/sources";
-import {
-  type ExtensionLifecycleFailed,
-  installRefused,
-} from "@agentxm/workspace-kernel/operations";
+import { installRefused, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { resolveInstallSource, type LocatorInstallType } from "./source-routing.js";
 import {
   sourceResolutionFailureDetail,
@@ -214,7 +211,7 @@ const REGISTRY_ONLY_NAMES: Record<SourceInstallType, boolean> = {
 export const parseRegistryQualifiedInstallRequest = (
   type: "hook" | "rule" | "knowledge",
   source: string,
-): Effect.Effect<ParsedInstallRequest, ExtensionLifecycleFailed, ResolveInstallRequirements> =>
+): Effect.Effect<ParsedInstallRequest, OperationRefused, ResolveInstallRequirements> =>
   Effect.gen(function* () {
     const input = source.trim();
     const parsed = parseSourceQualifiedRegistrySourcePatternParts(input);
@@ -250,7 +247,7 @@ export const parseLocatorInstallRequest = (
   args: { readonly source: string; readonly names: ReadonlyArray<string> },
 ): Effect.Effect<
   ParsedInstallRequest,
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   ResolveInstallRequirements
 > =>
   Effect.gen(function* () {
@@ -271,7 +268,7 @@ export const parseLocatorInstallRequest = (
       },
     }).pipe(
       Effect.mapError((cause) =>
-        cause._tag === "ExtensionLifecycleFailed" || cause._tag === "ConfigError"
+        cause._tag === "OperationRefused" || cause._tag === "ConfigError"
           ? cause
           : sourceResolutionRefused(cause),
       ),
@@ -308,7 +305,7 @@ export const discoverInstallRefs = <T extends SourceInstallType>(
   request: ParsedInstallRequest,
 ): Effect.Effect<
   ReadonlyArray<SourceInstallRef<T>>,
-  ExtensionLifecycleFailed | Config.ConfigError,
+  OperationRefused | Config.ConfigError,
   ResolveInstallRequirements
 > =>
   Effect.gen(function* () {

@@ -33,7 +33,7 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-  type ExtensionLifecycleFailed,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   applyInstructionSurfacePlans,
@@ -62,7 +62,7 @@ export const planKnowledgeInstall: (
   intent: KnowledgeInstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | KnowledgeManager
 > = Effect.fn("InstallExtensions.planKnowledge")(function* (intent: KnowledgeInstallIntent) {
   const manager = yield* KnowledgeManager;

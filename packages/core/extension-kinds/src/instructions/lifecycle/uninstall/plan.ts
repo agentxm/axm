@@ -19,8 +19,8 @@ import {
 } from "@agentxm/workspace-kernel/reconciliation";
 import {
   type Plan,
-  type ExtensionLifecycleFailed,
   installRefused,
+  type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   DesiredStateReader,
@@ -35,39 +35,36 @@ export interface RuleUninstallIntent {
 /** Settle whether this rule has anything to remove. */
 export const parseRuleUninstallRequest: (
   selector: string,
-) => Effect.Effect<
-  RuleUninstallIntent,
-  ExtensionLifecycleFailed,
-  InstallStepRequirements | RuleManager
-> = Effect.fn("UninstallExtensions.parseRuleRequest")(function* (selector: string) {
-  const ruleManager = yield* RuleManager;
-  const target: RuleExtensionTarget = { type: "rule", name: selector.trim() };
-  return yield* Effect.gen(function* () {
-    const configured =
-      ruleManager.getConfiguredSource === undefined
-        ? Option.none<string>()
-        : yield* ruleManager.getConfiguredSource({ target });
-    const installed = yield* ruleManager.isInstalled({ target });
-    return Option.isNone(configured) && !installed
-      ? ({ targets: [] } satisfies RuleUninstallIntent)
-      : ({ targets: [target] } satisfies RuleUninstallIntent);
-  }).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: `Rule "${target.name}" declaration could not be read`,
-        cause,
-      }),
-    ),
-  );
-});
+) => Effect.Effect<RuleUninstallIntent, OperationRefused, InstallStepRequirements | RuleManager> =
+  Effect.fn("UninstallExtensions.parseRuleRequest")(function* (selector: string) {
+    const ruleManager = yield* RuleManager;
+    const target: RuleExtensionTarget = { type: "rule", name: selector.trim() };
+    return yield* Effect.gen(function* () {
+      const configured =
+        ruleManager.getConfiguredSource === undefined
+          ? Option.none<string>()
+          : yield* ruleManager.getConfiguredSource({ target });
+      const installed = yield* ruleManager.isInstalled({ target });
+      return Option.isNone(configured) && !installed
+        ? ({ targets: [] } satisfies RuleUninstallIntent)
+        : ({ targets: [target] } satisfies RuleUninstallIntent);
+    }).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: `Rule "${target.name}" declaration could not be read`,
+          cause,
+        }),
+      ),
+    );
+  });
 
 /** The closures a settled rule removal becomes. */
 export const planRuleUninstall: (
   intent: RuleUninstallIntent,
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
-  ExtensionLifecycleFailed,
+  OperationRefused,
   InstallStepRequirements | RuleManager
 > = Effect.fn("UninstallExtensions.planRules")(function* (intent: RuleUninstallIntent) {
   const desiredState = yield* DesiredStateReader;

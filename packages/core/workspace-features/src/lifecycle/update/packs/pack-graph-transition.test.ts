@@ -15,8 +15,8 @@ import {
   StepFailure,
   type JobStepResult,
   type PlannedJobStep,
-  ExtensionLifecycleFailed,
   installRefused,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
   prepareExecutionCandidate,
@@ -149,7 +149,7 @@ describe("atomic pack graph transition", () => {
         const makeClosure = (
           label: string,
           target: string,
-          validate: Effect.Effect<void, ExtensionLifecycleFailed>,
+          validate: Effect.Effect<void, OperationRefused>,
         ) =>
           buildReconciliationClosure({
             toStepFailure: kernelFailureToStepFailure,

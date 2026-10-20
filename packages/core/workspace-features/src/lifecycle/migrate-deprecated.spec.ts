@@ -7,10 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import {
-  deriveOperationOutcome,
-  ExtensionLifecycleFailed,
-} from "@agentxm/workspace-kernel/operations";
+import { deriveOperationOutcome, OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { readSettings } from "./install/test-helpers.js";
 import {
@@ -188,8 +185,8 @@ describe("Migrate deprecated extension", () => {
             deprecate(created, { reason: "obsolete", message: "Remove from the Pack." });
             const before = created.workspace.snapshot();
             const failure = yield* MigrateDeprecated.prepare(SOURCE).pipe(Effect.flip);
-            expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-            if (failure instanceof ExtensionLifecycleFailed) {
+            expect(failure).toBeInstanceOf(OperationRefused);
+            if (failure instanceof OperationRefused) {
               expect(failure.detail).toContain("pack publisher");
             }
             expect(created.workspace.snapshot()).toEqual(before);

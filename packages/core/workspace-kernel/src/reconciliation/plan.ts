@@ -66,6 +66,7 @@ import {
   type Plan,
   type PlannedJobStep,
   type ReleaseAgeOperationEvidence,
+  OperationRefused,
 } from "../operations/index.js";
 import { runWorkspaceTransaction, type WorkspaceTransactionScope } from "../settlement/index.js";
 import {
@@ -91,7 +92,7 @@ import {
 } from "./native-output-postconditions.js";
 import type { NativeRetentionWitness } from "../projection/index.js";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
-import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
+import { type WorkspaceSyncCleanupFailure, syncRefused } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import {
   combineNativeLocationOutcomes,
@@ -470,13 +471,12 @@ export const collectCleanupStep: (args: {
     args.desiredAgentIds ??
     new Set((yield* agentRepo.getMaterializationAgents()).map(({ id }) => id));
   const authority = yield* captureAgentOutputAuthority().pipe(
-    Effect.mapError(
-      (cause) =>
-        new WorkspaceSyncFailed({
-          category: "internal",
-          detail: "Cannot establish native output ownership",
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      syncRefused({
+        category: "internal",
+        detail: "Cannot establish native output ownership",
+        cause,
+      }),
     ),
   );
   const { discardModified } = yield* ProjectionOutputPosture;
@@ -517,13 +517,12 @@ export const collectCleanupStep: (args: {
           },
     );
   }).pipe(
-    Effect.mapError(
-      (cause) =>
-        new WorkspaceSyncFailed({
-          category: "conflict",
-          detail: "Cannot verify retained native outputs",
-          cause,
-        }),
+    Effect.mapError((cause) =>
+      syncRefused({
+        category: "conflict",
+        detail: "Cannot verify retained native outputs",
+        cause,
+      }),
     ),
   );
   const previewNativeLocations = combineNativeLocationOutcomes([
@@ -1138,7 +1137,7 @@ export const makeSyncPlan = <R>({
               readonly result: JobStepResult;
               readonly retained: ReadonlyArray<NativeRetentionWitness>;
             },
-            WorkspaceSyncFailed | StepFailure,
+            OperationRefused | StepFailure,
             R | Effect.Services<ReturnType<typeof validateNativeOutputPostconditions>>
           >({
             transition: Effect.gen(function* () {
@@ -1171,7 +1170,7 @@ export const makeSyncPlan = <R>({
         step.artifact === undefined ? [] : [step.artifact],
       );
       return buildReconciliationClosure<
-        WorkspaceSyncFailed,
+        OperationRefused,
         R | Effect.Services<ReturnType<typeof validateNativeOutputPostconditions>>
       >({
         nativeReaderContext: {

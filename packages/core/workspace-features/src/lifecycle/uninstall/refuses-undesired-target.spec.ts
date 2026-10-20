@@ -7,7 +7,7 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import {
   deriveOperationOutcome,
   type OperationResolution,
-  ExtensionLifecycleFailed,
+  OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -156,8 +156,8 @@ describe("Uninstall of a target the workspace does not configure", () => {
           if (row.expect === "refused") {
             for (const attempt of [previewUninstall(request), applyUninstall(request)]) {
               const failure = yield* attempt.pipe(Effect.flip);
-              expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-              if (failure instanceof ExtensionLifecycleFailed) {
+              expect(failure).toBeInstanceOf(OperationRefused);
+              if (failure instanceof OperationRefused) {
                 expect(failure.category).toBe("conflict");
                 expect(failure.detail).toContain("axm sync");
                 expect(failure.detail).toContain(row.name);

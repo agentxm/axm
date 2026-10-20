@@ -10,8 +10,8 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
+import { OperationRefused } from "@agentxm/workspace-kernel/operations";
 
-import { WorkspaceSyncFailed } from "@agentxm/workspace-kernel/reconciliation";
 import { applySync, makeSyncFixture } from "../testing/sync-fixture.js";
 
 /** A local Knowledge package under `<root>/vendor/<name>`, as a source to acquire. */
@@ -84,8 +84,8 @@ describe("Reconciliation reports an unreadable Knowledge bundle", () => {
 
           const before = workspace.snapshot();
           const refusal = yield* applySync().pipe(Effect.flip);
-          expect(refusal).toBeInstanceOf(WorkspaceSyncFailed);
-          if (refusal instanceof WorkspaceSyncFailed) {
+          expect(refusal).toBeInstanceOf(OperationRefused);
+          if (refusal instanceof OperationRefused) {
             expect(refusal.detail).toContain("other-notes");
             expect(refusal.detail).toContain("repeat its install to restore accepted content");
           }

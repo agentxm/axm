@@ -32,9 +32,9 @@ import {
   makeFileRegistry,
   makeSyncFixture,
   previewSync,
-  writeLocalSkillPackage,
   type SyncFixture,
 } from "../testing/sync-fixture.js";
+import { writeLocalSkillPackage } from "../testing/local-packages.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lockfile-rejections-name-recovery-routes",

@@ -30,9 +30,9 @@ import {
   expectResolved,
   makeSyncFixture,
   makeFileRegistry,
-  writeLocalSkillPackage,
   type SyncFixture,
 } from "../testing/sync-fixture.js";
+import { writeLocalSkillPackage } from "../testing/local-packages.js";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/realizes-desired-state",

@@ -13,12 +13,8 @@ import {
   makeRegistrySkillLockEntry,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 
-import {
-  applySync,
-  makeSyncFixture,
-  writeLocalSkillPackage,
-  type SyncFixture,
-} from "../testing/sync-fixture.js";
+import { applySync, makeSyncFixture, type SyncFixture } from "../testing/sync-fixture.js";
+import { writeLocalSkillPackage } from "../testing/local-packages.js";
 import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 
 export const specification = defineSpecification({

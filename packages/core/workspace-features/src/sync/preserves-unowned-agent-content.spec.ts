@@ -6,12 +6,8 @@ import { afterEach } from "vitest";
 import { countUnitStates } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import {
-  applySync,
-  expectResolved,
-  makeSyncFixture,
-  writeLocalSkillPackage,
-} from "../testing/sync-fixture.js";
+import { applySync, expectResolved, makeSyncFixture } from "../testing/sync-fixture.js";
+import { writeLocalSkillPackage } from "../testing/local-packages.js";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/preserves-unowned-agent-content",

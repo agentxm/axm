@@ -6,14 +6,9 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
 import { WorkspaceInvariantFacts } from "@agentxm/workspace-kernel/projection";
-import { writeLocalRulePackage } from "../testing/local-packages.js";
+import { writeLocalRulePackage, writeLocalSkillPackage } from "../testing/local-packages.js";
 import { SyncWorkspace } from "./sync-workspace.js";
-import {
-  applySync,
-  makeSyncFixture,
-  syncRequest,
-  writeLocalSkillPackage,
-} from "../testing/sync-fixture.js";
+import { applySync, makeSyncFixture, syncRequest } from "../testing/sync-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/no-op-convergence-validates-current-observation",

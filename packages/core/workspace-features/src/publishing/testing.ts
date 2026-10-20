@@ -101,17 +101,6 @@ export interface AuthoredExtensionFixture {
   readonly dependencies?: Readonly<Record<string, string>>;
 }
 
-/** The settings key each publishable type declares its authored entry under. */
-export const authoredSettingsKey = {
-  skill: "skills",
-  "mcp-server": "mcpServers",
-  subagent: "subagents",
-  rule: "rules",
-  hook: "hooks",
-  knowledge: "knowledge",
-  pack: "packs",
-} as const satisfies Record<PublishableType, string>;
-
 const manifestBody = (
   type: PublishableType,
   fixture: AuthoredExtensionFixture,
@@ -217,9 +206,10 @@ const contentFiles = (
  * the package root and, for every type whose content is a document rather than
  * the manifest itself, the body under `src/`. Returns the package directory.
  *
- * Pair it with a settings entry — `{ [authoredSettingsKey[type]]: { [name]:
- * "workspace" } }` — so the workspace declares authorship of the package and
- * publish selection can reach it.
+ * Pair it with a settings entry — `{ [SETTINGS_ENTRY_KEYS[type]]: { [name]:
+ * "workspace" } }`, the key table coming from the kernel's workspace state —
+ * so the workspace declares authorship of the package and publish selection
+ * can reach it.
  */
 export const writeAuthoredExtension = (
   workspaceRoot: string,

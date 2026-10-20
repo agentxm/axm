@@ -3,10 +3,11 @@ import * as Equal from "effect/Equal";
 import * as Predicate from "effect/Predicate";
 import { prepareDocumentRoundTrip, type DocumentRoundTripContext } from "../document-round-trip.js";
 import { SettingsWriteError } from "./errors.js";
+import { SETTINGS_ENTRY_KEYS } from "./schema.js";
 
 export type SettingsRoundTripContext = DocumentRoundTripContext;
 
-const entryMaps = ["skills", "mcpServers", "subagents", "rules", "hooks", "knowledge", "packs"];
+const entryMaps: ReadonlyArray<string> = Object.values(SETTINGS_ENTRY_KEYS);
 const parse = (raw: string): Record<string, unknown> | undefined => {
   try {
     const value: unknown = JSON.parse(raw);

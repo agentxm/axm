@@ -17,7 +17,6 @@ import { PUBLISHABLE_TYPES, type PublishableType } from "./publishable-types.js"
 import {
   FIXTURE_OWNER,
   PublishPortsTest,
-  authoredSettingsKey,
   makePublishTarget,
   publishRequest,
   writeAuthoredExtension,
@@ -54,9 +53,6 @@ describe("./testing.js", () => {
           name: "review",
           version: "1.0.0",
         });
-        // Every settings key a fixture declares its authored entry under is a
-        // real key of the seven-type table, not a guess per test.
-        expect(typeof authoredSettingsKey[type]).toBe("string");
       }
 
       const target = makePublishTarget(workspaceRoot);

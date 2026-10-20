@@ -14,7 +14,7 @@ import type { GitDirectoryComparisonService } from "@agentxm/workspace-kernel/so
 import { normalizeTypePublishSelection, type PublishRequest } from "../publish/model.js";
 import type { PublishResultItem } from "../publish/result.js";
 import type { PublishableType } from "../publishable-types.js";
-import { authoredSettingsKey } from "../testing.js";
+import { SETTINGS_ENTRY_KEYS } from "@agentxm/workspace-kernel/workspace-state";
 import {
   makePublishWorld,
   publishDocument,
@@ -318,7 +318,7 @@ describe("Versions the Registry already has", () => {
     it.effect(`explicitly naming an existing ${type.type} version is a successful skip`, () =>
       Effect.gen(function* () {
         const world = makePublishWorld({
-          settings: { [authoredSettingsKey[type.type]]: { review: { source: "workspace" } } },
+          settings: { [SETTINGS_ENTRY_KEYS[type.type]]: { review: { source: "workspace" } } },
         });
         worlds.push(world);
         world.write(type.type, { name: "review" });

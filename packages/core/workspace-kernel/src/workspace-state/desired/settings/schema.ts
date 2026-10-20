@@ -22,6 +22,7 @@ import {
   ExtensionVisibilitySchema,
   EXTENSION_NAME_PATTERN,
 } from "@agentxm/extension-model/unstable/extensions/common";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions/fqn-pattern";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
 import { RegistryEndpointFromString } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
@@ -1366,6 +1367,21 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "mcpServersConfig",
   "lint",
 ];
+
+/**
+ * The settings key each installable extension type's entries are declared
+ * under. The lockfile records each type's accepted resolutions under the same
+ * key.
+ */
+export const SETTINGS_ENTRY_KEYS = {
+  skill: "skills",
+  "mcp-server": "mcpServers",
+  subagent: "subagents",
+  rule: "rules",
+  hook: "hooks",
+  knowledge: "knowledge",
+  pack: "packs",
+} as const satisfies Record<InstallableExtensionType, keyof Settings>;
 
 /**
  * AXM settings configuration schema.

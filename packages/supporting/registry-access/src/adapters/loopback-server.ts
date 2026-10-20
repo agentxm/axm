@@ -27,7 +27,7 @@ export class LoopbackCallbackRejected extends Data.TaggedError("LoopbackCallback
   readonly message: string;
 }> {}
 
-export interface LoopbackServer {
+interface LoopbackServer {
   readonly port: number;
   readonly redirectUri: string;
   readonly complete: Effect.Effect<void>;

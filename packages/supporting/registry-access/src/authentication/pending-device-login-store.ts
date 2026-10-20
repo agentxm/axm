@@ -20,7 +20,7 @@ import {
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { RegistryAccessFailed } from "./errors.js";
 
-export const PendingDeviceLoginSchema = Schema.Struct({
+const PendingDeviceLoginSchema = Schema.Struct({
   version: Schema.Literal(3),
   registryUrl: Schema.String,
   deviceCode: Schema.String,

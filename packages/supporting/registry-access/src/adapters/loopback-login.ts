@@ -33,12 +33,12 @@ const UNKNOWN_HANDLE = normalizeHandle("@unknown");
 const LOOPBACK_TIMEOUT_MINUTES = 5;
 const LOOPBACK_TIMEOUT = Duration.minutes(LOOPBACK_TIMEOUT_MINUTES);
 
-export const makePkceVerifier = (): string => randomBytes(64).toString("base64url");
+const makePkceVerifier = (): string => randomBytes(64).toString("base64url");
 
-export const makePkceChallenge = (verifier: string): string =>
+const makePkceChallenge = (verifier: string): string =>
   createHash("sha256").update(verifier).digest("base64url");
 
-export const makeOAuthState = (): string => randomBytes(32).toString("base64url");
+const makeOAuthState = (): string => randomBytes(32).toString("base64url");
 
 const persistLoginCredentials = (endpoint: HttpRegistryEndpoint, token: NormalizedTokenResponse) =>
   Effect.gen(function* () {

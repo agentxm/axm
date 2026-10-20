@@ -19,7 +19,7 @@ import { credentialKey } from "../credentials/credential-key.js";
 import type { SelectedRegistry } from "./selected-registry.js";
 
 /** What one `logout` invocation settled on. */
-export type LogoutOutcome =
+type LogoutOutcome =
   | { readonly _tag: "NotSignedIn"; readonly registryHost: string }
   | {
       readonly _tag: "SignedOut";

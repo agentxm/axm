@@ -16,10 +16,8 @@ import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle
 
 import { AuthClient } from "./auth-client.js";
 import type { TokenPermissions } from "./tokens/permissions.js";
-import { CredentialStore } from "../credentials/credential-store.js";
 import { isRejectedCredential, signedOut } from "./errors.js";
 import { hasRequestCredential, resolveRequiredToken } from "../credentials/token-resolution.js";
-import type { WorkloadCredentials } from "../credentials/workload-credentials.js";
 import type { SelectedRegistry } from "./selected-registry.js";
 import type {
   HttpRegistryEndpoint,
@@ -27,7 +25,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 /** The Registry's canonical answer to "who is this credential". */
-export interface RegistryIdentity {
+interface RegistryIdentity {
   readonly user: Handle;
   readonly registry: string;
   readonly credentialType: string;
@@ -101,6 +99,3 @@ export const currentToken = Effect.fn("Identity.currentToken")(function* (
   const token = yield* resolveRequiredToken(registry.endpoint, registry.defaultEndpoint);
   return token.token;
 });
-
-/** Every member keeps these in `R`; declared for the reader. */
-export type IdentityRequirements = AuthClient | CredentialStore | WorkloadCredentials;

@@ -5,44 +5,22 @@
  * @packageDocumentation
  */
 
-export type {
-  CredentialEntry,
-  CredentialFile,
-  StorageTier,
-  StoredCredentials,
-  TokenSource,
-} from "./schema.js";
-export {
-  CredentialEntrySchema,
-  CredentialFileSchema,
-  CredentialStoreTokenSource,
-  EnvVarTokenSource,
-  FileTokenSource,
-  RegistryAccountsSchema,
-  WorkloadTokenSource,
-} from "./schema.js";
-
-export type { CredentialStoreService, EnvironmentInfo } from "./credential-store.js";
-export {
-  canUsePersistedCredentials,
-  CredentialStore,
-  detectEnvironment,
-  makePersistedCredentialsUnsupportedError,
-  selectTier,
-} from "./credential-store.js";
+export type { CredentialStoreService } from "./credential-store.js";
+export { CredentialStore } from "./credential-store.js";
 
 export {
   ambientCredentialSource,
   getCurrentUserHandle,
   resolveRequestToken,
-  resolveRequiredToken,
-  resolveStoredToken,
   type AmbientCredentialSource,
 } from "./token-resolution.js";
-export { credentialKey, type CredentialKey } from "./credential-key.js";
+export { credentialKey } from "./credential-key.js";
 export { hasCredentialsForAll } from "./login-suggestion.js";
 
+// Dependents' inferred layer and use-case types require these services, so
+// their declaration emit must be able to name them; knip skips exports tagged
+// public.
+/** @public */
 export { SessionRefresher } from "./session-refresh.js";
-
-export type { WorkloadCredentialsService } from "./workload-credentials.js";
-export { GitHubActionsIdentity, WorkloadCredentials } from "./workload-credentials.js";
+/** @public */
+export { WorkloadCredentials } from "./workload-credentials.js";

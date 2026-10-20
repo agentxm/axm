@@ -87,7 +87,7 @@ const TRANSIENT_DEVICE_POLL_RETRY_BASE_DELAY = "250 millis";
 // Response types
 // -----------------------------------------------------------------------------
 
-export interface DeviceFlowResponse {
+interface DeviceFlowResponse {
   readonly device_code: string;
   readonly user_code: string;
   readonly verification_uri: string;
@@ -133,7 +133,7 @@ export interface TokenPermissionsRequest {
   readonly permission: "read" | "publish" | "admin";
 }
 
-export interface CreateTokenParams {
+interface CreateTokenParams {
   readonly name: string;
   readonly expiresIn: number;
   readonly permissions: TokenPermissionsRequest;
@@ -148,7 +148,7 @@ export interface CreatedTokenResponse {
   readonly expiresAt: DateTime.Utc;
 }
 
-export interface TokenListItem {
+interface TokenListItem {
   readonly id: string;
   readonly name: string | null;
   readonly type: string;
@@ -158,20 +158,23 @@ export interface TokenListItem {
   readonly lastUsedAt: DateTime.Utc | null;
 }
 
+// listTokens infers this type, so its declaration emit must be able to name
+// it; knip skips exports tagged public.
+/** @public */
 export interface TokenListResponse {
   readonly tokens: ReadonlyArray<TokenListItem>;
   readonly hasMore: boolean;
   readonly cursor: string | null;
 }
 
-export interface BuildAuthorizeUrlParams {
+interface BuildAuthorizeUrlParams {
   readonly challenge: string;
   readonly expiresAt?: DateTime.Utc;
   readonly state: string;
   readonly redirectUri: string;
 }
 
-export interface ExchangePkceCodeParams {
+interface ExchangePkceCodeParams {
   readonly code: string;
   readonly verifier: string;
   readonly redirectUri: string;
@@ -283,7 +286,7 @@ export interface TokenExchangeService {
 }
 
 /** The workload token a token exchange issued. */
-export interface WorkloadTokenGrant {
+interface WorkloadTokenGrant {
   readonly access_token: string;
   readonly expires_at: DateTime.Utc;
 }

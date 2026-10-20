@@ -243,6 +243,3 @@ export type AuthError = RegistryAccessFailure | RegistryClientFailure;
  */
 export const isRejectedCredential = (error: unknown): boolean =>
   isRegistryClientFailure(error) && error.metadata?.response?.status === 401;
-
-export const isAuthError = (error: unknown): error is AuthError =>
-  isRegistryAccessFailure(error) || isRegistryClientFailure(error);

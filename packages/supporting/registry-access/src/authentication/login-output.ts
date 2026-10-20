@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 
-export const LoginResultSchema = Schema.Struct({
+const LoginResultSchema = Schema.Struct({
   status: Schema.Literal("logged-in"),
   registryHost: Schema.String,
   handle: Schema.optional(Schema.String),
@@ -16,7 +16,6 @@ const LoginDocumentFields = {
 } satisfies Schema.Struct.Fields;
 export const LoginDocumentSchema = Schema.Struct(LoginDocumentFields);
 export type LoginResult = typeof LoginResultSchema.Type;
-export type LoginDocument = typeof LoginDocumentSchema.Type;
 
 /** Who a sign-in signed in as, read from the Registry once credentials are issued. */
 export interface LoginIdentity {

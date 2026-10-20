@@ -256,14 +256,17 @@ the few dependency exceptions that static analysis cannot establish. Stale
 configuration hints fail the check. Acquired Agent Skill packages retain their
 own validation boundary.
 
-The gate also covers unused exports and exported types, package by package.
-A private package joins once its unused exports are pruned: its workspace entry
-sets `includeEntryExports`, so its entry points are checked too, and its paths
-leave the `ignoreIssues` list of packages still pending. A type that dependents
-must name only for declaration emit carries a `@public` tag at its entry
-export. Member and duplicate reports remain available through the same target
-with `--include=enumMembers,namespaceMembers,duplicates`; review those findings
-against the published API before pruning. The compiler and ESLint continue to
+The gate also covers unused exports and exported types in every package.
+Private packages have their entry points checked too (`includeEntryExports`);
+the published packages turn that off because their entry points are public API,
+so only their internal module exports are checked. An export consumed only
+where Knip cannot trace it carries a `@public` tag that says why: a type
+dependents must name for declaration emit, a configuration file another tool
+loads, or a declaration a check reads from source. Generated clients,
+type-test assertions, and the lint-staged configuration of the commit-index
+template, which other workspaces copy unchanged, are exempt. Member and
+duplicate reports remain available through the same target with `--include=enumMembers,namespaceMembers,duplicates`;
+review those findings against the published API before pruning. The compiler and ESLint continue to
 own unused local bindings. Knip does not replace architectural dependency or
 cycle enforcement.
 

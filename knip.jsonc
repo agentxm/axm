@@ -16,18 +16,22 @@
     "exports",
     "types",
   ],
-  // Unused exports are gated per package once it has been pruned: private
-  // packages also report their entry exports (includeEntryExports below).
-  // Every location listed here is still pending that pruning; remove an entry
-  // when its package is clean. Generated clients mirror their contracts whole.
+  // Private packages are internal, so their entry exports must be used too. The
+  // published packages turn this off below: their entry points are public API.
+  // An export that only something knip cannot trace consumes, such as a type
+  // dependents name in emitted declarations or a configuration file another
+  // tool loads, carries a @public tag.
+  "includeEntryExports": true,
+  // Generated clients mirror their contracts whole.
   "ignoreIssues": {
-    "*.{ts,mts,cts,js,mjs,cjs}": ["exports", "types"],
-    "{benchmarks,scripts,specifications}/**": ["exports", "types"],
     "apps/cli/src/telemetry/__generated__/**": ["exports", "types"],
     "packages/supporting/registry-client/src/__generated__/**": ["exports", "types"],
     // Type tests export their compile-time assertions so the compiler checks
     // them without reporting unused locals; nothing imports them.
     "**/*.type-test.ts": ["exports", "types"],
+    // lint-staged loads this default export. The file belongs to the staged-check
+    // template other workspaces copy unchanged, so it carries no knip tag.
+    "scripts/check-staged.config.mjs": ["exports"],
   },
   // Nx infers each project's compiler target; the dual compiler aliases are
   // enforced separately by scripts/typescript-aliases.test.ts.
@@ -69,44 +73,26 @@
       },
     },
     "packages/core/extension-model": {
+      "includeEntryExports": false,
       "entry": ["src/**/*.type-test.ts"],
+    },
+    "packages/core/extension-content": {
+      "includeEntryExports": false,
+    },
+    "packages/core/registry-protocol": {
+      "includeEntryExports": false,
+    },
+    "tools/specification-metadata": {
+      "includeEntryExports": false,
     },
     "packages/core/workspace-features": {
-      "includeEntryExports": true,
       "entry": ["src/**/*.type-test.ts"],
     },
-    "packages/generic/host-primitives": {
-      "includeEntryExports": true,
-    },
-    "packages/supporting/registry-client": {
-      "includeEntryExports": true,
-    },
-    "packages/supporting/cli-maintenance": {
-      "includeEntryExports": true,
-    },
-    "packages/supporting/registry-access": {
-      "includeEntryExports": true,
-    },
-    "packages/core/extension-kinds": {
-      "includeEntryExports": true,
-    },
-    "apps/cli-e2e": {
-      "includeEntryExports": true,
-    },
-    "tools/e2e-utils": {
-      "includeEntryExports": true,
-    },
-    "tools/test-reporting": {
-      "includeEntryExports": true,
-    },
-    "tools/test-support": {
-      "includeEntryExports": true,
-    },
     "packages/core/workspace-kernel": {
-      "includeEntryExports": true,
       "entry": ["src/**/*.type-test.ts"],
     },
     "apps/cli": {
+      "includeEntryExports": false,
       // Explicit roots for source-conditioned Bun launchers.
       "entry": [
         "src/main.ts",
@@ -120,7 +106,6 @@
       "ignoreDependencies": ["@effect/platform-node-shared"],
     },
     "tools/extension-type-parity": {
-      "includeEntryExports": true,
       "entry": ["scripts/generate-e2e-extension-matrix.ts"],
     },
   },

@@ -53,7 +53,7 @@ const captureWithOptions = (
  * Unbuffered stderr, so CI job logs timestamp each command rather than the
  * whole script, and captured stdout stays clean.
  */
-export const printCommand = (command: string, args: readonly string[]) => {
+const printCommand = (command: string, args: readonly string[]) => {
   process.stderr.write(
     `\n==> [+${Math.round(performance.now())}ms] ${command} ${args.join(" ")}\n`,
   );

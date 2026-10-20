@@ -1,4 +1,4 @@
-export interface VersionedReleaseCandidate<Context> {
+interface VersionedReleaseCandidate<Context> {
   readonly version: string;
   readonly context: Context;
 }

@@ -16,7 +16,7 @@ import {
 
 export type VerdictSource = SpecificationSource;
 
-export type EvidenceStatus = "fresh" | "stale" | "missing" | "partial" | "unverified";
+type EvidenceStatus = "fresh" | "stale" | "missing" | "partial" | "unverified";
 export interface EvidenceAssessment {
   readonly source: string;
   readonly boundary: string;
@@ -32,7 +32,7 @@ export interface EvidenceAssessment {
  * and `revised-evidence` change no contract; `implementation-impact` marks
  * an unchanged requirement whose evidence inputs changed.
  */
-export type RequirementChange =
+type RequirementChange =
   | "added"
   | "removed"
   | "revised-contract"
@@ -41,13 +41,13 @@ export type RequirementChange =
   | "revised-evidence"
   | "implementation-impact";
 
-export const DISPOSITIONS = [
+const DISPOSITIONS = [
   "converted-to-test",
   "engineering-policy",
   "retired",
   "superseded-by",
 ] as const;
-export type Disposition = (typeof DISPOSITIONS)[number];
+type Disposition = (typeof DISPOSITIONS)[number];
 
 /** One explained removal: why an identity no longer states a requirement. */
 export interface DispositionEntry {
@@ -73,7 +73,7 @@ const DispositionEntrySchema = Schema.Struct({
   ),
 );
 
-export const DispositionLedgerSchema = Schema.Array(DispositionEntrySchema);
+const DispositionLedgerSchema = Schema.Array(DispositionEntrySchema);
 
 export const parseDispositionLedger = (
   text: string,
@@ -91,13 +91,13 @@ export const parseDispositionLedger = (
   return { ledger: decoded.success, issues: [] };
 };
 
-export interface RemovalExplanation {
+interface RemovalExplanation {
   readonly disposition: Disposition;
   readonly successor?: string;
   readonly basis: string;
 }
 
-export interface AffectedRequirement {
+interface AffectedRequirement {
   readonly requirement: string;
   readonly title: string;
   readonly change: RequirementChange;
@@ -132,7 +132,7 @@ export interface VerdictEvidence {
  * binding declares what the requirement counts as verification, so it
  * belongs to the contract, never to evidence maintenance.
  */
-export const metadataDigest = (specification: CatalogSpecification): string =>
+const metadataDigest = (specification: CatalogSpecification): string =>
   digestContent(
     JSON.stringify({
       metadata: specification.metadata,

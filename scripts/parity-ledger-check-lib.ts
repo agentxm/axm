@@ -29,7 +29,7 @@ const SEED_MARKER = /^\s*seed:\s*true\s*,?\s*$/gm;
 export const countSeedRows = (source: string): number =>
   Array.from(source.matchAll(SEED_MARKER)).length;
 
-export interface LedgerComparison {
+interface LedgerComparison {
   readonly baseline: number | null;
   readonly current: number;
   readonly baselineRef: string | null;
@@ -67,7 +67,7 @@ const git = (repoRoot: string, args: ReadonlyArray<string>): string | null => {
  * Returns `null` when neither is available, which the caller reports as a
  * skipped comparison rather than a failure.
  */
-export const resolveBaselineRef = (repoRoot: string): string | null => {
+const resolveBaselineRef = (repoRoot: string): string | null => {
   for (const branch of ["origin/main", "main"]) {
     const mergeBase = git(repoRoot, ["merge-base", "HEAD", branch])?.trim();
     if (mergeBase !== undefined && mergeBase.length > 0) {
@@ -82,7 +82,7 @@ export const resolveBaselineRef = (repoRoot: string): string | null => {
 };
 
 /** The ledger as of `ref`, or `null` when the file does not exist there. */
-export const readLedgerAt = (repoRoot: string, ref: string): string | null =>
+const readLedgerAt = (repoRoot: string, ref: string): string | null =>
   git(repoRoot, ["show", `${ref}:${LEDGER_PATH}`]);
 
 export const checkParityLedger = (repoRoot: string): LedgerCheckResult => {

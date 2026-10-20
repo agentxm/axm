@@ -1,5 +1,6 @@
 import { defineConfig } from "allure";
 
+/** @public Allure loads this configuration. */
 export default defineConfig({
   name: "AXM Test Report",
   output: "test-results/allure-report",

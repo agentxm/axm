@@ -5,7 +5,7 @@ import { gt, valid } from "semver";
 import { SupersededRelease } from "./release-publication.js";
 import { EXPECTED_RELEASE_ASSETS } from "./release-checksums.js";
 
-export const LATEST_RELEASE_KEY = "latest.txt";
+const LATEST_RELEASE_KEY = "latest.txt";
 
 export class ReleaseStorageError extends Data.TaggedError("ReleaseStorageError")<{
   readonly operation: string;

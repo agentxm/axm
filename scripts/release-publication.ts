@@ -401,7 +401,7 @@ export const publishImmutable = async (input: {
   return outcome.outcome;
 };
 
-export class ImmutablePublicationFailed extends Data.TaggedError("ImmutablePublicationFailed")<{
+class ImmutablePublicationFailed extends Data.TaggedError("ImmutablePublicationFailed")<{
   readonly name: string;
   readonly phase: "preflight" | "publication";
   readonly cause: unknown;
@@ -575,7 +575,7 @@ export class NpmPackagesUninitialized extends Data.TaggedError("NpmPackagesUnini
   }
 }
 
-export class NpmPackageQueryFailed extends Data.TaggedError("NpmPackageQueryFailed")<{
+class NpmPackageQueryFailed extends Data.TaggedError("NpmPackageQueryFailed")<{
   readonly packageName: string;
   readonly cause: unknown;
 }> {

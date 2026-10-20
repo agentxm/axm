@@ -11,6 +11,8 @@ import { defineProductGoals } from "@agentxm/specification-metadata";
  * Requirements review walks both registries: a retired goal makes its
  * referencing specifications retirement candidates, and an active goal with
  * no referencing specification identifies missing coverage or a dead goal.
+ *
+ * @public The specification catalog reads this exported literal from source.
  */
 export const productGoals = defineProductGoals({
   "workspace-intent-fidelity": {

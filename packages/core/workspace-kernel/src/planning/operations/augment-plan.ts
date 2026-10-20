@@ -17,7 +17,7 @@ import type { LockfileState } from "../../workspace-state/index.js";
 // Types
 // -----------------------------------------------------------------------------
 
-export type DegradedLockfileState = Exclude<LockfileState, "ok">;
+type DegradedLockfileState = Exclude<LockfileState, "ok">;
 
 export interface AugmentedPlanResult<Requirements = never, Output = never> {
   readonly plan: Plan<Requirements, Output>;

@@ -49,7 +49,7 @@ const Sha256 = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u));
 const Syntax = Schema.String.check(Schema.isPattern(/^[\s{}[\],:]*$/u));
 
 /** Offsets and lengths address the post-insertion text; no config values are stored. */
-export const StructuralInverseSchema = Schema.Struct({
+const StructuralInverseSchema = Schema.Struct({
   beforeSha256: Sha256,
   afterSha256: Sha256,
   edits: Schema.Array(

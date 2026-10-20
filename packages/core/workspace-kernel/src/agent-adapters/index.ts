@@ -15,24 +15,14 @@
  */
 
 // Detection (effectful)
-export {
-  invalidNativeConfig,
-  parseNativeConfigRoot,
-  type NativeConfigRootFailure,
-} from "./native-config-syntax.js";
-export { preflightNativeConfigReaders, type NativeConfigReader } from "./native-config-readers.js";
+export { invalidNativeConfig, parseNativeConfigRoot } from "./native-config-syntax.js";
+export { preflightNativeConfigReaders } from "./native-config-readers.js";
 export {
   AgentExecutableResolver,
   AgentDetectionRoots,
-  detectAgent,
-  detectAgentInRoot,
   detectAgentScopeResults,
-  detectAgentScopes,
-  detectAgents,
   detectAgentsForScope,
-  detectAgentsInRoot,
   type AgentScopeDetection,
-  type AgentExecutableResolverService,
 } from "./detection.js";
 export {
   AgentPresenceProbe,
@@ -51,7 +41,6 @@ export {
   McpSharedTargetConflict,
   SubagentIoFailed,
   WriteBackupRetained,
-  type AgentAdapterError,
   type CodingAgentFailure,
   type NativeFormatFailure,
 } from "./errors.js";
@@ -61,50 +50,33 @@ export {
   NativeWriteAuthority,
   NativeWriteRefused,
   type NativeWriteAuthorityService,
-  type NativeWriteRecord,
   type NativeInsertionCapture,
-  type NativeDirectoryCapture,
   type NativeInsertionTarget,
-  type NativeInsertionResolution,
 } from "./native-write-authority.js";
 
 // Constants (path helpers)
-export { getConfigHome } from "./constants.js";
-
 // Scope wording
-export { userScopeRefusal, type UserScopedExtension } from "./scope-refusal.js";
+export { userScopeRefusal } from "./scope-refusal.js";
 
 // Coding-agent adapters
 export {
-  type AddMcpServerArgs,
   type AddSubagentArgs,
   type CodingAgent,
   type McpServerSyncOutcome,
   type McpServerSyncTarget,
-  type NativeArtifactChange,
-  type RemoveMcpServerArgs,
   type RemoveSubagentArgs,
-  type ResolveSkillsDirArgs,
-  type ResolveSkillsDirOutcome,
-  type ResolveSubagentsDirArgs,
-  type ResolveSubagentsDirOutcome,
-  type SubagentRemovalDecision,
-  type SubagentSyncOutcome,
   type SubagentWriteDecision,
 } from "./agents/coding-agent.js";
 export { codingAgentForId, codingAgentFromDescriptor } from "./agents/adapters.js";
 
 // Region fence grammar and pure managed-region edits
 export {
-  FENCE_TEXT,
   fenceSyntaxForTarget,
   isRegionName,
   REGION_NAMES,
   scanFences,
   scanUnknownFences,
-  serializeFence,
   type FenceLine,
-  type FenceSyntax,
   type RegionName,
 } from "./region-fences.js";
 export {
@@ -113,43 +85,16 @@ export {
   verifyRenderedRegion,
   type ManagedRegionProblem,
   type ManagedRegionState,
-  type WritableManagedRegionState,
 } from "./managed-regions.js";
-export {
-  reconcilePatternList,
-  type PatternListReconciliation,
-} from "./managed-regions-pattern-list.js";
+export { reconcilePatternList } from "./managed-regions-pattern-list.js";
 
 // Subagent rendering and native publication
+export { renderSubagent } from "./subagents/rendering/index.js";
 export {
-  buildRooModeEntry,
-  mergeRooModes,
-  removeRooMode,
-  renderSubagent,
-  rendered,
-  selectSubagentRenderer,
-  skipped,
-  splitBody,
-  type RooModeEntry,
-  type RooModeResult,
-} from "./subagents/rendering/index.js";
-export {
-  type LossyRenderingWarning,
-  type SubagentRendered,
-  type SubagentRenderer,
   type SubagentRenderInput,
-  type SubagentRenderOutcome,
   type SubagentRenderOutput,
-  type SubagentSkipped,
 } from "./subagents/rendering/types.js";
-export {
-  addSubagentViaResolve,
-  dirOutcomeToSubagentSyncOutcome,
-  removeSubagentFiles,
-  removeSubagentViaResolve,
-  writeSubagentFiles,
-  type SubagentSyncFailure,
-} from "./subagents/sync.js";
+export { removeSubagentFiles } from "./subagents/sync.js";
 
 // MCP native format
 export {
@@ -157,25 +102,15 @@ export {
   renderEnvValue,
   normalizeNativeMcpEnvValue,
   type ExpectedAgentEntry,
-  type InlineRemoteTransport,
   type McpServerDeclaration,
-  type ProjectExpectedEntryArgs,
 } from "./mcps/expected-entry.js";
-export { resolveMcpInvocation, type McpInvocationResolution } from "./mcps/resolution.js";
+export { resolveMcpInvocation } from "./mcps/resolution.js";
 export {
   removeAgentMcpConfig,
   retireAgentMcpConfig,
   validateAgentMcpConfigWrite,
-  validateAgentMcpConfigRemovals,
-  removeAgentMcpConfigs,
-  type RemoveAgentMcpConfigsArgs,
   writeAgentMcpConfig,
   type AgentMcpConfigEntryRef,
-  type AgentMcpConfigWriteResult,
-  type AgentMcpConfigWriteTarget,
-  type RemoveAgentMcpConfigArgs,
-  type RetireAgentMcpConfigArgs,
-  type WriteAgentMcpConfigArgs,
 } from "./mcps/config-writer.js";
 export {
   decodeJsonMcpConfig,
@@ -184,45 +119,20 @@ export {
   readNativeMcpServers,
   readNativeMcpValues,
   resolveAgentMcpConfigTargetPath,
-  type DecodedJsonMcpConfig,
-  type NativeMcpConfigRead,
 } from "./mcps/native-config.js";
-export {
-  manifestInputs,
-  mcpInputVariables,
-  mcpInputId,
-  resolveMcpInputs,
-  substituteMcpVariables,
-  type ManifestInput,
-  type McpInputFinding,
-  type ResolvedMcpInputs,
-} from "./mcps/inputs.js";
+export { manifestInputs, mcpInputVariables, mcpInputId, resolveMcpInputs } from "./mcps/inputs.js";
 export { decodeMcpServerManifestAt, readMcpServerManifestAt } from "./mcps/manifest.js";
 export {
   planMcpServerTargets,
   unresolvedMcpAgentTargets,
   type McpAgentTargetPlan,
-  type McpTargetPlan,
-  type McpTargetWrite,
-  type PlanMcpServerTargetsArgs,
 } from "./mcps/target-plan.js";
-export {
-  resolveSharedMcpTarget,
-  type ResolvedSharedMcpTarget,
-  type SharedMcpTargetConflict,
-  type SharedMcpTargetMember,
-  type SharedMcpTargetResolution,
-  type SharedMcpTransport,
-  type ResolvedMcpConfig,
-} from "./mcps/shared-target.js";
+export { resolveSharedMcpTarget } from "./mcps/shared-target.js";
 export {
   configuredMcpCapability,
   declaredMcpWriterTargets,
-  groupConfiguredMcpTargets,
   resolveConfiguredMcpTargets,
   isConfigurableAgentId,
-  isConfiguredMcpCapability,
-  type ConfiguredMcpCapability,
   type McpTargetGroup,
 } from "./mcps/targeting.js";
 export {
@@ -231,44 +141,30 @@ export {
   syncManifestMcpServerToAgents,
   syncPluginMcpServerToAgents,
   validatePluginMcpServerTargets,
-  type SyncPluginMcpServerArgs,
-  type ValidatePluginMcpServerTargetsArgs,
   validateManifestMcpServerTargets,
   validateInlineMcpServerTargets,
   type SyncInlineMcpServerArgs,
-  type SyncManifestMcpServerArgs,
-  type ValidateManifestMcpServerTargetsArgs,
 } from "./mcps/sync.js";
 
 // Hook-group editing
-export { reconcileNativeHookConfig, type NativeHookConfigArgs } from "./hooks/native-config.js";
+export { reconcileNativeHookConfig } from "./hooks/native-config.js";
 export {
   isDeclaredHookEntry,
-  declaredHookUnits,
   readDeclaredHookUnits,
   readDeclaredHookGroups,
-  selectDeclaredHookGroups,
   updateHooksJson,
-  type DeclaredHookUnit,
   type HookNativeDeclaration,
 } from "./hooks/managed-groups.js";
 
 // Codec wrappers used by the native writers
-export { deleteYamlEntry, parseYaml, readYamlEntry, setYamlEntry, setYamlScalar } from "./yaml.js";
+export { readYamlEntry } from "./yaml.js";
 
 // Transient backup for native rewrites
-export {
-  createTransientFileBackup,
-  removeTransientFileBackup,
-  runWithTransientFileBackup,
-  TransientBackupFailed,
-  type TransientFileBackup,
-} from "./transient-backup.js";
+export { TransientBackupFailed } from "./transient-backup.js";
 
 export {
   McpValueSchema,
   McpConnectionSchema,
-  McpWorkingDirectorySchema,
   McpAuthSchema,
   McpDistributionSchema,
   McpBindingSchema,
@@ -280,18 +176,14 @@ export {
   type McpAuth,
   type McpDistribution,
   type McpBinding,
-  type McpConnectionFinding,
 } from "./mcps/connection.js";
 
 export {
-  normalizeMcpDistribution,
   mcpDistributionId,
   mcpDistributionCandidates,
   mcpDistributionDestination,
   selectMcpDistribution,
   mcpRunner,
-  type McpDistributionCandidate,
-  type McpDistributionSelection,
 } from "./mcps/distribution.js";
-export { readPluginMcpDefinition, type PluginMcpDefinition } from "./mcps/plugin-definition.js";
+export { readPluginMcpDefinition } from "./mcps/plugin-definition.js";
 export { renderNativeHookGroup } from "./hooks/native-entry.js";

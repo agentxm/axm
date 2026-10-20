@@ -28,10 +28,10 @@ import {
 } from "../workspace-state/index.js";
 import { desiredPackageKey } from "../workspace-state/index.js";
 
-export const EXTENSION_CONSTRAINT_INVARIANT_PREDICATE =
+const EXTENSION_CONSTRAINT_INVARIANT_PREDICATE =
   "workspace/extension-constraints-satisfied" as const;
 
-export interface ExtensionConstraintFactContributor extends CanonicalConstraintContributor {
+interface ExtensionConstraintFactContributor extends CanonicalConstraintContributor {
   readonly authority?: PackDependencyAuthority;
 }
 

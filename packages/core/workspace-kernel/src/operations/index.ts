@@ -21,24 +21,17 @@ export {
   presentationOf,
   ArtifactMechanismSchema,
   PackMembershipDeltaSchema,
-  ConfirmableConsentSchema,
   OperationPreconditionSchema,
-  PlanPolicyIdSchema,
   PlanPolicyIds,
   PlanRiskConditionSchema,
 } from "./plan.js";
 export type {
-  ArtifactMechanism,
   BlockingClass,
   CompletedJobStep,
-  ConfirmableConsent,
-  ErrorJobStep,
-  ExecutedJob,
   ExecutedPlan,
   Job,
   JobStepArtifact,
   PackMembershipDelta,
-  JobStepArtifactSource,
   JobStepArtifactTarget,
   JobStepLastWrite,
   JobStepManagedRegion,
@@ -53,11 +46,9 @@ export type {
   PlanRiskCondition,
   PlannedJobStep,
   ReadyJobStep,
-  RegistryLifecycleEvidence,
   SourceSwitchEndpoint,
   SourceSwitchEvidence,
   SourceSwitchFamily,
-  PackMemberSourceSwitchDisposition,
   PackMemberSourceSwitchEndpoint,
   PackMemberSourceSwitchEvidence,
   UnitBlocking,
@@ -83,14 +74,10 @@ export {
 } from "./operation-resolution.js";
 export type {
   AtomicityClass,
-  MakeOperationResolutionArgs,
-  OperationAtomicity,
   OperationBlock,
   OperationFootprintEntry,
-  OperationInterruption,
   OperationOutcome,
   OperationPhase,
-  OperationRecovery,
   OperationResolution,
   ResolvedUnit,
   UnitDisposition,
@@ -107,8 +94,6 @@ export {
   getOperationJournal,
   makeOperationJournal,
   recordOperationJournal,
-  updateOperationJournal,
-  type OperationJournalService,
   type OperationJournalState,
 } from "./operation-journal.js";
 
@@ -118,8 +103,6 @@ export {
   OperationEventSchema,
   OperationLifecycle,
   OperationModeSchema,
-  ProgressAttemptSchema,
-  ProgressUnitSchema,
   SettledOutcomeSchema,
   awaitDrained,
   lifecycleEvents,
@@ -129,15 +112,11 @@ export {
   observeUnit,
   publishOperationEvent,
   publishPhaseStarted,
-  publishUnitProgress,
   publishWaitEnded,
   publishWaiting,
   settleOperation,
   subscribeLossless,
-  type ObservedUnit,
   type OperationEvent,
-  type OperationEventEncoded,
-  type OperationEventInput,
   type OperationLifecycleService,
   type OperationMode,
   type ProgressAttempt,
@@ -150,7 +129,6 @@ export {
 export {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
-  FailureActionSchema,
   FailureMetadataSchema,
   FailureProblemSchema,
   FailureSuggestedActionSchema,
@@ -179,19 +157,11 @@ export {
   type ApplyConfirmation,
   type ResolvePlanInteractionService,
 } from "./resolve-plan-interaction.js";
-export {
-  InterruptionSignalSource,
-  type InterruptionSignalSourceService,
-} from "./interruption-signal.js";
-export {
-  resolveInterruption,
-  type InterruptedInvocation,
-  type ObservedFootprintEntry,
-} from "./interruption-resolution.js";
+export { InterruptionSignalSource } from "./interruption-signal.js";
+export { resolveInterruption } from "./interruption-resolution.js";
 
 export {
   applyPlanExecution,
-  confirmableRiskApproval,
   confirmationRecoverySuggestions,
   namedPolicyRecoverySuggestions,
   credentialFreeLocatorRecoveryValue,
@@ -203,16 +173,10 @@ export {
   recoverySwitch,
   renderConfirmationRecoveryCommand,
   requestedPlanExecution,
-  unclassifiedRecoveryValue,
-  type ConfirmableRiskApproval,
   type ConfirmationRecovery,
   type ConfirmationRecoveryArgument,
-  type ConfirmationRecoveryValue,
   type ConfiguredAgentOperation,
   type PlanExecution,
-  type PlanExecutionRequest,
-  type RecoveryApproval,
-  type RequestedApproval,
   type RequestedPlanIntent,
 } from "./plan-execution.js";
 
@@ -237,6 +201,9 @@ export type {
   ReleaseAgeHoldbackRecord,
   ReleaseAgeOperationEvidence,
   ReleaseAgeRecord,
+  // Dependents' inferred install-graph types name this base, so their
+  // declaration emit must be able to; knip skips exports tagged public.
+  /** @public */
   ReleaseAgeRecordBase,
   SourceBindingProposal,
 } from "./evidence.js";

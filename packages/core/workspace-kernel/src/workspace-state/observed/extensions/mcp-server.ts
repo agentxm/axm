@@ -45,7 +45,7 @@ import {
 // Detection origin
 // ---------------------------------------------------------------------------
 
-export type McpServerDetectionOrigin =
+type McpServerDetectionOrigin =
   | { readonly _tag: "canonical-axm-mcp-server" }
   | { readonly _tag: "workspace-mcp-config" }
   | { readonly _tag: "agent-mcp-config"; readonly agentId: MaterializationTargetId };
@@ -54,17 +54,17 @@ export type McpServerDetectionOrigin =
 // Payloads
 // ---------------------------------------------------------------------------
 
-export interface DeclaredMcpServer {
+interface DeclaredMcpServer {
   readonly name: ExtensionName;
   readonly entry: McpServerEntry;
 }
-export type DeclaredMcpServers = ReadonlyArray<DeclaredMcpServer>;
+type DeclaredMcpServers = ReadonlyArray<DeclaredMcpServer>;
 
-export interface ResolvedMcpServer {
+interface ResolvedMcpServer {
   readonly name: ExtensionName;
   readonly lockEntry: McpServerLockEntry;
 }
-export type ResolvedMcpServers = ReadonlyArray<ResolvedMcpServer>;
+type ResolvedMcpServers = ReadonlyArray<ResolvedMcpServer>;
 
 /**
  * One observable MCP server materialization. `configFile` is the absolute
@@ -80,9 +80,9 @@ export interface ActualMcpServer {
   readonly configFile: string | null;
   readonly config: Readonly<Record<string, unknown>> | null;
 }
-export type ActualMcpServers = ReadonlyArray<ActualMcpServer>;
+type ActualMcpServers = ReadonlyArray<ActualMcpServer>;
 
-export interface McpServerPackMember {
+interface McpServerPackMember {
   readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
@@ -95,7 +95,7 @@ export interface InstalledMcpServer {
   readonly actual: ReadonlyArray<ActualMcpServer>;
 }
 
-export interface UnmanagedMcpServer {
+interface UnmanagedMcpServer {
   readonly key: ExtensionKey<"mcp-server">;
   readonly actual: ActualMcpServer;
 }
@@ -179,12 +179,12 @@ const mcpConfigToActual = (occ: McpConfigOccurrence, scope: Scope): ActualMcpSer
 // Public API
 // ---------------------------------------------------------------------------
 
-export interface McpServerScopedLoaders {
+interface McpServerScopedLoaders {
   readonly settings: Effect.Effect<Option.Option<Settings>, SettingsReadError>;
   readonly lockfile: Effect.Effect<Option.Option<Lockfile>, LockfileReadError>;
 }
 
-export interface McpServerScanners {
+interface McpServerScanners {
   readonly canonical: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
   readonly mcpConfig: Effect.Effect<ReadonlyArray<McpConfigOccurrence>>;
 }

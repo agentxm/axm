@@ -236,7 +236,7 @@ export type FailureInput = typeof FailureInputSchema.Type;
  * the request to resume, or the bare page to open when the producer knows no
  * more than that.
  */
-export const FailureActionSchema = Schema.Union([
+const FailureActionSchema = Schema.Union([
   HumanHandoffActionSchema,
   Schema.Struct({
     kind: Schema.Literal("open-url"),

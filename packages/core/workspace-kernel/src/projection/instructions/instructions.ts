@@ -246,7 +246,7 @@ export const resolveInstructionMechanism = (
 };
 
 /** Reason an agent is excluded from instruction-file sync. */
-export type InstructionSkipReason = "no-convention" | "unverified-scope";
+type InstructionSkipReason = "no-convention" | "unverified-scope";
 
 /**
  * A single, branch-exhaustive answer to the three questions both the sync
@@ -802,7 +802,7 @@ const isSamePath = (path: Path.Path, left: string, right: string): boolean =>
 const findAgentDescriptor = (agentId: string): AgentDescriptor | undefined =>
   Object.values(AGENT_DESCRIPTORS).find((descriptor) => descriptor.id === agentId);
 
-export type PlannedInstructionItem =
+type PlannedInstructionItem =
   | {
       readonly action: "skip";
       readonly reason: "unknown-agent";
@@ -1489,7 +1489,7 @@ export const replaceableUnrecorded = (
 
 /** One decision for preview and apply; see docs/architecture/workspace/instruction-files.md:
  * a dry run names exactly the targets a real run would write and remove. */
-export const plannedInstructionChanges = (
+const plannedInstructionChanges = (
   snapshot: InstructionProjectionSnapshot,
   mode: "reconcile" | "remove",
   /** Canonical physical paths and aliases a preceding region write will change. */

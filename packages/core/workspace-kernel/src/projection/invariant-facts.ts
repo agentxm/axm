@@ -47,9 +47,9 @@ import type { ProjectionContributorExclusion } from "./exclusions.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
 import { formatDesiredIdentity } from "../workspace-state/index.js";
 
-export const PROJECTION_INVARIANT_PREDICATE = "workspace/projection-current" as const;
+const PROJECTION_INVARIANT_PREDICATE = "workspace/projection-current" as const;
 
-export type ProjectionObservationStatus =
+type ProjectionObservationStatus =
   "current" | "missing" | "incomplete" | "stale" | "obsolete" | "unavailable";
 
 /** Why an owned unit could not be observed at all. */

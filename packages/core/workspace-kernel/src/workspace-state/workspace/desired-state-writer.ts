@@ -57,7 +57,7 @@ import { acceptedRowKey } from "./accepted-reachability.js";
 import { desiredReachability } from "./desired-state-queries.js";
 
 /** The declaration each installable extension type accepts. */
-export interface DeclareArgsByType {
+interface DeclareArgsByType {
   readonly skill: SetSkillArgs;
   readonly pack: SetPackArgs;
   readonly "mcp-server": SetMcpServerArgs;
@@ -119,7 +119,7 @@ const declarationSource = (
       )
     : printSourceParams(lockEntryToSourceParams(lockEntry));
 
-export const makeDesiredStateWriter = (
+const makeDesiredStateWriter = (
   documents: WorkspaceDocumentsService,
   desiredState: DesiredStateReaderService,
   settingsReader: SettingsReaderService,

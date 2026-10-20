@@ -12,12 +12,7 @@ import {
 } from "../../../operations/index.js";
 import { WorkspaceRecordRowSchema, type WorkspaceRecordRow } from "../records.js";
 import type { ExtensionInventoryLifecycle } from "../records.js";
-export {
-  ExtensionInventoryLifecycleSchema,
-  ExtensionInventoryClassificationSchema,
-  type ExtensionInventoryLifecycle,
-  type ExtensionInventoryClassification,
-} from "../records.js";
+export { ExtensionInventoryLifecycleSchema, type ExtensionInventoryLifecycle } from "../records.js";
 
 export const ExtensionInventoryRowSchema = Schema.Struct({
   ...WorkspaceRecordRowSchema.fields,

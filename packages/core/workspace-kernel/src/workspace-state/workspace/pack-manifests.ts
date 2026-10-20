@@ -92,7 +92,7 @@ export const decodePackManifestDocument = (
 export const observePackManifest = (contents: string | undefined): PackManifestObservation =>
   contents === undefined ? { status: "absent" } : decodePackManifestDocument(contents);
 
-export interface LocatedPackManifest {
+interface LocatedPackManifest {
   readonly path: string;
   readonly relativePath: string;
   /** The observation; every read failure is a truthful variant, never a defect. */

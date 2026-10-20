@@ -44,7 +44,7 @@ const retainedPackageKey = (source: RetainedPackageSource): string => {
   }
 };
 
-export const retainedPackageSourceForRef = (
+const retainedPackageSourceForRef = (
   ref: Exclude<ExtensionRef, { readonly refType: "workspace" }>,
 ): RetainedPackageSource => {
   if (ref.refType === "registry")

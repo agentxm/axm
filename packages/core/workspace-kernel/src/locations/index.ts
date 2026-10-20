@@ -5,8 +5,6 @@ export { captureNativeLocationSet, type NativeLocationSet } from "./native-locat
 export {
   NativeUnitReferenceSchema,
   nativeUnitReference,
-  type NativeUnitReference,
-  OwnershipUnitAddressSchema,
   NativeLocationOutcomeSchema,
   combineNativeLocationOutcomes,
   nativeUnitKey,
@@ -25,7 +23,6 @@ export {
   type NativeEntryAddress,
 } from "./native-address.js";
 export {
-  StructuralInverseSchema,
   applyStructuralInverse,
   captureContainerIdentity,
   deriveStructuralInverse,
@@ -38,8 +35,6 @@ export {
   type ContainerIdentityContext,
   type ContainerReceipt,
   type ContainerReceiptMutation,
-  type ContainerReceipts,
-  type StructuralInverse,
 } from "./container-receipts.js";
 export {
   copiedDirectoryReceiptPath,
@@ -48,8 +43,6 @@ export {
   copiedDirectoryCanReplace,
   readCopiedDirectory,
   retireCopiedDirectory,
-  unchangedCopiedFiles,
-  type CopiedDirectoryReceipt,
 } from "./copied-directory.js";
 
 export {
@@ -65,4 +58,4 @@ export {
   type NativeAuthorityRootWitness,
 } from "./native-authority-roots.js";
 export { validateContainedLink } from "./contained-link.js";
-export { detectGitRoot, findGitRoot, isGitManaged, type FindGitRootOptions } from "./git-root.js";
+export { detectGitRoot, findGitRoot, isGitManaged } from "./git-root.js";

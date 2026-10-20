@@ -11,7 +11,7 @@
  */
 
 /** Why a desired contributor could not be rendered. */
-export type ProjectionExclusionReason = "package-missing" | "package-invalid";
+type ProjectionExclusionReason = "package-missing" | "package-invalid";
 
 /** One desired contributor left out of its ownership unit. */
 export interface ProjectionContributorExclusion {

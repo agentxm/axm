@@ -25,7 +25,7 @@ export interface RegistryContentIdentity {
   readonly publisherBindingId: string;
 }
 
-export const registryContentKey = (identity: RegistryContentIdentity): string =>
+const registryContentKey = (identity: RegistryContentIdentity): string =>
   JSON.stringify([
     "registry",
     identity.sourceLocation.href,
@@ -37,7 +37,7 @@ export const registryContentKey = (identity: RegistryContentIdentity): string =>
     identity.publisherBindingId,
   ]);
 
-export const registryRefContentKey = (
+const registryRefContentKey = (
   ref: Extract<ExtensionRef, { readonly refType: "registry" }>,
 ): string =>
   registryContentKey({

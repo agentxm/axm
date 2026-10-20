@@ -155,7 +155,7 @@ export const readCopiedDirectory = (directory: string) =>
   }).pipe(Effect.catch(() => Effect.succeedNone));
 
 /** Only unchanged, ordinary files from the receipt are eligible for retirement. */
-export const unchangedCopiedFiles = (directory: string, receipt: CopiedDirectoryReceipt) =>
+const unchangedCopiedFiles = (directory: string, receipt: CopiedDirectoryReceipt) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -172,7 +172,7 @@ export const unchangedCopiedFiles = (directory: string, receipt: CopiedDirectory
   });
 
 /** Link ownership requires the original link entry and unchanged target text. */
-export const unchangedCopiedLinks = (directory: string, receipt: CopiedDirectoryReceipt) =>
+const unchangedCopiedLinks = (directory: string, receipt: CopiedDirectoryReceipt) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;

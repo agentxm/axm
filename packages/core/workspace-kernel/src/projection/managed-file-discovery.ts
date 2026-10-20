@@ -22,10 +22,6 @@ export const extensionNameFromFilename = (fileName: string): string => {
   return dotIndex === -1 ? fileName : fileName.slice(0, dotIndex);
 };
 
-/** Read a directory, treating an unreadable or missing directory as empty. */
-export const safeReadDirectory = (fs: FileSystem.FileSystem, dir: string) =>
-  fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
-
 /** Read a file as a string, treating an unreadable or missing file as empty. */
 export const safeReadFileString = (fs: FileSystem.FileSystem, filePath: string) =>
   fs.readFileString(filePath).pipe(Effect.catch(() => Effect.succeed("")));

@@ -36,7 +36,7 @@ import type {
   DetectionStatus,
 } from "./types.js";
 
-export const defaultDeclared = (
+const defaultDeclared = (
   agentId: MaterializationTargetId,
   scope: Scope,
   settings: Option.Option<DeclaredSettingsShape>,
@@ -47,7 +47,7 @@ export const defaultDeclared = (
   return Option.some({ scope, agentId });
 };
 
-export const defaultActual = (
+const defaultActual = (
   agentId: MaterializationTargetId,
   scope: Scope,
   observations: AgentScannerObservations,
@@ -73,7 +73,7 @@ export const defaultActual = (
   });
 };
 
-export const defaultDetected = (
+const defaultDetected = (
   agentId: MaterializationTargetId,
   scope: Scope,
   declared: Option.Option<DeclaredAgent>,

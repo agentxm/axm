@@ -45,7 +45,7 @@ import { ArchiveIntegrityMismatch, PackageMaterializationFailed } from "./errors
 import { extractExternalArchive } from "./external-archive.js";
 
 import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
-export interface RegistryPackageMaterializationMessages {
+interface RegistryPackageMaterializationMessages {
   readonly integrityMismatchDetail: string;
 }
 

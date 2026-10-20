@@ -3,33 +3,23 @@
 export {
   buildAuthoredExtensionStep,
   buildInstallOperation,
-  buildMaterializeOperation,
   buildNewExtensionStep,
   buildUninstallOperation,
   classifyInstallChange,
   forecastInstallChange,
   extensionRefRegistryLifecycle,
-  formatPackageUrlParts,
   targetFromRef,
   nameFromLabel,
   toLabel,
-  toLabelWithCompanions,
   toTypedLabel,
   toStepKey,
   extensionFromStepKey,
   type AuthoredExtensionOperationArgs,
-  type CallerStepFailure,
   type InstallArtifactPresentation,
   type InstallChange,
-  type InstallOperationArgs,
-  type MaterializeOperationArgs,
   type NewExtensionOperationArgs,
   type RecipeRequirements,
-  type StepFailureAdapter,
-  type UninstallOperationArgs,
   type UninstallRetentionPolicy,
-  type UninstallSettlement,
-  type UnreadablePackageRetirement,
 } from "./extensions/operations.js";
 export {
   configuredEntryResolutionRefused,
@@ -49,20 +39,15 @@ export {
   registrySourcePath,
 } from "./extensions/registry-source-artifact.js";
 
-export { syncRefused, type SyncPolicyFailure, type WorkspaceSyncCleanupFailure } from "./errors.js";
+export { syncRefused, type SyncPolicyFailure } from "./errors.js";
 export {
   StepFailureConversion,
   withAdaptedStepFailures,
   type StepFailureConversionService,
 } from "./step-failure-conversion.js";
 
+export { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 export {
-  reconcileAgentOutputs,
-  type ReconcileAgentOutputsArgs,
-  type ReconcileAgentOutputsResult,
-} from "./rendered-file-cleanup.js";
-export {
-  buildInlineMcpServerSyncOperation,
   collectCleanupStep,
   collectHooksStep,
   collectInstructionStep,
@@ -88,18 +73,12 @@ export {
   type SyncSelection,
 } from "./materialize.js";
 
-export {
-  proposeDesiredState,
-  publishDesiredState,
-  type DesiredStateChange,
-  type DesiredStateProposal,
-} from "./proposed-state.js";
+export { proposeDesiredState, type DesiredStateProposal } from "./proposed-state.js";
 export {
   prepareEnabledRealization,
   prepareDisabledRealization,
   realizeActivation,
   type ActivationRealization,
-  type ActivationRealized,
 } from "./activation.js";
 
 export { collectUnreachableRetirement } from "./retirement.js";
@@ -110,7 +89,6 @@ export {
   buildReconciliationClosure,
   groupRetainedPackageSteps,
   type ReconciliationChild,
-  type ReconciliationClosureArgs,
 } from "./closure.js";
 
 export {

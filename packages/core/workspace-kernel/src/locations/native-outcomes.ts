@@ -1,7 +1,7 @@
 /** Public observations contain addresses and evidence, never persisted filesystem identities. */
 import * as Schema from "effect/Schema";
 
-export const OwnershipUnitAddressSchema = Schema.Union([
+const OwnershipUnitAddressSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("entry"), path: Schema.String }),
   Schema.Struct({
     kind: Schema.Literal("key-path"),

@@ -75,7 +75,7 @@ export interface SubagentRendered {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface SubagentSkipped {
+interface SubagentSkipped {
   readonly _tag: "Skipped";
   /** Why the render was skipped (e.g., "agent not in agents list"). */
   readonly reason: string;
@@ -93,16 +93,6 @@ export const rendered = (
   _tag: "Rendered",
   outputs,
   warnings,
-});
-
-/**
- * Construct a Skipped outcome.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const skipped = (reason: string): SubagentSkipped => ({
-  _tag: "Skipped",
-  reason,
 });
 
 /**

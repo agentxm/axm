@@ -62,20 +62,14 @@ import {
   type Settings,
   type SourceHostConfig,
 } from "../desired/settings/index.js";
-import {
-  decodeExtensionNameSync,
-  decodeHandleSync,
-} from "@agentxm/extension-model/unstable/extensions";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import type { PackManifest } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "./materialized-tree.js";
 import { type InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import {
-  decodeAbsolutePathSync,
-  decodeRelativePathSync,
-} from "@agentxm/extension-model/unstable/path-types";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   decodeVersionSync,
   type Version,
@@ -105,7 +99,7 @@ const path = (() => {
 /**
  * Build a `configured` read-model row. Tests that previously stubbed
  * `getConfiguredSkills` with a `{ name: { source, enabled } }` map supply the
- * same facts here and feed the result to {@link rowsFor}.
+ * same facts here.
  */
 export const configuredRow = (args: {
   readonly type: InstallableExtensionType;
@@ -124,17 +118,6 @@ export const configuredRow = (args: {
   paths: [],
   classification: { kind: "lifecycle", lifecycle: "configured" },
 });
-
-/**
- * Build a `records.rows` stub from per-type row lists. Types absent from the
- * map yield an empty array, matching the real reader's totality.
- */
-export const rowsFor =
-  (byType: Partial<Record<InstallableExtensionType, ReadonlyArray<WorkspaceRecordRow>>>) =>
-  (
-    type: InstallableExtensionType,
-  ): Effect.Effect<ReadonlyArray<WorkspaceRecordRow>, WorkspaceStateReadFailure> =>
-    Effect.succeed(byType[type] ?? []);
 
 /** No-op stubs for read-model record getters. */
 export const readModelRecordStubs = {
@@ -292,16 +275,6 @@ export const WorkspaceReadTest = (
 export const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v2:${"0".repeat(64)}`,
 );
-
-export const makeLocalSkillLockEntry = (opts?: { readonly path?: string }): SkillLockEntry => ({
-  source: { type: "path", path: decodeRelativePathSync(opts?.path ?? "installed") },
-  identity: {
-    owner: decodeHandleSync("@test"),
-    name: decodeExtensionNameSync("installed"),
-  },
-  resolved: { tree: TEST_TREE_INTEGRITY },
-  treeIntegrity: TEST_TREE_INTEGRITY,
-});
 
 export const makeRegistrySkillLockEntry = (opts: {
   readonly owner: Handle;

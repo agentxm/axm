@@ -57,7 +57,7 @@ export interface DiscoveredManifestExtensionPackage {
   readonly manifest: ExtensionManifest;
 }
 
-export interface DiscoveredPortableSkillPackage {
+interface DiscoveredPortableSkillPackage {
   readonly kind: "portable-skill";
   readonly standing: SourceStanding;
   readonly directory: string;
@@ -67,7 +67,7 @@ export interface DiscoveredPortableSkillPackage {
   readonly skill: SkillExtensionRef["skill"];
 }
 
-export interface DiscoveredPluginMcpPackage {
+interface DiscoveredPluginMcpPackage {
   readonly kind: "plugin-mcp";
   readonly standing: SourceStanding;
   readonly directory: string;

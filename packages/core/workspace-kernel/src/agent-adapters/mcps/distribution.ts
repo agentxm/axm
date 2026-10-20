@@ -30,7 +30,7 @@ const registryAuthority = (value: string | undefined, registryType: string): str
   }
 };
 
-export const normalizeMcpDistribution = (selector: McpDistribution): McpDistribution => {
+const normalizeMcpDistribution = (selector: McpDistribution): McpDistribution => {
   if (selector.kind === "remote")
     return { kind: "remote", transport: selector.transport, url: selector.url };
   const authority = registryAuthority(selector.registryBaseUrl, selector.registryType);

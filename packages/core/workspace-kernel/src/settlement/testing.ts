@@ -23,10 +23,7 @@ import { makeWorkspaceTransactionScope } from "./live.js";
 import type * as Path from "effect/Path";
 import type { WorkspaceTransitionLock } from "./transition-lock.js";
 
-export {
-  makeMemoryTransitionLockWorld,
-  type MemoryTransitionLockWorld,
-} from "./memory-transition-lock.js";
+export { makeMemoryTransitionLockWorld } from "./memory-transition-lock.js";
 
 /**
  * A transaction scope over the given paths whose admission is one in-memory

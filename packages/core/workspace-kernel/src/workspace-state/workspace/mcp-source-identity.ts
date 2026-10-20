@@ -84,7 +84,7 @@ const encode = (identity: McpSourceIdentity): McpSourceKey => {
 };
 
 /** The source and package an accepted MCP row records. */
-export interface McpSourceRow {
+interface McpSourceRow {
   readonly source:
     | { readonly type: "registry"; readonly url: RegistryEndpoint }
     | { readonly type: "git"; readonly url: URL }

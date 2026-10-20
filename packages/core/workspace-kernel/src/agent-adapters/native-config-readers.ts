@@ -22,7 +22,7 @@ import { readDeclaredHookUnits } from "./hooks/managed-groups.js";
 import { interpretNativeMcpEntry } from "./mcps/reader-semantics.js";
 import { invalidNativeConfig, parseNativeConfigRoot } from "./native-config-syntax.js";
 
-export interface NativeConfigReader {
+interface NativeConfigReader {
   readonly agentId: string;
   readonly kind: "hook" | "mcp-server" | "permissions";
   readonly alias: string;

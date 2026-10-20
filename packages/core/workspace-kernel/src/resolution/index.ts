@@ -26,52 +26,22 @@ export {
 
 export {
   type HeldReleasePolicy,
-  type ReleaseAgeRecordSubject,
   formatMinimumReleaseAgeSeconds,
   isVersionEntryEligibleAt,
   normalizeReleaseAgeRecords,
   parseMinimumReleaseAge,
-  releaseAgeEvidence,
   releaseAgeExemptionForIdentity,
   releaseAgeRecord,
   releaseAgeRecords,
 } from "./release-age-policy.js";
-export {
-  type ReleaseAgeVersionResolution,
-  resolveVersionEntryForReleaseAge,
-} from "./version-resolution.js";
-export {
-  decideNamedRegistryVersion,
-  namedRegistryCandidates,
-} from "./named-registry-resolution.js";
-
 // The operator's posture for one invocation.
 export { ReleaseAgePosture, type ReleaseAgePostureValue } from "./release-age-posture.js";
 
 // Which source may supply a configured extension.
-export {
-  evaluateSourceAuthority,
-  type SourceAuthorityBlockedCause,
-  type SourceAuthorityBlockedFact,
-  type SourceAuthorityDecision,
-  type SourceAuthorityInput,
-  type SourceAuthorityRelationship,
-  type SourceAuthorityTarget,
-} from "./source-authority.js";
+export { evaluateSourceAuthority, type SourceAuthorityBlockedFact } from "./source-authority.js";
 
 // Configured-entry vocabulary and resolution.
-export {
-  type ConfiguredEntryFailureReason,
-  type ConfiguredRegistryResolution,
-  type ResolvedConfiguredEntry,
-  type ResolvedConfiguredHook,
-  type ResolvedConfiguredKnowledge,
-  type ResolvedConfiguredMcpServer,
-  type ResolvedConfiguredPack,
-  type ResolvedConfiguredRule,
-  type ResolvedConfiguredSkill,
-  type ResolvedConfiguredSubagent,
-} from "./configured-entry.js";
+export { type ResolvedConfiguredEntry } from "./configured-entry.js";
 export {
   makeConfiguredReleaseAgeEvaluation,
   settleRegistryResolution,
@@ -97,18 +67,10 @@ export {
 
 // Pack dependency resolution.
 export {
-  ResolvedPackDependencyMapSchema,
-  ResolvedPackDependencySchema,
-  type ResolvedPackDependency,
-  type ResolvedPackDependencyMap,
-} from "./resolved-pack-dependency.js";
-export {
   resolvePackDependenciesWithReleaseAge,
   type PackDependencyRefResolver,
   type PackMemberRangeResolver,
   type ReleaseAgeAwarePackDependencyResolution,
-  type ResolvedPackDependencies,
-  type WorkspacePackDependencyResolution,
   type WorkspacePackDependencyResolver,
 } from "./pack-dependency-resolution.js";
 export { acceptedPackDependencyResolver } from "./accepted-pack-dependency-resolver.js";
@@ -116,34 +78,21 @@ export { acceptedConfiguredResolution } from "./accepted-configured-entry.js";
 export { requireAcceptedRegistryContent } from "./accepted-registry-content.js";
 
 // Official-skill byte inspection remains a workspace integration.
-export {
-  evaluateAxmSkillCandidate,
-  validateAxmSkillCandidate,
-  type ValidateAxmSkillCandidateArgs,
-} from "./axm-skill-candidate.js";
+export { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
 export {
   assessOfficialAxmSkill,
   selectOfficialAxmSkill,
-  type ObservedOfficialAxmSkillCandidate,
   type OfficialAxmSkillAssessment,
-  type SelectedOfficialAxmSkill,
 } from "./axm-skill-workspace-compatibility.js";
 
 // Targeted update classification: who owns the declaration a named update
 // would move, whether it may move, and the freshness witness apply rechecks.
 export {
-  classifyTargetedUpdate,
   resolveTargetedUpdateContext,
-  type ClassifyTargetedUpdateArgs,
-  type TargetedUpdateAuthority,
   type TargetedUpdateBlocker,
   type TargetedUpdateContext,
   type TargetedUpdateContextFailure,
-  type TargetedUpdateEffect,
-  type TargetedUpdateOwnership,
   type TargetedUpdatePublicContext,
-  type TargetedUpdateTarget,
-  type TargetedUpdateTargetType,
 } from "./update/targeted-update-context.js";
 
 // Which Packs hold the newest release of an updated extension back.

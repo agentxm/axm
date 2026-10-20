@@ -11,7 +11,7 @@ import {
 } from "./distribution-links.js";
 import type { ResolvedFileSelection, SelectionPath } from "./file-selection.js";
 
-export class DistributionTreeInvalid extends Data.TaggedError("DistributionTreeInvalid")<{
+class DistributionTreeInvalid extends Data.TaggedError("DistributionTreeInvalid")<{
   readonly detail: string;
   readonly cause?: unknown;
 }> {}

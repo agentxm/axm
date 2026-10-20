@@ -9,5 +9,4 @@
  * @packageDocumentation
  */
 
-export { AgentExecutableResolverLive } from "./detection.js";
 export { AgentPresenceProbeLive } from "./agent-presence.js";

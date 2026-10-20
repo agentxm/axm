@@ -14,7 +14,7 @@ import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import { ACQUIRED_EXTENSIONS_DIR, USER_WORKSPACE_DIRECTORY } from "./constants.js";
 import type { WorkspaceLayout } from "./layout.js";
 
-export const USER_WORKSPACE_DISPLAY_ROOT = `${AXM_DIR_NAME}/${USER_WORKSPACE_DIRECTORY}`;
+const USER_WORKSPACE_DISPLAY_ROOT = `${AXM_DIR_NAME}/${USER_WORKSPACE_DIRECTORY}`;
 
 export const workspaceFileDisplayPath = (scope: WorkspaceScope, file: string): string =>
   scope === "project" ? file : `${USER_WORKSPACE_DISPLAY_ROOT}/${file}`;

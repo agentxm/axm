@@ -64,11 +64,11 @@ export type TargetedUpdateBlocker =
   | "stale-plan";
 
 /** Every type a targeted update may name; a Pack is classified as a closure, not a member. */
-export type TargetedUpdateTargetType = Exclude<InstallableExtensionType, "pack">;
+type TargetedUpdateTargetType = Exclude<InstallableExtensionType, "pack">;
 
-export type TargetedUpdateAuthority = "direct" | "pack-aware" | "blocked";
-export type TargetedUpdateOwnership = "absent" | "direct-only" | "pack-only" | "combined";
-export type TargetedUpdateEffect = "unchanged" | "may-update";
+type TargetedUpdateAuthority = "direct" | "pack-aware" | "blocked";
+type TargetedUpdateOwnership = "absent" | "direct-only" | "pack-only" | "combined";
+type TargetedUpdateEffect = "unchanged" | "may-update";
 
 export interface TargetedUpdatePublicContext {
   readonly target: {

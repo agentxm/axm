@@ -53,7 +53,7 @@ import {
 } from "../operations/index.js";
 
 /** An operation the Registry's transport does not implement, with its stable problem. */
-export const registryOperationUnsupportedStepFailure = (
+const registryOperationUnsupportedStepFailure = (
   error: RegistryOperationUnsupported,
 ): StepFailure =>
   makeStepFailure({

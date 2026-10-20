@@ -12,7 +12,7 @@ import {
 
 import type { ConfiguredAgentReasonCode } from "../../operations/index.js";
 
-export type SubagentImplementationMode = "portable" | "customized" | "native";
+type SubagentImplementationMode = "portable" | "customized" | "native";
 
 export type CompiledSubagentImplementation =
   | {

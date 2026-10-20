@@ -32,7 +32,7 @@ import {
  * through that lifecycle. A test that asserts on what was recorded should
  * build the service itself with `makeOperationJournal` and keep the ref.
  */
-export const OperationJournalTest: Layer.Layer<OperationJournal> = Layer.effect(
+const OperationJournalTest: Layer.Layer<OperationJournal> = Layer.effect(
   OperationJournal,
   makeOperationJournal,
 );
@@ -106,5 +106,4 @@ export const ResolvePlanInteractionTest = (overrides?: {
 export {
   interactiveOnlyPlanExecution,
   preapprovedPlanExecution,
-  promptablePlanExecution,
 } from "./plan/plan-execution-fixtures.js";

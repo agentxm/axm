@@ -24,13 +24,6 @@ import {
  */
 export const RenderedFilePathSchema = RelativePathSchema.pipe(Schema.brand("RenderedFilePath"));
 
-/**
- * Branded RenderedFilePath type.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type RenderedFilePath = Schema.Schema.Type<typeof RenderedFilePathSchema>;
-
 const decodeSourceHash = Schema.decodeUnknownSync(SourceHashSchema);
 
 /**

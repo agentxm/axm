@@ -38,7 +38,7 @@ import { desiredPackageKey, unresolvedPackRoutes } from "../workspace-state/inde
 export type IdentifierResourceType = InstallableExtensionType;
 export type IdentifierResolutionScope = "installed" | "registry" | "both";
 
-export interface ResolvedIdentifier {
+interface ResolvedIdentifier {
   readonly input: string;
   readonly owner: Option.Option<Handle>;
   readonly type: IdentifierResourceType;

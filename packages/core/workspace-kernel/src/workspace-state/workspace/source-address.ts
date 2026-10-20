@@ -145,7 +145,7 @@ export const sourceUrlCoordinates = (
 };
 
 /** A file endpoint retains absolute local or volume identity, never a fabricated host. */
-export const fileSourceCoordinates = (
+const fileSourceCoordinates = (
   url: URL,
 ): Result.Result<ReadonlyArray<string>, SourceAddressInvalid> => {
   if (

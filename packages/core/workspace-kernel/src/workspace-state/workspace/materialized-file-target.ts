@@ -12,5 +12,3 @@ export const MaterializedFileTargetSchema = Schema.Struct({
   mode: Schema.Literals(["sync-once", "sync-always", "managed-region"]),
   region: Schema.optional(Schema.NonEmptyString),
 });
-
-export type MaterializedFileTarget = typeof MaterializedFileTargetSchema.Type;

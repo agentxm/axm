@@ -43,7 +43,7 @@ import {
 import { diffAgentEntry } from "./drift.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 
-export type AgentMcpInspectionStatus =
+type AgentMcpInspectionStatus =
   "unsupported" | "unverified" | "blocked" | "absent" | "match" | "drift";
 
 export interface AgentMcpServerInspection {
@@ -59,7 +59,7 @@ export interface AgentMcpServerInspection {
 }
 
 /** The desired-state facts an inspection reads for one MCP connection. */
-export interface DesiredMcpServerSubject {
+interface DesiredMcpServerSubject {
   readonly name: string;
   readonly enabled?: boolean;
   /** Absent means sourced: the graph marks only inline nodes. */
@@ -120,7 +120,7 @@ export interface CollectNativeAgentMcpServersArgs {
 type McpInspectionExpectation = ExpectedAgentEntry;
 
 /** What an inspection status means as a configured-agent outcome. */
-export const mcpInspectionOutcome = (args: {
+const mcpInspectionOutcome = (args: {
   readonly name: string;
   readonly inspection: AgentMcpServerInspection;
   readonly state: "projected" | "current";
@@ -162,9 +162,7 @@ export const mcpInspectionOutcome = (args: {
 };
 
 /** A connection is current when every agent matches or cannot represent it. */
-export const mcpInspectionsCurrent = (
-  inspections: ReadonlyArray<AgentMcpServerInspection>,
-): boolean =>
+const mcpInspectionsCurrent = (inspections: ReadonlyArray<AgentMcpServerInspection>): boolean =>
   inspections.every(
     (inspection) => inspection.status === "match" || inspection.status === "unsupported",
   );

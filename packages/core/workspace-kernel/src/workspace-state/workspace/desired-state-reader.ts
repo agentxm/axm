@@ -42,7 +42,7 @@ import { computePackManifestContentIdentity } from "./pack-manifest-content-iden
 import { PackManifests, type PackManifestsPort } from "./pack-manifests.js";
 
 /** Explicit candidate inputs for evaluating a proposal without publishing it. */
-export interface DesiredStateCandidateInputs {
+interface DesiredStateCandidateInputs {
   readonly settings?: Settings;
   readonly acceptedResolutions?: Lockfile;
   readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;

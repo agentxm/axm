@@ -11,16 +11,6 @@ import {
 import { resolveNativeEntry, resolveNativeReferent } from "../../locations/index.js";
 
 /**
- * Result of a createSymlink operation.
- *
- * - `"created"` — new symlink was created
- * - `"replaced"` — existing wrong symlink/directory was replaced
- * - `"no-op"` — existing symlink already points to the correct target
- * - `"skipped"` — self-reference detected (link and target resolve to same path)
- */
-export type SymlinkResult = "created" | "replaced" | "no-op" | "skipped";
-
-/**
  * Creates a relative symlink from `link` to `target`, handling the full
  * symlink lifecycle: self-reference detection, existing link inspection,
  * ELOOP recovery, directory replacement, and parent directory creation.

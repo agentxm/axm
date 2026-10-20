@@ -79,7 +79,7 @@ export const requireCompleteContributors = (
 };
 
 /** Enabled desired nodes of one extension type. */
-export const activeNodesOfType = (
+const activeNodesOfType = (
   graph: DesiredStateGraph,
   type: ExtensionType,
 ): ReadonlyArray<DesiredExtensionNode> =>
@@ -93,7 +93,7 @@ export const activeNodesOfType = (
  * Never reads settings, never resolves sources, and never touches the
  * network.
  */
-export const contributorForNode = (args: {
+const contributorForNode = (args: {
   readonly layout: WorkspaceLayout;
   readonly node: DesiredExtensionNode;
   readonly accepted: LockEntry | undefined;

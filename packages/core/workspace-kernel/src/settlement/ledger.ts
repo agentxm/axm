@@ -14,7 +14,7 @@
 import type { PathState } from "./path-state.js";
 import type { WorkspaceRecoveryEntry } from "./errors.js";
 
-export interface RetiredEntry {
+interface RetiredEntry {
   readonly target: string;
   readonly backup: string;
   readonly original: PathState;
@@ -73,7 +73,7 @@ export const emptyLedger: TransactionLedger = {
   pendingRestorations: [],
 };
 
-export const closureKey = (closure: string | undefined): string => closure ?? "";
+const closureKey = (closure: string | undefined): string => closure ?? "";
 
 export const isProtected = (
   ledger: TransactionLedger,

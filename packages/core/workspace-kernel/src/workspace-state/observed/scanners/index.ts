@@ -11,56 +11,40 @@
 // Canonical-extensions scanner
 // ---------------------------------------------------------------------------
 
-export {
-  makeCanonicalExtensionsScanner,
-  type CanonicalExtensionsScannerDeps,
-} from "./canonical-extensions.js";
+export { makeCanonicalExtensionsScanner } from "./canonical-extensions.js";
 
 // ---------------------------------------------------------------------------
 // Agent-directory scanner
 // ---------------------------------------------------------------------------
 
-export { makeAgentDirScanner, type AgentDirScannerDeps } from "./agent-dir.js";
+export { makeAgentDirScanner } from "./agent-dir.js";
 
 // ---------------------------------------------------------------------------
 // MCP-config scanner (workspace + per-agent)
 // ---------------------------------------------------------------------------
 
-export { makeMcpConfigScanner, type McpConfigScannerDeps } from "./mcp-config.js";
+export { makeMcpConfigScanner } from "./mcp-config.js";
 
 // ---------------------------------------------------------------------------
 // Agent-settings scanner
 // ---------------------------------------------------------------------------
 
-export { makeAgentSettingsScanner, type AgentSettingsScannerDeps } from "./agent-settings.js";
+export { makeAgentSettingsScanner } from "./agent-settings.js";
 
 // ---------------------------------------------------------------------------
 // Shared agent-root resolver used by both the agent-settings and mcp-config
 // scanners.
 // ---------------------------------------------------------------------------
 
-export {
-  agentRootSegment,
-  detectAgentRootCollisions,
-  makeAgentRootResolverState,
-  type AgentRootResolverState,
-} from "./agent-root.js";
+export { type AgentRootResolverState } from "./agent-root.js";
 
 // ---------------------------------------------------------------------------
 // Shared occurrence-shape types and identity helpers
 // ---------------------------------------------------------------------------
 
 export {
-  dedupeByIdentity,
-  occurrenceIdentity,
-  occurrenceIdentityKey,
   type AgentDirOccurrence,
-  type AgentDirSubjectType,
   type AgentSettingsOccurrence,
   type CanonicalExtensionOccurrence,
-  type CanonicalExtensionOriginKind,
   type McpConfigOccurrence,
-  type McpConfigSurface,
-  type OccurrenceIdentity,
-  type ScannerOccurrence,
 } from "./types.js";

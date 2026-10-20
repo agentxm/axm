@@ -14,7 +14,7 @@
  */
 
 // Apply plan + operation handler registry
-export { applyPlan, type ApplyPlanOptions, type OperationHandler } from "./plan/apply-plan.js";
+export { applyPlan, type OperationHandler } from "./plan/apply-plan.js";
 
 // Candidate preparation and interactive preview/apply resolution over the
 // workspace read model: preview, confirmation and apply share one candidate,
@@ -23,8 +23,6 @@ export {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type PlanResolutionFailure,
-  type PrepareExecutionCandidateOptions,
-  type ResolveExecutionCandidateOptions,
 } from "./plan/resolve-plan.js";
 
 // The plan-execution failure family.
@@ -37,16 +35,8 @@ export {
 } from "./plan/execution-candidate.js";
 
 // Plan readiness and reconciliation gating
-export { scanPlanReadiness, type PlanReadinessReport } from "./operations/scan-plan-readiness.js";
-export {
-  augmentPlanWithReconciliation,
-  type AugmentedPlanResult,
-  type DegradedLockfileState,
-} from "./operations/augment-plan.js";
-
 // Rendering of the source, registry, and dependency-resolution families
 export {
-  registryOperationUnsupportedStepFailure,
   registrySelectionFailedStepFailure,
   registrySourceUnknownStepFailure,
   resolutionFailures,

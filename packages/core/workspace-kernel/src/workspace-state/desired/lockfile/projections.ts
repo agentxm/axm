@@ -48,13 +48,13 @@ export type ProjectionUnitPath = typeof ProjectionUnitPathSchema.Type;
  * One recorded projection unit. `output` is always known when a row is
  * written; a row without `gen` records bytes whose currency is unknown.
  */
-export const ProjectionRowSchema = Schema.Struct({
+const ProjectionRowSchema = Schema.Struct({
   gen: Schema.optional(ProjectionDigestSchema),
   output: ProjectionDigestSchema,
 });
 export type ProjectionRow = typeof ProjectionRowSchema.Type;
 
-export const ProjectionKindStateSchema = Schema.Struct({
+const ProjectionKindStateSchema = Schema.Struct({
   contract: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
   units: Schema.Record(ProjectionUnitPathSchema, ProjectionRowSchema),
 });

@@ -6,7 +6,7 @@ import type { GitOperationFailed } from "../errors.js";
 import type { GitDirectoryComparisonResult } from "./operations.js";
 
 /** Input material for comparing one directory with its enclosing Git HEAD. */
-export interface GitDirectoryComparisonInput {
+interface GitDirectoryComparisonInput {
   readonly directory: string;
   readonly currentPaths: ReadonlyArray<string>;
 }

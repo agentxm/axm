@@ -28,11 +28,8 @@ export {
   WorkspaceSnapshotError,
   WorkspaceBoundaryConflict,
   WorkspaceTransitionCompromised,
-  type TransitionContention,
-  type TransitionLockHolder,
   type WorkspaceRecoveryEntry,
   type WorkspaceTransactionFailure,
-  type WorkspaceTransitionAcquireFailure,
 } from "./errors.js";
 
 export { protectCreatedAncestors, protectWorkspacePath } from "./context.js";
@@ -49,20 +46,9 @@ export {
   WorkspaceTransactionScopes,
   acquireWorkspaceTransition,
   runWorkspaceTransaction,
-  type WorkspaceTransactionArgs,
-  type WorkspaceTransactionPaths,
-  type WorkspaceTransactionScopeService,
-  type WorkspaceTransitionRequest,
 } from "./scope.js";
 
-export {
-  TRANSITION_WAIT_BOUND_MILLIS,
-  makeWorkspaceTransitionLock,
-  transitionLockPath,
-  type AcquireWorkspaceTransitionArgs,
-  type HeldWorkspaceTransition,
-  type WorkspaceTransitionLock,
-} from "./transition-lock.js";
+export { type WorkspaceTransitionLock } from "./transition-lock.js";
 
 export {
   pendingClosureRestorations,
@@ -70,8 +56,6 @@ export {
   settleWorkspaceClosure,
   withWorkspaceClosure,
 } from "./transaction.js";
-
-export type { PendingClosureRestoration } from "./ledger.js";
 
 export {
   FootprintRecorder,
@@ -81,3 +65,8 @@ export {
   recordFootprint,
   type FootprintObservation,
 } from "./footprint-recorder.js";
+
+// Dependents' inferred types name these, so their declaration emit must be
+// able to; knip skips exports tagged public.
+/** @public */
+export type { WorkspaceTransitionAcquireFailure } from "./errors.js";

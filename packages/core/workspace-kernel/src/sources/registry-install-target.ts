@@ -16,13 +16,13 @@ import {
 const decodeExtensionName = Schema.decodeUnknownResult(ExtensionNameSchema);
 const decodeVersionRange = Schema.decodeUnknownResult(VersionRangeSchema);
 
-export interface BareRegistryInstallTarget {
+interface BareRegistryInstallTarget {
   readonly kind: "bare-name";
   readonly name: ExtensionName;
   readonly versionRange?: VersionRange | undefined;
 }
 
-export interface QualifiedRegistryInstallTarget {
+interface QualifiedRegistryInstallTarget {
   readonly kind: "registry";
   readonly owner: Handle;
   readonly type: ExtensionType;

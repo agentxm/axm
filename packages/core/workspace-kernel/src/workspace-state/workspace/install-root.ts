@@ -47,13 +47,11 @@ export interface InstalledPackageEntry {
 }
 
 /** An install-root entry that is neither an installed package nor AXM staging. */
-export interface UnrecognizedInstallRootEntry {
+interface UnrecognizedInstallRootEntry {
   readonly kind: "unrecognized";
   readonly path: string;
   readonly entryKind: "file" | "directory" | "symlink";
 }
-
-export type InstallRootEntry = InstalledPackageEntry | UnrecognizedInstallRootEntry;
 
 export interface InstallRootInventory {
   readonly root: string;

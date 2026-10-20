@@ -31,7 +31,7 @@ export const validateArtifactUrl = (url: URL) =>
       )
     : Effect.void;
 
-export interface DownloadedHttpArtifact {
+interface DownloadedHttpArtifact {
   readonly url: URL;
   readonly digest: ArtifactDigest;
   readonly bytes: Uint8Array;

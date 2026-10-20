@@ -3,7 +3,6 @@ import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { WorkspaceCatalog } from "@agentxm/workspace-kernel/sources";
 import { applySync, makeSyncFixture } from "../testing/sync-fixture.js";
 
 export const specification = defineSpecification({
@@ -30,7 +29,7 @@ describe("Agent configuration failure", () => {
   it.effect.each([
     { agent: "claude-code", key: "AXM_CLAUDE_SKILLS_DIR" },
     { agent: "gemini-cli", key: "AXM_GEMINI_CLI_SKILLS_DIR" },
-  ])("blocks $agent reconciliation and catalog lookup without changing files", ({ agent, key }) => {
+  ])("blocks $agent reconciliation without changing files", ({ agent, key }) => {
     const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
     const workspace = makeSyncFixture({
       settings: { owner: "@acme", agents: [agent] },
@@ -45,10 +44,6 @@ describe("Agent configuration failure", () => {
       const homeBefore = workspace.homeSnapshot();
       const failure = yield* workspace.provide(applySync()).pipe(Effect.flip);
       expect(failure).toMatchObject({ _tag: "ConfigError", cause: sourceError });
-      const catalogFailure = yield* workspace
-        .provide(Effect.flatMap(WorkspaceCatalog, (catalog) => catalog.skillCandidates))
-        .pipe(Effect.flip);
-      expect(catalogFailure).toMatchObject({ _tag: "ConfigError", cause: sourceError });
       expect(workspace.snapshot()).toEqual(before);
       expect(workspace.homeSnapshot()).toEqual(homeBefore);
     }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));

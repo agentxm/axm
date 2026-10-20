@@ -171,7 +171,7 @@ export const isDeclaredHookEntry = (
 ): value is Readonly<Record<string, unknown>> =>
   declarationForEntry(value, declarations) !== undefined;
 
-export const declaredHookUnits = (
+const declaredHookUnits = (
   hooks: unknown,
   declarations: ReadonlyArray<HookNativeDeclaration>,
 ): ReadonlyArray<DeclaredHookUnit> => {
@@ -207,7 +207,7 @@ export const readDeclaredHookUnits = (
     return declaredHookUnits(parsed[settingsKey], declarations);
   });
 
-export const selectDeclaredHookGroups = (
+const selectDeclaredHookGroups = (
   hooks: unknown,
   declarations: ReadonlyArray<HookNativeDeclaration>,
 ): Record<string, unknown> => {

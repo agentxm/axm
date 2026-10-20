@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
-export interface TransientFileBackup {
+interface TransientFileBackup {
   readonly directory: string;
   readonly path: string;
 }
@@ -23,7 +23,7 @@ export class TransientBackupFailed extends Data.TaggedError("TransientBackupFail
   readonly cause: unknown;
 }> {}
 
-export const createTransientFileBackup = (args: {
+const createTransientFileBackup = (args: {
   readonly sourcePath: string;
   readonly content: string;
   readonly tempPrefix: string;
@@ -50,7 +50,7 @@ export const createTransientFileBackup = (args: {
     return { directory: tempDir, path: backupPath };
   });
 
-export const removeTransientFileBackup = (
+const removeTransientFileBackup = (
   backup: TransientFileBackup,
 ): Effect.Effect<void, TransientBackupFailed, FileSystem.FileSystem> =>
   Effect.gen(function* () {

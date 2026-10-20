@@ -63,7 +63,7 @@ const SourceSettingsSchema = Schema.Struct({
 type SourceSettingsDocument = typeof SourceSettingsSchema.Type;
 
 /** One root a workspace source keeps the packages of one type it authors in. */
-export interface SourceAuthoredRoot {
+interface SourceAuthoredRoot {
   readonly type: ExtensionType;
   readonly directory: string;
 }

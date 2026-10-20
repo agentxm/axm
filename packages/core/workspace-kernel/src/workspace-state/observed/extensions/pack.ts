@@ -47,25 +47,25 @@ import {
 // Detection origin
 // ---------------------------------------------------------------------------
 
-export type PackDetectionOrigin = { readonly _tag: "canonical-axm-pack" };
+type PackDetectionOrigin = { readonly _tag: "canonical-axm-pack" };
 
 // ---------------------------------------------------------------------------
 // Payloads
 // ---------------------------------------------------------------------------
 
-export interface DeclaredPack {
+interface DeclaredPack {
   readonly name: ExtensionName;
   readonly entry: PackEntry;
 }
-export type DeclaredPacks = ReadonlyArray<DeclaredPack>;
+type DeclaredPacks = ReadonlyArray<DeclaredPack>;
 
 /** Resolved Pack carrying the accepted external-resolution row verbatim. */
-export interface ResolvedPack {
+interface ResolvedPack {
   readonly keyName: string;
   readonly name: ExtensionName;
   readonly lockEntry: PackLockEntry;
 }
-export type ResolvedPacks = ReadonlyArray<ResolvedPack>;
+type ResolvedPacks = ReadonlyArray<ResolvedPack>;
 
 export interface ActualPack {
   readonly key: ExtensionKey<"pack">;
@@ -73,13 +73,13 @@ export interface ActualPack {
   readonly contentRoot: string;
   readonly packageRoot: string | null;
 }
-export type ActualPacks = ReadonlyArray<ActualPack>;
+type ActualPacks = ReadonlyArray<ActualPack>;
 
 /**
  * The member shape the shared projection helper type-parameters. Packs are
  * never members of other Packs, so no row ever carries one.
  */
-export interface PackPackMember {
+interface PackPackMember {
   readonly name: ExtensionName;
   readonly providingPack: InstalledPackRef;
 }
@@ -97,7 +97,7 @@ export interface InstalledPack {
   readonly actual: ReadonlyArray<ActualPack>;
 }
 
-export interface UnmanagedPack {
+interface UnmanagedPack {
   readonly key: ExtensionKey<"pack">;
   readonly actual: ActualPack;
 }
@@ -140,12 +140,12 @@ const canonicalToActual = (occ: CanonicalExtensionOccurrence, scope: Scope): Act
 // Public API
 // ---------------------------------------------------------------------------
 
-export interface PackScopedLoaders {
+interface PackScopedLoaders {
   readonly settings: Effect.Effect<Option.Option<Settings>, SettingsReadError>;
   readonly lockfile: Effect.Effect<Option.Option<Lockfile>, LockfileReadError>;
 }
 
-export interface PackScanners {
+interface PackScanners {
   readonly canonical: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
 }
 

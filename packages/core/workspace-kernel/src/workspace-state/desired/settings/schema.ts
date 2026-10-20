@@ -120,9 +120,6 @@ export const SourceHostConfigSchema = RegistrySourceHostConfigSchema.annotate({
  */
 export type SourceHostConfig = Schema.Schema.Type<typeof SourceHostConfigSchema>;
 
-/** @experimental */
-export type RegistrySourceHostConfig = Schema.Schema.Type<typeof RegistrySourceHostConfigSchema>;
-
 type SourceEntryObject = {
   readonly source?: string;
 };
@@ -324,7 +321,7 @@ const memberConfigurationIssue = (
   return undefined;
 };
 
-export const MinimumReleaseAgeSchema = Schema.String.check(
+const MinimumReleaseAgeSchema = Schema.String.check(
   Schema.isPattern(/^\d+(ms|s|m|h|d)$/u, {
     message: "minimumReleaseAge must be a duration such as 24h, 1440m, or 0s",
   }),
@@ -349,9 +346,6 @@ export type MinimumReleaseAge = Schema.Schema.Type<typeof MinimumReleaseAgeSchem
  * @experimental
  */
 export const DEFAULT_MINIMUM_RELEASE_AGE = "24h";
-
-/** @experimental */
-export type MinimumReleaseAgeExclude = ReadonlyArray<typeof ReleaseAgeExcludePatternSchema.Type>;
 
 const compactOrVerboseEntry = <
   ObjectEntry,
@@ -653,13 +647,6 @@ export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema)
     description: "A map of skill names to skill entries.",
   });
 
-/**
- * Inferred type for SkillsMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
-
 // -----------------------------------------------------------------------------
 // Rule Entry Schemas
 // -----------------------------------------------------------------------------
@@ -669,7 +656,7 @@ export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleEntryObjectSchema = memberEntryObjectSchema("rule", "rules", {
+const RuleEntryObjectSchema = memberEntryObjectSchema("rule", "rules", {
   title: "Rule Entry Object",
   description:
     "A rule entry with source and optional enabled and distribution state, or a source-less Pack-member configuration.",
@@ -680,7 +667,7 @@ export const RuleEntryObjectSchema = memberEntryObjectSchema("rule", "rules", {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleEntrySchema = compactEnabledEntry(RuleEntryObjectSchema, {
+const RuleEntrySchema = compactEnabledEntry(RuleEntryObjectSchema, {
   identifier: "RuleEntry",
   title: "Rule Entry",
   description:
@@ -700,7 +687,7 @@ export type RuleEntry = Schema.Schema.Type<typeof RuleEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RulesMapSchema = Schema.Record(Schema.String, RuleEntrySchema)
+const RulesMapSchema = Schema.Record(Schema.String, RuleEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
   .check(entrySourcesMatch("rule", "rules"))
   .check(workspaceEntriesMatch("rules"))
@@ -709,9 +696,6 @@ export const RulesMapSchema = Schema.Record(Schema.String, RuleEntrySchema)
     title: "Rules Map",
     description: "A map of rule names to rule entries.",
   });
-
-/** @experimental */
-export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
 
 // -----------------------------------------------------------------------------
 // Hook Entry Schemas
@@ -722,7 +706,7 @@ export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookEntryObjectSchema = Schema.Struct({
+const HookEntryObjectSchema = Schema.Struct({
   source: Schema.optionalKey(entrySourceFieldSchema("hook", "hooks")),
   enabled: enabledFieldSchema,
   distribute: distributeFieldSchema,
@@ -754,7 +738,7 @@ const HookEntryCanonicalSchema = Schema.Union([
 type HookEntryObject = typeof HookEntryObjectSchema.Type;
 type CanonicalHookEntry = typeof HookEntryCanonicalSchema.Type;
 
-export const HookEntrySchema = compactOrVerboseEntry(
+const HookEntrySchema = compactOrVerboseEntry(
   HookEntryObjectSchema,
   HookEntryCanonicalSchema,
   {
@@ -794,7 +778,7 @@ export type HookEntry = Schema.Schema.Type<typeof HookEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HooksMapSchema = Schema.Record(Schema.String, HookEntrySchema)
+const HooksMapSchema = Schema.Record(Schema.String, HookEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
   .check(entrySourcesMatch("hook", "hooks"))
   .check(workspaceEntriesMatch("hooks"))
@@ -804,14 +788,11 @@ export const HooksMapSchema = Schema.Record(Schema.String, HookEntrySchema)
     description: "A map of hook names to hook entries.",
   });
 
-/** @experimental */
-export type HooksMap = Schema.Schema.Type<typeof HooksMapSchema>;
-
 // -----------------------------------------------------------------------------
 // Knowledge Entry Schemas
 // -----------------------------------------------------------------------------
 
-export const KnowledgeEntryObjectSchema = Schema.Struct({
+const KnowledgeEntryObjectSchema = Schema.Struct({
   source: Schema.optionalKey(entrySourceFieldSchema("knowledge bundle", "knowledge")),
   enabled: enabledFieldSchema,
   distribute: distributeFieldSchema,
@@ -911,7 +892,7 @@ export const KnowledgeEntrySchema = compactOrVerboseEntry(
 
 export type KnowledgeEntry = Schema.Schema.Type<typeof KnowledgeEntrySchema>;
 
-export const KnowledgeMapSchema = Schema.Record(Schema.String, KnowledgeEntrySchema)
+const KnowledgeMapSchema = Schema.Record(Schema.String, KnowledgeEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
   .check(entrySourcesMatch("knowledge bundle", "knowledge"))
   .check(workspaceEntriesMatch("knowledge"))
@@ -1081,13 +1062,6 @@ export const McpServersMapSchema = Schema.Record(Schema.String, McpServerEntrySc
     description: "A map of MCP server names to MCP server entries.",
   });
 
-/**
- * Inferred type for McpServersMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
-
 // -----------------------------------------------------------------------------
 // Subagent Entry Schemas
 // -----------------------------------------------------------------------------
@@ -1151,13 +1125,6 @@ export const SubagentsMapSchema = Schema.Record(Schema.String, SubagentEntrySche
     title: "Subagents Map",
     description: "A map of subagent names to subagent entries.",
   });
-
-/**
- * Inferred type for SubagentsMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
 
 // -----------------------------------------------------------------------------
 // Pack Entry Schemas
@@ -1223,13 +1190,6 @@ export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema)
     description: "A map of pack names to pack entries.",
   });
 
-/**
- * Inferred type for PacksMap schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type PacksMap = Schema.Schema.Type<typeof PacksMapSchema>;
-
 // -----------------------------------------------------------------------------
 // Feature Config Schemas
 // -----------------------------------------------------------------------------
@@ -1239,7 +1199,7 @@ export type PacksMap = Schema.Schema.Type<typeof PacksMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const InstructionsConfigSchema = Schema.Struct({
+const InstructionsConfigSchema = Schema.Struct({
   fileName: Schema.optionalKey(
     Schema.String.annotate({
       description: "Source-of-truth instruction file name.",
@@ -1283,18 +1243,15 @@ const authoredDirectoryConfigSchema = (identifier: string, title: string) =>
       "Authored package directory configuration. AXM reads this manual override but never rewrites it.",
   });
 
-export const SkillsConfigSchema = authoredDirectoryConfigSchema("SkillsConfig", "Skills Config");
-export const RulesConfigSchema = authoredDirectoryConfigSchema("RulesConfig", "Rules Config");
-export const HooksConfigSchema = authoredDirectoryConfigSchema("HooksConfig", "Hooks Config");
-export const SubagentsConfigSchema = authoredDirectoryConfigSchema(
-  "SubagentsConfig",
-  "Subagents Config",
-);
-export const McpServersConfigSchema = authoredDirectoryConfigSchema(
+const SkillsConfigSchema = authoredDirectoryConfigSchema("SkillsConfig", "Skills Config");
+const RulesConfigSchema = authoredDirectoryConfigSchema("RulesConfig", "Rules Config");
+const HooksConfigSchema = authoredDirectoryConfigSchema("HooksConfig", "Hooks Config");
+const SubagentsConfigSchema = authoredDirectoryConfigSchema("SubagentsConfig", "Subagents Config");
+const McpServersConfigSchema = authoredDirectoryConfigSchema(
   "McpServersConfig",
   "MCP Servers Config",
 );
-export const PacksConfigSchema = authoredDirectoryConfigSchema("PacksConfig", "Packs Config");
+const PacksConfigSchema = authoredDirectoryConfigSchema("PacksConfig", "Packs Config");
 
 export const KnowledgeConfigSchema = Schema.Struct({
   dir: authoredDirectoryFieldSchema,
@@ -1313,11 +1270,8 @@ export const KnowledgeConfigSchema = Schema.Struct({
     "Knowledge discovery settings. Omit the config to synchronize active bundles into instructions; set instructions to false to disable that table.",
 });
 
-/** @experimental */
-export type KnowledgeConfig = Schema.Schema.Type<typeof KnowledgeConfigSchema>;
-
 /** Workspace-level publication defaults. */
-export const WorkspacePublishOptionsSchema = Schema.Struct({
+const WorkspacePublishOptionsSchema = Schema.Struct({
   defaultVisibility: Schema.optional(
     ExtensionVisibilitySchema.annotate({
       description:
@@ -1329,9 +1283,6 @@ export const WorkspacePublishOptionsSchema = Schema.Struct({
   title: "Workspace Publish Options",
   description: "Workspace defaults used when extension publication policy is unconfigured.",
 });
-
-/** @experimental This API is unstable and may change without notice. */
-export type WorkspacePublishOptions = Schema.Schema.Type<typeof WorkspacePublishOptionsSchema>;
 
 /**
  * Canonical key order for settings properties.

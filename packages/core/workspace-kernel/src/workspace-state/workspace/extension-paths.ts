@@ -74,7 +74,7 @@ export interface ExtensionDirPaths {
 }
 
 /** The package location an acquired extension path source names. */
-export const retainedPackageLocation = (
+const retainedPackageLocation = (
   source: Exclude<ExtensionPathSource, { readonly refType: "workspace" }>,
   type: ExtensionTypePlural,
   name: string,

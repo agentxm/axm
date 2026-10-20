@@ -2,8 +2,8 @@
  * Workspace catalog port for source resolution.
  *
  * Source resolution interprets user input against workspace facts —
- * configured source hosts, the desired extension graph, and the skill
- * candidates visible on disk — without reaching into the workspace kernel.
+ * configured source hosts and the desired extension graph — without reaching
+ * into the workspace kernel.
  * This service declares exactly those facts as data over the contract's
  * source-host vocabulary; the composition root implements it from the
  * workspace layer (see the application runtime's workspace-catalog Live).
@@ -59,17 +59,6 @@ export interface DesiredExtensionGraphView {
   readonly packMembership: ReadonlyArray<DesiredPackMembership>;
 }
 
-/**
- * Skill-name candidates for glob expansion and name fallback: locked,
- * configured, and on-disk skills, with on-disk locations already
- * normalized to filesystem paths.
- */
-export interface SkillCandidates {
-  readonly names: ReadonlyArray<string>;
-  readonly configuredSkills: Readonly<Record<string, { readonly source?: string | undefined }>>;
-  readonly onDiskByName: ReadonlyMap<string, string>;
-}
-
 export interface WorkspaceCatalogService {
   /** Absolute workspace root directory. */
   readonly workspaceRoot: string;
@@ -84,10 +73,6 @@ export interface WorkspaceCatalogService {
   readonly defaultRegistry: Effect.Effect<string, WorkspaceCatalogUnavailable | Config.ConfigError>;
   readonly desiredExtensionGraph: Effect.Effect<
     DesiredExtensionGraphView,
-    WorkspaceCatalogUnavailable | Config.ConfigError
-  >;
-  readonly skillCandidates: Effect.Effect<
-    SkillCandidates,
     WorkspaceCatalogUnavailable | Config.ConfigError
   >;
 }

@@ -127,7 +127,7 @@ export interface NativeManagedRegionArgs {
   readonly adoption?: { readonly expectedRaw: string };
 }
 
-export interface NativeManagedRegionResult {
+interface NativeManagedRegionResult {
   /** The region is not current: apply rewrites it (or withdraws it) and records its row. */
   readonly changed: boolean;
   /** The region was complete in the planned target before this reconciliation. */

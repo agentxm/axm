@@ -1,6 +1,6 @@
 /** Effective policy for one Knowledge bundle's compact instruction-table entry. */
 
-export type KnowledgeInstructionEntryReason =
+type KnowledgeInstructionEntryReason =
   | "bundle-disabled"
   | "instruction-files-not-configured"
   | "instruction-files-disabled"

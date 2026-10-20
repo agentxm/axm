@@ -19,7 +19,7 @@ type Scalar =
 /** Opaque TOML values retain kind and precision independently of the resolution view. */
 export type ToolValue =
   Scalar | ToolTable | { readonly kind: "array"; readonly values: ReadonlyArray<ToolValue> };
-export interface ToolTable {
+interface ToolTable {
   readonly kind: "table";
   readonly entries: ReadonlyMap<string, ToolValue>;
 }

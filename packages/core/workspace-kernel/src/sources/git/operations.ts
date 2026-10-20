@@ -108,7 +108,11 @@ const mapGitError =
     });
   };
 
-/** Interrupt the child before returning a typed failure when Git stops responding. */
+/**
+ * Interrupt the child before returning a typed failure when Git stops responding.
+ *
+ * @public The deadline test loads this from the built module in a child process.
+ */
 export const withGitOperationDeadline =
   (
     operation: GitOperation,

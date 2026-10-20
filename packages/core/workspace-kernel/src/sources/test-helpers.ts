@@ -32,10 +32,9 @@ import {
   type ConfiguredSourceHost,
   type DesiredExtensionGraphView,
   type DesiredExtensionNodeView,
-  type SkillCandidates,
 } from "./workspace-catalog.js";
 
-export const expectDefined = <T>(value: T | undefined, message = "Expected defined value"): T => {
+const expectDefined = <T>(value: T | undefined, message = "Expected defined value"): T => {
   if (value === undefined) {
     throw new Error(message);
   }
@@ -89,7 +88,6 @@ export interface TestWorkspaceCatalogOptions {
   readonly sources?: ReadonlyArray<ConfiguredSourceHost>;
   readonly registrySources?: ReadonlyArray<RegistrySourceHost>;
   readonly desiredExtensionGraph?: DesiredExtensionGraphView;
-  readonly skillCandidates?: SkillCandidates;
 }
 
 /**
@@ -118,13 +116,6 @@ export const makeTestWorkspaceCatalog = (options: TestWorkspaceCatalogOptions = 
     defaultRegistry: Effect.succeed("agentxm"),
     desiredExtensionGraph: Effect.succeed(
       options.desiredExtensionGraph ?? { nodes: [], problems: [], packMembership: [] },
-    ),
-    skillCandidates: Effect.succeed(
-      options.skillCandidates ?? {
-        names: [],
-        configuredSkills: {},
-        onDiskByName: new Map<string, string>(),
-      },
     ),
   });
 };

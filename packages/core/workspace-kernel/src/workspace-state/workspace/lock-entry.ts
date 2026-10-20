@@ -50,7 +50,7 @@ import { canonicalSourceLocator } from "./source-locator.js";
 import type { LockEntryByType } from "./entry-accessors.js";
 
 /** Failure of the caller-supplied configured-source lookup. */
-export type LockEntrySourceLookupError = SettingsReadError | WorkspaceRootEscape;
+type LockEntrySourceLookupError = SettingsReadError | WorkspaceRootEscape;
 
 /** Every failure a lock-entry-to-ref translation can produce. */
 export type LockEntryToRefError =

@@ -177,7 +177,7 @@ export interface ResolvedUnit<Output = never> {
 // Operation-level events and evidence
 // -----------------------------------------------------------------------------
 
-export interface OperationInterruption {
+interface OperationInterruption {
   readonly signal: "SIGINT" | "SIGTERM";
   /**
    * Durable-state disposition of attempted work at the stopping point:

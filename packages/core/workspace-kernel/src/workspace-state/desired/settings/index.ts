@@ -11,64 +11,21 @@
 // Schema types and schemas
 export type {
   HookEntry,
-  HooksMap,
-  KnowledgeEntry,
-  KnowledgeConfig,
   KnowledgeMap,
   InstructionsConfig,
   InstructionsConfigValue,
   McpServerEntry,
-  McpServersMap,
   MinimumReleaseAge,
-  MinimumReleaseAgeExclude,
-  PackEntry,
-  PacksMap,
-  RegistrySourceHostConfig,
   RuleEntry,
-  RulesMap,
   Settings,
   SkillEntry,
-  SkillsMap,
   SubagentEntry,
-  SubagentsMap,
   SourceHostConfig,
-  WorkspacePublishOptions,
 } from "./schema.js";
-export {
-  DEFAULT_MINIMUM_RELEASE_AGE,
-  HookEntryObjectSchema,
-  HookEntrySchema,
-  HooksMapSchema,
-  KnowledgeEntryObjectSchema,
-  KnowledgeEntrySchema,
-  KnowledgeConfigSchema,
-  KnowledgeMapSchema,
-  InstructionsConfigSchema,
-  McpServerEntryObjectSchema,
-  McpServerEntrySchema,
-  McpServersMapSchema,
-  MinimumReleaseAgeSchema,
-  PackEntryObjectSchema,
-  PackEntrySchema,
-  PacksMapSchema,
-  RuleEntryObjectSchema,
-  RuleEntrySchema,
-  RulesMapSchema,
-  SETTINGS_KEY_ORDER,
-  SettingsSchema,
-  SkillEntryObjectSchema,
-  SkillEntrySchema,
-  SkillsMapSchema,
-  SubagentEntryObjectSchema,
-  SubagentEntrySchema,
-  SubagentsMapSchema,
-  SourceHostConfigSchema,
-  WorkspacePublishOptionsSchema,
-} from "./schema.js";
+export { DEFAULT_MINIMUM_RELEASE_AGE, SETTINGS_KEY_ORDER, SettingsSchema } from "./schema.js";
 
 // Settings I/O
 export { createDefaultSettings, writeSettingsAtPath } from "./settings.js";
 export { SettingsWriteError } from "./errors.js";
 
 // Format-preserving JSON
-export type { JsonModification } from "./format-preserving-json.js";

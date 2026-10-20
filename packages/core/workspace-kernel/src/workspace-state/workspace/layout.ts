@@ -16,8 +16,7 @@ import type { Settings } from "../desired/settings/schema.js";
 import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 
-export { LOCK_FILENAME } from "./constants.js";
-export const RUNTIME_DIRECTORY = AXM_DIR_NAME;
+const RUNTIME_DIRECTORY = AXM_DIR_NAME;
 
 /** Each type's authored root before settings override it: the type's plural segment. */
 export const DEFAULT_AUTHORED_DIRECTORIES = extensionTypeToPlural;

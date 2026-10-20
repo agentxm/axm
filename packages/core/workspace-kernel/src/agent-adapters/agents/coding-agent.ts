@@ -36,7 +36,7 @@ export type NativeArtifactChange = "created" | "updated" | "unchanged" | "remove
 /**
  * Inputs for resolving an agent's effective skills directory.
  */
-export interface ResolveSkillsDirArgs {
+interface ResolveSkillsDirArgs {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
 }
@@ -44,7 +44,7 @@ export interface ResolveSkillsDirArgs {
 /**
  * Tagged outcome for skills-directory resolution.
  */
-export type ResolveSkillsDirOutcome =
+type ResolveSkillsDirOutcome =
   | { readonly _tag: "supported"; readonly dir: string }
   | { readonly _tag: "unsupported"; readonly reason: string }
   | { readonly _tag: "unverified"; readonly reason: string }
@@ -87,7 +87,7 @@ export interface RemoveMcpServerArgs {
 /**
  * Inputs for resolving an agent's effective subagents directory.
  */
-export interface ResolveSubagentsDirArgs {
+interface ResolveSubagentsDirArgs {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
 }

@@ -49,7 +49,7 @@ export const isSymbolicMcpCredential = (raw: McpValue): boolean => {
 };
 
 const absolutePath = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/u;
-export const McpWorkingDirectorySchema = Schema.Union([
+const McpWorkingDirectorySchema = Schema.Union([
   Schema.Struct({
     base: Schema.Literal("scope"),
     path: Schema.NonEmptyString.check(

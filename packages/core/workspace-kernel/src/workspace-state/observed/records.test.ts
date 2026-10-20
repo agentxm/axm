@@ -3,7 +3,6 @@ import {
   aggregateWorkspaceRecords,
   configuredRowsByName,
   installedRowsByName,
-  unmanagedRowsByName,
   type WorkspaceRecordRow,
 } from "./records.js";
 
@@ -44,7 +43,6 @@ describe("aggregateWorkspaceRecords", () => {
         paths: [".codex/skills/shared", "agent_extensions/shared", "skills/shared"],
       }),
     ]);
-    expect(Object.keys(unmanagedRowsByName(records))).toEqual(["shared"]);
   });
 
   it("keeps direct configuration and installed evidence from duplicate observations", () => {

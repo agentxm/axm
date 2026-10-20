@@ -591,23 +591,89 @@ const documentKind = (relativePath: string): KnowledgeDocumentKind => {
   return "concept";
 };
 
-const resolvedMarkdownTarget = (
+/**
+ * Where an authored Knowledge link points. `external` is a URL with a scheme or
+ * a protocol-relative URL, `same-document` has only a query or fragment,
+ * `escaped` leaves the bundle, `missing` names a bundle path that holds no file,
+ * and `resolved` names a bundle file. `query` and `fragment` carry the raw text
+ * after `?` and `#` when the target has them.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type KnowledgeLinkResolution =
+  | { readonly _tag: "external" }
+  | { readonly _tag: "escaped" }
+  | ({ readonly _tag: "same-document" } & KnowledgeLinkSuffix)
+  | ({ readonly _tag: "missing"; readonly path: string } & KnowledgeLinkSuffix)
+  | ({
+      readonly _tag: "resolved";
+      readonly path: string;
+      readonly kind: "markdown";
+      readonly conceptId: string;
+    } & KnowledgeLinkSuffix)
+  | ({
+      readonly _tag: "resolved";
+      readonly path: string;
+      readonly kind: "asset";
+    } & KnowledgeLinkSuffix);
+
+/**
+ * The query and fragment of a link target, without their `?` and `#` delimiters.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface KnowledgeLinkSuffix {
+  readonly query?: string;
+  readonly fragment?: string;
+}
+
+const linkSuffix = (target: string): KnowledgeLinkSuffix => {
+  const fragmentStart = target.indexOf("#");
+  const beforeFragment = fragmentStart < 0 ? target : target.slice(0, fragmentStart);
+  const queryStart = beforeFragment.indexOf("?");
+  return {
+    ...(queryStart < 0 ? {} : { query: beforeFragment.slice(queryStart + 1) }),
+    ...(fragmentStart < 0 ? {} : { fragment: target.slice(fragmentStart + 1) }),
+  };
+};
+
+const isMarkdownPath = (relativePath: string): boolean =>
+  relativePath.toLowerCase().endsWith(".md");
+
+/**
+ * Resolve a link authored in `sourcePath` against the bundle's file paths, with
+ * the rule Knowledge inspection uses for `authoredLinks[].resolvedConceptId`. A
+ * relative target resolves from the source document's directory and a target
+ * starting with `/` from the bundle root, after percent-decoding. A target
+ * without a `.md` extension names `path.md` when the bundle has it, else
+ * `path/index.md` when the bundle has it, else `path` itself, which may be an
+ * asset; so `guides` and `guides/` both name `guides/index.md` when the bundle
+ * has no `guides.md`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const resolveKnowledgeLink = (
   sourcePath: string,
   target: string,
-  markdownPaths: ReadonlySet<string>,
-): { readonly path: string; readonly escaped: boolean } | null => {
+  bundleFilePaths: ReadonlySet<string>,
+): KnowledgeLinkResolution => {
   const normalized = normalizedPath(sourcePath, target);
-  if (normalized === null || normalized.escaped) return normalized;
-  const candidates = normalized.path.toLowerCase().endsWith(".md")
-    ? [normalized.path]
-    : [normalized.path, `${normalized.path}.md`, `${normalized.path}/index.md`];
-  return {
-    path:
-      candidates.find((candidate) => markdownPaths.has(candidate)) ??
-      candidates[0] ??
-      normalized.path,
-    escaped: false,
-  };
+  const suffix = linkSuffix(target);
+  if (normalized === null) {
+    return resourcePathPortion(target).length === 0
+      ? { _tag: "same-document", ...suffix }
+      : { _tag: "external" };
+  }
+  if (normalized.escaped) return { _tag: "escaped" };
+  const path = isMarkdownPath(normalized.path)
+    ? normalized.path
+    : ([`${normalized.path}.md`, `${normalized.path}/index.md`].find((candidate) =>
+        bundleFilePaths.has(candidate),
+      ) ?? normalized.path);
+  if (!bundleFilePaths.has(path)) return { _tag: "missing", path, ...suffix };
+  return isMarkdownPath(path)
+    ? { _tag: "resolved", path, kind: "markdown", conceptId: conceptId(path), ...suffix }
+    : { _tag: "resolved", path, kind: "asset", ...suffix };
 };
 
 /**
@@ -1123,41 +1189,43 @@ export const inspectKnowledgeEntries = <E>(
       const targets = new Set<string>();
       const authoredLinks: KnowledgeAuthoredLink[] = [];
       for (const link of links) {
-        const normalized = normalizedPath(sourcePath, link.target);
-        if (normalized === null) {
-          authoredLinks.push(link);
-          continue;
-        }
-        if (normalized.escaped) {
-          authoredLinks.push(link);
-          diagnostics.push({
-            code: "escaping-link",
-            severity: "warning",
-            relativePath: sourcePath,
-            line: link.line,
-            message: `${sourcePath} links outside the Knowledge bundle.`,
-          });
-          continue;
-        }
-        const resolved = resolvedMarkdownTarget(sourcePath, link.target, markdownPaths);
-        const targetPath = resolved?.path ?? normalized.path;
-        if (allFilePaths.has(targetPath)) referencedFiles.add(targetPath);
-        if (markdownPaths.has(targetPath)) {
-          targets.add(targetPath);
-          authoredLinks.push({ ...link, resolvedConceptId: conceptId(targetPath) });
-        } else if (!allFilePaths.has(targetPath)) {
-          authoredLinks.push(link);
-          diagnostics.push({
-            code: sourcePath.toLowerCase().endsWith("index.md")
-              ? "stale-index-entry"
-              : "broken-internal-link",
-            severity: "warning",
-            relativePath: sourcePath,
-            line: link.line,
-            message: `${sourcePath} links to missing bundle path ${link.target}.`,
-          });
-        } else {
-          authoredLinks.push(link);
+        const resolution = resolveKnowledgeLink(sourcePath, link.target, allFilePaths);
+        switch (resolution._tag) {
+          case "external":
+          case "same-document":
+            authoredLinks.push(link);
+            break;
+          case "escaped":
+            authoredLinks.push(link);
+            diagnostics.push({
+              code: "escaping-link",
+              severity: "warning",
+              relativePath: sourcePath,
+              line: link.line,
+              message: `${sourcePath} links outside the Knowledge bundle.`,
+            });
+            break;
+          case "missing":
+            authoredLinks.push(link);
+            diagnostics.push({
+              code: sourcePath.toLowerCase().endsWith("index.md")
+                ? "stale-index-entry"
+                : "broken-internal-link",
+              severity: "warning",
+              relativePath: sourcePath,
+              line: link.line,
+              message: `${sourcePath} links to missing bundle path ${link.target}.`,
+            });
+            break;
+          case "resolved":
+            referencedFiles.add(resolution.path);
+            if (resolution.kind === "markdown") {
+              targets.add(resolution.path);
+              authoredLinks.push({ ...link, resolvedConceptId: resolution.conceptId });
+            } else {
+              authoredLinks.push(link);
+            }
+            break;
         }
       }
       outgoing.set(sourcePath, targets);

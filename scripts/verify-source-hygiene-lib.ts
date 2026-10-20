@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { exportsSpecification, parseSpecificationFile } from "./specification-catalog-lib.js";
-import { classifyTestPurpose } from "./test-purpose.js";
+import { classifyTestPurpose } from "@agentxm/test-reporting/test-purpose";
 import {
   isSpecificationPath,
   productionProjects,

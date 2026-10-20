@@ -89,6 +89,7 @@ entry point.
 | CLI compilation                                                                 | `cli`                                         |
 | CLI end-to-end and binary/install verification                                  | `cli-e2e`                                     |
 | The specification metadata contract                                             | `specification-metadata`                      |
+| Shared Vitest execution profile, purpose labelling, and test reporting          | `test-reporting`                              |
 | Specification discovery, catalog, verdict, selection, and cross-project hygiene | `axm`                                         |
 | Repository tooling, release helpers, and reports                                | `axm`                                         |
 | Published package membership                                                    | `nx.json` release configuration               |
@@ -271,10 +272,15 @@ not sequence a dependency already owned by a target. Host workflows may order
 steps only where failure handling, credentials, platform setup, or external
 state prevents faithful graph representation.
 
-The root `build-test-reporting` target imports the published specification
-metadata contract, so it depends explicitly on
-`specification-metadata:build`. Clean-checkout verification must not rely on a
-previously populated package `dist` directory.
+Every Vitest configuration imports its execution profile, purpose setup, and
+reporters from `@agentxm/test-reporting` by name and declares the package as a
+development dependency. That edge puts the package's production files in each
+consumer's `^production` input, so `sharedGlobals` names no reporting file. The
+package loads the specification metadata contract for the purpose setup, so the
+contract project removes the edge back with `implicitDependencies` and names the
+package's production input on its own `test` and `typecheck` targets instead.
+Clean-checkout verification must not rely on a previously populated package
+`dist` directory.
 
 `axm:reconcile-github-release -- <prepare|publish> <tag> <sha>` owns exact draft
 GitHub Release creation and final publication with bounded state readback.
@@ -301,7 +307,7 @@ concurrent push is not retried.
 published package in temporary global state and runs its installed executable
 outside the repository, without source export conditions or workspace module
 resolution. Release automation owns the platform matrix and credentials.
-`axm:test` builds its graph dependencies and reporting support. Its focused
+`axm:test` builds its graph dependencies. Its focused
 tooling tests do not require unrelated packages to be built. The full-workspace
 declaration guard belongs to `axm:verify-artifacts`, which builds every buildable
 project, checks emitted first-party references against the owning manifests,

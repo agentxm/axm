@@ -449,7 +449,8 @@ packages; every strategic tier may import them subject to the role matrix.
 
 `tools/` — engineering support. No `domain:*` tag, `role:tooling`, and barred
 from every runtime role's imports. Test-purpose files inside a runtime package
-may compose them.
+may compose them, and every project's Vitest configuration imports the execution
+and reporting entries of `@agentxm/test-reporting`.
 
 | Package                           | Owns                                                                                                                                                                                                             |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -457,6 +458,7 @@ may compose them.
 | `@agentxm/test-support`           | Shared deterministic test-world adapters                                                                                                                                                                         |
 | `@agentxm/extension-type-parity`  | Extension-type parity obligations, the lifecycle contract and the exemption ledger the conformance suites read                                                                                                   |
 | `@agentxm/client-e2e-utils`       | Shared end-to-end utilities (`tools/e2e-utils`)                                                                                                                                                                  |
+| `@agentxm/test-reporting`         | The shared Vitest execution profile, per-file purpose labelling, and the JUnit, Allure, failure-summary, and specification-evidence reporters every project's tests run under                                    |
 
 `specification-metadata` ships with the release cohort so other repositories
 author specifications against it. That does not make it a runtime contract: it

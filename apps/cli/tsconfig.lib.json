@@ -16,16 +16,10 @@
   ],
   "references": [
     {
-      "path": "../../packages/generic/host-primitives/tsconfig.lib.json"
-    },
-    {
       "path": "../../tools/specification-metadata/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/workspace-kernel/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/core/extension-kinds/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/workspace-features/tsconfig.lib.json"
@@ -40,10 +34,13 @@
       "path": "../../packages/supporting/registry-access/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/generic/host-primitives/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/core/extension-model/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/core/extension-content/tsconfig.lib.json"
+      "path": "../../packages/core/extension-kinds/tsconfig.lib.json"
     },
     {
       "path": "../../packages/supporting/cli-maintenance/tsconfig.lib.json"
@@ -52,7 +49,13 @@
       "path": "../../tools/test-support/tsconfig.lib.json"
     },
     {
+      "path": "../../tools/test-reporting/tsconfig.lib.json"
+    },
+    {
       "path": "../../tools/extension-type-parity/tsconfig.lib.json"
+    },
+    {
+      "path": "../../packages/core/extension-content/tsconfig.lib.json"
     }
   ]
 }

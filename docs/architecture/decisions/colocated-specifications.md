@@ -39,8 +39,8 @@ project owns it.
   `git ls-tree`, so both sides of a verdict resolve ownership identically
   across layouts.
 - **Purpose is labelled per file at execution.** Every owner's test target
-  runs specifications and ordinary tests together; the shared
-  `vitest.purpose.setup.ts` labels each file `specification`, `e2e`, or
+  runs specifications and ordinary tests together; the shared purpose setup
+  in `@agentxm/test-reporting` labels each file `specification`, `e2e`, or
   `test` from its suffix, requires a valid exported `specification` for a
   `.spec.ts`, joins the metadata onto the native results, and records the
   purpose in the execution receipt. A `.spec.ts` receipt that did not run
@@ -103,11 +103,12 @@ specifications outside their owner's source root.
 ## Consequences
 
 - Every owner `vitest.config.ts` declares `makeTestReporting({ project })`
-  and `setupFiles: [purposeSetupFile]`; a project with several test targets
-  names each suite distinctly.
-- A change to discovery, placement inference, purpose labelling, or
-  reporting invalidates every cached test, typecheck, catalog, and hygiene
-  target through `sharedGlobals`.
+  and `setupFiles: [purposeSetupFile]` from `@agentxm/test-reporting`; a
+  project with several test targets names each suite distinctly.
+- A change to discovery or placement inference invalidates every cached test,
+  typecheck, catalog, and hygiene target through `sharedGlobals`. A change to
+  purpose labelling or reporting invalidates them through each project's
+  dependency on `@agentxm/test-reporting`.
 - Source hygiene enforces the discovery rules: a `.spec.ts` exports a valid
   `specification` with a unique identity, a `.test.ts` never does,
   `.e2e.test.ts` lives only in `role:e2e` projects, neither lives in

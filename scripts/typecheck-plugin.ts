@@ -19,7 +19,6 @@ const projectHasBuildTarget = (configFile: string): boolean => {
 export const typecheckTargetGlob = "{apps/*,packages/*/*,tools/*}/tsconfig.spec.json";
 
 export const typecheckDependencies = (hasBuildTarget: boolean): string[] => [
-  "axm:build-test-reporting",
   ...(hasBuildTarget ? ["build"] : []),
   "^typecheck",
 ];

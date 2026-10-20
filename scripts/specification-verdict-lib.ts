@@ -12,7 +12,7 @@ import {
   sameEvidenceInputs,
   type EvidenceInputs,
   type EvidenceRun,
-} from "./specification-evidence.js";
+} from "@agentxm/test-reporting/specification-evidence";
 
 export type VerdictSource = SpecificationSource;
 

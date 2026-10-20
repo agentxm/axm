@@ -10,6 +10,7 @@
   "devDependencies": {
     "@agentxm/client-e2e-utils": "workspace:*",
     "@agentxm/specification-metadata": "workspace:^",
+    "@agentxm/test-reporting": "workspace:*",
     "@agentxm/test-support": "workspace:*",
     "@types/bun": "catalog:",
     "@xterm/headless": "6.0.0",

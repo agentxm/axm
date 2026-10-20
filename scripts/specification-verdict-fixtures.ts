@@ -5,7 +5,7 @@ import {
   type EvidenceFile,
   type EvidenceInputs,
   type EvidenceRun,
-} from "./specification-evidence.js";
+} from "@agentxm/test-reporting/specification-evidence";
 import type { VerdictEvidence, VerdictSource } from "./specification-verdict-lib.js";
 
 export const FIXTURE_SOURCE_PATH =

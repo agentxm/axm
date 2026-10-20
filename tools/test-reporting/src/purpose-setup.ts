@@ -14,7 +14,7 @@ import "allure-vitest/setup";
 import { epic, feature, label, labels, story } from "allure-js-commons";
 import { beforeEach } from "vitest";
 
-import { classifyTestPurpose } from "./scripts/test-purpose.js";
+import { classifyTestPurpose } from "./test-purpose.js";
 
 // The contract is loaded lazily (below), so its types are named through the
 // module type rather than a static import.
@@ -40,10 +40,10 @@ const readSpecificationMetadata = async (
       `Specification file must export a \`specification\` constant built with defineSpecification: ${filepath}`,
     );
   }
-  // The contract package is a dependency of every project that owns a
-  // specification (each file imports defineSpecification from it), so its
-  // built surface exists whenever a specification runs; projects without
-  // specifications never load it.
+  // Every project that owns a specification already builds the contract
+  // (each file imports defineSpecification from it), so its built surface
+  // exists whenever a specification runs; a suite without specifications
+  // never loads it.
   const { decodeSpecificationMetadata } = await import("@agentxm/specification-metadata");
   const decoded = decodeSpecificationMetadata(moduleExports.specification);
   if (!decoded.ok) {

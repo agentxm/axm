@@ -3,15 +3,14 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { withoutLocalGitEnvironment } from "@agentxm/client-e2e-utils";
 import {
   captureEvidenceInputs as captureInputs,
   digestFiles,
   readEvidenceRuns,
   sameEvidenceInputs,
   type EvidenceInputOptions,
+  type EvidenceRun,
 } from "./specification-evidence.js";
-import { fixtureRun } from "./specification-verdict-fixtures.js";
 
 const captureEvidenceInputs = (
   root: string,
@@ -19,11 +18,54 @@ const captureEvidenceInputs = (
 ): ReturnType<typeof captureInputs> =>
   captureInputs(root, { runtimeOutputs: ["apps/cli/dist"], ...options });
 
+const evidenceRun: EvidenceRun = {
+  format: 3,
+  suite: "extension-lifecycle",
+  task: { project: "extension-lifecycle", target: "test" },
+  startedAt: "2026-09-05T10:00:00Z",
+  finishedAt: "2026-09-05T10:01:00Z",
+  inputs: {
+    sourceDigest: "source-inputs",
+    runtimeDigest: "built-inputs",
+    runtimeMode: "built",
+    revision: "recorded-revision",
+    runtimeResolved: true,
+  },
+  inputsStable: true,
+  environment: { node: "v24.0.0", platform: "linux", architecture: "x64" },
+  selection: ["packages/core/workspace-features/src/lifecycle/install/install.spec.ts"],
+  complete: true,
+  unhandledErrors: 0,
+  files: [
+    {
+      source: "packages/core/workspace-features/src/lifecycle/install/install.spec.ts",
+      owner: "extension-lifecycle",
+      purpose: "specification",
+      contentDigest: "specification-content",
+      tests: 3,
+      passed: 3,
+      failed: 0,
+      skipped: 0,
+      pending: 0,
+      moduleFailed: false,
+      filtered: false,
+    },
+  ],
+};
+
+/**
+ * Fixture repositories are created outside any Git hook context. Every
+ * tested project reports through this package, so it carries its own filter
+ * rather than depending on a test-utility project that reports through it.
+ */
+const withoutGitEnvironment = (): NodeJS.ProcessEnv =>
+  Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
+
 const roots: string[] = [];
 const repository = (): string => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-evidence-"));
   roots.push(root);
-  const env = withoutLocalGitEnvironment(process.env);
+  const env = withoutGitEnvironment();
   execFileSync("git", ["init", "-q"], { cwd: root, env });
   execFileSync(
     "git",
@@ -183,11 +225,11 @@ describe("repository execution inputs", () => {
     write(
       root,
       "test-results/cli/evidence.json",
-      JSON.stringify({ ...fixtureRun(), format: 1, files: [{ source: "x.spec.ts" }] }),
+      JSON.stringify({ ...evidenceRun, format: 1, files: [{ source: "x.spec.ts" }] }),
     );
-    write(root, "test-results/workspace/evidence.json", JSON.stringify(fixtureRun()));
+    write(root, "test-results/workspace/evidence.json", JSON.stringify(evidenceRun));
     expect(readEvidenceRuns(root)).toEqual({
-      runs: [fixtureRun()],
+      runs: [evidenceRun],
       issues: [
         "Invalid execution evidence: test-results/cli/evidence.json",
         "Invalid execution evidence: test-results/extension-lifecycle/evidence.json",

@@ -10,5 +10,5 @@
     "types": ["bun"]
   },
   "include": ["src/**/*.ts", "vitest*.config.ts"],
-  "references": [{ "path": "../../tsconfig.json" }]
+  "references": []
 }

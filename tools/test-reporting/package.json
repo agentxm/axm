@@ -1,0 +1,26 @@
+{
+  "name": "@agentxm/test-reporting",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared Vitest execution profile, purpose labelling, and test reporting for AXM projects",
+  "type": "module",
+  "exports": {
+    "./execution": "./src/execution.ts",
+    "./reporting": "./src/reporting.ts",
+    "./specification-evidence": "./src/specification-evidence.ts",
+    "./specification-evidence-task": "./src/specification-evidence-task.ts",
+    "./test-purpose": "./src/test-purpose.ts"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/specification-metadata": "workspace:*",
+    "@nx/devkit": "catalog:",
+    "allure-js-commons": "catalog:",
+    "allure-vitest": "catalog:",
+    "effect": "catalog:",
+    "nx": "catalog:",
+    "vitest": "catalog:"
+  }
+}

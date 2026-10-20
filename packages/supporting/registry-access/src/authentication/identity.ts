@@ -54,7 +54,11 @@ export const currentIdentity = Effect.fn("Identity.current")(function* (
   yield* requireSignedIn(registry);
   const identity = yield* authClient
     .getMe(registry.endpoint)
-    .pipe(Effect.mapError((error) => (isRejectedCredential(error) ? signedOut(error) : error)));
+    .pipe(
+      Effect.mapError((error) =>
+        isRejectedCredential(error) ? signedOut(registry.endpoint.href, error) : error,
+      ),
+    );
   return {
     user: identity.userHandle,
     registry: registry.endpoint.href,

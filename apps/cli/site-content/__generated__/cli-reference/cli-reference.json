@@ -9276,6 +9276,14 @@
             "default": false
           },
           {
+            "name": "new-account",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Open account creation when signing in with a browser",
+            "default": false
+          },
+          {
             "name": "wait-for-human",
             "aliases": [],
             "type": "integer",
@@ -9295,6 +9303,10 @@
         "globalOptions": [],
         "examples": [
           { "command": "axm login", "description": "Sign in with a local browser" },
+          {
+            "command": "axm login --new-account",
+            "description": "Create an account in a local browser"
+          },
           {
             "command": "axm login --device-code",
             "description": "Sign in from SSH or a headless machine"

@@ -46,7 +46,7 @@ describe("login after the Registry refuses a stored credential", () => {
                   verification_uri_complete:
                     "https://identity.example.test/device?user_code=ABCD-1234",
                   interval: 5,
-                  expires_in: 300,
+                  expires_in: 900,
                 });
           return HttpClientResponse.fromWeb(request, response);
         }),

@@ -61,6 +61,18 @@ People and agents can understand invalid workspace state and recover it through 
 - Additional evidence: process via [`apps/cli-e2e/src/approval-required-recovery.e2e.test.ts`](../apps/cli-e2e/src/approval-required-recovery.e2e.test.ts) — Only a real command line shows that the emitted recovery parses and, when run, produces exactly the transition it promised while leaving unrelated workspace content alone.
 - Source: [`apps/cli/src/root/shared/approval-required-names-a-valid-recovery.spec.ts`](../apps/cli/src/root/shared/approval-required-names-a-valid-recovery.spec.ts)
 
+##### Authentication settings links follow the selected Registry
+
+- Requirement: `cli/authentication/settings-links-follow-the-selected-registry`
+- Owner: `registry-access`
+- Statement: AXM shall derive authentication and trusted-publisher settings links from the selected Registry's paired web origin, keeping development and custom Registry recoveries on their own web surfaces.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/supporting/registry-access/src/authentication/settings-links-follow-the-selected-registry.spec.ts`](../packages/supporting/registry-access/src/authentication/settings-links-follow-the-selected-registry.spec.ts)
+
 ##### A delegating operation narrates the external work it hands off
 
 - Requirement: `cli/delegated-operations-narrate-external-work`
@@ -88,6 +100,18 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example, contract
 - Derived from: `packages/supporting/registry-client/src/translate.ts`
 - Source: [`packages/supporting/registry-client/src/only-being-signed-out-suggests-signing-in.spec.ts`](../packages/supporting/registry-client/src/only-being-signed-out-suggests-signing-in.spec.ts)
+
+##### A plan-limit refusal preserves its upgrade link
+
+- Requirement: `cli/denials/plan-limit-refusals-preserve-upgrade-links`
+- Owner: `registry-client`
+- Statement: When the Registry refuses publication or a visibility change because a plan limit was reached, AXM shall offer the HTTP or HTTPS upgrade link in that refusal's details as the recovery and shall not turn a missing or invalid URL into a link.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/supporting/registry-client/src/plan-limit-refusals-preserve-upgrade-links.spec.ts`](../packages/supporting/registry-client/src/plan-limit-refusals-preserve-upgrade-links.spec.ts)
 
 ##### Quiet takes precedence over debug and verbose diagnostics
 
@@ -594,7 +618,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/trusted-publishing/refusals-name-the-trusted-publishers-permissions`
 - Owner: `cli`
-- Statement: When the invocation's credential for its default Registry comes from a GitHub Actions identity and the Registry forbids an operation for the credential's scope or resource limits or for a publish rule other than an exhausted quota, AXM shall recover by pointing at the trusted publisher's permissions in AgentXM settings rather than at a signed-in session, on the command and plan-step paths alike, and shall leave every other refusal and every other credential's refusal as the Registry's own recovery reads.
+- Statement: When the invocation's credential for its default Registry comes from a GitHub Actions identity and the Registry forbids an operation for the credential's scope or resource limits or for a publish rule other than an exhausted quota or plan limit, AXM shall recover by pointing at the trusted publisher's permissions on the selected Registry's web surface rather than at a signed-in session, on the command and plan-step paths alike, and shall leave every other refusal and every other credential's refusal as the Registry's own recovery reads.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -1536,6 +1560,33 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Open questions: Must a request containing both matched and unmatched names install its matches, as it does today, or fail as a whole?
 - Limitation: The source populations are local native trees with unique and same-name skills, two uniquely named subagents, and one mixed local source holding a Pack, its member, a rule, and an acquired skill. These examples do not establish discovery or selection through remote Git/Registry providers, native ownership conflicts, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
 - Source: [`packages/core/workspace-features/src/lifecycle/install/selects-requested-source-extensions.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/selects-requested-source-extensions.spec.ts)
+
+##### New-account sign-in opens account creation
+
+- Requirement: `cli/login/new-account-opens-account-creation`
+- Owner: `registry-access`
+- Statement: When login requests a new account, AXM shall carry prompt=create on the browser authorization request and, when using a device code, tell the person to use Sign up on the sign-in page without changing the device verification link or emitting prose in machine output.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Browser selection creates a native loopback listener; the authorization and presentation ports are observed in memory.
+- Methods: example
+- Source: [`packages/supporting/registry-access/src/authentication/new-account-opens-account-creation.spec.ts`](../packages/supporting/registry-access/src/authentication/new-account-opens-account-creation.spec.ts)
+
+##### An attached sign-in replaces one expired authorization transaction
+
+- Requirement: `cli/login/replaces-an-expired-attached-sign-in-once`
+- Owner: `registry-access`
+- Statement: While a person remains attached to browser or device-code sign-in, AXM shall replace the first expired transaction once with fresh authorization material and announce the replacement, allow fifteen minutes for each browser transaction, stop on the second expiry without changing credentials, and never replace an expired transaction in machine-output or unattended sign-in.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Loopback examples acquire and release native HTTP listeners; device examples substitute the Registry and storage ports.
+- Methods: example
+- Limitation: The test clock advances real listener waits; these examples do not open an external browser or wait fifteen real minutes. Retires when: Combine with released browser sign-in verification.
+- Source: [`packages/supporting/registry-access/src/authentication/replaces-an-expired-attached-sign-in-once.spec.ts`](../packages/supporting/registry-access/src/authentication/replaces-an-expired-attached-sign-in-once.spec.ts)
 
 ##### Browser sign-in uses the selected Registry's paired web origin
 

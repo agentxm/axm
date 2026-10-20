@@ -8,6 +8,7 @@ import { Command, Flag } from "effect/cli";
 import {
   login,
   selectedRegistry,
+  webOriginForRegistry,
   DeviceLoginPendingDocumentSchema,
   LoginDocumentSchema,
   type LoginOutcome,
@@ -53,14 +54,14 @@ const LoginNoOpSuggestions = [
 ] satisfies ReadonlyArray<SuggestedAction>;
 
 /** Deliver one terminal result after the login operation has settled. */
-export const emitLoginOutcome = (outcome: LoginOutcome) =>
+export const emitLoginOutcome = (outcome: LoginOutcome, webOrigin: string) =>
   Effect.gen(function* () {
     if (outcome._tag === "SignedIn") {
       return yield* emitResult(
         { result: outcome.result },
         LoginDocumentSchema,
-        () => loginSuccessDoc(outcome.result),
-        { suggestions: loginSuccessSuggestions },
+        () => loginSuccessDoc(outcome.result, webOrigin),
+        { suggestions: loginSuccessSuggestions(webOrigin) },
       );
     }
     if (outcome._tag === "PendingApproval") {
@@ -107,6 +108,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
   function* (options: {
     readonly yes: boolean;
     readonly deviceCode: boolean;
+    readonly newAccount?: boolean;
     readonly restart?: boolean;
     readonly waitForHumanSeconds?: number;
   }) {
@@ -122,6 +124,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
         {
           yes: options.yes,
           deviceCode: options.deviceCode,
+          newAccount: options.newAccount ?? false,
           restart: options.restart ?? false,
           ...(options.waitForHumanSeconds === undefined
             ? {}
@@ -134,7 +137,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
       ),
     );
 
-    yield* emitLoginOutcome(outcome);
+    yield* emitLoginOutcome(outcome, webOriginForRegistry(registry.endpoint));
   },
   // A person who abandoned the replace-session question cancelled the command.
   Effect.catchTag("AuthInteractionAbandoned", (abandoned) =>
@@ -151,6 +154,10 @@ const loginConfig = {
     withParameterDescription("Sign in with a code; recommended for SSH and headless environments"),
     withParameterDefault(false),
   ),
+  newAccount: Flag.Boolean("new-account").pipe(
+    withParameterDescription("Open account creation when signing in with a browser"),
+    withParameterDefault(false),
+  ),
   waitForHuman: waitForHumanOption,
   restart: Flag.Boolean("restart").pipe(
     withParameterDescription(
@@ -163,10 +170,11 @@ const loginConfig = {
 export const loginCommand = Command.make(
   "login",
   loginConfig,
-  ({ yes, deviceCode, waitForHuman, restart, registry }) =>
+  ({ yes, deviceCode, newAccount, waitForHuman, restart, registry }) =>
     handleLogin({
       yes,
       deviceCode,
+      newAccount,
       restart,
       ...Option.match(waitForHuman, {
         onNone: () => ({}),
@@ -179,6 +187,7 @@ export const loginCommand = Command.make(
   Command.withDescription("Sign in to a registry"),
   Command.withExamples([
     { command: "axm login", description: "Sign in with a local browser" },
+    { command: "axm login --new-account", description: "Create an account in a local browser" },
     { command: "axm login --device-code", description: "Sign in from SSH or a headless machine" },
     {
       command: "axm login --device-code --wait-for-human 300 --json",

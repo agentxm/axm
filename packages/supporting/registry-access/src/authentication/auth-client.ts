@@ -22,7 +22,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
-import { isLoopbackHostname } from "@agentxm/host-primitives";
+import { webOriginForRegistry } from "./web-origin.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
@@ -169,7 +169,8 @@ export interface TokenListResponse {
 
 interface BuildAuthorizeUrlParams {
   readonly challenge: string;
-  readonly expiresAt?: DateTime.Utc;
+  readonly expiresAt: DateTime.Utc;
+  readonly prompt?: "create";
   readonly state: string;
   readonly redirectUri: string;
 }
@@ -325,26 +326,6 @@ const SessionTokenResponseSchema = Schema.Struct({
   refresh_token: Schema.String,
   expires_at: DateTimeUtcSchema,
 });
-
-const deriveAuthorizationOrigin = (endpoint: HttpRegistryEndpoint): string => {
-  const url = new URL(endpoint.href);
-  if (url.origin === "https://registry.agentxm.ai") {
-    return "https://agentxm.ai";
-  }
-  if (url.origin === "https://registry-dev.agentxm.ai") {
-    return "https://web-dev.agentxm.ai";
-  }
-  const registryPort = Number(url.port);
-  if (
-    isLoopbackHostname(url.hostname) &&
-    Number.isInteger(registryPort) &&
-    registryPort >= 4300 &&
-    registryPort <= 4399
-  ) {
-    return `${url.protocol}//${url.hostname}:${String(registryPort - 100)}`;
-  }
-  return url.origin;
-};
 
 const getOAuthErrorCode = (error: unknown): string | undefined =>
   getString(error, "error") ?? getString(error, "code");
@@ -534,9 +515,9 @@ export const AuthClientLive = Layer.effect(
 
     const buildAuthorizeUrl: AuthClientService["buildAuthorizeUrl"] = (
       endpoint,
-      { challenge, expiresAt, state, redirectUri },
+      { challenge, expiresAt, state, redirectUri, prompt },
     ) => {
-      const url = new URL("/oauth/authorize", deriveAuthorizationOrigin(endpoint));
+      const url = new URL("/oauth/authorize", webOriginForRegistry(endpoint));
       url.searchParams.set("response_type", "code");
       url.searchParams.set("client_id", CLIENT_ID);
       url.searchParams.set("code_challenge", challenge);
@@ -544,14 +525,13 @@ export const AuthClientLive = Layer.effect(
       url.searchParams.set("state", state);
       url.searchParams.set("redirect_uri", redirectUri);
       url.searchParams.set("scope", LOGIN_SCOPE);
-      if (expiresAt !== undefined) {
-        url.searchParams.set("request_expires_at", DateTime.formatIso(expiresAt));
-      }
+      url.searchParams.set("request_expires_at", DateTime.formatIso(expiresAt));
+      if (prompt !== undefined) url.searchParams.set("prompt", prompt);
       return url.href;
     };
 
     const getAuthorizationIssuer: AuthClientService["getAuthorizationIssuer"] = (endpoint) =>
-      deriveAuthorizationOrigin(endpoint);
+      webOriginForRegistry(endpoint);
 
     const exchangePkceCode: AuthClientService["exchangePkceCode"] = Effect.fn(
       "AuthClient.exchangePkceCode",

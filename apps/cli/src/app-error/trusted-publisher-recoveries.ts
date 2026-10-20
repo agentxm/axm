@@ -13,7 +13,8 @@
 import * as ServiceMap from "effect/Context";
 import * as Option from "effect/Option";
 
-import { TRUSTED_PUBLISHER_SETTINGS_URL } from "@agentxm/registry-access/authentication";
+import { trustedPublisherSettingsUrl } from "@agentxm/registry-access/authentication";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { GeneratedRegistryClient } from "@agentxm/registry-client";
 import type { AmbientCredentialSource } from "@agentxm/registry-access/credentials";
 import {
@@ -36,15 +37,21 @@ export const InvocationCredentialSource: ServiceMap.Reference<
   { defaultValue: () => Option.none() },
 );
 
-const TRUSTED_PUBLISHER_RECOVERY = {
-  description: "Adjust the trusted publisher's permissions in AgentXM settings.",
-  url: TRUSTED_PUBLISHER_SETTINGS_URL,
-} as const;
+const trustedPublisherRecovery = (failure: RenderedRefusal) => {
+  const requestUrl = failure.metadata?.request?.url;
+  if (requestUrl === undefined || !URL.canParse(requestUrl)) return undefined;
+  const url = new URL(requestUrl);
+  if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+  return {
+    description: "Adjust the trusted publisher's permissions in AgentXM settings.",
+    url: trustedPublisherSettingsUrl(decodeHttpRegistryEndpointSync(url.origin)),
+  };
+};
 
 /**
  * The forbidding rules a trusted publisher's permission document decides: the
- * credential's scope and resource limits, and every publish refusal except an
- * exhausted quota, which no permission changes.
+ * credential's scope and resource limits, and publish permissions. Quotas and
+ * plan limits retain their own recovery because permission changes do not raise them.
  */
 const DECIDED_BY_TRUSTED_PUBLISHER: ReadonlySet<string> = new Set([
   "insufficient_scope",
@@ -53,7 +60,6 @@ const DECIDED_BY_TRUSTED_PUBLISHER: ReadonlySet<string> = new Set([
   "publish_resource_restriction",
   "publish_handle_not_owned",
   "publish_publish_forbidden",
-  "publish_plan_limit_reached",
 ] satisfies ReadonlyArray<GeneratedRegistryClient.ForbiddenErrorEncoded["code"]>);
 
 const decidedByTrustedPublisher = (problemCode: string): boolean =>
@@ -80,8 +86,9 @@ const refusedByTrustedPublisher = (
 export const stepFailureForCredentialSource = (
   source: Option.Option<AmbientCredentialSource>,
   failure: StepFailure,
-): StepFailure =>
-  refusedByTrustedPublisher(source, failure)
+): StepFailure => {
+  const recovery = trustedPublisherRecovery(failure);
+  return recovery !== undefined && refusedByTrustedPublisher(source, failure)
     ? makeStepFailure({
         category: failure.category,
         title: failure.title,
@@ -93,16 +100,19 @@ export const stepFailureForCredentialSource = (
         blockedOn: failure.blockedOn,
         action: failure.action,
         inputs: failure.inputs,
-        suggestions: [TRUSTED_PUBLISHER_RECOVERY],
+        suggestions: [recovery],
         cause: failure.cause,
       })
     : failure;
+};
 
 /** A command's failure as it reads for this invocation's credential source. */
 export const appErrorForCredentialSource = (
   source: Option.Option<AmbientCredentialSource>,
   error: AppError,
-): AppError =>
-  refusedByTrustedPublisher(source, error)
-    ? makeAppError({ ...error, cause: error.cause, suggestions: [TRUSTED_PUBLISHER_RECOVERY] })
+): AppError => {
+  const recovery = trustedPublisherRecovery(error);
+  return recovery !== undefined && refusedByTrustedPublisher(source, error)
+    ? makeAppError({ ...error, cause: error.cause, suggestions: [recovery] })
     : error;
+};

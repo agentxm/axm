@@ -149,6 +149,18 @@ const browserSessionRecovery = (body: unknown): SuggestedAction => {
   }
 };
 
+const planLimitRecovery = (body: unknown): SuggestedAction => {
+  const details =
+    typeof body === "object" && body !== null ? Reflect.get(body, "details") : undefined;
+  const upgradeUrl = getStringField(details, "upgradeUrl");
+  const url =
+    upgradeUrl !== undefined && URL.canParse(upgradeUrl) ? new URL(upgradeUrl) : undefined;
+  return {
+    description: "Open the owner's plan page to raise the limit.",
+    ...(url?.protocol === "https:" || url?.protocol === "http:" ? { url: url.href } : {}),
+  };
+};
+
 /**
  * What a person can do about one forbidding rule.
  *
@@ -178,6 +190,8 @@ const FORBIDDEN_RECOVERIES: Partial<
   delegated_permission_not_held: {
     description: "Ask an owner of this resource for the permission this needs.",
   },
+  publish_plan_limit_reached: planLimitRecovery,
+  visibility_plan_limit_reached: planLimitRecovery,
   publish_handle_not_owned: {
     description: "Publish under a handle you own, or ask its owner to add you.",
   },

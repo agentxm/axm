@@ -30,7 +30,7 @@ import type { NormalizedTokenResponse } from "../authentication/oauth-contract.j
 const UNKNOWN_HANDLE = normalizeHandle("@unknown");
 // Human approval window for the browser/login round trip. The issued
 // authorization code remains shorter-lived on the registry side.
-const LOOPBACK_TIMEOUT_MINUTES = 5;
+export const LOOPBACK_TIMEOUT_MINUTES = 15;
 const LOOPBACK_TIMEOUT = Duration.minutes(LOOPBACK_TIMEOUT_MINUTES);
 
 const makePkceVerifier = (): string => randomBytes(64).toString("base64url");
@@ -65,7 +65,7 @@ const persistLoginCredentials = (endpoint: HttpRegistryEndpoint, token: Normaliz
     }));
   });
 
-export const runLoopbackLogin = (endpoint: HttpRegistryEndpoint) =>
+const loopbackLoginAttempt = (endpoint: HttpRegistryEndpoint, newAccount: boolean) =>
   Effect.scoped(
     Effect.gen(function* () {
       const authClient = yield* AuthClient;
@@ -75,7 +75,7 @@ export const runLoopbackLogin = (endpoint: HttpRegistryEndpoint) =>
       const registryHost = new URL(endpoint.href).host;
 
       if (!credStore.allowsPersistedCredentials) {
-        return yield* makePersistedCredentialsUnsupportedError();
+        return yield* makePersistedCredentialsUnsupportedError(endpoint.href);
       }
 
       const verifier = makePkceVerifier();
@@ -87,6 +87,7 @@ export const runLoopbackLogin = (endpoint: HttpRegistryEndpoint) =>
         expiresAt: DateTime.addDuration(yield* DateTime.now, LOOPBACK_TIMEOUT),
         state,
         redirectUri: server.redirectUri,
+        ...(newAccount ? { prompt: "create" as const } : {}),
       });
 
       const browserOpened = yield* interaction.openBrowser(authorizeUrl);
@@ -145,4 +146,20 @@ export const runLoopbackLogin = (endpoint: HttpRegistryEndpoint) =>
       yield* server.complete;
       return makeLoginResult(endpoint.href, identity);
     }),
+  );
+
+/** One attached wait may replace its expired transaction, with a new listener and PKCE state. */
+export const runLoopbackLogin = (
+  endpoint: HttpRegistryEndpoint,
+  options: { readonly newAccount?: boolean } = {},
+) =>
+  loopbackLoginAttempt(endpoint, options.newAccount ?? false).pipe(
+    Effect.catchTag("LoopbackLoginFallback", (error) =>
+      error.reason === "timeout"
+        ? Effect.gen(function* () {
+            yield* (yield* AuthLoginPresenter).noteBrowserSignInRestarted();
+            return yield* loopbackLoginAttempt(endpoint, options.newAccount ?? false);
+          })
+        : Effect.fail(error),
+    ),
   );

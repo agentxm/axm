@@ -2,6 +2,8 @@ import * as Cause from "effect/Cause";
 import { ConfigError } from "effect/Config";
 import { SourceError } from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { afterAll, describe, expect, it } from "@effect/vitest";
@@ -40,6 +42,7 @@ import {
   RegistryOperationFailed,
   RegistryOperationUnsupported,
   RegistryProblem,
+  registryErrorToProblem,
   RegistryRequestFailed,
   RegistrySelectionFailed,
   RegistrySourceUnknown,
@@ -684,6 +687,23 @@ const representatives: Representatives = {
       metadata: registryMetadata,
       cause: ioCause,
     }),
+    ...["publish_plan_limit_reached", "visibility_plan_limit_reached"].map((code) =>
+      registryErrorToProblem(
+        {
+          kind: "ForbiddenError",
+          type: "about:blank",
+          title: "Plan limit",
+          status: 403,
+          code,
+          detail: "The owner's plan limit was reached.",
+          details: { upgradeUrl: "https://web-dev.agentxm.ai/orgs/@example/settings/plan" },
+        },
+        HttpClientResponse.fromWeb(
+          HttpClientRequest.post("https://registry-dev.agentxm.ai/v1/extensions"),
+          new Response(null, { status: 403 }),
+        ),
+      ),
+    ),
   ],
   RegistryRequestFailed: [
     new RegistryRequestFailed({
@@ -886,8 +906,15 @@ const representatives: Representatives = {
       cause: new DeviceLoginDenied(),
     }),
   ],
-  SignedOut: [new SignedOut({ message: "You are not signed in." })],
-  AuthTokenPolicyRequired: [new AuthTokenPolicyRequired({})],
+  SignedOut: [
+    new SignedOut({
+      registryUrl: "https://registry.agentxm.ai",
+      message: "You are not signed in.",
+    }),
+  ],
+  AuthTokenPolicyRequired: [
+    new AuthTokenPolicyRequired({ registryUrl: "https://registry.agentxm.ai" }),
+  ],
   DeviceLoginDenied: [new DeviceLoginDenied()],
   DeviceLoginCodeExpired: [new DeviceLoginCodeExpired()],
   DeviceAuthorizationPending: [
@@ -896,8 +923,8 @@ const representatives: Representatives = {
       minutesLeft: 4,
       registryUrl: "https://registry.example.test",
       intervalSeconds: 2,
-      verificationUri: "https://auth.agentxm.ai/device",
-      verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+      verificationUri: "https://agentxm.ai/device",
+      verificationUriComplete: "https://agentxm.ai/device?user_code=ABCD-1234",
       userCode: "ABCD-1234",
       expiresAt: "2099-01-01T00:00:00.000Z",
       resume: "axm login --device-code --wait-for-human 300 --json",
@@ -907,8 +934,8 @@ const representatives: Representatives = {
       minutesLeft: 1,
       registryUrl: "https://registry.example.test",
       intervalSeconds: 2,
-      verificationUri: "https://auth.agentxm.ai/device",
-      verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+      verificationUri: "https://agentxm.ai/device",
+      verificationUriComplete: "https://agentxm.ai/device?user_code=ABCD-1234",
       userCode: "ABCD-1234",
       expiresAt: "2099-01-01T00:00:00.000Z",
       resume: "axm login --device-code --wait-for-human 300 --json",
@@ -1212,7 +1239,10 @@ describe("A failure reads the same on the direct and plan paths", () => {
       // Signing in runs for the whole installation: `axm login` takes no
       // `--scope`, so a user-scope workspace must not narrow it.
       const failures = [
-        new SignedOut({ message: "You are not signed in." }),
+        new SignedOut({
+          registryUrl: "https://registry.agentxm.ai",
+          message: "You are not signed in.",
+        }),
         new DeviceLoginCodeExpired(),
         installRefused({
           category: "not_found",

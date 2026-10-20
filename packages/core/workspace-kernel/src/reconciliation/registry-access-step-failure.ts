@@ -14,8 +14,11 @@
 import {
   REGISTRY_ACCESS_ERROR_CATEGORIES,
   isRegistryAccessFailure,
+  webOriginForRegistry,
   type RegistryAccessFailure,
 } from "@agentxm/registry-access/authentication";
+
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 import {
   defineFailureFamily,
@@ -30,7 +33,8 @@ import { resolutionFailureToStepFailure } from "../planning/index.js";
 // carries them over.
 REGISTRY_ACCESS_ERROR_CATEGORIES satisfies ReadonlyArray<ErrorCode>;
 
-const TOKEN_SETTINGS_URL = "https://agentxm.ai/u/settings/tokens";
+const tokenSettingsUrl = (registryUrl: string): string =>
+  `${webOriginForRegistry(decodeHttpRegistryEndpointSync(registryUrl))}/u/settings/tokens`;
 
 /** Sign-in runs for the whole installation, never narrowed to a workspace scope. */
 const signIn = (description: string, cmd: string) =>
@@ -72,7 +76,10 @@ const registryAccessFailureToStepFailure = (error: RegistryAccessFailure): StepF
             "Start a non-blocking sign-in with a code and ask a person to approve it.",
             "axm login --device-code --json",
           ),
-          { description: "Create a personal access token in AgentXM.ai.", url: TOKEN_SETTINGS_URL },
+          {
+            description: "Create a personal access token in AgentXM.ai.",
+            url: tokenSettingsUrl(error.registryUrl),
+          },
         ],
         cause: error.cause,
       });
@@ -86,7 +93,10 @@ const registryAccessFailureToStepFailure = (error: RegistryAccessFailure): StepF
             description:
               "Set AXM_TOKEN_FILE (preferred) or AXM_TOKEN for non-interactive authentication.",
           },
-          { description: "Create a personal access token in AgentXM.ai.", url: TOKEN_SETTINGS_URL },
+          {
+            description: "Create a personal access token in AgentXM.ai.",
+            url: tokenSettingsUrl(error.registryUrl),
+          },
         ],
         cause: error.cause,
       });

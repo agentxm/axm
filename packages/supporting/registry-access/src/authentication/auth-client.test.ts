@@ -173,6 +173,7 @@ describe("AuthClient.buildAuthorizeUrl", () => {
         const client = yield* AuthClient;
         const authorizeUrl = new URL(
           client.buildAuthorizeUrl(endpoint, {
+            expiresAt: DateTime.makeUnsafe("2026-05-12T12:00:00.000Z"),
             challenge: "challenge",
             state: "state",
             redirectUri: "http://127.0.0.1:49152/callback",
@@ -184,7 +185,7 @@ describe("AuthClient.buildAuthorizeUrl", () => {
     });
   }
 
-  it.effect("includes a request expiry when provided", () => {
+  it.effect("always includes the request expiry", () => {
     const layer = makeTestLayer(() => new Response(null, { status: 204 }));
     const expiresAt = DateTime.makeUnsafe("2026-05-12T12:00:00.000Z");
 
@@ -205,6 +206,23 @@ describe("AuthClient.buildAuthorizeUrl", () => {
     }).pipe(Effect.provide(layer));
   });
 
+  it.effect("carries an explicit account-creation prompt on the authorization URL", () => {
+    const layer = makeTestLayer(() => new Response(null, { status: 204 }));
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const url = new URL(
+        client.buildAuthorizeUrl(ENDPOINT, {
+          challenge: "challenge",
+          state: "state",
+          redirectUri: "http://127.0.0.1:49152/callback",
+          expiresAt: DateTime.makeUnsafe("2026-05-12T12:00:00.000Z"),
+          prompt: "create",
+        }),
+      );
+      expect(url.searchParams.get("prompt")).toBe("create");
+    }).pipe(Effect.provide(layer));
+  });
+
   // Wire shape for the authorization request, demoted here from
   // cli/login/uses-matching-hosted-authorization-origin, which states only the
   // origin and issuer rule.
@@ -215,6 +233,7 @@ describe("AuthClient.buildAuthorizeUrl", () => {
       const client = yield* AuthClient;
       const url = new URL(
         client.buildAuthorizeUrl(ENDPOINT, {
+          expiresAt: DateTime.makeUnsafe("2026-05-12T12:00:00.000Z"),
           challenge: "fixture-challenge",
           state: "fixture-state",
           redirectUri: "http://127.0.0.1:49152/callback",

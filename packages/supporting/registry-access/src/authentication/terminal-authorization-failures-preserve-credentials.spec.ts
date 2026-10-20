@@ -42,12 +42,12 @@ describe("Terminal authorization failure", () => {
     });
     return Effect.gen(function* () {
       yield* initiateDeviceLogin(authEndpoint);
-      // The code lives 60 seconds; the caller asked to wait for 300.
-      const waiting = yield* resumeDeviceLogin(authEndpoint, { timeoutSeconds: 300 }).pipe(
+      // The code lives 900 seconds; the caller asked to wait for 1,800.
+      const waiting = yield* resumeDeviceLogin(authEndpoint, { timeoutSeconds: 1800 }).pipe(
         Effect.flip,
         Effect.forkChild,
       );
-      yield* TestClock.adjust("61 seconds");
+      yield* TestClock.adjust("901 seconds");
       const error = yield* Fiber.join(waiting);
 
       expect(authFailureCategory(error)).toBe("auth_expired");
@@ -81,7 +81,7 @@ describe("Terminal authorization failure", () => {
         const before = yield* credentials.load(authKey);
         const otherBefore = yield* credentials.load(otherAuthKey);
 
-        if (outcome === "expired-locally") yield* TestClock.adjust("61 seconds");
+        if (outcome === "expired-locally") yield* TestClock.adjust("901 seconds");
         const error = yield* resumeDeviceLogin(authEndpoint).pipe(Effect.flip);
 
         expect(authFailureCategory(error)).toBe(

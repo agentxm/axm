@@ -538,8 +538,9 @@ export const selectTier = (env: EnvironmentInfo): StorageTier =>
 
 export const canUsePersistedCredentials = (env: EnvironmentInfo): boolean => !env.isCI;
 
-export const makePersistedCredentialsUnsupportedError = (): AuthTokenPolicyRequired =>
-  new AuthTokenPolicyRequired({});
+export const makePersistedCredentialsUnsupportedError = (
+  registryUrl: string,
+): AuthTokenPolicyRequired => new AuthTokenPolicyRequired({ registryUrl });
 
 // -----------------------------------------------------------------------------
 // Live layer
@@ -651,7 +652,7 @@ export const CredentialStoreLive = Layer.effect(
     const save: CredentialStoreService["save"] = Effect.fn("CredentialStore.save")(
       function* (registryUrl, handle, credentials) {
         if (!persistedCredentialsAllowed) {
-          return yield* makePersistedCredentialsUnsupportedError();
+          return yield* makePersistedCredentialsUnsupportedError(registryUrl);
         }
 
         if (env.isRoot) {
@@ -866,7 +867,7 @@ export const CredentialStoreTest = (
               },
             };
           })
-        : Effect.fail(makePersistedCredentialsUnsupportedError()),
+        : Effect.fail(makePersistedCredentialsUnsupportedError(registryUrl)),
 
     load: read,
 

@@ -115,10 +115,10 @@ const makeLayers = (opts?: {
       Effect.succeed({
         device_code: "dc-123",
         user_code: "ABCD-1234",
-        verification_uri: "https://auth.agentxm.ai/device",
-        verification_uri_complete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+        verification_uri: "https://agentxm.ai/device",
+        verification_uri_complete: "https://agentxm.ai/device?user_code=ABCD-1234",
         interval: 5,
-        expires_in: 600,
+        expires_in: 900,
       }),
     pollDeviceToken: () =>
       Effect.succeed({
@@ -199,6 +199,16 @@ const makeLayers = (opts?: {
 };
 
 describe("auth login handler", () => {
+  it.effect("carries the new-account option to device sign-in guidance", () => {
+    const { provide, rendererState } = makeLayers();
+    return Effect.gen(function* () {
+      yield* handleLogin({ yes: true, deviceCode: true, newAccount: true });
+      expect(JSON.stringify(rendererState)).toContain(
+        "Use Sign up on the sign-in page to create your account.",
+      );
+    }).pipe(provide);
+  });
+
   it.effect("waits for human device approval when the screen cannot ask", () => {
     const { provide, rendererState } = makeLayers({ canAsk: false });
     return provide(
@@ -254,7 +264,7 @@ describe("auth login handler", () => {
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
             status: "pending-human",
-            verificationUri: "https://auth.agentxm.ai/device",
+            verificationUri: "https://agentxm.ai/device",
             userCode: "ABCD-1234",
             resume: "axm login --device-code --wait-for-human 300 --json",
           },
@@ -354,7 +364,7 @@ describe("auth login handler", () => {
     );
 
     expect(failure.detail).toBe(
-      "Browser sign-in expired after 5 minutes. No credentials were changed.",
+      "Browser sign-in expired after 15 minutes. No credentials were changed.",
     );
     expect(failure.suggestions).toEqual([
       { description: "Try browser sign-in again.", cmd: "axm login" },
@@ -446,13 +456,13 @@ describe("auth login handler", () => {
           expect(instructions).toEqual(
             expect.arrayContaining([
               "To sign in, open this link in a browser:",
-              "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+              "https://agentxm.ai/device?user_code=ABCD-1234",
               "Make sure it shows the code ABCD-1234.",
             ]),
           );
           expect(rendererState.suggestions).toContainEqual({
             description: "Or open the sign-in page without the code and enter it",
-            url: "https://auth.agentxm.ai/device",
+            url: "https://agentxm.ai/device",
           });
         }),
       );
@@ -682,10 +692,10 @@ describe("auth login handler", () => {
         Effect.succeed({
           device_code: "dc-123",
           user_code: "ABCD-1234",
-          verification_uri: "https://auth.agentxm.ai/device",
-          verification_uri_complete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          verification_uri: "https://agentxm.ai/device",
+          verification_uri_complete: "https://agentxm.ai/device?user_code=ABCD-1234",
           interval: 5,
-          expires_in: 600,
+          expires_in: 900,
         }),
       pollDeviceToken: () =>
         Effect.succeed({

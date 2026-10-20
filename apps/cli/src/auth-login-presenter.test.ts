@@ -24,7 +24,7 @@ import {
   startedUnits,
 } from "./test-support/presenter-test.js";
 import { withLiveOperation } from "./operation-lifecycle.js";
-import { emitLoginOutcome } from "./root/auth/login.js";
+import { emitLoginOutcome as emitOutcome } from "./root/auth/login.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import { OutputWriteFailed, Screen, paragraphDoc } from "./screen/index.js";
 import { waitDoc } from "./screen/wait/view.js";
@@ -36,8 +36,8 @@ const pendingResult: DeviceLoginPendingResult = {
   retryable: true,
   flow: "started",
   registryHost: "registry.agentxm.ai",
-  verificationUri: "https://auth.agentxm.ai/device",
-  verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+  verificationUri: "https://agentxm.ai/device",
+  verificationUriComplete: "https://agentxm.ai/device?user_code=ABCD-1234",
   userCode: "ABCD-1234",
   expiresAt: "2099-01-01T00:00:00.000Z",
   interval: 5,
@@ -45,11 +45,11 @@ const pendingResult: DeviceLoginPendingResult = {
   action: {
     kind: "open-url",
     purpose: "login",
-    requestRef: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+    requestRef: "https://agentxm.ai/device?user_code=ABCD-1234",
     registryUrl: "https://registry.agentxm.ai",
     intervalSeconds: 5,
-    url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-    fallbackUrl: "https://auth.agentxm.ai/device",
+    url: "https://agentxm.ai/device?user_code=ABCD-1234",
+    fallbackUrl: "https://agentxm.ai/device",
     code: "ABCD-1234",
     expiresAt: "2099-01-01T00:00:00.000Z",
     resume: "axm login --device-code --wait-for-human 300 --json",
@@ -58,12 +58,12 @@ const pendingResult: DeviceLoginPendingResult = {
 
 const signInPage = {
   description: "Open the sign-in page",
-  url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+  url: "https://agentxm.ai/device?user_code=ABCD-1234",
 };
 
 const codeEntryPage = {
   description: "Or open the sign-in page without the code and enter it",
-  url: "https://auth.agentxm.ai/device",
+  url: "https://agentxm.ai/device",
 };
 
 const waitForSignIn = {
@@ -76,15 +76,15 @@ const pendingSuggestions = [signInPage, codeEntryPage, waitForSignIn];
 /** The brief a terminal sign-in prints once, as a person reads it. */
 const terminalSignInBrief = [
   "To sign in, open this link in a browser:",
-  "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+  "https://agentxm.ai/device?user_code=ABCD-1234",
   "Make sure it shows the code ABCD-1234.",
 ];
 
 const deviceHandoff = {
   _tag: "DeviceLogin",
   registryHost: "registry.agentxm.ai",
-  verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-  verificationUri: "https://auth.agentxm.ai/device",
+  verificationUriComplete: "https://agentxm.ai/device?user_code=ABCD-1234",
+  verificationUri: "https://agentxm.ai/device",
   userCode: "ABCD-1234",
   expiresAtMs: Date.parse("2099-01-01T00:00:00.000Z"),
   browserOpened: true,
@@ -147,7 +147,46 @@ const makeMachine = () => {
   };
 };
 
+const emitLoginOutcome = (outcome: Parameters<typeof emitOutcome>[0]) =>
+  emitOutcome(outcome, "https://agentxm.ai");
+
 describe("AuthLoginPresenterLive", () => {
+  it.effect("prints replacement and device account-creation guidance", () => {
+    const { layer, logs } = makeHuman();
+    return Effect.gen(function* () {
+      const presenter = yield* AuthLoginPresenter;
+      yield* presenter.noteDeviceCodeReplaced();
+      yield* presenter.noteBrowserSignInRestarted();
+      yield* presenter.noteNewAccountDeviceSignIn();
+      expect(logs.info).toEqual([
+        "That code expired. Here's a new one.",
+        "Browser sign-in timed out. Opening it again.",
+        "Use Sign up on the sign-in page to create your account.",
+      ]);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("links successful sign-in to the selected web surface", () => {
+    const { layer, state } = makeHuman();
+    return emitOutcome(
+      {
+        _tag: "SignedIn",
+        result: { status: "logged-in", registryHost: "registry-dev.agentxm.ai" },
+      },
+      "https://web-dev.agentxm.ai",
+    ).pipe(
+      Effect.tap(() =>
+        Effect.sync(() => {
+          expect(state.suggestions).toContainEqual({
+            description: "Create an API token in web settings",
+            url: "https://web-dev.agentxm.ai/u/settings/tokens",
+          });
+        }),
+      ),
+      Effect.provide(layer),
+    );
+  });
+
   it.effect("propagates a failed pending document as a typed output failure", () =>
     Effect.gen(function* () {
       const renderer = TestMachineRenderer.make();
@@ -239,7 +278,7 @@ describe("AuthLoginPresenterLive", () => {
       {
         _tag: "paragraph",
         inset: true,
-        text: [{ text: "https://auth.agentxm.ai/device?user_code=ABCD-1234", copyable: true }],
+        text: [{ text: "https://agentxm.ai/device?user_code=ABCD-1234", copyable: true }],
       },
       { _tag: "blank" },
       {
@@ -285,7 +324,7 @@ describe("AuthLoginPresenterLive", () => {
 
       state.waitScript.actions.push(["copy"]);
       yield* presenter.awaitHuman(deviceHandoff, Effect.void);
-      expect(copied).toEqual(["https://auth.agentxm.ai/device?user_code=ABCD-1234"]);
+      expect(copied).toEqual(["https://agentxm.ai/device?user_code=ABCD-1234"]);
     }).pipe(Effect.provide(layer));
   });
 
@@ -496,26 +535,6 @@ describe("AuthLoginPresenterLive", () => {
       yield* presenter.awaitHuman({ ...loopbackHandoff, browserOpened: false }, Effect.void);
 
       expect(logs.info[0]).toBe("Authorize AXM in a browser.");
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("parks publish authorization on the shared human wait", () => {
-    const { layer, state, logs } = makeHuman();
-
-    return Effect.gen(function* () {
-      const presenter = yield* AuthLoginPresenter;
-      yield* presenter.awaitHuman(
-        {
-          _tag: "PublishAuthorization",
-          candidateCount: 2,
-          authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_2",
-          expiresAtMs: Date.now() + 60_000,
-        },
-        Effect.void,
-      );
-
-      expect(logs.info).toContain("Review 2 publish candidates in the browser.");
-      expect(state.suggestions).toEqual([]);
     }).pipe(Effect.provide(layer));
   });
 });

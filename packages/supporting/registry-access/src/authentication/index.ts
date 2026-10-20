@@ -15,7 +15,7 @@ export {
   REGISTRY_ACCESS_ERROR_CATEGORIES,
   RegistryAccessFailed,
   SignedOut,
-  TRUSTED_PUBLISHER_SETTINGS_URL,
+  trustedPublisherSettingsUrl,
   WorkloadTokenUnavailable,
   isRegistryAccessFailure,
   signedOut,
@@ -25,6 +25,7 @@ export {
 
 export type { MeResponse } from "./auth-client.js";
 export { AuthClient } from "./auth-client.js";
+export { webOriginForRegistry } from "./web-origin.js";
 export type { DeviceLoginPendingResult } from "./device-login.js";
 export { DeviceLoginInteraction, DeviceLoginPendingDocumentSchema } from "./device-login.js";
 

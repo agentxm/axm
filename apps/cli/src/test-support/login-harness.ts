@@ -74,10 +74,10 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
         return {
           device_code: "dc-123",
           user_code: DEVICE_USER_CODE,
-          verification_uri: "https://auth.agentxm.ai/device",
-          verification_uri_complete: `https://auth.agentxm.ai/device?user_code=${DEVICE_USER_CODE}`,
+          verification_uri: "https://agentxm.ai/device",
+          verification_uri_complete: `https://agentxm.ai/device?user_code=${DEVICE_USER_CODE}`,
           interval: 5,
-          expires_in: 600,
+          expires_in: 900,
         };
       }),
     pollDeviceToken: () =>

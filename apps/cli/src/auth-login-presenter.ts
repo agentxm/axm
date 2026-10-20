@@ -23,6 +23,7 @@ import {
 } from "@agentxm/registry-access/authentication";
 import {
   Screen,
+  paragraphDoc,
   WaitAbandoned,
   OutputWriteFailed,
   askFailureFields,
@@ -119,6 +120,16 @@ export const AuthLoginPresenterLive = Layer.effect(
           entry.instruction === true ? screen.instruction(entry.doc) : screen.note(entry.doc),
         );
       },
+      noteDeviceCodeReplaced: () =>
+        required(screen.instruction(paragraphDoc("That code expired. Here's a new one."))),
+      noteBrowserSignInRestarted: () =>
+        required(screen.instruction(paragraphDoc("Browser sign-in timed out. Opening it again."))),
+      noteNewAccountDeviceSignIn: () =>
+        required(
+          screen.instruction(
+            paragraphDoc("Use Sign up on the sign-in page to create your account."),
+          ),
+        ),
       noteExistingSession: (handle) => required(screen.note(existingSessionNote(handle).doc)),
       noteRejectedStoredCredentials: required(screen.note(rejectedStoredCredentialsNote.doc)),
       noteDeviceCodeFallback: (reason) => {

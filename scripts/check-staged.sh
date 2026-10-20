@@ -15,11 +15,10 @@ if [[ "${1:-}" != "--index-visible" ]]; then
     --all --hide-all --stash --no-revert --config scripts/check-staged.config.mjs
 fi
 
-# Every check enforces the now-visible index dependency state.
-echo "Running staged auto-fixes..."
-pnpm --config.verify-deps-before-run=error exec lint-staged --no-stash
-pnpm --config.verify-deps-before-run=error axm:local lint --staged --strict
-pnpm --config.verify-deps-before-run=error exec nx run axm:scan-secrets:staged
+# The repository hook runs its ordered checks against the now-visible index.
+# It owns any dependency reconciliation and the placement of its auto-fixes;
+# the typecheck below reads the index those checks leave staged.
+bash scripts/check-staged.checks.sh
 
 echo "Typechecking staged projects and their consumers..."
 # A disposable index worktree gives Nx fresh file metadata, without resetting

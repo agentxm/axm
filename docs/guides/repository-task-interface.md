@@ -463,22 +463,42 @@ selection and platform warming; it does not redefine cache eligibility.
 `pre-commit` runs the fresh Git host adapter `scripts/check-staged.sh`. It uses
 lint-staged's native backup and `--hide-all` restoration to make tracked
 working files match the index and temporarily remove nonignored untracked
-files. The existing staged auto-fixes and repository gates run in that view;
-the compiler selection reads the index after auto-fixes have been staged.
-Auto-fixes remain staged even when a later check fails, preserving the existing
-fixer behavior; unstaged work returns on success or failure. `--no-revert` avoids
-resetting the index to HEAD during failure recovery, which can collide with
-an untracked replacement of a staged deletion. A restoration conflict blocks the
-commit and retains lint-staged's recovery evidence; resolve it before retrying.
-Ignored dependency installations and generated artifacts retain their normal
-Nx input/output contracts.
+files. Inside that view it runs the repository hook, then the staged compiler
+pass. Auto-fixes remain staged even when a later check fails, preserving the
+existing fixer behavior; unstaged work returns on success or failure.
+`--no-revert` avoids resetting the index to HEAD during failure recovery, which
+can collide with an untracked replacement of a staged deletion. A restoration
+conflict blocks the commit and retains lint-staged's recovery evidence; resolve
+it before retrying. Ignored dependency installations and generated artifacts
+retain their normal Nx input/output contracts.
 
-The hook bootstraps isolation through the workspace-installed lint-staged Node
+The adapter holds only the shared mechanism: index isolation and the staged
+compiler pass. It names no repository task, so another workspace can adopt it
+unchanged and compare its copy for drift. `.husky/pre-commit`,
+`scripts/check-staged.config.mjs`, and the root `lint-staged` globs are a
+template copied with it. Two lines carry the wiring: the Git hook runs
+`bash scripts/check-staged.sh`, and the lint-staged configuration returns
+`bash scripts/check-staged.sh --index-visible`. The adapter's tests in
+`scripts/check-staged.test.ts` exercise it through a synthetic hook, so they
+travel with it.
+
+The repository hook, `scripts/check-staged.checks.sh`, owns this repository's
+staged checks as an ordered command list. The adapter runs it once, after
+isolation and before the compiler pass, so the compiler selection reads the
+index the hook leaves staged. The hook decides where auto-fixes run relative
+to its other checks, and a repository that must reconcile dependencies against
+the staged manifests does so in the hook before anything that depends on them.
+Here the hook runs the `lint-staged --no-stash` auto-fixes, then
+`axm:local lint --staged --strict`, then `axm:scan-secrets:staged`, and stops
+at the first failure.
+
+The adapter bootstraps isolation through the workspace-installed lint-staged Node
 entry point: pnpm would parse unstaged manifests before it could isolate the
 index. No Nx target or pnpm launcher can own that pre-isolation step. Every
-check inside isolation uses pnpm and enforces `verifyDepsBeforeRun=error`. If the installed dependencies
-do not match the staged manifests and lockfile, install that dependency state
-before committing; the hook does not reconcile the developer's installation.
+check inside isolation uses pnpm and enforces `verifyDepsBeforeRun=error`. If
+the installed dependencies do not match the staged manifests and lockfile,
+install that dependency state before committing; neither the adapter nor this
+repository's hook reconciles the developer's installation.
 
 Git's explicit `diff --cached --no-renames` file list is passed to
 `nx affected -t typecheck --stdin --nxBail`. Nx owns project selection,

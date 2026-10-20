@@ -1,7 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { defaultServerConditions } from "vite";
 import { defineConfig } from "vitest/config";
-import { testExecution } from "../../vitest.execution.js";
+import { testExecution } from "@agentxm/test-reporting/execution";
+import { failureSummaryReporter } from "@agentxm/test-reporting/reporting";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
@@ -22,12 +23,6 @@ export default defineConfig({
       "src/screen/**/*.spec.ts",
       "src/test-support/**/*.test.ts",
     ],
-    reporters: [
-      "default",
-      [
-        fileURLToPath(new URL("../../scripts/failure-summary-reporter.ts", import.meta.url)),
-        { repoRoot: fileURLToPath(new URL("../../", import.meta.url)) },
-      ],
-    ],
+    reporters: ["default", failureSummaryReporter],
   },
 });

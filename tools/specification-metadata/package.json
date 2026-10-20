@@ -39,6 +39,7 @@
     "effect": "^4.0.5"
   },
   "devDependencies": {
+    "@agentxm/test-reporting": "workspace:*",
     "@effect/vitest": "catalog:",
     "@typescript/native": "catalog:",
     "effect": "catalog:",

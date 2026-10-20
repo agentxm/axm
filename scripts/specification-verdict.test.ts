@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEvidenceRun } from "./specification-evidence.js";
+import { parseEvidenceRun } from "@agentxm/test-reporting/specification-evidence";
 import {
   fixtureContext,
   fixtureInputs,

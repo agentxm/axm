@@ -3,12 +3,8 @@ import { describe, expect, it } from "vitest";
 import { typecheckDependencies } from "./typecheck-plugin.js";
 
 describe("typecheck target inference", () => {
-  it("builds shared test reporting before package Vitest configs are typechecked", () => {
-    expect(typecheckDependencies(true)).toEqual([
-      "axm:build-test-reporting",
-      "build",
-      "^typecheck",
-    ]);
-    expect(typecheckDependencies(false)).toEqual(["axm:build-test-reporting", "^typecheck"]);
+  it("typechecks against a project's own build and its dependencies' typechecks", () => {
+    expect(typecheckDependencies(true)).toEqual(["build", "^typecheck"]);
+    expect(typecheckDependencies(false)).toEqual(["^typecheck"]);
   });
 });

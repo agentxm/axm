@@ -17,7 +17,7 @@ import * as path from "node:path";
 
 import ts from "typescript";
 
-import { digestContent } from "./specification-evidence.js";
+import { digestContent } from "@agentxm/test-reporting/specification-evidence";
 
 import {
   type BoundEvidenceGate,

@@ -243,11 +243,11 @@ for (const source of [workspaceVerification, affectedVerification]) {
 // runner and a developer workstation need different values from one contract.
 // Vitest 5 removed the experimental filesystem module-cache option, so the
 // profile owns only the worker policy now.
-const testExecutionProfile = read("vitest.execution.ts");
+const testExecutionProfile = read("tools/test-reporting/src/execution.ts");
 requireText(
   testExecutionProfile,
   'process.env["CI"] ? 2 :',
-  "vitest.execution.ts must retain the shared test execution worker profile",
+  "tools/test-reporting/src/execution.ts must retain the shared test execution worker profile",
 );
 
 for (const [name, source] of [
@@ -255,7 +255,9 @@ for (const [name, source] of [
   ["verify:affected", affectedVerification],
 ]) {
   if (source.includes("--maxWorkers")) {
-    errors.push(`${name} must take its worker count from vitest.execution.ts, not a pinned flag`);
+    errors.push(
+      `${name} must take its worker count from the shared test execution profile, not a pinned flag`,
+    );
   }
 }
 

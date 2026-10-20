@@ -73,10 +73,12 @@ const resolvedOutputPath = (projectRoot: string, output: string): string =>
 
 describe("repository task interface", () => {
   let projects: ReadonlyArray<ResolvedProject> = [];
+  let dependencies: Readonly<Record<string, ReadonlyArray<{ readonly target: string }>>> = {};
 
   beforeAll(async () => {
     const graph = await createProjectGraphAsync({ exitOnError: false });
     projects = Object.values(graph.nodes);
+    dependencies = graph.dependencies;
   });
 
   it("uses the current portable guide as the sole semantic authority", () => {
@@ -209,7 +211,7 @@ describe("repository task interface", () => {
     const command = commandText(lint?.options?.command);
     expect(lint?.executor).toBe("nx:run-commands");
     expect(command).toBe(
-      "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts benchmarks scripts --max-warnings=0",
+      "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts benchmarks scripts --max-warnings=0",
     );
     expect(command.split(/\s+/u)).not.toContain(".");
   });
@@ -393,18 +395,6 @@ describe("repository task interface", () => {
     ).toEqual([]);
   });
 
-  it("builds shared test reporting before isolated release preparation", () => {
-    const rootTargets = readTargets("project.json");
-    const reportingTarget = rootTargets["build-test-reporting"];
-    if (!isRecord(reportingTarget)) throw new Error("Missing build-test-reporting target.");
-    expect(reportingTarget["dependsOn"]).toContain("specification-metadata:build");
-    expect(reportingTarget["outputs"]).toEqual(["{workspaceRoot}/out-tsc/reporting"]);
-
-    const candidateTarget = rootTargets["release-prepare-candidate"];
-    if (!isRecord(candidateTarget)) throw new Error("Missing release-prepare-candidate target.");
-    expect(candidateTarget["dependsOn"]).toContain("build-test-reporting");
-  });
-
   it("declares observations and external mutations fresh", () => {
     const rootTargets = readTargets("project.json");
     for (const targetName of [
@@ -463,18 +453,12 @@ describe("repository task interface", () => {
     expect(catalog["outputs"]).toEqual(["{workspaceRoot}/specifications/catalog.md"]);
   });
 
-  it("invalidates discovery-dependent targets when discovery, tags, or reporting change", () => {
+  it("invalidates discovery-dependent targets when discovery or tags change", () => {
     const nx = readObject("nx.json");
     const namedInputs = nx["namedInputs"];
     if (!isRecord(namedInputs)) throw new Error("nx.json must declare namedInputs.");
     const sharedGlobals = namedInputs["sharedGlobals"];
-    for (const file of [
-      "scripts/workspace-discovery.ts",
-      "scripts/placement-tags-plugin.ts",
-      "scripts/test-purpose.ts",
-      "vitest.purpose.setup.ts",
-      "vitest.reporting.ts",
-    ]) {
+    for (const file of ["scripts/workspace-discovery.ts", "scripts/placement-tags-plugin.ts"]) {
       expect(sharedGlobals, file).toContain(`{workspaceRoot}/${file}`);
     }
     const root = projects.find((project) => project.name === "axm");
@@ -484,6 +468,41 @@ describe("repository task interface", () => {
     }
     expect(root?.data.targets?.["generate"]?.dependsOn).toContain("generate:specification-catalog");
     expect(root?.data.sourceRoot).toBe("scripts");
+  });
+
+  it("derives shared test reporting inputs from the project graph", () => {
+    const nx = readObject("nx.json");
+    const namedInputs = nx["namedInputs"];
+    if (!isRecord(namedInputs)) throw new Error("nx.json must declare namedInputs.");
+    const sharedGlobals = namedInputs["sharedGlobals"];
+    if (!Array.isArray(sharedGlobals)) throw new Error("nx.json must declare sharedGlobals.");
+    expect(
+      sharedGlobals.filter(
+        (input) => typeof input === "string" && input.includes("tools/test-reporting"),
+      ),
+    ).toEqual([]);
+    const reporting = projects.find((project) => project.name === "test-reporting");
+    expect(reporting?.data.root).toBe("tools/test-reporting");
+    // The contract the purpose setup loads cannot also depend back on the
+    // package that loads it, so it names the package's production input.
+    const contractTargets = readTargets("tools/specification-metadata/project.json");
+    for (const targetName of ["test", "typecheck"]) {
+      const target = contractTargets[targetName];
+      if (!isRecord(target)) throw new Error(`Missing specification-metadata:${targetName}.`);
+      expect(target["inputs"], targetName).toContainEqual({
+        input: "production",
+        projects: ["test-reporting"],
+      });
+    }
+    for (const project of projects) {
+      if (project.name === "test-reporting" || project.name === "specification-metadata") continue;
+      if (!commandText(project.data.targets?.["test"]?.options?.command).includes("vitest"))
+        continue;
+      expect(
+        dependencies[project.name]?.map((dependency) => dependency.target),
+        project.name,
+      ).toContain("test-reporting");
+    }
   });
 
   it("infers one domain from placement and declares one role for every project", () => {

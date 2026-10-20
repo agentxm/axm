@@ -313,14 +313,8 @@ const axmPolicyPlugin = {
  */
 const moduleBoundaryOptions = {
   banTransitiveDependencies: true,
-  // The root purpose setup loads the specification contract lazily so a
-  // project without specifications never needs it built; the repository
-  // scripts in the same root project import it statically.
-  checkDynamicDependenciesExceptions: ["@agentxm/specification-metadata"],
   allow: [
     "^.*/eslint(\\.base)?\\.config\\.[cm]?js$",
-    "^.*/vitest\\.execution\\.js$",
-    "^.*/vitest\\.reporting\\.js$",
     // Subprocess e2e fixtures (apps/cli-e2e/src/fixtures/*.mjs) observe the
     // CLI package's built shipped surface by path, and drive it through the
     // built contracts it observes.
@@ -636,6 +630,26 @@ export default [
     },
   },
   {
+    // Every project's Vitest configuration composes the shared execution
+    // profile and reporting by package name. Configuration is not product
+    // source, so these two entries are exempt there and nowhere else.
+    files: ["**/vitest*.config.ts"],
+    rules: {
+      "@nx/enforce-module-boundaries": [
+        "error",
+        {
+          ...moduleBoundaryOptions,
+          allow: [
+            ...moduleBoundaryOptions.allow,
+            "^@agentxm/test-reporting/(execution|reporting)$",
+          ],
+          enforceBuildableLibDependency: true,
+          depConstraints: moduleBoundaryConstraints({ production: true }),
+        },
+      ],
+    },
+  },
+  {
     // string-argv 0.4 publishes import-only exports. Nx 23 resolves npm
     // package manifests through require conditions and cannot distinguish it
     // from Effect CLI's transitive 0.3 copy. This sole consumer declares the
@@ -700,6 +714,9 @@ export default [
       "**/src/**/test-support/**",
       "**/e2e/**",
       "**/*-e2e/**",
+      // Vitest host adapters: the reporters run inside the test runner and
+      // read its environment, clock, and output streams directly.
+      "tools/test-reporting/**",
     ],
     rules: {
       "no-restricted-properties": [
@@ -749,6 +766,9 @@ export default [
       "**/__generated__/**",
       "apps/cli-e2e/**",
       "tools/e2e-utils/**",
+      // Vitest host adapters: the reporters run inside the test runner and
+      // read its environment, clock, and output streams directly.
+      "tools/test-reporting/**",
     ],
     plugins: {
       "axm-policy": axmPolicyPlugin,
@@ -869,6 +889,9 @@ export default [
       "**/*.spec.ts",
       "**/src/**/test-support/**",
       "**/src/**/test-helpers.ts",
+      // Vitest host adapters: the reporters run inside the test runner and
+      // read its environment, clock, and output streams directly.
+      "tools/test-reporting/**",
     ],
     rules: {
       "no-restricted-syntax": [

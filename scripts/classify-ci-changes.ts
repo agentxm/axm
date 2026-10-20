@@ -105,9 +105,6 @@ const knownRootFiles = [
   "tsconfig.base.json",
   "tsconfig.json",
   "vitest.config.ts",
-  "vitest.execution.ts",
-  "vitest.reporting.ts",
-  "vitest.purpose.setup.ts",
 ];
 const isKnownPath = (path: string) =>
   isDocumentationOnlyPath(path) ||

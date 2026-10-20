@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
-import { makeTestReporting, purposeSetupFile } from "../../vitest.reporting.js";
+import { makeTestReporting, purposeSetupFile } from "@agentxm/test-reporting/reporting";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 

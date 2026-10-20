@@ -29,8 +29,8 @@ import {
   readEvidenceRuns,
   type EvidenceInputs,
   type EvidenceRun,
-} from "./specification-evidence.js";
-import { resolveEvidenceRuntimeOutputs } from "./specification-evidence-task.js";
+} from "@agentxm/test-reporting/specification-evidence";
+import { resolveEvidenceRuntimeOutputs } from "@agentxm/test-reporting/specification-evidence-task";
 import {
   discoverExecutionBindings,
   discoverSpecifications,

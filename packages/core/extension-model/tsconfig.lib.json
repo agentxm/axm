@@ -16,6 +16,9 @@
   ],
   "references": [
     {
+      "path": "../../../tools/test-reporting/tsconfig.lib.json"
+    },
+    {
       "path": "../../../tools/specification-metadata/tsconfig.lib.json"
     }
   ]

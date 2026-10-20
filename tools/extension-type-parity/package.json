@@ -19,6 +19,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@agentxm/test-reporting": "workspace:*",
     "@agentxm/workspace-kernel": "workspace:^",
     "@types/bun": "catalog:",
     "@typescript/native": "catalog:",

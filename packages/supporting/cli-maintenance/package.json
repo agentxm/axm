@@ -89,6 +89,7 @@
     "@agentxm/host-primitives": "workspace:^"
   },
   "devDependencies": {
+    "@agentxm/test-reporting": "workspace:*",
     "@effect/vitest": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",

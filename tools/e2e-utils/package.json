@@ -17,6 +17,7 @@
     "execa": "catalog:"
   },
   "devDependencies": {
+    "@agentxm/test-reporting": "workspace:*",
     "vitest": "catalog:"
   }
 }

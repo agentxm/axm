@@ -19,6 +19,9 @@
       "path": "../extension-model/tsconfig.lib.json"
     },
     {
+      "path": "../../../tools/test-reporting/tsconfig.lib.json"
+    },
+    {
       "path": "../../../tools/specification-metadata/tsconfig.lib.json"
     }
   ]

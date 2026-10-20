@@ -17,13 +17,16 @@
   ],
   "references": [
     {
-      "path": "../../generic/host-primitives/tsconfig.lib.json"
-    },
-    {
       "path": "../../core/registry-protocol/tsconfig.lib.json"
     },
     {
+      "path": "../../generic/host-primitives/tsconfig.lib.json"
+    },
+    {
       "path": "../../core/extension-model/tsconfig.lib.json"
+    },
+    {
+      "path": "../../../tools/test-reporting/tsconfig.lib.json"
     },
     {
       "path": "../../../tools/specification-metadata/tsconfig.lib.json"

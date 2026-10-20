@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
-import { testExecution } from "../../vitest.execution.js";
-import { makeTestReporting, purposeSetupFile } from "../../vitest.reporting.js";
+import { testExecution } from "@agentxm/test-reporting/execution";
+import { makeTestReporting, purposeSetupFile } from "@agentxm/test-reporting/reporting";
 
 export default defineConfig({
   test: {

@@ -81,6 +81,7 @@
   },
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:*",
+    "@agentxm/test-reporting": "workspace:*",
     "@effect/vitest": "catalog:",
     "@typescript/native": "catalog:",
     "effect": "catalog:",

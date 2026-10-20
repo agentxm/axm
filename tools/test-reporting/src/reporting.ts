@@ -14,28 +14,42 @@ type TestReportingOptions = {
   readonly runtimeMode?: "source" | "built";
 };
 
+/** The workspace root, which owns `test-results/` and the paths receipts name. */
+const workspaceRoot = fileURLToPath(new URL("../../../", import.meta.url));
+
+const reporterFile = (name: string): string => fileURLToPath(new URL(name, import.meta.url));
+
 /**
  * Labels every test file by purpose (specification, e2e, test) and joins
  * specification metadata onto native results. Every owner project's Vitest
  * configuration lists it in `setupFiles`.
  */
-export const purposeSetupFile = fileURLToPath(new URL("vitest.purpose.setup.ts", import.meta.url));
+export const purposeSetupFile = reporterFile("purpose-setup.ts");
+
+/**
+ * Ends a failing run with what failed rather than with a report path, so a
+ * suite that writes no receipts can still close on its failures.
+ */
+export const failureSummaryReporter: [string, { readonly repoRoot: string }] = [
+  reporterFile("failure-summary-reporter.ts"),
+  { repoRoot: workspaceRoot },
+];
 
 export const makeTestReporting = ({
   project,
   suite = project,
   runtimeMode = "built",
 }: TestReportingOptions): Pick<InlineConfig, "outputFile" | "reporters"> => {
-  const outputDirectory = fileURLToPath(new URL(`test-results/${suite}/`, import.meta.url));
+  const outputDirectory = `${workspaceRoot}test-results/${suite}/`;
 
   return {
     reporters: [
       "default",
       "junit",
       [
-        fileURLToPath(new URL("scripts/specification-evidence-reporter.ts", import.meta.url)),
+        reporterFile("specification-evidence-reporter.ts"),
         {
-          repoRoot: fileURLToPath(new URL(".", import.meta.url)),
+          repoRoot: workspaceRoot,
           outputDirectory,
           project,
           suite,
@@ -43,7 +57,7 @@ export const makeTestReporting = ({
         },
       ],
       [
-        fileURLToPath(new URL("scripts/allure-reporter.ts", import.meta.url)),
+        reporterFile("allure-reporter.ts"),
         {
           environmentInfo: {
             node_version: process.version,
@@ -59,10 +73,7 @@ export const makeTestReporting = ({
         },
       ],
       // Last, so a failing run ends with what failed rather than with a report path.
-      [
-        fileURLToPath(new URL("scripts/failure-summary-reporter.ts", import.meta.url)),
-        { repoRoot: fileURLToPath(new URL(".", import.meta.url)) },
-      ],
+      failureSummaryReporter,
     ],
     outputFile: { junit: `${outputDirectory}junit.xml` },
   };

@@ -5,7 +5,14 @@
   "root": "tools/specification-metadata",
   "sourceRoot": "tools/specification-metadata/src",
   "tags": ["type:lib", "role:tooling", "scope:specification-metadata", "release:cli"],
+  "implicitDependencies": ["!test-reporting"],
   "targets": {
+    "test": {
+      "inputs": ["...", { "input": "production", "projects": ["test-reporting"] }]
+    },
+    "typecheck": {
+      "inputs": ["...", { "input": "production", "projects": ["test-reporting"] }]
+    },
     "build": {
       "executor": "@nx/js:tsc",
       "options": {

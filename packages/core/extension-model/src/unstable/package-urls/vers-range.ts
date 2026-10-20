@@ -15,7 +15,7 @@ const SENTINEL_SCHEMES = [
   "datetime",
 ] as const;
 
-export const CONCRETE_ECOSYSTEM_SCHEMES = [
+const CONCRETE_ECOSYSTEM_SCHEMES = [
   "apk",
   "bazel",
   "cargo",

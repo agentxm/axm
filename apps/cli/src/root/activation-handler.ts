@@ -124,6 +124,38 @@ export const handleDisable = (type: InstallableExtensionType, request: Activatio
     DisableExtension.prepare,
   );
 
+/**
+ * The overrides each verb registers after its subject, in the order its help
+ * lists them. Enabling can write projected files again, so it accepts the
+ * release-age and unrecorded-file overrides; disabling removes projected
+ * files, so it accepts the modified-file override.
+ */
+const enablePostureFlags = {
+  ignoreReleaseAge: ignoreReleaseAgeFlag,
+  replaceUnrecorded: replaceUnrecordedFlag,
+} as const;
+const disablePostureFlags = { discardModified: discardModifiedFlag } as const;
+
+/**
+ * One activation verb: the subject's parameters followed by the verb's
+ * posture flags, parsed together for the handler that discharges them.
+ */
+const makeVerbCommand = <
+  const Name extends string,
+  const Subject extends Command.Command.Config,
+  const Postures extends Command.Command.Config,
+  E,
+  R,
+>(
+  name: Name,
+  subject: Subject,
+  postures: Postures,
+  handler: (parsed: Command.Command.Config.Infer<Subject & Postures>) => Effect.Effect<void, E, R>,
+) => {
+  const config = { ...subject, ...postures };
+  return Command.make(name, config, handler).pipe(withArgvTracking(config));
+};
+
 const makeActivationCommand = (type: InstallableExtensionType, enabled: boolean) => {
   const { route, noun, exampleName } = extensionTypePresentation(type);
   const verb = enabled ? "enable" : "disable";
@@ -157,34 +189,29 @@ const makeActivationCommand = (type: InstallableExtensionType, enabled: boolean)
       ]),
     );
   return enabled
-    ? (() => {
-        const enableConfig = {
-          ...config,
-          ignoreReleaseAge: ignoreReleaseAgeFlag,
-          replaceUnrecorded: replaceUnrecordedFlag,
-        };
-        return Command.make(
-          "enable",
-          enableConfig,
-          ({ name, scope, preview, ignoreReleaseAge, replaceUnrecorded }) =>
-            handleEnable(type, { name, preview }).pipe(
-              withReleaseAgePosture(ignoreReleaseAge),
-              withProjectionOutputPosture({ replaceUnrecorded }),
-              withWorkspace(scope),
-              withRuntime(),
-            ),
-        ).pipe(withArgvTracking(enableConfig), describe);
-      })()
-    : (() => {
-        const disableConfig = { ...config, discardModified: discardModifiedFlag };
-        return Command.make("disable", disableConfig, ({ name, scope, preview, discardModified }) =>
+    ? makeVerbCommand(
+        "enable",
+        config,
+        enablePostureFlags,
+        ({ name, scope, preview, ignoreReleaseAge, replaceUnrecorded }) =>
+          handleEnable(type, { name, preview }).pipe(
+            withReleaseAgePosture(ignoreReleaseAge),
+            withProjectionOutputPosture({ replaceUnrecorded }),
+            withWorkspace(scope),
+            withRuntime(),
+          ),
+      ).pipe(describe)
+    : makeVerbCommand(
+        "disable",
+        config,
+        disablePostureFlags,
+        ({ name, scope, preview, discardModified }) =>
           handleDisable(type, { name, preview }).pipe(
             withProjectionOutputPosture({ discardModified }),
             withWorkspace(scope),
             withRuntime(),
           ),
-        ).pipe(withArgvTracking(disableConfig), describe);
-      })();
+      ).pipe(describe);
 };
 
 export const makeActivationCommands = (type: InstallableExtensionType) => ({
@@ -242,37 +269,29 @@ const makeRootActivationCommand = (enabled: boolean) => {
       ]),
     );
   return enabled
-    ? (() => {
-        const enableConfig = {
-          ...config,
-          ignoreReleaseAge: ignoreReleaseAgeFlag,
-          replaceUnrecorded: replaceUnrecordedFlag,
-        };
-        return Command.make(
-          "enable",
-          enableConfig,
-          ({ extension, scope, preview, ignoreReleaseAge, replaceUnrecorded }) =>
-            runRoot(extension, preview, EnableExtension.prepare).pipe(
-              withReleaseAgePosture(ignoreReleaseAge),
-              withProjectionOutputPosture({ replaceUnrecorded }),
-              withWorkspace(scope),
-              withRuntime(),
-            ),
-        ).pipe(withArgvTracking(enableConfig), describe);
-      })()
-    : (() => {
-        const disableConfig = { ...config, discardModified: discardModifiedFlag };
-        return Command.make(
-          "disable",
-          disableConfig,
-          ({ extension, scope, preview, discardModified }) =>
-            runRoot(extension, preview, DisableExtension.prepare).pipe(
-              withProjectionOutputPosture({ discardModified }),
-              withWorkspace(scope),
-              withRuntime(),
-            ),
-        ).pipe(withArgvTracking(disableConfig), describe);
-      })();
+    ? makeVerbCommand(
+        "enable",
+        config,
+        enablePostureFlags,
+        ({ extension, scope, preview, ignoreReleaseAge, replaceUnrecorded }) =>
+          runRoot(extension, preview, EnableExtension.prepare).pipe(
+            withReleaseAgePosture(ignoreReleaseAge),
+            withProjectionOutputPosture({ replaceUnrecorded }),
+            withWorkspace(scope),
+            withRuntime(),
+          ),
+      ).pipe(describe)
+    : makeVerbCommand(
+        "disable",
+        config,
+        disablePostureFlags,
+        ({ extension, scope, preview, discardModified }) =>
+          runRoot(extension, preview, DisableExtension.prepare).pipe(
+            withProjectionOutputPosture({ discardModified }),
+            withWorkspace(scope),
+            withRuntime(),
+          ),
+      ).pipe(describe);
 };
 
 export const rootEnableCommand = makeRootActivationCommand(true);

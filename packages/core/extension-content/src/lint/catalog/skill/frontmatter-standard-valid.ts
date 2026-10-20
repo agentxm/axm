@@ -9,6 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Predicate from "effect/Predicate";
 import YAML from "yaml";
 import { findFrontmatterBoundaries } from "../../../content/frontmatter.js";
 import { validateSkillFrontmatter } from "../../../content/skill-content.js";
@@ -24,9 +25,7 @@ const parseFrontmatterMapping = (content: string): unknown | undefined => {
   if (boundaries === undefined) return undefined;
   try {
     const parsed: unknown = YAML.parse(content.slice(boundaries.yamlStart, boundaries.yamlEnd));
-    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed
-      : undefined;
+    return Predicate.isObject(parsed) ? parsed : undefined;
   } catch {
     return undefined;
   }

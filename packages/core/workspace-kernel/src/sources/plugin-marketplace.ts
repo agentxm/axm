@@ -3,6 +3,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 import { SourceNotResolvable } from "./errors.js";
 import { isLexicallyWithin, isRelativeWithin } from "@agentxm/host-primitives";
 
@@ -103,15 +104,9 @@ export const readPluginMarketplace = (directory: string, requested: ReadonlyArra
           return yield* invalid("Marketplace entries require distinct nonempty names");
         names.add(name);
         const source = fields["source"];
-        const sourceObject =
-          typeof source === "object" && source !== null && !Array.isArray(source)
-            ? source
-            : undefined;
         const declaresLocal =
           format.format === "cursor" ||
-          (sourceObject !== undefined &&
-            "source" in sourceObject &&
-            sourceObject.source === "local");
+          (Predicate.isObject(source) && source["source"] === "local");
         const structured = yield* Schema.decodeUnknownEffect(LocalSource)(source).pipe(
           Effect.option,
         );

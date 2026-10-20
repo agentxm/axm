@@ -6,6 +6,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 
 import {
   extractSkillMetadata,
@@ -210,14 +211,11 @@ const readPortableSkill = (
     const name = sourceName(
       sourcePath === "." ? skillDirectoryName(parsed.name, rootName) : path.basename(directory),
     );
-    const metadata =
-      typeof parsed.metadata === "object" &&
-      parsed.metadata !== null &&
-      !Array.isArray(parsed.metadata)
-        ? yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Unknown))(
-            parsed.metadata,
-          ).pipe(Effect.option)
-        : Option.none<Readonly<Record<string, unknown>>>();
+    const metadata = Predicate.isObject(parsed.metadata)
+      ? yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Unknown))(
+          parsed.metadata,
+        ).pipe(Effect.option)
+      : Option.none<Readonly<Record<string, unknown>>>();
     return Option.some({
       kind: "portable-skill",
       standing: "offered",

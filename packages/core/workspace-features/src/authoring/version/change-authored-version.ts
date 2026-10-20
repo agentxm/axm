@@ -22,6 +22,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 import * as semver from "semver";
 
 import {
@@ -152,9 +153,6 @@ export type PrepareChangeAuthoredVersionRequirements =
 // Manifest access
 // -----------------------------------------------------------------------------
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const decodeExactVersion = (
   value: unknown,
   manifestPath: string,
@@ -199,7 +197,7 @@ const readManifest = Effect.fn("ChangeAuthoredVersion.readManifest")(function* (
         cause,
       }),
   });
-  if (!isRecord(parsed)) {
+  if (!Predicate.isObject(parsed)) {
     return yield* new AuthoredManifestUnavailable({
       manifestPath: args.manifestPath,
       reason: "invalid",

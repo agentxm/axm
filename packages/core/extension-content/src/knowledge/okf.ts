@@ -6,6 +6,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import * as Predicate from "effect/Predicate";
 import { FrontmatterParseFailure, parseFrontmatterEffect } from "../content/frontmatter.js";
 import { matchesKnowledgeSearchQuery, type KnowledgeSearchQuery } from "./knowledge-search.js";
 
@@ -222,9 +223,6 @@ const markdownLinks = (body: string): ReadonlyArray<KnowledgeAuthoredLink> => {
   return links;
 };
 
-const isRecord = (value: unknown): value is { readonly [key: string]: unknown } =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const metadataField = (metadata: unknown, key: string): unknown => {
   if (typeof metadata !== "object" || metadata === null) return undefined;
   return Object.entries(metadata).find(([entryKey]) => entryKey === key)?.[1];
@@ -402,7 +400,7 @@ const dateIssue = (value: unknown, label: string): string | undefined =>
 
 /** Validate one `{ by, at }` actor record shared by `generated` and `verified`. */
 const actorRecordIssues = (value: unknown, label: string): ReadonlyArray<string> => {
-  if (!isRecord(value)) return [`${label} must be a mapping with a by field.`];
+  if (!Predicate.isReadonlyObject(value)) return [`${label} must be a mapping with a by field.`];
   const issues: string[] = [];
   const by = value["by"];
   if (typeof by !== "string" || !validActor(by)) {
@@ -438,7 +436,7 @@ const sourcesIssues = (
   const ids = new Map<string, number>();
   value.forEach((entry: unknown, index) => {
     const label = `sources[${index}]`;
-    if (!isRecord(entry)) {
+    if (!Predicate.isReadonlyObject(entry)) {
       invalid(`${label} must be a mapping.`);
       return;
     }
@@ -492,7 +490,8 @@ const sourcesIssues = (
 };
 
 const usageWindowIssues = (value: unknown): ReadonlyArray<string> => {
-  if (!isRecord(value)) return ["usage_window must be a mapping with from and to dates."];
+  if (!Predicate.isReadonlyObject(value))
+    return ["usage_window must be a mapping with from and to dates."];
   const issues: string[] = [];
   for (const key of ["from", "to"]) {
     const issue = dateIssue(value[key], `usage_window.${key}`);
@@ -517,7 +516,7 @@ const attestationIssues = (metadata: unknown, body: string): ReadonlyArray<strin
     } else {
       parameters.forEach((parameter: unknown, index) => {
         const label = `parameters[${index}]`;
-        if (!isRecord(parameter)) {
+        if (!Predicate.isReadonlyObject(parameter)) {
           issues.push(`${label} must be a mapping.`);
           return;
         }
@@ -539,7 +538,7 @@ const attestationIssues = (metadata: unknown, body: string): ReadonlyArray<strin
   for (const key of ["executor", "attester"]) {
     const value = metadataField(metadata, key);
     if (value === undefined) continue;
-    if (!isRecord(value)) {
+    if (!Predicate.isReadonlyObject(value)) {
       issues.push(`${key} must be a mapping with a resource.`);
       continue;
     }
@@ -935,14 +934,14 @@ export const inspectKnowledgeEntries = <E>(
       const sourcesValue = metadataField(metadata, "sources");
       const usageWindowValue = metadataField(metadata, "usage_window");
       const generated =
-        isRecord(generatedValue) && typeof generatedValue["by"] === "string"
+        Predicate.isReadonlyObject(generatedValue) && typeof generatedValue["by"] === "string"
           ? {
               by: generatedValue["by"],
               ...(typeof generatedValue["at"] === "string" ? { at: generatedValue["at"] } : {}),
             }
           : undefined;
       const verified = verifiedRecords(verifiedValue)
-        .filter(isRecord)
+        .filter(Predicate.isReadonlyObject)
         .flatMap((record) =>
           typeof record["by"] === "string"
             ? [
@@ -1101,7 +1100,7 @@ export const inspectKnowledgeEntries = <E>(
         kind: documentKind(relativePath),
         title: title ?? conceptId(relativePath),
         ...(title === undefined ? {} : { authoredTitle: title }),
-        ...(isRecord(metadata) ? { frontmatter: metadata } : {}),
+        ...(Predicate.isReadonlyObject(metadata) ? { frontmatter: metadata } : {}),
         ...(type === undefined ? {} : { type }),
         ...(description === undefined ? {} : { description }),
         ...(tags === undefined ? {} : { tags }),

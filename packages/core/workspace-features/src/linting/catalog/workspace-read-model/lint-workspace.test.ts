@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as PlatformError from "effect/PlatformError";
+import * as Predicate from "effect/Predicate";
 import { buildFixture, type FixtureSpec } from "@agentxm/workspace-kernel/workspace-state/testing";
 import {
   buildPackRuleContexts,
@@ -162,7 +163,7 @@ const fixtureWithKnowledge = (): FixtureSpec => {
 };
 
 const expectRecord = (value: unknown): Readonly<Record<string, unknown>> => {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+  if (!Predicate.isObject(value)) {
     throw new Error("Expected a JSON object");
   }
   return Object.fromEntries(Object.entries(value));

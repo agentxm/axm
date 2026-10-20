@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Equal from "effect/Equal";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import {
   AGENTS,
   type NativeConfigReadLocation,
@@ -36,7 +37,7 @@ const valueAtPath = (
 ): unknown => {
   let value: unknown = root;
   for (const key of keys) {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+    if (!Predicate.isObject(value)) return undefined;
     value = Object.entries(value).find(([name]) => name === key)?.[1];
   }
   return value;
@@ -141,10 +142,7 @@ export const preflightNativeConfigReaders = (args: {
           );
         if (reader.kind === "mcp-server" && declaration.file.keyPath !== undefined) {
           const value = valueAtPath(root, declaration.file.keyPath);
-          if (
-            value !== undefined &&
-            (typeof value !== "object" || value === null || Array.isArray(value))
-          )
+          if (value !== undefined && !Predicate.isObject(value))
             return yield* new McpConfigInvalid({
               detail: `Native MCP reader ${agent.id} requires object ${declaration.file.keyPath.join(".")} in ${alias}`,
             });
@@ -157,14 +155,8 @@ export const preflightNativeConfigReaders = (args: {
       ) {
         const before = valueAtPath(parsed[0] ?? {}, declaration.file.keyPath);
         const after = valueAtPath(parsed[1] ?? {}, declaration.file.keyPath);
-        const beforeEvents =
-          typeof before === "object" && before !== null && !Array.isArray(before)
-            ? Object.entries(before)
-            : [];
-        const afterEvents =
-          typeof after === "object" && after !== null && !Array.isArray(after)
-            ? Object.entries(after)
-            : [];
+        const beforeEvents = Predicate.isObject(before) ? Object.entries(before) : [];
+        const afterEvents = Predicate.isObject(after) ? Object.entries(after) : [];
         for (const [name, groups] of afterEvents) {
           const priorGroups = beforeEvents.find(([priorName]) => priorName === name)?.[1];
           if (Equal.equals(priorGroups, groups) || !hasNativeHookIntroductions(priorGroups, groups))
@@ -205,14 +197,8 @@ export const preflightNativeConfigReaders = (args: {
       ) {
         const before = valueAtPath(parsed[0] ?? {}, declaration.file.keyPath);
         const after = valueAtPath(parsed[1] ?? {}, declaration.file.keyPath);
-        const beforeEntries =
-          typeof before === "object" && before !== null && !Array.isArray(before)
-            ? Object.entries(before)
-            : [];
-        const afterEntries =
-          typeof after === "object" && after !== null && !Array.isArray(after)
-            ? Object.entries(after)
-            : [];
+        const beforeEntries = Predicate.isObject(before) ? Object.entries(before) : [];
+        const afterEntries = Predicate.isObject(after) ? Object.entries(after) : [];
         const recipe = "entryDialect" in mcp ? mcp.entryDialect : null;
         if (
           args.preserveMcpSemantics === true &&

@@ -1,6 +1,7 @@
 import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
 import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/human-handoff";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 
 import {
   FailureMetadataSchema,
@@ -99,9 +100,7 @@ export type JsonEnvelope = typeof JsonEnvelopeSchema.Type;
 
 const normalizeResult = (payload: unknown): unknown => {
   if (
-    typeof payload === "object" &&
-    payload !== null &&
-    !Array.isArray(payload) &&
+    Predicate.isObject(payload) &&
     Object.keys(payload).length === 1 &&
     Object.hasOwn(payload, "result")
   ) {

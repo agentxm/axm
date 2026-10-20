@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 import {
   McpConnectionSchema,
   validateMcpConnection,
@@ -13,13 +14,10 @@ import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
 
 const RULE_ID = "workspace/mcps-no-secret-literal";
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const parseSettings = (bytes: string): Readonly<Record<string, unknown>> | undefined => {
   try {
     const parsed: unknown = JSON.parse(bytes);
-    return isRecord(parsed) ? parsed : undefined;
+    return Predicate.isObject(parsed) ? parsed : undefined;
   } catch {
     return undefined;
   }
@@ -47,9 +45,9 @@ export const mcpServerNoSecretLiteralRule: AdvisoryRule<WorkspaceRuleContext> = 
       const settings = parseSettings(raw.success.value.bytes);
       if (settings === undefined) return EMPTY_ADVISORY_FINDINGS;
       const mcpServers = settings["mcpServers"];
-      if (!isRecord(mcpServers)) return EMPTY_ADVISORY_FINDINGS;
+      if (!Predicate.isObject(mcpServers)) return EMPTY_ADVISORY_FINDINGS;
       return Object.entries(mcpServers).flatMap(([serverName, entry]) => {
-        if (!isRecord(entry)) return [];
+        if (!Predicate.isObject(entry)) return [];
         const decoded = Schema.decodeUnknownResult(McpConnectionSchema)(entry["connection"]);
         if (Result.isFailure(decoded)) return [];
         return validateMcpConnection(decoded.success)

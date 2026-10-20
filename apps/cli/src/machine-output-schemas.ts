@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 import { MACHINE_OUTPUT_CONTRACT_ROWS } from "./machine-output-contracts.js";
 import {
   DiagnosticReviewDocumentSchema,
@@ -112,7 +113,7 @@ export const makeMachineOutputSchema = () => {
     onExcessProperty: "error",
   });
   const properties = document.schema["properties"];
-  if (typeof properties !== "object" || properties === null || Array.isArray(properties)) {
+  if (!Predicate.isObject(properties)) {
     throw new Error("The named machine-output schemas must compile to object properties");
   }
   const rows = MACHINE_OUTPUT_CONTRACT_ROWS.filter(

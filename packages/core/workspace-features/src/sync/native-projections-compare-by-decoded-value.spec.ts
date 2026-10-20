@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Predicate from "effect/Predicate";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -37,17 +38,14 @@ export const specification = defineSpecification({
 
 const NATIVE = ".mcp.json";
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 /** Rewrite one managed entry's command, keeping everything else. */
 const replaceManagedMcpCommand = (content: string, name: string, command: string): string => {
   const config: unknown = JSON.parse(content);
-  if (!isRecord(config) || !isRecord(config["mcpServers"])) {
+  if (!Predicate.isObject(config) || !Predicate.isObject(config["mcpServers"])) {
     throw new Error("Expected a native MCP configuration map");
   }
   const entry = config["mcpServers"][name];
-  if (!isRecord(entry)) throw new Error(`Expected a managed ${name} MCP entry`);
+  if (!Predicate.isObject(entry)) throw new Error(`Expected a managed ${name} MCP entry`);
   return `${JSON.stringify(
     { ...config, mcpServers: { ...config["mcpServers"], [name]: { ...entry, command } } },
     null,

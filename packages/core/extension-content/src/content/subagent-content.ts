@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 import { parse as parseToml } from "smol-toml";
 import {
   SubagentManifestSchema,
@@ -111,9 +112,6 @@ export type SelectedSubagentImplementation =
       readonly sourceDependencies: ReadonlyArray<string>;
     };
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 /** Reject dangerous object keys, including nested keys, before downstream merging. */
 const hasUnsafeKeys = (value: unknown, seen = new Set<object>()): boolean => {
   if (typeof value !== "object" || value === null) return false;
@@ -167,7 +165,7 @@ export const parseNativeSubagent = (args: {
           invalid(`Native source "${args.source}" has invalid YAML frontmatter.`),
         ),
       );
-      if (!isRecord(parsed.frontmatter)) {
+      if (!Predicate.isReadonlyObject(parsed.frontmatter)) {
         return yield* invalid(
           `Native source "${args.source}" requires an object frontmatter block.`,
         );
@@ -181,7 +179,7 @@ export const parseNativeSubagent = (args: {
         catch: () =>
           invalid(`Native source "${args.source}" is not valid ${format.toUpperCase()}.`),
       });
-      if (!isRecord(parsed))
+      if (!Predicate.isReadonlyObject(parsed))
         return yield* invalid(`Native source "${args.source}" must be an object.`);
       configuration = parsed;
       const instructionKey =

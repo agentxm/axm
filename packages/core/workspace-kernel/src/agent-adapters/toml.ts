@@ -5,8 +5,7 @@
  * @packageDocumentation
  */
 
-const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+import * as Predicate from "effect/Predicate";
 
 const namedEscapes: Readonly<Record<string, string>> = {
   "\b": "\\b",
@@ -72,7 +71,7 @@ const stringifyTomlLines = (
   const tableLines: Array<string> = [];
 
   for (const [key, value] of Object.entries(object)) {
-    if (isPlainObject(value)) {
+    if (Predicate.isReadonlyObject(value)) {
       const childPath = [...path, key];
       tableLines.push("", `[${childPath.map((part) => stringifyTomlKey(part)).join(".")}]`);
       tableLines.push(...stringifyTomlLines(value, childPath));

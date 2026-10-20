@@ -299,6 +299,98 @@ const axmPolicyPlugin = {
         };
       },
     },
+    "no-hand-written-object-guard": {
+      meta: {
+        type: "suggestion",
+        schema: [],
+        messages: {
+          predicate:
+            "Use Predicate.isObject or Predicate.isReadonlyObject from effect/Predicate instead of a hand-written non-null, non-array object guard.",
+        },
+      },
+      // Reports one `&&` chain that tests the same operand for
+      // `typeof x === "object"`, `x !== null` and `!Array.isArray(x)`, and the
+      // negated `||` chain (`typeof x !== "object" || x === null ||
+      // Array.isArray(x)`), in any order and alongside other conditions.
+      create(context) {
+        const text = (node) => context.sourceCode.getText(node);
+        const operands = (node, operator) =>
+          node.type === "LogicalExpression" && node.operator === operator
+            ? [...operands(node.left, operator), ...operands(node.right, operator)]
+            : [node];
+        const comparedSubject = (node, operators, matches) => {
+          if (node.type !== "BinaryExpression" || !operators.includes(node.operator)) return;
+          if (matches(node.right)) return node.left;
+          if (matches(node.left)) return node.right;
+        };
+        const typeofSubject = (node, operators) => {
+          const subject = comparedSubject(
+            node,
+            operators,
+            (side) => side.type === "Literal" && side.value === "object",
+          );
+          return subject?.type === "UnaryExpression" && subject.operator === "typeof"
+            ? text(subject.argument)
+            : undefined;
+        };
+        const nullSubject = (node, operators) => {
+          const subject = comparedSubject(
+            node,
+            operators,
+            (side) => side.type === "Literal" && side.raw === "null",
+          );
+          return subject === undefined ? undefined : text(subject);
+        };
+        const isArraySubject = (node) =>
+          node.type === "CallExpression" &&
+          node.callee.type === "MemberExpression" &&
+          !node.callee.computed &&
+          node.callee.object.type === "Identifier" &&
+          node.callee.object.name === "Array" &&
+          node.callee.property.type === "Identifier" &&
+          node.callee.property.name === "isArray" &&
+          node.arguments.length === 1
+            ? text(node.arguments[0])
+            : undefined;
+        const forms = {
+          "&&": {
+            typeof: (node) => typeofSubject(node, ["===", "=="]),
+            null: (node) => nullSubject(node, ["!==", "!="]),
+            array: (node) =>
+              node.type === "UnaryExpression" && node.operator === "!"
+                ? isArraySubject(node.argument)
+                : undefined,
+          },
+          "||": {
+            typeof: (node) => typeofSubject(node, ["!==", "!="]),
+            null: (node) => nullSubject(node, ["===", "=="]),
+            array: isArraySubject,
+          },
+        };
+        return {
+          LogicalExpression(node) {
+            const form = forms[node.operator];
+            if (form === undefined) return;
+            if (
+              node.parent.type === "LogicalExpression" &&
+              node.parent.operator === node.operator
+            ) {
+              return;
+            }
+            const parts = operands(node, node.operator);
+            const subjects = (test) => new Set(parts.map(test).filter((s) => s !== undefined));
+            const typed = subjects(form.typeof);
+            const nonNull = subjects(form.null);
+            for (const subject of subjects(form.array)) {
+              if (typed.has(subject) && nonNull.has(subject)) {
+                context.report({ node, messageId: "predicate" });
+                return;
+              }
+            }
+          },
+        };
+      },
+    },
   },
 };
 
@@ -1192,6 +1284,18 @@ export default [
     },
     rules: {
       "axm-policy/no-unbounded-io": "error",
+    },
+  },
+  {
+    // Effect's Predicate.isObject and Predicate.isReadonlyObject are the
+    // non-null, non-array object guard; production code does not restate them.
+    files: ["{apps,packages,tools}/**/src/**/*.ts", "{apps,packages,tools}/**/src/**/*.tsx"],
+    ignores: [...testPurposeFiles, "apps/cli-e2e/**", "tools/e2e-utils/**"],
+    plugins: {
+      "axm-policy": axmPolicyPlugin,
+    },
+    rules: {
+      "axm-policy/no-hand-written-object-guard": "error",
     },
   },
   {

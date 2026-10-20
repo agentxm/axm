@@ -8,13 +8,11 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Predicate from "effect/Predicate";
 import { parse as parseShell } from "shell-quote";
 import { applyEdits, modify } from "jsonc-parser";
 import { HookConfigInvalid } from "../errors.js";
 import { parseNativeConfigRoot } from "../native-config-syntax.js";
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const parseJsonConfig = (
   configPath: string,
@@ -39,7 +37,7 @@ const validateHooksShape = (
   parsed: Readonly<Record<string, unknown>>,
 ): Effect.Effect<void, HookConfigInvalid> => {
   const hooks = parsed[settingsKey];
-  if (hooks !== undefined && !isRecord(hooks)) {
+  if (hooks !== undefined && !Predicate.isObject(hooks)) {
     return Effect.fail(
       new HookConfigInvalid({
         detail: `Invalid hooks config format: ${configPath} (${settingsKey} must be an object)`,
@@ -47,13 +45,14 @@ const validateHooksShape = (
     );
   }
   if (
-    isRecord(hooks) &&
+    Predicate.isObject(hooks) &&
     Object.values(hooks).some(
       (groups) =>
         !Array.isArray(groups) ||
         groups.some(
           (group) =>
-            !isRecord(group) || (group["hooks"] !== undefined && !Array.isArray(group["hooks"])),
+            !Predicate.isObject(group) ||
+            (group["hooks"] !== undefined && !Array.isArray(group["hooks"])),
         ),
     )
   ) {
@@ -79,7 +78,7 @@ export interface DeclaredHookUnit {
 }
 
 const entriesIn = (group: unknown): ReadonlyArray<unknown> =>
-  !isRecord(group) ? [] : Array.isArray(group["hooks"]) ? group["hooks"] : [group];
+  !Predicate.isObject(group) ? [] : Array.isArray(group["hooks"]) ? group["hooks"] : [group];
 
 const scriptWithin = (script: string, root: string): boolean => {
   const prefix = root.replace(/\\/gu, "/").replace(/\/$/u, "") + "/";
@@ -154,7 +153,11 @@ const declarationForEntry = (
   value: unknown,
   declarations: ReadonlyArray<HookNativeDeclaration>,
 ) => {
-  if (!isRecord(value) || value["type"] !== "command" || typeof value["command"] !== "string")
+  if (
+    !Predicate.isObject(value) ||
+    value["type"] !== "command" ||
+    typeof value["command"] !== "string"
+  )
     return undefined;
   const script = commandScript(value["command"]);
   return script === undefined
@@ -172,14 +175,14 @@ export const declaredHookUnits = (
   hooks: unknown,
   declarations: ReadonlyArray<HookNativeDeclaration>,
 ): ReadonlyArray<DeclaredHookUnit> => {
-  if (!isRecord(hooks)) return [];
+  if (!Predicate.isObject(hooks)) return [];
   return Object.values(hooks).flatMap((groups) =>
     !Array.isArray(groups)
       ? []
       : groups.flatMap((group) =>
           entriesIn(group).flatMap((entry) => {
             const declaration = declarationForEntry(entry, declarations);
-            return declaration === undefined || !isRecord(entry)
+            return declaration === undefined || !Predicate.isObject(entry)
               ? []
               : [
                   {
@@ -209,11 +212,11 @@ export const selectDeclaredHookGroups = (
   declarations: ReadonlyArray<HookNativeDeclaration>,
 ): Record<string, unknown> => {
   const selected: Record<string, unknown> = {};
-  if (!isRecord(hooks)) return selected;
+  if (!Predicate.isObject(hooks)) return selected;
   for (const [event, groups] of Object.entries(hooks)) {
     if (!Array.isArray(groups)) continue;
     const retained = groups.flatMap((group): ReadonlyArray<Readonly<Record<string, unknown>>> => {
-      if (!isRecord(group)) return [];
+      if (!Predicate.isObject(group)) return [];
       const hooks = entriesIn(group).filter((entry) => isDeclaredHookEntry(entry, declarations));
       return hooks.length === 0
         ? []
@@ -245,7 +248,7 @@ const structurallyEqual = (left: unknown, right: unknown): boolean => {
       left.length === right.length &&
       left.every((value, index) => structurallyEqual(value, right[index]))
     );
-  if (!isRecord(left) || !isRecord(right)) return false;
+  if (!Predicate.isObject(left) || !Predicate.isObject(right)) return false;
   return (
     Object.keys(left).length === Object.keys(right).length &&
     Object.keys(left).every((key) => key in right && structurallyEqual(left[key], right[key]))
@@ -300,7 +303,7 @@ export const updateHooksJson = (
         });
       if (parsed["version"] === undefined) edit(["version"], configVersion);
     }
-    const existing = isRecord(parsed[settingsKey]) ? parsed[settingsKey] : {};
+    const existing = Predicate.isObject(parsed[settingsKey]) ? parsed[settingsKey] : {};
     for (const [event, groups] of Object.entries(renderedHooks)) {
       if (
         !Array.isArray(groups) ||
@@ -323,7 +326,7 @@ export const updateHooksJson = (
       for (const group of groups)
         for (const entry of entriesIn(group)) {
           if (
-            !isRecord(entry) ||
+            !Predicate.isObject(entry) ||
             entry["type"] !== "command" ||
             typeof entry["command"] !== "string" ||
             commandScript(entry["command"]) !== undefined
@@ -366,7 +369,7 @@ export const updateHooksJson = (
       if (insertionIndex < 0) insertionIndex = groups.length;
       for (let index = groups.length - 1; index >= 0; index--) {
         const group = groups[index];
-        if (!isRecord(group)) continue;
+        if (!Predicate.isObject(group)) continue;
         const entries = entriesIn(group);
         const selectedIndices = entries.flatMap((entry, i) =>
           isDeclaredHookEntry(entry, declarations) ? [i] : [],

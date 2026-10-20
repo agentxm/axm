@@ -16,6 +16,7 @@
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 import { describeSchemaDocument } from "../../describe-document.js";
 import { issuesToFindings } from "../../issues-to-findings.js";
 import type { AdvisoryFinding, Severity } from "../../rule.js";
@@ -100,7 +101,7 @@ export const enumerateUnknownTopLevelKeys = (
   if (isManifestJsonParseFailure(input)) {
     return [];
   }
-  if (!isPlainRecord(input)) {
+  if (!Predicate.isReadonlyObject(input)) {
     return [];
   }
   const findings: Array<AdvisoryFinding> = [];
@@ -120,6 +121,3 @@ export const enumerateUnknownTopLevelKeys = (
   }
   return findings;
 };
-
-const isPlainRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  value !== null && typeof value === "object" && !Array.isArray(value);

@@ -6,27 +6,25 @@ import type {
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
-
-const record = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+import * as Predicate from "effect/Predicate";
 
 export const hasNativeHookIntroductions = (before: unknown, after: unknown): boolean => {
   if (!Array.isArray(after)) return true;
   const priorGroups: ReadonlyArray<unknown> = Array.isArray(before) ? before : [];
   return after.some((group) => {
-    if (!record(group)) return true;
+    if (!Predicate.isReadonlyObject(group)) return true;
     if (!Array.isArray(group["hooks"]))
       return !priorGroups.some((prior) => Equal.equals(prior, group));
     const properties = Object.fromEntries(Object.entries(group).filter(([key]) => key !== "hooks"));
     const prior = priorGroups.find(
       (candidate) =>
-        record(candidate) &&
+        Predicate.isReadonlyObject(candidate) &&
         Equal.equals(
           Object.fromEntries(Object.entries(candidate).filter(([key]) => key !== "hooks")),
           properties,
         ),
     );
-    const commands = record(prior) ? prior["hooks"] : undefined;
+    const commands = Predicate.isReadonlyObject(prior) ? prior["hooks"] : undefined;
     return !Array.isArray(commands)
       ? group["hooks"].length > 0
       : group["hooks"].some(
@@ -47,7 +45,7 @@ export const interpretNativeHookChanges = (args: {
   const meanings: Array<Readonly<Record<string, unknown>>> = [];
   for (const group of args.after) {
     if (priorGroups.some((prior) => Equal.equals(prior, group))) continue;
-    if (!record(group)) return Option.none();
+    if (!Predicate.isReadonlyObject(group)) return Option.none();
     const flat = args.dialect.serializer === "flat-command-stdin";
     if (!flat && !Array.isArray(group["hooks"])) return Option.none();
     const commands = flat ? [group] : group["hooks"];
@@ -62,14 +60,16 @@ export const interpretNativeHookChanges = (args: {
       normalizedMatcher = matcher.slice(1, -1);
     }
     const priorCommands = priorGroups.flatMap((prior) =>
-      record(prior) && Equal.equals(prior["matcher"], matcher) && Array.isArray(prior["hooks"])
+      Predicate.isReadonlyObject(prior) &&
+      Equal.equals(prior["matcher"], matcher) &&
+      Array.isArray(prior["hooks"])
         ? prior["hooks"]
         : [],
     );
     for (const command of commands) {
       if (priorCommands.some((prior) => Equal.equals(prior, command))) continue;
       if (
-        !record(command) ||
+        !Predicate.isReadonlyObject(command) ||
         (command["type"] !== undefined && command["type"] !== "command") ||
         typeof command["command"] !== "string"
       )

@@ -6,6 +6,7 @@ import {
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Predicate from "effect/Predicate";
 import { parse as parseShell } from "shell-quote";
 import {
   invalidNativeConfig,
@@ -122,29 +123,16 @@ export const nativePackageReferences = (args: {
       });
       let value: unknown = document;
       for (const key of declaration.keyPath ?? []) {
-        value =
-          typeof value === "object" && value !== null && !Array.isArray(value)
-            ? Object.entries(value).find(([name]) => name === key)?.[1]
-            : undefined;
+        value = Predicate.isObject(value)
+          ? Object.entries(value).find(([name]) => name === key)?.[1]
+          : undefined;
       }
-      if (
-        args.withdrawal !== undefined &&
-        selected.has(key) &&
-        typeof value === "object" &&
-        value !== null &&
-        !Array.isArray(value)
-      ) {
+      if (args.withdrawal !== undefined && selected.has(key) && Predicate.isObject(value)) {
         if (kind === "mcp-server" && args.withdrawal.type === "mcp-server")
           value = Object.fromEntries(
             Object.entries(value).filter(([name]) => name !== args.withdrawal?.name),
           );
-        if (
-          kind === "hook" &&
-          args.withdrawal.type === "hook" &&
-          typeof value === "object" &&
-          value !== null &&
-          !Array.isArray(value)
-        ) {
+        if (kind === "hook" && args.withdrawal.type === "hook" && Predicate.isObject(value)) {
           const selectors = [
             { name: args.withdrawal.name, ref: "preview", scope: args.scope, root },
           ];
@@ -154,8 +142,7 @@ export const nativePackageReferences = (args: {
               !Array.isArray(groups)
                 ? groups
                 : groups.flatMap((group) => {
-                    if (typeof group !== "object" || group === null || Array.isArray(group))
-                      return [group];
+                    if (!Predicate.isObject(group)) return [group];
                     const hooks = Object.entries(group).find(([key]) => key === "hooks")?.[1];
                     if (!Array.isArray(hooks))
                       return isDeclaredHookEntry(group, selectors) ? [] : [group];

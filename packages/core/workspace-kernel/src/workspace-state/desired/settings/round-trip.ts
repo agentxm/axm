@@ -1,24 +1,23 @@
 /** Guarded syntax inverses for newly declared settings intent. */
 import * as Equal from "effect/Equal";
+import * as Predicate from "effect/Predicate";
 import { prepareDocumentRoundTrip, type DocumentRoundTripContext } from "../document-round-trip.js";
 import { SettingsWriteError } from "./errors.js";
 
 export type SettingsRoundTripContext = DocumentRoundTripContext;
 
 const entryMaps = ["skills", "mcpServers", "subagents", "rules", "hooks", "knowledge", "packs"];
-const record = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 const parse = (raw: string): Record<string, unknown> | undefined => {
   try {
     const value: unknown = JSON.parse(raw);
-    return record(value) ? value : undefined;
+    return Predicate.isObject(value) ? value : undefined;
   } catch {
     return undefined;
   }
 };
 const entries = (document: Record<string, unknown>, map: string): Record<string, unknown> => {
   const value = document[map];
-  return record(value) ? value : {};
+  return Predicate.isObject(value) ? value : {};
 };
 const unitKey = (map: string, name: string): string => JSON.stringify(["settings", map, name]);
 const withoutEmptyMaps = (document: Record<string, unknown>): Record<string, unknown> =>
@@ -26,7 +25,7 @@ const withoutEmptyMaps = (document: Record<string, unknown>): Record<string, unk
     Object.entries(document).filter(([key, value]) =>
       key === "agents" && Array.isArray(value)
         ? value.length > 0
-        : !entryMaps.includes(key) || !record(value) || Object.keys(value).length > 0,
+        : !entryMaps.includes(key) || !Predicate.isObject(value) || Object.keys(value).length > 0,
     ),
   );
 const agents = (document: Record<string, unknown>): ReadonlyArray<string> => {
@@ -67,7 +66,7 @@ export const prepareSettingsRoundTrip = (args: {
   const eligible = added.every(
     ({ declaration }) =>
       typeof declaration === "string" ||
-      (record(declaration) && declaration["kind"] !== "configuration"),
+      (Predicate.isObject(declaration) && declaration["kind"] !== "configuration"),
   );
   return prepareDocumentRoundTrip({
     context: { ...args.context, eligible: args.context.eligible && eligible },

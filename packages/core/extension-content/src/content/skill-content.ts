@@ -8,6 +8,7 @@
  */
 
 import * as Option from "effect/Option";
+import * as Predicate from "effect/Predicate";
 import { parseFrontmatterSync } from "./frontmatter.js";
 import type { Skill } from "./skill-types.js";
 import {
@@ -36,9 +37,6 @@ export type SkillFrontmatterValidation =
   | { readonly valid: true; readonly frontmatter: SkillFrontmatter }
   | { readonly valid: false; readonly errors: ReadonlyArray<string> };
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  value !== null && typeof value === "object" && !Array.isArray(value);
-
 const allowedFrontmatterFields = new Set<string>(AGENT_SKILLS_FRONTMATTER_FIELDS);
 
 /** Best-effort display metadata from an externally distributed skill. */
@@ -58,7 +56,7 @@ export interface ExtractedSkillMetadata {
 export const extractSkillMetadata = (content: string): ExtractedSkillMetadata => {
   try {
     const { frontmatter } = parseFrontmatterSync(content.replace(/^\uFEFF/, ""));
-    if (!isRecord(frontmatter)) return {};
+    if (!Predicate.isReadonlyObject(frontmatter)) return {};
     const name = frontmatter["name"];
     const description = frontmatter["description"];
     return {
@@ -102,7 +100,7 @@ export const validateSkillFrontmatter = (
   input: unknown,
   expectedDirectoryName?: string,
 ): SkillFrontmatterValidation => {
-  if (!isRecord(input)) {
+  if (!Predicate.isReadonlyObject(input)) {
     return { valid: false, errors: ["SKILL.md frontmatter must be a YAML mapping"] };
   }
 
@@ -169,7 +167,7 @@ export const validateSkillFrontmatter = (
   const metadataValue = input["metadata"];
   const metadata: Record<string, string> = {};
   if (metadataValue !== undefined) {
-    if (!isRecord(metadataValue)) {
+    if (!Predicate.isReadonlyObject(metadataValue)) {
       errors.push("Field 'metadata' must be a mapping from strings to strings");
     } else {
       for (const [key, value] of Object.entries(metadataValue)) {

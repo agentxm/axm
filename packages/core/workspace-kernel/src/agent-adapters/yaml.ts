@@ -5,10 +5,8 @@
  * @packageDocumentation
  */
 
+import * as Predicate from "effect/Predicate";
 import { parseDocument } from "yaml";
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const formatPath = (path: ReadonlyArray<string>): string => path.join(".");
 
@@ -23,7 +21,7 @@ const parseYamlDocument = (raw: string) => {
 const parseYamlObjectOrNull = (raw: string): Readonly<Record<string, unknown>> | null => {
   const parsed: unknown = parseYamlDocument(raw).toJS();
   if (parsed === null || parsed === undefined) return null;
-  if (!isRecord(parsed)) {
+  if (!Predicate.isObject(parsed)) {
     throw new Error("YAML document root must be a mapping");
   }
   return parsed;
@@ -38,7 +36,7 @@ const validateServersShape = (
     const value: unknown =
       current !== null && Object.hasOwn(current, key) ? current[key] : undefined;
     if (value === undefined) return null;
-    if (!isRecord(value))
+    if (!Predicate.isObject(value))
       throw new Error(`${formatPath(serversPath.slice(0, index + 1))} must be a mapping`);
     current = value;
   }
@@ -53,9 +51,9 @@ export const readYamlEntry = (
   serverName: string,
 ): Readonly<Record<string, unknown>> | undefined => {
   const servers = validateServersShape(raw, serversPath);
-  if (!isRecord(servers)) return undefined;
+  if (!Predicate.isObject(servers)) return undefined;
   const entry = servers[serverName];
-  return isRecord(entry) ? entry : undefined;
+  return Predicate.isObject(entry) ? entry : undefined;
 };
 
 export const setYamlEntry = (

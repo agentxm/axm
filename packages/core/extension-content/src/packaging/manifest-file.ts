@@ -5,6 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
+import * as Predicate from "effect/Predicate";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -38,11 +39,7 @@ const isManifestOfType = <T extends ExtensionType>(
 ): manifest is ManifestOfType<T> => manifest.type === type;
 
 const withDefaultOwner = (raw: unknown, defaultOwner: Handle | undefined): unknown =>
-  defaultOwner !== undefined &&
-  typeof raw === "object" &&
-  raw !== null &&
-  !Array.isArray(raw) &&
-  !Object.hasOwn(raw, "owner")
+  defaultOwner !== undefined && Predicate.isObject(raw) && !Object.hasOwn(raw, "owner")
     ? { ...raw, owner: defaultOwner }
     : raw;
 

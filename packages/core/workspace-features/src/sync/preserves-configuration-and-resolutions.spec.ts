@@ -10,6 +10,7 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as Predicate from "effect/Predicate";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -59,8 +60,6 @@ export const specification = defineSpecification({
 const SKILL = "code-review";
 const CLAUDE_PROJECTION = `.claude/skills/${SKILL}`;
 const CANONICAL = `agent_extensions/_local/project/vendor/${SKILL}`;
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const gitRepository = () => makeGitSkillRepository({ name: SKILL });
 
@@ -341,11 +340,15 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             const lock: unknown = Schema.decodeUnknownSync(LockfileSchema)(
               parseLockfileToml(workspace.readFile("axm.lock")).document,
             );
-            if (!isRecord(lock) || !isRecord(lock["skills"])) {
+            if (!Predicate.isObject(lock) || !Predicate.isObject(lock["skills"])) {
               throw new Error("Expected skill lock entry");
             }
             const entry = lock["skills"][SKILL];
-            if (!isRecord(entry) || !isRecord(entry["source"]) || !isRecord(entry["resolved"])) {
+            if (
+              !Predicate.isObject(entry) ||
+              !Predicate.isObject(entry["source"]) ||
+              !Predicate.isObject(entry["resolved"])
+            ) {
               throw new Error("Expected Git source and resolution");
             }
             if (invalid === "missing-subpath") {
@@ -408,7 +411,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           const lock: unknown = Schema.decodeUnknownSync(LockfileSchema)(
             parseLockfileToml(workspace.readFile("axm.lock")).document,
           );
-          if (!isRecord(lock) || !isRecord(lock["skills"])) {
+          if (!Predicate.isObject(lock) || !Predicate.isObject(lock["skills"])) {
             throw new Error("Expected skill lock entries");
           }
           expect(lock["skills"][SHARED_MEMBER.name]).toMatchObject({

@@ -29,6 +29,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Predicate from "effect/Predicate";
 import YAML from "yaml";
 import { findFrontmatterBoundaries } from "../../../content/frontmatter.js";
 import type { SkillRuleContext } from "../../context.js";
@@ -98,7 +99,7 @@ const evaluateCascade = (content: string): ReadonlyArray<AdvisoryFinding> => {
       ),
     ];
   }
-  if (!isMapping(parsed.value)) {
+  if (!Predicate.isReadonlyObject(parsed.value)) {
     return [
       finding(
         "SKILL.md frontmatter must be a YAML mapping, not a list or scalar. Rewrite the frontmatter block in `SKILL.md` as `key: value` pairs.",
@@ -166,9 +167,6 @@ const parseFrontmatterYaml = (content: string): ParseResult | undefined => {
     };
   }
 };
-
-const isMapping = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  value !== null && typeof value === "object" && !Array.isArray(value);
 
 // -----------------------------------------------------------------------------
 // Finding helpers

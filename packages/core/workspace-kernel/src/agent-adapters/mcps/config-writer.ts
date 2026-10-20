@@ -9,6 +9,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Equal from "effect/Equal";
+import * as Predicate from "effect/Predicate";
 import { applyEdits, modify } from "jsonc-parser";
 import {
   McpConfigInvalid,
@@ -92,9 +93,6 @@ export interface AgentMcpConfigWriteTarget {
 export interface AgentMcpConfigWriteResult {
   readonly targets: ReadonlyArray<AgentMcpConfigWriteTarget>;
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const jsonFormatting = (raw: string) => ({
   insertSpaces: true,
@@ -321,7 +319,7 @@ const removeToml = (args: {
     const existing = values[args.serverName];
     if (existing === undefined) return args.raw;
     const activation = args.activationField.required;
-    if (args.disableOnly && activation !== null && isRecord(existing))
+    if (args.disableOnly && activation !== null && Predicate.isObject(existing))
       return yield* editNativeTomlMcpEntry(args.raw, args.serversPath, args.serverName, {
         ...existing,
         [activation.name]: activation.disabled,
@@ -368,7 +366,7 @@ const preserveOtherNativeValues = (args: {
         Object.entries(root).flatMap(([key, value]) => {
           if (depth === args.serversPath.length)
             return args.serverNames.includes(key) ? [] : [[key, value]];
-          if (key !== args.serversPath[depth] || !isRecord(value)) return [[key, value]];
+          if (key !== args.serversPath[depth] || !Predicate.isObject(value)) return [[key, value]];
           const retained = foreignValues(value, depth + 1);
           return Object.keys(retained).length === 0 ? [] : [[key, retained]];
         }),

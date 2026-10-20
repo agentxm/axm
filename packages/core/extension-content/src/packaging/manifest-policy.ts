@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
+import * as Predicate from "effect/Predicate";
 import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
@@ -85,10 +86,7 @@ export interface ResolvedManifest {
 }
 
 const hasOwnField = (value: unknown, field: string): boolean =>
-  typeof value === "object" &&
-  value !== null &&
-  !Array.isArray(value) &&
-  Object.hasOwn(value, field);
+  Predicate.isObject(value) && Object.hasOwn(value, field);
 
 const purlHasVersion = (value: string): boolean => {
   const queryStart = value.search(/[?#]/);
@@ -123,7 +121,7 @@ const classifyCompanionPackageManifestError = (
   }
 
   for (const entry of packages) {
-    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+    if (!Predicate.isObject(entry)) {
       return {
         code: "companion_package_invalid",
         detail:

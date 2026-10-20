@@ -1,6 +1,7 @@
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
 import {
   HookManifestSchema,
   requiredHookRuntimeFiles,
@@ -29,9 +30,7 @@ export interface ValidateFilteredPackageArgs {
 }
 
 const rawField = (raw: unknown, field: string): unknown =>
-  typeof raw === "object" && raw !== null && !Array.isArray(raw)
-    ? Reflect.get(raw, field)
-    : undefined;
+  Predicate.isObject(raw) ? Reflect.get(raw, field) : undefined;
 
 const requireEntry = (
   entries: ReadonlyArray<ZipEntry>,

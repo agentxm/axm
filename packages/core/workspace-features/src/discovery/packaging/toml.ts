@@ -5,12 +5,10 @@
  * malformed file is a single `undefined` rather than a partially scanned one.
  */
 
+import * as Predicate from "effect/Predicate";
 import { parse } from "smol-toml";
 
 export type TomlTable = Readonly<Record<string, unknown>>;
-
-export const isTomlTable = (value: unknown): value is TomlTable =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** Parse a TOML document, or `undefined` when it does not parse. */
 export const parseTomlDocument = (content: string): TomlTable | undefined => {
@@ -24,7 +22,7 @@ export const parseTomlDocument = (content: string): TomlTable | undefined => {
 /** The named table of a document, or `undefined` when absent or not a table. */
 export const tomlTable = (document: TomlTable | undefined, key: string): TomlTable | undefined => {
   const value = document?.[key];
-  return isTomlTable(value) ? value : undefined;
+  return Predicate.isReadonlyObject(value) ? value : undefined;
 };
 
 /** The `key = "string"` entries of a table, in declaration order. */

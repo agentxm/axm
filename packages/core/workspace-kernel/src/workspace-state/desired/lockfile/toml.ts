@@ -11,6 +11,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Predicate from "effect/Predicate";
 import type { ToolValue, ToolTables } from "./toml-values.js";
 import { compareCodePoints } from "./compare-code-points.js";
 import { PROJECTION_KINDS } from "./projections.js";
@@ -54,7 +55,7 @@ const basicString = (value: string): string => {
 const tomlKey = (key: string): string => (/^[A-Za-z0-9_-]+$/u.test(key) ? key : basicString(key));
 
 const isTable = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof Date);
+  Predicate.isObject(value) && !(value instanceof Date);
 
 /** A scalar in AXM's own tables: strings, safe integers, and booleans only. */
 const scalar = (value: unknown): string => {

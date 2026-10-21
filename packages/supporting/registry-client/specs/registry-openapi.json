@@ -427,6 +427,27 @@
           "400": {
             "description": "DecodeErrorResponse",
             "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "invalid_request"
+                      ]
+                    },
+                    "error_description": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "error_description"
+                  ],
+                  "additionalProperties": false
+                }
+              },
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/DecodeErrorResponse"
@@ -891,11 +912,18 @@
             "description": "<No Content>"
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  ]
                 }
               }
             }
@@ -1528,81 +1556,7 @@
                     "versions": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "version": {
-                            "$ref": "#/components/schemas/Version"
-                          },
-                          "published": {
-                            "$ref": "#/components/schemas/IsoDateTimeString"
-                          },
-                          "integrity": {
-                            "type": "string",
-                            "readOnly": true
-                          },
-                          "dependencies": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "additionalProperties": {
-                                  "$ref": "#/components/schemas/VersionRange"
-                                }
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "packages": {
-                            "anyOf": [
-                              {
-                                "type": "array",
-                                "items": {
-                                  "$ref": "#/components/schemas/CompanionPackage"
-                                }
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "yankedAt": {
-                            "anyOf": [
-                              {
-                                "$ref": "#/components/schemas/IsoDateTimeString"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "yankCategory": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "yankMessage": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          }
-                        },
-                        "required": [
-                          "version",
-                          "published",
-                          "integrity"
-                        ],
-                        "additionalProperties": false
+                        "$ref": "#/components/schemas/VersionEntry"
                       }
                     },
                     "visibility": {
@@ -4445,6 +4399,7 @@
                       "anyOf": [
                         {
                           "type": "string",
+                          "pattern": "^[^\\u0000]*$",
                           "maxLength": 500
                         },
                         {
@@ -4509,11 +4464,18 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  ]
                 }
               }
             }
@@ -4728,11 +4690,18 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  ]
                 }
               }
             }
@@ -4930,11 +4899,18 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  ]
                 }
               }
             }
@@ -5536,11 +5512,18 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "InvalidRequestError | DecodeErrorResponse",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                    }
+                  ]
                 }
               }
             }
@@ -6551,7 +6534,7 @@
           },
           "upgradeUrl": {
             "type": "string",
-            "description": "Where a person with billing authority can raise the limit: the plan page for the owner, or the seats page when seats are short."
+            "description": "Where a person with billing authority can raise the limit: the owner's plan page."
           }
         },
         "required": [
@@ -6629,15 +6612,7 @@
           "invalid_permissions",
           "invalid_expiry",
           "token_creation_failed",
-          "publish_manifest_missing",
-          "publish_manifest_multiple",
-          "publish_manifest_invalid_json",
-          "publish_manifest_schema_invalid",
-          "publish_declared_manifest_mismatch",
           "publish_integrity_mismatch",
-          "companion_package_purl_has_version",
-          "companion_package_scheme_mismatch",
-          "companion_package_invalid",
           "extension_lint_failed",
           "extension_identity_mismatch",
           "internal_error",
@@ -8265,6 +8240,10 @@
           "published": {
             "$ref": "#/components/schemas/IsoDateTimeString"
           },
+          "integrity": {
+            "type": "string",
+            "readOnly": true
+          },
           "dependencies": {
             "anyOf": [
               {
@@ -8286,16 +8265,13 @@
               {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/CompanionPackage_1"
+                  "$ref": "#/components/schemas/CompanionPackage"
                 }
               },
               {
                 "type": "null"
               }
             ]
-          },
-          "integrity": {
-            "type": "string"
           },
           "yankedAt": {
             "anyOf": [
@@ -8337,7 +8313,7 @@
         "title": "Version Entry",
         "description": "A single published version of an extension in the registry."
       },
-      "CompanionPackage_1": {
+      "CompanionPackage": {
         "type": "object",
         "properties": {
           "purl": {
@@ -8346,7 +8322,13 @@
           "versionRange": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/VersRangeEncoded"
+                "type": "string",
+                "minLength": 1,
+                "examples": [
+                  "vers:npm/>=18.0.0|<19.0.0",
+                  "vers:pypi/>=2.31.0",
+                  "vers:cargo/>=1.0.0"
+                ]
               },
               {
                 "type": "null"
@@ -8360,15 +8342,6 @@
         "additionalProperties": false,
         "title": "Companion Package",
         "description": "A companion package purl identity with an optional VERS compatibility range."
-      },
-      "VersRangeEncoded": {
-        "type": "string",
-        "minLength": 1,
-        "examples": [
-          "vers:npm/>=18.0.0|<19.0.0",
-          "vers:pypi/>=2.31.0",
-          "vers:cargo/>=1.0.0"
-        ]
       },
       "PackageIdentityPurl": {
         "type": "string",
@@ -8941,6 +8914,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "pattern": "^[^\\u0000]*$",
                 "maxLength": 500
               },
               {
@@ -9014,6 +8988,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "pattern": "^[^\\u0000]*$",
                 "maxLength": 500
               },
               {
@@ -9052,6 +9027,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "pattern": "^[^\\u0000]*$",
                 "maxLength": 500
               },
               {
@@ -10010,36 +9986,6 @@
         ],
         "additionalProperties": false
       },
-      "CompanionPackage": {
-        "type": "object",
-        "properties": {
-          "purl": {
-            "$ref": "#/components/schemas/PackageIdentityPurl"
-          },
-          "versionRange": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1,
-                "examples": [
-                  "vers:npm/>=18.0.0|<19.0.0",
-                  "vers:pypi/>=2.31.0",
-                  "vers:cargo/>=1.0.0"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "purl"
-        ],
-        "additionalProperties": false,
-        "title": "Companion Package",
-        "description": "A companion package purl identity with an optional VERS compatibility range."
-      },
       "Author": {
         "type": "object",
         "properties": {
@@ -10931,7 +10877,8 @@
             "type": "string",
             "enum": [
               "invalid_client",
-              "invalid_scope"
+              "invalid_scope",
+              "invalid_request"
             ]
           }
         },

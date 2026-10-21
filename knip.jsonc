@@ -29,14 +29,10 @@
     // Type tests export their compile-time assertions so the compiler checks
     // them without reporting unused locals; nothing imports them.
     "**/*.type-test.ts": ["exports", "types"],
-    // lint-staged loads this default export. The file belongs to the staged-check
-    // template other workspaces copy unchanged, so it carries no knip tag.
-    "scripts/check-staged.config.mjs": ["exports"],
   },
   // Nx infers each project's compiler target; the dual compiler aliases are
   // enforced separately by scripts/typescript-aliases.test.ts.
-  // The Git bootstrap enters lint-staged through its installed Node binary
-  // before pnpm can parse unstaged manifests.
+  // The staged checks script runs lint-staged through pnpm exec.
   "ignoreDependencies": ["@typescript/native", "lint-staged"],
   "vitest": {
     "config": [
@@ -55,7 +51,6 @@
       // These are loaded indirectly by Allure, shell launchers, benchmark child
       // processes, and specification discovery.
       "entry": [
-        "scripts/check-staged.config.mjs",
         "allurerc.ts",
         "benchmarks/lifecycle-preload.cjs",
         "scripts/axm-local.ts",
@@ -87,8 +82,10 @@
     },
     "tools/workspace-conventions": {
       "includeEntryExports": false,
-      // Node's test runner loads these through the project's test target.
-      "entry": ["src/*.test.mjs"],
+      // Node's test runner loads the tests through the project's test target,
+      // a Git hook starts the gate launcher, and the gate hands lint-staged its
+      // configuration by path.
+      "entry": ["src/*.test.mjs", "bin/check-staged.mjs", "src/check-staged.config.mjs"],
       // eslint-plugin-boundaries loads the resolver the preset's settings name.
       "ignoreDependencies": ["eslint-import-resolver-typescript"],
     },

@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/workspace-conventions",
   "version": "0.50.0",
-  "description": "Engineering conventions for Nx and pnpm TypeScript workspaces, starting with an ESLint flat-config preset that enforces capability boundaries. Engineering support, not part of the runtime. Unstable and unsupported.",
+  "description": "Engineering conventions for Nx and pnpm TypeScript workspaces: an ESLint flat-config preset that enforces capability boundaries and a staged commit gate for Git pre-commit hooks. Engineering support, not part of the runtime. Unstable and unsupported.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -19,6 +19,7 @@
     "./capability-boundaries": "./src/capability-boundaries.mjs"
   },
   "files": [
+    "bin/",
     "src/",
     "!src/**/*.test.mjs"
   ],
@@ -33,7 +34,8 @@
   },
   "peerDependencies": {
     "eslint-import-resolver-typescript": "^4.4.5",
-    "eslint-plugin-boundaries": "^7.2.0"
+    "eslint-plugin-boundaries": "^7.2.0",
+    "lint-staged": "^17.5.1"
   },
   "devDependencies": {
     "@types/node": "catalog:",
@@ -41,6 +43,8 @@
     "eslint": "catalog:",
     "eslint-import-resolver-typescript": "catalog:",
     "eslint-plugin-boundaries": "catalog:",
+    "lint-staged": "catalog:",
+    "nx": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:"
   }

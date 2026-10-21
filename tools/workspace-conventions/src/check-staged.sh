@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# The staged commit gate. bin/check-staged.mjs starts it with the repository's
+# ordered checks in CHECK_STAGED_CHECKS and lint-staged's Node entry point in
+# CHECK_STAGED_LINT_STAGED; lint-staged runs it again with --index-visible.
 set -euo pipefail
 export NX_TUI=false
 export NX_DEFAULT_OUTPUT_STYLE=static
@@ -11,14 +14,15 @@ if [[ "${1:-}" != "--index-visible" ]]; then
   fi
   # --all triggers one command even for deletion-only or symlink-only changes.
   # It does not expand the Nx selection; the command reads the index below.
-  exec node node_modules/lint-staged/bin/lint-staged.js \
-    --all --hide-all --stash --no-revert --config scripts/check-staged.config.mjs
+  exec node "$CHECK_STAGED_LINT_STAGED" \
+    --all --hide-all --stash --no-revert \
+    --config "$(dirname "${BASH_SOURCE[0]}")/check-staged.config.mjs"
 fi
 
-# The repository hook runs its ordered checks against the now-visible index.
-# It owns any dependency reconciliation and the placement of its auto-fixes;
-# the typecheck below reads the index those checks leave staged.
-bash scripts/check-staged.checks.sh
+# The repository's ordered checks run against the now-visible index. They own
+# any dependency reconciliation and the placement of their auto-fixes; the
+# typecheck below reads the index those checks leave staged.
+bash "$CHECK_STAGED_CHECKS"
 
 echo "Typechecking staged projects and their consumers..."
 # A disposable index worktree gives Nx fresh file metadata, without resetting

@@ -89,7 +89,7 @@ entry point.
 | CLI compilation                                                                 | `cli`                                         |
 | CLI end-to-end and binary/install verification                                  | `cli-e2e`                                     |
 | The specification metadata contract                                             | `specification-metadata`                      |
-| The capability-boundary ESLint preset                                           | `workspace-conventions`                       |
+| The capability-boundary ESLint preset and the staged commit gate                | `workspace-conventions`                       |
 | Shared Vitest execution profile, purpose labelling, and test reporting          | `test-reporting`                              |
 | Specification discovery, catalog, verdict, selection, and cross-project hygiene | `axm`                                         |
 | Repository tooling, release helpers, and reports                                | `axm`                                         |
@@ -465,75 +465,21 @@ selection and platform warming; it does not redefine cache eligibility.
 
 ## Commit-index checks
 
-`pre-commit` runs the fresh Git host adapter `scripts/check-staged.sh`. It uses
-lint-staged's native backup and `--hide-all` restoration to make tracked
-working files match the index and temporarily remove nonignored untracked
-files. Inside that view it runs the repository hook, then the staged compiler
-pass. Auto-fixes remain staged even when a later check fails, preserving the
-existing fixer behavior; unstaged work returns on success or failure.
-`--no-revert` avoids resetting the index to HEAD during failure recovery, which
-can collide with an untracked replacement of a staged deletion. A restoration
-conflict blocks the commit and retains lint-staged's recovery evidence; resolve
-it before retrying. Ignored dependency installations and generated artifacts
-retain their normal Nx input/output contracts.
+`pre-commit` runs the
+[staged commit gate](../../tools/workspace-conventions/README.md#staged-commit-gate)
+from `@agentxm/workspace-conventions` through its documented two-line hook
+template. The package README owns the mechanism: index isolation, the hook
+contract and ordering, the staged typecheck with its generated-input guard,
+and failure recovery. `workspace-conventions:test` exercises it in synthetic
+repositories.
 
-The adapter holds only the shared mechanism: index isolation and the staged
-compiler pass. It names no repository task, so another workspace can adopt it
-unchanged and compare its copy for drift. `.husky/pre-commit`,
-`scripts/check-staged.config.mjs`, and the root `lint-staged` globs are a
-template copied with it. Two lines carry the wiring: the Git hook runs
-`bash scripts/check-staged.sh`, and the lint-staged configuration returns
-`bash scripts/check-staged.sh --index-visible`. The adapter's tests in
-`scripts/check-staged.test.ts` exercise it through a synthetic hook, so they
-travel with it.
-
-The repository hook, `scripts/check-staged.checks.sh`, owns this repository's
-staged checks as an ordered command list. The adapter runs it once, after
-isolation and before the compiler pass, so the compiler selection reads the
-index the hook leaves staged. The hook decides where auto-fixes run relative
-to its other checks, and a repository that must reconcile dependencies against
-the staged manifests does so in the hook before anything that depends on them.
-Here the hook runs the `lint-staged --no-stash` auto-fixes, then
-`axm:local lint --staged --strict`, then `axm:scan-secrets:staged`, and stops
-at the first failure.
-
-The adapter bootstraps isolation through the workspace-installed lint-staged Node
-entry point: pnpm would parse unstaged manifests before it could isolate the
-index. No Nx target or pnpm launcher can own that pre-isolation step. Every
-check inside isolation uses pnpm and enforces `verifyDepsBeforeRun=error`. If
-the installed dependencies do not match the staged manifests and lockfile,
-install that dependency state before committing; neither the adapter nor this
-repository's hook reconciles the developer's installation.
-
-Git's explicit `diff --cached --no-renames` file list is passed to
-`nx affected -t typecheck --stdin --nxBail`. Nx owns project selection,
-transitive consumer traversal, task prerequisites, and configuration/dependency
-impact. Additions and deletions are included; a rename contributes both paths.
-Neither ambient `NX_BASE`/`NX_HEAD` nor a branch range selects commit checks.
-Git paths are read with NUL delimiters and converted to Nx's newline protocol;
-a newline in a filename fails explicitly. Lint-staged's outer `--all` only
-ensures the host workflow runs for deletion-only and symlink-only changes; it
-does not select all compiler projects. An empty index skips the workflow.
-
-The compiler pass materializes `git write-tree` with `git read-tree --reset -u`
-in a disposable detached worktree, clearing inherited Git selectors so a
-pathspec commit's temporary index does not select another worktree's files.
-`pnpm install --frozen-lockfile --offline` reconstructs dependency links against
-the staged manifests and lockfile using the local store. Prepare scripts still
-run (including compiler patches), with `HUSKY=0` to avoid changing hook
-configuration. Missing store content or an inconsistent lockfile fails the
-commit; install the staged dependency state before retrying. No dependency links
-point to the developer's mutable working-tree sources.
-
-Existing typecheck targets, cache inputs, dependency tasks, and output ownership
-are unchanged. The host adapter is fresh; compiler tasks reuse valid Nx results.
-The snapshot disables the daemon and starts with fresh workspace file metadata,
-so rapid index rewrites cannot inherit ordinary working-tree file hashes. The
-repository's normal task-cache identity and configured location are preserved.
-The worktree is removed on success or failure. Compiler prerequisites that
-change tracked inputs block the commit: run generation or `nx sync`, stage the
-result, and retry. Full affected verification remains a separate pre-merge
-workflow rather than a per-commit gate.
+This repository's ordered checks live in `scripts/check-staged.checks.sh`. The
+gate runs them after isolation and before the staged typecheck: the
+`lint-staged --no-stash` auto-fixes from the root `lint-staged` globs, then
+`axm:local lint --staged --strict`, then `axm:scan-secrets:staged`, stopping at
+the first failure. Each uses pnpm with `verifyDepsBeforeRun=error`, and none
+reconciles the developer's installation: if it does not match the staged
+manifests and lockfile, install that dependency state before committing.
 
 ## Entrypoints and host adapters
 

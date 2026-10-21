@@ -8,5 +8,5 @@
     "moduleResolution": "bundler",
     "ignoreDeprecations": "6.0"
   },
-  "include": ["src/**/*.mjs"]
+  "include": ["src/**/*.mjs", "bin/**/*.mjs"]
 }

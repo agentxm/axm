@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# This repository's staged checks. scripts/check-staged.sh runs them in order
-# after isolating the index and before its staged typecheck.
+# This repository's staged checks. The @agentxm/workspace-conventions staged
+# commit gate runs them in order after isolating the index and before its
+# staged typecheck.
 set -euo pipefail
 
 # Every check enforces the now-visible index dependency state.

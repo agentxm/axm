@@ -495,14 +495,15 @@ and reporting entries of `@agentxm/test-reporting`.
 | `@agentxm/extension-type-parity`  | Extension-type parity obligations, the lifecycle contract and the exemption ledger the conformance suites read                                                                                                   |
 | `@agentxm/client-e2e-utils`       | Shared end-to-end utilities (`tools/e2e-utils`)                                                                                                                                                                  |
 | `@agentxm/test-reporting`         | The shared Vitest execution profile, per-file purpose labelling, and the JUnit, Allure, failure-summary, and specification-evidence reporters every project's tests run under                                    |
-| `@agentxm/workspace-conventions`  | Engineering conventions for Nx and pnpm TypeScript workspaces: the capability-boundary ESLint preset the root configuration composes                                                                             |
+| `@agentxm/workspace-conventions`  | Engineering conventions for Nx and pnpm TypeScript workspaces: the capability-boundary ESLint preset the root configuration composes and the staged commit gate the pre-commit hook runs                         |
 
 `specification-metadata` and `workspace-conventions` ship with the release
-cohort so other repositories author specifications and lint capability
-boundaries against them. That does not make them runtime contracts: they are
-engineering support, and the role matrix keeps them out of production source.
-The [workspace-conventions README](../../tools/workspace-conventions/README.md)
-describes how to configure the preset.
+cohort so other repositories author specifications, lint capability
+boundaries, and gate commits against them. That does not make them runtime
+contracts: they are engineering support, and the role matrix keeps them out of
+production source. The
+[workspace-conventions README](../../tools/workspace-conventions/README.md)
+describes how to configure the preset and install the gate.
 
 ## Applications
 

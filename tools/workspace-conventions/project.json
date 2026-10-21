@@ -12,6 +12,8 @@
       "dependsOn": [],
       "inputs": [
         "{projectRoot}/src/**/*",
+        "{projectRoot}/bin/**/*",
+        "{projectRoot}/README.md",
         "{projectRoot}/package.json",
         {
           "runtime": "node -p \"[process.version, process.platform, process.arch].join('/')\""
@@ -25,7 +27,7 @@
       }
     },
     "typecheck": {
-      "inputs": ["...", "{projectRoot}/src/**/*.mjs"]
+      "inputs": ["...", "{projectRoot}/src/**/*.mjs", "{projectRoot}/bin/**/*.mjs"]
     },
     "nx-release-publish": {
       "executor": "@nx/js:release-publish"

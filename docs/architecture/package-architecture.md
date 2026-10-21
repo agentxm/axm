@@ -37,9 +37,10 @@ reusable business policy.
 A package is a source/compiler boundary; its existence does not require an npm
 publication. The fixed published cohort contains `axm.sh`,
 `@agentxm/extension-model`, `@agentxm/extension-content`,
-`@agentxm/specification-metadata`, and `@agentxm/workspace-conventions`. The
-shared model, portable content, specification contracts, and workspace
-conventions have consumers outside the CLI. The CLI publishes its
+`@agentxm/registry-protocol`, `@agentxm/specification-metadata`, and
+`@agentxm/workspace-conventions`. The shared model, portable content, registry
+protocol, specification contracts, and workspace conventions have consumers
+outside the CLI. The CLI publishes its
 runtime entry and includes site assets as package and release content.
 
 Other runtime packages are private workspace dependencies. The canonical

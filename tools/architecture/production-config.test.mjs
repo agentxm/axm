@@ -5,7 +5,11 @@ import { ESLint } from "eslint";
 import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 import { createRequire } from "node:module";
 import { globSync } from "node:fs";
-import { capabilityElements, capabilityFileDescriptors } from "./config.mjs";
+import {
+  capabilityElements,
+  capabilityFileDescriptors,
+  sourceResolverConditions,
+} from "./config.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const domainFile =
@@ -220,7 +224,7 @@ test("the composed root config permits a pure Effect algorithm in a published do
 test("workspace aliases resolve to the published source condition without a build prerequisite", () => {
   const resolver = createTypeScriptImportResolver({
     project: [],
-    conditionNames: ["axm-source", "import", "node", "default"],
+    conditionNames: sourceResolverConditions,
   });
   const result = resolver.resolve(
     "@agentxm/extension-model/unstable/version-constraints/version-selection",

@@ -36,9 +36,10 @@ reusable business policy.
 
 A package is a source/compiler boundary; its existence does not require an npm
 publication. The fixed published cohort contains `axm.sh`,
-`@agentxm/extension-model`, `@agentxm/extension-content`, and
-`@agentxm/specification-metadata`. The shared model, portable content, and
-specification contracts have consumers outside the CLI. The CLI publishes its
+`@agentxm/extension-model`, `@agentxm/extension-content`,
+`@agentxm/specification-metadata`, and `@agentxm/workspace-conventions`. The
+shared model, portable content, specification contracts, and workspace
+conventions have consumers outside the CLI. The CLI publishes its
 runtime entry and includes site assets as package and release content.
 
 Other runtime packages are private workspace dependencies. The canonical
@@ -494,10 +495,14 @@ and reporting entries of `@agentxm/test-reporting`.
 | `@agentxm/extension-type-parity`  | Extension-type parity obligations, the lifecycle contract and the exemption ledger the conformance suites read                                                                                                   |
 | `@agentxm/client-e2e-utils`       | Shared end-to-end utilities (`tools/e2e-utils`)                                                                                                                                                                  |
 | `@agentxm/test-reporting`         | The shared Vitest execution profile, per-file purpose labelling, and the JUnit, Allure, failure-summary, and specification-evidence reporters every project's tests run under                                    |
+| `@agentxm/workspace-conventions`  | Engineering conventions for Nx and pnpm TypeScript workspaces: the capability-boundary ESLint preset the root configuration composes                                                                             |
 
-`specification-metadata` ships with the release cohort so other repositories
-author specifications against it. That does not make it a runtime contract: it
-is engineering support, and the role matrix keeps it out of production source.
+`specification-metadata` and `workspace-conventions` ship with the release
+cohort so other repositories author specifications and lint capability
+boundaries against them. That does not make them runtime contracts: they are
+engineering support, and the role matrix keeps them out of production source.
+The [workspace-conventions README](../../tools/workspace-conventions/README.md)
+describes how to configure the preset.
 
 ## Applications
 
@@ -689,7 +694,9 @@ one.
   (`kernel`, `kind`, and `feature`, each with the pattern `<root>/src/*`) run
   with ordinary `lint`;
 - the capability gate, JS Boundaries descriptors for capability elements over
-  the roots in `config.mjs`, also run by `lint`; and
+  the roots in `config.mjs`, passed with this repository's allowances, policy
+  modules, and resolver conditions to the `capabilityBoundaries` preset from
+  `@agentxm/workspace-conventions`, also run by `lint`; and
 - the cycle check, `check.mjs`, which runs dependency-cruiser over the three
   workspace package `src` roots plus the capability roots with a file-cycle
   rule, a folder-scope rule between slices, an unresolved-import rule, and

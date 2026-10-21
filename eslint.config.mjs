@@ -1,12 +1,15 @@
 import effectEslint from "@effect/eslint-plugin";
 import nxPlugin from "@nx/eslint-plugin";
 import * as jsoncParser from "jsonc-eslint-parser";
-import { capabilityBoundaries } from "./tools/architecture/boundaries.mjs";
+import { capabilityBoundaries } from "@agentxm/workspace-conventions/capability-boundaries";
 import { sliceBoundaries } from "./tools/architecture/slices.mjs";
 import {
+  capabilityAllows,
   capabilityElements,
   capabilityFileDescriptors,
   capabilitySourceFiles,
+  policyExternalModules,
+  sourceResolverConditions,
 } from "./tools/architecture/config.mjs";
 
 const axmPolicyPlugin = {
@@ -695,7 +698,6 @@ export default [
           ...moduleBoundaryOptions,
           allow: [
             ...moduleBoundaryOptions.allow,
-            "./tools/architecture/boundaries.mjs",
             "./tools/architecture/config.mjs",
             "./tools/architecture/slices.mjs",
           ],
@@ -1338,11 +1340,14 @@ export default [
     files: ["**/*.js", "**/*.jsx", "**/*.cjs", "**/*.mjs"],
     rules: {},
   },
-  ...capabilityBoundaries(
-    import.meta.dirname,
-    capabilityElements,
-    capabilitySourceFiles,
-    capabilityFileDescriptors,
-  ),
+  ...capabilityBoundaries({
+    rootPath: import.meta.dirname,
+    elements: capabilityElements,
+    files: capabilitySourceFiles,
+    roleDescriptors: capabilityFileDescriptors,
+    additionalAllows: capabilityAllows,
+    policyExternalModules,
+    resolverConditions: sourceResolverConditions,
+  }),
   ...sliceBoundaries(import.meta.dirname, { ignores: capabilitySourceFiles }),
 ];

@@ -89,6 +89,7 @@ entry point.
 | CLI compilation                                                                 | `cli`                                         |
 | CLI end-to-end and binary/install verification                                  | `cli-e2e`                                     |
 | The specification metadata contract                                             | `specification-metadata`                      |
+| The capability-boundary ESLint preset                                           | `workspace-conventions`                       |
 | Shared Vitest execution profile, purpose labelling, and test reporting          | `test-reporting`                              |
 | Specification discovery, catalog, verdict, selection, and cross-project hygiene | `axm`                                         |
 | Repository tooling, release helpers, and reports                                | `axm`                                         |
@@ -162,10 +163,11 @@ Knip stays fresh because configuration discovery can read ignored workspace
 files beyond the source hash; architecture keeps its declared cache contract. Slice isolation inside the workspace packages runs with ordinary
 `lint` through
 [the slice configuration](../../tools/architecture/slices.mjs).
-`architecture:test` uses Node's native test runner to exercise allowed and
-forbidden dependencies, the slice cycle rule, and the composed root ESLint
-configuration, with no build prerequisite; the existing Nx constraints remain
-active for every other scope.
+`architecture:test` uses Node's native test runner to exercise the slice cycle
+rule and the composed root ESLint configuration, and `workspace-conventions:test`
+exercises the capability preset's allowed and forbidden dependencies against a
+fixture workspace, both with no build prerequisite; the existing Nx constraints
+remain active for every other scope.
 
 Use the confidence ladder consistently. A focused Nx target answers one question
 during implementation. Run `verify:affected` locally before merge; it checks the

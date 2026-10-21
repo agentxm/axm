@@ -1,0 +1,34 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace-conventions",
+  "projectType": "library",
+  "root": "tools/workspace-conventions",
+  "sourceRoot": "tools/workspace-conventions/src",
+  "tags": ["type:lib", "role:tooling", "scope:workspace-conventions", "release:cli"],
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": [],
+      "inputs": [
+        "{projectRoot}/src/**/*",
+        "{projectRoot}/package.json",
+        {
+          "runtime": "node -p \"[process.version, process.platform, process.arch].join('/')\""
+        },
+        "{workspaceRoot}/pnpm-lock.yaml",
+        "toolchain"
+      ],
+      "options": {
+        "command": "node --test src/*.test.mjs",
+        "cwd": "tools/workspace-conventions"
+      }
+    },
+    "typecheck": {
+      "inputs": ["...", "{projectRoot}/src/**/*.mjs"]
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

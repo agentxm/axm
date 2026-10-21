@@ -82,6 +82,7 @@
     "@agentxm/registry-client": "workspace:*",
     "@agentxm/specification-metadata": "workspace:*",
     "@agentxm/test-reporting": "workspace:*",
+    "@agentxm/workspace-conventions": "workspace:*",
     "@agentxm/workspace-kernel": "workspace:*",
     "@aws-sdk/client-s3": "^3.1152.0",
     "@boundaries/elements": "catalog:",

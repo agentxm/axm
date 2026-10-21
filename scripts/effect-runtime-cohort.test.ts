@@ -49,7 +49,10 @@ describe("published Effect runtime cohort", () => {
   });
 
   // The CLI ships its own runtime; a library shares its consumer's, so two
-  // Effect copies never meet in one process. The floor names the tested release.
+  // Effect copies never meet in one process. A library never pins Effect as a
+  // dependency, and one that uses Effect names it as a peer whose floor is the
+  // tested release. Lint's dependency checks require every imported package to
+  // be declared, so a library that uses Effect cannot omit it here.
   it.each(resolveReleaseCohort(workingTreeSnapshot()).filter(({ name }) => name !== "axm.sh"))(
     "$name shares its consumer's Effect runtime",
     ({ path }) => {
@@ -62,6 +65,10 @@ describe("published Effect runtime cohort", () => {
       };
 
       expect(field("dependencies")["effect"]).toBeUndefined();
+      const usesEffect =
+        field("peerDependencies")["effect"] !== undefined ||
+        field("devDependencies")["effect"] !== undefined;
+      if (!usesEffect) return;
       expect(field("devDependencies")["effect"]).toBe("catalog:");
       expect(field("peerDependencies")["effect"]).toBe(`^${effectVersion}`);
     },

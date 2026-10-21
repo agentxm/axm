@@ -46,9 +46,9 @@
   },
   "workspaces": {
     ".": {
-      // @nx/eslint-plugin loads this recommended configuration at runtime but
-      // omits it from its own dependency metadata.
-      "ignoreDependencies": ["@eslint/js"],
+      // @nx/eslint-plugin loads these configurations at runtime but omits them
+      // from its own dependency metadata.
+      "ignoreDependencies": ["@eslint/js", "typescript-eslint"],
       // Native toolchain manager; scanner versions are declared in mise.toml,
       // independently of npm dependency ownership.
       "ignoreBinaries": ["mise"],
@@ -84,6 +84,13 @@
     },
     "tools/specification-metadata": {
       "includeEntryExports": false,
+    },
+    "tools/workspace-conventions": {
+      "includeEntryExports": false,
+      // Node's test runner loads these through the project's test target.
+      "entry": ["src/*.test.mjs"],
+      // eslint-plugin-boundaries loads the resolver the preset's settings name.
+      "ignoreDependencies": ["eslint-import-resolver-typescript"],
     },
     "packages/core/workspace-features": {
       "entry": ["src/**/*.type-test.ts"],

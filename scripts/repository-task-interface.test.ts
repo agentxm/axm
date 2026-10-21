@@ -522,8 +522,14 @@ describe("repository task interface", () => {
       }
       if (tags.includes("release:cli")) {
         // The cohort ships the application, domain-classified libraries, and
-        // the published engineering libraries under tools/ (role:tooling).
-        expect(project.data.targets?.["build"], project.name).toBeDefined();
+        // the published engineering libraries under tools/ (role:tooling). A
+        // member that packs build output declares the build producing it; one
+        // published from its source has no build.
+        const packed = readObject(`${root}/package.json`)["files"];
+        const packsBuildOutput =
+          Array.isArray(packed) &&
+          packed.some((entry) => typeof entry === "string" && entry.startsWith("dist/"));
+        expect(project.data.targets?.["build"] !== undefined, project.name).toBe(packsBuildOutput);
         if (!tags.includes("type:app") && !tags.includes("role:tooling")) {
           expect(domains, project.name).toHaveLength(1);
         }

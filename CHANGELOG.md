@@ -1,3 +1,14 @@
+## 0.50.1 (2026-10-21)
+
+### 🚀 Features
+
+- New package `@agentxm/workspace-conventions` publishes engineering conventions for Nx and pnpm TypeScript workspaces, starting with `capabilityBoundaries` from `@agentxm/workspace-conventions/capability-boundaries`: an ESLint flat-config preset built on `eslint-plugin-boundaries` that keeps capability dependencies flowing through public domain and application entries, keeps capability code inside its domain, application, adapters and composition folders, and keeps filesystem, provider and ambient process access out of domain and application code. Workspaces extend it through ordered options (`additionalAllows`, `additionalDenials`, `policyExternalModules`, `policyRestrictedImports`, `testAccess`, `placementFiles` and `resolverConditions`) so that an added allowance never overrides a shared denial. The package is engineering support, unstable, and outside the AXM runtime. ([3f684b00e](https://github.com/agentxm/axm/commit/3f684b00e))
+- `@agentxm/workspace-conventions` adds a staged commit gate for Git pre-commit hooks. A hook runs `node node_modules/@agentxm/workspace-conventions/bin/check-staged.mjs <checks-file>`; the gate isolates the index with lint-staged, runs the repository's ordered checks file against exactly what Git would commit, then typechecks the staged Nx projects and their consumers in a disposable worktree. Unstaged and untracked work stays out of every check and is restored on success or failure. `lint-staged` is a new peer dependency, and the gate also needs Git, Bash, pnpm and Nx in the workspace. ([b4eae6545](https://github.com/agentxm/axm/commit/b4eae6545))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.50.0 (2026-10-21)
 
 ### 🚀 Features

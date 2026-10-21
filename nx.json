@@ -97,7 +97,7 @@
       "cache": true,
       "inputs": [
         "...",
-        "{workspaceRoot}/tools/architecture/boundaries.mjs",
+        "{workspaceRoot}/tools/workspace-conventions/src/capability-boundaries.mjs",
         "{workspaceRoot}/tools/architecture/config.mjs",
         "{workspaceRoot}/tools/architecture/slices.mjs"
       ]

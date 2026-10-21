@@ -1,0 +1,47 @@
+{
+  "name": "@agentxm/workspace-conventions",
+  "version": "0.50.0",
+  "description": "Engineering conventions for Nx and pnpm TypeScript workspaces, starting with an ESLint flat-config preset that enforces capability boundaries. Engineering support, not part of the runtime. Unstable and unsupported.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "tools/workspace-conventions"
+  },
+  "sideEffects": false,
+  "exports": {
+    "./capability-boundaries": "./src/capability-boundaries.mjs"
+  },
+  "files": [
+    "src/",
+    "!src/**/*.test.mjs"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=24.21.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "peerDependencies": {
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@typescript/native": "catalog:",
+    "eslint": "catalog:",
+    "eslint-import-resolver-typescript": "catalog:",
+    "eslint-plugin-boundaries": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
+  }
+}

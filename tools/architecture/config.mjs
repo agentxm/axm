@@ -83,6 +83,28 @@ export const capabilitySourceFiles = capabilityRoots.map(
   (root) => `${root}/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`,
 );
 
+// Workspace packages resolve to their TypeScript source, so lint needs no build.
+export const sourceResolverConditions = ["axm-source", "import", "node", "default"];
+
+// The external libraries domain and application policy may import.
+export const policyExternalModules = ["effect", "semver", "packageurl-js", "spdx-expression-parse"];
+
+// Adapters, composition, and tests reach the generic host primitives through
+// their public entry point.
+export const capabilityAllows = [
+  {
+    from: { file: { categories: ["adapter", "composition", "test"] } },
+    allow: {
+      to: {
+        element: {
+          path: "packages/generic/host-primitives/src",
+          fileInternalPath: "index.{ts,tsx,mts,cts,js,jsx,mjs,cjs}",
+        },
+      },
+    },
+  },
+];
+
 const model = JSON.parse(
   readFileSync(
     new URL("../../packages/core/extension-model/package.json", import.meta.url),

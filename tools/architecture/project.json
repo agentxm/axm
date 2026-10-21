@@ -19,6 +19,7 @@
         "{workspaceRoot}/pnpm-lock.yaml",
         "{workspaceRoot}/packages/**/package.json",
         "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/tools/workspace-conventions/src/capability-boundaries.mjs",
         "{workspaceRoot}/packages/core/extension-model/tsconfig*.json",
         "toolchain"
       ],

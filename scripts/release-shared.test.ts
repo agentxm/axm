@@ -52,6 +52,7 @@ describe("release tag helpers", () => {
       "@agentxm/extension-model",
       "@agentxm/registry-protocol",
       "@agentxm/specification-metadata",
+      "@agentxm/workspace-conventions",
       "axm.sh",
     ]);
   });

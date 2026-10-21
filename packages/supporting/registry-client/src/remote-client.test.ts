@@ -2153,30 +2153,6 @@ describe("publishExtension", () => {
     }),
   );
 
-  it.effect("fails with REGISTRY_PUBLISH_REJECTED on 422 with manifest_* code", () =>
-    Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(
-        () =>
-          new Response(
-            JSON.stringify({
-              kind: "UnprocessableEntityError",
-              type: "about:blank",
-              title: "Unprocessable Entity",
-              status: 422,
-              detail: "Manifest name is invalid",
-              code: "publish_manifest_invalid_json",
-            }),
-            { status: 422 },
-          ),
-      );
-      const client = createRemoteRegistryClient(BASE_URL, httpClient);
-
-      const error = yield* runFailure(client.publishExtension(publishArgs));
-
-      expect(error.category).toBe("validation");
-    }),
-  );
-
   it.effect("fails with REGISTRY_PUBLISH_REJECTED on 429 with retryAfterSeconds", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(

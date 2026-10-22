@@ -71,7 +71,7 @@ describe("renderAppError", () => {
         titleLine("Internal Error", "internal, exit 10"),
         "     Installation failed",
         "Next",
-        "     https://github.com/agentxm/axm/issues",
+        "     https://github.com/agentxm/axm/issues/new/choose",
       ].join("\n"),
     );
   });
@@ -243,7 +243,7 @@ describe("renderAppError", () => {
         "     Installation failed",
         "     Cause: Error: permission denied",
         "Next",
-        "     https://github.com/agentxm/axm/issues",
+        "     https://github.com/agentxm/axm/issues/new/choose",
       ].join("\n"),
     );
   });

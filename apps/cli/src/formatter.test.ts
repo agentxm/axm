@@ -110,6 +110,17 @@ describe("learn-more footer", () => {
     );
   });
 
+  it("pads inline commands only to the longest command that sits inline", () => {
+    expect(
+      formatLearnMore([
+        ["axm help", "Browse all help topics"],
+        ["https://github.com/agentxm/axm/issues/new/choose", "Report an issue"],
+      ]),
+    ).toBe(
+      "LEARN MORE\n  axm help  Browse all help topics\n  https://github.com/agentxm/axm/issues/new/choose\n    Report an issue",
+    );
+  });
+
   it("reads its rows back from either row form", () => {
     const rows = [
       ["axm help skills", "How skill extensions work"],

@@ -1,0 +1,73 @@
+name: Bug report
+description: Report something in AXM that does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Do not open an issue for a security vulnerability. Report it privately at https://github.com/agentxm/axm/security/advisories/new instead.
+  - type: input
+    id: axm-version
+    attributes:
+      label: AXM version
+      description: Run `axm --version` and paste the output.
+    validations:
+      required: true
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system
+      placeholder: macOS 15.5, Ubuntu 24.04, Windows 11
+    validations:
+      required: true
+  - type: dropdown
+    id: coding-agent
+    attributes:
+      label: Coding agent
+      description: The coding agent you were using AXM with.
+      options:
+        - Claude Code
+        - Codex
+        - Cursor
+        - Gemini CLI
+        - GitHub Copilot
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: diagnostic-id
+    attributes:
+      label: Diagnostic ID
+      description: If AXM printed a Diagnostic ID with the error, paste it here.
+    validations:
+      required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce, including the exact command
+      placeholder: |
+        1. Run `axm ...`
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostic-record
+    attributes:
+      label: Diagnostic record
+      description: |
+        Optional. Review the record with `axm diagnostics show <id>` and copy its SHA-256, then export it with `axm diagnostics export --review-sha256 <sha256> <id> ./diagnostic.json` and attach the file here. The record may contain file paths from your machine.
+    validations:
+      required: false
+  - type: checkboxes
+    id: secrets-removed
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed passwords, tokens, API keys, and other secrets
+          required: true

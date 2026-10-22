@@ -1,0 +1,25 @@
+name: Agent support request
+description: Ask AXM to support a coding agent it does not support yet.
+labels: [enhancement]
+body:
+  - type: input
+    id: agent-name
+    attributes:
+      label: Agent name
+    validations:
+      required: true
+  - type: input
+    id: agent-link
+    attributes:
+      label: Link
+      description: The agent's website or repository.
+      placeholder: https://
+    validations:
+      required: true
+  - type: textarea
+    id: configuration-location
+    attributes:
+      label: Where does it store configuration?
+      description: Where the agent keeps skills, commands, subagents, MCP servers, rules, or hooks, with links to its documentation if you have them.
+    validations:
+      required: true

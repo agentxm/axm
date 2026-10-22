@@ -220,7 +220,7 @@ describe("writeDefect", () => {
         code: "internal",
         title: "Internal Error",
         detail: "boom",
-        suggestions: [{ url: "https://github.com/agentxm/axm/issues" }],
+        suggestions: [{ url: "https://github.com/agentxm/axm/issues/new/choose" }],
       });
 
       expect(stdoutDoc).not.toHaveProperty("cause");
@@ -231,8 +231,8 @@ describe("writeDefect", () => {
         {
           type: "suggestion",
           description:
-            "This looks like a bug. Please report it, including the request ID if one is shown.",
-          url: "https://github.com/agentxm/axm/issues",
+            "This looks like a bug. Please report it and include the Diagnostic ID if one is shown.",
+          url: "https://github.com/agentxm/axm/issues/new/choose",
         },
         { type: "error", code: "internal", message: "boom" },
       ]);

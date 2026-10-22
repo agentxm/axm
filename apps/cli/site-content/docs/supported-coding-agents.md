@@ -25,7 +25,7 @@ compatible extension artifacts into the locations that agent expects.
 ## More Agents
 
 axm's supported-agent catalog continues to expand. If your coding agent is not
-supported yet, open an issue in the
-[agentxm/axm repository](https://github.com/agentxm/axm/issues) and include the
-agent name plus links to its extension, command, skill, subagent, or MCP
-configuration documentation.
+supported yet,
+[open an agent support request](https://github.com/agentxm/axm/issues/new/choose)
+in the agentxm/axm repository and include the agent name plus links to its
+extension, command, skill, subagent, or MCP configuration documentation.

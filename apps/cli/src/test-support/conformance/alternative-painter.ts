@@ -458,14 +458,17 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         ...paintTable(node.columns, node.rows, style, indent),
       ];
     case "fields":
-      return node.fields.flatMap((field) =>
-        block(
-          field.value,
-          style,
-          indent,
-          paintSpans([{ text: `${plain(field.label)}: ` }], style, "dim"),
-        ),
-      );
+      // A label too wide to leave its value a word of room stands on its own line.
+      return node.fields.flatMap((field) => {
+        const label = `${plain(field.label)}: `;
+        const valueRoom = room(style.width, indent + displayWidth(label));
+        return valueRoom !== "unbounded" && valueRoom < longestWordWidth(field.value)
+          ? [
+              `${spaces(indent)}${paintSpans([{ text: plain(field.label) }], style, "dim")}`,
+              ...block(field.value, style, indent + 2, ""),
+            ]
+          : block(field.value, style, indent, paintSpans([{ text: label }], style, "dim"));
+      });
     case "tree":
       return paintTree(node.roots, style, spaces(indent));
     case "next":

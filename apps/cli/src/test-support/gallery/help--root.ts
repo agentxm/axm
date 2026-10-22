@@ -62,5 +62,6 @@ export const helpRoot = commandHelpDoc({
   learnMore: formatLearnMore([
     ["axm help getting-started", "Set up AXM in a new workspace"],
     ["axm help", "Browse all help topics"],
+    ["https://github.com/agentxm/axm/issues/new/choose", "Report an issue"],
   ]),
 });

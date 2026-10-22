@@ -21,7 +21,7 @@ import {
   collectHelpFiles,
   helpText,
 } from "./test-support/command-tree-test-helpers.js";
-import { LearnMore } from "./formatter.js";
+import { LearnMore, learnMoreRows } from "./formatter.js";
 import {
   INSTALLED_STATE_SCOPE_COMMANDS,
   PROJECT_ONLY_AUTHORING_COMMANDS,
@@ -237,6 +237,11 @@ describe("root command help", () => {
       expect(learnMore).toContain("axm help skills");
       expect(learnMore).toContain("axm help ");
       expect(learnMore).toContain("Browse all help topics");
+      expect(
+        learnMoreRows(learnMore).rows.filter(
+          ([command]) => command === "https://github.com/agentxm/axm/issues/new/choose",
+        ),
+      ).toEqual([["https://github.com/agentxm/axm/issues/new/choose", "Report an issue"]]);
     }),
   );
 

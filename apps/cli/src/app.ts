@@ -200,6 +200,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       ["axm help basic-usage", "Managing extensions and agents for an AXM workspace"],
       ["axm help skills", "How skill extensions work"],
       ["axm help", "Browse all help topics"],
+      ["https://github.com/agentxm/axm/issues/new/choose", "Report an issue"],
     ]),
   ),
 );

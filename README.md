@@ -18,9 +18,9 @@
 - Switch effortlessly between coding agents, bringing your workflow with you. Avoid lock-in.
 
 > [!WARNING]
-> AXM is in **early alpha** testing. Capabilities and APIs may change. To be
-> included in the test user group, reach out to
-> [hello@agentxm.ai](mailto:hello@agentxm.ai).
+> AXM is in **early alpha** testing. Capabilities and APIs may change. To report
+> a problem or request a feature,
+> [open an issue](https://github.com/agentxm/axm/issues/new/choose).
 
 - **Multi-tool** — a unified context-engineering toolkit for managing skills,
   subagents, MCP servers, rules, hooks, knowledge, and packs
@@ -260,7 +260,7 @@ for a workflow, and `axm help environment` for the full credential order.
 AXM supports nearly 40 agents — Claude Code, Codex, Cursor,
 Gemini CLI, GitHub Copilot, OpenCode, Windsurf, Cline, Continue, Roo, Goose,
 and more. If your agent isn't there,
-[open an issue](https://github.com/agentxm/axm/issues) and we'll add it.
+[open an issue](https://github.com/agentxm/axm/issues/new/choose) and we'll add it.
 
 ## Development
 

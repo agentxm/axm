@@ -30,17 +30,20 @@ const LEARN_MORE_INLINE_COMMAND_WIDTH = 40;
 const LEARN_MORE_ROW_INDENT = "  ";
 
 /**
- * Builds a `LEARN MORE` footer string from `axm help <topic>` rows, with the
- * command column padded to a consistent width. Pass the result to
- * `Command.annotate(LearnMore, ...)`. The string is part of the machine help
- * document; {@link learnMoreRows} reads it back for the human view.
+ * Builds a `LEARN MORE` footer string from rows of an `axm help <topic>`
+ * command or a link and what it offers, with the inline command column padded
+ * to a consistent width; a row too long to sit inline takes its own line and
+ * sets no padding. Pass the result to `Command.annotate(LearnMore, ...)`. The
+ * string is part of the machine help document; {@link learnMoreRows} reads it
+ * back for the human view.
  */
 export const formatLearnMore = (
   rows: ReadonlyArray<readonly [command: string, description: string]>,
 ): string => {
-  const width = Math.min(
-    rows.reduce((max, [command]) => Math.max(max, command.length), 0),
-    LEARN_MORE_INLINE_COMMAND_WIDTH,
+  const width = rows.reduce(
+    (max, [command]) =>
+      command.length > LEARN_MORE_INLINE_COMMAND_WIDTH ? max : Math.max(max, command.length),
+    0,
   );
   const lines = rows.flatMap(([command, description]) =>
     command.length > LEARN_MORE_INLINE_COMMAND_WIDTH

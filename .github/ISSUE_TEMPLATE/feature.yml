@@ -1,0 +1,18 @@
+name: Feature request
+description: Suggest a change that would make AXM work better for you.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      description: Describe the task or outcome you want, not a specific solution.
+    validations:
+      required: true
+  - type: textarea
+    id: obstacle
+    attributes:
+      label: What gets in the way today?
+      description: Tell us what AXM does now, and where it falls short.
+    validations:
+      required: true

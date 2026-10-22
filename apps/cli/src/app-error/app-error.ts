@@ -223,8 +223,8 @@ const DefaultSuggestionsByAppErrorCode: Readonly<
   internal: [
     {
       description:
-        "This looks like a bug. Please report it, including the request ID if one is shown.",
-      url: "https://github.com/agentxm/axm/issues",
+        "This looks like a bug. Please report it and include the Diagnostic ID if one is shown.",
+      url: "https://github.com/agentxm/axm/issues/new/choose",
     },
   ],
   network: [{ description: "Check your network connection and the registry URL, then retry." }],

@@ -13,4 +13,4 @@ Next
      Cannot read properties of undefined (reading 'agents')
      --debug shows the cause.
 Next
-     https://github.com/agentxm/axm/issues
+     https://github.com/agentxm/axm/issues/new/choose

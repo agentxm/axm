@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Account or billing help
+    url: https://agentxm.ai/support
+    about: Get help with your AgentXM account, organization, or billing.
+  - name: Report a vulnerability
+    url: https://github.com/agentxm/axm/security/advisories/new
+    about: Report a security vulnerability privately. Do not open a public issue.
+  - name: Report a harmful extension
+    url: https://agentxm.ai/docs/extension-safety
+    about: Report an extension that is malicious, deceptive, or unsafe.

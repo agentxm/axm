@@ -37,13 +37,13 @@ user intent.
 
 Each help form has one primary job:
 
-| Surface                                                   | Job                                                                                   | Authority                                        |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `axm` and `axm --help`                                    | Orient users to AXM and its top-level command families.                               | The root command tree and its help view.         |
-| Parent command invocation and `axm <command-path> --help` | Describe executable command paths, arguments, flags, subcommands, and examples.       | Command definitions and annotations.             |
-| `axm help`                                                | List the available prose and schema topics.                                           | The generated topic registry.                    |
-| `axm help <topic>`                                        | Present durable guidance or a raw schema that is broader than one command invocation. | Topic sources and schema sources.                |
-| Suggestions and `LEARN MORE` sections                     | Move the reader to the next relevant command or topic without duplicating it.         | The command or diagnostic that owns the context. |
+| Surface                                                   | Job                                                                                           | Authority                                        |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `axm` and `axm --help`                                    | Orient users to AXM and its top-level command families.                                       | The root command tree and its help view.         |
+| Parent command invocation and `axm <command-path> --help` | Describe executable command paths, arguments, flags, subcommands, and examples.               | Command definitions and annotations.             |
+| `axm help`                                                | List the available prose and schema topics.                                                   | The generated topic registry.                    |
+| `axm help <topic>`                                        | Present durable guidance or a raw schema that is broader than one command invocation.         | Topic sources and schema sources.                |
+| Suggestions and `LEARN MORE` sections                     | Move the reader to the next relevant command, topic, or external link without duplicating it. | The command or diagnostic that owns the context. |
 
 Command help is the canonical reference for an executable interface. A help
 topic may explain why or when to use commands, but it does not maintain a copy

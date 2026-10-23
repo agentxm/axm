@@ -601,6 +601,24 @@ export const observeInstructionSurfacePlans = <E, R>(
               ],
             },
             ...copies,
+            // Creating a link exposes the entire source, including regions
+            // owned by another kind. Preserve that entry as its own planned
+            // mutation so admission can account for all of its contributors.
+            ...linked.flatMap((item) =>
+              snapshot.nativeLocations
+                .filter(
+                  (target) =>
+                    target.address.kind === "entry" &&
+                    target.aliases.includes(item.targetFile) &&
+                    target.state !== "unchanged",
+                )
+                .map((target): NativeLocationOutcome => ({
+                  ...target,
+                  state: target.ownership === "absent" ? "created" : "updated",
+                  reason:
+                    "The instruction owner will restore this route to the entire canonical source.",
+                })),
+            ),
           ];
         },
       );

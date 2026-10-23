@@ -13,17 +13,23 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { contentUnder, localLifecycleRows } from "../install/test-helpers.js";
-import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../../testing/install-world.js";
 import {
   DesiredStateReader,
   parseLockfileToml,
   WorkspaceRecords,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
+import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { writeAgentSkillDirectory } from "../../testing/local-packages.js";
 import {
   applyActivation,
+  applyActivationAcceptingExecutionChanges,
   previewActivation,
   workspaceWithAuthoredExtension,
 } from "./test-helpers.js";
@@ -78,7 +84,7 @@ describe("Activation follows desired state", () => {
     return world.workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "skill",
               subject: { kind: "source", source: "@acme/skills/review@^1.0.0" },
@@ -121,13 +127,13 @@ describe("Activation follows desired state", () => {
     return world.workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "pack",
               subject: { kind: "source", source: "@acme/packs/toolkit@^1.0.0" },
             }),
           );
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "skill",
               subject: { kind: "source", source: "@acme/skills/review@^1.0.0" },
@@ -183,7 +189,7 @@ describe("Activation follows desired state", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({ type: row.type, subject: { kind: "source", source } }),
             );
             yield* applyActivation({ type: row.type, name, enabled: false });
@@ -194,7 +200,11 @@ describe("Activation follows desired state", () => {
               `vendor/${name}/${row.canonicalFile(name)}`,
               `${content}\nUpstream changed.\n`,
             );
-            const enabled = yield* applyActivation({ type: row.type, name, enabled: true });
+            const enabled = yield* applyActivationAcceptingExecutionChanges({
+              type: row.type,
+              name,
+              enabled: true,
+            });
             expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
             expect(acceptedResolutions(workspace.readFile("axm.lock"))).toBe(
               acceptedResolutions(accepted),
@@ -241,12 +251,13 @@ describe("Activation follows desired state", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            const installed = yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "pack",
                 subject: { kind: "source", source: "@acme/packs/reviews" },
               }),
             );
+            expect(deriveOperationOutcome(installed), JSON.stringify(installed)).toBe("applied");
             const accepted = workspace.readFile("axm.lock");
             yield* applyActivation({ type, name, enabled: false });
             const graph = yield* (yield* DesiredStateReader).graph();
@@ -295,7 +306,7 @@ describe("Activation follows desired state", () => {
         return workspace
           .provide(
             Effect.gen(function* () {
-              yield* applyInstall(
+              yield* applyInstallAcceptingExecutionChanges(
                 installRequest({
                   type: "pack",
                   subject: { kind: "source", source: "@acme/packs/reviews" },
@@ -328,7 +339,7 @@ describe("Activation follows desired state", () => {
                   `${fileRegistryPackagePath(registry, "packs", "reviews")}/pack.json`,
                 ),
               ).toBe(packContent);
-              const enabled = yield* applyActivation({
+              const enabled = yield* applyActivationAcceptingExecutionChanges({
                 type: "pack",
                 name: "reviews",
                 enabled: true,
@@ -359,7 +370,7 @@ describe("Activation follows desired state", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "pack",
               subject: { kind: "source", source: "@acme/packs/reviews" },
@@ -393,7 +404,10 @@ describe("Activation follows desired state", () => {
           ).toBe("applied");
           expect(workspace.readFile(".codex/config.toml")).toContain("enabled = false");
           expect(workspace.readFile(".codex/config.toml")).toContain(foreign);
-          const enabled = yield* applyActivation({ ...request, enabled: true });
+          const enabled = yield* applyActivationAcceptingExecutionChanges({
+            ...request,
+            enabled: true,
+          });
           expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
           expect(workspace.readFile(".codex/config.toml")).toContain("enabled = true");
           expect(workspace.readFile(".codex/config.toml")).toContain(foreign);
@@ -425,7 +439,7 @@ describe("Activation follows desired state", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "skill",
                 subject: { kind: "source", source: "@acme/skills/review" },
@@ -477,7 +491,7 @@ describe("Activation follows desired state", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "skill",
               subject: { kind: "source", source: "@acme/skills/review@2.0.0" },
@@ -682,7 +696,7 @@ describe("Activation follows desired state", () => {
         .provide(
           Effect.gen(function* () {
             if (installFrom !== undefined) {
-              yield* applyInstall(
+              yield* applyInstallAcceptingExecutionChanges(
                 installRequest({
                   type: "skill",
                   subject: { kind: "source", source: installFrom },
@@ -721,7 +735,7 @@ describe("Activation follows desired state", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "pack",
                 subject: { kind: "source", source: "@acme/packs/reviews" },
@@ -741,7 +755,11 @@ describe("Activation follows desired state", () => {
               enabled: false,
             });
 
-            const enabled = yield* applyActivation({ type, name, enabled: true });
+            const enabled = yield* applyActivationAcceptingExecutionChanges({
+              type,
+              name,
+              enabled: true,
+            });
             expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
             const graph = yield* (yield* DesiredStateReader).graph();
             expect(
@@ -774,7 +792,7 @@ describe("Activation follows desired state", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "subagent",
                 subject: { kind: "source", source: "@acme/subagents/review" },
@@ -830,7 +848,7 @@ describe("Activation follows desired state", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            const installed = yield* applyInstall(
+            const installed = yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "subagent",
                 subject: { kind: "source", source: "@acme/subagents/review" },
@@ -864,7 +882,7 @@ describe("Activation follows desired state", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source: "@acme/mcps/context" },

@@ -14,6 +14,7 @@ import {
   registrySourceArtifact,
   registrySourcePath,
   buildAggregateProjectionStep,
+  projectionExposureRefs,
   sourceResolutionFailureDetail,
   sourceResolutionRefused,
   type InstallStepRequirements,
@@ -109,6 +110,8 @@ import {
   acceptedResolutionIncompatibleRecovery,
   acceptedResolutionIncompatibleText,
   captureAgentOutputAuthority,
+  observeProjectionPlans,
+  observeInstructionSurfacePlans,
 } from "@agentxm/workspace-kernel/projection";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import {
@@ -866,27 +869,38 @@ export const planPackInstall: (
           .map((ref) => ref.hook.name),
       ),
     };
-    if (hookRefs.length > 0)
-      yield* hookManager
-        .prepareProjection(
-          (intent.projectionRefs ?? refs)
-            .filter((ref) => ref.type === "hook")
-            .filter((ref) =>
-              proposedGraph.nodes.some(
-                (node) => node.type === "hook" && node.name === ref.hook.name && node.enabled,
+    const hookExposures =
+      hookRefs.length === 0
+        ? []
+        : yield* hookManager
+            .prepareProjection(
+              (intent.projectionRefs ?? refs)
+                .filter((ref) => ref.type === "hook")
+                .filter(
+                  (ref) =>
+                    proposedGraph.nodes.find(
+                      (node) => node.type === "hook" && node.name === ref.hook.name,
+                    )?.enabled !== false,
+                ),
+              { ...hookProjection, desiredGraph: proposedGraph },
+            )
+            .pipe(
+              Effect.flatMap((prepared) => observeProjectionPlans(prepared.plans)),
+              Effect.flatMap((observations) =>
+                projectionExposureRefs({
+                  observations,
+                  graph: proposedGraph,
+                  proposedRefs: intent.projectionRefs ?? refs,
+                }),
               ),
-            ),
-          { ...hookProjection, desiredGraph: proposedGraph },
-        )
-        .pipe(
-          Effect.mapError((cause) =>
-            installRefused({
-              category: "conflict",
-              detail: "Pack Hook native locations cannot represent the proposed graph",
-              cause,
-            }),
-          ),
-        );
+              Effect.mapError((cause) =>
+                installRefused({
+                  category: "conflict",
+                  detail: "Pack Hook native locations cannot represent the proposed graph",
+                  cause,
+                }),
+              ),
+            );
     const ruleRefs = refs.filter((ref) => ref.type === "rule");
     const knowledgeRefs = refs.filter((ref) => ref.type === "knowledge");
     const ruleProjection = {
@@ -913,49 +927,70 @@ export const planPackInstall: (
           .map((ref) => ref.knowledge.name),
       ),
     };
-    if (ruleRefs.length > 0)
-      yield* ruleManager
-        .prepareProjection(
-          (intent.projectionRefs ?? refs)
-            .filter((ref) => ref.type === "rule")
-            .filter((ref) =>
-              proposedGraph.nodes.some(
-                (node) => node.type === "rule" && node.name === ref.rule.name && node.enabled,
+    const ruleExposures =
+      ruleRefs.length === 0
+        ? []
+        : yield* ruleManager
+            .prepareProjection(
+              (intent.projectionRefs ?? refs)
+                .filter((ref) => ref.type === "rule")
+                .filter(
+                  (ref) =>
+                    proposedGraph.nodes.find(
+                      (node) => node.type === "rule" && node.name === ref.rule.name,
+                    )?.enabled !== false,
+                ),
+              { ...ruleProjection, desiredGraph: proposedGraph },
+            )
+            .pipe(
+              Effect.flatMap(observeInstructionSurfacePlans),
+              Effect.flatMap((observations) =>
+                projectionExposureRefs({
+                  observations,
+                  graph: proposedGraph,
+                  proposedRefs: intent.projectionRefs ?? refs,
+                }),
               ),
-            ),
-          { ...ruleProjection, desiredGraph: proposedGraph },
-        )
-        .pipe(
-          Effect.mapError((cause) =>
-            installRefused({
-              category: "conflict",
-              detail: "Pack Rule native locations cannot represent the proposed graph",
-              cause,
-            }),
-          ),
-        );
-    if (knowledgeRefs.length > 0)
-      yield* knowledgeManager
-        .prepareProjection(
-          (intent.projectionRefs ?? refs)
-            .filter((ref) => ref.type === "knowledge")
-            .filter((ref) =>
-              proposedGraph.nodes.some(
-                (node) =>
-                  node.type === "knowledge" && node.name === ref.knowledge.name && node.enabled,
+              Effect.mapError((cause) =>
+                installRefused({
+                  category: "conflict",
+                  detail: "Pack Rule native locations cannot represent the proposed graph",
+                  cause,
+                }),
               ),
-            ),
-          { ...knowledgeProjection, desiredGraph: proposedGraph },
-        )
-        .pipe(
-          Effect.mapError((cause) =>
-            installRefused({
-              category: "conflict",
-              detail: "Pack Knowledge native locations cannot represent the proposed graph",
-              cause,
-            }),
-          ),
-        );
+            );
+    const knowledgeExposures =
+      knowledgeRefs.length === 0
+        ? []
+        : yield* knowledgeManager
+            .prepareProjection(
+              (intent.projectionRefs ?? refs)
+                .filter((ref) => ref.type === "knowledge")
+                .filter(
+                  (ref) =>
+                    proposedGraph.nodes.find(
+                      (node) => node.type === "knowledge" && node.name === ref.knowledge.name,
+                    )?.enabled !== false,
+                ),
+              { ...knowledgeProjection, desiredGraph: proposedGraph },
+            )
+            .pipe(
+              Effect.flatMap(observeInstructionSurfacePlans),
+              Effect.flatMap((observations) =>
+                projectionExposureRefs({
+                  observations,
+                  graph: proposedGraph,
+                  proposedRefs: intent.projectionRefs ?? refs,
+                }),
+              ),
+              Effect.mapError((cause) =>
+                installRefused({
+                  category: "conflict",
+                  detail: "Pack Knowledge native locations cannot represent the proposed graph",
+                  cause,
+                }),
+              ),
+            );
     const currentPackNode = graph.nodes.find(
       (node) => node.type === "pack" && node.name === intent.packToInstall.pack.name,
     );
@@ -1298,6 +1333,17 @@ export const planPackInstall: (
             {
               ...graphStep,
               acquisitionRefs: acquisitionRefs.filter((ref) => ref !== undefined),
+              exposureRefs: [
+                ...refs.filter(
+                  (ref) =>
+                    ref.refType !== "workspace" &&
+                    ref.type !== "pack" &&
+                    expectedMemberActivation(targetFromRef(ref)) !== false,
+                ),
+                ...hookExposures,
+                ...ruleExposures,
+                ...knowledgeExposures,
+              ],
               sourceBinding: {
                 extensionType: "pack",
                 target: intent.packToInstall.pack.name,

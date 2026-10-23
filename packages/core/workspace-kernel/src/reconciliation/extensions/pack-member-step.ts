@@ -239,6 +239,17 @@ export const buildPackMemberStep: (
       const manager = yield* McpServerManager;
       const base = {
         key: `mcp-server:${ref.server.name}`,
+        ...(args.authorizeDistributionSelection === true
+          ? {
+              executionPreferences: [
+                {
+                  type: "mcp-server" as const,
+                  name: ref.server.name,
+                  authorizeDistributionSelection: true,
+                },
+              ],
+            }
+          : {}),
         label: toLabelWithCompanions(
           { type: "mcp-server", name: ref.server.name },
           ref.refType === "registry" ? ref.packages : [],

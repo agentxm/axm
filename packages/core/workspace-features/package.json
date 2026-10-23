@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/workspace-features",
   "version": "0.0.1",
-  "description": "AXM workspace features: extension lifecycle, authoring, publishing, configuration, inspection, linting, discovery, synchronization, Knowledge queries, and sharing for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "description": "AXM workspace features: extension lifecycle, authoring, publishing, configuration, inspection, linting, discovery, synchronization, Knowledge queries, and sharing for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -137,11 +137,13 @@
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "@agentxm/workspace-kernel": "workspace:^",
+    "@cyclonedx/cyclonedx-library": "^10.3.0",
     "effect": "catalog:",
     "fflate": "catalog:",
     "packageurl-js": "catalog:",
     "semver": "catalog:",
     "smol-toml": "catalog:",
+    "xmlbuilder2": "4.0.3",
     "yaml": "catalog:"
   },
   "devDependencies": {
@@ -154,6 +156,9 @@
     "@types/bun": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "ajv-formats-draft2019": "^1.6.1",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

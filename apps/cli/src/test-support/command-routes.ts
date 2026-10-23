@@ -69,6 +69,8 @@ export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = [
   route("archive"),
   route("unarchive"),
   // Workspace
+  route("lock"),
+  route("lock export"),
   previewable("sync"),
   route("agents"),
   route("agents list"),

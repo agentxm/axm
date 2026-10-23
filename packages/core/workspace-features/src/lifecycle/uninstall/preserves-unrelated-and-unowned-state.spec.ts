@@ -10,7 +10,10 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
 import { workspaceWithAuthoredExtension } from "../activation/test-helpers.js";
-import { applyInstall, installRequest } from "../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+} from "../../testing/install-world.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import {
   writeLocalHookPackage,
@@ -114,7 +117,9 @@ describe("Uninstall preserves unowned state", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(installRequest({ type, subject: { kind: "source", source } }));
+          yield* applyInstallAcceptingExecutionChanges(
+            installRequest({ type, subject: { kind: "source", source } }),
+          );
           const sourceContent = snapshotContent(source);
           writeUnrelatedFiles(workspace);
 
@@ -165,7 +170,7 @@ describe("Uninstall preserves unowned state", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source: "@acme/mcps/demo" },

@@ -829,6 +829,145 @@ describe("ownerExists", () => {
 // getExtensionPackage
 // =============================================================================
 
+describe("validateExtensionAccess", () => {
+  for (const scenario of [
+    {
+      name: "eligible",
+      status: 200,
+      integrity: "sha512-selected",
+      publisher: "hbnd_test",
+      allowed: true,
+    },
+    {
+      name: "missing entitlement",
+      status: 403,
+      integrity: "sha512-selected",
+      publisher: "hbnd_test",
+      allowed: false,
+    },
+    {
+      name: "concealed or purged",
+      status: 404,
+      integrity: "sha512-selected",
+      publisher: "hbnd_test",
+      allowed: false,
+    },
+    {
+      name: "held",
+      status: 451,
+      integrity: "sha512-selected",
+      publisher: "hbnd_test",
+      allowed: false,
+    },
+    {
+      name: "archive changed",
+      status: 200,
+      integrity: "sha512-different",
+      publisher: "hbnd_test",
+      allowed: false,
+    },
+    {
+      name: "integrity unavailable",
+      status: 200,
+      integrity: "",
+      publisher: "hbnd_test",
+      allowed: false,
+    },
+    {
+      name: "publisher changed",
+      status: 200,
+      integrity: "sha512-selected",
+      publisher: "hbnd_other",
+      allowed: false,
+    },
+  ]) {
+    it.effect(
+      `checks current metadata and content authorization without downloading: ${scenario.name}`,
+      () =>
+        Effect.gen(function* () {
+          const requests: string[] = [];
+          const client = createRemoteRegistryClient(
+            BASE_URL,
+            makeMockHttpClient((request) => {
+              requests.push(`${request.method} ${new URL(request.url).pathname}`);
+              if (request.method === "HEAD")
+                return new Response(null, {
+                  status: scenario.status,
+                  headers: { "x-integrity": scenario.integrity },
+                });
+              expect(request.method).toBe("POST");
+              return new Response(
+                JSON.stringify({
+                  schemaVersion: 1,
+                  selectionPolicyVersion: "1",
+                  observedAt: "2026-09-22T00:00:00.000Z",
+                  results: [
+                    {
+                      key: "exact",
+                      outcome: "metadata",
+                      page: {
+                        publisherBindingId: scenario.publisher,
+                        visibility: "public",
+                        archival: null,
+                        deprecation: null,
+                        revision: "revision",
+                        observedAt: "2026-09-22T00:00:00.000Z",
+                        validUntil: "2026-09-22T00:00:30.000Z",
+                        continuation: null,
+                        versions: [
+                          {
+                            version: "1.0.0",
+                            published: "2026-09-22T00:00:00.000Z",
+                            integrity: "sha512-selected",
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                }),
+                { status: 200 },
+              );
+            }),
+          );
+          const result = yield* client
+            .validateExtensionAccess({
+              ...makeIndexArgs(),
+              exact: {
+                version: exactVersion("1.0.0"),
+                integrity: "sha512-selected",
+                publisherBindingId: "hbnd_test",
+              },
+            })
+            .pipe(Effect.result);
+          expect(result._tag).toBe(scenario.allowed ? "Success" : "Failure");
+          expect(requests).toEqual([
+            "POST /v1/resolutions/metadata",
+            ...(scenario.publisher === "hbnd_test"
+              ? ["HEAD /v1/extensions/%40acme/skills/test-skill/1.0.0/archive"]
+              : []),
+          ]);
+        }),
+    );
+  }
+
+  it.effect("refuses unknown eligibility when the Registry is offline", () =>
+    Effect.gen(function* () {
+      const client = createRemoteRegistryClient(BASE_URL, makeNetworkErrorClient());
+      const result = yield* client
+        .validateExtensionAccess({
+          ...makeIndexArgs(),
+          exact: {
+            version: exactVersion("1.0.0"),
+            integrity: "sha512-selected",
+            publisherBindingId: "hbnd_test",
+          },
+        })
+        .pipe(Effect.result);
+      expect(result._tag).toBe("Failure");
+    }),
+  );
+});
+
 describe("getExtensionPackage", () => {
   it.effect("validates a warm exact archive outside the first metadata history page", () =>
     Effect.gen(function* () {

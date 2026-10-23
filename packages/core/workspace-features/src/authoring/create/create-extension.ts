@@ -78,6 +78,7 @@ import {
   type PlanExecution,
   type PlannedJobStep,
   type CandidateFingerprintFailed,
+  type StaleExecutionCandidate,
   OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
 import {
@@ -246,6 +247,7 @@ type CreateExtensionFailure =
   | ScaffoldNameInvalid
   | AuthoringScopeUnsupported
   | CandidateFingerprintFailed
+  | StaleExecutionCandidate
   | FqnInvalidError;
 
 /** Everything settling a creation reads before it freezes a candidate. */

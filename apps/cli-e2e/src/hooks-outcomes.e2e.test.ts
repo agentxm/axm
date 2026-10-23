@@ -1,7 +1,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { defineExecutionBinding } from "@agentxm/specification-metadata";
 import { createTempDir, runCli } from "./e2e/utils.js";
+
+export const executionBinding = defineExecutionBinding({
+  requirements: ["workspace/acknowledge-external-execution"],
+  boundary: "process",
+  rationale:
+    "The compiled CLI renders source-derived Hook changes, refuses unattended first exposure and missing-registration restoration without the dedicated acknowledgment, and applies the same transitions with it.",
+});
 
 const writeJson = (filePath: string, value: unknown): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -174,8 +182,40 @@ describe("hook configured-agent outcomes", () => {
         },
       ]);
 
-      const applied = await runCli(
+      const unacknowledged = await runCli(
         ["hooks", "install", observational, "--hook", "audit", "--json", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(unacknowledged.exitCode).not.toBe(0);
+      expect(JSON.parse(unacknowledged.stdout)).toMatchObject({
+        result: {
+          outcome: "blocked",
+          blocking: { class: "override-required" },
+          riskConditions: expect.arrayContaining([
+            expect.objectContaining({
+              policy: "accept-execution-changes",
+              requiredFlag: "--accept-execution-changes",
+              executionChanges: [
+                expect.objectContaining({ name: "audit", targets: ["claude-code", "cursor"] }),
+              ],
+            }),
+          ]),
+        },
+      });
+      expect(unacknowledged.stdout).toContain("bash src/hook.sh");
+      expect(snapshotTree(temp.path)).toEqual(beforePreview);
+
+      const applied = await runCli(
+        [
+          "hooks",
+          "install",
+          observational,
+          "--hook",
+          "audit",
+          "--json",
+          "--non-interactive",
+          "--accept-execution-changes",
+        ],
         { cwd: temp.path },
       );
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
@@ -241,14 +281,42 @@ describe("hook configured-agent outcomes", () => {
       expect(snapshotTree(temp.path)).toEqual(beforeSyncPreview);
       expect(outcomeDecisions(syncPreview.stdout)).toEqual(outcomeDecisions(preview.stdout));
 
-      const syncApply = await runCli(["sync", "--json", "--non-interactive"], {
+      const unacknowledgedRestore = await runCli(["sync", "--json", "--non-interactive"], {
         cwd: temp.path,
       });
+      expect(unacknowledgedRestore.exitCode).not.toBe(0);
+      expect(JSON.parse(unacknowledgedRestore.stdout)).toMatchObject({
+        result: { outcome: "blocked", blocking: { class: "override-required" } },
+      });
+      expect(snapshotTree(temp.path)).toEqual(beforeSyncPreview);
+
+      const syncApply = await runCli(
+        ["sync", "--json", "--non-interactive", "--accept-execution-changes"],
+        {
+          cwd: temp.path,
+        },
+      );
       expect(syncApply.exitCode, syncApply.stdout + syncApply.stderr).toBe(0);
       expect(agentOutcomes(syncApply.stdout).every(({ outcome }) => outcome === "current")).toBe(
         true,
       );
       expect(outcomeDecisions(syncApply.stdout)).toEqual(outcomeDecisions(syncPreview.stdout));
+
+      const withdrawal = await runCli(
+        ["hooks", "disable", "audit", "--preview", "--json", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(withdrawal.exitCode, withdrawal.stdout + withdrawal.stderr).toBe(0);
+      expect(withdrawal.stdout).toContain('"executionChanges"');
+      expect(withdrawal.stdout).toContain('"removed"');
+      expect(withdrawal.stdout).toContain("bash src/hook.sh");
+      const humanWithdrawal = await runCli(
+        ["hooks", "disable", "audit", "--preview", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(humanWithdrawal.exitCode, humanWithdrawal.stdout + humanWithdrawal.stderr).toBe(0);
+      expect(humanWithdrawal.stdout + humanWithdrawal.stderr).toContain("claude-code (removed)");
+      expect(humanWithdrawal.stdout + humanWithdrawal.stderr).toContain("cursor (removed)");
 
       writeJson(settingsPath, {
         ...readJson(settingsPath),

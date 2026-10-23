@@ -38,6 +38,7 @@ import { VersionSchema, type Version } from "@agentxm/extension-model/unstable/v
 import {
   operationPresentation,
   type CandidateFingerprintFailed,
+  type StaleExecutionCandidate,
   type JobStepArtifact,
   type JobStepResult,
   type Plan,
@@ -133,6 +134,7 @@ type ChangeAuthoredVersionFailure =
   | WorkspaceLockfileReadFailure
   | WorkspaceSettingsReadFailure
   | CandidateFingerprintFailed
+  | StaleExecutionCandidate
   | FqnInvalidError;
 
 /** Everything settling a version change reads before it freezes a candidate. */

@@ -15,7 +15,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { localLifecycleRows } from "./test-helpers.js";
-import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/records-accepted-resolution",
@@ -57,7 +61,7 @@ describe("Install records the accepted resolution", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({ type: "skill", subject: { kind: "source", source } }),
           );
 
@@ -87,7 +91,9 @@ describe("Install records the accepted resolution", () => {
           const source = writePackage(workspace.root, { name });
           fs.appendFileSync(nodePath.join(source, canonicalFile(name)), `\n# ${body}\n`);
           yield* workspace.provide(
-            applyInstall(installRequest({ type, subject: { kind: "source", source } })),
+            applyInstallAcceptingExecutionChanges(
+              installRequest({ type, subject: { kind: "source", source } }),
+            ),
           );
           const lockfile = yield* decodeLockfile(
             parseLockfileToml(workspace.readFile("axm.lock")).document,
@@ -122,7 +128,9 @@ describe("Install records the accepted resolution", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(installRequest({ type, subject: { kind: "source", source } }));
+            yield* applyInstallAcceptingExecutionChanges(
+              installRequest({ type, subject: { kind: "source", source } }),
+            );
 
             const lockfile = yield* decodeLockfile(
               parseLockfileToml(workspace.readFile("axm.lock")).document,
@@ -154,7 +162,7 @@ describe("Install records the accepted resolution", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "skill",
                 subject: { kind: "source", source: "@acme/skills/registry-review@1.2.3" },
@@ -201,7 +209,7 @@ describe("Install records the accepted resolution", () => {
           type: "skill",
           subject: { kind: "source", source: "@acme/skills/registry-review@1.2.3" },
         });
-        yield* control.workspace.provide(applyInstall(request));
+        yield* control.workspace.provide(applyInstallAcceptingExecutionChanges(request));
         const controlLock = yield* decodeLockfile(
           parseLockfileToml(control.workspace.readFile("axm.lock")).document,
         );
@@ -218,7 +226,9 @@ describe("Install records the accepted resolution", () => {
         const workspace = retry.workspace;
         const lockBefore = workspace.readFile("axm.lock");
 
-        const outcome = yield* workspace.provide(applyInstall(request)).pipe(Effect.result);
+        const outcome = yield* workspace
+          .provide(applyInstallAcceptingExecutionChanges(request))
+          .pipe(Effect.result);
 
         if (Result.isFailure(outcome)) {
           expect(JSON.stringify(outcome.failure)).toMatch(/integrity/i);

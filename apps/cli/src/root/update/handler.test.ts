@@ -13,6 +13,8 @@ import * as fs from "node:fs";
 import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import * as os from "node:os";
 import * as path from "node:path";
+import { createHash } from "node:crypto";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -379,6 +381,12 @@ describe("root update handler", () => {
 
   it.effect("says nothing was allowed in when the unit the exemption named failed", () =>
     Effect.gen(function* () {
+      const registry = makeFileRegistry({ root: path.join(tempDir, "registry") });
+      registry.writeSkill("reviewer", [{ version: "1.0.0", body: "Review code." }]);
+      const archive = fs.readFileSync(
+        path.join(registry.root, "extensions", "@acme", "skills", "reviewer", "1.0.0.zip"),
+      );
+      const integrity = `sha512-${createHash("sha512").update(archive).digest("base64")}`;
       const {
         provide,
         handleUpdate: update,
@@ -399,6 +407,11 @@ describe("root update handler", () => {
                 resolution.kind === "selected"
                   ? {
                       ...resolution,
+                      ref: {
+                        ...resolution.ref,
+                        integrity: Option.some(integrity),
+                        publisherBindingId: "hbnd_test",
+                      },
                       kind: "exempted" as const,
                       exemption: {
                         bypassCause: "exclude" as const,
@@ -419,7 +432,7 @@ describe("root update handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
-        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
+        sources: [registry.source],
         skills: { reviewer: "@acme/skills/reviewer" },
       });
 
@@ -427,7 +440,9 @@ describe("root update handler", () => {
 
       // The unit the exemption named failed, so nothing was let into the
       // workspace and the callout that would say one was does not stand.
-      expect(logs.error.some((message) => message.includes("failed"))).toBe(true);
+      expect(logs.error.some((message) => message.includes("Fixture acquisition failed"))).toBe(
+        true,
+      );
       expect(logs.warn).not.toContain("1 release allowed before the 24h minimum release age");
       expect(logs.info).not.toContain(
         "Allowed by project minimumReleaseAgeExclude; otherwise held until 2026-08-12T12:00:00.000Z",

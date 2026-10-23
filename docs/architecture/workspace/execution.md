@@ -104,6 +104,42 @@ from the complete contributor set rather than one write per contributor, so no
 two steps in a mutation write the same unit and no intermediate state renders a
 subset.
 
+### External execution and current Registry access
+
+An execution candidate includes review facts for externally sourced Hook and
+MCP registrations: exact package content, target agents, selected execution or
+transport declarations, and symbolic input references. Review compares full
+internal configuration before redacting display. An active package content
+change remains consequential when its command string is unchanged.
+
+First exposure, enablement, changed execution, and restoration of missing
+registrations require interactive acceptance or the invocation-scoped
+`--accept-execution-changes` policy. Generic preapproval and warning overrides
+do not satisfy this policy. The acknowledgment never satisfies separate
+interactive publisher consent or overrides invalid content, denied Registry
+access, or stale-candidate checks. An unchanged present registration and pure
+withdrawal do not create this risk. The lock is shared resolution authority,
+not a machine's durable execution approval record.
+
+Registry eligibility is a separate preflight over the exact sources acquired
+or newly exposed, including retained contributors to rewritten shared outputs.
+The Registry client uses exact-resolution metadata for publisher binding and
+archive HEAD for content authorization, lifecycle, and matching integrity. A
+metadata response alone cannot authorize paid or private content. The same
+validation protects warm archive-cache reuse. Requests deduplicate within one
+preflight and repeat after confirmation before apply; no permission is stored
+in the lock or content cache. A denied source prevents its semantic closure
+from running, under the plan's existing failure and atomicity policy.
+
+Local inspection and inventory export require no Registry access. A genuine
+no-op, authored-only change, or pure withdrawal does not require new content
+eligibility. Enforcement occurs at AXM mutation boundaries: a later Registry
+hold can race the last check, and AXM does not revoke bytes already present or
+stop running agents. Host permissions, external executable resolution, and
+remote service behavior remain host responsibilities. Checksums, publisher
+bindings, and authorized uploads do not establish independently verified build
+provenance; this boundary adds no release signature or attestation verifier.
+
 ## Mutation boundary
 
 Application takes one atomic process lock for the selected AXM workspace

@@ -74,6 +74,12 @@ import {
 } from "../../operations/index.js";
 import { ProjectionOutputPosture, REPLACE_UNRECORDED_FLAG } from "../../projection/index.js";
 import { preflightPackagePlacement } from "./package-placement.js";
+import { registryExposureRefsForStep, validateRegistryExposure } from "./registry-exposure.js";
+import { executionExposureRisks } from "./execution-exposure.js";
+import {
+  withExecutionWithdrawals,
+  type ExecutionWithdrawalSubject,
+} from "./execution-withdrawal.js";
 import { applyPlan } from "./apply-plan.js";
 import {
   isExecutionCandidateFresh,
@@ -407,6 +413,8 @@ const readinessBlockersOf = <Requirements, Output>(plan: Plan<Requirements, Outp
 export interface PrepareExecutionCandidateOptions {
   /** Operations whose configured-agent outcomes the candidate projects and, after apply, verifies. */
   readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
+  /** Subjects losing execution, including Pack members; actual native outcomes determine withdrawals. */
+  readonly executionWithdrawals?: ReadonlyArray<ExecutionWithdrawalSubject>;
   /** Digest of observations revalidated by the owning use case before apply. */
   readonly observedInputFingerprint?: string;
 }
@@ -476,7 +484,10 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
     ),
   );
   const placement = yield* preflightPackagePlacement(
-    originalSteps.flatMap(acquisitionRefsForStep),
+    originalSteps.flatMap((step) => [
+      ...acquisitionRefsForStep(step),
+      ...(step.exposureRefs ?? []),
+    ]),
   ).pipe(Effect.result);
   const placementPlan: Plan<Requirements, Output> = Result.isSuccess(placement)
     ? {
@@ -495,10 +506,38 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
           },
         ],
       };
-  const augmentedPlan =
+  const augmentedPlan = yield* withExecutionWithdrawals(
     operations.length === 0
       ? placementPlan
-      : withPlannedAgentOutcomes(placementPlan, projectedOutcomes);
+      : withPlannedAgentOutcomes(placementPlan, projectedOutcomes),
+    options?.executionWithdrawals ??
+      operations
+        .filter((operation) => operation.plannedState !== "enabled")
+        .map((operation) => ({ type: operation.extensionType, name: operation.name })),
+  );
+
+  const materialBoundary = {
+    settingsPath: location.settingsPath,
+    lockPath: location.lockPath,
+    baseDir: location.baseDir,
+    ...(options?.observedInputFingerprint === undefined
+      ? {}
+      : { observedInputFingerprint: options.observedInputFingerprint }),
+  };
+  // The reviewed source must not change before its preimage is sealed. Apply's
+  // freshness check then protects the interval from sealing to mutation.
+  const beforeReview = augmentedPlan.jobs.some((job) =>
+    job.steps.some(
+      (step) =>
+        step.readiness !== "error" &&
+        step.exposureRefs?.some(
+          (ref) =>
+            ref.refType !== "workspace" && (ref.type === "hook" || ref.type === "mcp-server"),
+        ),
+    ),
+  )
+    ? yield* makeExecutionCandidate(augmentedPlan, materialBoundary, operations)
+    : undefined;
 
   // Readiness blockers and unmet preconditions join the declared risk
   // conditions, so the candidate carries every reason it could be refused.
@@ -519,6 +558,21 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
   );
   const riskConditions = [
     ...(augmentedPlan.riskConditions ?? []),
+    ...(yield* executionExposureRisks(augmentedPlan).pipe(
+      Effect.catch((cause) =>
+        Effect.succeed([
+          {
+            level: "blocked" as const,
+            id: "execution-review-unavailable",
+            errorCode: "validation" as const,
+            detail:
+              cause instanceof StepFailure
+                ? cause.detail
+                : "External execution review could not establish the exact content and configuration.",
+          },
+        ]),
+      ),
+    )),
     ...readinessBlockersOf(augmentedPlan),
     ...preconditionBlockers,
   ];
@@ -526,18 +580,13 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
     ...augmentedPlan,
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
   };
-  return yield* makeExecutionCandidate(
-    candidatePlan,
-    {
-      settingsPath: location.settingsPath,
-      lockPath: location.lockPath,
-      baseDir: location.baseDir,
-      ...(options?.observedInputFingerprint === undefined
-        ? {}
-        : { observedInputFingerprint: options.observedInputFingerprint }),
-    },
-    operations,
-  );
+  const candidate = yield* makeExecutionCandidate(candidatePlan, materialBoundary, operations);
+  if (
+    beforeReview !== undefined &&
+    beforeReview.materialFingerprint !== candidate.materialFingerprint
+  )
+    return yield* new StaleExecutionCandidate({ candidate: plan.name });
+  return candidate;
 });
 
 export interface ResolveExecutionCandidateOptions<Requirements, Output> {
@@ -699,11 +748,17 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
   const missingOverrides = overrideConditions.filter(
     (condition) => !applyExecution.request.acceptedPolicies.has(condition.policy),
   );
-  if (missingOverrides.length > 0) {
-    const first = missingOverrides[0];
+  const executionNeedsPrompt =
+    missingOverrides.some((condition) => condition.policy === "accept-execution-changes") &&
+    (yield* interaction.isConfirmationAvailable);
+  const refusedOverrides = missingOverrides.filter(
+    (condition) => condition.policy !== "accept-execution-changes" || !executionNeedsPrompt,
+  );
+  if (refusedOverrides.length > 0) {
+    const first = refusedOverrides[0];
     const escapes = namedPolicyRecoverySuggestions(
       applyExecution.approvalRecovery,
-      missingOverrides.map((condition) => condition.requiredFlag),
+      refusedOverrides.map((condition) => condition.requiredFlag),
     );
     return makeOperationResolution<Output>({
       ...resolutionBase,
@@ -719,6 +774,20 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
       suggestions: escapes,
     });
   }
+
+  const eligibility = yield* validateRegistryExposure(candidatePlan);
+  const eligibilityFailureForStep = (step: PlannedJobStep<Requirements, Output>) =>
+    registryExposureRefsForStep(step)
+      .map((ref) => eligibility.get(sourceRefContentKey(ref)))
+      .find((failure) => failure !== undefined);
+  const runnableSteps = candidatePlan.jobs
+    .flatMap((job) => job.steps)
+    .filter((step) => step.readiness !== "error");
+  const allDenied =
+    runnableSteps.length > 0 &&
+    runnableSteps.every((step) => eligibilityFailureForStep(step) !== undefined);
+  const firstDenial = eligibility.values().next().value;
+  if (allDenied && firstDenial !== undefined) return notExecuted({ failure: firstDenial });
 
   function* sourceRefs() {
     for (const job of candidatePlan.jobs) {
@@ -742,7 +811,10 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
   const scratchBudget = yield* Effect.serviceOption(OperationScratchBudget);
   const acquisitionScope = yield* Scope.Scope;
   const acquire = Option.isSome(sources) ? sources.value.acquireForTransition : undefined;
-  if (uniqueSourceRefs.length > 0 && acquire === undefined) {
+  if (
+    uniqueSourceRefs.some((ref) => !eligibility.has(sourceRefContentKey(ref))) &&
+    acquire === undefined
+  ) {
     return notExecuted({
       failure: new StepFailure({
         category: "internal",
@@ -759,6 +831,8 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
           (ref) =>
             Effect.gen(function* () {
               const key = sourceRefContentKey(ref);
+              const denial = eligibility.get(key);
+              if (denial !== undefined) return { ref, key, failure: denial };
               const childScope = yield* Scope.fork(acquisitionScope);
               const attempted = yield* Effect.gen(function* () {
                 const reservation = Option.isSome(scratchBudget)
@@ -844,12 +918,13 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
   // it is asked when a prompt can open and blocks when one cannot, naming
   // the recovery its route actually supports.
   const hasSteps = candidatePlan.jobs.some((job) => job.steps.length > 0);
-  if (hasSteps && hasConfirmableRisk) {
+  if (hasSteps && (hasConfirmableRisk || executionNeedsPrompt)) {
     const approval = applyExecution.request.confirmableRiskApproval;
     const interactiveOnly = riskConditions.find(
       (condition) => condition.level === "confirmable" && condition.consent === "interactive-only",
     );
-    const requiresPrompt = interactiveOnly !== undefined || approval === "interactive-only";
+    const requiresPrompt =
+      executionNeedsPrompt || interactiveOnly !== undefined || approval === "interactive-only";
     if (requiresPrompt || approval === "prompt-if-interactive") {
       if (!(yield* interaction.isConfirmationAvailable)) {
         const confirmable =
@@ -881,6 +956,17 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
       }
     }
   }
+
+  // A prompt or acquisition may outlive the earlier check. Refresh exact access before writes.
+  const currentEligibility = yield* validateRegistryExposure(candidatePlan);
+  for (const [key, failure] of currentEligibility) eligibility.set(key, failure);
+  const currentDenial = eligibility.values().next().value;
+  if (
+    runnableSteps.length > 0 &&
+    runnableSteps.every((step) => eligibilityFailureForStep(step) !== undefined) &&
+    currentDenial !== undefined
+  )
+    return notExecuted({ failure: currentDenial });
 
   // Acquire the workspace transition — planning, network acquisition,
   // preview, and confirmation ran without it — then revalidate every material
@@ -952,10 +1038,11 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
                 .map((ref) => acquired.value.failuresByKey.get(sourceRefContentKey(ref)))
                 .find((failure) => failure !== undefined)
             : undefined;
+          const admissionFailure = eligibilityFailureForStep(step) ?? acquisitionFailure;
           return {
             ...step,
             run: withWorkspaceClosure(unitIdOf(step))(
-              acquisitionFailure === undefined ? step.run : Effect.fail(acquisitionFailure),
+              admissionFailure === undefined ? step.run : Effect.fail(admissionFailure),
             ).pipe(Effect.provideService(CurrentOperationUnit, { unitId: unitIdOf(step) })),
           };
         }),

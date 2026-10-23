@@ -16,6 +16,7 @@ import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { entriesUnder, localLifecycleRows, readSettings } from "./test-helpers.js";
 import {
   applyInstall,
+  applyInstallAcceptingExecutionChanges,
   installRequest,
   makeInstallWorld,
   previewInstall,
@@ -337,7 +338,7 @@ describe("Repeat installs are safe", () => {
       return world.workspace
         .provide(
           Effect.gen(function* () {
-            const first = yield* applyInstall(request);
+            const first = yield* applyInstallAcceptingExecutionChanges(request);
             expect(deriveOperationOutcome(first)).toBe("applied");
             const before = durableState(world);
 

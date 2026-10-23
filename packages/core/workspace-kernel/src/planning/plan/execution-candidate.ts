@@ -36,6 +36,10 @@ const collectArtifactPaths = (plan: Plan<unknown, unknown>): ReadonlyArray<strin
         ...(step.artifact.targets ?? []).map((target) => target.path),
         ...(step.artifact.references ?? []).map((reference) => reference.path),
         ...(step.artifact.managedRegions ?? []).map((region) => region.path),
+        ...(step.artifact.nativeLocations ?? []).flatMap((unit) => [
+          unit.address.path,
+          ...unit.aliases,
+        ]),
       ];
     }),
   );

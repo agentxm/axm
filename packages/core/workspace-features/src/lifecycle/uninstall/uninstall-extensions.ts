@@ -15,6 +15,7 @@ import * as Option from "effect/Option";
 import {
   proposeDesiredState,
   prepareUninstallArtifact,
+  prepareSharedProjectionExposure,
   validateNativeOutputPostconditions,
   captureRequiredNativeOutputs,
   captureNativeOutputRetention,
@@ -23,7 +24,10 @@ import {
   StepFailureConversion,
   nameFromLabel,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { expectedProjectionNames } from "@agentxm/workspace-kernel/projection";
+import {
+  captureAgentOutputAuthority,
+  expectedProjectionNames,
+} from "@agentxm/workspace-kernel/projection";
 import { AcceptedResolutionWriter } from "@agentxm/workspace-kernel/workspace-state";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
@@ -230,6 +234,42 @@ const prepareUninstallExtensions: (
       }),
     ),
   );
+  const projectionSubjects = proposal.before.nodes.filter(
+    (node) =>
+      (node.type === resolved.type && planned.names.includes(node.name)) ||
+      (node.enabled &&
+        !proposal.after.nodes.some(
+          (next) => next.type === node.type && next.name === node.name && next.enabled,
+        )),
+  );
+  const removedHookNames = new Set(
+    projectionSubjects
+      .filter(
+        (node) =>
+          node.type === "hook" &&
+          !proposal.after.nodes.some(
+            (next) => next.type === "hook" && next.name === node.name && next.enabled,
+          ),
+      )
+      .map((node) => node.name),
+  );
+  const hookWithdrawals =
+    removedHookNames.size === 0
+      ? []
+      : (yield* captureAgentOutputAuthority().pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "conflict",
+              detail: "Cannot establish native ownership before removal",
+              cause,
+            }),
+          ),
+        )).expectedHooks.filter(({ name }) => removedHookNames.has(name));
+  const projectionExposure = yield* prepareSharedProjectionExposure(
+    { proposal, subjects: projectionSubjects },
+    true,
+    hookWithdrawals,
+  );
   // The plan's own name stands whichever spelling produced it: the removal a
   // person asked for is type-specific, and the plan name is what they read.
   // Only the presented subject varies — the root form routes across every
@@ -255,125 +295,163 @@ const prepareUninstallExtensions: (
       artifacts[index] === undefined ? [] : [[name, artifacts[index]] as const],
     ),
   );
-  const jobs = yield* Effect.forEach(planned.plan.jobs, (job) =>
-    Effect.gen(function* () {
-      const steps = yield* Effect.forEach(job.steps, (step) =>
-        Effect.gen(function* () {
-          const artifact = artifactByName.get(nameFromLabel(step.label ?? ""));
-          if (artifact === undefined || step.readiness === "error" || leafType === undefined)
-            return step;
-          if ((artifact.targets?.length ?? 0) === 0 && (artifact.references?.length ?? 0) === 0) {
-            // Nothing exists to withdraw: the planner's descriptive artifact
-            // would name paths that are neither present nor changed, so the
-            // step declares none, and a result that changed nothing reports
-            // the empty evidence instead.
-            const { artifact: _descriptive, ...withoutArtifact } = step;
-            return {
-              ...withoutArtifact,
+  const jobs: Plan<PrepareUninstallRequirements>["jobs"] = yield* Effect.forEach(
+    planned.plan.jobs,
+    (job) =>
+      Effect.gen(function* () {
+        const steps = yield* Effect.forEach(job.steps, (step) =>
+          Effect.gen(function* () {
+            const artifact = artifactByName.get(nameFromLabel(step.label ?? ""));
+            if (artifact === undefined || step.readiness === "error" || leafType === undefined)
+              return step;
+            if ((artifact.targets?.length ?? 0) === 0 && (artifact.references?.length ?? 0) === 0) {
+              // Nothing exists to withdraw: the planner's descriptive artifact
+              // would name paths that are neither present nor changed, so the
+              // step declares none, and a result that changed nothing reports
+              // the empty evidence instead.
+              const { artifact: _descriptive, ...withoutArtifact } = step;
+              return {
+                ...withoutArtifact,
+                run: step.run.pipe(
+                  Effect.map((result) =>
+                    result.result === "success" &&
+                    (result.disposition === "unchanged" || result.artifact?.change === "unchanged")
+                      ? { ...result, artifact }
+                      : result,
+                  ),
+                ),
+              };
+            }
+            const retainedNativeOutputs = yield* captureRequiredNativeOutputs(
+              proposal.after.nodes.flatMap((node) =>
+                node.enabled && node.type === leafType && node.name === nameFromLabel(step.label)
+                  ? [{ type: leafType, name: node.name }]
+                  : [],
+              ),
+            ).pipe(
+              Effect.mapError((cause) =>
+                installRefused({
+                  category: "conflict",
+                  detail: "Cannot observe retained native outputs",
+                  cause,
+                }),
+              ),
+            );
+            // Native MCP and Hook withdrawal belongs to the targeted manager.
+            // An absence-retention step would promise to preserve the same unit it removes.
+            const cleanup =
+              leafType === "mcp-server" || leafType === "hook"
+                ? Option.none()
+                : yield* collectCleanupStep({
+                    expectedNames: expectedProjectionNames(proposal.after),
+                    subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
+                    adapter: conversion,
+                  }).pipe(
+                    Effect.mapError((cause) =>
+                      installRefused({
+                        category: "conflict",
+                        detail: "Cannot establish owned uninstall outputs",
+                        cause,
+                      }),
+                    ),
+                  );
+            const removal = {
+              ...step,
+              artifact,
               run: step.run.pipe(
                 Effect.map((result) =>
-                  result.result === "success" &&
-                  (result.disposition === "unchanged" || result.artifact?.change === "unchanged")
-                    ? { ...result, artifact }
+                  result.result === "success"
+                    ? {
+                        ...result,
+                        artifact: {
+                          ...artifact,
+                          ...(result.artifact?.nativeLocations === undefined
+                            ? {}
+                            : { nativeLocations: result.artifact.nativeLocations }),
+                        },
+                      }
                     : result,
                 ),
               ),
             };
-          }
-          const retainedNativeOutputs = yield* captureRequiredNativeOutputs(
-            proposal.after.nodes.flatMap((node) =>
-              node.enabled && node.type === leafType && node.name === nameFromLabel(step.label)
-                ? [{ type: leafType, name: node.name }]
-                : [],
-            ),
-          ).pipe(
-            Effect.mapError((cause) =>
-              installRefused({
-                category: "conflict",
-                detail: "Cannot observe retained native outputs",
-                cause,
-              }),
-            ),
-          );
-          // Native MCP and Hook withdrawal belongs to the targeted manager.
-          // An absence-retention step would promise to preserve the same unit it removes.
-          const cleanup =
-            leafType === "mcp-server" || leafType === "hook"
-              ? Option.none()
-              : yield* collectCleanupStep({
-                  expectedNames: expectedProjectionNames(proposal.after),
-                  subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
-                  adapter: conversion,
-                }).pipe(
-                  Effect.mapError((cause) =>
-                    installRefused({
-                      category: "conflict",
-                      detail: "Cannot establish owned uninstall outputs",
-                      cause,
-                    }),
-                  ),
-                );
-          const removal = {
-            ...step,
-            artifact,
-            run: step.run.pipe(
-              Effect.map((result) =>
-                result.result === "success"
-                  ? {
-                      ...result,
-                      artifact: {
-                        ...artifact,
-                        ...(result.artifact?.nativeLocations === undefined
-                          ? {}
-                          : { nativeLocations: result.artifact.nativeLocations }),
-                      },
-                    }
-                  : result,
-              ),
-            ),
-          };
-          return yield* buildReconciliationClosure<OperationRefused, PrepareUninstallRequirements>({
-            label: step.label,
-            message: artifact.references?.some(
-              (reference) =>
-                reference.state === "retained" &&
-                reference.reason === "required by resulting desired state",
-            )
-              ? `Uninstalled ${step.label}; retained its package for remaining desired routes`
-              : `Uninstalled ${step.label}`,
-            artifact,
-            children: [
-              ...Option.toArray(cleanup).map((step) => ({ step, coverage: "ineligible" as const })),
-              { step: removal, coverage: "eligible" },
-            ],
-            // The cleanup's row withdrawals and the removal's resolution
-            // withdrawal commit once, so exact withdrawal restores the prior
-            // lockfile bytes.
-            acceptedResolutions: acceptedWriter.withBatch,
-            toStepFailure: conversion.toStepFailure,
-            validate: Effect.void,
-            captureNativeRetention: (expected) =>
-              captureNativeOutputRetention([...retainedNativeOutputs, ...expected]),
-            validateNativeOutputs: (locations, expected, retained) =>
-              validateNativeOutputPostconditions(
-                locations,
-                [...retainedNativeOutputs, ...expected],
-                retained,
-              ),
-          }).pipe(
-            Effect.map((closure) => ({
-              ...closure,
-              ...(step.key === undefined ? {} : { key: step.key }),
-            })),
-          );
-        }),
-      );
-      return { ...job, steps };
-    }),
+            return yield* buildReconciliationClosure<
+              OperationRefused,
+              PrepareUninstallRequirements
+            >({
+              label: step.label,
+              message: artifact.references?.some(
+                (reference) =>
+                  reference.state === "retained" &&
+                  reference.reason === "required by resulting desired state",
+              )
+                ? `Uninstalled ${step.label}; retained its package for remaining desired routes`
+                : `Uninstalled ${step.label}`,
+              artifact,
+              children: [
+                ...Option.toArray(cleanup).map((step) => ({
+                  step,
+                  coverage: "ineligible" as const,
+                })),
+                { step: removal, coverage: "eligible" },
+              ],
+              // The cleanup's row withdrawals and the removal's resolution
+              // withdrawal commit once, so exact withdrawal restores the prior
+              // lockfile bytes.
+              acceptedResolutions: acceptedWriter.withBatch,
+              toStepFailure: conversion.toStepFailure,
+              validate: Effect.void,
+              captureNativeRetention: (expected) =>
+                captureNativeOutputRetention([...retainedNativeOutputs, ...expected]),
+              validateNativeOutputs: (locations, expected, retained) =>
+                validateNativeOutputPostconditions(
+                  locations,
+                  [...retainedNativeOutputs, ...expected],
+                  retained,
+                ),
+            }).pipe(
+              Effect.map((closure) => ({
+                ...closure,
+                ...(step.key === undefined ? {} : { key: step.key }),
+              })),
+            );
+          }),
+        );
+        return { ...job, steps };
+      }),
   );
   const plan: Plan<PrepareUninstallRequirements> = {
     ...planned.plan,
-    jobs,
+    jobs: jobs.map((job) => ({
+      ...job,
+      steps: job.steps.map((step) => {
+        if (step.readiness === "error") return step;
+        if ("projectionFailure" in projectionExposure)
+          return {
+            readiness: "error" as const,
+            label: step.label,
+            errorMessage: conversion.toStepFailure(projectionExposure.projectionFailure).detail,
+            ...(step.artifact === undefined ? {} : { artifact: step.artifact }),
+          };
+        return {
+          ...step,
+          exposureRefs: [
+            ...(step.exposureRefs ?? []),
+            ...projectionExposure.projectionExposureRefs,
+          ],
+          ...(step.artifact === undefined
+            ? {}
+            : {
+                artifact: {
+                  ...step.artifact,
+                  nativeLocations: [
+                    ...(step.artifact.nativeLocations ?? []),
+                    ...projectionExposure.projectionNativeLocations,
+                  ],
+                },
+              }),
+        };
+      }),
+    })),
     presentation: operationPresentation(
       { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
       Option.getOrUndefined(request.type),
@@ -394,7 +472,15 @@ const prepareUninstallExtensions: (
       };
     },
   );
-  const execution = yield* prepareExecutionCandidate(plan, { configuredAgentOperations });
+  const execution = yield* prepareExecutionCandidate(plan, {
+    configuredAgentOperations,
+    executionWithdrawals: projectionSubjects.filter(
+      (subject) =>
+        !proposal.after.nodes.some(
+          (node) => node.type === subject.type && node.name === subject.name && node.enabled,
+        ),
+    ),
+  });
   return {
     type: resolved.type,
     selector: resolved.selector,

@@ -11,7 +11,7 @@ import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { LockfileReader, LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import { localLifecycleRows } from "./test-helpers.js";
 import {
-  applyInstall,
+  applyInstallAcceptingExecutionChanges,
   gitPackagePath,
   installRequest,
   makeInstallWorld,
@@ -127,7 +127,7 @@ describe("Native Git package retention", () => {
               );
             let sharedInode: number | undefined;
             for (const [index, type] of installableExtensionTypes.entries()) {
-              const installed = yield* applyInstall(
+              const installed = yield* applyInstallAcceptingExecutionChanges(
                 installRequest({
                   type,
                   subject: { kind: "source", source: remote.url },

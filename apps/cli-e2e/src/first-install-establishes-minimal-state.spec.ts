@@ -275,7 +275,7 @@ describe("First portable plugin MCP install", () => {
         const preview = await fixture.run([...args, "--preview"]);
         expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
         expect(fs.existsSync(path.join(fixture.invoking, "axm.json"))).toBe(false);
-        const installed = await fixture.run(args);
+        const installed = await fixture.run([...args, "--accept-execution-changes"]);
         expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
         const settings: unknown = JSON.parse(
           fs.readFileSync(path.join(fixture.invoking, "axm.json"), "utf8"),

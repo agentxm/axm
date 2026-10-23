@@ -20,9 +20,10 @@ import {
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { RuleManager } from "@agentxm/workspace-kernel/materialization";
+import { RuleManager, type KnowledgeManager } from "@agentxm/workspace-kernel/materialization";
 import {
   buildInstallOperation,
+  projectionExposureRefs,
   forecastInstallChange,
   type InstallArtifactPresentation,
   kernelFailureToStepFailure,
@@ -65,7 +66,7 @@ export const planRuleInstall: (
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
   OperationRefused,
-  InstallStepRequirements | RuleManager
+  InstallStepRequirements | RuleManager | KnowledgeManager
 > = Effect.fn("InstallExtensions.planRules")(function* (intent: RuleInstallIntent) {
   const location = yield* WorkspaceLocation;
   const path = yield* Path.Path;
@@ -113,6 +114,19 @@ export const planRuleInstall: (
         }),
       ),
     );
+  const exposureRefs = yield* projectionExposureRefs({
+    observations: prepared,
+    graph: intent.desiredGraph ?? priorGraph,
+    proposedRefs: intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
+  }).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "conflict",
+        detail: "Cannot establish every source exposed by the Rule projection",
+        cause,
+      }),
+    ),
+  );
   // One rule renders the shared instructions region itself; several rules in
   // one operation defer it so the region is rendered once, from the complete
   // contributor set.
@@ -163,6 +177,7 @@ export const planRuleInstall: (
         },
         toStepFailure: kernelFailureToStepFailure,
         ref,
+        projectionExposureRefs: exposureRefs,
         declaration: { name: ref.rule.name, versionRange },
         ...(deferProjections
           ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
@@ -196,6 +211,7 @@ export const planRuleInstall: (
             key: "projection:rule:instructions-region",
             label: "rule projections",
             readiness: "ready",
+            exposureRefs,
             run: ruleManager
               .projectionPlans(nativeProjection)
               .pipe(Effect.flatMap(applyInstructionSurfacePlans))

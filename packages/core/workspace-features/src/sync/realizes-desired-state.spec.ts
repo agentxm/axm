@@ -26,6 +26,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
   applySync,
+  applySyncAcceptingExecutionChanges,
   syncRequest,
   expectResolved,
   makeSyncFixture,
@@ -229,7 +230,7 @@ describe("Sync realizes desired workspace state", () => {
           return workspace
             .provide(
               Effect.gen(function* () {
-                const first = expectResolved(yield* applySync());
+                const first = expectResolved(yield* applySyncAcceptingExecutionChanges());
                 expect(deriveOperationOutcome(first), JSON.stringify(first)).toBe("applied");
                 const canonical = fileRegistryPackagePath(
                   registry,

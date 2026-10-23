@@ -41,6 +41,7 @@ import {
   OperationPhaseSchema,
   OperationPreconditionSchema,
   PlanRiskConditionSchema,
+  ExecutionChangeSchema,
   UnitDispositionSchema,
   UnitStateSchema,
   awaitDrained,
@@ -207,6 +208,7 @@ const SourceSwitchEvidenceSchema = Schema.Struct({
 });
 
 const StepArtifactSchema = Schema.Struct({
+  executionChanges: Schema.optional(Schema.Array(ExecutionChangeSchema)),
   nativeLocations: Schema.optional(Schema.Array(NativeLocationOutcomeSchema)),
   path: Schema.optional(Schema.String),
   scope: Schema.Literals(["project", "user"] as const),

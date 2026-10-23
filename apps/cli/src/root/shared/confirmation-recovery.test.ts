@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { TestFlagsLayer } from "../../cli-flags/index.js";
+import { acceptExecutionChangesFlag, TestFlagsLayer } from "../../cli-flags/index.js";
 import {
   publicRecoveryValue,
   recoveryPositional,
@@ -14,6 +14,24 @@ import { withCommandRoute } from "../../test-support/test-helpers.js";
 import { makeConfirmationRecovery, makePlanInvocation } from "./confirmation-recovery.js";
 
 describe("confirmation recovery CLI boundary", () => {
+  it.effect("carries only explicit execution acknowledgment into apply and its retry", () =>
+    Effect.gen(function* () {
+      const invocation = yield* makePlanInvocation(
+        { yes: true, preview: false },
+        { command: ["sync"], arguments: [] },
+      );
+      expect(invocation.execution.request).toMatchObject({
+        mode: "apply",
+        acceptedPolicies: new Set(["accept-execution-changes"]),
+      });
+      expect(renderConfirmationRecoveryCommand(invocation.recovery, { approval: "none" })).toBe(
+        "axm sync --accept-execution-changes",
+      );
+      const preview = yield* makePlanInvocation({ yes: true, preview: true }, invocation.recovery);
+      expect(preview.execution.request).toEqual({ mode: "preview" });
+    }).pipe(Effect.provideService(acceptExecutionChangesFlag, true)),
+  );
+
   it.effect("preserves explicit global flags and user scope in a confirmable retry", () =>
     Effect.gen(function* () {
       const { execution, recovery } = yield* makePlanInvocation(

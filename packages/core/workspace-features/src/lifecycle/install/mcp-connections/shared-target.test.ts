@@ -6,7 +6,7 @@ import { injectWriteFaults } from "@agentxm/workspace-kernel/settlement/testing"
 import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import {
-  applyInstall,
+  applyInstallAcceptingExecutionChanges,
   installRequest,
   makeInstallWorld,
   previewInstall,
@@ -91,7 +91,7 @@ describe("Registry MCP installation with shared native targets", () => {
             const preview = yield* previewInstall(request);
             expect(deriveOperationOutcome(preview)).toBe("previewed");
             expect(world.workspace.snapshot()).toEqual(before);
-            const applied = yield* applyInstall(request);
+            const applied = yield* applyInstallAcceptingExecutionChanges(request);
             expect(deriveOperationOutcome(applied)).toBe("applied");
             expect(world.workspace.readFile("axm.json")).toContain('"env": "API_TOKEN"');
             expect(world.workspace.readFile(".cursor/mcp.json")).toContain("${env:API_TOKEN}");
@@ -125,7 +125,9 @@ describe("Registry MCP installation with shared native targets", () => {
           const before = world.workspace.snapshot();
           expect(deriveOperationOutcome(yield* previewInstall(request))).toBe("previewed");
           expect(world.workspace.snapshot()).toEqual(before);
-          expect(deriveOperationOutcome(yield* applyInstall(request))).toBe("applied");
+          expect(
+            deriveOperationOutcome(yield* applyInstallAcceptingExecutionChanges(request)),
+          ).toBe("applied");
           const native = world.workspace.readFile(".mcp.json");
           expect(native).toContain("${API_TOKEN}");
           expect(native).toContain("personal-server");
@@ -156,7 +158,7 @@ describe("Registry MCP installation with shared native targets", () => {
         .provide(
           Effect.gen(function* () {
             const before = world.workspace.snapshot();
-            const result = yield* applyInstall(request);
+            const result = yield* applyInstallAcceptingExecutionChanges(request);
             expect(deriveOperationOutcome(result)).toBe("failed");
             expect(world.workspace.snapshot()).toEqual(before);
           }),

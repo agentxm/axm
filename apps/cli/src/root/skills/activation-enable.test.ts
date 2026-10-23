@@ -7,6 +7,11 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { createHash } from "node:crypto";
+import { unzipSync } from "fflate";
+import * as Result from "effect/Result";
+import * as Option from "effect/Option";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
@@ -14,9 +19,13 @@ import {
   computeMaterializedTreeIntegritySync,
   computePackageContentHashSync,
   extensionName,
+  handle,
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
-import { computeSourceHash } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  acquiredPackageRelativePath,
+  computeSourceHash,
+} from "@agentxm/workspace-kernel/workspace-state";
 import {
   expectNoOpPlanResult,
   getAppError,
@@ -33,7 +42,11 @@ const initWorkspace = (
   skills: Record<string, unknown> = {},
   lockfileSkills: Record<string, unknown> = {},
   agents: string[] = ["claude-code"],
-  opts?: { packs?: Record<string, unknown>; lockfilePacks?: Record<string, unknown> },
+  opts?: {
+    packs?: Record<string, unknown>;
+    lockfilePacks?: Record<string, unknown>;
+    sources?: NonNullable<Parameters<typeof writeWorkspaceFiles>[1]>["sources"];
+  },
 ) => {
   const configuredSkills = Object.keys(skills).length > 0 ? skills : undefined;
   const configuredPacks =
@@ -44,6 +57,7 @@ const initWorkspace = (
     packs: configuredPacks,
     lockfileSkills,
     lockfilePacks: opts?.lockfilePacks,
+    sources: opts?.sources,
   });
 };
 
@@ -154,30 +168,38 @@ describe("enable.handler", () => {
   describe("promoted skill re-enable", () => {
     it.effect("re-enables promoted transitive skill by updating settings", () => {
       const { provide } = makeLayers();
-      const skillDir = path.join(
+      const registry = makeFileRegistry({ root: path.join(tempDir, "registry") });
+      registry.writeSkill("code-review", [{ version: "1.2.0", body: "Review code." }]);
+      const archive = fs.readFileSync(
+        path.join(registry.root, "extensions", "@acme", "skills", "code-review", "1.2.0.zip"),
+      );
+      const integrity = `sha512-${createHash("sha512").update(archive).digest("base64")}`;
+      const canonical = path.join(
         tempDir,
         "agent_extensions",
-        "_local",
-        "absolute",
-        "root",
-        "tmp",
-        "test-registry",
-        "@acme",
-        "skills",
-        "code-review",
-        "src",
+        Result.getOrThrow(
+          acquiredPackageRelativePath(
+            {
+              refType: "registry",
+              owner: handle("@acme"),
+              source: {
+                type: "registry",
+                name: "test",
+                location: registry.endpoint,
+                owner: Option.none(),
+              },
+            },
+            "skills",
+            "code-review",
+          ),
+        ),
       );
-      fs.mkdirSync(skillDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(path.dirname(skillDir), "skill.json"),
-        JSON.stringify({
-          owner: "@acme",
-          type: "skill",
-          name: "code-review",
-          version: "1.2.0",
-        }),
-      );
-      fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# code-review");
+      for (const [relative, bytes] of Object.entries(unzipSync(archive))) {
+        const target = path.join(canonical, relative);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, bytes);
+      }
+      const skillDir = path.join(canonical, "src");
       const packDir = path.join(tempDir, "packs", "starter-pack");
       fs.mkdirSync(packDir, { recursive: true });
       fs.writeFileSync(
@@ -208,7 +230,7 @@ describe("enable.handler", () => {
             owner: "@acme",
             name: "code-review",
             resolvedVersion: "1.2.0",
-            integrity: `sha512-${"A".repeat(86)}==`,
+            integrity,
             sourceName: "test",
             publisherBindingId: "hbnd_test",
             sourceHash: computePackageContentHashSync(path.dirname(skillDir)),
@@ -220,6 +242,7 @@ describe("enable.handler", () => {
         ["claude-code"],
         {
           packs: { "starter-pack": "workspace" },
+          sources: [registry.source],
         },
       );
 

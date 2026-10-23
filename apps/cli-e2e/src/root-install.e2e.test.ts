@@ -555,7 +555,7 @@ describe("axm install", () => {
       const installed = await runJsonCommand(
         workspace.path,
         ["packs", "install"],
-        [registryFqn("packs", packName)],
+        [registryFqn("packs", packName), "--accept-execution-changes"],
       );
       expect(installed.stdout.result.outcome).toBe("applied");
       const installedJson = JSON.stringify(installed.stdout.result);
@@ -588,7 +588,11 @@ describe("axm install", () => {
       }
       await expectCleanWorkspace(workspace.path, "all leaf members disabled");
 
-      const enabled = await runJsonCommand(workspace.path, ["packs", "enable", packName]);
+      const enabled = await runJsonCommand(
+        workspace.path,
+        ["packs", "enable", packName],
+        ["--accept-execution-changes"],
+      );
       expect(enabled.stdout.result.outcome).toBe("applied");
       for (const row of leafRows) {
         expect(
@@ -713,11 +717,17 @@ describe("axm install", () => {
 
         const fqn = registryFqn(surface, name);
 
-        const rootResult = await runJsonCommand(rootWorkspace.path, ["install"], [fqn]);
+        const acceptance =
+          row.type === "hook" || row.type === "mcp-server" ? ["--accept-execution-changes"] : [];
+        const rootResult = await runJsonCommand(
+          rootWorkspace.path,
+          ["install"],
+          [fqn, ...acceptance],
+        );
         const surfaceResult = await runJsonCommand(
           surfaceWorkspace.path,
           [surface, "install"],
-          [fqn],
+          [fqn, ...acceptance],
         );
 
         expect(rootResult.exitCode).toBe(surfaceResult.exitCode);
@@ -939,7 +949,7 @@ describe("axm install", () => {
       const result = await runJsonCommand(
         workspace.path,
         ["mcps", "install"],
-        [registryFqn("mcps", "context")],
+        [registryFqn("mcps", "context"), "--accept-execution-changes"],
       );
 
       expect(result.stdout.result.outcome).toBe("applied");

@@ -67,3 +67,4 @@ export {
   ExtensionInventoryDocumentSchema,
   type ExtensionInventoryDocument,
 } from "./inventory-document.js";
+export { ExportLock, exportAcceptedResolutions } from "./lock-export.js";

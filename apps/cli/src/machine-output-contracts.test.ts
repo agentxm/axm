@@ -76,8 +76,14 @@ describe("machine-output contract register", () => {
       expect(row.family.id).not.toBe("");
       expect(["orientation", "query", "mutation", "mixed"]).toContain(row.family.humanOutputKind);
       expect(["immediate", "progress"]).toContain(row.family.liveness);
-      expect(row.family.schemaNames.length).toBeGreaterThan(0);
-      expect(row.family.requiredEnvelopeKeys.length).toBeGreaterThan(0);
+      if (row.family.outputClass === "external-document") {
+        expect(row.family.externalSchema).toBe("https://cyclonedx.org/schema/bom-1.6.schema.json");
+        expect(row.family.schemaNames).toEqual([]);
+        expect(row.family.requiredEnvelopeKeys).toEqual([]);
+      } else {
+        expect(row.family.schemaNames.length).toBeGreaterThan(0);
+        expect(row.family.requiredEnvelopeKeys.length).toBeGreaterThan(0);
+      }
       expect(
         row.family.requiredTopLevelKeys.length + row.family.optionalTopLevelKeys.length,
         row.path,

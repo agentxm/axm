@@ -123,6 +123,8 @@ const toResult = (
 
 /** Create a mock RegistryClient with controllable return values. */
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
+  validateExtensionAccess: () =>
+    Effect.die("Unexpected exact-access validation in built-in skill candidate test"),
   getExtensionsByScope: () => Effect.succeed(toResult([])),
   ownerExists: () => Effect.succeed({ exists: false }),
   getExtensionIndex: () => Effect.succeed(Option.none()),

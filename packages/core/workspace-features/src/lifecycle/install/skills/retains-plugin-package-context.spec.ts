@@ -15,7 +15,10 @@ import { UpdateExtensions } from "../../update/update-extensions.js";
 import { InstallExtensions, UninstallExtensions } from "../../index.js";
 import { applySync } from "../../../testing/sync-fixture.js";
 import { applyActivation } from "../../activation/test-helpers.js";
-import { applyUpdate, configuredUpdateRequest } from "../../update/test-helpers.js";
+import {
+  applyUpdateAcceptingExecutionChanges,
+  configuredUpdateRequest,
+} from "../../update/test-helpers.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
@@ -24,7 +27,11 @@ import * as PlatformError from "effect/PlatformError";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { applyInstall, installRequest, makeInstallWorld } from "../../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/skills/install/retains-plugin-package-context",
@@ -68,7 +75,7 @@ describe("Plugin package context", () => {
       fs.writeFileSync(path.join(source, "skills", "other", "SKILL.md"), "# Other\n");
       fs.symlinkSync("../../assets/run", path.join(source, "skills", "review", "run"));
       yield* world.workspace.provide(
-        applyInstall(
+        applyInstallAcceptingExecutionChanges(
           installRequest({
             type: "skill",
             subject: { kind: "source", source },
@@ -101,7 +108,7 @@ describe("Plugin package context", () => {
       const retainedIdentity = fs.statSync(retainedBefore).ino;
       fs.writeFileSync(path.join(source, "skills/other/SKILL.md"), "# Upstream moved\n");
       yield* world.workspace.provide(
-        applyInstall(
+        applyInstallAcceptingExecutionChanges(
           installRequest({
             type: "skill",
             subject: { kind: "source", source },
@@ -170,7 +177,7 @@ describe("Shared package updates", () => {
         if (scenario === "mixed")
           fs.writeFileSync(path.join(source, "mcp.json"), mcp("https://example.test/accepted"));
         yield* world.workspace.provide(
-          applyInstall(
+          applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "skill",
               subject: { kind: "source", source },
@@ -182,7 +189,7 @@ describe("Shared package updates", () => {
         if (scenario === "mixed") {
           // The inactive connection was retained with the original skill package.
           yield* world.workspace.provide(
-            applyInstall(
+            applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source },
@@ -210,7 +217,9 @@ describe("Shared package updates", () => {
         if (scenario === "mixed")
           fs.writeFileSync(path.join(source, "mcp.json"), mcp("https://example.test/updated"));
         const outcome = yield* world.workspace.provide(
-          applyUpdate(configuredUpdateRequest({ type: "skill", nameFilters: ["first"] })),
+          applyUpdateAcceptingExecutionChanges(
+            configuredUpdateRequest({ type: "skill", nameFilters: ["first"] }),
+          ),
         );
         if (scenario !== "missing-component") {
           if (outcome._tag === "Resolved") expect(outcome.resolution.blocking).toBeUndefined();
@@ -292,7 +301,7 @@ describe("Retained Git snapshot additions", () => {
       );
       const install = (name: string) =>
         world.workspace.provide(
-          applyInstall(
+          applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "skill",
               subject: { kind: "source", source: served.url },
@@ -366,7 +375,7 @@ describe("HTTP plugin package context", () => {
           (workspace) => Effect.sync(() => workspace.cleanup()),
         );
         const installed = yield* workspace.provide(
-          applyInstall(
+          applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "skill",
               subject: { kind: "source", source: "https://example.test/plugin.zip" },
@@ -395,7 +404,7 @@ describe("HTTP plugin package context", () => {
           zipSync({ "skills/other/SKILL.md": encode("# Upstream moved\n") }),
         );
         const additional = yield* workspace.provide(
-          applyInstall(
+          applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "skill",
               subject: { kind: "source", source: "https://example.test/plugin.zip" },
@@ -575,7 +584,7 @@ describe("Marketplace package installation", () => {
                 git(["push", "--quiet", served.repository, "main"]);
               }
               yield* world.workspace.provide(
-                applyUpdate(configuredUpdateRequest({ type: "skill" })),
+                applyUpdateAcceptingExecutionChanges(configuredUpdateRequest({ type: "skill" })),
               );
               expect(fs.readFileSync(path.join(active, "run"), "utf8")).toBe(
                 "#!/bin/sh\necho updated\n",
@@ -656,7 +665,7 @@ describe("Plugin activation on filesystems without directory links", () => {
         } satisfies FileSystem.FileSystem;
         const result = yield* workspace
           .provide(
-            applyInstall(
+            applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "skill",
                 subject: { kind: "source", source },
@@ -729,7 +738,7 @@ describe("Shared package installation", () => {
       } satisfies FileSystem.FileSystem;
       const result = yield* workspace
         .provide(
-          applyInstall(
+          applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "skill",
               subject: { kind: "source", source },
@@ -793,7 +802,7 @@ describe("Shared package failure atomicity", () => {
         yield* world.workspace
           .provide(
             Effect.gen(function* () {
-              const installed = yield* applyInstall(
+              const installed = yield* applyInstallAcceptingExecutionChanges(
                 installRequest({
                   type: "skill",
                   subject: { kind: "source", source },

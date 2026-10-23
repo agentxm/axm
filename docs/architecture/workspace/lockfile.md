@@ -11,7 +11,7 @@ depends-on:
 # Lockfile
 
 Project-root `axm.lock` is AXM's generated, committed authority for
-accepted external resolutions and their provenance, and the record of
+accepted external resolutions and their source identities, and the record of
 projection generation currency and last-written digests. User scope keeps the same
 authority in `~/.axm/workspace/axm.lock`. It is a reproducible-resolution snapshot
 used by planning, materialization, update, reinstall, and cleanup.
@@ -83,6 +83,38 @@ Exact fields and the strict lockfile version remain executable contracts owned
 by schemas and behavior tests. The architectural requirement is that the row
 identify one accepted external result and support verification or exact
 rematerialization where the source can still reproduce it.
+
+### Accepted-resolution inventory
+
+`axm lock export --format cyclonedx` exports one strictly decoded lock snapshot
+as deterministic CycloneDX 1.6 JSON. The export does not consult settings,
+installed manifests, Registry credentials, or current network metadata. It
+neither changes the lock nor repairs incompatible state. An empty lock yields
+an empty inventory; an absent lock is a refusal.
+
+Each retained package becomes one component, with its selected component
+bindings recorded separately from local aliases. Registry packages use generic
+Package URLs: the namespace contains the owner and extension kind, the name
+identifies the package, the version is exact, and `repository_url` distinguishes
+Registry authorities. Archive SHA-512 SRI becomes standard hexadecimal SHA-512;
+Git object IDs and AXM tree integrity retain their own named properties.
+Publisher bindings remain Registry assertions.
+
+Recorded Pack declarations contribute dependency edges only when their source
+authority and selected bindings identify one accepted package unambiguously.
+Unresolved declarations remain explicit properties. Export never resolves a
+range, invents direct roots, or promotes companion-package recommendations to
+dependencies. Overall dependency coverage is incomplete: authored and inline
+content, host runtimes, nested executable dependencies, remote implementations,
+and unrecorded license information remain outside the inventory.
+
+Projection currency, tool tables, timestamps, and random identifiers do not
+affect export bytes. Source URLs containing user information, query parameters,
+or fragments are refused. Absolute local paths and file Registry locations use
+distinct document-local identifiers with an explicit redaction notice; those
+identifiers do not establish identity across documents. Package names can still be private information; export writes
+locally to stdout and has no upload path. Neither the inventory nor a locked
+checksum establishes independent origin, active installation, or safety.
 
 ### Projection currency
 

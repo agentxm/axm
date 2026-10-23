@@ -172,6 +172,10 @@ export const buildReconciliationClosure = <E, R>(
       ): child is ReconciliationChild<R> & { readonly step: ReadyJobStep<R> | WarnJobStep<R> } =>
         child.step.readiness !== "error",
     );
+    const executionPreferences = runnableChildren.flatMap(
+      ({ step }) => step.executionPreferences ?? [],
+    );
+    const exposureRefs = runnableChildren.flatMap(({ step }) => step.exposureRefs ?? []);
     const acquisitionRefs = runnableChildren.flatMap(
       ({ step }) =>
         step.acquisitionRefs ??
@@ -296,6 +300,8 @@ export const buildReconciliationClosure = <E, R>(
           materialPaths,
           artifact: plannedArtifact,
           ...(acquisitionRefs.length === 0 ? {} : { acquisitionRefs }),
+          ...(exposureRefs.length === 0 ? {} : { exposureRefs }),
+          ...(executionPreferences.length === 0 ? {} : { executionPreferences }),
           run,
         } satisfies PlannedJobStep<
           R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
@@ -307,6 +313,8 @@ export const buildReconciliationClosure = <E, R>(
           warnMessage: readinessWarnings.join("; "),
           artifact: plannedArtifact,
           ...(acquisitionRefs.length === 0 ? {} : { acquisitionRefs }),
+          ...(exposureRefs.length === 0 ? {} : { exposureRefs }),
+          ...(executionPreferences.length === 0 ? {} : { executionPreferences }),
           run,
         } satisfies PlannedJobStep<
           R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path

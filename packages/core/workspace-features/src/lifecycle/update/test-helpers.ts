@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
+  applyPlanExecution,
   previewPlanExecution,
   type OperationResolution,
   type PlanExecution,
@@ -92,6 +93,17 @@ export const previewUpdate = (request: UpdateRequest) =>
 /** Settle an update and apply it. */
 export const applyUpdate = (request: UpdateRequest) =>
   resolveUpdate(request, preapprovedPlanExecution);
+
+/** An update whose caller explicitly accepts its external execution transition. */
+export const applyUpdateAcceptingExecutionChanges = (request: UpdateRequest) =>
+  resolveUpdate(
+    request,
+    applyPlanExecution({
+      approval: "preapproved",
+      acceptedPolicies: new Set(["accept-execution-changes"]),
+      recovery: { command: ["update"], arguments: [] },
+    }),
+  );
 
 /** The resolution an example expected an update to produce. */
 export const expectResolved = (outcome: UpdateOutcome): OperationResolution => {

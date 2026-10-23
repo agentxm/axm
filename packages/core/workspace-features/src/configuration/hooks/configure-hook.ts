@@ -14,8 +14,10 @@ import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
+import { projectionExposureRefs } from "@agentxm/workspace-kernel/reconciliation";
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
 import {
+  DesiredStateReader,
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
@@ -62,12 +64,22 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
   };
   const options = { hookConfigurations: new Map([[request.name, request.configuration]]) };
   const projections = canonical.value.desired.enabled ? yield* hooks.projectionPlans(options) : [];
-  yield* observeProjectionPlans(projections);
+  const observations = yield* observeProjectionPlans(projections);
+  const exposureRefs = yield* projectionExposureRefs({
+    observations,
+    graph: yield* (yield* DesiredStateReader).graph(),
+    proposedRefs: [],
+  }).pipe(
+    Effect.mapError((cause) =>
+      fail("Cannot establish every source exposed by the Hook configuration", cause),
+    ),
+  );
   const changed = JSON.stringify(previous?.configuration) !== JSON.stringify(request.configuration);
   const artifact = {
     path: root,
     scope: location.scope,
     change: changed ? ("updated" as const) : ("unchanged" as const),
+    nativeLocations: observations.flatMap((observation) => observation.nativeLocations ?? []),
   };
   const run = runWorkspaceTransaction({
     transition: Effect.gen(function* () {
@@ -121,6 +133,10 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
             readiness: "ready",
             artifact,
             materialPaths: [packageRoot],
+            exposureRefs,
+            executionPreferences: [
+              { type: "hook", name: request.name, configuration: request.configuration },
+            ],
             run,
           },
         ],

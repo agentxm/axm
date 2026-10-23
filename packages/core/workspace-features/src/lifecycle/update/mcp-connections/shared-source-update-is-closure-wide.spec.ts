@@ -8,8 +8,15 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeLifecycleFixture } from "../../testing.js";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
-import { applyInstall, installRequest } from "../../../testing/install-world.js";
-import { applyUpdate, configuredUpdateRequest, expectResolved } from "../test-helpers.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+} from "../../../testing/install-world.js";
+import {
+  applyUpdateAcceptingExecutionChanges,
+  configuredUpdateRequest,
+  expectResolved,
+} from "../test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/update/shared-source-update-is-closure-wide",
@@ -52,7 +59,7 @@ describe("Update a shared MCP source closure", () => {
       .provide(
         Effect.gen(function* () {
           for (const localName of [NAMED, SIBLING]) {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source: SOURCE },
@@ -63,7 +70,7 @@ describe("Update a shared MCP source closure", () => {
           registry.writeMcp("context", [{ version: "1.0.0" }, { version: "2.0.0" }]);
 
           const resolution = expectResolved(
-            yield* applyUpdate(
+            yield* applyUpdateAcceptingExecutionChanges(
               configuredUpdateRequest({
                 type: "mcp-server",
                 nameFilters: [NAMED],

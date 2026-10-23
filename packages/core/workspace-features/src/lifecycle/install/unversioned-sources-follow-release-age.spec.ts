@@ -7,7 +7,7 @@ import { FIXTURE_PUBLISHED_AT } from "@agentxm/registry-client/testing";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
-import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
+import { applyPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { InstallExtensions } from "./install-extensions.js";
 import { installRequest, makeInstallWorld } from "../../testing/install-world.js";
 
@@ -117,7 +117,14 @@ describe("Unversioned Registry sources", () => {
                 }),
               );
               expect(world.workspace.snapshot()).toEqual(before);
-              yield* InstallExtensions.previewOrApply(eligible, preapprovedPlanExecution);
+              yield* InstallExtensions.previewOrApply(
+                eligible,
+                applyPlanExecution({
+                  approval: "preapproved",
+                  acceptedPolicies: new Set(["accept-execution-changes"]),
+                  recovery: { command: ["install"], arguments: [] },
+                }),
+              );
               expect(world.workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
               expect(world.workspace.readFile("axm.lock")).not.toContain('version = "2.0.0"');
             }),

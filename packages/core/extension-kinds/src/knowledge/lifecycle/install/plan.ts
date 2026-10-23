@@ -19,9 +19,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { KnowledgeManager } from "@agentxm/workspace-kernel/materialization";
+import { KnowledgeManager, type RuleManager } from "@agentxm/workspace-kernel/materialization";
 import {
   buildInstallOperation,
+  projectionExposureRefs,
   forecastInstallChange,
   kernelFailureToStepFailure,
   type InstallStepRequirements,
@@ -63,7 +64,7 @@ export const planKnowledgeInstall: (
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
   OperationRefused,
-  InstallStepRequirements | KnowledgeManager
+  InstallStepRequirements | KnowledgeManager | RuleManager
 > = Effect.fn("InstallExtensions.planKnowledge")(function* (intent: KnowledgeInstallIntent) {
   const manager = yield* KnowledgeManager;
   const location = yield* WorkspaceLocation;
@@ -111,6 +112,19 @@ export const planKnowledgeInstall: (
         }),
       ),
     );
+  const exposureRefs = yield* projectionExposureRefs({
+    observations: prepared,
+    graph: intent.desiredGraph ?? priorGraph,
+    proposedRefs: intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
+  }).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "conflict",
+        detail: "Cannot establish every source exposed by the Knowledge projection",
+        cause,
+      }),
+    ),
+  );
   // One bundle renders the shared discovery region itself; several bundles in
   // one operation defer it so the region is rendered once, from the complete
   // contributor set.
@@ -161,6 +175,7 @@ export const planKnowledgeInstall: (
         },
         toStepFailure: kernelFailureToStepFailure,
         ref,
+        projectionExposureRefs: exposureRefs,
         declaration: { name: ref.knowledge.name, versionRange },
         ...(deferProjections
           ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
@@ -186,6 +201,7 @@ export const planKnowledgeInstall: (
             key: "projection:knowledge:discovery-region",
             label: "knowledge projection",
             readiness: "ready",
+            exposureRefs,
             run: manager
               .projectionPlans(nativeProjection)
               .pipe(Effect.flatMap(applyInstructionSurfacePlans))

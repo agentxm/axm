@@ -5390,6 +5390,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/acquisition/refuses-copy-source-overlap.spec.ts`](../packages/core/workspace-kernel/src/acquisition/refuses-copy-source-overlap.spec.ts)
 
+##### Lock export describes accepted external resolutions without enrichment
+
+- Requirement: `workspace/lock/export-accepted-resolutions`
+- Owner: `workspace-features`
+- Statement: AXM shall export strictly accepted external resolutions as deterministic CycloneDX JSON with exact source identities, recorded integrity, known Pack relationships and explicit incomplete coverage, without resolving sources or mutating workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The production serializer consumes decoded accepted resolutions without filesystem or network services; schema validation checks standard interoperability.
+- Methods: example
+- Additional evidence: process via [`apps/cli-e2e/src/lock-export.e2e.test.ts`](../apps/cli-e2e/src/lock-export.e2e.test.ts) — The packaged CLI exports recorded Registry identity with no installed content or credentials, emits directly parseable deterministic JSON in both output modes, and refuses missing or invalid locks without creating workspace state.
+- Source: [`packages/core/workspace-features/src/inspection/exports-accepted-resolutions.spec.ts`](../packages/core/workspace-features/src/inspection/exports-accepted-resolutions.spec.ts)
+
 ##### Selected workspaces capture native directory inputs once
 
 - Requirement: `workspace/native-locations/captures-native-inputs-at-workspace-boundary`
@@ -7721,6 +7735,20 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/core/workspace-kernel/src/acquisition/operation-scratch-is-bounded.spec.ts`](../packages/core/workspace-kernel/src/acquisition/operation-scratch-is-bounded.spec.ts)
 
+##### External execution changes require deliberate acceptance
+
+- Requirement: `workspace/acknowledge-external-execution`
+- Owner: `workspace-kernel`
+- Statement: AXM shall require interactive acceptance or the invocation-scoped execution-change acknowledgment before applying a candidate that exposes new or changed external Hook or MCP execution, without letting generic preapproval, other overrides, or that acknowledgment bypass independent publisher consent or candidate freshness.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The production candidate and transaction pipeline uses a temporary workspace and controlled confirmation port; this suite establishes acknowledgment and freshness enforcement, not kind-specific exposure classification.
+- Methods: example
+- Additional evidence: process via [`apps/cli-e2e/src/hooks-outcomes.e2e.test.ts`](../apps/cli-e2e/src/hooks-outcomes.e2e.test.ts) — The compiled CLI renders source-derived Hook changes, refuses unattended first exposure and missing-registration restoration without the dedicated acknowledgment, and applies the same transitions with it.
+- Source: [`packages/core/workspace-kernel/src/planning/plan/acknowledges-execution-exposure.spec.ts`](../packages/core/workspace-kernel/src/planning/plan/acknowledges-execution-exposure.spec.ts)
+
 ##### Verified source content stays scoped across delayed confirmation
 
 - Requirement: `workspace/acquired-content-survives-confirmation`
@@ -7844,6 +7872,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/core/workspace-kernel/src/sources/providers/registry/shared-pack-index-lookup.spec.ts`](../packages/core/workspace-kernel/src/sources/providers/registry/shared-pack-index-lookup.spec.ts)
+
+##### Registry exposure requires current exact content eligibility
+
+- Requirement: `workspace/recheck-registry-exposure`
+- Owner: `workspace-kernel`
+- Statement: AXM shall check current exact Registry publisher, integrity and content eligibility before acquiring or exposing Registry content, including retained contributors, repeat the check after confirmation, and refuse each affected semantic closure while preserving independent work and operations that acquire or expose no Registry content.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The real candidate pipeline and Registry client execute over a temporary workspace and controlled HTTP port. Request ordering and closure outcomes are observed; Registry server authorization remains covered by the server's transport evidence.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/planning/plan/rechecks-registry-exposure.spec.ts`](../packages/core/workspace-kernel/src/planning/plan/rechecks-registry-exposure.spec.ts)
 
 #### Quality
 

@@ -324,6 +324,16 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
       ),
     );
     const sharedTransition = yield* Effect.cached(transition);
+    // Any displayed step can enter the shared transaction; each carries the whole admission boundary.
+    const exposureRefs = executable.flatMap((step) => step.exposureRefs ?? []);
+    const executionPreferences = executable.flatMap((step) => step.executionPreferences ?? []);
+    const acquisitionRefs = executable.flatMap(
+      (step) =>
+        step.acquisitionRefs ??
+        (step.sourceBinding === undefined
+          ? []
+          : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]),
+    );
     let resultIndex = 0;
 
     // Every step now runs the shared transaction, so the transaction scope and
@@ -335,6 +345,9 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
         resultIndex += 1;
         return {
           ...step,
+          exposureRefs,
+          executionPreferences,
+          acquisitionRefs,
           run: sharedTransition.pipe(
             Effect.flatMap((results) => {
               const result = results[index];

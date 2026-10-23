@@ -62,6 +62,7 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import {
   operationPresentation,
   type CandidateFingerprintFailed,
+  type StaleExecutionCandidate,
   type JobStepArtifact,
   type Plan,
   type PlanExecution,
@@ -177,6 +178,7 @@ type AdoptExtensionFailure =
   | WorkspaceSettingsReadFailure
   | WorkspaceStateReadFailure
   | CandidateFingerprintFailed
+  | StaleExecutionCandidate
   | FqnInvalidError;
 
 /** Everything settling an adoption reads before it freezes a candidate. */

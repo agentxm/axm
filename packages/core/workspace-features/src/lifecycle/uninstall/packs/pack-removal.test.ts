@@ -13,7 +13,7 @@ import { applyActivation } from "../../activation/test-helpers.js";
 import { DisableExtension } from "../../activation/set-activation.js";
 import { readSettings } from "../../install/test-helpers.js";
 import {
-  applyInstall,
+  applyInstallAcceptingExecutionChanges,
   installRequest,
   makeInstallWorld,
   type InstallWorld,
@@ -44,7 +44,9 @@ describe("pack removal", () => {
   };
 
   const installPack = (source: string) =>
-    applyInstall(installRequest({ type: "pack", subject: { kind: "source", source } }));
+    applyInstallAcceptingExecutionChanges(
+      installRequest({ type: "pack", subject: { kind: "source", source } }),
+    );
 
   const removePack = (selector: string) =>
     applyUninstall(uninstallRequest({ type: "pack", selector }));
@@ -84,6 +86,9 @@ describe("pack removal", () => {
           const native = workspace.readFile(".mcp.json");
           const preview = yield* previewUninstall(
             uninstallRequest({ type: "pack", selector: "toolkit" }),
+          );
+          expect(preview.units.flatMap((unit) => unit.artifact?.executionChanges ?? [])).toEqual(
+            [],
           );
           expect(preview.units.flatMap((unit) => unit.artifact?.references ?? [])).toContainEqual(
             expect.objectContaining({
@@ -324,7 +329,7 @@ describe("pack removal", () => {
       .provide(
         Effect.gen(function* () {
           yield* installPack("@acme/packs/toolkit");
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "skill",
               subject: { kind: "source", source: "@acme/skills/promoted" },

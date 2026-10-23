@@ -21,6 +21,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   SettingsReader,
   WorkspaceLocation,
@@ -41,12 +42,13 @@ import {
 import {
   captureAgentOutputAuthority,
   observeProjectionPlans,
+  observeInstructionSurfacePlans,
   applyInstructionSurfacePlans,
   applyProjectionPlans,
   projectionPlanExclusionWarnings,
   type ProjectionPlan,
 } from "../projection/index.js";
-import type { JobStepArtifact, PlannedJobStep } from "../operations/index.js";
+import type { JobStepArtifact, PlannedJobStep, OperationRefused } from "../operations/index.js";
 import { syncRefused } from "./errors.js";
 import type { StepFailureConversionService } from "./step-failure-conversion.js";
 import {
@@ -57,6 +59,7 @@ import {
 import type { SyncStepRequirements } from "./plan.js";
 import { publishDesiredState, type DesiredStateProposal } from "./proposed-state.js";
 import { collectUnreachableRetirement } from "./retirement.js";
+import { projectionExposureRefs } from "./projection-exposure.js";
 
 /** The types whose projection is a shared aggregate unit rendered once per change. */
 const AGGREGATE_UNIT_TYPES: ReadonlySet<ExtensionType> = new Set<ExtensionType>([
@@ -73,6 +76,9 @@ export interface ActivationRealization {
   readonly subjects: ReadonlyArray<DesiredExtensionNode>;
   readonly hookWithdrawals: ReadonlyArray<HookNativeDeclaration>;
   readonly nativeWithdrawals: ReadonlyArray<NativeLocationOutcome>;
+  readonly projectionExposureRefs: ReadonlyArray<ExtensionRef>;
+  readonly projectionNativeLocations: ReadonlyArray<NativeLocationOutcome>;
+  readonly projectionFailure?: OperationRefused;
   /** The sync steps that materialize what became active. */
   readonly materialization: Option.Option<CollectedMaterializeSteps>;
   /** The retirement of acquired content nothing reaches once the change applies. */
@@ -93,6 +99,92 @@ interface ActivationRealizationInput {
   readonly adapter: StepFailureConversionService;
 }
 
+/** A shared rewrite exposes every contributor; a proven subtraction preserves offline removal. */
+export const prepareSharedProjectionExposure = Effect.fn("prepareSharedProjectionExposure")(
+  function* (
+    args: Pick<ActivationRealizationInput, "proposal" | "subjects">,
+    removing: boolean,
+    hookWithdrawals: ReadonlyArray<HookNativeDeclaration> = [],
+    materialization?: CollectedMaterializeSteps,
+  ) {
+    if (materialization?.steps.some((step) => step.readiness === "error"))
+      return { projectionExposureRefs: [], projectionNativeLocations: [] };
+    const types = new Set(args.subjects.map((node) => node.type));
+    const managers = [
+      ...(types.has("hook")
+        ? [
+            {
+              manager: yield* HookManager,
+              prepared: materialization?.preparedHookProjection?.plans,
+            },
+          ]
+        : []),
+      ...(types.has("rule")
+        ? [{ manager: yield* RuleManager, prepared: materialization?.preparedRulePlans }]
+        : []),
+      ...(types.has("knowledge")
+        ? [{ manager: yield* KnowledgeManager, prepared: materialization?.preparedKnowledgePlans }]
+        : []),
+    ];
+    const after = yield* Effect.forEach(managers, ({ manager, prepared }) =>
+      (prepared === undefined
+        ? manager.projectionPlans({
+            desiredGraph: args.proposal.after,
+            hookWithdrawals,
+          })
+        : Effect.succeed(prepared)
+      ).pipe(Effect.flatMap(observeInstructionSurfacePlans)),
+    ).pipe(Effect.map((values) => values.flat()));
+    const before = removing
+      ? yield* Effect.forEach(managers, ({ manager }) =>
+          manager
+            .projectionPlans({ desiredGraph: args.proposal.before })
+            .pipe(
+              Effect.flatMap((plans) => observeInstructionSurfacePlans(plans, { view: "current" })),
+            ),
+        ).pipe(Effect.map((values) => values.flat()))
+      : [];
+    const onlyRemoves =
+      removing &&
+      after.every((unit) => {
+        const prior = before.find(
+          (entry) => entry.unitId === unit.unitId && entry.path === unit.path,
+        );
+        return (
+          prior?.current === true &&
+          (prior.nativeLocations ?? []).every(
+            (location) =>
+              location.state === "unchanged" &&
+              (location.ownership === "owned" || location.ownership === "declared"),
+          ) &&
+          unit.expectedContributors.every((name) => prior.expectedContributors.includes(name)) &&
+          (unit.nativeLocations ?? []).every((location) => location.state !== "created")
+        );
+      });
+    return {
+      projectionExposureRefs: onlyRemoves
+        ? []
+        : yield* projectionExposureRefs({
+            observations: after,
+            graph: args.proposal.after,
+            proposedRefs: materialization?.steps.flatMap((step) => step.exposureRefs ?? []) ?? [],
+          }),
+      projectionNativeLocations: after.flatMap((unit) => unit.nativeLocations ?? []),
+    };
+  },
+  Effect.catch((cause) =>
+    Effect.succeed({
+      projectionExposureRefs: [],
+      projectionNativeLocations: [],
+      projectionFailure: syncRefused({
+        category: "conflict",
+        detail: "Cannot establish the sources exposed by the transition's shared projections",
+        cause,
+      }),
+    }),
+  ),
+);
+
 /** Enabling collects acquisition and materialization under the release-age policy. */
 export const prepareEnabledRealization = (
   args: ActivationRealizationInput & {
@@ -107,7 +199,9 @@ export const prepareEnabledRealization = (
       requireSubagentSupport: true,
       adapter: args.adapter,
     });
+    const projections = yield* prepareSharedProjectionExposure(args, false, [], materialization);
     return {
+      ...projections,
       proposal: args.proposal,
       enabled: true,
       subjects: args.subjects,
@@ -174,7 +268,9 @@ export const prepareDisabledRealization = (
           subjects: args.subjects,
         })
       : Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
+    const projections = yield* prepareSharedProjectionExposure(args, true, hookWithdrawals);
     return {
+      ...projections,
       proposal: args.proposal,
       enabled: false,
       subjects: args.subjects,

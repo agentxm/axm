@@ -25,7 +25,7 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import {
   previewInstall,
-  applyInstall,
+  applyInstallAcceptingExecutionChanges,
   installRequest,
   makeInstallWorld,
 } from "../../testing/install-world.js";
@@ -89,7 +89,7 @@ describe("Install realizes the extension for configured agents", () => {
             proposed.every((unit) => unit.state === "created" && unit.ownership === "absent"),
           ).toBe(true);
           for (const location of REALIZED_LOCATIONS) expect(workspace.exists(location)).toBe(false);
-          const applied = yield* applyInstall(request);
+          const applied = yield* applyInstallAcceptingExecutionChanges(request);
           expect(
             operationNativeLocations(applied)
               .map((unit) => unit.address.path)
@@ -192,7 +192,7 @@ describe("Install realizes the extension for configured agents", () => {
                   reasonCode: "planned-native-unit",
                 });
                 expect(outcome?.nativeUnits).toHaveLength(1);
-                const applied = yield* applyInstall(request);
+                const applied = yield* applyInstallAcceptingExecutionChanges(request);
                 expect(deriveOperationOutcome(applied)).toBe("applied");
                 expect(fs.lstatSync(path.join(workspace.root, "CLAUDE.md")).isSymbolicLink()).toBe(
                   mechanism === "symlink",
@@ -215,7 +215,7 @@ describe("Install realizes the extension for configured agents", () => {
         .provide(
           Effect.gen(function* () {
             const request = installRequest({ type: row.type, subject: { kind: "source", source } });
-            const initial = yield* applyInstall(request);
+            const initial = yield* applyInstallAcceptingExecutionChanges(request);
             expect(deriveOperationOutcome(initial)).toBe("applied");
             expect(workspace.exists("CLAUDE.md")).toBe(true);
             const instructions = workspace.readFile("AGENTS.md");
@@ -244,7 +244,9 @@ describe("Install realizes the extension for configured agents", () => {
 
             const preview = yield* previewInstall(request).pipe(Effect.result);
             const afterPreview = workspace.snapshot();
-            const applied = yield* applyInstall(request).pipe(Effect.result);
+            const applied = yield* applyInstallAcceptingExecutionChanges(request).pipe(
+              Effect.result,
+            );
             expect(afterPreview).toEqual(before);
             expect(applied._tag).toBe(preview._tag);
             if (preview._tag === "Failure") {
@@ -318,7 +320,7 @@ describe("Install realizes the extension for configured agents", () => {
               expect(preview._tag).toBe("Failure");
               expect(workspace.snapshot()).toEqual(before);
               // `axm install` offers the override without setting it.
-              const apply = yield* applyInstall(request).pipe(
+              const apply = yield* applyInstallAcceptingExecutionChanges(request).pipe(
                 Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded: false }),
                 Effect.result,
               );
@@ -350,7 +352,7 @@ describe("Install realizes the extension for configured agents", () => {
               type: row.type,
               subject: { kind: "source", source },
             });
-            const applied = yield* applyInstall(request).pipe(
+            const applied = yield* applyInstallAcceptingExecutionChanges(request).pipe(
               Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded: true }),
             );
             expect(deriveOperationOutcome(applied)).toBe("applied");
@@ -372,7 +374,9 @@ describe("Install realizes the extension for configured agents", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(installRequest({ type, subject: { kind: "source", source } }));
+            yield* applyInstallAcceptingExecutionChanges(
+              installRequest({ type, subject: { kind: "source", source } }),
+            );
 
             expectRealized(workspace, name);
           }),
@@ -425,7 +429,7 @@ for (const scope of ["project", "user"] as const)
         );
         yield* world.workspace.provide(
           Effect.gen(function* () {
-            const resolution = yield* applyInstall(
+            const resolution = yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "subagent",
                 subject: { kind: "source", source: repository.url },

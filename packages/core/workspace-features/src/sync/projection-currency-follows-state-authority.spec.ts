@@ -26,6 +26,7 @@ import { writeLocalHookPackage } from "../testing/local-packages.js";
 
 import {
   applySync,
+  applySyncAcceptingExecutionChanges,
   expectResolved,
   makeSyncFixture,
   previewSync,
@@ -454,7 +455,7 @@ describe("Generated document projection currency", () => {
               ),
             ).toBe(false);
             expect(workspace.snapshot()).toEqual(before);
-            const applied = expectResolved(yield* applySync());
+            const applied = expectResolved(yield* applySyncAcceptingExecutionChanges());
             expect(
               applied.failure ?? applied.units.find((unit) => unit.error !== undefined)?.error,
             ).toBeUndefined();

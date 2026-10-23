@@ -10,9 +10,12 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { writeLocalHookPackage, writeLocalRulePackage } from "../../testing/local-packages.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
-import { applyInstall, installRequest } from "../../testing/install-world.js";
 import {
-  applyUpdate,
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+} from "../../testing/install-world.js";
+import {
+  applyUpdateAcceptingExecutionChanges,
   configuredUpdateRequest,
   expectResolved,
   previewUpdate,
@@ -61,7 +64,9 @@ export const specification = defineSpecification({
 // examples). This file keeps only the purity rule for an ordinary advance.
 
 const installFrom = (source: string, type: InstallableExtensionType) =>
-  applyInstall(installRequest({ type, subject: { kind: "source", source } })).pipe(Effect.asVoid);
+  applyInstallAcceptingExecutionChanges(
+    installRequest({ type, subject: { kind: "source", source } }),
+  ).pipe(Effect.asVoid);
 
 /** What seeding one row costs the environment: an install, and nothing more. */
 type SeedEffect = ReturnType<typeof installFrom>;
@@ -310,7 +315,7 @@ describe("Update preview purity", () => {
             expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
             if (row.expectAdvanced !== undefined) {
               const applied = expectResolved(
-                yield* applyUpdate(
+                yield* applyUpdateAcceptingExecutionChanges(
                   configuredUpdateRequest({ type: row.type, planName: `Update ${row.label}` }),
                 ),
               );
@@ -413,7 +418,9 @@ describe("Update preview purity", () => {
             expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
 
             const applied = expectResolved(
-              yield* applyUpdate(targetedUpdateRequest({ source: `@acme/skills/${REVIEW}` })),
+              yield* applyUpdateAcceptingExecutionChanges(
+                targetedUpdateRequest({ source: `@acme/skills/${REVIEW}` }),
+              ),
             );
 
             expect(deriveOperationOutcome(applied)).toBe("applied");

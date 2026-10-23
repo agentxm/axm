@@ -407,6 +407,7 @@ const activationArtifact = (
     targets,
     nativeLocations: combineNativeLocationOutcomes([
       ...realization.nativeWithdrawals,
+      ...realization.projectionNativeLocations,
       ...Option.match(realization.materialization, {
         onNone: () => [],
         onSome: (collected) =>
@@ -431,14 +432,16 @@ const activationArtifact = (
 const blockedMaterialization = (
   realization: ActivationRealization,
 ): Option.Option<OperationRefused> =>
-  Option.flatMap(realization.materialization, (collected) =>
-    Option.map(
-      Option.fromUndefinedOr(collected.steps.find((step) => step.readiness === "error")),
-      (step) =>
-        installRefused({
-          category: "conflict",
-          detail: step.readiness === "error" ? step.errorMessage : "Activation cannot proceed",
-        }),
+  Option.orElse(Option.fromUndefinedOr(realization.projectionFailure), () =>
+    Option.flatMap(realization.materialization, (collected) =>
+      Option.map(
+        Option.fromUndefinedOr(collected.steps.find((step) => step.readiness === "error")),
+        (step) =>
+          installRefused({
+            category: "conflict",
+            detail: step.readiness === "error" ? step.errorMessage : "Activation cannot proceed",
+          }),
+      ),
     ),
   );
 
@@ -551,27 +554,30 @@ const settleLeaf = <R>(
       request.type === "rule" || request.type === "knowledge"
         ? yield* instructionGate()
         : Option.none<OperationRefused>();
-    const realization: ActivationRealization = Option.isSome(refusal)
-      ? {
-          proposal,
-          enabled: request.enabled,
-          subjects: [subject],
-          hookWithdrawals: [],
-          nativeWithdrawals: [],
-          materialization: Option.none(),
-          retirement: Option.none(),
-        }
-      : yield* prepareRealization({
-          proposal,
-          subjects: [subject],
-          selection: {
-            target: Option.none(),
-            types: [],
-            subjects: [{ type: request.type, name }],
-          },
-          adapter,
-          retireUnreachable: false,
-        }).pipe(Effect.mapError(conflictFrom(`Cannot prepare ${request.type} activation`)));
+    const realization: ActivationRealization =
+      Option.isSome(refusal) || Option.isSome(gate)
+        ? {
+            proposal,
+            enabled: request.enabled,
+            subjects: [subject],
+            hookWithdrawals: [],
+            nativeWithdrawals: [],
+            projectionExposureRefs: [],
+            projectionNativeLocations: [],
+            materialization: Option.none(),
+            retirement: Option.none(),
+          }
+        : yield* prepareRealization({
+            proposal,
+            subjects: [subject],
+            selection: {
+              target: Option.none(),
+              types: [],
+              subjects: [{ type: request.type, name }],
+            },
+            adapter,
+            retireUnreachable: false,
+          }).pipe(Effect.mapError(conflictFrom(`Cannot prepare ${request.type} activation`)));
     const agentOutcomes = yield* Effect.gen(function* () {
       if (
         request.type === "subagent" &&
@@ -833,6 +839,17 @@ const activationStep = (candidate: SettledActivation): PlannedJobStep<Activation
     readiness: "ready",
     artifact,
     ...(candidate.agentOutcomes.length === 0 ? {} : { agentOutcomes: candidate.agentOutcomes }),
+    exposureRefs: [
+      ...realization.projectionExposureRefs,
+      ...Option.match(realization.materialization, {
+        onNone: () => [],
+        onSome: (collected) => collected.steps.flatMap((step) => step.exposureRefs ?? []),
+      }),
+    ],
+    executionPreferences: Option.match(realization.materialization, {
+      onNone: () => [],
+      onSome: (collected) => collected.steps.flatMap((step) => step.executionPreferences ?? []),
+    }),
     acquisitionRefs: Option.match(realization.materialization, {
       onNone: () => [],
       onSome: (collected) => collected.steps.flatMap((step) => step.acquisitionRefs ?? []),
@@ -894,7 +911,10 @@ const prepareActivationExecution = (candidate: SettledActivation) =>
         plannedState: candidate.enabled ? "enabled" : "disabled",
       },
     ];
-    const prepared = yield* prepareExecutionCandidate(plan, { configuredAgentOperations });
+    const prepared = yield* prepareExecutionCandidate(plan, {
+      configuredAgentOperations,
+      executionWithdrawals: candidate.enabled ? [] : candidate.realization.subjects,
+    });
     return { ...candidate, execution: prepared };
   });
 

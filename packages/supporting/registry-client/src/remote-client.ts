@@ -77,6 +77,7 @@ import type {
   GetExactExtensionVersionArgs,
   GetExtensionIndexArgs,
   GetExtensionPackageArgs,
+  ValidateExtensionAccessArgs,
   GetExtensionPackageResponse,
   GetExtensionVisibilityArgs,
   GetExtensionsByOwnerArgs,
@@ -882,6 +883,68 @@ export const createRemoteRegistryClient = (
   // ---------------------------------------------------------------------------
   // getExtensionPackage
   // ---------------------------------------------------------------------------
+  const validateExtensionAccess = (
+    args: ValidateExtensionAccessArgs,
+  ): Effect.Effect<void, RegistryClientFailure> =>
+    Effect.gen(function* () {
+      const selected = args.exact;
+      const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${toExtensionTypePlural(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
+      const archiveHttpClient =
+        args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient;
+      {
+        const outcomes = yield* getResolutionMetadata({
+          schemaVersion: 1,
+          selectionPolicyVersion: "1",
+          items: [
+            {
+              key: "exact",
+              identity: { owner: args.owner, type: args.type, name: args.name },
+              purpose: "restore-exact",
+              expectedPublisherBinding: selected.publisherBindingId,
+              accepted: { version: selected.version, integrity: selected.integrity },
+            },
+          ],
+        });
+        const outcome = outcomes[0];
+        if (
+          outcome?.outcome !== "metadata" ||
+          outcome.page.publisherBindingId !== selected.publisherBindingId
+        ) {
+          return yield* new RegistryOperationFailed({
+            category: "conflict",
+            detail:
+              "The exact package no longer has matching Registry publisher and version evidence.",
+          });
+        }
+      }
+      // Public metadata is not archive download authorization. HEAD applies
+      // current content access and lifecycle policy without downloading or
+      // counting another delivery, using the same credentials as GET.
+      yield* executeRemoteRequest(
+        Effect.gen(function* () {
+          const response = yield* HttpClient.filterStatusOk(archiveHttpClient).execute(
+            HttpClientRequest.head(archivePath),
+          );
+          if (response.status !== 200 || response.headers["x-integrity"] !== selected.integrity) {
+            return yield* new HttpClientError.HttpClientError({
+              reason: new HttpClientError.DecodeError({
+                request: response.request,
+                response,
+                description: "Exact package access requires a 200 response with matching integrity",
+              }),
+            });
+          }
+        }),
+        {
+          operation: "validate exact package access",
+          method: "HEAD",
+          path: archivePath,
+          replaySafety: safe,
+          mapError: mapArchiveFetchError,
+        },
+      );
+    });
+
   const getExtensionPackage = (
     args: GetExtensionPackageArgs,
   ): Effect.Effect<GetExtensionPackageResponse, RegistryClientFailure> =>
@@ -942,60 +1005,12 @@ export const createRemoteRegistryClient = (
           mapError: mapArchiveFetchError,
         },
       );
-      const validateCached = Effect.gen(function* () {
-        if (args.exact !== undefined) {
-          const outcomes = yield* getResolutionMetadata({
-            schemaVersion: 1,
-            selectionPolicyVersion: "1",
-            items: [
-              {
-                key: "exact",
-                identity: { owner: args.owner, type: args.type, name: args.name },
-                purpose: "restore-exact",
-                expectedPublisherBinding: selected.publisherBindingId,
-                accepted: { version: selected.version, integrity: selected.integrity },
-              },
-            ],
-          });
-          const outcome = outcomes[0];
-          if (
-            outcome?.outcome !== "metadata" ||
-            outcome.page.publisherBindingId !== selected.publisherBindingId
-          ) {
-            return yield* new RegistryOperationFailed({
-              category: "conflict",
-              detail:
-                "Cached archive no longer has matching Registry publisher and exact version evidence.",
-            });
-          }
-        }
-        // Public metadata is not archive download authorization. HEAD applies
-        // current content access and lifecycle policy without downloading or
-        // counting another delivery, using the same credentials as GET.
-        yield* executeRemoteRequest(
-          Effect.gen(function* () {
-            const response = yield* HttpClient.filterStatusOk(archiveHttpClient).execute(
-              HttpClientRequest.head(archivePath),
-            );
-            if (response.status !== 200 || response.headers["x-integrity"] !== selected.integrity) {
-              return yield* new HttpClientError.HttpClientError({
-                reason: new HttpClientError.DecodeError({
-                  request: response.request,
-                  response,
-                  description:
-                    "Cached archive validation requires a 200 response with matching integrity",
-                }),
-              });
-            }
-          }),
-          {
-            operation: "validate cached package archive",
-            method: "HEAD",
-            path: archivePath,
-            replaySafety: safe,
-            mapError: mapArchiveFetchError,
-          },
-        );
+      const validateCached = validateExtensionAccess({
+        owner: args.owner,
+        type: args.type,
+        name: args.name,
+        exact: selected,
+        ...(args.usagePurpose === undefined ? {} : { usagePurpose: args.usagePurpose }),
       });
       const archive = yield* archiveCache === undefined
         ? fetchArchive
@@ -1423,6 +1438,7 @@ export const createRemoteRegistryClient = (
   };
 
   return {
+    validateExtensionAccess,
     getResolutionMetadata,
     getExtensionIndex,
     getExactExtensionVersion,

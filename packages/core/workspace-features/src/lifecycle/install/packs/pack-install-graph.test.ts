@@ -12,6 +12,7 @@ import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { readSettings } from "../test-helpers.js";
 import {
   applyInstall,
+  applyInstallAcceptingExecutionChanges,
   installRequest,
   makeInstallWorld,
   previewInstall,
@@ -203,7 +204,9 @@ describe("pack install graph", () => {
         Effect.gen(function* () {
           const before = workspace.snapshot();
 
-          const resolution = yield* applyInstall(packRequest("@acme/packs/toolkit"));
+          const resolution = yield* applyInstallAcceptingExecutionChanges(
+            packRequest("@acme/packs/toolkit"),
+          );
 
           expect(deriveOperationOutcome(resolution)).toBe("blocked");
           expect(resolution.blocking).toMatchObject({
@@ -347,7 +350,9 @@ describe("pack install graph", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          const resolution = yield* applyInstall(packRequest("@acme/packs/toolkit"));
+          const resolution = yield* applyInstallAcceptingExecutionChanges(
+            packRequest("@acme/packs/toolkit"),
+          );
 
           expect(deriveOperationOutcome(resolution)).toBe("applied");
           const lockfile = workspace.readFile("axm.lock");

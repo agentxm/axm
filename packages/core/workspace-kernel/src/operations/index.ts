@@ -24,6 +24,7 @@ export {
   OperationPreconditionSchema,
   PlanPolicyIds,
   PlanRiskConditionSchema,
+  ExecutionChangeSchema,
 } from "./plan.js";
 export type {
   BlockingClass,
@@ -44,6 +45,7 @@ export type {
   PlanExecutionCapabilities,
   PlanPolicyId,
   PlanRiskCondition,
+  ExecutionChange,
   PlannedJobStep,
   ReadyJobStep,
   SourceSwitchEndpoint,

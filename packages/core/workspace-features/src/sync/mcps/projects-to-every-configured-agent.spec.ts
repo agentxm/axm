@@ -19,6 +19,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
   applySync,
+  applySyncAcceptingExecutionChanges,
   expectResolved,
   makeFileRegistry,
   makeSyncFixture,
@@ -408,7 +409,7 @@ describe("MCP servers project to every configured agent", () => {
             expect(deriveOperationOutcome(previewed)).toBe("previewed");
             expect(previewed.units.length).toBeGreaterThan(0);
 
-            yield* applySync();
+            yield* applySyncAcceptingExecutionChanges();
             expect(nativeServers(workspace, CLAUDE_CODE_CONFIG)).toMatchObject({
               mcpServers: { context: expect.objectContaining({ command: "npx" }) },
             });

@@ -98,6 +98,10 @@ const OVERRIDE_FLAG_DECLARATIONS = {
     policy: "warning",
     description: "Apply the plan even when preflight reports unresolved warnings",
   },
+  "accept-execution-changes": {
+    policy: "execution changes",
+    description: "Accept external Hook/MCP execution changes for this invocation only",
+  },
   "ignore-release-age": {
     policy: "release age",
     description:
@@ -140,6 +144,10 @@ export const reinstallFlag = makeOverrideFlag("reinstall");
 export const ignoreReleaseAgeFlag = makeOverrideFlag("ignore-release-age");
 
 export const acceptWarningsFlag = makeOverrideFlag("accept-warnings");
+
+export const acceptExecutionChangesFlag = GlobalFlag.Setting("axm-accept-execution-changes")({
+  flag: makeOverrideFlag("accept-execution-changes"),
+});
 
 /**
  * The whole-file projection overrides. A command that can write a projected
@@ -214,6 +222,7 @@ export const registryFlag = Flag.String("registry").pipe(
 );
 
 export const axmGlobalFlags = [
+  acceptExecutionChangesFlag,
   nonInteractiveFlag,
   verboseFlag,
   debugFlag,

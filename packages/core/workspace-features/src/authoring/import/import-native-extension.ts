@@ -86,6 +86,7 @@ import {
 import {
   operationPresentation,
   type CandidateFingerprintFailed,
+  type StaleExecutionCandidate,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type Plan,
@@ -271,6 +272,7 @@ type ImportNativeExtensionFailure =
   | WorkspaceLockfileReadFailure
   | WorkspaceSettingsReadFailure
   | CandidateFingerprintFailed
+  | StaleExecutionCandidate
   | FqnInvalidError;
 
 /** Everything settling a native import reads before it freezes a candidate. */

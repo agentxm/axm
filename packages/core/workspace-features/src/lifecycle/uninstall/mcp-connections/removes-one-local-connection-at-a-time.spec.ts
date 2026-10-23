@@ -8,7 +8,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { readSettings } from "../../install/test-helpers.js";
-import { applyInstall, installRequest, makeInstallWorld } from "../../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../../../testing/install-world.js";
 import { applyUninstall, uninstallRequest } from "../test-helpers.js";
 
 export const specification = defineSpecification({
@@ -44,7 +48,7 @@ describe("Uninstall a locally named MCP connection", () => {
       .provide(
         Effect.gen(function* () {
           for (const localName of ["work-context", "personal-context"]) {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source: "@acme/mcps/context" },
@@ -92,7 +96,7 @@ describe("Uninstall a locally named MCP connection", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source: "@acme/mcps/context" },

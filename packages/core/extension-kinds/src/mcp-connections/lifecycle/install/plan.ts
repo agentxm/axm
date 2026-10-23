@@ -771,6 +771,57 @@ export const planMcpServerInstall: (
         : undefined;
     const lifecycleWarnings = extensionRefLifecycleWarnings(intent.ref);
     const registryLifecycle = extensionRefRegistryLifecycle(intent.ref);
+    const currentGraph = yield* (yield* DesiredStateReader).graph().pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "validation",
+          detail: "Cannot establish affected MCP connections",
+          cause,
+        }),
+      ),
+    );
+    const entries = yield* settings.entries("mcp-server").pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "validation",
+          detail: "Cannot read affected MCP connections",
+          cause,
+        }),
+      ),
+    );
+    const sourceClosure = currentGraph.mcpSourceClosures.find((candidate) =>
+      McpSourceKey.equals(candidate.key, intent.sourceKey),
+    );
+    const activeNames = [
+      ...new Set([intent.localName, ...(sourceClosure?.localNames ?? [])]),
+    ].filter((name) =>
+      name === intent.localName
+        ? entries[name]?.enabled !== false
+        : currentGraph.nodes.some(
+            (node) => node.type === "mcp-server" && node.name === name && node.enabled,
+          ),
+    );
+    const exposureRefs =
+      intent.ref.refType === "workspace"
+        ? []
+        : activeNames.map((name) => ({
+            ...intent.ref,
+            server: { ...intent.ref.server, name: ExtensionNameSchema.make(name) },
+          }));
+    const executionPreferences = activeNames.map((name) => {
+      const preference:
+        | Pick<Parameters<typeof resolveMcpInvocation>[0], "distribution" | "bindings" | "auth">
+        | undefined = name === intent.localName ? preferences : entries[name];
+      return {
+        type: "mcp-server" as const,
+        name,
+        ...(preference?.distribution === undefined
+          ? {}
+          : { distribution: preference.distribution }),
+        ...(preference?.bindings === undefined ? {} : { bindings: preference.bindings }),
+        ...(preference?.auth === undefined ? {} : { auth: preference.auth }),
+      };
+    });
 
     return {
       _tag: "Plan",
@@ -791,6 +842,11 @@ export const planMcpServerInstall: (
                 ? { readiness: "ready" as const }
                 : { readiness: "warn" as const, warnMessage: lifecycleWarnings.join("; ") }),
               sourceBinding,
+              executionPreferences,
+              exposureRefs,
+              ...(intent.ref.refType === "local"
+                ? { materialPaths: [fromFileLocation(intent.ref.location)] }
+                : {}),
               ...(registryBinding === undefined ? {} : { registryBinding }),
               ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
               run: installMcpServer({

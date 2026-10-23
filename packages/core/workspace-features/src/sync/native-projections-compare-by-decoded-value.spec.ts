@@ -9,6 +9,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
   applySync,
+  applySyncAcceptingExecutionChanges,
   expectResolved,
   makeFileRegistry,
   makeSyncFixture,
@@ -150,7 +151,7 @@ describe("Native projection comparison", () => {
           expect(previewed.units.length).toBeGreaterThan(0);
           expect(workspace.readFile(NATIVE)).toBe(changed);
 
-          yield* applySync();
+          yield* applySyncAcceptingExecutionChanges();
           expect(JSON.parse(workspace.readFile(NATIVE))).toMatchObject({
             mcpServers: { [row.name]: { command: row.command } },
           });

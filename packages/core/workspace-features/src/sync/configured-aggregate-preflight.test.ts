@@ -11,7 +11,13 @@ import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import type { FileRegistry } from "@agentxm/registry-client/testing";
 import * as Option from "effect/Option";
 import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
-import { applySync, previewSync, expectResolved, syncRequest } from "../testing/sync-fixture.js";
+import {
+  applySync,
+  applySyncAcceptingExecutionChanges,
+  previewSync,
+  expectResolved,
+  syncRequest,
+} from "../testing/sync-fixture.js";
 import { makeInstallWorld } from "../testing/install-world.js";
 
 const contributors = [
@@ -75,7 +81,7 @@ describe("Configured reconciliation preflight the complete selected aggregate co
             const preview = expectResolved(yield* previewSync(request));
             expect(deriveOperationOutcome(preview)).toBe("previewed");
             expect(workspace.snapshot()).toEqual(before);
-            const result = expectResolved(yield* applySync(request));
+            const result = expectResolved(yield* applySyncAcceptingExecutionChanges(request));
             expect(deriveOperationOutcome(result)).toBe("applied");
             expect(result.units.map(({ id }) => id)).toEqual(preview.units.map(({ id }) => id));
             // Shared native output joins both Packs into one atomic closure.
@@ -124,9 +130,11 @@ describe("Configured reconciliation preflight the complete selected aggregate co
               "previewed",
             );
             expect(workspace.snapshot()).toEqual(before);
-            expect(deriveOperationOutcome(expectResolved(yield* applySync(request)))).toBe(
-              "applied",
-            );
+            expect(
+              deriveOperationOutcome(
+                expectResolved(yield* applySyncAcceptingExecutionChanges(request)),
+              ),
+            ).toBe("applied");
             for (const name of ["alpha", "beta"]) {
               expect(workspace.exists(fileRegistryPackagePath(registry, row.plural, name))).toBe(
                 true,

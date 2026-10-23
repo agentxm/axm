@@ -7,7 +7,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { OperationRefused } from "@agentxm/workspace-kernel/operations";
 import {
-  applyInstall,
+  applyInstallAcceptingExecutionChanges,
   installRequest,
   makeInstallWorld,
   type InstallWorld,
@@ -50,7 +50,7 @@ describe("Validate locally named MCP install requests", () => {
 
   /** The request `axm mcps install <source> --as <name>` builds. */
   const install = (source: string, localName: string) =>
-    applyInstall(
+    applyInstallAcceptingExecutionChanges(
       installRequest({
         type: "mcp-server",
         subject: { kind: "source", source },
@@ -145,7 +145,7 @@ describe("Validate locally named MCP install requests", () => {
       return world.workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "pack",
                 subject: { kind: "source", source: "@acme/packs/toolkit" },

@@ -5,7 +5,8 @@ import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { pathsOverlap, resolveNativeEntry } from "../../locations/index.js";
-import { sourceRefContentKey } from "../../acquisition/index.js";
+import { acquiredDirectoryForRef, sourceRefContentKey } from "../../acquisition/index.js";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import { StepFailure } from "../../operations/index.js";
 import {
   LockfileReader,
@@ -20,9 +21,33 @@ import {
 export const preflightPackagePlacement = (refs: ReadonlyArray<ExtensionRef>) =>
   Effect.gen(function* () {
     const selected: PackageAddressClaim[] = [];
+    const paths: string[] = [];
     const snapshots = new Map<string, string>();
     for (const ref of refs) {
       if (ref.refType === "workspace") continue;
+      if (ref.refType === "local") {
+        const source = yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location)).pipe(
+          Effect.mapError(
+            (cause) =>
+              new StepFailure({
+                category: "validation",
+                detail: "Cannot capture the complete local source package for review.",
+                cause,
+              }),
+          ),
+        );
+        const physical = yield* resolveNativeEntry(source).pipe(
+          Effect.mapError(
+            (cause) =>
+              new StepFailure({
+                category: "validation",
+                detail: "Cannot establish the local source's filesystem identity.",
+                cause,
+              }),
+          ),
+        );
+        paths.push(source, physical.referentPath ?? physical.entryPath);
+      }
       const claim = packageAddressClaimForRef(ref);
       if (Result.isFailure(claim))
         return yield* new StepFailure({ category: "validation", detail: claim.failure.detail });
@@ -55,7 +80,6 @@ export const preflightPackagePlacement = (refs: ReadonlyArray<ExtensionRef>) =>
       return yield* new StepFailure({ category: "conflict", detail: valid.failure.detail });
     const path = yield* Path.Path;
     const acceptedKeys = new Set(accepted.success.map((claim) => claim.packageKey));
-    const paths: string[] = [];
     const physicalClaims: Array<{ readonly packageKey: string; readonly address: string }> = [];
     for (const claim of [...accepted.success, ...selected]) {
       const destination = path.join(layout.acquiredRoot, ...claim.address.split("/"));

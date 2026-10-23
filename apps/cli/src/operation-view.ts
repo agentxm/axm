@@ -346,6 +346,11 @@ const rowChildren = (
     (outcome) => detailed || outcome.outcome === "failed" || outcome.outcome === "blocked",
   );
   return [
+    ...(unit.artifact?.executionChanges ?? []).map((change) => ({
+      _tag: "paragraph" as const,
+      tone: "dim" as const,
+      text: `${change.name}: ${change.source}\nRegistrations: ${change.registrations.map((registration) => `${registration.target} (${registration.change})`).join(", ")}\nContent: ${change.contentIdentity}\n${change.details.join("\n")}\n${change.secretReferenceChanges.previous === "known" ? `Removed inputs: ${change.secretReferenceChanges.removed.join(", ") || "none"}` : "Previous input requests unavailable."}`,
+    })),
     ...sourceSwitchChildren(unit.artifact),
     ...membershipChildren(unit.artifact),
     ...outcomes.map(

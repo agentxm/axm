@@ -19,7 +19,7 @@ import { applyActivation } from "../activation/test-helpers.js";
 
 import { contentUnder, localLifecycleRows, readSettings } from "../install/test-helpers.js";
 import {
-  applyInstall,
+  applyInstallAcceptingExecutionChanges,
   installRequest,
   makeInstallWorld,
   type InstallWorld,
@@ -74,14 +74,14 @@ describe("Uninstall a directly desired extension", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            const configured = yield* applyInstall(
+            const configured = yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "pack",
                 subject: { kind: "source", source: "@acme/packs/toolkit" },
               }),
             );
             expect(deriveOperationOutcome(configured), JSON.stringify(configured)).toBe("applied");
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source: "@acme/mcps/context" },
@@ -114,7 +114,7 @@ describe("Uninstall a directly desired extension", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "pack",
               subject: { kind: "source", source: "@acme/packs/reviews" },
@@ -138,7 +138,7 @@ describe("Uninstall a directly desired extension", () => {
 
   /** Acquire a skill from a local directory, the way a person points at one. */
   const installLocalSkill = (world: InstallWorld, name: string) =>
-    applyInstall(
+    applyInstallAcceptingExecutionChanges(
       installRequest({
         type: "skill",
         subject: {
@@ -400,13 +400,13 @@ describe("Uninstall a directly desired extension", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "skill",
                 subject: { kind: "source", source: "@acme/skills/review-helper" },
               }),
             );
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "pack",
                 subject: { kind: "source", source: "@acme/packs/review-pack" },
@@ -467,7 +467,7 @@ describe("Uninstall a directly desired extension", () => {
               ["subagent", "@acme/subagents/planner"],
               ["pack", "@acme/packs/planning"],
             ] as const) {
-              const installed = yield* applyInstall(
+              const installed = yield* applyInstallAcceptingExecutionChanges(
                 installRequest({ type: kind, subject: { kind: "source", source } }),
               );
               expect(deriveOperationOutcome(installed), JSON.stringify(installed)).toBe("applied");
@@ -512,7 +512,7 @@ describe("Uninstall a directly desired extension", () => {
               ["subagent", "@acme/subagents/planner"],
               ["pack", "@acme/packs/planning"],
             ] as const) {
-              const installed = yield* applyInstall(
+              const installed = yield* applyInstallAcceptingExecutionChanges(
                 installRequest({ type, subject: { kind: "source", source } }),
               );
               expect(deriveOperationOutcome(installed), JSON.stringify(installed)).toBe("applied");
@@ -565,7 +565,7 @@ describe("Uninstall a directly desired extension", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({ type: row.type, subject: { kind: "source", source } }),
           );
           expect(

@@ -9,6 +9,14 @@
     "options": [],
     "globalOptions": [
       {
+        "name": "accept-execution-changes",
+        "aliases": [],
+        "type": "boolean",
+        "required": false,
+        "description": "Accept external Hook/MCP execution changes for this invocation only",
+        "default": false
+      },
+      {
         "name": "non-interactive",
         "aliases": [],
         "type": "boolean",
@@ -7759,6 +7767,55 @@
           { "command": "axm list --scope user", "description": "List user-level extensions" }
         ],
         "subcommands": []
+      },
+      {
+        "name": "lock",
+        "aliases": [],
+        "description": "Inspect accepted external resolutions",
+        "arguments": [],
+        "options": [],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm lock export --format cyclonedx",
+            "description": "Export an accepted-resolution inventory"
+          }
+        ],
+        "subcommands": [
+          {
+            "name": "export",
+            "aliases": [],
+            "description": "Export accepted external resolutions as an offline SBOM. Writes CycloneDX JSON directly to stdout; does not claim activation, complete runtime coverage, or authenticity.",
+            "arguments": [],
+            "options": [
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Workspace scope",
+                "choices": [{ "value": "project" }, { "value": "user" }],
+                "default": "project"
+              },
+              {
+                "name": "format",
+                "aliases": [],
+                "type": "choice",
+                "required": true,
+                "description": "Export format (CycloneDX JSON 1.6)",
+                "choices": [{ "value": "cyclonedx" }]
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm lock export --format cyclonedx > extensions.cdx.json",
+                "description": "Export the project's accepted external resolutions"
+              }
+            ],
+            "subcommands": []
+          }
+        ]
       },
       {
         "name": "view",

@@ -194,6 +194,8 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
   ownerExists: () => Effect.succeed({ exists: false }),
   getExtensionIndex: () => Effect.succeed(Option.none()),
   getExactExtensionVersion: () => Effect.succeed(Option.none()),
+  validateExtensionAccess: () =>
+    Effect.die("Unexpected exact-access validation in source-provider test"),
   getExtensionPackage: () =>
     Effect.fail(
       new RegistryOperationFailed({
@@ -271,6 +273,8 @@ const createFailingClient = (): RegistryClient => ({
         detail: "remote registry not yet supported",
       }),
     ),
+  validateExtensionAccess: () =>
+    Effect.die("Unexpected exact-access validation in source-provider test"),
   getExtensionPackage: () =>
     Effect.fail(
       new RegistryOperationFailed({

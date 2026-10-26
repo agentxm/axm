@@ -389,6 +389,8 @@ export interface InstallOperationArgs<
   }) => Effect.Effect<InstallArtifactPresentation, CallerStepFailure<F>, R>;
   /** Read-only preview facts captured before acquisition. */
   readonly plannedArtifact?: JobStepArtifact;
+  /** Other exact sources included in native units rewritten by this install. */
+  readonly projectionExposureRefs?: ReadonlyArray<ExtensionRef>;
   /** Optional outcome message for type-specific install presenters. */
   readonly message?: string;
   /** Explicit destructive source-authority transition used only by demotion. */
@@ -719,6 +721,17 @@ export const buildInstallOperation = <
     ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
     ...(registryBinding === undefined ? {} : { registryBinding }),
     ...(sourceBinding === undefined ? {} : { sourceBinding }),
+    exposureRefs: [
+      ...(sourceBinding === undefined ? [] : [args.ref]),
+      ...(args.projectionExposureRefs ?? []),
+    ],
+    ...(args.hookConfiguration === undefined
+      ? {}
+      : {
+          executionPreferences: [
+            { type: "hook" as const, name: target.name, configuration: args.hookConfiguration },
+          ],
+        }),
   };
   return lifecycleWarnings.length === 0
     ? ({ ...base, readiness: "ready" } satisfies PlannedJobStep<R | RecipeRequirements>)
@@ -1011,6 +1024,9 @@ export const buildMaterializeOperation = <
     ...(args.ref.refType === "workspace" || args.force !== true
       ? {}
       : { acquisitionRefs: [args.ref] }),
+    ...(args.ref.refType === "workspace" || args.desiredActivation === false
+      ? {}
+      : { exposureRefs: [args.ref] }),
     run: runMaterializeOperation(manager, args),
   } satisfies PlannedJobStep<R | RecipeRequirements>;
 };

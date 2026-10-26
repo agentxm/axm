@@ -7,6 +7,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeSpecWorkspace } from "../../../test-support/install-harness.js";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
+import { acceptExecutionChangesFlag } from "../../../cli-flags/index.js";
 import { handleInstall } from "../../install/handler.js";
 import { handleList } from "../list.js";
 
@@ -51,7 +52,10 @@ describe("List locally named MCP connections for a person", () => {
           bindEnv: [],
           localName: Option.some(localName),
           bundled: false,
-        }).pipe(Effect.provide(workspace.layer));
+        }).pipe(
+          Effect.provideService(acceptExecutionChangesFlag, true),
+          Effect.provide(workspace.layer),
+        );
       }
       workspace.rendererState.tables.length = 0;
       return workspace;

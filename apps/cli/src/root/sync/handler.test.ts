@@ -48,6 +48,7 @@ import {
 } from "@agentxm/workspace-kernel/sources";
 import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import YAML from "yaml";
+import { zipSync } from "fflate";
 import {
   expectAppliedPlanResult,
   getAppError,
@@ -290,10 +291,11 @@ const makePackRollbackFixture = (
   } = {},
 ) => {
   const withMemberDependency = options.withMemberDependency !== false;
+  const registryRoot = path.join(baseDir, "registry");
   const registrySource = {
     type: "registry",
     name: "test",
-    location: decodeRegistryEndpointSync("file:///tmp/test-registry"),
+    location: decodeRegistryEndpointSync(`file://${registryRoot}`),
     owner: Option.none(),
   } satisfies PackRef["source"];
   const acceptedPackManifest = {
@@ -320,6 +322,58 @@ const makePackRollbackFixture = (
   writePackPackage(availablePackSource, availablePackManifest);
   writeSkillPackage(acceptedSkillSource, "review", "1.0.0");
   writeSkillPackage(availableSkillSource, "review", "2.0.0");
+
+  const acceptedIntegrities = new Map<string, string>();
+  for (const publication of [
+    {
+      type: "pack",
+      segment: "packs",
+      name: "toolkit",
+      root: acceptedPackSource,
+      files: ["pack.json"],
+      dependencies: acceptedPackManifest.dependencies,
+    },
+    {
+      type: "skill",
+      segment: "skills",
+      name: "review",
+      root: acceptedSkillSource,
+      files: ["skill.json", "src/SKILL.md"],
+      dependencies: undefined,
+    },
+  ]) {
+    const archive = zipSync(
+      Object.fromEntries(
+        publication.files.map((file) => [file, fs.readFileSync(path.join(publication.root, file))]),
+      ),
+    );
+    const integrity = `sha512-${createHash("sha512").update(archive).digest("base64")}`;
+    acceptedIntegrities.set(publication.type, integrity);
+    const directory = path.join(
+      registryRoot,
+      "extensions",
+      "@acme",
+      publication.segment,
+      publication.name,
+    );
+    writeJson(path.join(directory, "index.json"), {
+      owner: "@acme",
+      type: publication.type,
+      name: publication.name,
+      publisherBindingId: "hbnd_test",
+      archival: null,
+      deprecation: null,
+      versions: [
+        {
+          version: "1.0.0",
+          published: "1960-01-01T00:00:00Z",
+          integrity,
+          dependencies: publication.dependencies,
+        },
+      ],
+    });
+    fs.writeFileSync(path.join(directory, "1.0.0.zip"), archive);
+  }
 
   const availablePack = {
     type: "pack",
@@ -419,7 +473,7 @@ const makePackRollbackFixture = (
         owner: "@acme",
         name: "toolkit",
         resolvedVersion: "1.0.0",
-        integrity: `sha512-${"A".repeat(86)}==`,
+        integrity: acceptedIntegrities.get("pack"),
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(acceptedPackManifest),
@@ -433,7 +487,7 @@ const makePackRollbackFixture = (
         owner: "@acme",
         name: "review",
         resolvedVersion: "1.0.0",
-        integrity: `sha512-${"A".repeat(86)}==`,
+        integrity: acceptedIntegrities.get("skill"),
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         treeIntegrity: computeMaterializedTreeIntegritySync(acceptedSkillSource),
@@ -1913,62 +1967,69 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("reuses a trusted registry canonical when only agent projections are stale", () =>
-    Effect.gen(function* () {
-      const { provide } = makeLayers();
-      const axmDir = path.join(tempDir, ".axm");
-      const skillDir = path.join(
-        tempDir,
-        "agent_extensions",
-        "_local",
-        "absolute",
-        "root",
-        "tmp",
-        "registry-version-does-not-exist",
-        "@acme",
-        "skills",
-        "review",
-      );
-      writeSkillPackage(skillDir, "review", "1.0.0");
-      const sourceHash = computePackageContentHashSync(skillDir);
-      const treeIntegrity = computeMaterializedTreeIntegritySync(skillDir);
-      writeWorkspaceFiles(axmDir, {
-        agents: ["claude-code"],
-        skills: {
-          review: "@acme/skills/review@1.0.0",
-        },
-        sources: [
-          {
-            name: "test",
-            type: "registry",
-            location: "file:///tmp/registry-version-does-not-exist",
+  it.effect(
+    "refuses missing agent projections when the retained Registry package is unavailable",
+    () =>
+      Effect.gen(function* () {
+        const { provide, rendererState } = makeLayers({ machine: true });
+        const axmDir = path.join(tempDir, ".axm");
+        const skillDir = path.join(
+          tempDir,
+          "agent_extensions",
+          "_local",
+          "absolute",
+          "root",
+          "tmp",
+          "registry-version-does-not-exist",
+          "@acme",
+          "skills",
+          "review",
+        );
+        writeSkillPackage(skillDir, "review", "1.0.0");
+        const sourceHash = computePackageContentHashSync(skillDir);
+        const treeIntegrity = computeMaterializedTreeIntegritySync(skillDir);
+        writeWorkspaceFiles(axmDir, {
+          agents: ["claude-code"],
+          skills: {
+            review: "@acme/skills/review@1.0.0",
           },
-        ],
-        lockfileSkills: {
-          review: {
-            type: "registry",
-            owner: "@acme",
-            name: "review",
-            resolvedVersion: "1.0.0",
-            integrity: `sha512-${"A".repeat(86)}==`,
-            sourceName: "test",
-            publisherBindingId: "hbnd_test",
-            installedAt: "2026-08-01T00:00:00.000Z",
-            updatedAt: "2026-08-01T00:00:00.000Z",
-            sourceHash,
-            treeIntegrity,
+          sources: [
+            {
+              name: "test",
+              type: "registry",
+              location: "file:///tmp/registry-version-does-not-exist",
+            },
+          ],
+          lockfileSkills: {
+            review: {
+              type: "registry",
+              owner: "@acme",
+              name: "review",
+              resolvedVersion: "1.0.0",
+              integrity: `sha512-${"A".repeat(86)}==`,
+              sourceName: "test",
+              publisherBindingId: "hbnd_test",
+              installedAt: "2026-08-01T00:00:00.000Z",
+              updatedAt: "2026-08-01T00:00:00.000Z",
+              sourceHash,
+              treeIntegrity,
+            },
           },
-        },
-      });
+        });
 
-      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review"))).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review"))).toBe(false);
 
-      yield* provide(handleSync({ preview: false }));
+        const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
+        const lockBefore = fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8");
+        yield* provide(handleSync({ preview: false }));
+        expect(rendererState.results[0]?.data).toMatchObject({ result: { outcome: "failed" } });
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+        expect(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")).toBe(lockBefore);
 
-      expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "review"))).toBe(true);
-      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review"))).toBe(true);
-      expect(fs.existsSync(path.join(skillDir, "src", "SKILL.md"))).toBe(true);
-    }),
+        expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "review"))).toBe(false);
+        expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review"))).toBe(false);
+        expect(fs.existsSync(path.join(skillDir, "src", "SKILL.md"))).toBe(true);
+      }),
   );
 
   it.effect("names the extension when materialization preflight cannot resolve its source", () =>

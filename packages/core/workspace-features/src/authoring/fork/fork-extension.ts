@@ -74,6 +74,7 @@ import {
 import {
   operationPresentation,
   type CandidateFingerprintFailed,
+  type StaleExecutionCandidate,
   type JobStepArtifact,
   type Plan,
   type PlanExecution,
@@ -197,6 +198,7 @@ type ForkExtensionFailure =
   | WorkspaceLockfileReadFailure
   | WorkspaceSettingsReadFailure
   | CandidateFingerprintFailed
+  | StaleExecutionCandidate
   | FqnInvalidError;
 
 /** Everything settling a fork reads before it freezes a candidate. */

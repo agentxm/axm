@@ -82,6 +82,7 @@ import {
   makeOperationResolution,
   operationPresentation,
   type CandidateFingerprintFailed,
+  type StaleExecutionCandidate,
   type ConfiguredAgentOperation,
   type OperationResolution,
   type Plan,
@@ -271,6 +272,7 @@ type UpdateFailure =
   | Config.ConfigError
   | OperationRefused
   | CandidateFingerprintFailed
+  | StaleExecutionCandidate
   | ExtensionResolutionFailed
   | SourceResolutionFailure
   | AcceptedCanonicalRefError

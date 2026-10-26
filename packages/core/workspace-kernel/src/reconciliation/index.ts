@@ -33,6 +33,7 @@ export {
   type ResolveInstallRequirements,
 } from "./install-vocabulary.js";
 export { buildAggregateProjectionStep } from "./aggregate-projection-step.js";
+export { projectionExposureRefs } from "./projection-exposure.js";
 export { buildPackMemberStep, type PackMemberRef } from "./extensions/pack-member-step.js";
 export {
   registrySourceArtifact,
@@ -75,6 +76,7 @@ export {
 
 export { proposeDesiredState, type DesiredStateProposal } from "./proposed-state.js";
 export {
+  prepareSharedProjectionExposure,
   prepareEnabledRealization,
   prepareDisabledRealization,
   realizeActivation,

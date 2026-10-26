@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
-import { previewPlanExecution } from "@agentxm/workspace-kernel/operations";
+import { applyPlanExecution, previewPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import {
   InstallExtensions,
@@ -76,6 +76,20 @@ export const applyInstall = (request: InstallExtensionsRequest) =>
     return yield* InstallExtensions.previewOrApply(candidate, preapprovedPlanExecution).pipe(
       Effect.map((result) => result.resolution),
     );
+  });
+
+/** Fixture setup that deliberately accepts the planned external execution changes. */
+export const applyInstallAcceptingExecutionChanges = (request: InstallExtensionsRequest) =>
+  Effect.gen(function* () {
+    const candidate = yield* InstallExtensions.prepare(request);
+    return (yield* InstallExtensions.previewOrApply(
+      candidate,
+      applyPlanExecution({
+        approval: "preapproved",
+        acceptedPolicies: new Set(["accept-execution-changes"]),
+        recovery: { command: ["install"], arguments: [] },
+      }),
+    )).resolution;
   });
 
 /** A workspace that can resolve real sources, with a Registry to publish into. */

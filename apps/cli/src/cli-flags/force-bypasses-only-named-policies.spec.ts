@@ -85,7 +85,7 @@ describe("Override flags", () => {
       // unchecked; this walk reads that registry rather than a copy of it.
       const checked = new Set<string>();
       for (const [commandPath, doc] of helpFiles) {
-        for (const flag of doc.flags) {
+        for (const flag of [...doc.flags, ...(doc.globalFlags ?? [])]) {
           const rendered = `--${flag.name}`;
           if (rendered === "--force") {
             undocumented.push(`${commandPath}: bare --force flag`);

@@ -36,8 +36,47 @@ import type {
   SourceBindingProposal,
 } from "./evidence.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import type { HookConfigurationValues } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 
-export const PlanPolicyIds = ["accept-warnings"] as const;
+type ExecutionPreferences =
+  | {
+      readonly type: "hook";
+      readonly name: string;
+      readonly configuration: HookConfigurationValues;
+    }
+  | {
+      readonly type: "mcp-server";
+      readonly name: string;
+      /** Kind-owned declarations are decoded by the MCP review boundary using its canonical schemas. */
+      readonly distribution?: unknown;
+      readonly bindings?: unknown;
+      readonly auth?: unknown;
+      readonly authorizeDistributionSelection?: boolean;
+    };
+
+export const ExecutionChangeSchema = Schema.Struct({
+  extensionType: Schema.Literals(["hook", "mcp-server"]),
+  name: Schema.String,
+  source: Schema.String,
+  contentIdentity: Schema.String,
+  targets: Schema.Array(Schema.String),
+  registrations: Schema.Array(
+    Schema.Struct({
+      target: Schema.String,
+      change: Schema.Literals(["added", "changed", "removed", "unchanged", "unknown"]),
+    }),
+  ),
+  details: Schema.Array(Schema.String),
+  secretReferences: Schema.Array(Schema.String),
+  secretReferenceChanges: Schema.Struct({
+    previous: Schema.Literals(["known", "unavailable"]),
+    added: Schema.Array(Schema.String),
+    removed: Schema.Array(Schema.String),
+  }),
+});
+export type ExecutionChange = typeof ExecutionChangeSchema.Type;
+
+export const PlanPolicyIds = ["accept-warnings", "accept-execution-changes"] as const;
 
 const PlanPolicyIdSchema = Schema.Literals(PlanPolicyIds);
 export type PlanPolicyId = typeof PlanPolicyIdSchema.Type;
@@ -93,6 +132,7 @@ export const PlanRiskConditionSchema = Schema.Union([
     policy: PlanPolicyIdSchema,
     requiredFlag: Schema.String,
     detail: Schema.String,
+    executionChanges: Schema.optional(Schema.Array(ExecutionChangeSchema)),
   }),
   Schema.Struct({
     level: Schema.Literal("blocked"),
@@ -137,6 +177,8 @@ export const PackMembershipDeltaSchema = Schema.Struct({
 export type PackMembershipDelta = typeof PackMembershipDeltaSchema.Type;
 
 export interface JobStepArtifact {
+  /** Informational execution withdrawals; these do not require execution-change consent. */
+  readonly executionChanges?: ReadonlyArray<ExecutionChange>;
   /** Settled children of a committed reconciliation closure, keyed by planned unit. */
   readonly members?: ReadonlyArray<{
     readonly id: string;
@@ -297,6 +339,9 @@ export interface ReadyJobStep<Requirements = never, Output = never> {
   readonly sourceBinding?: SourceBindingProposal;
   /** External source trees required by a grouped semantic closure. */
   readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
+  /** Exact external sources this step makes agent-readable, including retained content. */
+  readonly exposureRefs?: ReadonlyArray<ExtensionRef>;
+  readonly executionPreferences?: ReadonlyArray<ExecutionPreferences>;
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
@@ -314,6 +359,9 @@ export interface WarnJobStep<Requirements = never, Output = never> {
   readonly registryBinding?: RegistryBindingProposal;
   readonly sourceBinding?: SourceBindingProposal;
   readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
+  /** Exact external sources this step makes agent-readable, including retained content. */
+  readonly exposureRefs?: ReadonlyArray<ExtensionRef>;
+  readonly executionPreferences?: ReadonlyArray<ExecutionPreferences>;
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
@@ -331,6 +379,9 @@ interface ErrorJobStep {
   readonly registryBinding?: RegistryBindingProposal;
   readonly sourceBinding?: SourceBindingProposal;
   readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
+  /** Exact external sources this step makes agent-readable, including retained content. */
+  readonly exposureRefs?: ReadonlyArray<ExtensionRef>;
+  readonly executionPreferences?: ReadonlyArray<ExecutionPreferences>;
   /** Semantic blockers already represented in Plan.riskConditions. */
   readonly blockingConditionIds?: ReadonlyArray<string>;
 }

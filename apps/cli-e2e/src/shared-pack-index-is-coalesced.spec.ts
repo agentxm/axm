@@ -148,9 +148,20 @@ describe("Shared configured Pack member", () => {
         });
         const requests = registry.requests.slice(start);
         const batches = registry.metadataRequests.slice(metadataStart);
-        const metadataRequests = batches.flat();
+        const purposes = registry.metadataPurposes.slice(metadataStart);
+        const metadataRequests = batches.flatMap((batch, batchIndex) =>
+          batch.map((identity, itemIndex) => ({
+            identity,
+            purpose: purposes[batchIndex]?.[itemIndex],
+          })),
+        );
         const memberMetadata = metadataRequests.filter(
-          (identity) => identity === `${OWNER}/skill/shared`,
+          ({ identity, purpose }) =>
+            identity === `${OWNER}/skill/shared` && purpose !== "restore-exact",
+        );
+        const memberAccessChecks = metadataRequests.filter(
+          ({ identity, purpose }) =>
+            identity === `${OWNER}/skill/shared` && purpose === "restore-exact",
         );
         expect(batches.map((batch) => batch.toSorted())).toContainEqual(
           [`${OWNER}/pack/first-pack`, `${OWNER}/pack/second-pack`].toSorted(),
@@ -169,6 +180,7 @@ describe("Shared configured Pack member", () => {
             })),
           )}`,
         ).toHaveLength(1);
+        expect(memberAccessChecks).toHaveLength(2);
         expect(memberArchive).toHaveLength(1);
         expect(memberArchive[0]?.path).toContain(
           `/skills/shared/${sharedPublication.version}/archive`,
@@ -206,11 +218,23 @@ describe("Shared configured Pack member", () => {
             env: { ...env, HOME: consumerHome.path, AXM_USER_HOME: consumerHome.path },
           });
           expect(restored.exitCode, restored.stdout + restored.stderr).toBe(0);
-          // Cached exact archives still require current Registry authorization.
+          // Exact restoration resolves the accepted choice, then rechecks current
+          // authorization before and after confirmation even with cached archives.
           expect(registry.metadataRequests.slice(beforeRestoreMetadata).flat().toSorted()).toEqual(
-            [`${OWNER}/pack/first-pack`, `${OWNER}/skill/shared`].toSorted(),
+            [
+              `${OWNER}/pack/first-pack`,
+              `${OWNER}/skill/shared`,
+              `${OWNER}/pack/first-pack`,
+              `${OWNER}/skill/shared`,
+              `${OWNER}/pack/first-pack`,
+              `${OWNER}/skill/shared`,
+            ].toSorted(),
           );
           expect(registry.metadataPurposes.slice(beforeRestoreMetadata).flat()).toEqual([
+            "restore-exact",
+            "restore-exact",
+            "restore-exact",
+            "restore-exact",
             "restore-exact",
             "restore-exact",
           ]);

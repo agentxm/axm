@@ -22,7 +22,11 @@ import * as HttpClient from "effect/http/HttpClient";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { DEFAULT_AUTHORED_DIRECTORIES } from "@agentxm/workspace-kernel/workspace-state";
-import { previewPlanExecution, type PlanExecution } from "@agentxm/workspace-kernel/operations";
+import {
+  applyPlanExecution,
+  previewPlanExecution,
+  type PlanExecution,
+} from "@agentxm/workspace-kernel/operations";
 import {
   ResolvePlanInteractionTest,
   preapprovedPlanExecution,
@@ -40,6 +44,7 @@ import {
 } from "../sync/index.js";
 import { syncRequest } from "../sync/testing.js";
 import { UninstallExtensions } from "../lifecycle/index.js";
+import { ConfigureAgents } from "../configuration/index.js";
 
 export { syncRequest };
 export { makeFileRegistry, type FileRegistry };
@@ -169,6 +174,17 @@ export const previewSync = (request: SyncWorkspaceRequest = syncRequest()) =>
 export const applySync = (request: SyncWorkspaceRequest = syncRequest()) =>
   resolveSync(request, preapprovedPlanExecution);
 
+/** A fixture's deliberate acknowledgment of the candidate's external execution changes. */
+export const applySyncAcceptingExecutionChanges = (request: SyncWorkspaceRequest = syncRequest()) =>
+  resolveSync(
+    request,
+    applyPlanExecution({
+      approval: "preapproved",
+      acceptedPolicies: new Set(["accept-execution-changes"]),
+      recovery: { command: ["sync"], arguments: [] },
+    }),
+  );
+
 /** Withdraw an MCP declaration with its pre-withdrawal ownership still available. */
 export const withdrawMcpServer = (name: string) =>
   Effect.gen(function* () {
@@ -211,3 +227,18 @@ export const writeAuthoredKnowledge = (root: string, name: string, description: 
     { name, description },
   );
 };
+
+/** Compose agent membership and reconciliation as the CLI does, with explicit invocation consent. */
+export const addConfiguredAgent = (id: string, execution: PlanExecution) =>
+  Effect.gen(function* () {
+    const candidate = yield* ConfigureAgents.add.prepare({ ids: [id], detected: false });
+    if (candidate._tag === "Unchanged")
+      throw new Error("The fixture expects a newly configured agent");
+    const materialization = yield* SyncWorkspace.planMaterialization({
+      configuredAgents: candidate.configuredAgents,
+      newlyConfiguredAgentIds: candidate.agentIds,
+    });
+    return yield* ConfigureAgents.add.previewOrApply(candidate, execution, {
+      steps: materialization.steps,
+    });
+  });

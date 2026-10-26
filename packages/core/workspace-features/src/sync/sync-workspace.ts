@@ -221,6 +221,7 @@ const planWorkspaceMaterialization = (args: {
     if (args.newlyConfiguredAgentIds === undefined || args.newlyConfiguredAgentIds.length === 0)
       return materialization;
     const instructions = yield* collectInstructionStep({
+      proposedRefs: materialization.steps.flatMap((step) => step.exposureRefs ?? []),
       ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
       newlyConfiguredAgentIds: args.newlyConfiguredAgentIds,
       projectionFacts: [],
@@ -351,6 +352,7 @@ const prepareSyncWorkspace = (
             !selectionTouches(selection, "knowledge") || !collected.cleanupSafe
               ? Option.none()
               : yield* collectKnowledgeStep({
+                  proposedRefs: collected.steps.flatMap((step) => step.exposureRefs ?? []),
                   nativeProjection: collected.knowledgeProjection,
                   adapter: conversion,
                   deferPreview: collected.knowledgeMayChange,
@@ -358,6 +360,7 @@ const prepareSyncWorkspace = (
                 });
           const hooksStep: Option.Option<SyncPlanStep> = selectionTouches(selection, "hook")
             ? yield* collectHooksStep({
+                proposedRefs: collected.steps.flatMap((step) => step.exposureRefs ?? []),
                 facts: hookProjectionFacts,
                 adapter: conversion,
                 ...(collected.preparedHookProjection === undefined
@@ -380,11 +383,13 @@ const prepareSyncWorkspace = (
             selectionTouches(selection, "hook") ||
             selectionTouches(selection, "knowledge")
               ? yield* collectInstructionStep({
+                  proposedRefs: collected.steps.flatMap((step) => step.exposureRefs ?? []),
                   nativeProjection: collected.ruleProjection,
                   ...(collected.preparedRulePlans === undefined
                     ? {}
                     : { prepared: collected.preparedRulePlans }),
                   projectionFacts: ruleProjectionFacts,
+                  knowledgeFacts: knowledgeProjectionFacts,
                   precedingNativeLocations: [
                     ...Option.toArray(knowledgeStep),
                     ...Option.toArray(hooksStep),

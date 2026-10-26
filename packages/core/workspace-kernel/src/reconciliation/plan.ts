@@ -17,6 +17,10 @@ import {
   SETTINGS_FILENAME,
 } from "@agentxm/extension-model/unstable/workspace-files";
 import * as Effect from "effect/Effect";
+import {
+  extensionRefName,
+  type ExtensionRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -56,7 +60,7 @@ import type { ManagerRequirements } from "../materialization/index.js";
 import type { RecipeRequirements } from "./extensions/operations.js";
 import {
   type Job,
-  type StepFailure,
+  StepFailure,
   type JobStepArtifact,
   type JobStepArtifactTarget,
   type JobStepLastWrite,
@@ -71,6 +75,8 @@ import {
 import { runWorkspaceTransaction, type WorkspaceTransactionScope } from "../settlement/index.js";
 import {
   SettingsReader,
+  acceptedLockedResolutionRef,
+  formatDesiredIdentity,
   AcceptedResolutionWriter,
   retainedPackageKeyForRef,
   DesiredStateReader,
@@ -186,6 +192,68 @@ const managedRegionsForFacts = (
           },
         ],
   );
+
+/** A shared output can expose retained contributors that need no acquisition step. */
+const retainedProjectionExposure = Effect.fn("Sync.retainedProjectionExposure")(function* (
+  types: ReadonlyArray<"hook" | "rule" | "knowledge">,
+  facts: ReadonlyArray<ProjectionInvariantFact>,
+  nativeLocations: ReadonlyArray<NativeLocationOutcome>,
+  adapter: StepFailureConversionService,
+  proposedRefs: ReadonlyArray<ExtensionRef> = [],
+) {
+  if (
+    nativeLocations.length > 0 &&
+    nativeLocations.every(
+      (unit) =>
+        (unit.state === "unchanged" || unit.state === "removed") &&
+        (unit.ownership === "owned" || unit.ownership === "declared"),
+    )
+  )
+    return { exposureRefs: [] };
+  const result = yield* Effect.result(
+    Effect.gen(function* () {
+      const graph = yield* (yield* DesiredStateReader).graph();
+      const contributors = new Set(facts.flatMap((fact) => fact.authority.contributors));
+      const nodes = graph.nodes.filter(
+        (node) =>
+          node.enabled &&
+          types.some((type) => node.type === type) &&
+          (facts.length === 0 ||
+            contributors.has(formatDesiredIdentity(node.identity)) ||
+            ("fqn" in node.identity &&
+              node.identity.fqn !== undefined &&
+              contributors.has(node.identity.fqn))),
+      );
+      return yield* Effect.forEach(
+        nodes.filter(
+          (node) =>
+            node.identity.authority !== "workspace" &&
+            node.identity.authority !== "bundled" &&
+            node.identity.authority !== "inline",
+        ),
+        (node) =>
+          Effect.gen(function* () {
+            const proposed = proposedRefs.find(
+              (ref) => ref.type === node.type && extensionRefName(ref) === node.name,
+            );
+            if (proposed !== undefined) return proposed;
+            const accepted = yield* acceptedLockedResolutionRef({
+              type: node.type,
+              name: node.name,
+            });
+            if (Option.isSome(accepted)) return accepted.value;
+            return yield* new StepFailure({
+              category: "conflict",
+              detail: `The exact source for ${node.type} ${node.name} is unavailable; the shared native output cannot be rewritten.`,
+            });
+          }),
+      );
+    }),
+  );
+  return Result.isSuccess(result)
+    ? { exposureRefs: result.success }
+    : { readiness: "error" as const, errorMessage: adapter.toStepFailure(result.failure).detail };
+});
 
 /** Which comparison a reader most needs when one file holds several rewritten units. */
 const LAST_WRITE_PRECEDENCE: ReadonlyArray<JobStepLastWrite> = [
@@ -320,6 +388,7 @@ export const buildInlineMcpServerSyncOperation = ({
 });
 
 export const collectKnowledgeStep: (args: {
+  readonly proposedRefs?: ReadonlyArray<ExtensionRef>;
   readonly nativeProjection?: NativeProjectionOptions;
   readonly adapter: StepFailureConversionService;
   readonly deferPreview?: boolean;
@@ -387,11 +456,27 @@ export const collectKnowledgeStep: (args: {
       ...(args.facts ?? []).flatMap((fact) => fact.observation.nativeLocations ?? []),
     ]),
   } satisfies JobStepArtifact;
+  const exposure = yield* retainedProjectionExposure(
+    ["knowledge"],
+    args.facts ?? [],
+    artifact.nativeLocations,
+    args.adapter,
+    args.proposedRefs,
+  );
+  if ("errorMessage" in exposure)
+    return Option.some<PlannedJobStep<SyncStepRequirements>>({
+      key: "knowledge:discovery",
+      label: "Knowledge discovery",
+      readiness: "error",
+      errorMessage: exposure.errorMessage,
+      artifact,
+    });
   return Option.some({
     key: "knowledge:discovery",
     label: projectionDivergenceLabel("Knowledge discovery", args.facts ?? []),
     readiness: "ready",
     artifact,
+    ...exposure,
     ...(message.length === 0 ? {} : { message }),
     run: manager
       .sync({
@@ -605,6 +690,7 @@ export const collectCleanupStep: (args: {
 });
 
 export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (args: {
+  readonly proposedRefs?: ReadonlyArray<ExtensionRef>;
   readonly facts: ReadonlyArray<ProjectionInvariantFact>;
   readonly adapter: StepFailureConversionService;
   readonly prepared?: PreparedHookProjection;
@@ -656,11 +742,27 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
       artifact,
     });
   }
+  const exposure = yield* retainedProjectionExposure(
+    ["hook"],
+    facts,
+    artifact.nativeLocations,
+    args.adapter,
+    args.proposedRefs,
+  );
+  if ("errorMessage" in exposure)
+    return Option.some<PlannedJobStep<SyncStepRequirements>>({
+      key: SYNC_RECOVERY_IDS.hookProjections,
+      label: "managed hook projections",
+      readiness: "error",
+      errorMessage: exposure.errorMessage,
+      artifact,
+    });
   return Option.some<PlannedJobStep<SyncStepRequirements>>({
     key: SYNC_RECOVERY_IDS.hookProjections,
     label: projectionDivergenceLabel("managed hook projections", facts),
     readiness: "ready",
     artifact,
+    ...exposure,
     run: Effect.gen(function* () {
       if (args.prepared === undefined) yield* applyPlannedProjections(manager);
       else yield* applyProjectionPlans(args.prepared.plans);
@@ -685,11 +787,13 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
 });
 
 export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(function* (args: {
+  readonly proposedRefs?: ReadonlyArray<ExtensionRef>;
   readonly configuredAgents?: ReadonlyArray<string>;
   readonly newlyConfiguredAgentIds?: ReadonlyArray<string>;
   readonly nativeProjection?: NativeProjectionOptions;
   readonly prepared?: Effect.Success<ReturnType<RuleManagerService["prepareProjection"]>>;
   readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
+  readonly knowledgeFacts?: ReadonlyArray<ProjectionInvariantFact>;
   /** Native region writes already declared by preceding steps in this closure. */
   readonly precedingNativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly touchesRule: boolean;
@@ -740,11 +844,27 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
         projectionFacts.flatMap((fact) => fact.observation.nativeLocations ?? []),
       ),
     } satisfies JobStepArtifact;
+    const exposure = yield* retainedProjectionExposure(
+      ["rule"],
+      projectionFacts,
+      artifact.nativeLocations,
+      args.adapter,
+      args.proposedRefs,
+    );
+    if ("errorMessage" in exposure)
+      return Option.some<PlannedJobStep<SyncStepRequirements>>({
+        key: SYNC_RECOVERY_IDS.instructionReconcile,
+        label: "managed Rules region",
+        readiness: "error",
+        errorMessage: exposure.errorMessage,
+        artifact,
+      });
     return Option.some<PlannedJobStep<SyncStepRequirements>>({
       key: SYNC_RECOVERY_IDS.instructionReconcile,
       readiness: "ready",
       label: projectionDivergenceLabel("managed Rules region", projectionFacts),
       artifact,
+      ...exposure,
       run: applyRules.pipe(
         Effect.andThen(manager.aggregateProjectionObservation),
         Effect.mapError(args.adapter.toStepFailure),
@@ -912,11 +1032,63 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     targets,
   } satisfies JobStepArtifact;
 
+  const exposure = yield* Effect.gen(function* () {
+    const copiesInstructionContent = artifact.nativeLocations.some(
+      (unit) =>
+        unit.policyReasons.includes("instruction-propagation") &&
+        (unit.state === "created" || unit.state === "updated"),
+    );
+    if (!copiesInstructionContent)
+      return yield* retainedProjectionExposure(
+        ["rule"],
+        projectionFacts,
+        artifact.nativeLocations,
+        args.adapter,
+        args.proposedRefs,
+      );
+    // An alias exposes the entire instruction source, including the other owner's region.
+    const ruleFacts =
+      projectionFacts.length > 0
+        ? projectionFacts
+        : (yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).map(
+            (unit) => makeProjectionInvariantFact(unit, location.scope),
+          );
+    const knowledgeFacts =
+      args.knowledgeFacts ??
+      (yield* (yield* KnowledgeManager)
+        .projectionPlans()
+        .pipe(Effect.flatMap(observeProjectionPlans))).map((unit) =>
+        makeProjectionInvariantFact(unit, location.scope),
+      );
+    return yield* retainedProjectionExposure(
+      ["rule", "knowledge"],
+      [...ruleFacts, ...knowledgeFacts],
+      artifact.nativeLocations,
+      args.adapter,
+      args.proposedRefs,
+    );
+  }).pipe(
+    Effect.catch((cause) =>
+      Effect.succeed({
+        readiness: "error" as const,
+        errorMessage: args.adapter.toStepFailure(cause).detail,
+      }),
+    ),
+  );
+  if ("errorMessage" in exposure)
+    return Option.some<PlannedJobStep<SyncStepRequirements>>({
+      key: SYNC_RECOVERY_IDS.instructionReconcile,
+      label: "instruction files",
+      readiness: "error",
+      errorMessage: exposure.errorMessage,
+      artifact,
+    });
   return Option.some<PlannedJobStep<SyncStepRequirements>>({
     key: SYNC_RECOVERY_IDS.instructionReconcile,
     readiness: "ready",
     label: projectionDivergenceLabel("instruction files", projectionFacts),
     artifact,
+    ...exposure,
     // Projection rows the step stages join the enclosing accepted-resolution
     // batch, or one the step opens, so they commit with its native writes.
     run: Effect.gen(function* () {

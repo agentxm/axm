@@ -27,7 +27,7 @@ import {
 } from "../../testing/local-packages.js";
 import { readSettings } from "./test-helpers.js";
 import {
-  applyInstall,
+  applyInstallAcceptingExecutionChanges,
   installRequest,
   makeInstallWorld,
   type InstallWorld,
@@ -100,7 +100,7 @@ describe("Install records direct workspace intent", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({ type: "skill", subject: { kind: "source", source } }),
           );
 
@@ -180,7 +180,7 @@ describe("Install records direct workspace intent", () => {
             );
             const before = workspace.snapshot();
 
-            const refused = yield* applyInstall(
+            const refused = yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "pack",
                 subject: { kind: "source", source: SHARED_MEMBER_PACKS[0].fqn },
@@ -211,7 +211,7 @@ describe("Install records direct workspace intent", () => {
             expect(workspace.readFile("axm.lock")).toContain(
               `version = "${SHARED_MEMBER_PIN.inside}"`,
             );
-            const replayed = yield* applyInstall(
+            const replayed = yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "pack",
                 subject: { kind: "source", source: SHARED_MEMBER_PACKS[0].fqn },
@@ -233,7 +233,9 @@ describe("Install records direct workspace intent", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(installRequest({ type, subject: { kind: "source", source } }));
+            yield* applyInstallAcceptingExecutionChanges(
+              installRequest({ type, subject: { kind: "source", source } }),
+            );
 
             expect(readSettings(workspace)).toMatchObject({
               [settingsKey]: { [name]: expect.anything() },

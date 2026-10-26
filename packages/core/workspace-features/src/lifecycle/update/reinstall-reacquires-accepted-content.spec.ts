@@ -8,13 +8,17 @@ import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
-import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../../testing/install-world.js";
 import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { UpdateExtensions } from "./update-extensions.js";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { previewPlanExecution } from "@agentxm/workspace-kernel/operations";
 import {
-  applyUpdate,
+  applyUpdateAcceptingExecutionChanges,
   configuredUpdateRequest,
   targetedUpdateRequest,
   previewUpdate,
@@ -54,7 +58,7 @@ describe("Update reacquisition", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({ type: "skill", subject: { kind: "source", source } }),
             );
             registry.writeSkill("review", [
@@ -65,7 +69,7 @@ describe("Update reacquisition", () => {
               route === "configured"
                 ? configuredUpdateRequest({ type: "skill", reinstall: true })
                 : targetedUpdateRequest({ source, reinstall: true });
-            const result = yield* Effect.result(applyUpdate(request));
+            const result = yield* Effect.result(applyUpdateAcceptingExecutionChanges(request));
             if (result._tag === "Success") {
               const resolved = expectResolved(result.success);
               expect(deriveOperationOutcome(resolved)).toBe("failed");
@@ -90,7 +94,7 @@ describe("Update reacquisition", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({ type: "skill", subject: { kind: "source", source } }),
           );
           const candidate = yield* UpdateExtensions.prepare(
@@ -166,7 +170,9 @@ describe("Update reacquisition", () => {
         return world.workspace
           .provide(
             Effect.gen(function* () {
-              yield* applyInstall(installRequest({ type, subject: { kind: "source", source } }));
+              yield* applyInstallAcceptingExecutionChanges(
+                installRequest({ type, subject: { kind: "source", source } }),
+              );
               const before = world.workspace.snapshot();
               const acquired = yield* Ref.make<ReadonlyArray<string>>([]);
               const providers = yield* SourceHostProviders;
@@ -180,7 +186,9 @@ describe("Update reacquisition", () => {
                       ),
                   }),
                 );
-              const ordinary = expectResolved(yield* observe(applyUpdate(request(false))));
+              const ordinary = expectResolved(
+                yield* observe(applyUpdateAcceptingExecutionChanges(request(false))),
+              );
               expect(deriveOperationOutcome(ordinary), JSON.stringify(ordinary)).toBe("no-op");
               expect(yield* Ref.get(acquired)).toEqual([]);
               expect(world.workspace.snapshot()).toEqual(before);
@@ -193,7 +201,9 @@ describe("Update reacquisition", () => {
               expect(world.workspace.snapshot()).toEqual(before);
               expect(yield* Ref.get(acquired)).toEqual([]);
 
-              const applied = expectResolved(yield* observe(applyUpdate(request(true))));
+              const applied = expectResolved(
+                yield* observe(applyUpdateAcceptingExecutionChanges(request(true))),
+              );
               expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe("no-op");
               expect(yield* Ref.get(acquired)).toContain(`${type}/${name}`);
               if (type === "pack") expect(yield* Ref.get(acquired)).toContain("skill/member");

@@ -28,7 +28,11 @@ afterEach(() => {
   for (const cleanup of cleanups.splice(0).reverse()) cleanup();
 });
 const fixture = () => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-boundary-claims-")));
+  // Effect's Windows filesystem uses native realpath, which expands short names.
+  // Start with that physical spelling so the fixture namespace is not an alias.
+  const root = fs.realpathSync.native(
+    fs.mkdtempSync(path.join(os.tmpdir(), "axm-boundary-claims-")),
+  );
   cleanups.push(() => fs.rmSync(root, { recursive: true, force: true }));
   const owner = (name: string) => {
     const directory = path.join(root, name);

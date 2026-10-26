@@ -1,3 +1,17 @@
+## 0.50.2 (2026-10-26)
+
+### 🚀 Features
+
+- Internal errors now point at the GitHub issue chooser and ask for the Diagnostic ID when one is shown, and root help's LEARN MORE gains a Report an issue row. The repository publishes GitHub issue forms for bug reports, feature requests, and agent support requests. ([7a99a66a7](https://github.com/agentxm/axm/commit/7a99a66a7))
+
+### 🩹 Fixes
+
+- Update Effect to 4.0.6 and the compiled CLI runtime to Bun 1.4.4, refresh build tooling and GitHub Actions, and resolve dependency security advisories. ([c56521254](https://github.com/agentxm/axm/commit/c56521254))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.50.1 (2026-10-21)
 
 ### 🚀 Features

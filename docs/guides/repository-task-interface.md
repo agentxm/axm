@@ -18,6 +18,11 @@ A local deviation is a gap with a retirement condition, not alternative policy.
 Resolved Nx configuration and executable checks own current behavior. Root
 instructions and contributor guides route here instead of copying this binding.
 
+Nx 24 selects affected tasks from their declared inputs. Keep the native task
+selection enabled; do not set `affected.legacy` or `NX_LEGACY_AFFECTED`. Shared
+toolchain inputs invalidate every task that consumes them, while the explicitly
+global checks in the verification workflows still run for every change.
+
 ## Workflow outcomes
 
 | Outcome                      | Evidence and boundary                                                                                 |

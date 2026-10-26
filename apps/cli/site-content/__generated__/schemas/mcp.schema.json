@@ -59,8 +59,8 @@
       "anyOf": [
         {
           "type": "string",
-          "examples": ["https://github.com/acme/code-review", "github:acme/code-review"],
-          "format": "uri-reference"
+          "format": "uri-reference",
+          "examples": ["https://github.com/acme/code-review", "github:acme/code-review"]
         },
         {
           "type": "object",
@@ -82,8 +82,8 @@
                 {
                   "minLength": 1,
                   "description": "Repository URL.",
-                  "examples": ["https://github.com/acme/code-review"],
-                  "format": "uri"
+                  "format": "uri",
+                  "examples": ["https://github.com/acme/code-review"]
                 }
               ]
             },
@@ -110,8 +110,8 @@
       "anyOf": [
         {
           "type": "string",
-          "examples": ["https://github.com/acme/code-review/issues"],
-          "format": "uri"
+          "format": "uri",
+          "examples": ["https://github.com/acme/code-review/issues"]
         },
         {
           "type": "object",
@@ -124,8 +124,8 @@
                     {
                       "minLength": 1,
                       "description": "Issue tracker URL.",
-                      "examples": ["https://github.com/acme/code-review/issues"],
-                      "format": "uri"
+                      "format": "uri",
+                      "examples": ["https://github.com/acme/code-review/issues"]
                     }
                   ]
                 },
@@ -140,8 +140,8 @@
                     {
                       "minLength": 1,
                       "description": "Contact email for bug reports.",
-                      "examples": ["bugs@acme.dev"],
-                      "format": "email"
+                      "format": "email",
+                      "examples": ["bugs@acme.dev"]
                     }
                   ]
                 },
@@ -607,7 +607,7 @@
         "repository": { "anyOf": [{ "$ref": "#/definitions/Repository" }, { "type": "null" }] },
         "homepage": {
           "anyOf": [
-            { "type": "string", "examples": ["https://acme.dev/code-review"], "format": "uri" },
+            { "type": "string", "format": "uri", "examples": ["https://acme.dev/code-review"] },
             { "type": "null" }
           ]
         },
@@ -617,8 +617,8 @@
               "type": "string",
               "title": "License",
               "description": "SPDX license expression, or `UNLICENSED` for proprietary code.",
-              "examples": ["MIT", "Apache-2.0", "MIT OR Apache-2.0", "UNLICENSED"],
-              "format": "spdx-expression"
+              "format": "spdx-expression",
+              "examples": ["MIT", "Apache-2.0", "MIT OR Apache-2.0", "UNLICENSED"]
             },
             { "type": "null" }
           ]

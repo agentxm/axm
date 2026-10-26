@@ -73,7 +73,7 @@
     ],
     "{!(.axm|agent_extensions)/**/,}*.{json,md,mdx,yml,yaml,css,scss,html}": "prettier --write"
   },
-  "packageManager": "pnpm@12.14.0",
+  "packageManager": "pnpm@12.15.0",
   "devDependencies": {
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/client-e2e-utils": "workspace:*",
@@ -114,7 +114,7 @@
     "eslint-plugin-boundaries": "catalog:",
     "husky": "catalog:",
     "jsonc-eslint-parser": "catalog:",
-    "knip": "6.41.0",
+    "knip": "6.42.0",
     "lint-staged": "catalog:",
     "nx": "catalog:",
     "prettier": "catalog:",

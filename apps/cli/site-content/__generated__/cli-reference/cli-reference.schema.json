@@ -54,12 +54,8 @@
               "default": {
                 "anyOf": [
                   { "type": "string" },
-                  {
-                    "anyOf": [
-                      { "type": "number" },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
+                  { "type": "number" },
+                  { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
                   { "type": "boolean" }
                 ]
               },
@@ -126,12 +122,8 @@
               "default": {
                 "anyOf": [
                   { "type": "string" },
-                  {
-                    "anyOf": [
-                      { "type": "number" },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
+                  { "type": "number" },
+                  { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
                   { "type": "boolean" }
                 ]
               },
@@ -198,12 +190,8 @@
               "default": {
                 "anyOf": [
                   { "type": "string" },
-                  {
-                    "anyOf": [
-                      { "type": "number" },
-                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                    ]
-                  },
+                  { "type": "number" },
+                  { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
                   { "type": "boolean" }
                 ]
               },

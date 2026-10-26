@@ -48,17 +48,15 @@ export type DecodeErrorResponse = {
 export const DecodeErrorResponse = Schema.Struct({
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-    .check(
-      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-        expected: "a value greater than or equal to -9007199254740991",
-      }),
-    )
-    .check(
-      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-        expected: "a value less than or equal to 9007199254740991",
-      }),
-    ),
+  status: Schema.Int.check(
+    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+      expected: "a value greater than or equal to -9007199254740991",
+    }),
+  ).check(
+    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+      expected: "a value less than or equal to 9007199254740991",
+    }),
+  ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
@@ -354,13 +352,11 @@ export const TelemetryClientContext = Schema.Struct({
 export type TelemetryEventsReceipt = { readonly receipt: "received"; readonly eventCount: number };
 export const TelemetryEventsReceipt = Schema.Struct({
   receipt: Schema.Literal("received"),
-  eventCount: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-    .check(
-      Schema.isGreaterThanOrEqualTo(1).annotate({ expected: "a value greater than or equal to 1" }),
-    )
-    .check(
-      Schema.isLessThanOrEqualTo(100).annotate({ expected: "a value less than or equal to 100" }),
-    ),
+  eventCount: Schema.Int.check(
+    Schema.isGreaterThanOrEqualTo(1).annotate({ expected: "a value greater than or equal to 1" }),
+  ).check(
+    Schema.isLessThanOrEqualTo(100).annotate({ expected: "a value less than or equal to 100" }),
+  ),
 }).annotate({
   description:
     "Validated and scheduled for bounded best-effort forwarding; not durable storage or provider ingestion.",
@@ -379,17 +375,15 @@ export const TelemetryPayloadTooLargeErrorEncoded = Schema.Struct({
   kind: Schema.Literal("TelemetryPayloadTooLargeError"),
   type: Schema.String,
   title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-    .check(
-      Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-        expected: "a value greater than or equal to -9007199254740991",
-      }),
-    )
-    .check(
-      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-        expected: "a value less than or equal to 9007199254740991",
-      }),
-    ),
+  status: Schema.Int.check(
+    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
+      expected: "a value greater than or equal to -9007199254740991",
+    }),
+  ).check(
+    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+      expected: "a value less than or equal to 9007199254740991",
+    }),
+  ),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
@@ -645,33 +639,27 @@ export const TelemetryFailureRequest = Schema.Struct({
   ),
   status: Schema.optionalKey(
     Schema.Union([
-      Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-        .check(
-          Schema.isGreaterThanOrEqualTo(100).annotate({
-            expected: "a value greater than or equal to 100",
-          }),
-        )
-        .check(
-          Schema.isLessThanOrEqualTo(599).annotate({
-            expected: "a value less than or equal to 599",
-          }),
-        ),
+      Schema.Int.check(
+        Schema.isGreaterThanOrEqualTo(100).annotate({
+          expected: "a value greater than or equal to 100",
+        }),
+      ).check(
+        Schema.isLessThanOrEqualTo(599).annotate({ expected: "a value less than or equal to 599" }),
+      ),
       Schema.Null,
     ]),
   ),
   attemptCount: Schema.optionalKey(
     Schema.Union([
-      Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-        .check(
-          Schema.isGreaterThanOrEqualTo(1).annotate({
-            expected: "a value greater than or equal to 1",
-          }),
-        )
-        .check(
-          Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-            expected: "a value less than or equal to 9007199254740991",
-          }),
-        ),
+      Schema.Int.check(
+        Schema.isGreaterThanOrEqualTo(1).annotate({
+          expected: "a value greater than or equal to 1",
+        }),
+      ).check(
+        Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+          expected: "a value less than or equal to 9007199254740991",
+        }),
+      ),
       Schema.Null,
     ]),
   ),
@@ -724,24 +712,20 @@ export const TelemetryFailureFrame = Schema.Struct({
         "a string matching the RegExp ^src\\/(?:[a-zA-Z0-9_-]+\\/)*[a-zA-Z0-9_-]+(?:\\.[a-zA-Z0-9_-]+)*\\.(?:ts|tsx|js|jsx)$",
     }),
   ),
-  line: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-    .check(
-      Schema.isGreaterThanOrEqualTo(1).annotate({ expected: "a value greater than or equal to 1" }),
-    )
-    .check(
-      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-        expected: "a value less than or equal to 9007199254740991",
-      }),
-    ),
-  column: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-    .check(
-      Schema.isGreaterThanOrEqualTo(0).annotate({ expected: "a value greater than or equal to 0" }),
-    )
-    .check(
-      Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-        expected: "a value less than or equal to 9007199254740991",
-      }),
-    ),
+  line: Schema.Int.check(
+    Schema.isGreaterThanOrEqualTo(1).annotate({ expected: "a value greater than or equal to 1" }),
+  ).check(
+    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+      expected: "a value less than or equal to 9007199254740991",
+    }),
+  ),
+  column: Schema.Int.check(
+    Schema.isGreaterThanOrEqualTo(0).annotate({ expected: "a value greater than or equal to 0" }),
+  ).check(
+    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+      expected: "a value less than or equal to 9007199254740991",
+    }),
+  ),
 }).annotate({
   description:
     "A source location verified against the reporting AXM build. No absolute path, function text, source excerpt, variables, or extension code is carried.",
@@ -1334,61 +1318,51 @@ export const TelemetryErrorReport = Schema.Struct({
     counts: Schema.optionalKey(
       Schema.Union([
         Schema.Struct({
-          confirmed: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-            .check(
-              Schema.isGreaterThanOrEqualTo(0).annotate({
-                expected: "a value greater than or equal to 0",
-              }),
-            )
-            .check(
-              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-                expected: "a value less than or equal to 9007199254740991",
-              }),
-            ),
-          failed: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-            .check(
-              Schema.isGreaterThanOrEqualTo(0).annotate({
-                expected: "a value greater than or equal to 0",
-              }),
-            )
-            .check(
-              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-                expected: "a value less than or equal to 9007199254740991",
-              }),
-            ),
-          blocked: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-            .check(
-              Schema.isGreaterThanOrEqualTo(0).annotate({
-                expected: "a value greater than or equal to 0",
-              }),
-            )
-            .check(
-              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-                expected: "a value less than or equal to 9007199254740991",
-              }),
-            ),
-          unattempted: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-            .check(
-              Schema.isGreaterThanOrEqualTo(0).annotate({
-                expected: "a value greater than or equal to 0",
-              }),
-            )
-            .check(
-              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-                expected: "a value less than or equal to 9007199254740991",
-              }),
-            ),
-          unknown: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-            .check(
-              Schema.isGreaterThanOrEqualTo(0).annotate({
-                expected: "a value greater than or equal to 0",
-              }),
-            )
-            .check(
-              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-                expected: "a value less than or equal to 9007199254740991",
-              }),
-            ),
+          confirmed: Schema.Int.check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          ).check(
+            Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+              expected: "a value less than or equal to 9007199254740991",
+            }),
+          ),
+          failed: Schema.Int.check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          ).check(
+            Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+              expected: "a value less than or equal to 9007199254740991",
+            }),
+          ),
+          blocked: Schema.Int.check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          ).check(
+            Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+              expected: "a value less than or equal to 9007199254740991",
+            }),
+          ),
+          unattempted: Schema.Int.check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          ).check(
+            Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+              expected: "a value less than or equal to 9007199254740991",
+            }),
+          ),
+          unknown: Schema.Int.check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          ).check(
+            Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+              expected: "a value less than or equal to 9007199254740991",
+            }),
+          ),
         }),
         Schema.Null,
       ]),
@@ -1423,17 +1397,15 @@ export const TelemetryErrorReport = Schema.Struct({
                   expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
                 }),
               ),
-            count: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-              .check(
-                Schema.isGreaterThanOrEqualTo(1).annotate({
-                  expected: "a value greater than or equal to 1",
-                }),
-              )
-              .check(
-                Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-                  expected: "a value less than or equal to 9007199254740991",
-                }),
-              ),
+            count: Schema.Int.check(
+              Schema.isGreaterThanOrEqualTo(1).annotate({
+                expected: "a value greater than or equal to 1",
+              }),
+            ).check(
+              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+                expected: "a value less than or equal to 9007199254740991",
+              }),
+            ),
             request: Schema.optionalKey(Schema.Union([TelemetryFailureRequest, Schema.Null])),
           }),
         ).check(Schema.isMaxLength(8).annotate({ expected: "a value with a length of at most 8" })),
@@ -1442,17 +1414,15 @@ export const TelemetryErrorReport = Schema.Struct({
     ),
     relatedOmitted: Schema.optionalKey(
       Schema.Union([
-        Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-          .check(
-            Schema.isGreaterThanOrEqualTo(0).annotate({
-              expected: "a value greater than or equal to 0",
-            }),
-          )
-          .check(
-            Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-              expected: "a value less than or equal to 9007199254740991",
-            }),
-          ),
+        Schema.Int.check(
+          Schema.isGreaterThanOrEqualTo(0).annotate({
+            expected: "a value greater than or equal to 0",
+          }),
+        ).check(
+          Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+            expected: "a value less than or equal to 9007199254740991",
+          }),
+        ),
         Schema.Null,
       ]),
     ),
@@ -1474,17 +1444,15 @@ export const TelemetryErrorReport = Schema.Struct({
                 }),
               ),
             outcome: Schema.Literals(["started", "succeeded", "failed", "unknown"]),
-            elapsedMs: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
-              .check(
-                Schema.isGreaterThanOrEqualTo(0).annotate({
-                  expected: "a value greater than or equal to 0",
-                }),
-              )
-              .check(
-                Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-                  expected: "a value less than or equal to 9007199254740991",
-                }),
-              ),
+            elapsedMs: Schema.Int.check(
+              Schema.isGreaterThanOrEqualTo(0).annotate({
+                expected: "a value greater than or equal to 0",
+              }),
+            ).check(
+              Schema.isLessThanOrEqualTo(9007199254740991).annotate({
+                expected: "a value less than or equal to 9007199254740991",
+              }),
+            ),
           }),
         ).check(
           Schema.isMaxLength(16).annotate({ expected: "a value with a length of at most 16" }),

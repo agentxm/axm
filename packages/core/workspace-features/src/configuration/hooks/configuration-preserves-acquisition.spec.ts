@@ -1,19 +1,25 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import { applyPlanExecution, deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { ConfigureHook } from "../index.js";
 import { makeConfigurationFixture } from "../testing.js";
-import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/hooks/configure/preserves-acquisition-and-package-content",
   title: "Hook extension configuration changes consumer values without acquiring another package",
   statement:
-    "When a person configures an installed hook extension, AXM shall validate and replace consumer values, reconcile active native registrations, preserve immutable package content and accepted resolution, retain disabled state and source-less Pack membership, and refuse stale or unowned packages without changing workspace state.",
+    "When a person configures an installed hook extension after satisfying applicable execution-review and current-access requirements, AXM shall validate and replace consumer values, reconcile active native registrations, preserve immutable package content and accepted resolution, retain disabled state and source-less Pack membership, and refuse stale or unowned packages without changing workspace state.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition", "extension-adoption"],
@@ -21,7 +27,11 @@ export const specification = defineSpecification({
   boundary: "platform",
   boundaryRationale:
     "Real native files and package archives demonstrate preserved content, registration replacement, and source ownership.",
-  derivedFrom: ["extensions/hooks/resolve-typed-consumer-configuration"],
+  derivedFrom: [
+    "extensions/hooks/resolve-typed-consumer-configuration",
+    "workspace/acknowledge-external-execution",
+    "workspace/recheck-registry-exposure",
+  ],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -53,10 +63,13 @@ const manifest = JSON.stringify({
   ],
 });
 
-const configure = (label: string) =>
+const configure = (
+  label: string,
+  execution: Parameters<typeof ConfigureHook.previewOrApply>[1] = preapprovedPlanExecution,
+) =>
   Effect.gen(function* () {
     const candidate = yield* ConfigureHook.prepare({ name: "audit", configuration: { label } });
-    return yield* ConfigureHook.previewOrApply(candidate, preapprovedPlanExecution);
+    return yield* ConfigureHook.previewOrApply(candidate, execution);
   });
 
 describe("Configuring installed hook extensions", () => {
@@ -91,7 +104,7 @@ describe("Configuring installed hook extensions", () => {
               for (const source of route === "direct"
                 ? ["@acme/hooks/audit"]
                 : ["@acme/packs/first", "@acme/packs/second"]) {
-                const installed = yield* applyInstall(
+                const installed = yield* applyInstallAcceptingExecutionChanges(
                   installRequest({
                     type: route === "direct" ? "hook" : "pack",
                     subject: { kind: "source", source: `${source}@1.0.0` },
@@ -103,7 +116,21 @@ describe("Configuring installed hook extensions", () => {
               const content = world.workspace.readFile(
                 `${fileRegistryPackagePath(world.registry, "hooks", "audit")}/hook.json`,
               );
-              expect(deriveOperationOutcome(yield* configure("replacement"))).toBe("applied");
+              const beforeConfiguration = world.workspace.snapshot();
+              expect(deriveOperationOutcome(yield* configure("replacement"))).toBe("blocked");
+              expect(world.workspace.snapshot()).toEqual(beforeConfiguration);
+              expect(
+                deriveOperationOutcome(
+                  yield* configure(
+                    "replacement",
+                    applyPlanExecution({
+                      approval: "preapproved",
+                      acceptedPolicies: new Set(["accept-execution-changes"]),
+                      recovery: { command: ["hooks", "configure"], arguments: [] },
+                    }),
+                  ),
+                ),
+              ).toBe("applied");
               const settings: unknown = JSON.parse(world.workspace.readFile("axm.json"));
               expect(settings).toMatchObject({
                 hooks: { audit: { configuration: { label: "replacement" } } },
@@ -133,6 +160,47 @@ describe("Configuring installed hook extensions", () => {
       { timeout: 60_000 },
     );
   }
+
+  it.effect("refuses configuration when another retained contributor is no longer eligible", () => {
+    const world = makeInstallWorld();
+    cleanups.push(world.cleanup);
+    world.registry.writeHook("audit", [{ version: "1.0.0", files: { "hook.json": manifest } }]);
+    world.registry.writeHook("retained", [{ version: "1.0.0" }]);
+    return world.workspace
+      .provide(
+        Effect.gen(function* () {
+          for (const name of ["audit", "retained"]) {
+            const installed = yield* applyInstallAcceptingExecutionChanges(
+              installRequest({
+                type: "hook",
+                subject: { kind: "source", source: `@acme/hooks/${name}@1.0.0` },
+              }),
+            );
+            expect(deriveOperationOutcome(installed)).toBe("applied");
+          }
+          fs.rmSync(
+            path.join(world.registry.root, "extensions", "@acme", "hooks", "retained", "1.0.0.zip"),
+          );
+          const before = world.workspace.snapshot();
+          const result = yield* configure(
+            "replacement",
+            applyPlanExecution({
+              approval: "preapproved",
+              acceptedPolicies: new Set(["accept-execution-changes"]),
+              recovery: { command: ["hooks", "configure"], arguments: [] },
+            }),
+          );
+          expect(deriveOperationOutcome(result)).toBe("failed");
+          expect(result).toMatchObject({
+            failure: {
+              detail: expect.stringContaining("Accepted local Registry archive is unavailable"),
+            },
+          });
+          expect(world.workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect("retains disabled state and leaves foreign native files untouched", () => {
     const world = makeConfigurationFixture({

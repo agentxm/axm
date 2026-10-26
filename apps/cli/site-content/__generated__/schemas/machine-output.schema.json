@@ -2271,6 +2271,63 @@
     "StepArtifact": {
       "type": "object",
       "properties": {
+        "executionChanges": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "extensionType": { "type": "string", "enum": ["hook", "mcp-server"] },
+                  "name": { "type": "string" },
+                  "source": { "type": "string" },
+                  "contentIdentity": { "type": "string" },
+                  "targets": { "type": "array", "items": { "type": "string" } },
+                  "registrations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "target": { "type": "string" },
+                        "change": {
+                          "type": "string",
+                          "enum": ["added", "changed", "removed", "unchanged", "unknown"]
+                        }
+                      },
+                      "required": ["target", "change"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "details": { "type": "array", "items": { "type": "string" } },
+                  "secretReferences": { "type": "array", "items": { "type": "string" } },
+                  "secretReferenceChanges": {
+                    "type": "object",
+                    "properties": {
+                      "previous": { "type": "string", "enum": ["known", "unavailable"] },
+                      "added": { "type": "array", "items": { "type": "string" } },
+                      "removed": { "type": "array", "items": { "type": "string" } }
+                    },
+                    "required": ["previous", "added", "removed"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "extensionType",
+                  "name",
+                  "source",
+                  "contentIdentity",
+                  "targets",
+                  "registrations",
+                  "details",
+                  "secretReferences",
+                  "secretReferenceChanges"
+                ],
+                "additionalProperties": false
+              }
+            },
+            { "type": "null" }
+          ]
+        },
         "nativeLocations": {
           "anyOf": [
             { "type": "array", "items": { "$ref": "#/$defs/NativeLocationOutcome" } },
@@ -3004,9 +3061,84 @@
                     "properties": {
                       "level": { "type": "string", "enum": ["override-required"] },
                       "id": { "type": "string" },
-                      "policy": { "anyOf": [{ "type": "string", "enum": ["accept-warnings"] }] },
+                      "policy": {
+                        "type": "string",
+                        "enum": ["accept-warnings", "accept-execution-changes"]
+                      },
                       "requiredFlag": { "type": "string" },
-                      "detail": { "type": "string" }
+                      "detail": { "type": "string" },
+                      "executionChanges": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "extensionType": {
+                                  "type": "string",
+                                  "enum": ["hook", "mcp-server"]
+                                },
+                                "name": { "type": "string" },
+                                "source": { "type": "string" },
+                                "contentIdentity": { "type": "string" },
+                                "targets": { "type": "array", "items": { "type": "string" } },
+                                "registrations": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "target": { "type": "string" },
+                                      "change": {
+                                        "type": "string",
+                                        "enum": [
+                                          "added",
+                                          "changed",
+                                          "removed",
+                                          "unchanged",
+                                          "unknown"
+                                        ]
+                                      }
+                                    },
+                                    "required": ["target", "change"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "details": { "type": "array", "items": { "type": "string" } },
+                                "secretReferences": {
+                                  "type": "array",
+                                  "items": { "type": "string" }
+                                },
+                                "secretReferenceChanges": {
+                                  "type": "object",
+                                  "properties": {
+                                    "previous": {
+                                      "type": "string",
+                                      "enum": ["known", "unavailable"]
+                                    },
+                                    "added": { "type": "array", "items": { "type": "string" } },
+                                    "removed": { "type": "array", "items": { "type": "string" } }
+                                  },
+                                  "required": ["previous", "added", "removed"],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "extensionType",
+                                "name",
+                                "source",
+                                "contentIdentity",
+                                "targets",
+                                "registrations",
+                                "details",
+                                "secretReferences",
+                                "secretReferenceChanges"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          { "type": "null" }
+                        ]
+                      }
                     },
                     "required": ["level", "id", "policy", "requiredFlag", "detail"],
                     "additionalProperties": false
@@ -3848,10 +3980,86 @@
                           "level": { "type": "string", "enum": ["override-required"] },
                           "id": { "type": "string" },
                           "policy": {
-                            "anyOf": [{ "type": "string", "enum": ["accept-warnings"] }]
+                            "type": "string",
+                            "enum": ["accept-warnings", "accept-execution-changes"]
                           },
                           "requiredFlag": { "type": "string" },
-                          "detail": { "type": "string" }
+                          "detail": { "type": "string" },
+                          "executionChanges": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "extensionType": {
+                                      "type": "string",
+                                      "enum": ["hook", "mcp-server"]
+                                    },
+                                    "name": { "type": "string" },
+                                    "source": { "type": "string" },
+                                    "contentIdentity": { "type": "string" },
+                                    "targets": { "type": "array", "items": { "type": "string" } },
+                                    "registrations": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "target": { "type": "string" },
+                                          "change": {
+                                            "type": "string",
+                                            "enum": [
+                                              "added",
+                                              "changed",
+                                              "removed",
+                                              "unchanged",
+                                              "unknown"
+                                            ]
+                                          }
+                                        },
+                                        "required": ["target", "change"],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "details": { "type": "array", "items": { "type": "string" } },
+                                    "secretReferences": {
+                                      "type": "array",
+                                      "items": { "type": "string" }
+                                    },
+                                    "secretReferenceChanges": {
+                                      "type": "object",
+                                      "properties": {
+                                        "previous": {
+                                          "type": "string",
+                                          "enum": ["known", "unavailable"]
+                                        },
+                                        "added": { "type": "array", "items": { "type": "string" } },
+                                        "removed": {
+                                          "type": "array",
+                                          "items": { "type": "string" }
+                                        }
+                                      },
+                                      "required": ["previous", "added", "removed"],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "required": [
+                                    "extensionType",
+                                    "name",
+                                    "source",
+                                    "contentIdentity",
+                                    "targets",
+                                    "registrations",
+                                    "details",
+                                    "secretReferences",
+                                    "secretReferenceChanges"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              { "type": "null" }
+                            ]
+                          }
                         },
                         "required": ["level", "id", "policy", "requiredFlag", "detail"],
                         "additionalProperties": false

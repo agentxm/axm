@@ -24,10 +24,15 @@ import {
 
 import * as Option from "effect/Option";
 
-import { HookManager } from "@agentxm/workspace-kernel/materialization";
+import {
+  HookManager,
+  type RuleManager,
+  type KnowledgeManager,
+} from "@agentxm/workspace-kernel/materialization";
 import type { NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
 import {
   buildInstallOperation,
+  projectionExposureRefs,
   forecastInstallChange,
   type InstallArtifactPresentation,
   kernelFailureToStepFailure,
@@ -51,6 +56,7 @@ import {
 import {
   applyInstructionSurfacePlans,
   captureAgentOutputAuthority,
+  observeProjectionPlans,
 } from "@agentxm/workspace-kernel/projection";
 
 /** Hooks packages the request selected. */
@@ -105,7 +111,7 @@ export const planHookInstall: (
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
   OperationRefused,
-  InstallStepRequirements | HookManager
+  InstallStepRequirements | HookManager | RuleManager | KnowledgeManager
 > = Effect.fn("InstallExtensions.planHooks")(function* (intent: HookInstallIntent) {
   const configuredRef = intent.refs[0];
   if (
@@ -151,7 +157,7 @@ export const planHookInstall: (
   );
   // Physical routes, whole-file grammar, and shared renderings must refuse
   // before the install recipe publishes settings or accepted resolution.
-  yield* hookManager
+  const prepared = yield* hookManager
     .prepareProjection(intent.projectionRefs ?? intent.refs.map(({ ref }) => ref), {
       priorAuthority,
       nativeInsertionEligibleNames,
@@ -167,6 +173,22 @@ export const planHookInstall: (
         }),
       ),
     );
+  const exposureRefs = yield* observeProjectionPlans(prepared.plans).pipe(
+    Effect.flatMap((observations) =>
+      projectionExposureRefs({
+        observations,
+        graph: intent.desiredGraph ?? priorGraph,
+        proposedRefs: intent.projectionRefs ?? intent.refs.map(({ ref }) => ref),
+      }),
+    ),
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "conflict",
+        detail: "Cannot establish every source exposed by the Hook projection",
+        cause,
+      }),
+    ),
+  );
   const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
   const memberSteps = yield* Effect.forEach(
     intent.refs,
@@ -218,6 +240,7 @@ export const planHookInstall: (
         const operation = buildInstallOperation(hookManager, {
           toStepFailure: kernelFailureToStepFailure,
           ref,
+          projectionExposureRefs: exposureRefs,
           declaration: { name: ref.hook.name, versionRange },
           ...(intent.configuration === undefined
             ? {}
@@ -301,6 +324,7 @@ export const planHookInstall: (
             key: "projection:hook:units",
             label: "hook projections",
             readiness: "ready",
+            exposureRefs,
             run: hookManager
               .projectionPlans({ priorAuthority, nativeInsertionEligibleNames })
               .pipe(Effect.flatMap(applyInstructionSurfacePlans))

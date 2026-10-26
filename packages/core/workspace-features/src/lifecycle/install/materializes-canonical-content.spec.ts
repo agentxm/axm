@@ -19,7 +19,11 @@ import {
   type OperationEvent,
 } from "@agentxm/workspace-kernel/operations";
 import { entriesUnder, localLifecycleRows } from "./test-helpers.js";
-import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/materializes-canonical-content",
@@ -67,7 +71,7 @@ describe("Install materializes canonical content", () => {
             yield* files.writeFileString(sourceScript, "#!/bin/sh\nprintf 'review complete\\n'\n");
             yield* files.chmod(sourceScript, 0o755);
 
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({ type: "skill", subject: { kind: "source", source } }),
             );
 
@@ -93,7 +97,7 @@ describe("Install materializes canonical content", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({ type: "skill", subject: { kind: "source", source } }),
           );
 
@@ -114,7 +118,9 @@ describe("Install materializes canonical content", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(installRequest({ type, subject: { kind: "source", source } }));
+            yield* applyInstallAcceptingExecutionChanges(
+              installRequest({ type, subject: { kind: "source", source } }),
+            );
 
             const relative = canonicalFile(name);
             expect(
@@ -147,7 +153,7 @@ describe("Install materializes canonical content", () => {
           yield* subscribeLossless(lifecycle, (event) =>
             Effect.sync(() => void events.push(event)),
           );
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "skill",
               subject: { kind: "source", source: "@acme/skills/registry-review@1.2.3" },

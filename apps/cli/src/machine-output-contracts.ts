@@ -10,8 +10,8 @@
  *
  * The schema names refer to the named Effect Schema used at the renderer call
  * boundary. Success envelopes add `ok` and may add `summary` / `suggestions`.
- * Built-in help and version documents are formatter-owned exceptions and do
- * not use the success envelope.
+ * Built-in help and version documents are formatter-owned exceptions. Standard
+ * document exports name their external schema. Neither uses the success envelope.
  */
 
 import {
@@ -19,7 +19,8 @@ import {
   extensionTypes,
 } from "@agentxm/extension-model/unstable/extensions";
 
-type MachineOutputClass = "formatter-help" | "structured-result" | "json-refused";
+type MachineOutputClass =
+  "formatter-help" | "structured-result" | "json-refused" | "external-document";
 type HumanOutputKind = "orientation" | "query" | "mutation" | "mixed";
 type LivenessClass = "immediate" | "progress";
 
@@ -29,6 +30,7 @@ interface MachineOutputFamily {
   readonly humanOutputKind: HumanOutputKind;
   readonly liveness: LivenessClass;
   readonly schemaNames: ReadonlyArray<string>;
+  readonly externalSchema?: string;
   readonly requiredEnvelopeKeys: ReadonlyArray<string>;
   readonly requiredTopLevelKeys: ReadonlyArray<string>;
   readonly optionalTopLevelKeys: ReadonlyArray<string>;
@@ -51,6 +53,20 @@ const helpFamily = {
   requiredTopLevelKeys: ["type", "description", "usage", "flags"],
   optionalTopLevelKeys: ["globalFlags", "args", "subcommands", "examples", "learnMore"],
   rationale: "Effect CLI owns built-in help rendering before a command handler runs.",
+} satisfies MachineOutputFamily;
+
+const lockExportFamily = {
+  id: "accepted-resolutions-cyclonedx",
+  outputClass: "external-document",
+  humanOutputKind: "query",
+  liveness: "immediate",
+  schemaNames: [],
+  externalSchema: "https://cyclonedx.org/schema/bom-1.6.schema.json",
+  requiredEnvelopeKeys: [],
+  requiredTopLevelKeys: ["bomFormat", "specVersion", "version"],
+  optionalTopLevelKeys: ["$schema", "metadata", "components", "dependencies", "compositions"],
+  rationale:
+    "Lock export writes the standard CycloneDX document directly in both human and machine modes.",
 } satisfies MachineOutputFamily;
 
 const planFamily = {
@@ -583,6 +599,7 @@ const formatterPaths = [
   "axm cache",
   "axm diagnostics",
   "axm instructions",
+  "axm lock",
   "axm token",
   ...typeRoutes,
 ];
@@ -629,6 +646,7 @@ const rowsFor = (
 
 export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRow> = [
   ...rowsFor(helpFamily, formatterPaths),
+  ...rowsFor(lockExportFamily, ["axm lock export"]),
   ...rowsFor(helpFamily, ["axm visibility"]),
   ...rowsFor(helpFamily, ["axm knowledge concepts"]),
   ...rowsFor(planFamily, planPaths),

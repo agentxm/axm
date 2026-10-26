@@ -5,7 +5,7 @@ AXM separates three state families:
 - **Desired** — project `axm.json` and workspace-authored pack manifests say
   what the workspace wants.
 - **Accepted resolution** — project `axm.lock` records the exact immutable
-  identity and provenance accepted for each desired external extension, plus
+  identity and source accepted for each desired external extension, plus
   the generation currency of the projections AXM writes.
 - **Observed** — canonical packages, managed agent artifacts and instruction
   regions, and native config say what actually exists.
@@ -29,6 +29,51 @@ blocked and unchanged. Run `axm sync
 --preview --fail-on-change`; it exits 1 with a `reconciliation-required`
 result when that candidate contains changes and exits 0 when the workspace is
 already converged. Both preview forms are read-only.
+
+## Export an accepted-resolution inventory
+
+```bash
+axm lock export --format cyclonedx > extensions.cdx.json
+```
+
+Add `--scope user` to export the user lock. The command emits CycloneDX 1.6
+JSON directly to stdout, including with `--json`. It reads one strict lock
+snapshot without resolving packages, reading installed manifests, or contacting
+a Registry. It requires an existing valid lock; it never repairs one.
+
+The inventory preserves exact source identities, recorded archive integrity,
+selected components, and unambiguous accepted Pack relationships. Its coverage
+is explicitly incomplete. It does not inventory running agents, host runtimes,
+nested npm or pip dependencies, or remote MCP implementations. Unknown licenses
+remain unknown. Projection bookkeeping and local aliases do not change its
+package identity. Credential-bearing URLs are refused. Absolute local locations
+use distinct document-local identifiers with an explicit redaction notice;
+private package names remain visible in this locally produced document.
+
+## Review external execution changes
+
+When AXM makes new or changed external Hooks or MCP servers available, review
+the candidate's package identity, affected agents, execution or remote
+destination, and symbolic input references. Interactive apply asks for
+acceptance; unattended apply requires `--accept-execution-changes`. Generic
+`--yes` and warning acceptance do not grant it. The flag applies to this
+invocation and does not bypass separate publisher approval or content checks.
+
+Restoring a missing registration requires review even when its package was
+already locked. Unchanged present registrations and pure removal do not.
+Registry content must still be currently eligible before acquisition or new
+exposure, including when AXM can reuse local bytes. Access is checked again
+after confirmation. Offline inspection, export, genuine no-op reconciliation,
+and pure withdrawal remain available.
+
+AXM verifies packaged content and manages registrations. Host permissions,
+externally resolved executables, and remote service behavior remain separate.
+The inventory, checksums, and Registry publisher bindings are not independent
+build provenance or a safety certification. First acquisition trusts the
+Registry's identity and bytes; AXM does not require or verify release signatures
+or build attestations. Unsigned or unattested releases can therefore pass these
+checks. Registry changes after the final check can race apply; this is not
+continuous revocation of running agents.
 
 ## Managed regions and projection currency
 

@@ -127,6 +127,14 @@ export type GetExtensionPackageArgs = GetExtensionPackageBaseArgs &
     | { readonly exact: ExactRegistryPackage; readonly version?: never }
   );
 
+/** Revalidate an exact accepted package without downloading remote content. */
+export type ValidateExtensionAccessArgs = Pick<
+  GetExtensionPackageBaseArgs,
+  "owner" | "type" | "name" | "usagePurpose"
+> & {
+  readonly exact: ExactRegistryPackage;
+};
+
 // -----------------------------------------------------------------------------
 // Get Extension Index Args
 // -----------------------------------------------------------------------------
@@ -364,6 +372,9 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
  * @experimental This API is unstable and may change without notice.
  */
 export interface RegistryClient {
+  readonly validateExtensionAccess: (
+    args: ValidateExtensionAccessArgs,
+  ) => Effect.Effect<void, RegistryClientFailure>;
   /** Available for remote registries that support the batched resolution contract. */
   readonly getResolutionMetadata?: (
     request: ResolutionMetadataRequest,

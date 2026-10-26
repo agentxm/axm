@@ -15,7 +15,7 @@ import { serveBareRepository } from "../../../testing/git-repositories.js";
 import { applyUpdate, configuredUpdateRequest, expectResolved } from "../../update/test-helpers.js";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import {
-  applyInstall,
+  applyInstallAcceptingExecutionChanges,
   installRequest,
   makeInstallWorld,
   type InstallWorld,
@@ -54,7 +54,7 @@ describe("Install locally named MCP connections", () => {
 
   /** The request `axm mcps install <source> --as <name>` builds. */
   const install = (source: string, localName: string) =>
-    applyInstall(
+    applyInstallAcceptingExecutionChanges(
       installRequest({
         type: "mcp-server",
         subject: { kind: "source", source },
@@ -98,7 +98,7 @@ describe("Install locally named MCP connections", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({
               type: "pack",
               subject: { kind: "source", source: "@acme/packs/toolkit" },
@@ -227,7 +227,9 @@ describe("Install locally named MCP connections", () => {
               reinstalled.units.filter((unit) => unit.state === "failed"),
               JSON.stringify(reinstalled),
             ).toEqual([]);
-            expect(deriveOperationOutcome(reinstalled)).not.toBe("blocked");
+            expect(deriveOperationOutcome(reinstalled), JSON.stringify(reinstalled)).not.toBe(
+              "blocked",
+            );
             expect(workspace.readFile("axm.lock")).toBe(lockBefore);
           }),
         );

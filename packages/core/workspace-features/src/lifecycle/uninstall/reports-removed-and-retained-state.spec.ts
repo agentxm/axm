@@ -11,7 +11,11 @@ import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { workspaceWithAuthoredExtension } from "../activation/test-helpers.js";
 import { readSettings } from "../install/test-helpers.js";
-import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../../testing/install-world.js";
 import { UninstallExtensions } from "./uninstall-extensions.js";
 import { uninstallRequest } from "./test-helpers.js";
 
@@ -98,7 +102,7 @@ describe("Uninstall effect reporting", () => {
       return world.workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source: "@acme/mcps/context" },
@@ -163,7 +167,7 @@ describe("Uninstall effect reporting", () => {
       .provide(
         Effect.gen(function* () {
           for (const localName of ["work-context", "personal-context"])
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source: "@acme/mcps/context" },
@@ -229,7 +233,7 @@ describe("Uninstall effect reporting", () => {
         return world.workspace
           .provide(
             Effect.gen(function* () {
-              const installed = yield* applyInstall(
+              const installed = yield* applyInstallAcceptingExecutionChanges(
                 installRequest({
                   type: "pack",
                   subject: { kind: "source", source: "mirror:@acme/packs/reviews" },

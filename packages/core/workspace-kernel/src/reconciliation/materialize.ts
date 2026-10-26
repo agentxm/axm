@@ -37,6 +37,7 @@ import {
   type McpServerManagerService,
   type PreparedHookProjection,
   type RuleManagerService,
+  type KnowledgeManagerService,
   type NativeProjectionOptions,
 } from "../materialization/index.js";
 import {
@@ -410,6 +411,7 @@ const buildMcpServerSyncOperation = ({
   const registryLifecycle = extensionRefRegistryLifecycle(ref);
   return {
     key: toStepKey(target),
+    ...(ref.refType === "workspace" ? {} : { exposureRefs: [ref] }),
     label: transitionLabel,
     artifact: {
       path: nativeLocations[0]?.address.path ?? target.name,
@@ -541,6 +543,9 @@ export interface CollectedMaterializeSteps {
   readonly cleanupSafe: boolean;
   readonly preparedHookProjection?: PreparedHookProjection;
   readonly preparedRulePlans?: Effect.Success<ReturnType<RuleManagerService["prepareProjection"]>>;
+  readonly preparedKnowledgePlans?: Effect.Success<
+    ReturnType<KnowledgeManagerService["prepareProjection"]>
+  >;
   readonly ruleProjection: NativeProjectionOptions;
   readonly knowledgeProjection: NativeProjectionOptions;
   readonly knowledgeMayChange: boolean;
@@ -1487,8 +1492,10 @@ export const collectMaterializeSteps = (args: {
       changedRules.length === 0
         ? undefined
         : yield* ruleManager.prepareProjection(changedRules, ruleProjection);
-    if (changedKnowledge.length > 0)
-      yield* knowledgeManager.prepareProjection(changedKnowledge, knowledgeProjection);
+    const preparedKnowledgePlans =
+      changedKnowledge.length === 0
+        ? undefined
+        : yield* knowledgeManager.prepareProjection(changedKnowledge, knowledgeProjection);
     const inventoryObservations = (yield* Effect.forEach([...inventories], ([type, read]) =>
       Effect.map(Effect.result(read), (result) =>
         Result.isSuccess(result)
@@ -1499,6 +1506,7 @@ export const collectMaterializeSteps = (args: {
     return {
       ...(preparedHookProjection === undefined ? {} : { preparedHookProjection }),
       ...(preparedRulePlans === undefined ? {} : { preparedRulePlans }),
+      ...(preparedKnowledgePlans === undefined ? {} : { preparedKnowledgePlans }),
       ruleProjection,
       knowledgeProjection,
       // The whole-graph sweeps act on absence from the graph, so they wait

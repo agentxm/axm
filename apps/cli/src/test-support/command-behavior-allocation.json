@@ -137,6 +137,18 @@
           "openTopics": ["directory-repeat"]
         }
       ]
+    },
+    "accept-execution-changes": {
+      "rawHelp": {
+        "aliases": [],
+        "type": "boolean",
+        "required": false
+      },
+      "bindings": [
+        {
+          "requirements": ["workspace/acknowledge-external-execution"]
+        }
+      ]
     }
   },
   "openTopics": {
@@ -10945,6 +10957,40 @@
         {
           "parameters": ["flag:preview"],
           "requirements": ["cli/mcps/adopt/preview-is-pure"]
+        }
+      ]
+    },
+    "lock": {
+      "flags": [],
+      "arguments": [],
+      "relatedRequirements": ["cli/command-help-is-complete"],
+      "parameterBindings": []
+    },
+    "lock export": {
+      "flags": [
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "format",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          }
+        }
+      ],
+      "arguments": [],
+      "relatedRequirements": ["workspace/lock/export-accepted-resolutions"],
+      "parameterBindings": [
+        {
+          "parameters": ["flag:scope", "flag:format"],
+          "requirements": ["workspace/lock/export-accepted-resolutions"]
         }
       ]
     }

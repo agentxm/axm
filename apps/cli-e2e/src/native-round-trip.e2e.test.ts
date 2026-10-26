@@ -423,7 +423,13 @@ describe("new intent and precise withdrawal across CLI processes", () => {
         if (kind === "knowledge")
           write(path.join(source, "src", "index.md"), '---\nokf_version: "0.2"\n---\n# Context\n');
         const before = snapshotTree(fixture.selected);
-        await execute(fixture, ["install", source, `--${kind}`, "context"]);
+        await execute(fixture, [
+          "install",
+          source,
+          `--${kind}`,
+          "context",
+          ...(kind === "hook" ? ["--accept-execution-changes"] : []),
+        ]);
         const nativePath =
           kind === "subagent"
             ? path.join(fixture.selected, ".claude", "agents", "context.md")
@@ -546,7 +552,15 @@ describe("new intent and precise withdrawal across CLI processes", () => {
                   "--scope",
                   row.scope,
                 ]
-              : ["install", source, "--mcp-server", "context", "--scope", row.scope],
+              : [
+                  "install",
+                  source,
+                  "--mcp-server",
+                  "context",
+                  "--scope",
+                  row.scope,
+                  "--accept-execution-changes",
+                ],
           );
           expect(fs.readFileSync(target, "utf8")).toContain("context");
           await execute(fixture, ["mcps", "uninstall", "context", "--scope", row.scope]);

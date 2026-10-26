@@ -2,8 +2,11 @@ import { execFileSync } from "node:child_process";
 import { serveBareRepository } from "../../../testing/git-repositories.js";
 import { UninstallExtensions } from "../../index.js";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
-import { applySync } from "../../../testing/sync-fixture.js";
-import { applyUpdate, configuredUpdateRequest } from "../../update/test-helpers.js";
+import { applySyncAcceptingExecutionChanges } from "../../../testing/sync-fixture.js";
+import {
+  applyUpdateAcceptingExecutionChanges,
+  configuredUpdateRequest,
+} from "../../update/test-helpers.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -16,7 +19,11 @@ import {
   SettingsReader,
   LockfileReader,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { applyInstall, installRequest, makeInstallWorld } from "../../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+  makeInstallWorld,
+} from "../../../testing/install-world.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/install/selected-plugin-connections-retain-package-authority",
@@ -103,7 +110,7 @@ describe("Selected plugin MCP connections", () => {
           transport === "git-nested" ? `plugins/review#${name}` : name;
         yield* world.workspace.provide(
           Effect.gen(function* () {
-            const installed = yield* applyInstall(
+            const installed = yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source: installSource },
@@ -140,7 +147,7 @@ describe("Selected plugin MCP connections", () => {
             expect(JSON.stringify(native)).not.toContain("x-axm");
             expect(JSON.stringify(native)).not.toContain("future-runtime");
             expect(yield* fs.readFileString(path.join(source, "mcp.json"))).toBe(mcp);
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({
                 type: "mcp-server",
                 subject: { kind: "source", source: installSource },
@@ -173,7 +180,7 @@ describe("Selected plugin MCP connections", () => {
             }
             if (journey === "restore") {
               yield* fs.remove(canonical.value, { recursive: true });
-              const syncResult = yield* applySync({
+              const syncResult = yield* applySyncAcceptingExecutionChanges({
                 target: Option.none(),
                 types: ["mcp-server"],
               });
@@ -185,7 +192,7 @@ describe("Selected plugin MCP connections", () => {
               expect(world.workspace.readFile("axm.lock")).toBe(lockBefore);
               expect(yield* fs.readFileString(path.join(canonical.value, "mcp.json"))).toBe(mcp);
             } else if (journey === "reinstall" || journey === "selected-reinstall") {
-              const reinstalled = yield* applyUpdate(
+              const reinstalled = yield* applyUpdateAcceptingExecutionChanges(
                 configuredUpdateRequest({
                   type: "mcp-server",
                   reinstall: true,
@@ -208,7 +215,7 @@ describe("Selected plugin MCP connections", () => {
                 git(["commit", "--quiet", "-m", "updated connections"]);
                 git(["push", "--quiet", served.repository, "main"]);
               }
-              const updatedResult = yield* applyUpdate(
+              const updatedResult = yield* applyUpdateAcceptingExecutionChanges(
                 configuredUpdateRequest({ type: "mcp-server", nameFilters: ["work-context"] }),
               );
               expect(updatedResult._tag).toBe("Resolved");

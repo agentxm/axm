@@ -14,7 +14,11 @@ import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-kernel/operations";
+import {
+  applyPlanExecution,
+  deriveOperationOutcome,
+  previewPlanExecution,
+} from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import {
   DEFAULT_AUTHORED_DIRECTORIES,
@@ -79,7 +83,11 @@ export const workspaceWithAuthoredExtension = (args: {
 export const workspaceWithoutExtensions = (): LifecycleFixture =>
   makeLifecycleFixture({ settings: { owner: "@acme", agents: ["claude-code"] } });
 
-const run = (request: ActivationRequest, mode: "apply" | "preview") =>
+const run = (
+  request: ActivationRequest,
+  mode: "apply" | "preview",
+  acceptExecutionChanges = false,
+) =>
   Effect.gen(function* () {
     const candidate = yield* request.enabled
       ? EnableExtension.prepare(request)
@@ -87,7 +95,15 @@ const run = (request: ActivationRequest, mode: "apply" | "preview") =>
     if (candidate._tag === "Unchanged") return candidate;
     const resolution = yield* DisableExtension.previewOrApply(
       candidate,
-      mode === "apply" ? preapprovedPlanExecution : previewPlanExecution,
+      mode === "preview"
+        ? previewPlanExecution
+        : acceptExecutionChanges
+          ? applyPlanExecution({
+              approval: "preapproved",
+              acceptedPolicies: new Set(["accept-execution-changes"]),
+              recovery: { command: ["enable"], arguments: [] },
+            })
+          : preapprovedPlanExecution,
     );
     return {
       _tag: "Resolved" as const,
@@ -100,3 +116,6 @@ const run = (request: ActivationRequest, mode: "apply" | "preview") =>
 export const previewActivation = (request: ActivationRequest) => run(request, "preview");
 
 export const applyActivation = (request: ActivationRequest) => run(request, "apply");
+
+export const applyActivationAcceptingExecutionChanges = (request: ActivationRequest) =>
+  run(request, "apply", true);

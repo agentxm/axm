@@ -7,7 +7,10 @@ import { deriveOperationOutcome, OperationRefused } from "@agentxm/workspace-ker
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
-import { applyInstall, installRequest } from "../../testing/install-world.js";
+import {
+  applyInstallAcceptingExecutionChanges,
+  installRequest,
+} from "../../testing/install-world.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import {
   writeLocalHookPackage,
@@ -192,7 +195,7 @@ describe("Uninstall preview purity", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({ type, subject: { kind: "source", source: named } }),
             );
             for (const realized of retained) {
@@ -225,7 +228,7 @@ describe("Uninstall preview purity", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(
+            yield* applyInstallAcceptingExecutionChanges(
               installRequest({ type, subject: { kind: "source", source: named } }),
             );
             const before = workspace.snapshot();
@@ -269,7 +272,7 @@ describe("Uninstall preview purity", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
+          yield* applyInstallAcceptingExecutionChanges(
             installRequest({ type: "skill", subject: { kind: "source", source: named } }),
           );
           const before = workspace.snapshot();

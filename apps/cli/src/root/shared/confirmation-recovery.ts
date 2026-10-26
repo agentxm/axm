@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
+  acceptExecutionChangesFlag,
   debugFlag,
   jsonFlag,
   nonInteractiveFlag,
@@ -61,6 +62,10 @@ const explicitGlobalArguments = Effect.gen(function* () {
   const quiet = Option.getOrElse(yield* Effect.serviceOption(quietFlag), () => false);
   const verbose = Option.getOrElse(yield* Effect.serviceOption(verboseFlag), () => false);
   const debug = Option.getOrElse(yield* Effect.serviceOption(debugFlag), () => false);
+  const acceptExecution = Option.getOrElse(
+    yield* Effect.serviceOption(acceptExecutionChangesFlag),
+    () => false,
+  );
   const location = yield* Effect.serviceOption(WorkspaceLocation);
   const userScope = Option.exists(location, ({ scope }) => scope === "user");
   return [
@@ -78,6 +83,7 @@ const explicitGlobalArguments = Effect.gen(function* () {
     recoverySwitch("--quiet", quiet),
     recoverySwitch("--verbose", verbose && !debug),
     recoverySwitch("--debug", debug),
+    recoverySwitch("--accept-execution-changes", acceptExecution),
   ];
 });
 
@@ -106,13 +112,21 @@ export const makePlanInvocation = (
   recovery: ConfirmationRecovery,
   acceptedPolicies: ReadonlyArray<PlanPolicyId> = [],
 ): Effect.Effect<PlanInvocation> =>
-  Effect.map(explicitGlobalArguments, (globalArguments): PlanInvocation => {
+  Effect.gen(function* () {
+    const globalArguments = yield* explicitGlobalArguments;
+    const acceptExecution = Option.getOrElse(
+      yield* Effect.serviceOption(acceptExecutionChangesFlag),
+      () => false,
+    );
     const replayed = { ...recovery, arguments: [...recovery.arguments, ...globalArguments] };
     return {
       execution: requestedPlanExecution({
         intent,
         recovery: replayed,
-        acceptedPolicies: new Set(acceptedPolicies),
+        acceptedPolicies: new Set<PlanPolicyId>([
+          ...acceptedPolicies,
+          ...(acceptExecution ? ["accept-execution-changes" as const] : []),
+        ]),
       }),
       recovery: replayed,
     };

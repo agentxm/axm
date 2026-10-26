@@ -137,7 +137,7 @@ describe("aggregate required verification", () => {
   it("derives one broad-fallback affected range for PR classification and verification", () => {
     const workflow = readWorkflow();
     const serialized = JSON.stringify(workflow.jobs["classify"]);
-    expect(serialized).toContain("nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1");
+    expect(serialized).toMatch(/"uses":"nrwl\/nx-set-shas@[a-f0-9]{40}"/u);
     expect(serialized).toContain("git rev-list --max-parents=0 HEAD");
     expect(serialized).toContain("steps.set-shas.outputs.base");
     expect(serialized).toContain("steps.set-shas.outputs.head");

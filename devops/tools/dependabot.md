@@ -39,14 +39,14 @@ updates to direct dependencies and minor/patch versions; security updates can
 still address vulnerable indirect dependencies and major fixes. The cooldown
 and version PR limit do not delay security updates. Separate npm and Actions
 security groups consolidate compatible fixes.
-Automatic rebasing is disabled because the merge queue verifies integration;
+Automatic rebasing is disabled because maintainers verify integration against current main;
 maintainers resolve actual conflicts. GitHub documents these semantics in its
 options reference.[^options]
 
 ## Review and manual maintenance
 
 Dependency PRs use the existing [CI workflow](../../.github/workflows/ci.yml),
-maintainer acceptance, and [merge queue](../runbooks/operate-merge-queue.md).
+maintainer acceptance, and [integration procedure](../runbooks/integrate-changes.md).
 There is no automatic merge or privileged dependency-only verification path.
 The proposed-change JUnit reporter uses annotations and job summaries for
 Dependabot PRs because their token cannot create check runs. Tests and required

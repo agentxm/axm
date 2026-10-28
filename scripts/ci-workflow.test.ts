@@ -1,6 +1,6 @@
 /**
  * The aggregate verification gate: continuous integration runs on every pull
- * request and merge group, and one always-run `required` job aggregates every
+ * request and main push, and one always-run `required` job aggregates every
  * gating job so a skipped or failed check can never disappear from the verdict.
  *
  * Supersedes the retired specification identity
@@ -59,10 +59,17 @@ describe("aggregate required verification", () => {
     expect(JSON.stringify(readWorkflow().on)).toContain("pull_request");
   });
 
-  it("continuous integration validates requested merge groups", () => {
+  it("continuous integration validates requested main pushes", () => {
     const trigger = JSON.stringify(readWorkflow().on);
-    expect(trigger).toContain("merge_group");
-    expect(trigger).toContain("checks_requested");
+    expect(trigger).toContain("push");
+    expect(trigger).not.toContain("merge_group");
+  });
+
+  it("keeps artifact-producing release pushes out of the coalesced main group", () => {
+    const concurrency = JSON.stringify(readWorkflow().concurrency);
+    expect(concurrency).toContain(
+      "startsWith(github.event.head_commit.message, 'release: cli-v') && github.sha",
+    );
   });
 
   it("runs daily full verification without producing release artifacts", () => {
@@ -143,7 +150,7 @@ describe("aggregate required verification", () => {
     expect(serialized).toContain("steps.set-shas.outputs.head");
   });
 
-  it("selects CLI and platform checks for an earlier commit in a multi-commit merge group", () => {
+  it("selects CLI and platform checks for an earlier commit in a multi-commit main push", () => {
     const job = readWorkflow().jobs["classify"];
     if (typeof job !== "object" || job === null || !("steps" in job) || !Array.isArray(job.steps))
       throw new Error("Classification must declare its affected-range steps.");
@@ -157,24 +164,18 @@ describe("aggregate required verification", () => {
       !("run" in selector) ||
       typeof selector.run !== "string"
     )
-      throw new Error("Classification must select the complete queue range.");
-    expect(selector).toHaveProperty(
-      "env.QUEUE_BASE_SHA",
-      "${{ github.event.merge_group.base_sha }}",
-    );
-    expect(selector).toHaveProperty(
-      "env.QUEUE_HEAD_SHA",
-      "${{ github.event.merge_group.head_sha }}",
-    );
+      throw new Error("Classification must select the complete assurance range.");
+    expect(selector).toHaveProperty("env.PUSH_BASE_SHA", "${{ steps.nx-shas.outputs.base }}");
+    expect(selector).toHaveProperty("env.PUSH_HEAD_SHA", "${{ github.sha }}");
     expect(selector).toHaveProperty("env.NX_BASE_SHA", "${{ steps.nx-shas.outputs.base }}");
     expect(selector).toHaveProperty("env.NX_HEAD_SHA", "${{ steps.nx-shas.outputs.head }}");
     const nx: unknown = job.steps.find(
       (step: unknown) =>
         typeof step === "object" && step !== null && "id" in step && step.id === "nx-shas",
     );
-    expect(nx).toHaveProperty("if", "github.event_name != 'merge_group'");
+    expect(nx).not.toHaveProperty("if");
 
-    const directory = fs.mkdtempSync(path.join(tmpdir(), "axm-queue-range-"));
+    const directory = fs.mkdtempSync(path.join(tmpdir(), "axm-assurance-range-"));
     const env = withoutLocalGitEnvironment(process.env);
     const git = (...args: string[]) =>
       execFileSync("git", args, { cwd: directory, env, encoding: "utf8" });
@@ -216,9 +217,9 @@ describe("aggregate required verification", () => {
         encoding: "utf8",
         env: {
           ...env,
-          EVENT_NAME: "merge_group",
-          QUEUE_BASE_SHA: base,
-          QUEUE_HEAD_SHA: head,
+          EVENT_NAME: "push",
+          PUSH_BASE_SHA: base,
+          PUSH_HEAD_SHA: head,
           NX_BASE_SHA: finalParent,
           NX_HEAD_SHA: head,
           GITHUB_OUTPUT: outputPath,
@@ -242,10 +243,10 @@ describe("aggregate required verification", () => {
       expect(selection.documentation).toBe(true);
       expect(selection.checks["cli-e2e"].selected).toBe(true);
       expect(selection.checks.windows.selected).toBe(true);
-      expect(requiredCiJobs(selection, "merge_group")).toEqual(
+      expect(requiredCiJobs(selection, "push")).toEqual(
         expect.arrayContaining(["verify-pr", "verify-e2e", "windows-workspace", "binary-smoke"]),
       );
-      for (const event of ["pull_request", "push"]) {
+      for (const event of ["pull_request", "workflow_dispatch"]) {
         const nonQueueOutput = path.join(directory, `${event}-output`);
         const nonQueue = spawnSync("bash", ["-e", "-o", "pipefail", "-c", selector.run], {
           cwd: directory,
@@ -253,8 +254,8 @@ describe("aggregate required verification", () => {
           env: {
             ...env,
             EVENT_NAME: event,
-            QUEUE_BASE_SHA: "",
-            QUEUE_HEAD_SHA: "",
+            PUSH_BASE_SHA: "",
+            PUSH_HEAD_SHA: "",
             NX_BASE_SHA: finalParent,
             NX_HEAD_SHA: head,
             GITHUB_OUTPUT: nonQueueOutput,
@@ -346,7 +347,7 @@ describe("aggregate required verification", () => {
 
   it("isolates queue cancellation and uses the tested revision in cache keys", () => {
     const workflow = readWorkflow();
-    expect(JSON.stringify(workflow.concurrency)).toContain("github.event.merge_group.head_ref");
+    expect(JSON.stringify(workflow.concurrency)).toContain("github.ref");
     const jobs = JSON.stringify(workflow.jobs);
     expect(jobs).toContain("needs.classify.outputs.head");
     expect(jobs).not.toContain("github.event.pull_request.head.sha");

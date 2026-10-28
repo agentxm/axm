@@ -222,9 +222,6 @@ export const detectsReleasePreparation = (context: {
   readonly repository: string;
   readonly subjects: readonly string[];
 }): boolean => {
-  if (context.event === "merge_group") {
-    return context.subjects.some((subject) => parseReleaseCommitSubject(subject) !== undefined);
-  }
   if (context.event !== "pull_request" || context.headRepository !== context.repository) {
     return false;
   }
@@ -260,7 +257,7 @@ export const requiredCiJobs = (
   if (event === "schedule") {
     return [...required, "verify-main", "verify-e2e", "windows-workspace"];
   }
-  if (event !== "pull_request" && event !== "merge_group") return required;
+  if (event !== "pull_request" && event !== "push") return required;
 
   required.push("commit-history");
   const selected = (check: CiCheck, job: string) => {
@@ -369,7 +366,7 @@ const main = () => {
     encoding: "utf8",
   }).trim();
   const subjects =
-    event === "pull_request" || event === "merge_group"
+    event === "pull_request"
       ? execFileSync("git", ["log", "--format=%s", `origin/main..${head}`], {
           encoding: "utf8",
         })

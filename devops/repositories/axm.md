@@ -51,35 +51,15 @@ separately operated AgentXM systems.
 contribution and review policy. CODEOWNERS routes review; it does not establish
 provider administration or operational ownership.
 
-GitHub repository settings are the live enforcement authority. The native
-merge queue owns integration freshness: `ci.yml` handles `merge_group`
-`checks_requested`, evaluates the complete synthesized revision, and reports
-the same `Required CI` context that gates pull requests. The
-[merge-queue runbook](../runbooks/operate-merge-queue.md) owns settings readback,
-enqueue, recovery, and rollback.
+The [integration runbook](../runbooks/integrate-changes.md) owns local-first
+integration and GitHub cutover. The intended policy retains linear history,
+force-push/deletion prohibitions, and administrator enforcement, while removing
+required PR, queue, and status gates for trusted-maintainer integration.
 
-Live readback on 2026-09-26 established ruleset `23123200` with rebase
-integration and rebase as the only enabled repository merge method; every other
-queue parameter and `main` protection below was unchanged. Rebase lands each
-reviewed commit on `main` unchanged, so the `Commit history` job in
-`Required CI` rejects merge commits, autosquash markers, work-in-progress
-subjects, and private coordination context in any commit message.
-
-Live readback on 2026-09-13 established repository ruleset `23123200` as the
-active native queue for `main`: squash integration, two entries building, one
-entry merging, all-green grouping, a 60-minute check response limit, and no
-bypass actors. The strict classic `Required CI` protection remains active as
-the rollback baseline.
-
-Readback on 2026-09-12 established that `main` requires pull requests, resolved
-conversations, linear history, and the `Required CI` context produced by GitHub
-Actions app `15368`; the rules include administrators and prohibit force pushes
-and deletion. Required approvals are zero, code-owner and last-push approval
-are off, and no actor or team has a bypass restriction. Squash was then the
-only enabled merge method, automatic branch deletion and auto-merge are on, and the
-host permits branch updates. External-contributor maintainer acceptance remains
-an explicit process boundary rather than a host-expressible conditional review
-rule.
+Readback on 2026-10-28, before this cutover, still found active queue ruleset
+`23123200` and classic protection requiring PRs and Actions-owned `Required CI`.
+Those observations describe the old live state, not proof of the new policy's
+activation. Preserve readback when applying the cutover.
 
 Actions are enabled for all actions and default workflow permissions are
 read-only. This repository permits Actions to create and approve pull requests

@@ -64,8 +64,7 @@ candidate state in the [specification catalog](../../specifications/catalog.md).
   `prepare-release.yml` with an exact current `main` commit. Do not cut or push
   a release commit from a local checkout.
 - Run `pnpm run verify:affected` explicitly when local release verification is
-  wanted. Ordinary `main` pushes do not repeat broad source or platform
-  verification; proposed-change CI is authoritative for those revisions.
+  wanted. Ordinary `main` pushes run affected assurance; local integration and main-push assurance verify those revisions.
   Canonical release commits are the exception: their exact push CI reruns the
   full source/platform gates and produces publication artifacts.
 - Every project tagged `release:cli` is part of one fixed release group. Their
@@ -190,27 +189,23 @@ not establish completion of the remaining release channels or installer matrix.
    access. [GitHub's token behavior](https://docs.github.com/en/actions/concepts/security/github_token)
    explains the approval requirement for bot-created PRs.
 
-   Wait for that PR's Required CI, then enqueue the accepted release pull
+   Wait for that PR's Required CI, then integrate the accepted release pull
    request. Keep its generated title exactly `release: cli-v{VERSION}` and bind
    the command to the accepted source commit.
 
    ```bash
-   gh pr merge <number> --repo agentxm/axm --auto --rebase \
+   gh pr merge <number> --repo agentxm/axm --rebase \
      --match-head-commit <accepted-source-sha>
    ```
 
-   The prepared commit has the generated release subject, and the rebase queue
-   lands it on `main` unchanged as `release: cli-v{VERSION}`. CI and
+   The prepared commit has the generated release subject, and rebase integration
+   lands it on `main` as `release: cli-v{VERSION}`. CI and
    publication also recognize the `release: cli-v{VERSION} (#123)` form that
    earlier squash integration produced.
-   The native merge queue verifies its synthesized integration SHA through
-   `merge_group`; that temporary SHA is evidence for queue admission, not a
-   release identity. Publication cannot run for a merge-group event.
 
 4. Wait for CI and automatic publication on the rebase-merged release commit.
 
-   The queue fast-forwards `main` to the verified merge-group revision. Resolve
-   the release identity from the resulting `main` commit. That release commit
+   Resolve the release identity from the resulting `main` commit. That release commit
    must complete the `ci.yml` workflow successfully before
    publishing. That exact push run compiles and smoke-tests the native binaries,
    stages the installer/schema content, packs the fixed npm cohort once,

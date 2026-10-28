@@ -4,28 +4,26 @@ run-name: >-
   ${{
     github.event_name == 'pull_request' &&
     format('CI - PR #{0}', github.event.pull_request.number) ||
-    github.event_name == 'merge_group' &&
-    format('CI - merge group {0}', github.ref_name) ||
     format('CI - {0}', github.ref_name)
   }}
 
 on:
   pull_request:
-  merge_group:
-    branches: [main]
-    types: [checks_requested]
   push:
     branches: [main]
   schedule:
     - cron: "43 9 * * *"
   workflow_dispatch:
 
+# A release candidate must keep its artifact-producing run even when later
+# ordinary main pushes supersede one another's pending assurance.
 concurrency:
   group: >-
     ci-${{ github.workflow }}-${{ github.event_name }}-${{
-    github.event.pull_request.number || github.event.merge_group.head_ref || github.ref }}
-  cancel-in-progress: >-
-    ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+    github.event.pull_request.number ||
+    (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release: cli-v') && github.sha) ||
+    github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   actions: read
@@ -79,28 +77,26 @@ jobs:
         id: affected-fallback
         run: echo "sha=$(git rev-list --max-parents=0 HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Derive non-queue affected SHAs
+      - name: Derive affected SHAs since successful CI
         id: nx-shas
-        if: github.event_name != 'merge_group'
         uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
         with:
           fallback-sha: ${{ steps.affected-fallback.outputs.sha }}
           main-branch-name: main
 
-      # A rebase queue entry can contain several commits. Its final parent is
-      # not the comparison base for the complete proposed integration.
+      # Cover all changes since successful CI, including failed or superseded pushes.
       - name: Select complete affected range
         id: set-shas
         env:
           EVENT_NAME: ${{ github.event_name }}
-          QUEUE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
-          QUEUE_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+          PUSH_BASE_SHA: ${{ steps.nx-shas.outputs.base }}
+          PUSH_HEAD_SHA: ${{ github.sha }}
           NX_BASE_SHA: ${{ steps.nx-shas.outputs.base }}
           NX_HEAD_SHA: ${{ steps.nx-shas.outputs.head }}
         run: |
-          if [[ "$EVENT_NAME" == "merge_group" ]]; then
-            base="$QUEUE_BASE_SHA"
-            head="$QUEUE_HEAD_SHA"
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            base="$PUSH_BASE_SHA"
+            head="$PUSH_HEAD_SHA"
           else
             base="$NX_BASE_SHA"
             head="$NX_HEAD_SHA"
@@ -126,7 +122,7 @@ jobs:
   commit-history:
     name: Commit history
     needs: classify
-    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -146,16 +142,15 @@ jobs:
           remote-cache-token: ${{ secrets.NX_REMOTE_CACHE_READ_TOKEN }}
           install: "false"
 
-      # The queue rebases each commit onto main unchanged, so every commit is
-      # reviewed as permanent public history. A pull-request checkout is the
+      # Check every commit in the integrated public history. A pull-request checkout is the
       # synthetic merge of its base (first parent) and source (second parent).
       - name: Check commits that will land on main
         env:
           EVENT_NAME: ${{ github.event_name }}
-          QUEUE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
         run: |
-          if [[ "$EVENT_NAME" == "merge_group" ]]; then
-            base="$QUEUE_BASE_SHA"
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            base="$PUSH_BASE_SHA"
             head="$(git rev-parse HEAD)"
           else
             base="$(git rev-parse HEAD^1)"
@@ -168,7 +163,7 @@ jobs:
     name: Workflow security
     needs: classify
     if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      (github.event_name == 'pull_request' || github.event_name == 'push') &&
       needs.classify.outputs.workflow-security == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -192,7 +187,7 @@ jobs:
     name: Specification verdict
     needs: classify
     if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      (github.event_name == 'pull_request' || github.event_name == 'push') &&
       needs.classify.outputs.specification-verdict == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -219,7 +214,7 @@ jobs:
     name: AXM extension lint
     needs: classify
     if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      (github.event_name == 'pull_request' || github.event_name == 'push') &&
       needs.classify.outputs.extension-lint == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -243,7 +238,7 @@ jobs:
     name: Documentation integrity
     needs: classify
     if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      (github.event_name == 'pull_request' || github.event_name == 'push') &&
       needs.classify.outputs.documentation == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -264,8 +259,9 @@ jobs:
     name: Verify proposed change - ${{ matrix.partition }}
     needs: classify
     if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
-      needs.classify.outputs.code == 'true'
+      (github.event_name == 'pull_request' || github.event_name == 'push') &&
+      needs.classify.outputs.code == 'true' &&
+      needs.classify.outputs.release-artifacts != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -647,7 +643,7 @@ jobs:
     needs: classify
     if: >-
       !cancelled() &&
-      (((github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      (((github.event_name == 'pull_request' || github.event_name == 'push') &&
       needs.classify.outputs.cli-e2e == 'true') ||
       github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && needs.classify.outputs.release-artifacts == 'true'))
@@ -698,7 +694,7 @@ jobs:
           NX_BASE: ${{ needs.classify.outputs.base }}
           NX_HEAD: ${{ needs.classify.outputs.head }}
           AXM_E2E_COMMAND: >-
-            ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+            ${{ (github.event_name == 'pull_request' || github.event_name == 'push') &&
             matrix.affected-command || matrix.command }}
         run: scripts/with-allure-report.sh bash -lc "$AXM_E2E_COMMAND"
 
@@ -749,7 +745,7 @@ jobs:
     needs: classify
     if: >-
       !cancelled() &&
-      (((github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      (((github.event_name == 'pull_request' || github.event_name == 'push') &&
       needs.classify.outputs.windows == 'true') ||
       github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && needs.classify.outputs.release-artifacts == 'true'))
@@ -780,7 +776,7 @@ jobs:
           NX_BASE: ${{ needs.classify.outputs.base }}
           NX_HEAD: ${{ needs.classify.outputs.head }}
           WINDOWS_VERIFICATION_COMMAND: >-
-            ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+            ${{ (github.event_name == 'pull_request' || github.event_name == 'push') &&
             needs.classify.outputs.workflow != 'true' &&
             'affected' || 'run-many' }}
         run: pnpm exec nx $env:WINDOWS_VERIFICATION_COMMAND -t test-windows e2e-windows --nxBail --parallel=1 --outputStyle=static
@@ -828,7 +824,7 @@ jobs:
       !cancelled() &&
       (needs.classify.outputs.release-artifacts == 'true' ||
       github.event_name == 'workflow_dispatch' ||
-       ((github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+       ((github.event_name == 'pull_request' || github.event_name == 'push') &&
         needs.classify.outputs.windows == 'true'))
     strategy:
       fail-fast: false

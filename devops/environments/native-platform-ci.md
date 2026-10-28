@@ -33,9 +33,8 @@ verifying compiler or cache changes before a release.
 ## Native Windows verification
 
 The change classifier selects Windows workspace verification for applicable
-pull requests and merge groups. Full scheduled/manual assurance and canonical
-release production retain their own platform obligations; ordinary main pushes
-do not run the full Windows gate. The executable workflow owns selection and
+pull requests and main pushes. Full scheduled/manual assurance and canonical
+release production retain their own platform obligations. The executable workflow owns selection and
 target names, avoiding a second command or platform inventory here.
 
 The core target exercises instruction-file managed copies on the native

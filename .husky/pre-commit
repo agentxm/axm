@@ -1,2 +1,0 @@
-#!/usr/bin/env sh
-node node_modules/@agentxm/workspace-conventions/bin/check-staged.mjs scripts/check-staged.checks.sh

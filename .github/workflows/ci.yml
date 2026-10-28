@@ -307,6 +307,7 @@ jobs:
           install: "false"
 
       - name: Create local main ref for release detection
+        if: github.event_name == 'pull_request'
         run: git fetch --no-tags origin main:main
 
       - name: Restore pnpm store

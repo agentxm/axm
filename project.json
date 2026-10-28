@@ -101,7 +101,7 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "test:integration-hook"],
       "inputs": [
         "{workspaceRoot}/package.json",
         "{workspaceRoot}/scripts/**/*",
@@ -439,6 +439,22 @@
       "options": {
         "command": "node --test scripts/security/secret-scanning.test.mjs",
         "cwd": "."
+      }
+    },
+    "test:integration-hook": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "sharedGlobals",
+        {
+          "runtime": "git --version"
+        },
+        "{workspaceRoot}/.husky/*",
+        "{workspaceRoot}/scripts/verify-integration.sh",
+        "{workspaceRoot}/scripts/verify-integration.test.mjs"
+      ],
+      "options": {
+        "command": "node --test scripts/verify-integration.test.mjs"
       }
     }
   }

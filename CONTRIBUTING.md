@@ -56,80 +56,21 @@ cache are earlier input-bound verdicts, not fresh executions on this host.
 
 ## Making Changes
 
-Before changing AXM product behavior, read the relevant
-[architecture documents](docs/architecture/index.md). They explain command
-responsibilities, workspace invariants, and design rationale; the executable
-specifications in the [specification catalog](specifications/catalog.md) own
-required behavior, and code and tests show how the design is implemented.
+Use an isolated branch/worktree. Commit and push unfinished work freely for
+handoff; no repository checks run on commits or non-main pushes. Include the
+branch, exact SHA, remaining work, and verification state when handing off.
 
-An executable specification is a `*.spec.ts` file beside the source it
-specifies, inside the project that owns that source, and it runs in that
-project's `test` target. Before adding, moving, or retiring one, read
-[Specification contract](contributing/guides/executable-specifications.md).
+Trusted maintainers integrate accepted changes locally after formatting and
+verification against current main. The destination-main pre-push hook runs
+`pnpm run verify:integration`; non-fast-forward pushes are rejected. PRs are
+optional for maintainer collaboration and request hosted CI. External
+contributors submit a PR for maintainer acceptance.
 
-Pull-request CI renders the specification verdict against the same affected
-base used by verification. It lists added, removed, and revised requirement
-identities, or renders `No requirement contract changes.` A removed identity
-needs an entry in `specifications/disposition-ledger.json`; an unexplained
-removal renders as one.
-
-Landing changes through short-lived pull requests with passing aggregate
-verification is repository policy. GitHub requires pull requests for `main`, a
-successful `Required CI` check produced by GitHub Actions for the native merge
-queue's synthesized integration revision, resolved conversations, linear
-history, and rebase integration; the same rules bind administrators.
-Maintainer-authored changes need an explicit acceptance decision but not a
-second human reviewer, so the host requires zero approving reviews. External
-contributions still require maintainer acceptance as a process boundary because
-GitHub Team cannot require that conditionally without also requiring a second
-reviewer for maintainer-authored work.
-
-1. External contributors fork the repo; maintainers work from the main
-   repository. In both cases, create a branch from current `main` before the
-   first file edit.
-2. Make your changes.
-3. Use the [Testing skill](skills/testing/src/SKILL.md) to select evidence for the
-   change and reuse specifications that already protect its behavior.
-4. Run `pnpm run verify:affected` locally before merge. Use
-   `pnpm run verify:pr` when reproducing a merge-queue failure.
-5. Open a pull request against `main`. After acceptance, enable auto-merge to
-   enter GitHub's native merge queue. GitHub tests the synthesized merge-group
-   revision and rebase-merges only after its `Required CI` succeeds. Do not
-   refresh an accepted branch solely because `main` advanced; GitHub rebuilds
-   or requeues it when the integration candidate changes. See
-   [Operate the merge queue](devops/runbooks/operate-merge-queue.md).
-
-### Commit history
-
-The merge queue rebases every pull-request commit onto `main` unchanged, so
-each commit becomes permanent public history. Before you enqueue a pull
-request:
-
-- Make each commit one coherent change that builds and passes its own tests.
-- Write an imperative subject, such as `Show whether a password is set`, and
-  explain why in the body when the diff does not.
-- Fold review fixes in with `git commit --fixup` and
-  `git rebase --autosquash main`, then force-push your own branch.
-- Rebase onto `main` to pick up upstream changes; do not merge `main` into the
-  branch.
-
-The `Commit history` check in `Required CI` rejects merge commits, `fixup!`,
-`squash!`, or `amend!` subjects, work-in-progress subjects, and messages that
-reference private coordination context. A single-commit pull request lands the
-same way, so its commit message, not the pull-request title, is what `main`
-records.
-
-Do not edit, commit, or push directly on `main`. Use a separate worktree for
-concurrent tasks or coding-agent sessions so the primary checkout can remain
-clean on `main`. Remove the disposable worktree and local branch after the pull
-request merges and its commits are preserved.
-
-For a coding agent, a request to deliver or complete a change authorizes the
-routine branch, worktree, commit, push, pull-request, approved auto-merge, and
-post-merge cleanup operations needed for that delivery. Requests limited to
-analysis or implementation do not. Publishing a release, deploying to
-production, rewriting shared history, or acting outside the named delivery
-requires explicit authorization.
+[Integrate changes](devops/runbooks/integrate-changes.md) owns the complete
+procedure, GitHub controls, failure recovery, and cleanup. Release preparation
+and publication continue through the [release runbook](devops/runbooks/release-cli.md).
+A delivery request authorizes routine Git integration and cleanup, but not
+release publication, production deployment, or shared-history rewriting.
 
 ### Public repository privacy
 

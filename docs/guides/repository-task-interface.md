@@ -177,7 +177,7 @@ remain active for every other scope.
 Use the confidence ladder consistently. A focused Nx target answers one question
 during implementation. Run `verify:affected` locally before merge; it checks the
 current Nx affected range. `verify:pr` remains available to reproduce a
-merge-queue failure locally. CI runs the source and artifact change-boundary
+hosted verification failure locally. CI runs the source and artifact change-boundary
 gate: clean and format checks, affected source verification, packed artifacts,
 and affected CLI E2E. `ci` runs full-workspace source and CLI diagnostics for
 automation and scheduled coverage; it is not the routine substitute for
@@ -468,23 +468,15 @@ profiling. [Reproduce AXM Linux CI](../../devops/runbooks/reproduce-linux-ci.md)
 owns diagnosis and restoration proof. Workflow configuration owns producer
 selection and platform warming; it does not redefine cache eligibility.
 
-## Commit-index checks
+## Integration checks
 
-`pre-commit` runs the
-[staged commit gate](../../tools/workspace-conventions/README.md#staged-commit-gate)
-from `@agentxm/workspace-conventions` through its documented two-line hook
-template. The package README owns the mechanism: index isolation, the hook
-contract and ordering, the staged typecheck with its generated-input guard,
-and failure recovery. `workspace-conventions:test` exercises it in synthetic
-repositories.
-
-This repository's ordered checks live in `scripts/check-staged.checks.sh`. The
-gate runs them after isolation and before the staged typecheck: the
-`lint-staged --no-stash` auto-fixes from the root `lint-staged` globs, then
-`axm:local lint --staged --strict`, then `axm:scan-secrets:staged`, stopping at
-the first failure. Each uses pnpm with `verifyDepsBeforeRun=error`, and none
-reconciles the developer's installation: if it does not match the staged
-manifests and lockfile, install that dependency state before committing.
+Commits and non-main pushes have no verification hooks. The destination-main
+pre-push hook invokes `verify:integration` against the advertised remote base and
+clean checked-out candidate. The Git host adapter owns ref identity, fast-forward
+validation, and pre/post verification cleanliness; Nx owns source checks and
+input-bound cache reuse. `verify:integration:source` in `package.json` owns the
+check inventory. The [integration runbook](../../devops/runbooks/integrate-changes.md)
+owns handoff, applicable runtime evidence, failure recovery, and GitHub controls.
 
 ## Entrypoints and host adapters
 
@@ -497,7 +489,7 @@ launchers, and host adapters. These boundaries are intentional:
 | `classify:ci`, `resolve:release-source`                               | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
 | `test:spec`, `verify:artifact`, `verify:release`, `verify:deployment` | Resolve an exact subject, then invoke the target that owns the evidence                                                         |
 | `*:report` through `scripts/with-allure-report.sh`                    | Generate evidence even when the preceding gate fails; an Nx dependent would be skipped                                          |
-| `pre-commit` through lint-staged                                      | Isolate the Git index, preserve working changes, and supply explicit staged files to Nx                                         |
+| `verify:integration`                                                  | Verify the exact Git candidate and remote base before updating main                                                             |
 | release workflow platform steps                                       | Hold credentials, GitHub release state, and platform matrices outside Nx                                                        |
 
 Automation invokes targets directly unless it needs one of these host
@@ -523,7 +515,7 @@ artifacts; installed and published consumers retain the artifact boundary.
   collection, but not a second repository task graph.
 - The change classifier publishes the required job list; the aggregate
   `required` job only reads results. Native compiled-binary verification
-  joins relevant pull-request and merge-group gates; release artifact uploads
+  joins relevant PR and main-push assurance; release artifact uploads
   remain exclusive to canonical release commits.
 
 ## Gaps

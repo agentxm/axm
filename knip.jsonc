@@ -32,7 +32,7 @@
   },
   // Nx infers each project's compiler target; the dual compiler aliases are
   // enforced separately by scripts/typescript-aliases.test.ts.
-  // The staged checks script runs lint-staged through pnpm exec.
+  // The published workspace-conventions template invokes lint-staged in consumer repositories.
   "ignoreDependencies": ["@typescript/native", "lint-staged"],
   "vitest": {
     "config": [

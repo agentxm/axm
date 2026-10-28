@@ -61,17 +61,12 @@
     "test:all": "pnpm test && pnpm test:e2e",
     "ci:workspace:report": "scripts/with-allure-report.sh pnpm run ci:workspace",
     "cache:warm": "pnpm exec nx run-many -t lint typecheck build test --exclude=axm,cli-e2e --nxBail",
-    "cache:warm:affected": "pnpm exec nx affected -t lint typecheck build test --exclude=axm,cli-e2e --nxBail"
+    "cache:warm:affected": "pnpm exec nx affected -t lint typecheck build test --exclude=axm,cli-e2e --nxBail",
+    "verify:integration": "bash scripts/verify-integration.sh",
+    "verify:integration:source": "pnpm exec nx run axm:scan-secrets && pnpm run format:check:affected && pnpm run verify:clean && pnpm run axm:local -- lint --staged --strict && pnpm run verify:affected"
   },
   "nx": {
     "includedScripts": []
-  },
-  "lint-staged": {
-    "{!(.axm|agent_extensions)/**/,}*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "{!(.axm|agent_extensions)/**/,}*.{json,md,mdx,yml,yaml,css,scss,html}": "prettier --write"
   },
   "packageManager": "pnpm@12.15.0",
   "devDependencies": {
@@ -115,7 +110,6 @@
     "husky": "catalog:",
     "jsonc-eslint-parser": "catalog:",
     "knip": "6.42.0",
-    "lint-staged": "catalog:",
     "nx": "catalog:",
     "prettier": "catalog:",
     "publint": "0.3.25",

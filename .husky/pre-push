@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Branch handoffs require neither dependencies nor a configured toolchain.
+set -eu
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = refs/heads/main ] || continue
+  export NX_BASE="$remote_sha" NX_HEAD="$local_sha"
+  export NX_TUI=false NX_DEFAULT_OUTPUT_STYLE=static NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
+  mise exec -- pnpm run verify:integration </dev/null
+done

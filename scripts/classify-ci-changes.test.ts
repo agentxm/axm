@@ -72,7 +72,7 @@ describe("classifyCiChanges", () => {
       ["classify", "secrets", "commit-history", "documentation"],
     ],
     [
-      "merge_group",
+      "push",
       ["apps/cli/src/main.ts"],
       false,
       [
@@ -120,7 +120,6 @@ describe("classifyCiChanges", () => {
         "npm-cohort",
       ],
     ],
-    ["push", ["apps/cli/src/main.ts"], false, ["classify", "secrets"]],
   ])(
     "publishes required jobs for %s with release artifacts %s",
     (event, paths, releaseArtifacts, expected) => {
@@ -144,9 +143,6 @@ describe("classifyCiChanges", () => {
     ["pull_request", "release/cli-v0.30.2", "agentxm/axm", "release: cli-v0.30.2", true],
     ["pull_request", "feature/example", "agentxm/axm", "release: cli-v0.30.2", false],
     ["pull_request", "release/cli-v0.30.2", "example/fork", "release: cli-v0.30.2", false],
-    ["merge_group", "", "", "release: cli-v0.30.2 (#327)", true],
-    ["merge_group", "", "", "Improve workspace policy (#328)", false],
-    ["merge_group", "", "", "release: cli-v0.30.2 unreviewed suffix (#327)", false],
   ])(
     "detects release preparation for %s with %s",
     (event, headRef, headRepository, subject, prepared) => {

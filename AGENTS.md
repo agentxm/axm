@@ -27,11 +27,13 @@ AGENTS.md, CLAUDE.md, and SKILL.md instructions stay brief and scoped.
   prerequisites, dependency ordering, and freshness. Agent command environments
   set `NX_TUI=false`, `NX_DEFAULT_OUTPUT_STYLE=static`, and
   `NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false`.
-- Changes have passing relevant verification and repository formatting before
-  delivery. Integration follows [CONTRIBUTING.md](CONTRIBUTING.md): isolated
-  work, short-lived pull requests, accepted changes, required CI, and coherent
-  public commit history. Delivery authority does not imply release, production
-  deployment, or shared-history rewrite authority.
+- Commits and non-main pushes are fast handoffs without verification hooks.
+  Use isolated worktrees and hand off the branch, exact SHA, remaining work, and
+  verification state. Before integrating into main, format, rebase onto current
+  main, and use the main-only `verify:integration` pre-push gate. Follow
+  [Integrate changes](devops/runbooks/integrate-changes.md). PRs are optional for
+  maintainers and required for external contributions. Delivery authority does
+  not imply release, production deployment, or shared-history rewrite authority.
 - Public artifacts contain no private tracker, repository, customer, or
   credential context. Cross-repository changes stand alone in public.
 - Canonical sources own their generated output and agent projections.

@@ -284,24 +284,15 @@ const makeInMemoryFs = (files: ReadonlyMap<string, string>): FileSystem.FileSyst
       if (dir.length > 0) directorySet.add(dir);
     }
   }
-  return FileSystem.makeNoop({
+  const fs = FileSystem.makeNoop({
     realPath: (path) =>
       files.has(path) || directorySet.has(path)
         ? Effect.succeed(path)
         : Effect.fail(notFound("realPath", path)),
-    exists: (path) =>
-      Effect.sync(() => {
-        if (files.has(path)) return true;
-        if (directorySet.has(path)) return true;
-        return false;
-      }),
-    readFileString: (path) => {
-      const value = files.get(path);
-      if (value === undefined) {
-        return Effect.fail(notFound("readFileString", path));
-      }
-      return Effect.succeed(value);
-    },
+    access: (path) =>
+      files.has(path) || directorySet.has(path)
+        ? Effect.void
+        : Effect.fail(notFound("access", path)),
     readFile: (path) => {
       const value = files.get(path);
       if (value === undefined) {
@@ -372,6 +363,15 @@ const makeInMemoryFs = (files: ReadonlyMap<string, string>): FileSystem.FileSyst
       }
       return Effect.fail(notFound("stat", path));
     },
+  });
+  return FileSystem.make({
+    ...fs,
+    // This fixture has no symlinks. Both directory APIs share its file map.
+    lstat: fs.stat,
+    readDirectoryEntries: (path) =>
+      fs
+        .readDirectory(path)
+        .pipe(Effect.map((names) => names.map((name) => ({ name, type: "Unknown" as const })))),
   });
 };
 

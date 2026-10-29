@@ -32,8 +32,7 @@ describe("Publication refused on a changed precondition", () => {
           Effect.succeed(
             jsonRegistryResponse(
               {
-                kind: "PreconditionFailedError",
-                type: `https://registry.agentxm.ai/v1/problems/${code}`,
+                type: "https://registry.agentxm.ai/v1/problems/publish_precondition_changed",
                 title: "Precondition Failed",
                 status: 412,
                 detail: "The publication set changed after its preview.",

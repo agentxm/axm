@@ -37,8 +37,7 @@ const TRUSTED_PUBLISHER_RECOVERY = {
 const refusal = (code: string, registryUrl: string, details?: Record<string, unknown>) =>
   registryErrorToProblem(
     {
-      kind: "ForbiddenError",
-      type: "about:blank",
+      type: "https://registry.agentxm.ai/v1/problems/forbidden",
       title: "Forbidden",
       status: 403,
       detail: `The Registry refused this: ${code}.`,

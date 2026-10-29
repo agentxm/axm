@@ -22,9 +22,8 @@ export const specification = defineSpecification({
 const refusal = (code: string, upgradeUrl: unknown) =>
   registryErrorToProblem(
     {
-      kind: "ForbiddenError",
-      type: "about:blank",
-      title: "Plan limit reached",
+      type: "https://registry.agentxm.ai/v1/problems/forbidden",
+      title: "Forbidden",
       status: 403,
       code,
       detail: "This owner's plan does not allow another private extension.",

@@ -2,13 +2,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
-import { CliError, CliOutput } from "effect/cli";
+import { CliError } from "effect/cli";
 import { afterEach } from "vitest";
 
 import { displayWidth, Screen, stripTerminalFormatting } from "./index.js";
 import { runCommand } from "../app.js";
 import { classifyError } from "../cli-runtime/handle-error.js";
-import { makeAxmFormatter } from "../formatter.js";
 import { toJsonHelpDoc } from "../cli-runtime/index.js";
 import { handleInstall } from "../root/install/handler.js";
 import { handleList as handleSkillsList } from "../root/skills/list.js";
@@ -136,14 +135,7 @@ describe("Non-terminal human output", () => {
           ? Effect.void
           : Effect.flatMap(Screen, (screen) => screen.note(classified.stderrDoc ?? []));
       }),
-      Effect.provide(
-        Layer.mergeAll(
-          baseLayer,
-          humanScreenLayer(streams),
-          CliOutput.layer(makeAxmFormatter()),
-          TelemetryClientTest,
-        ),
-      ),
+      Effect.provide(Layer.mergeAll(baseLayer, humanScreenLayer(streams), TelemetryClientTest)),
     );
 
   it.effect.each([
@@ -175,7 +167,7 @@ describe("Non-terminal human output", () => {
           if (description.length === 0) continue;
           expect(
             stdout.filter((line) => line.includes(description)),
-            `--${flag.name}`,
+            `--${flag.name}: ${stdout.join("\n")}`,
           ).toHaveLength(1);
         }
         // The widest line exceeds the terminal facts, so no width was applied.

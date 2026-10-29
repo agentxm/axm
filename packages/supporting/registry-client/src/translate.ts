@@ -1,6 +1,8 @@
 import { validatedResponseRequestId } from "./request-identity.js";
 import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Schema from "effect/Schema";
+import * as Option from "effect/Option";
+import * as NativeProblemDetails from "effect/http/ProblemDetails";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
@@ -11,20 +13,9 @@ import {
 } from "./__generated__/registry-client.js";
 import { RegistryProblem, type RegistryErrorCategory } from "./errors.js";
 import { registryRetryAfterSeconds } from "./retry-after.js";
-import { retainedRegistryResponseBody } from "./response-body.js";
 
-interface ProblemDetails {
-  readonly [key: string]: unknown;
-  readonly title?: string;
-  readonly status?: number;
-  readonly detail?: string;
-  readonly code?: string;
-}
-
-const EmptyProblem: ProblemDetails = {};
-
-const isProblemDetails = (value: unknown): value is ProblemDetails =>
-  typeof value === "object" && value !== null;
+type ProblemDetails = NativeProblemDetails.ProblemDetails;
+const decodeProblem = Schema.decodeUnknownOption(NativeProblemDetails.Schema);
 
 const decodeExtensionLintFailedError = Schema.decodeUnknownSync(ExtensionLintFailedErrorEncoded);
 const decodeExtensionIdentityMismatchError = Schema.decodeUnknownSync(
@@ -186,10 +177,6 @@ const FORBIDDEN_RECOVERIES: Partial<
     url: "https://agentxm.ai/support",
   },
   staff_credential_required: { description: "This operation is restricted to AgentXM staff." },
-  staff_role_required: { description: "Your staff role does not include this operation." },
-  delegated_permission_not_held: {
-    description: "Ask an owner of this resource for the permission this needs.",
-  },
   publish_plan_limit_reached: planLimitRecovery,
   visibility_plan_limit_reached: planLimitRecovery,
   publish_handle_not_owned: {
@@ -269,13 +256,13 @@ const serverErrorSuggestedAction = (status: number): SuggestedAction | undefined
 
 /** Lifecycle refusals carry stable problem codes and bounded recovery. */
 const lifecycleSuggestedAction = (problem: ProblemDetails): SuggestedAction | undefined => {
-  if (problem.code === "extension_name_held") {
+  if (problem["code"] === "extension_name_held") {
     return {
       description: "Contact support if access to this held extension is required.",
       url: "https://agentxm.ai/support",
     };
   }
-  if (problem.code !== "lifecycle_blocked") return undefined;
+  if (problem["code"] !== "lifecycle_blocked") return undefined;
   const reason = getStringField(problem, "reason");
   if (reason === "archived") {
     return {
@@ -306,10 +293,10 @@ const problemSuggestions = (
     ...(forbidden === undefined ? [] : [forbidden]),
     ...(lifecycle === undefined ? [] : [lifecycle]),
     ...(serverError === undefined ? [] : [serverError]),
-    ...(status === 422 && problem.code === "extension_lint_failed"
+    ...(status === 422 && problem["code"] === "extension_lint_failed"
       ? lintFailedSuggestions(body)
       : []),
-    ...(status === 422 && problem.code === "extension_identity_mismatch"
+    ...(status === 422 && problem["code"] === "extension_identity_mismatch"
       ? identityMismatchSuggestions(body)
       : []),
   ];
@@ -324,14 +311,17 @@ export const registryErrorToProblem = (
     readonly nowMillis?: number;
   },
 ): RegistryProblem => {
-  const problem = isProblemDetails(body) ? body : EmptyProblem;
+  const problem: ProblemDetails = Option.getOrElse(decodeProblem(body), () => ({
+    type: "about:blank",
+  }));
+  const code = getStringField(problem, "code");
   const status = response.status;
-  const category = httpStatusToCategory(status, problem.code);
+  const category = httpStatusToCategory(status, code);
   const suggestions = [
     ...problemSuggestions(status, problem, response, ctx?.nowMillis),
     ...(ctx?.suggestions ?? []),
   ];
-  const requestId = validatedResponseRequestId(response) ?? getStringField(problem, "requestId");
+  const requestId = validatedResponseRequestId(response);
 
   return new RegistryProblem({
     category,
@@ -346,7 +336,7 @@ export const registryErrorToProblem = (
       response: {
         status,
         ...(requestId === undefined ? {} : { requestId }),
-        ...(problem.code === undefined ? {} : { problemCode: problem.code }),
+        ...(code === undefined ? {} : { problemCode: code }),
         body,
       },
     },
@@ -362,12 +352,8 @@ export const registryClientErrorToProblem = (
     readonly nowMillis?: number;
   },
 ): RegistryProblem =>
-  registryErrorToProblem(
-    retainedRegistryResponseBody(error.response, error.cause),
-    error.response,
-    {
-      ...(ctx?.suggestions === undefined ? {} : { suggestions: ctx.suggestions }),
-      ...(ctx?.nowMillis === undefined ? {} : { nowMillis: ctx.nowMillis }),
-      cause: error,
-    },
-  );
+  registryErrorToProblem(error.cause, error.response, {
+    ...(ctx?.suggestions === undefined ? {} : { suggestions: ctx.suggestions }),
+    ...(ctx?.nowMillis === undefined ? {} : { nowMillis: ctx.nowMillis }),
+    cause: error,
+  });

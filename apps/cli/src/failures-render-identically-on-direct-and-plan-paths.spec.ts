@@ -690,9 +690,8 @@ const representatives: Representatives = {
     ...["publish_plan_limit_reached", "visibility_plan_limit_reached"].map((code) =>
       registryErrorToProblem(
         {
-          kind: "ForbiddenError",
-          type: "about:blank",
-          title: "Plan limit",
+          type: "https://registry.agentxm.ai/v1/problems/forbidden",
+          title: "Forbidden",
           status: 403,
           code,
           detail: "The owner's plan limit was reached.",

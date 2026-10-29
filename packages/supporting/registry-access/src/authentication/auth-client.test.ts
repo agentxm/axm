@@ -96,22 +96,19 @@ const makeOAuthError = (error: OAuthDeviceError) => ({
 });
 
 const internalErrorResponse = {
-  type: "https://registry.agentxm.ai/problems/internal_error",
-  title: "Internal Server Error",
+  type: "https://registry.agentxm.ai/v1/problems/internal_error",
+  title: "Internal",
   status: 500,
   detail: "Publication authorization could not be exchanged.",
   code: "internal_error",
 };
 
-/** Build an RFC 9457 DecodeErrorResponse-compatible JSON error body. */
-const makeDecodeError = (code: string, status: number) => ({
-  type: "urn:ietf:params:problem:decode-error",
-  title: "Decode Error",
-  status,
-  detail: `Decode error: ${code}`,
-  code,
-  requestId: "req_decode_error",
-  errors: [],
+/** Native request-decoding failure, with safe details and header-only correlation. */
+const makeDecodeError = () => ({
+  type: "about:blank",
+  title: "Bad Request",
+  status: 400,
+  detail: "The request is invalid.",
 });
 
 /** Build a valid AuthGetMe200-compatible JSON response body. */
@@ -137,22 +134,11 @@ const makeMeResponse = (token?: Readonly<Record<string, unknown>>) => ({
 
 // Build an UnauthorizedError-compatible JSON error body.
 const makeUnauthorizedError = () => ({
-  kind: "UnauthorizedError",
-  type: "urn:ietf:params:problem:unauthorized",
+  type: "https://registry.agentxm.ai/v1/problems/unauthorized",
   title: "Unauthorized",
   status: 401,
   detail: "Invalid or expired token",
   code: "unauthorized",
-});
-
-// Build a RefreshTokenError-compatible JSON error body.
-const makeRefreshTokenError = () => ({
-  kind: "RefreshTokenError",
-  type: "urn:ietf:params:problem:refresh-token",
-  title: "Refresh Token Error",
-  status: 401,
-  detail: "Refresh token expired or revoked",
-  code: "refresh_token_expired",
 });
 
 // -----------------------------------------------------------------------------
@@ -287,7 +273,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
   it.effect("preserves a declared 400 problem response", () => {
     const layer = makeTestLayer(
       () =>
-        new Response(JSON.stringify(makeDecodeError("unknown_client", 400)), {
+        new Response(JSON.stringify(makeDecodeError()), {
           status: 400,
           headers: { "content-type": "application/json" },
         }),
@@ -297,11 +283,10 @@ describe("AuthClient.initiateDeviceFlow", () => {
       const client = yield* AuthClient;
       const error = asRegistryFailure(yield* client.initiateDeviceFlow(ENDPOINT).pipe(Effect.flip));
       expect(error.category).toBe("validation");
-      expect(error.detail).toBe("Decode error: unknown_client");
+      expect(error.detail).toBe("The request is invalid.");
       expect(error.metadata?.response).toMatchObject({
         status: 400,
-        problemCode: "unknown_client",
-        body: makeDecodeError("unknown_client", 400),
+        body: makeDecodeError(),
       });
       expect(error.cause).toMatchObject({ _tag: "AuthIssueDeviceCode400" });
     }).pipe(Effect.provide(layer));
@@ -755,10 +740,17 @@ describe("TokenExchange.refreshToken", () => {
   it.effect("reports a refused refresh token as the session having ended", () => {
     const layer = exchangeLayer(
       () =>
-        new Response(JSON.stringify(makeDecodeError("invalid_grant", 400)), {
-          status: 400,
-          headers: { "content-type": "application/json" },
-        }),
+        new Response(
+          JSON.stringify({
+            kind: "TokenOAuthError",
+            error: "invalid_grant",
+            error_description: "Refresh token expired or revoked",
+          }),
+          {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          },
+        ),
     );
 
     return Effect.gen(function* () {
@@ -771,7 +763,7 @@ describe("TokenExchange.refreshToken", () => {
   it.effect("reports the Registry's own authentication refusal as the session having ended", () => {
     const layer = exchangeLayer(
       () =>
-        new Response(JSON.stringify(makeRefreshTokenError()), {
+        new Response(JSON.stringify(makeUnauthorizedError()), {
           status: 401,
           headers: { "content-type": "application/json" },
         }),
@@ -1085,9 +1077,7 @@ describe("AuthClient.getMe", () => {
     "decodes %s as a credential rejection",
     (code) => {
       const body = {
-        kind: "TokenEndedError",
-        type: `https://registry.agentxm.ai/problems/${code}`,
-        title: "Token ended",
+        type: "https://registry.agentxm.ai/v1/problems/token_ended",
         status: 401,
         detail: "The presented token has ended.",
         code,
@@ -1136,7 +1126,7 @@ describe("AuthClient.getMe", () => {
   it.effect("preserves a declared 400 validation response", () => {
     const layer = makeTestLayer(
       () =>
-        new Response(JSON.stringify(makeDecodeError("bad_request", 400)), {
+        new Response(JSON.stringify(makeDecodeError()), {
           status: 400,
           headers: { "content-type": "application/json" },
         }),
@@ -1150,8 +1140,7 @@ describe("AuthClient.getMe", () => {
       expect(error.category).toBe("validation");
       expect(error.metadata?.response).toMatchObject({
         status: 400,
-        problemCode: "bad_request",
-        body: makeDecodeError("bad_request", 400),
+        body: makeDecodeError(),
       });
     }).pipe(Effect.provide(layer));
   });
@@ -1236,8 +1225,8 @@ describe("AuthClient tokens on the wire", () => {
       requests += 1;
       return Response.json(
         {
-          type: "https://registry.agentxm.ai/problems/invalid_cursor",
-          title: "Invalid cursor",
+          type: "https://registry.agentxm.ai/v1/problems/invalid_request",
+          title: "Invalid Request",
           status: 400,
           code: "invalid_cursor",
           detail: "Start again without a cursor.",

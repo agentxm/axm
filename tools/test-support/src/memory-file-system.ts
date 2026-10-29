@@ -99,10 +99,10 @@ export const makeMemoryFileSystem = (): MemoryFileSystem => {
       volume.mkdirSync(target);
       return target;
     });
-  const info = (target: string): FileSystem.File.Info => {
-    const stat = volume.statSync(target);
+  const info = (target: string, followLinks = true): FileSystem.File.Info => {
+    const stat = followLinks ? volume.statSync(target) : volume.lstatSync(target);
     return {
-      type: stat.isDirectory() ? "Directory" : "File",
+      type: stat.isSymbolicLink() ? "SymbolicLink" : stat.isDirectory() ? "Directory" : "File",
       mtime: Option.some(stat.mtime),
       atime: Option.some(stat.atime),
       birthtime: Option.some(stat.birthtime),
@@ -124,7 +124,6 @@ export const makeMemoryFileSystem = (): MemoryFileSystem => {
       call("access", target, () =>
         volume.accessSync(target, (options?.readable ? 4 : 0) | (options?.writable ? 2 : 0)),
       ),
-    glob: () => unsupported("glob"),
     chmod: (target, mode) => call("chmod", target, () => volume.chmodSync(target, mode)),
     chown: (target, uid, gid) => call("chown", target, () => volume.chownSync(target, uid, gid)),
     copy: (from, to, options) =>
@@ -162,6 +161,13 @@ export const makeMemoryFileSystem = (): MemoryFileSystem => {
     open: () => unsupported("open"),
     readDirectory: (target) =>
       call("readDirectory", target, () => volume.readdirSync(target).map(String)),
+    readDirectoryEntries: (target) =>
+      call("readDirectoryEntries", target, () =>
+        volume
+          .readdirSync(target)
+          .map((name) => ({ name: String(name), type: "Unknown" as const })),
+      ),
+    lstat: (target) => call("lstat", target, () => info(target, false)),
     readFile: (target) => call("readFile", target, () => readBytes(target)),
     readLink: (target) => call("readLink", target, () => String(volume.readlinkSync(target))),
     realPath: (target) => call("realPath", target, () => String(volume.realpathSync(target))),

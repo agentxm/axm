@@ -1,58 +1,42 @@
-/**
- * Presentation of Effect CLI's built-in output.
- *
- * `--help`, `--version`, a parent command invoked without a subcommand, and
- * the help shown for a usage error all reach the process as strings on the
- * console the application provides. AXM's formatter makes each of them a
- * machine document (see `formatter.ts`); this module reads that document back
- * and presents it through the Screen, so the styling and width of built-in
- * output are the Screen's per-stream decisions like every other document's.
- * Machine mode writes the document as it was formatted. Console text that is
- * not a formatter document is not a built-in and passes through as written.
- */
-
+/** Present native Effect CLI events through AXM's Screen. */
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import type { CliError } from "effect/cli";
-
-import { decodeFormatterDocument, type OutputFormat } from "./cli-runtime/index.js";
+import * as Context from "effect/Context";
+import type { CliError, CliOutput } from "effect/cli";
+import { toJsonHelpDoc, type OutputFormat } from "./cli-runtime/index.js";
+import { LearnMore } from "./formatter.js";
 import { commandHelpDoc } from "./root/help/command-help-view.js";
 import { Screen, type OutputWriteFailed } from "./screen/index.js";
 
 export const presentBuiltInOutput = (
-  output: string,
+  event: CliOutput.Presenter.Event,
   options: {
-    /** The parser's help request, when the invocation ended in one. */
     readonly helpRequest: CliError.ShowHelp | undefined;
     readonly format: OutputFormat;
   },
 ): Effect.Effect<void, OutputWriteFailed, Screen> =>
   Effect.gen(function* () {
-    if (output.length === 0) return;
     const screen = yield* Screen;
-    const usageError = options.helpRequest !== undefined && options.helpRequest.errors.length > 0;
-    const document = decodeFormatterDocument(output);
-
+    const usageError =
+      event._tag === "InvalidInvocation" ||
+      (options.helpRequest !== undefined && options.helpRequest.errors.length > 0);
+    const document =
+      event._tag === "Version"
+        ? { type: "version", name: event.name, version: event.version }
+        : toJsonHelpDoc(event.helpDoc, {
+            learnMore: Context.get(event.helpDoc.annotations, LearnMore),
+          });
     if (options.format === "json") {
-      // The usage error's machine envelope is the error handler's; the help
-      // document it was shown with has no machine channel.
-      if (!usageError) yield* screen.result([{ _tag: "raw", content: output }]);
+      if (!usageError)
+        yield* screen.result([{ _tag: "raw", content: `${JSON.stringify(document, null, 2)}\n` }]);
       return;
     }
-
-    if (Option.isNone(document)) {
-      return yield* (usageError ? screen.note : screen.result)([{ _tag: "raw", content: output }]);
+    if (event._tag === "Version") {
+      return yield* screen.result([{ _tag: "raw", content: `${event.version}\n` }]);
     }
-
-    switch (document.value.type) {
-      case "version":
-        return yield* screen.result([{ _tag: "raw", content: `${document.value.version}\n` }]);
-      case "help": {
-        const doc = commandHelpDoc(document.value);
-        if (options.helpRequest === undefined || !usageError) return yield* screen.result(doc);
-
-        // The process failure boundary paints the error once after this help.
-        yield* screen.note(doc);
-      }
-    }
+    const doc = commandHelpDoc(
+      toJsonHelpDoc(event.helpDoc, {
+        learnMore: Context.get(event.helpDoc.annotations, LearnMore),
+      }),
+    );
+    yield* (usageError ? screen.note : screen.result)(doc);
   });

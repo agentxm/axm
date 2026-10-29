@@ -49,39 +49,52 @@ export const MetaResponse = Schema.Struct({
   description: "Registry service metadata including health status and documentation entry points.",
   identifier: "MetaResponse",
 });
-export type DecodeErrorResponse = {
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+export type BadRequestProblemEncoded = {
+  readonly detail?: string;
   readonly instance?: string;
-  readonly code: string;
-  readonly requestId: string;
-  readonly errors: ReadonlyArray<{ readonly pointer: string; readonly detail: string }>;
+  readonly errors?: ReadonlyArray<{
+    readonly path: ReadonlyArray<string | number | "Infinity" | "-Infinity" | "NaN">;
+    readonly message: string;
+  }>;
+  readonly type: "about:blank";
+  readonly status?: 400;
+  readonly title?: "Bad Request";
 };
-export const DecodeErrorResponse = Schema.Struct({
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+export const BadRequestProblemEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  requestId: Schema.String,
-  errors: Schema.Array(Schema.Struct({ pointer: Schema.String, detail: Schema.String })),
-}).annotate({
-  title: "Decode Error Problem Details",
-  description:
-    "RFC 9457 Problem Details for a request that failed schema decoding; each `errors` entry points at one offending location.",
-  identifier: "DecodeErrorResponse",
-});
+  errors: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        path: Schema.Array(
+          Schema.Union([
+            Schema.String,
+            Schema.Finite,
+            Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+          ]),
+        ),
+        message: Schema.String,
+      }),
+    ),
+  ),
+  type: Schema.Literal("about:blank"),
+  status: Schema.optionalKey(Schema.Literal(400)),
+  title: Schema.optionalKey(Schema.Literal("Bad Request")),
+}).annotate({ identifier: "BadRequestProblemEncoded" });
+export type InternalServerErrorProblemEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly type: "about:blank";
+  readonly status?: 500;
+  readonly title?: "Internal Server Error";
+};
+export const InternalServerErrorProblemEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  type: Schema.Literal("about:blank"),
+  status: Schema.optionalKey(Schema.Literal(500)),
+  title: Schema.optionalKey(Schema.Literal("Internal Server Error")),
+}).annotate({ identifier: "InternalServerErrorProblemEncoded" });
 export type DeviceCodeResponse = {
   readonly device_code: string;
   readonly user_code: string;
@@ -140,161 +153,6 @@ export type DeviceCodeOAuthError = {
 export const DeviceCodeOAuthError = Schema.Struct({
   error: Schema.Literals(["invalid_client", "invalid_scope", "invalid_request"]),
 }).annotate({ title: "Device Code OAuth Error", identifier: "DeviceCodeOAuthError" });
-export type RegistryProblemCode =
-  | "invalid_request"
-  | "invalid_cursor"
-  | "publish_malformed_request"
-  | "publish_ingest_malformed_archive"
-  | "publish_ingest_unsupported_compression"
-  | "publish_invalid_digest"
-  | "publish_invalid_content_length"
-  | "publish_empty_archive"
-  | "deprecation_invalid_guidance"
-  | "unauthorized"
-  | "token_expired"
-  | "token_revoked"
-  | "forbidden"
-  | "insufficient_scope"
-  | "resource_restriction"
-  | "credential_not_admitted"
-  | "browser_session_required"
-  | "identity_suspended"
-  | "invitation_binding_mismatch"
-  | "plan_admission_required"
-  | "staff_credential_required"
-  | "staff_role_required"
-  | "delegated_permission_not_held"
-  | "different_target_required"
-  | "staff_administrator_required"
-  | "impersonation_not_allowed"
-  | "publish_quota_exceeded"
-  | "publish_insufficient_scope"
-  | "publish_resource_restriction"
-  | "publish_handle_not_owned"
-  | "publish_publish_forbidden"
-  | "publish_plan_limit_reached"
-  | "visibility_plan_limit_reached"
-  | "not_found"
-  | "owner_not_found"
-  | "extension_not_found"
-  | "version_not_found"
-  | "publish_owner_not_found"
-  | "problem_not_found"
-  | "conflict"
-  | "publish_publish_conflict"
-  | "publish_owner_frozen"
-  | "visibility_pack_blocked"
-  | "deprecation_replacement_unavailable"
-  | "lifecycle_blocked"
-  | "extension_name_held"
-  | "version_purged"
-  | "version_retired"
-  | "publish_precondition_changed"
-  | "visibility_stale_revision"
-  | "deprecation_stale_revision"
-  | "archival_stale_revision"
-  | "payload_too_large"
-  | "publish_ingest_request_too_large"
-  | "publish_ingest_archive_too_large"
-  | "publish_ingest_decompression_limit"
-  | "publish_preflight_batch_too_large"
-  | "unsupported_media_type"
-  | "publish_ingest_unsupported_content_type"
-  | "unprocessable_entity"
-  | "invalid_scope"
-  | "invalid_scope_qualifier"
-  | "invalid_permissions"
-  | "invalid_expiry"
-  | "token_creation_failed"
-  | "publish_integrity_mismatch"
-  | "extension_lint_failed"
-  | "extension_identity_mismatch"
-  | "internal_error"
-  | "archive_missing"
-  | "archive_read_failed"
-  | "publish_internal_error"
-  | "service_unavailable"
-  | "publish_database_contention";
-export const RegistryProblemCode = Schema.Literals([
-  "invalid_request",
-  "invalid_cursor",
-  "publish_malformed_request",
-  "publish_ingest_malformed_archive",
-  "publish_ingest_unsupported_compression",
-  "publish_invalid_digest",
-  "publish_invalid_content_length",
-  "publish_empty_archive",
-  "deprecation_invalid_guidance",
-  "unauthorized",
-  "token_expired",
-  "token_revoked",
-  "forbidden",
-  "insufficient_scope",
-  "resource_restriction",
-  "credential_not_admitted",
-  "browser_session_required",
-  "identity_suspended",
-  "invitation_binding_mismatch",
-  "plan_admission_required",
-  "staff_credential_required",
-  "staff_role_required",
-  "delegated_permission_not_held",
-  "different_target_required",
-  "staff_administrator_required",
-  "impersonation_not_allowed",
-  "publish_quota_exceeded",
-  "publish_insufficient_scope",
-  "publish_resource_restriction",
-  "publish_handle_not_owned",
-  "publish_publish_forbidden",
-  "publish_plan_limit_reached",
-  "visibility_plan_limit_reached",
-  "not_found",
-  "owner_not_found",
-  "extension_not_found",
-  "version_not_found",
-  "publish_owner_not_found",
-  "problem_not_found",
-  "conflict",
-  "publish_publish_conflict",
-  "publish_owner_frozen",
-  "visibility_pack_blocked",
-  "deprecation_replacement_unavailable",
-  "lifecycle_blocked",
-  "extension_name_held",
-  "version_purged",
-  "version_retired",
-  "publish_precondition_changed",
-  "visibility_stale_revision",
-  "deprecation_stale_revision",
-  "archival_stale_revision",
-  "payload_too_large",
-  "publish_ingest_request_too_large",
-  "publish_ingest_archive_too_large",
-  "publish_ingest_decompression_limit",
-  "publish_preflight_batch_too_large",
-  "unsupported_media_type",
-  "publish_ingest_unsupported_content_type",
-  "unprocessable_entity",
-  "invalid_scope",
-  "invalid_scope_qualifier",
-  "invalid_permissions",
-  "invalid_expiry",
-  "token_creation_failed",
-  "publish_integrity_mismatch",
-  "extension_lint_failed",
-  "extension_identity_mismatch",
-  "internal_error",
-  "archive_missing",
-  "archive_read_failed",
-  "publish_internal_error",
-  "service_unavailable",
-  "publish_database_contention",
-]).annotate({
-  title: "Registry Problem Code",
-  description: "Machine-readable problem code. `GET /v1/problems/{code}` describes each one.",
-  identifier: "RegistryProblemCode",
-});
 export type PublishDetails = {
   readonly retryable: boolean;
   readonly retryAfterSeconds?: number;
@@ -378,7 +236,7 @@ export const UserId = Schema.String.annotate({
     "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
   examples: ["user_01h455vb4pexka56gq5w2r7cpc"],
 }).check(
-  Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
+  Schema.isPattern(new globalThis.RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
     expected: "a string matching the RegExp ^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
     identifier: "UserId",
   }),
@@ -423,7 +281,7 @@ export const TrustedPublisherId = Schema.String.annotate({
     "Identifies a trusted publisher: a CI workflow identity a user allowed to exchange its OIDC token for a short-lived workload token.",
   examples: ["tpub_01h455vb4pexka56gq5w2r7cpc"],
 }).check(
-  Schema.isPattern(new RegExp("^tpub_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
+  Schema.isPattern(new globalThis.RegExp("^tpub_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
     expected: "a string matching the RegExp ^tpub_[0-7][0-9a-hjkmnp-tv-z]{25}$",
     identifier: "TrustedPublisherId",
   }),
@@ -435,7 +293,7 @@ export const TokenId = Schema.String.annotate({
     "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
   examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
 }).check(
-  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
+  Schema.isPattern(new globalThis.RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
     expected: "a string matching the RegExp ^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
     identifier: "TokenId",
   }),
@@ -524,12 +382,12 @@ export const ExtensionName = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])", "u")).annotate(
-      {
-        expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])",
-        identifier: "ExtensionName",
-      },
-    ),
+    Schema.isPattern(
+      new globalThis.RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])", "u"),
+    ).annotate({
+      expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])",
+      identifier: "ExtensionName",
+    }),
   );
 export type Handle = string;
 export const Handle = Schema.String.annotate({
@@ -537,7 +395,7 @@ export const Handle = Schema.String.annotate({
   description: "A unique username or organization name starting with @, like @my-org.",
   examples: ["@my-org", "@username"],
 }).check(
-  Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$", "u")).annotate({
+  Schema.isPattern(new globalThis.RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$", "u")).annotate({
     expected: "a string matching the RegExp ^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
     identifier: "Handle",
   }),
@@ -565,7 +423,7 @@ export const Version = Schema.String.annotate({
   examples: ["1.0.0", "2.3.1", "0.1.0-beta.1"],
 }).check(
   Schema.isPattern(
-    new RegExp(
+    new globalThis.RegExp(
       "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
       "u",
     ),
@@ -663,7 +521,7 @@ export const ExtensionFqn = Schema.String.annotate({
   examples: ["@acme/skills/code-review", "@my-org/rules/typescript"],
 }).check(
   Schema.isPattern(
-    new RegExp(
+    new globalThis.RegExp(
       "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
       "u",
     ),
@@ -707,7 +565,7 @@ export const VersionRange = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isPattern(new RegExp("^[~^<>=*xXvV0-9A-Za-z+| .-]+$", "u")).annotate({
+    Schema.isPattern(new globalThis.RegExp("^[~^<>=*xXvV0-9A-Za-z+| .-]+$", "u")).annotate({
       expected: "a string matching the RegExp ^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
       identifier: "VersionRange",
     }),
@@ -721,38 +579,30 @@ export const PackageIdentityPurl = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isPattern(new RegExp("^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$", "u")).annotate({
+    Schema.isPattern(
+      new globalThis.RegExp("^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$", "u"),
+    ).annotate({
       expected: "a string matching the RegExp ^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
       identifier: "PackageIdentityPurl",
     }),
   );
 export type LifecycleBlockedErrorEncoded = {
-  readonly kind: "LifecycleBlockedError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+  readonly detail?: string;
   readonly instance?: string;
   readonly code: "lifecycle_blocked";
   readonly reason: "deleting" | "held" | "archived";
+  readonly type: "https://registry.agentxm.ai/v1/problems/lifecycle_blocked";
+  readonly status?: 409;
+  readonly title?: "Lifecycle Blocked";
 };
 export const LifecycleBlockedErrorEncoded = Schema.Struct({
-  kind: Schema.Literal("LifecycleBlockedError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literal("lifecycle_blocked"),
   reason: Schema.Literals(["deleting", "held", "archived"]),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/lifecycle_blocked"),
+  status: Schema.optionalKey(Schema.Literal(409)),
+  title: Schema.optionalKey(Schema.Literal("Lifecycle Blocked")),
 }).annotate({ identifier: "LifecycleBlockedErrorEncoded" });
 export type ExtensionVisibility = "public" | "private";
 export const ExtensionVisibility = Schema.Literals(["public", "private"]).annotate({
@@ -771,14 +621,14 @@ export const VisibilityRevision = Schema.String.annotate({
 );
 export type VisibilityFingerprint = string;
 export const VisibilityFingerprint = Schema.String.check(
-  Schema.isPattern(new RegExp("^[a-f0-9]{64}$", "u")).annotate({
+  Schema.isPattern(new globalThis.RegExp("^[a-f0-9]{64}$", "u")).annotate({
     expected: "a string matching the RegExp ^[a-f0-9]{64}$",
     identifier: "VisibilityFingerprint",
   }),
 );
 export type Sha256Hex = string;
 export const Sha256Hex = Schema.String.check(
-  Schema.isPattern(new RegExp("^[a-f0-9]{64}$", "u")).annotate({
+  Schema.isPattern(new globalThis.RegExp("^[a-f0-9]{64}$", "u")).annotate({
     expected: "a string matching the RegExp ^[a-f0-9]{64}$",
     identifier: "Sha256Hex",
   }),
@@ -832,16 +682,6 @@ export const ExtensionLinks = Schema.Struct({
   description: "Hyperlinks for an extension resource. `html` is the canonical web page URL.",
   identifier: "ExtensionLinks",
 });
-export type SuggestedAction_1 = {
-  readonly description: string;
-  readonly cmd?: string | null;
-  readonly url?: string | null;
-};
-export const SuggestedAction_1 = Schema.Struct({
-  description: Schema.String,
-  cmd: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-}).annotate({ identifier: "SuggestedAction_1" });
 export type PublishIdentityMismatchEntry = {
   readonly field: "owner" | "type" | "name" | "version";
   readonly urlPath: string | null;
@@ -910,7 +750,7 @@ export const PutArchivalBody = Schema.Struct({
   message: Schema.optionalKey(
     Schema.Union([
       Schema.String.annotate({
-        description: "Publisher message; omit to preserve it, or use null to clear it.",
+        description: "Owner message; omit to preserve it, or use null to clear it.",
       }).check(
         Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
       ),
@@ -920,7 +760,7 @@ export const PutArchivalBody = Schema.Struct({
 }).annotate({ identifier: "PutArchivalBody" });
 export type DeprecationRevision = string;
 export const DeprecationRevision = Schema.String.annotate({
-  description: "Opaque publisher lifecycle revision used for conditional writes.",
+  description: "Opaque owner lifecycle revision used for conditional writes.",
 }).check(
   Schema.isMinLength(1).annotate({
     expected: "a value with a length of at least 1",
@@ -950,7 +790,7 @@ export const YankVersionBody = Schema.Struct({
       Schema.String.check(
         Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
       ).check(
-        Schema.isPattern(new RegExp("^[^\\u0000]*$", "u")).annotate({
+        Schema.isPattern(new globalThis.RegExp("^[^\\u0000]*$", "u")).annotate({
           expected: "a string matching the RegExp ^[^\\u0000]*$",
         }),
       ),
@@ -977,7 +817,7 @@ export const YankAvailableVersionsBody = Schema.Struct({
       Schema.String.check(
         Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
       ).check(
-        Schema.isPattern(new RegExp("^[^\\u0000]*$", "u")).annotate({
+        Schema.isPattern(new globalThis.RegExp("^[^\\u0000]*$", "u")).annotate({
           expected: "a string matching the RegExp ^[^\\u0000]*$",
         }),
       ),
@@ -1133,32 +973,22 @@ export const PackMemberRegistrySource = Schema.Struct({
   identifier: "PackMemberRegistrySource",
 });
 export type PublishPreviewBatchTooLargeHttpErrorEncoded = {
-  readonly kind: "PublishPreviewBatchTooLargeHttpError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+  readonly detail?: string;
   readonly instance?: string;
   readonly code: "publish_preflight_batch_too_large";
   readonly maxItems: 100;
+  readonly type: "https://registry.agentxm.ai/v1/problems/publish_preflight_batch_too_large";
+  readonly status?: 413;
+  readonly title?: "Publish Preview Batch Too Large Http";
 };
 export const PublishPreviewBatchTooLargeHttpErrorEncoded = Schema.Struct({
-  kind: Schema.Literal("PublishPreviewBatchTooLargeHttpError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literal("publish_preflight_batch_too_large"),
   maxItems: Schema.Literal(100),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/publish_preflight_batch_too_large"),
+  status: Schema.optionalKey(Schema.Literal(413)),
+  title: Schema.optionalKey(Schema.Literal("Publish Preview Batch Too Large Http")),
 }).annotate({ identifier: "PublishPreviewBatchTooLargeHttpErrorEncoded" });
 export type SecretScanningLabel = {
   readonly token_hash: string;
@@ -1182,42 +1012,218 @@ export const SecretScanningLabel = Schema.Struct({
     "What one reported match turned out to be. Response format defined by GitHub's secret-scanning partner program, so its snake_case keys are exempt from the Registry's camelCase rule.",
   identifier: "SecretScanningLabel",
 });
-export type ProblemDetails = {
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+export type InternalErrorEncoded = {
+  readonly detail?: string;
   readonly instance?: string;
-  readonly code: RegistryProblemCode;
+  readonly code:
+    "internal_error" | "archive_missing" | "archive_read_failed" | "publish_internal_error";
   readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/internal_error";
+  readonly status?: 500;
+  readonly title?: "Internal";
 };
-export const ProblemDetails = Schema.Struct({
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+export const InternalErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
-  code: RegistryProblemCode,
+  code: Schema.Literals([
+    "internal_error",
+    "archive_missing",
+    "archive_read_failed",
+    "publish_internal_error",
+  ]),
   details: Schema.optionalKey(PublishDetails),
-}).annotate({
-  title: "Problem Details",
-  description: "RFC 9457 Problem Details payload for AgentXM Registry errors.",
-  identifier: "ProblemDetails",
-});
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/internal_error"),
+  status: Schema.optionalKey(Schema.Literal(500)),
+  title: Schema.optionalKey(Schema.Literal("Internal")),
+}).annotate({ identifier: "InternalErrorEncoded" });
+export type InvalidRequestErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code:
+    | "invalid_request"
+    | "invalid_cursor"
+    | "publish_malformed_request"
+    | "publish_ingest_malformed_archive"
+    | "publish_ingest_unsupported_compression"
+    | "publish_invalid_digest"
+    | "publish_invalid_content_length"
+    | "publish_empty_archive"
+    | "deprecation_invalid_guidance";
+  readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/invalid_request";
+  readonly status?: 400;
+  readonly title?: "Invalid Request";
+};
+export const InvalidRequestErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literals([
+    "invalid_request",
+    "invalid_cursor",
+    "publish_malformed_request",
+    "publish_ingest_malformed_archive",
+    "publish_ingest_unsupported_compression",
+    "publish_invalid_digest",
+    "publish_invalid_content_length",
+    "publish_empty_archive",
+    "deprecation_invalid_guidance",
+  ]),
+  details: Schema.optionalKey(PublishDetails),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/invalid_request"),
+  status: Schema.optionalKey(Schema.Literal(400)),
+  title: Schema.optionalKey(Schema.Literal("Invalid Request")),
+}).annotate({ identifier: "InvalidRequestErrorEncoded" });
+export type ServiceUnavailableErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code: "service_unavailable" | "publish_database_contention";
+  readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/service_unavailable";
+  readonly status?: 503;
+  readonly title?: "Service Unavailable";
+};
+export const ServiceUnavailableErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literals(["service_unavailable", "publish_database_contention"]),
+  details: Schema.optionalKey(PublishDetails),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/service_unavailable"),
+  status: Schema.optionalKey(Schema.Literal(503)),
+  title: Schema.optionalKey(Schema.Literal("Service Unavailable")),
+}).annotate({ identifier: "ServiceUnavailableErrorEncoded" });
+export type UnauthorizedErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code: "unauthorized";
+  readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/unauthorized";
+  readonly status?: 401;
+  readonly title?: "Unauthorized";
+};
+export const UnauthorizedErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literal("unauthorized"),
+  details: Schema.optionalKey(PublishDetails),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/unauthorized"),
+  status: Schema.optionalKey(Schema.Literal(401)),
+  title: Schema.optionalKey(Schema.Literal("Unauthorized")),
+}).annotate({ identifier: "UnauthorizedErrorEncoded" });
+export type NotFoundErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code:
+    | "not_found"
+    | "owner_not_found"
+    | "extension_not_found"
+    | "version_not_found"
+    | "publish_owner_not_found"
+    | "problem_not_found";
+  readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/not_found";
+  readonly status?: 404;
+  readonly title?: "Not Found";
+};
+export const NotFoundErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literals([
+    "not_found",
+    "owner_not_found",
+    "extension_not_found",
+    "version_not_found",
+    "publish_owner_not_found",
+    "problem_not_found",
+  ]),
+  details: Schema.optionalKey(PublishDetails),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/not_found"),
+  status: Schema.optionalKey(Schema.Literal(404)),
+  title: Schema.optionalKey(Schema.Literal("Not Found")),
+}).annotate({ identifier: "NotFoundErrorEncoded" });
+export type UnprocessableEntityErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code:
+    | "unprocessable_entity"
+    | "invalid_scope"
+    | "invalid_scope_qualifier"
+    | "invalid_permissions"
+    | "invalid_expiry"
+    | "token_creation_failed"
+    | "publish_integrity_mismatch";
+  readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/unprocessable_entity";
+  readonly status?: 422;
+  readonly title?: "Unprocessable Entity";
+};
+export const UnprocessableEntityErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literals([
+    "unprocessable_entity",
+    "invalid_scope",
+    "invalid_scope_qualifier",
+    "invalid_permissions",
+    "invalid_expiry",
+    "token_creation_failed",
+    "publish_integrity_mismatch",
+  ]),
+  details: Schema.optionalKey(PublishDetails),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/unprocessable_entity"),
+  status: Schema.optionalKey(Schema.Literal(422)),
+  title: Schema.optionalKey(Schema.Literal("Unprocessable Entity")),
+}).annotate({ identifier: "UnprocessableEntityErrorEncoded" });
+export type ConflictErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code:
+    | "conflict"
+    | "account_selection_changed"
+    | "publish_publish_conflict"
+    | "publish_owner_frozen"
+    | "visibility_pack_blocked"
+    | "deprecation_replacement_unavailable";
+  readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/conflict";
+  readonly status?: 409;
+  readonly title?: "Conflict";
+};
+export const ConflictErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literals([
+    "conflict",
+    "account_selection_changed",
+    "publish_publish_conflict",
+    "publish_owner_frozen",
+    "visibility_pack_blocked",
+    "deprecation_replacement_unavailable",
+  ]),
+  details: Schema.optionalKey(PublishDetails),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/conflict"),
+  status: Schema.optionalKey(Schema.Literal(409)),
+  title: Schema.optionalKey(Schema.Literal("Conflict")),
+}).annotate({ identifier: "ConflictErrorEncoded" });
+export type GoneErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code: "version_purged" | "version_retired";
+  readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/version_retired";
+  readonly status?: 410;
+  readonly title?: "Gone";
+};
+export const GoneErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literals(["version_purged", "version_retired"]),
+  details: Schema.optionalKey(PublishDetails),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/version_retired"),
+  status: Schema.optionalKey(Schema.Literal(410)),
+  title: Schema.optionalKey(Schema.Literal("Gone")),
+}).annotate({ identifier: "GoneErrorEncoded" });
 export type PreconditionFailedErrorEncoded = {
-  readonly kind: "PreconditionFailedError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+  readonly detail?: string;
   readonly instance?: string;
   readonly code:
     | "publish_precondition_changed"
@@ -1225,21 +1231,12 @@ export type PreconditionFailedErrorEncoded = {
     | "deprecation_stale_revision"
     | "archival_stale_revision";
   readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/publish_precondition_changed";
+  readonly status?: 412;
+  readonly title?: "Precondition Failed";
 };
 export const PreconditionFailedErrorEncoded = Schema.Struct({
-  kind: Schema.Literal("PreconditionFailedError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literals([
     "publish_precondition_changed",
@@ -1248,7 +1245,55 @@ export const PreconditionFailedErrorEncoded = Schema.Struct({
     "archival_stale_revision",
   ]),
   details: Schema.optionalKey(PublishDetails),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/publish_precondition_changed"),
+  status: Schema.optionalKey(Schema.Literal(412)),
+  title: Schema.optionalKey(Schema.Literal("Precondition Failed")),
 }).annotate({ identifier: "PreconditionFailedErrorEncoded" });
+export type PayloadTooLargeErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code:
+    | "payload_too_large"
+    | "publish_ingest_request_too_large"
+    | "publish_ingest_archive_too_large"
+    | "publish_ingest_decompression_limit";
+  readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/payload_too_large";
+  readonly status?: 413;
+  readonly title?: "Payload Too Large";
+};
+export const PayloadTooLargeErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literals([
+    "payload_too_large",
+    "publish_ingest_request_too_large",
+    "publish_ingest_archive_too_large",
+    "publish_ingest_decompression_limit",
+  ]),
+  details: Schema.optionalKey(PublishDetails),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/payload_too_large"),
+  status: Schema.optionalKey(Schema.Literal(413)),
+  title: Schema.optionalKey(Schema.Literal("Payload Too Large")),
+}).annotate({ identifier: "PayloadTooLargeErrorEncoded" });
+export type UnsupportedMediaTypeErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code: "unsupported_media_type" | "publish_ingest_unsupported_content_type";
+  readonly details?: PublishDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/unsupported_media_type";
+  readonly status?: 415;
+  readonly title?: "Unsupported Media Type";
+};
+export const UnsupportedMediaTypeErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literals(["unsupported_media_type", "publish_ingest_unsupported_content_type"]),
+  details: Schema.optionalKey(PublishDetails),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/unsupported_media_type"),
+  status: Schema.optionalKey(Schema.Literal(415)),
+  title: Schema.optionalKey(Schema.Literal("Unsupported Media Type")),
+}).annotate({ identifier: "UnsupportedMediaTypeErrorEncoded" });
 export type TokenResponse = {
   readonly access_token: string;
   readonly refresh_token?: string;
@@ -1299,31 +1344,18 @@ export const TokenResponse = Schema.Struct({
   identifier: "TokenResponse",
 });
 export type TokenEndedErrorEncoded = {
-  readonly kind: "TokenEndedError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+  readonly detail?: string;
   readonly instance?: string;
   readonly code: "token_expired" | "token_revoked";
   readonly tokenId: string;
   readonly tokenPrefix: string;
   readonly endedAt: IsoDateTimeString;
+  readonly type: "https://registry.agentxm.ai/v1/problems/token_ended";
+  readonly status?: 401;
+  readonly title?: "Token Ended";
 };
 export const TokenEndedErrorEncoded = Schema.Struct({
-  kind: Schema.Literal("TokenEndedError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literals(["token_expired", "token_revoked"]),
   tokenId: Schema.String.annotate({
@@ -1333,34 +1365,27 @@ export const TokenEndedErrorEncoded = Schema.Struct({
     description: "The token's type prefix and first body characters; never the secret.",
   }),
   endedAt: IsoDateTimeString,
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/token_ended"),
+  status: Schema.optionalKey(Schema.Literal(401)),
+  title: Schema.optionalKey(Schema.Literal("Token Ended")),
 }).annotate({ identifier: "TokenEndedErrorEncoded" });
 export type ExtensionNameHeldErrorEncoded = {
-  readonly kind: "ExtensionNameHeldError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+  readonly detail?: string;
   readonly instance?: string;
   readonly code: "extension_name_held";
   readonly reclaimableAt: IsoDateTimeString;
+  readonly type: "https://registry.agentxm.ai/v1/problems/extension_name_held";
+  readonly status?: 409;
+  readonly title?: "Extension Name Held";
 };
 export const ExtensionNameHeldErrorEncoded = Schema.Struct({
-  kind: Schema.Literal("ExtensionNameHeldError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literal("extension_name_held"),
   reclaimableAt: IsoDateTimeString,
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/extension_name_held"),
+  status: Schema.optionalKey(Schema.Literal(409)),
+  title: Schema.optionalKey(Schema.Literal("Extension Name Held")),
 }).annotate({ identifier: "ExtensionNameHeldErrorEncoded" });
 export type VersionYankState = {
   readonly yankedAt: IsoDateTimeString | null;
@@ -1377,7 +1402,7 @@ export const VersionYankState = Schema.Struct({
     Schema.String.check(
       Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
     ).check(
-      Schema.isPattern(new RegExp("^[^\\u0000]*$", "u")).annotate({
+      Schema.isPattern(new globalThis.RegExp("^[^\\u0000]*$", "u")).annotate({
         expected: "a string matching the RegExp ^[^\\u0000]*$",
       }),
     ),
@@ -1488,11 +1513,7 @@ export const CreateTokenResponse = Schema.Struct({
   identifier: "CreateTokenResponse",
 });
 export type ForbiddenErrorEncoded = {
-  readonly kind: "ForbiddenError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+  readonly detail?: string;
   readonly instance?: string;
   readonly code:
     | "forbidden"
@@ -1501,13 +1522,14 @@ export type ForbiddenErrorEncoded = {
     | "credential_not_admitted"
     | "browser_session_required"
     | "identity_suspended"
+    | "employer_authorization_required"
+    | "individual_public_publishing_not_allowed"
+    | "personal_account_required"
     | "invitation_binding_mismatch"
     | "plan_admission_required"
     | "staff_credential_required"
-    | "staff_role_required"
-    | "delegated_permission_not_held"
     | "different_target_required"
-    | "staff_administrator_required"
+    | "company_identity_managed_by_provider"
     | "impersonation_not_allowed"
     | "publish_quota_exceeded"
     | "publish_insufficient_scope"
@@ -1517,21 +1539,12 @@ export type ForbiddenErrorEncoded = {
     | "publish_plan_limit_reached"
     | "visibility_plan_limit_reached";
   readonly details?: PublishDetails | AuthorizationDenyDetails;
+  readonly type: "https://registry.agentxm.ai/v1/problems/forbidden";
+  readonly status?: 403;
+  readonly title?: "Forbidden";
 };
 export const ForbiddenErrorEncoded = Schema.Struct({
-  kind: Schema.Literal("ForbiddenError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literals([
     "forbidden",
@@ -1540,13 +1553,14 @@ export const ForbiddenErrorEncoded = Schema.Struct({
     "credential_not_admitted",
     "browser_session_required",
     "identity_suspended",
+    "employer_authorization_required",
+    "individual_public_publishing_not_allowed",
+    "personal_account_required",
     "invitation_binding_mismatch",
     "plan_admission_required",
     "staff_credential_required",
-    "staff_role_required",
-    "delegated_permission_not_held",
     "different_target_required",
-    "staff_administrator_required",
+    "company_identity_managed_by_provider",
     "impersonation_not_allowed",
     "publish_quota_exceeded",
     "publish_insufficient_scope",
@@ -1557,6 +1571,9 @@ export const ForbiddenErrorEncoded = Schema.Struct({
     "visibility_plan_limit_reached",
   ]),
   details: Schema.optionalKey(Schema.Union([PublishDetails, AuthorizationDenyDetails])),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/forbidden"),
+  status: Schema.optionalKey(Schema.Literal(403)),
+  title: Schema.optionalKey(Schema.Literal("Forbidden")),
 }).annotate({ identifier: "ForbiddenErrorEncoded" });
 export type CreateTokenRequest = {
   readonly name: string;
@@ -1750,28 +1767,6 @@ export const PublishLintFinding = Schema.Struct({
   title: "Publish Lint Finding",
   description: "One lint finding produced against the publish subject.",
   identifier: "PublishLintFinding",
-});
-export type PublishLintFinding_1 = {
-  readonly kind: "advisory" | "autofixable";
-  readonly ruleId: string;
-  readonly severity: "error" | "warning" | "info";
-  readonly message: string;
-  readonly location?: PublishFindingLocation;
-  readonly path: string;
-  readonly suggestions: ReadonlyArray<SuggestedAction_1>;
-};
-export const PublishLintFinding_1 = Schema.Struct({
-  kind: Schema.Literals(["advisory", "autofixable"]),
-  ruleId: Schema.String,
-  severity: Schema.Literals(["error", "warning", "info"]),
-  message: Schema.String,
-  location: Schema.optionalKey(PublishFindingLocation),
-  path: Schema.String,
-  suggestions: Schema.Array(SuggestedAction_1),
-}).annotate({
-  title: "Publish Lint Finding",
-  description: "One lint finding produced against the publish subject.",
-  identifier: "PublishLintFinding_1",
 });
 export type VisibilityFinding = {
   readonly code: VisibilityFindingCode;
@@ -2011,36 +2006,24 @@ export const ResolutionMetadataRequest = Schema.Struct({
     .check(Schema.isMaxLength(100).annotate({ expected: "a value with a length of at most 100" })),
 }).annotate({ identifier: "ResolutionMetadataRequest" });
 export type ExtensionIdentityMismatchErrorEncoded = {
-  readonly kind: "ExtensionIdentityMismatchError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+  readonly detail?: string;
   readonly instance?: string;
   readonly code: "extension_identity_mismatch";
-  readonly error: "extension_identity_mismatch";
   readonly identity: PublishIdentity;
   readonly mismatches: ReadonlyArray<PublishIdentityMismatchEntry>;
+  readonly type: "https://registry.agentxm.ai/v1/problems/extension_identity_mismatch";
+  readonly status?: 422;
+  readonly title?: "Extension Identity Mismatch";
 };
 export const ExtensionIdentityMismatchErrorEncoded = Schema.Struct({
-  kind: Schema.Literal("ExtensionIdentityMismatchError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literal("extension_identity_mismatch"),
-  error: Schema.Literal("extension_identity_mismatch"),
   identity: PublishIdentity,
   mismatches: Schema.Array(PublishIdentityMismatchEntry),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/extension_identity_mismatch"),
+  status: Schema.optionalKey(Schema.Literal(422)),
+  title: Schema.optionalKey(Schema.Literal("Extension Identity Mismatch")),
 }).annotate({ identifier: "ExtensionIdentityMismatchErrorEncoded" });
 export type DeprecationView =
   | {
@@ -2105,7 +2088,7 @@ export const PutDeprecationBody = Schema.Struct({
   reason: DeprecationReason,
   message: Schema.Union([
     Schema.String.annotate({
-      description: "Optional publisher notes, normalized by the Registry.",
+      description: "Optional owner notes, normalized by the Registry.",
     }).check(
       Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
     ),
@@ -2133,7 +2116,7 @@ export const VersionEntry = Schema.Struct({
         Schema.isPropertyNames(
           Schema.String.check(
             Schema.isPattern(
-              new RegExp(
+              new globalThis.RegExp(
                 "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
                 "u",
               ),
@@ -2205,38 +2188,26 @@ export const PublicationVisibilityInput = Schema.Struct({
   request: Schema.Union([ExtensionVisibility, Schema.Null]),
 }).annotate({ identifier: "PublicationVisibilityInput" });
 export type ExtensionLintFailedErrorEncoded = {
-  readonly kind: "ExtensionLintFailedError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+  readonly detail?: string;
   readonly instance?: string;
   readonly code: "extension_lint_failed";
-  readonly error: "extension_lint_failed";
   readonly identity: PublishIdentity;
   readonly displayRoot: string;
-  readonly findings: ReadonlyArray<PublishLintFinding_1>;
+  readonly findings: ReadonlyArray<PublishLintFinding>;
+  readonly type: "https://registry.agentxm.ai/v1/problems/extension_lint_failed";
+  readonly status?: 422;
+  readonly title?: "Extension Lint Failed";
 };
 export const ExtensionLintFailedErrorEncoded = Schema.Struct({
-  kind: Schema.Literal("ExtensionLintFailedError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
   code: Schema.Literal("extension_lint_failed"),
-  error: Schema.Literal("extension_lint_failed"),
   identity: PublishIdentity,
   displayRoot: Schema.String,
-  findings: Schema.Array(PublishLintFinding_1),
+  findings: Schema.Array(PublishLintFinding),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/extension_lint_failed"),
+  status: Schema.optionalKey(Schema.Literal(422)),
+  title: Schema.optionalKey(Schema.Literal("Extension Lint Failed")),
 }).annotate({ identifier: "ExtensionLintFailedErrorEncoded" });
 export type VisibilityEvaluation = {
   readonly target: ExtensionFqn;
@@ -2622,8 +2593,10 @@ export const PreviewPublicationSetRequest = Schema.Struct({
 // schemas
 export type MetaGet200 = MetaResponse;
 export const MetaGet200 = MetaResponse;
-export type MetaGet400 = DecodeErrorResponse;
-export const MetaGet400 = DecodeErrorResponse;
+export type MetaGet400 = BadRequestProblemEncoded;
+export const MetaGet400 = BadRequestProblemEncoded;
+export type MetaGet500 = InternalServerErrorProblemEncoded;
+export const MetaGet500 = InternalServerErrorProblemEncoded;
 export type AuthIssueDeviceCodeRequestFormUrlEncoded = {
   readonly client_id: string;
   readonly scope?: string | null;
@@ -2651,10 +2624,16 @@ export const AuthIssueDeviceCodeRequestFormUrlEncoded = Schema.StructWithRest(
 });
 export type AuthIssueDeviceCode200 = DeviceCodeResponse;
 export const AuthIssueDeviceCode200 = DeviceCodeResponse;
-export type AuthIssueDeviceCode400 = DeviceCodeOAuthError | DecodeErrorResponse;
-export const AuthIssueDeviceCode400 = Schema.Union([DeviceCodeOAuthError, DecodeErrorResponse]);
-export type AuthIssueDeviceCode500 = ProblemDetails;
-export const AuthIssueDeviceCode500 = ProblemDetails;
+export type AuthIssueDeviceCode400 = DeviceCodeOAuthError | BadRequestProblemEncoded;
+export const AuthIssueDeviceCode400 = Schema.Union([
+  DeviceCodeOAuthError,
+  BadRequestProblemEncoded,
+]);
+export type AuthIssueDeviceCode500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const AuthIssueDeviceCode500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
 export type AuthExchangeTokenRequestFormUrlEncoded = {
   readonly grant_type: string;
   readonly code?: string | null;
@@ -2793,15 +2772,19 @@ export const AuthExchangeTokenRequestFormUrlEncoded = Schema.StructWithRest(
 });
 export type AuthExchangeToken200 = TokenResponse;
 export const AuthExchangeToken200 = TokenResponse;
-export type AuthExchangeToken400 = ProblemDetails | DecodeErrorResponse | TokenOAuthErrorEncoded;
+export type AuthExchangeToken400 =
+  InvalidRequestErrorEncoded | BadRequestProblemEncoded | TokenOAuthErrorEncoded;
 export const AuthExchangeToken400 = Schema.Union([
-  Schema.Union([ProblemDetails, DecodeErrorResponse]),
+  Schema.Union([InvalidRequestErrorEncoded, BadRequestProblemEncoded]),
   TokenOAuthErrorEncoded,
 ]);
-export type AuthExchangeToken500 = ProblemDetails;
-export const AuthExchangeToken500 = ProblemDetails;
-export type AuthExchangeToken503 = ProblemDetails;
-export const AuthExchangeToken503 = ProblemDetails;
+export type AuthExchangeToken500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const AuthExchangeToken500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type AuthExchangeToken503 = ServiceUnavailableErrorEncoded;
+export const AuthExchangeToken503 = ServiceUnavailableErrorEncoded;
 export type AuthRevokeOAuthTokenRequestFormUrlEncoded = {
   readonly token: string;
   readonly token_type_hint?: string | null;
@@ -2827,150 +2810,166 @@ export const AuthRevokeOAuthTokenRequestFormUrlEncoded = Schema.StructWithRest(
     "OAuth 2.0 token revocation request (RFC 7009). Parameter names are protocol-defined snake_case and exempt from the Registry's camelCase rule.",
 });
 export type AuthRevokeOAuthToken400 =
-  { readonly error: "invalid_request"; readonly error_description: string } | DecodeErrorResponse;
+  | { readonly error: "invalid_request"; readonly error_description: string }
+  | BadRequestProblemEncoded;
 export const AuthRevokeOAuthToken400 = Schema.Union([
   Schema.Struct({ error: Schema.Literal("invalid_request"), error_description: Schema.String }),
-  DecodeErrorResponse,
+  BadRequestProblemEncoded,
 ]);
-export type AuthRevokeOAuthToken503 = ProblemDetails;
-export const AuthRevokeOAuthToken503 = ProblemDetails;
+export type AuthRevokeOAuthToken500 = InternalServerErrorProblemEncoded;
+export const AuthRevokeOAuthToken500 = InternalServerErrorProblemEncoded;
+export type AuthRevokeOAuthToken503 = ServiceUnavailableErrorEncoded;
+export const AuthRevokeOAuthToken503 = ServiceUnavailableErrorEncoded;
 export type AuthGetMe200 = AuthMeResponse;
 export const AuthGetMe200 = AuthMeResponse;
-export type AuthGetMe400 = DecodeErrorResponse;
-export const AuthGetMe400 = DecodeErrorResponse;
-export type AuthGetMe401 = ProblemDetails | TokenEndedErrorEncoded;
-export const AuthGetMe401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
-export type AuthGetMe500 = ProblemDetails;
-export const AuthGetMe500 = ProblemDetails;
-export type AuthGetMe503 = ProblemDetails;
-export const AuthGetMe503 = ProblemDetails;
-export type TokensListParams = { readonly cursor?: string | null; readonly limit?: string | null };
+export type AuthGetMe400 = BadRequestProblemEncoded;
+export const AuthGetMe400 = BadRequestProblemEncoded;
+export type AuthGetMe401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const AuthGetMe401 = Schema.Union([UnauthorizedErrorEncoded, TokenEndedErrorEncoded]);
+export type AuthGetMe500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const AuthGetMe500 = Schema.Union([InternalErrorEncoded, InternalServerErrorProblemEncoded]);
+export type AuthGetMe503 = ServiceUnavailableErrorEncoded;
+export const AuthGetMe503 = ServiceUnavailableErrorEncoded;
+export type TokensListParams = { readonly cursor?: string; readonly limit?: string };
 export const TokensListParams = Schema.Struct({
   cursor: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description: "Opaque cursor from a previous page's `cursor`. Do not construct or parse it.",
-      }),
-      Schema.Null,
-    ]),
+    Schema.String.annotate({
+      description: "Opaque cursor from a previous page's `cursor`. Do not construct or parse it.",
+    }),
   ),
   limit: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({ description: "Items per page, 1–100. Defaults to 50." }),
-      Schema.Null,
-    ]),
+    Schema.String.annotate({ description: "Items per page, 1–100. Defaults to 50." }),
   ),
 });
 export type TokensList200 = TokenListResponse;
 export const TokensList200 = TokenListResponse;
-export type TokensList400 = ProblemDetails | DecodeErrorResponse;
-export const TokensList400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type TokensList401 = ProblemDetails | TokenEndedErrorEncoded;
-export const TokensList401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type TokensList400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const TokensList400 = Schema.Union([InvalidRequestErrorEncoded, BadRequestProblemEncoded]);
+export type TokensList401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const TokensList401 = Schema.Union([UnauthorizedErrorEncoded, TokenEndedErrorEncoded]);
 export type TokensList403 = ForbiddenErrorEncoded;
 export const TokensList403 = ForbiddenErrorEncoded;
-export type TokensList500 = ProblemDetails;
-export const TokensList500 = ProblemDetails;
-export type TokensList503 = ProblemDetails;
-export const TokensList503 = ProblemDetails;
+export type TokensList500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const TokensList500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type TokensList503 = ServiceUnavailableErrorEncoded;
+export const TokensList503 = ServiceUnavailableErrorEncoded;
 export type TokensCreateRequestJson = CreateTokenRequest;
 export const TokensCreateRequestJson = CreateTokenRequest;
 export type TokensCreate201 = CreateTokenResponse;
 export const TokensCreate201 = CreateTokenResponse;
-export type TokensCreate400 = ProblemDetails | DecodeErrorResponse;
-export const TokensCreate400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type TokensCreate401 = ProblemDetails | TokenEndedErrorEncoded;
-export const TokensCreate401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type TokensCreate400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const TokensCreate400 = Schema.Union([InvalidRequestErrorEncoded, BadRequestProblemEncoded]);
+export type TokensCreate401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const TokensCreate401 = Schema.Union([UnauthorizedErrorEncoded, TokenEndedErrorEncoded]);
 export type TokensCreate403 = ForbiddenErrorEncoded;
 export const TokensCreate403 = ForbiddenErrorEncoded;
-export type TokensCreate404 = ProblemDetails;
-export const TokensCreate404 = ProblemDetails;
-export type TokensCreate422 = ProblemDetails;
-export const TokensCreate422 = ProblemDetails;
-export type TokensCreate500 = ProblemDetails;
-export const TokensCreate500 = ProblemDetails;
-export type TokensCreate503 = ProblemDetails;
-export const TokensCreate503 = ProblemDetails;
-export type TokensDelete400 = ProblemDetails | DecodeErrorResponse;
-export const TokensDelete400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type TokensDelete401 = ProblemDetails | TokenEndedErrorEncoded;
-export const TokensDelete401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type TokensCreate404 = NotFoundErrorEncoded;
+export const TokensCreate404 = NotFoundErrorEncoded;
+export type TokensCreate422 = UnprocessableEntityErrorEncoded;
+export const TokensCreate422 = UnprocessableEntityErrorEncoded;
+export type TokensCreate500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const TokensCreate500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type TokensCreate503 = ServiceUnavailableErrorEncoded;
+export const TokensCreate503 = ServiceUnavailableErrorEncoded;
+export type TokensDelete400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const TokensDelete400 = Schema.Union([InvalidRequestErrorEncoded, BadRequestProblemEncoded]);
+export type TokensDelete401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const TokensDelete401 = Schema.Union([UnauthorizedErrorEncoded, TokenEndedErrorEncoded]);
 export type TokensDelete403 = ForbiddenErrorEncoded;
 export const TokensDelete403 = ForbiddenErrorEncoded;
-export type TokensDelete500 = ProblemDetails;
-export const TokensDelete500 = ProblemDetails;
-export type TokensDelete503 = ProblemDetails;
-export const TokensDelete503 = ProblemDetails;
+export type TokensDelete500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const TokensDelete500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type TokensDelete503 = ServiceUnavailableErrorEncoded;
+export const TokensDelete503 = ServiceUnavailableErrorEncoded;
 export type OwnersGetOwner200 = OwnerResponse;
 export const OwnersGetOwner200 = OwnerResponse;
-export type OwnersGetOwner400 = DecodeErrorResponse;
-export const OwnersGetOwner400 = DecodeErrorResponse;
-export type OwnersGetOwner404 = ProblemDetails;
-export const OwnersGetOwner404 = ProblemDetails;
-export type OwnersGetOwner503 = ProblemDetails;
-export const OwnersGetOwner503 = ProblemDetails;
-export type ExtensionsListByOwnerParams = {
-  readonly cursor?: string | null;
-  readonly limit?: string | null;
-};
+export type OwnersGetOwner400 = BadRequestProblemEncoded;
+export const OwnersGetOwner400 = BadRequestProblemEncoded;
+export type OwnersGetOwner401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const OwnersGetOwner401 = Schema.Union([UnauthorizedErrorEncoded, TokenEndedErrorEncoded]);
+export type OwnersGetOwner404 = NotFoundErrorEncoded;
+export const OwnersGetOwner404 = NotFoundErrorEncoded;
+export type OwnersGetOwner500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const OwnersGetOwner500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type OwnersGetOwner503 = ServiceUnavailableErrorEncoded;
+export const OwnersGetOwner503 = ServiceUnavailableErrorEncoded;
+export type ExtensionsListByOwnerParams = { readonly cursor?: string; readonly limit?: string };
 export const ExtensionsListByOwnerParams = Schema.Struct({
   cursor: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description: "Opaque cursor from a previous page's `cursor`. Do not construct or parse it.",
-      }),
-      Schema.Null,
-    ]),
+    Schema.String.annotate({
+      description: "Opaque cursor from a previous page's `cursor`. Do not construct or parse it.",
+    }),
   ),
   limit: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({ description: "Items per page, 1–100. Defaults to 50." }),
-      Schema.Null,
-    ]),
+    Schema.String.annotate({ description: "Items per page, 1–100. Defaults to 50." }),
   ),
 });
 export type ExtensionsListByOwner200 = ExtensionSummaryPage;
 export const ExtensionsListByOwner200 = ExtensionSummaryPage;
-export type ExtensionsListByOwner400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsListByOwner400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsListByOwner401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsListByOwner401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
-export type ExtensionsListByOwner500 = ProblemDetails;
-export const ExtensionsListByOwner500 = ProblemDetails;
-export type ExtensionsListByOwner503 = ProblemDetails;
-export const ExtensionsListByOwner503 = ProblemDetails;
+export type ExtensionsListByOwner400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsListByOwner400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsListByOwner401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsListByOwner401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
+export type ExtensionsListByOwner500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsListByOwner500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsListByOwner503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsListByOwner503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsListByTypeParams = {
-  readonly cursor?: string | null;
-  readonly limit?: string | null;
-  readonly "filter[name]"?: ExtensionName | null;
+  readonly cursor?: string;
+  readonly limit?: string;
+  readonly "filter[name]"?: ExtensionName;
 };
 export const ExtensionsListByTypeParams = Schema.Struct({
   cursor: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description: "Opaque cursor from a previous page's `cursor`. Do not construct or parse it.",
-      }),
-      Schema.Null,
-    ]),
+    Schema.String.annotate({
+      description: "Opaque cursor from a previous page's `cursor`. Do not construct or parse it.",
+    }),
   ),
   limit: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({ description: "Items per page, 1–100. Defaults to 50." }),
-      Schema.Null,
-    ]),
+    Schema.String.annotate({ description: "Items per page, 1–100. Defaults to 50." }),
   ),
-  "filter[name]": Schema.optionalKey(Schema.Union([ExtensionName, Schema.Null])),
+  "filter[name]": Schema.optionalKey(ExtensionName),
 });
 export type ExtensionsListByType200 = ExtensionSummaryPage;
 export const ExtensionsListByType200 = ExtensionSummaryPage;
-export type ExtensionsListByType400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsListByType400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsListByType401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsListByType401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
-export type ExtensionsListByType500 = ProblemDetails;
-export const ExtensionsListByType500 = ProblemDetails;
-export type ExtensionsListByType503 = ProblemDetails;
-export const ExtensionsListByType503 = ProblemDetails;
+export type ExtensionsListByType400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsListByType400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsListByType401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsListByType401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
+export type ExtensionsListByType500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsListByType500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsListByType503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsListByType503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsGet200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
@@ -3015,45 +3014,58 @@ export const ExtensionsGet200 = Schema.Struct({
     Schema.Null,
   ]),
 });
-export type ExtensionsGet400 = DecodeErrorResponse;
-export const ExtensionsGet400 = DecodeErrorResponse;
-export type ExtensionsGet401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsGet401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
-export type ExtensionsGet404 = ProblemDetails;
-export const ExtensionsGet404 = ProblemDetails;
+export type ExtensionsGet400 = BadRequestProblemEncoded;
+export const ExtensionsGet400 = BadRequestProblemEncoded;
+export type ExtensionsGet401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsGet401 = Schema.Union([UnauthorizedErrorEncoded, TokenEndedErrorEncoded]);
+export type ExtensionsGet404 = NotFoundErrorEncoded;
+export const ExtensionsGet404 = NotFoundErrorEncoded;
 export type ExtensionsGet409 = LifecycleBlockedErrorEncoded;
 export const ExtensionsGet409 = LifecycleBlockedErrorEncoded;
-export type ExtensionsGet500 = ProblemDetails;
-export const ExtensionsGet500 = ProblemDetails;
-export type ExtensionsGet503 = ProblemDetails;
-export const ExtensionsGet503 = ProblemDetails;
+export type ExtensionsGet500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsGet500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsGet503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsGet503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsUpdateVisibilityParams = { readonly "if-match": string };
 export const ExtensionsUpdateVisibilityParams = Schema.Struct({ "if-match": Schema.String });
 export type ExtensionsUpdateVisibilityRequestJson = VisibilityMutationRequest;
 export const ExtensionsUpdateVisibilityRequestJson = VisibilityMutationRequest;
 export type ExtensionsUpdateVisibility200 = VisibilityMutationResult;
 export const ExtensionsUpdateVisibility200 = VisibilityMutationResult;
-export type ExtensionsUpdateVisibility400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsUpdateVisibility400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsUpdateVisibility401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsUpdateVisibility401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ExtensionsUpdateVisibility400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsUpdateVisibility400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsUpdateVisibility401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsUpdateVisibility401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsUpdateVisibility403 = ForbiddenErrorEncoded;
 export const ExtensionsUpdateVisibility403 = ForbiddenErrorEncoded;
-export type ExtensionsUpdateVisibility404 = ProblemDetails;
-export const ExtensionsUpdateVisibility404 = ProblemDetails;
-export type ExtensionsUpdateVisibility409 = ProblemDetails | LifecycleBlockedErrorEncoded;
+export type ExtensionsUpdateVisibility404 = NotFoundErrorEncoded;
+export const ExtensionsUpdateVisibility404 = NotFoundErrorEncoded;
+export type ExtensionsUpdateVisibility409 = ConflictErrorEncoded | LifecycleBlockedErrorEncoded;
 export const ExtensionsUpdateVisibility409 = Schema.Union([
-  ProblemDetails,
+  ConflictErrorEncoded,
   LifecycleBlockedErrorEncoded,
 ]);
-export type ExtensionsUpdateVisibility410 = ProblemDetails;
-export const ExtensionsUpdateVisibility410 = ProblemDetails;
+export type ExtensionsUpdateVisibility410 = GoneErrorEncoded;
+export const ExtensionsUpdateVisibility410 = GoneErrorEncoded;
 export type ExtensionsUpdateVisibility412 = PreconditionFailedErrorEncoded;
 export const ExtensionsUpdateVisibility412 = PreconditionFailedErrorEncoded;
-export type ExtensionsUpdateVisibility500 = ProblemDetails;
-export const ExtensionsUpdateVisibility500 = ProblemDetails;
-export type ExtensionsUpdateVisibility503 = ProblemDetails;
-export const ExtensionsUpdateVisibility503 = ProblemDetails;
+export type ExtensionsUpdateVisibility500 =
+  InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsUpdateVisibility500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsUpdateVisibility503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsUpdateVisibility503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsGetVersion200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
@@ -3105,33 +3117,39 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   yankCategory: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   yankMessage: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
-export type ExtensionsGetVersion400 = DecodeErrorResponse;
-export const ExtensionsGetVersion400 = DecodeErrorResponse;
-export type ExtensionsGetVersion401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsGetVersion401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
-export type ExtensionsGetVersion404 = ProblemDetails;
-export const ExtensionsGetVersion404 = ProblemDetails;
+export type ExtensionsGetVersion400 = BadRequestProblemEncoded;
+export const ExtensionsGetVersion400 = BadRequestProblemEncoded;
+export type ExtensionsGetVersion401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsGetVersion401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
+export type ExtensionsGetVersion404 = NotFoundErrorEncoded;
+export const ExtensionsGetVersion404 = NotFoundErrorEncoded;
 export type ExtensionsGetVersion409 = LifecycleBlockedErrorEncoded;
 export const ExtensionsGetVersion409 = LifecycleBlockedErrorEncoded;
-export type ExtensionsGetVersion410 = ProblemDetails;
-export const ExtensionsGetVersion410 = ProblemDetails;
-export type ExtensionsGetVersion500 = ProblemDetails;
-export const ExtensionsGetVersion500 = ProblemDetails;
-export type ExtensionsGetVersion503 = ProblemDetails;
-export const ExtensionsGetVersion503 = ProblemDetails;
+export type ExtensionsGetVersion410 = GoneErrorEncoded;
+export const ExtensionsGetVersion410 = GoneErrorEncoded;
+export type ExtensionsGetVersion500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsGetVersion500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsGetVersion503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsGetVersion503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsPublishVersionParams = {
   readonly "if-match": string;
   readonly "x-axm-publication-set-digest": Sha256Hex;
   readonly "x-axm-publication-descriptor-digest": Sha256Hex;
   readonly "x-axm-visibility-input": string;
-  readonly visibility?: Visibility | null;
+  readonly visibility?: Visibility;
 };
 export const ExtensionsPublishVersionParams = Schema.Struct({
   "if-match": Schema.String,
   "x-axm-publication-set-digest": Sha256Hex,
   "x-axm-publication-descriptor-digest": Sha256Hex,
   "x-axm-visibility-input": Schema.String,
-  visibility: Schema.optionalKey(Schema.Union([Visibility, Schema.Null])),
+  visibility: Schema.optionalKey(Visibility),
 });
 export type ExtensionsPublishVersion200 = {
   readonly owner: Handle;
@@ -3181,197 +3199,273 @@ export const ExtensionsPublishVersion201 = Schema.Struct({
   warnings: Schema.Array(PublishLintFinding).annotate({ readOnly: true }),
   links: ExtensionLinks,
 });
-export type ExtensionsPublishVersion400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsPublishVersion400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsPublishVersion401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsPublishVersion401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ExtensionsPublishVersion400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsPublishVersion400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsPublishVersion401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsPublishVersion401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsPublishVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsPublishVersion403 = ForbiddenErrorEncoded;
-export type ExtensionsPublishVersion404 = ProblemDetails;
-export const ExtensionsPublishVersion404 = ProblemDetails;
+export type ExtensionsPublishVersion404 = NotFoundErrorEncoded;
+export const ExtensionsPublishVersion404 = NotFoundErrorEncoded;
 export type ExtensionsPublishVersion409 =
-  ProblemDetails | LifecycleBlockedErrorEncoded | ExtensionNameHeldErrorEncoded;
+  ConflictErrorEncoded | LifecycleBlockedErrorEncoded | ExtensionNameHeldErrorEncoded;
 export const ExtensionsPublishVersion409 = Schema.Union([
-  ProblemDetails,
+  ConflictErrorEncoded,
   LifecycleBlockedErrorEncoded,
   ExtensionNameHeldErrorEncoded,
 ]);
 export type ExtensionsPublishVersion412 = PreconditionFailedErrorEncoded;
 export const ExtensionsPublishVersion412 = PreconditionFailedErrorEncoded;
-export type ExtensionsPublishVersion413 = ProblemDetails;
-export const ExtensionsPublishVersion413 = ProblemDetails;
-export type ExtensionsPublishVersion415 = ProblemDetails;
-export const ExtensionsPublishVersion415 = ProblemDetails;
+export type ExtensionsPublishVersion413 = PayloadTooLargeErrorEncoded;
+export const ExtensionsPublishVersion413 = PayloadTooLargeErrorEncoded;
+export type ExtensionsPublishVersion415 = UnsupportedMediaTypeErrorEncoded;
+export const ExtensionsPublishVersion415 = UnsupportedMediaTypeErrorEncoded;
 export type ExtensionsPublishVersion422 =
-  ProblemDetails | ExtensionLintFailedErrorEncoded | ExtensionIdentityMismatchErrorEncoded;
+  | UnprocessableEntityErrorEncoded
+  | ExtensionLintFailedErrorEncoded
+  | ExtensionIdentityMismatchErrorEncoded;
 export const ExtensionsPublishVersion422 = Schema.Union([
-  ProblemDetails,
+  UnprocessableEntityErrorEncoded,
   ExtensionLintFailedErrorEncoded,
   ExtensionIdentityMismatchErrorEncoded,
 ]);
-export type ExtensionsPublishVersion500 = ProblemDetails;
-export const ExtensionsPublishVersion500 = ProblemDetails;
-export type ExtensionsPublishVersion503 = ProblemDetails;
-export const ExtensionsPublishVersion503 = ProblemDetails;
-export type ExtensionsDownloadArchive400 = DecodeErrorResponse;
-export const ExtensionsDownloadArchive400 = DecodeErrorResponse;
-export type ExtensionsDownloadArchive401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsDownloadArchive401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
-export type ExtensionsDownloadArchive404 = ProblemDetails;
-export const ExtensionsDownloadArchive404 = ProblemDetails;
+export type ExtensionsPublishVersion500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsPublishVersion500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsPublishVersion503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsPublishVersion503 = ServiceUnavailableErrorEncoded;
+export type ExtensionsDownloadArchive400 = BadRequestProblemEncoded;
+export const ExtensionsDownloadArchive400 = BadRequestProblemEncoded;
+export type ExtensionsDownloadArchive401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsDownloadArchive401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
+export type ExtensionsDownloadArchive404 = NotFoundErrorEncoded;
+export const ExtensionsDownloadArchive404 = NotFoundErrorEncoded;
 export type ExtensionsDownloadArchive409 = LifecycleBlockedErrorEncoded;
 export const ExtensionsDownloadArchive409 = LifecycleBlockedErrorEncoded;
-export type ExtensionsDownloadArchive500 = ProblemDetails;
-export const ExtensionsDownloadArchive500 = ProblemDetails;
-export type ExtensionsDownloadArchive503 = ProblemDetails;
-export const ExtensionsDownloadArchive503 = ProblemDetails;
+export type ExtensionsDownloadArchive500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsDownloadArchive500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsDownloadArchive503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsDownloadArchive503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsGetVisibilityParams = {
-  readonly intentVisibility?: Visibility | null;
-  readonly intentSource?: "manifest" | "workspace" | null;
-  readonly intentFingerprint?: VisibilityFingerprint | null;
+  readonly intentVisibility?: Visibility;
+  readonly intentSource?: "manifest" | "workspace";
+  readonly intentFingerprint?: VisibilityFingerprint;
 };
 export const ExtensionsGetVisibilityParams = Schema.Struct({
-  intentVisibility: Schema.optionalKey(Schema.Union([Visibility, Schema.Null])),
-  intentSource: Schema.optionalKey(
-    Schema.Union([Schema.Literals(["manifest", "workspace"]), Schema.Null]),
-  ),
-  intentFingerprint: Schema.optionalKey(Schema.Union([VisibilityFingerprint, Schema.Null])),
+  intentVisibility: Schema.optionalKey(Visibility),
+  intentSource: Schema.optionalKey(Schema.Literals(["manifest", "workspace"])),
+  intentFingerprint: Schema.optionalKey(VisibilityFingerprint),
 });
 export type ExtensionsGetVisibility200 = VisibilityEvaluation;
 export const ExtensionsGetVisibility200 = VisibilityEvaluation;
-export type ExtensionsGetVisibility400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsGetVisibility400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsGetVisibility401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsGetVisibility401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ExtensionsGetVisibility400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsGetVisibility400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsGetVisibility401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsGetVisibility401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsGetVisibility403 = ForbiddenErrorEncoded;
 export const ExtensionsGetVisibility403 = ForbiddenErrorEncoded;
-export type ExtensionsGetVisibility404 = ProblemDetails;
-export const ExtensionsGetVisibility404 = ProblemDetails;
-export type ExtensionsGetVisibility500 = ProblemDetails;
-export const ExtensionsGetVisibility500 = ProblemDetails;
-export type ExtensionsGetVisibility503 = ProblemDetails;
-export const ExtensionsGetVisibility503 = ProblemDetails;
+export type ExtensionsGetVisibility404 = NotFoundErrorEncoded;
+export const ExtensionsGetVisibility404 = NotFoundErrorEncoded;
+export type ExtensionsGetVisibility500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsGetVisibility500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsGetVisibility503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsGetVisibility503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsGetArchival200 = ArchivalManagementView;
 export const ExtensionsGetArchival200 = ArchivalManagementView;
-export type ExtensionsGetArchival400 = DecodeErrorResponse;
-export const ExtensionsGetArchival400 = DecodeErrorResponse;
-export type ExtensionsGetArchival401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsGetArchival401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ExtensionsGetArchival400 = BadRequestProblemEncoded;
+export const ExtensionsGetArchival400 = BadRequestProblemEncoded;
+export type ExtensionsGetArchival401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsGetArchival401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsGetArchival403 = ForbiddenErrorEncoded;
 export const ExtensionsGetArchival403 = ForbiddenErrorEncoded;
-export type ExtensionsGetArchival404 = ProblemDetails;
-export const ExtensionsGetArchival404 = ProblemDetails;
-export type ExtensionsGetArchival500 = ProblemDetails;
-export const ExtensionsGetArchival500 = ProblemDetails;
-export type ExtensionsGetArchival503 = ProblemDetails;
-export const ExtensionsGetArchival503 = ProblemDetails;
+export type ExtensionsGetArchival404 = NotFoundErrorEncoded;
+export const ExtensionsGetArchival404 = NotFoundErrorEncoded;
+export type ExtensionsGetArchival500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsGetArchival500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsGetArchival503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsGetArchival503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsPutArchivalParams = { readonly "if-match": string };
 export const ExtensionsPutArchivalParams = Schema.Struct({ "if-match": Schema.String });
 export type ExtensionsPutArchivalRequestJson = PutArchivalBody;
 export const ExtensionsPutArchivalRequestJson = PutArchivalBody;
 export type ExtensionsPutArchival200 = ArchivalTransition;
 export const ExtensionsPutArchival200 = ArchivalTransition;
-export type ExtensionsPutArchival400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsPutArchival400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsPutArchival401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsPutArchival401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ExtensionsPutArchival400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsPutArchival400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsPutArchival401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsPutArchival401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsPutArchival403 = ForbiddenErrorEncoded;
 export const ExtensionsPutArchival403 = ForbiddenErrorEncoded;
-export type ExtensionsPutArchival404 = ProblemDetails;
-export const ExtensionsPutArchival404 = ProblemDetails;
-export type ExtensionsPutArchival409 = LifecycleBlockedErrorEncoded;
-export const ExtensionsPutArchival409 = LifecycleBlockedErrorEncoded;
+export type ExtensionsPutArchival404 = NotFoundErrorEncoded;
+export const ExtensionsPutArchival404 = NotFoundErrorEncoded;
+export type ExtensionsPutArchival409 = LifecycleBlockedErrorEncoded | ConflictErrorEncoded;
+export const ExtensionsPutArchival409 = Schema.Union([
+  LifecycleBlockedErrorEncoded,
+  ConflictErrorEncoded,
+]);
 export type ExtensionsPutArchival412 = PreconditionFailedErrorEncoded;
 export const ExtensionsPutArchival412 = PreconditionFailedErrorEncoded;
-export type ExtensionsPutArchival500 = ProblemDetails;
-export const ExtensionsPutArchival500 = ProblemDetails;
-export type ExtensionsPutArchival503 = ProblemDetails;
-export const ExtensionsPutArchival503 = ProblemDetails;
+export type ExtensionsPutArchival500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsPutArchival500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsPutArchival503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsPutArchival503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsDeleteArchivalParams = { readonly "if-match": string };
 export const ExtensionsDeleteArchivalParams = Schema.Struct({ "if-match": Schema.String });
 export type ExtensionsDeleteArchival200 = ArchivalTransition;
 export const ExtensionsDeleteArchival200 = ArchivalTransition;
-export type ExtensionsDeleteArchival400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsDeleteArchival400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsDeleteArchival401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsDeleteArchival401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ExtensionsDeleteArchival400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsDeleteArchival400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsDeleteArchival401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsDeleteArchival401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsDeleteArchival403 = ForbiddenErrorEncoded;
 export const ExtensionsDeleteArchival403 = ForbiddenErrorEncoded;
-export type ExtensionsDeleteArchival404 = ProblemDetails;
-export const ExtensionsDeleteArchival404 = ProblemDetails;
-export type ExtensionsDeleteArchival409 = LifecycleBlockedErrorEncoded;
-export const ExtensionsDeleteArchival409 = LifecycleBlockedErrorEncoded;
+export type ExtensionsDeleteArchival404 = NotFoundErrorEncoded;
+export const ExtensionsDeleteArchival404 = NotFoundErrorEncoded;
+export type ExtensionsDeleteArchival409 = LifecycleBlockedErrorEncoded | ConflictErrorEncoded;
+export const ExtensionsDeleteArchival409 = Schema.Union([
+  LifecycleBlockedErrorEncoded,
+  ConflictErrorEncoded,
+]);
 export type ExtensionsDeleteArchival412 = PreconditionFailedErrorEncoded;
 export const ExtensionsDeleteArchival412 = PreconditionFailedErrorEncoded;
-export type ExtensionsDeleteArchival500 = ProblemDetails;
-export const ExtensionsDeleteArchival500 = ProblemDetails;
-export type ExtensionsDeleteArchival503 = ProblemDetails;
-export const ExtensionsDeleteArchival503 = ProblemDetails;
+export type ExtensionsDeleteArchival500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsDeleteArchival500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsDeleteArchival503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsDeleteArchival503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsGetDeprecation200 = DeprecationManagementView;
 export const ExtensionsGetDeprecation200 = DeprecationManagementView;
-export type ExtensionsGetDeprecation400 = DecodeErrorResponse;
-export const ExtensionsGetDeprecation400 = DecodeErrorResponse;
-export type ExtensionsGetDeprecation401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsGetDeprecation401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ExtensionsGetDeprecation400 = BadRequestProblemEncoded;
+export const ExtensionsGetDeprecation400 = BadRequestProblemEncoded;
+export type ExtensionsGetDeprecation401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsGetDeprecation401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsGetDeprecation403 = ForbiddenErrorEncoded;
 export const ExtensionsGetDeprecation403 = ForbiddenErrorEncoded;
-export type ExtensionsGetDeprecation404 = ProblemDetails;
-export const ExtensionsGetDeprecation404 = ProblemDetails;
-export type ExtensionsGetDeprecation500 = ProblemDetails;
-export const ExtensionsGetDeprecation500 = ProblemDetails;
-export type ExtensionsGetDeprecation503 = ProblemDetails;
-export const ExtensionsGetDeprecation503 = ProblemDetails;
+export type ExtensionsGetDeprecation404 = NotFoundErrorEncoded;
+export const ExtensionsGetDeprecation404 = NotFoundErrorEncoded;
+export type ExtensionsGetDeprecation500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsGetDeprecation500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsGetDeprecation503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsGetDeprecation503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsPutDeprecationParams = { readonly "if-match": string };
 export const ExtensionsPutDeprecationParams = Schema.Struct({ "if-match": Schema.String });
 export type ExtensionsPutDeprecationRequestJson = PutDeprecationBody;
 export const ExtensionsPutDeprecationRequestJson = PutDeprecationBody;
 export type ExtensionsPutDeprecation200 = DeprecationTransition;
 export const ExtensionsPutDeprecation200 = DeprecationTransition;
-export type ExtensionsPutDeprecation400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsPutDeprecation400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsPutDeprecation401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsPutDeprecation401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ExtensionsPutDeprecation400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsPutDeprecation400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsPutDeprecation401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsPutDeprecation401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsPutDeprecation403 = ForbiddenErrorEncoded;
 export const ExtensionsPutDeprecation403 = ForbiddenErrorEncoded;
-export type ExtensionsPutDeprecation404 = ProblemDetails;
-export const ExtensionsPutDeprecation404 = ProblemDetails;
-export type ExtensionsPutDeprecation409 = ProblemDetails | LifecycleBlockedErrorEncoded;
+export type ExtensionsPutDeprecation404 = NotFoundErrorEncoded;
+export const ExtensionsPutDeprecation404 = NotFoundErrorEncoded;
+export type ExtensionsPutDeprecation409 = ConflictErrorEncoded | LifecycleBlockedErrorEncoded;
 export const ExtensionsPutDeprecation409 = Schema.Union([
-  ProblemDetails,
+  ConflictErrorEncoded,
   LifecycleBlockedErrorEncoded,
 ]);
 export type ExtensionsPutDeprecation412 = PreconditionFailedErrorEncoded;
 export const ExtensionsPutDeprecation412 = PreconditionFailedErrorEncoded;
-export type ExtensionsPutDeprecation500 = ProblemDetails;
-export const ExtensionsPutDeprecation500 = ProblemDetails;
-export type ExtensionsPutDeprecation503 = ProblemDetails;
-export const ExtensionsPutDeprecation503 = ProblemDetails;
+export type ExtensionsPutDeprecation500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsPutDeprecation500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsPutDeprecation503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsPutDeprecation503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsDeleteDeprecationParams = { readonly "if-match": string };
 export const ExtensionsDeleteDeprecationParams = Schema.Struct({ "if-match": Schema.String });
 export type ExtensionsDeleteDeprecation200 = DeprecationTransition;
 export const ExtensionsDeleteDeprecation200 = DeprecationTransition;
-export type ExtensionsDeleteDeprecation400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsDeleteDeprecation400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsDeleteDeprecation401 = ProblemDetails | TokenEndedErrorEncoded;
+export type ExtensionsDeleteDeprecation400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsDeleteDeprecation400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsDeleteDeprecation401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
 export const ExtensionsDeleteDeprecation401 = Schema.Union([
-  ProblemDetails,
+  UnauthorizedErrorEncoded,
   TokenEndedErrorEncoded,
 ]);
 export type ExtensionsDeleteDeprecation403 = ForbiddenErrorEncoded;
 export const ExtensionsDeleteDeprecation403 = ForbiddenErrorEncoded;
-export type ExtensionsDeleteDeprecation404 = ProblemDetails;
-export const ExtensionsDeleteDeprecation404 = ProblemDetails;
-export type ExtensionsDeleteDeprecation409 = ProblemDetails | LifecycleBlockedErrorEncoded;
+export type ExtensionsDeleteDeprecation404 = NotFoundErrorEncoded;
+export const ExtensionsDeleteDeprecation404 = NotFoundErrorEncoded;
+export type ExtensionsDeleteDeprecation409 = ConflictErrorEncoded | LifecycleBlockedErrorEncoded;
 export const ExtensionsDeleteDeprecation409 = Schema.Union([
-  ProblemDetails,
+  ConflictErrorEncoded,
   LifecycleBlockedErrorEncoded,
 ]);
 export type ExtensionsDeleteDeprecation412 = PreconditionFailedErrorEncoded;
 export const ExtensionsDeleteDeprecation412 = PreconditionFailedErrorEncoded;
-export type ExtensionsDeleteDeprecation500 = ProblemDetails;
-export const ExtensionsDeleteDeprecation500 = ProblemDetails;
-export type ExtensionsDeleteDeprecation503 = ProblemDetails;
-export const ExtensionsDeleteDeprecation503 = ProblemDetails;
+export type ExtensionsDeleteDeprecation500 =
+  InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsDeleteDeprecation500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsDeleteDeprecation503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsDeleteDeprecation503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsYankVersionRequestJson = YankVersionBody;
 export const ExtensionsYankVersionRequestJson = YankVersionBody;
 export type ExtensionsYankVersion200 = {
@@ -3401,7 +3495,7 @@ export const ExtensionsYankVersion200 = Schema.Struct({
     Schema.String.check(
       Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
     ).check(
-      Schema.isPattern(new RegExp("^[^\\u0000]*$", "u")).annotate({
+      Schema.isPattern(new globalThis.RegExp("^[^\\u0000]*$", "u")).annotate({
         expected: "a string matching the RegExp ^[^\\u0000]*$",
       }),
     ),
@@ -3414,20 +3508,32 @@ export const ExtensionsYankVersion200 = Schema.Struct({
     Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
   ),
 });
-export type ExtensionsYankVersion400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsYankVersion400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsYankVersion401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsYankVersion401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ExtensionsYankVersion400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsYankVersion400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsYankVersion401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsYankVersion401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsYankVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsYankVersion403 = ForbiddenErrorEncoded;
-export type ExtensionsYankVersion404 = ProblemDetails;
-export const ExtensionsYankVersion404 = ProblemDetails;
-export type ExtensionsYankVersion409 = LifecycleBlockedErrorEncoded;
-export const ExtensionsYankVersion409 = LifecycleBlockedErrorEncoded;
-export type ExtensionsYankVersion500 = ProblemDetails;
-export const ExtensionsYankVersion500 = ProblemDetails;
-export type ExtensionsYankVersion503 = ProblemDetails;
-export const ExtensionsYankVersion503 = ProblemDetails;
+export type ExtensionsYankVersion404 = NotFoundErrorEncoded;
+export const ExtensionsYankVersion404 = NotFoundErrorEncoded;
+export type ExtensionsYankVersion409 = LifecycleBlockedErrorEncoded | ConflictErrorEncoded;
+export const ExtensionsYankVersion409 = Schema.Union([
+  LifecycleBlockedErrorEncoded,
+  ConflictErrorEncoded,
+]);
+export type ExtensionsYankVersion500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsYankVersion500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsYankVersion503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsYankVersion503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsUnyankVersion200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -3456,20 +3562,32 @@ export const ExtensionsUnyankVersion200 = Schema.Struct({
     Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
   ),
 });
-export type ExtensionsUnyankVersion400 = ProblemDetails | DecodeErrorResponse;
-export const ExtensionsUnyankVersion400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsUnyankVersion401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ExtensionsUnyankVersion401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ExtensionsUnyankVersion400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const ExtensionsUnyankVersion400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type ExtensionsUnyankVersion401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ExtensionsUnyankVersion401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
-export type ExtensionsUnyankVersion404 = ProblemDetails;
-export const ExtensionsUnyankVersion404 = ProblemDetails;
-export type ExtensionsUnyankVersion409 = LifecycleBlockedErrorEncoded;
-export const ExtensionsUnyankVersion409 = LifecycleBlockedErrorEncoded;
-export type ExtensionsUnyankVersion500 = ProblemDetails;
-export const ExtensionsUnyankVersion500 = ProblemDetails;
-export type ExtensionsUnyankVersion503 = ProblemDetails;
-export const ExtensionsUnyankVersion503 = ProblemDetails;
+export type ExtensionsUnyankVersion404 = NotFoundErrorEncoded;
+export const ExtensionsUnyankVersion404 = NotFoundErrorEncoded;
+export type ExtensionsUnyankVersion409 = LifecycleBlockedErrorEncoded | ConflictErrorEncoded;
+export const ExtensionsUnyankVersion409 = Schema.Union([
+  LifecycleBlockedErrorEncoded,
+  ConflictErrorEncoded,
+]);
+export type ExtensionsUnyankVersion500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsUnyankVersion500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsUnyankVersion503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsUnyankVersion503 = ServiceUnavailableErrorEncoded;
 export type ExtensionsYankAvailableVersionsRequestJson = YankAvailableVersionsBody;
 export const ExtensionsYankAvailableVersionsRequestJson = YankAvailableVersionsBody;
 export type ExtensionsYankAvailableVersions200 = {
@@ -3492,26 +3610,35 @@ export const ExtensionsYankAvailableVersions200 = Schema.Struct({
     Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
   ),
 });
-export type ExtensionsYankAvailableVersions400 = ProblemDetails | DecodeErrorResponse;
+export type ExtensionsYankAvailableVersions400 =
+  InvalidRequestErrorEncoded | BadRequestProblemEncoded;
 export const ExtensionsYankAvailableVersions400 = Schema.Union([
-  ProblemDetails,
-  DecodeErrorResponse,
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
 ]);
-export type ExtensionsYankAvailableVersions401 = ProblemDetails | TokenEndedErrorEncoded;
+export type ExtensionsYankAvailableVersions401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
 export const ExtensionsYankAvailableVersions401 = Schema.Union([
-  ProblemDetails,
+  UnauthorizedErrorEncoded,
   TokenEndedErrorEncoded,
 ]);
 export type ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
 export const ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
-export type ExtensionsYankAvailableVersions404 = ProblemDetails;
-export const ExtensionsYankAvailableVersions404 = ProblemDetails;
-export type ExtensionsYankAvailableVersions409 = LifecycleBlockedErrorEncoded;
-export const ExtensionsYankAvailableVersions409 = LifecycleBlockedErrorEncoded;
-export type ExtensionsYankAvailableVersions500 = ProblemDetails;
-export const ExtensionsYankAvailableVersions500 = ProblemDetails;
-export type ExtensionsYankAvailableVersions503 = ProblemDetails;
-export const ExtensionsYankAvailableVersions503 = ProblemDetails;
+export type ExtensionsYankAvailableVersions404 = NotFoundErrorEncoded;
+export const ExtensionsYankAvailableVersions404 = NotFoundErrorEncoded;
+export type ExtensionsYankAvailableVersions409 =
+  LifecycleBlockedErrorEncoded | ConflictErrorEncoded;
+export const ExtensionsYankAvailableVersions409 = Schema.Union([
+  LifecycleBlockedErrorEncoded,
+  ConflictErrorEncoded,
+]);
+export type ExtensionsYankAvailableVersions500 =
+  InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ExtensionsYankAvailableVersions500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type ExtensionsYankAvailableVersions503 = ServiceUnavailableErrorEncoded;
+export const ExtensionsYankAvailableVersions503 = ServiceUnavailableErrorEncoded;
 export type ResolutionsPostMetadataRequestJson = ResolutionMetadataRequest;
 export const ResolutionsPostMetadataRequestJson = ResolutionMetadataRequest;
 export type ResolutionsPostMetadata200 = ResolutionMetadataResponse;
@@ -3522,7 +3649,7 @@ export type ResolutionsPostMetadata400 =
         "invalid-request" | "unsupported-schema-version" | "unsupported-selection-policy-version";
       readonly detail: string;
     }
-  | DecodeErrorResponse;
+  | BadRequestProblemEncoded;
 export const ResolutionsPostMetadata400 = Schema.Union([
   Schema.Struct({
     code: Schema.Literals([
@@ -3532,10 +3659,13 @@ export const ResolutionsPostMetadata400 = Schema.Union([
     ]),
     detail: Schema.String,
   }),
-  DecodeErrorResponse,
+  BadRequestProblemEncoded,
 ]);
-export type ResolutionsPostMetadata401 = ProblemDetails | TokenEndedErrorEncoded;
-export const ResolutionsPostMetadata401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
+export type ResolutionsPostMetadata401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ResolutionsPostMetadata401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
 export type ResolutionsPostMetadata413 = {
   readonly code: "request-too-large" | "response-too-large";
   readonly detail: string;
@@ -3544,8 +3674,11 @@ export const ResolutionsPostMetadata413 = Schema.Struct({
   code: Schema.Literals(["request-too-large", "response-too-large"]),
   detail: Schema.String,
 });
-export type ResolutionsPostMetadata500 = ProblemDetails;
-export const ResolutionsPostMetadata500 = ProblemDetails;
+export type ResolutionsPostMetadata500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ResolutionsPostMetadata500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
 export type ResolutionsPostMetadata503 = {
   readonly code: "backend-unavailable";
   readonly detail: string;
@@ -3558,24 +3691,30 @@ export type PublishPreviewsPreviewExtensionPublishesRequestJson = PreviewPublica
 export const PublishPreviewsPreviewExtensionPublishesRequestJson = PreviewPublicationSetRequest;
 export type PublishPreviewsPreviewExtensionPublishes200 = PreviewPublicationSetResponse;
 export const PublishPreviewsPreviewExtensionPublishes200 = PreviewPublicationSetResponse;
-export type PublishPreviewsPreviewExtensionPublishes400 = ProblemDetails | DecodeErrorResponse;
+export type PublishPreviewsPreviewExtensionPublishes400 =
+  InvalidRequestErrorEncoded | BadRequestProblemEncoded;
 export const PublishPreviewsPreviewExtensionPublishes400 = Schema.Union([
-  ProblemDetails,
-  DecodeErrorResponse,
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
 ]);
-export type PublishPreviewsPreviewExtensionPublishes401 = ProblemDetails | TokenEndedErrorEncoded;
+export type PublishPreviewsPreviewExtensionPublishes401 =
+  UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
 export const PublishPreviewsPreviewExtensionPublishes401 = Schema.Union([
-  ProblemDetails,
+  UnauthorizedErrorEncoded,
   TokenEndedErrorEncoded,
 ]);
 export type PublishPreviewsPreviewExtensionPublishes413 =
   PublishPreviewBatchTooLargeHttpErrorEncoded;
 export const PublishPreviewsPreviewExtensionPublishes413 =
   PublishPreviewBatchTooLargeHttpErrorEncoded;
-export type PublishPreviewsPreviewExtensionPublishes500 = ProblemDetails;
-export const PublishPreviewsPreviewExtensionPublishes500 = ProblemDetails;
-export type PublishPreviewsPreviewExtensionPublishes503 = ProblemDetails;
-export const PublishPreviewsPreviewExtensionPublishes503 = ProblemDetails;
+export type PublishPreviewsPreviewExtensionPublishes500 =
+  InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const PublishPreviewsPreviewExtensionPublishes500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
+export type PublishPreviewsPreviewExtensionPublishes503 = ServiceUnavailableErrorEncoded;
+export const PublishPreviewsPreviewExtensionPublishes503 = ServiceUnavailableErrorEncoded;
 export type DiscoveryPostDiscoveryRequestJson = {
   readonly client: { readonly axmVersion: string };
   readonly packages: ReadonlyArray<{
@@ -3714,25 +3853,36 @@ export const DiscoveryPostDiscovery200 = Schema.Struct({
     }),
   ),
 });
-export type DiscoveryPostDiscovery400 = ProblemDetails | DecodeErrorResponse;
-export const DiscoveryPostDiscovery400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type DiscoveryPostDiscovery401 = ProblemDetails | TokenEndedErrorEncoded;
-export const DiscoveryPostDiscovery401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
-export type DiscoveryPostDiscovery413 = ProblemDetails;
-export const DiscoveryPostDiscovery413 = ProblemDetails;
-export type DiscoveryPostDiscovery415 = ProblemDetails;
-export const DiscoveryPostDiscovery415 = ProblemDetails;
-export type DiscoveryPostDiscovery500 = ProblemDetails;
-export const DiscoveryPostDiscovery500 = ProblemDetails;
+export type DiscoveryPostDiscovery400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const DiscoveryPostDiscovery400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type DiscoveryPostDiscovery401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const DiscoveryPostDiscovery401 = Schema.Union([
+  UnauthorizedErrorEncoded,
+  TokenEndedErrorEncoded,
+]);
+export type DiscoveryPostDiscovery413 = PayloadTooLargeErrorEncoded;
+export const DiscoveryPostDiscovery413 = PayloadTooLargeErrorEncoded;
+export type DiscoveryPostDiscovery415 = UnsupportedMediaTypeErrorEncoded;
+export const DiscoveryPostDiscovery415 = UnsupportedMediaTypeErrorEncoded;
+export type DiscoveryPostDiscovery500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const DiscoveryPostDiscovery500 = Schema.Union([
+  InternalErrorEncoded,
+  InternalServerErrorProblemEncoded,
+]);
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),
 });
-export type HealthGetShallowHealth400 = DecodeErrorResponse;
-export const HealthGetShallowHealth400 = DecodeErrorResponse;
-export type HealthGetDeepHealthParams = { readonly "x-health-key"?: string | null };
+export type HealthGetShallowHealth400 = BadRequestProblemEncoded;
+export const HealthGetShallowHealth400 = BadRequestProblemEncoded;
+export type HealthGetShallowHealth500 = InternalServerErrorProblemEncoded;
+export const HealthGetShallowHealth500 = InternalServerErrorProblemEncoded;
+export type HealthGetDeepHealthParams = { readonly "x-health-key"?: string };
 export const HealthGetDeepHealthParams = Schema.Struct({
-  "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  "x-health-key": Schema.optionalKey(Schema.String),
 });
 export type HealthGetDeepHealth200 = {
   readonly status: "pass" | "warn" | "fail";
@@ -3792,8 +3942,10 @@ export const HealthGetDeepHealth200 = Schema.Struct({
   ),
   output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
-export type HealthGetDeepHealth400 = DecodeErrorResponse;
-export const HealthGetDeepHealth400 = DecodeErrorResponse;
+export type HealthGetDeepHealth400 = BadRequestProblemEncoded;
+export const HealthGetDeepHealth400 = BadRequestProblemEncoded;
+export type HealthGetDeepHealth500 = InternalServerErrorProblemEncoded;
+export const HealthGetDeepHealth500 = InternalServerErrorProblemEncoded;
 export type HealthGetDeepHealth503 = {
   readonly status: "pass" | "warn" | "fail";
   readonly serviceId?: string | null;
@@ -3853,41 +4005,42 @@ export const HealthGetDeepHealth503 = Schema.Struct({
   output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type SecretScanningReportAlertParams = {
-  readonly "github-public-key-identifier"?: string | null;
-  readonly "github-public-key-signature"?: string | null;
+  readonly "github-public-key-identifier"?: string;
+  readonly "github-public-key-signature"?: string;
 };
 export const SecretScanningReportAlertParams = Schema.Struct({
   "github-public-key-identifier": Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description: "Identifier of the GitHub secret scanning key that signed the alert.",
-      }),
-      Schema.Null,
-    ]),
+    Schema.String.annotate({
+      description: "Identifier of the GitHub secret scanning key that signed the alert.",
+    }),
   ),
   "github-public-key-signature": Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description: "Base64 ECDSA P-256 SHA-256 signature over the exact request body.",
-      }),
-      Schema.Null,
-    ]),
+    Schema.String.annotate({
+      description: "Base64 ECDSA P-256 SHA-256 signature over the exact request body.",
+    }),
   ),
 });
 export type SecretScanningReportAlertRequestJson = string;
 export const SecretScanningReportAlertRequestJson = Schema.String;
 export type SecretScanningReportAlert200 = ReadonlyArray<SecretScanningLabel>;
 export const SecretScanningReportAlert200 = Schema.Array(SecretScanningLabel);
-export type SecretScanningReportAlert400 = ProblemDetails | DecodeErrorResponse;
-export const SecretScanningReportAlert400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type SecretScanningReportAlert401 = ProblemDetails;
-export const SecretScanningReportAlert401 = ProblemDetails;
-export type SecretScanningReportAlert503 = ProblemDetails;
-export const SecretScanningReportAlert503 = ProblemDetails;
-export type ProblemsGet400 = DecodeErrorResponse;
-export const ProblemsGet400 = DecodeErrorResponse;
-export type ProblemsGet404 = ProblemDetails;
-export const ProblemsGet404 = ProblemDetails;
+export type SecretScanningReportAlert400 = InvalidRequestErrorEncoded | BadRequestProblemEncoded;
+export const SecretScanningReportAlert400 = Schema.Union([
+  InvalidRequestErrorEncoded,
+  BadRequestProblemEncoded,
+]);
+export type SecretScanningReportAlert401 = UnauthorizedErrorEncoded;
+export const SecretScanningReportAlert401 = UnauthorizedErrorEncoded;
+export type SecretScanningReportAlert500 = InternalServerErrorProblemEncoded;
+export const SecretScanningReportAlert500 = InternalServerErrorProblemEncoded;
+export type SecretScanningReportAlert503 = ServiceUnavailableErrorEncoded;
+export const SecretScanningReportAlert503 = ServiceUnavailableErrorEncoded;
+export type ProblemsGet400 = BadRequestProblemEncoded;
+export const ProblemsGet400 = BadRequestProblemEncoded;
+export type ProblemsGet404 = NotFoundErrorEncoded;
+export const ProblemsGet404 = NotFoundErrorEncoded;
+export type ProblemsGet500 = InternalServerErrorProblemEncoded;
+export const ProblemsGet500 = InternalServerErrorProblemEncoded;
 
 export interface OperationConfig {
   /**
@@ -3915,13 +4068,16 @@ export type WithOptionalResponse<A, Config extends OperationConfig | undefined> 
     ? A
     : A | [A, HttpClientResponse.HttpClientResponse];
 
-export const make = (
-  httpClient: HttpClient.HttpClient,
+export const make = <E, R>(
+  httpClient: HttpClient.HttpClient.With<E, R>,
   options: {
     readonly transformClient?:
-      ((client: HttpClient.HttpClient) => Effect.Effect<HttpClient.HttpClient>) | undefined;
+      | ((
+          client: HttpClient.HttpClient.With<E, R>,
+        ) => Effect.Effect<HttpClient.HttpClient.With<E, R>>)
+      | undefined;
   } = {},
-): RegistryClient => {
+): RegistryClient<E, R> => {
   const unexpectedStatus = (response: HttpClientResponse.HttpClientResponse) =>
     Effect.flatMap(
       Effect.orElseSucceed(response.json, () => "Unexpected status code"),
@@ -3941,7 +4097,7 @@ export const make = (
     <Config extends OperationConfig>(config: Config | undefined) =>
     (
       f: (response: HttpClientResponse.HttpClientResponse) => Effect.Effect<any, any>,
-    ): ((request: HttpClientRequest.HttpClientRequest) => Effect.Effect<any, any>) => {
+    ): ((request: HttpClientRequest.HttpClientRequest) => Effect.Effect<any, any, R>) => {
       const withOptionalResponse = (
         config?.includeResponse
           ? (response: HttpClientResponse.HttpClientResponse) =>
@@ -4002,7 +4158,7 @@ export const make = (
     Effect.map(response.arrayBuffer, (buffer) => new Uint8Array(buffer));
   const binaryRequest = (
     request: HttpClientRequest.HttpClientRequest,
-  ): Stream.Stream<Uint8Array, HttpClientError.HttpClientError> =>
+  ): Stream.Stream<Uint8Array, E | HttpClientError.HttpClientError, R> =>
     executeStreamRequest(request).pipe(
       Effect.map((response) => response.stream),
       Stream.unwrap,
@@ -4029,6 +4185,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(MetaGet200),
             "400": decodeError("MetaGet400", MetaGet400),
+            "500": decodeError("MetaGet500", MetaGet500),
             orElse: unexpectedStatus,
           }),
         ),
@@ -4064,6 +4221,7 @@ export const make = (
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
             "400": decodeError("AuthRevokeOAuthToken400", AuthRevokeOAuthToken400),
+            "500": decodeError("AuthRevokeOAuthToken500", AuthRevokeOAuthToken500),
             "503": decodeError("AuthRevokeOAuthToken503", AuthRevokeOAuthToken503),
             "200": () => Effect.void,
             orElse: unexpectedStatus,
@@ -4152,7 +4310,9 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(OwnersGetOwner200),
                 "400": decodeError("OwnersGetOwner400", OwnersGetOwner400),
+                "401": decodeError("OwnersGetOwner401", OwnersGetOwner401),
                 "404": decodeError("OwnersGetOwner404", OwnersGetOwner404),
+                "500": decodeError("OwnersGetOwner500", OwnersGetOwner500),
                 "503": decodeError("OwnersGetOwner503", OwnersGetOwner503),
                 orElse: unexpectedStatus,
               }),
@@ -4964,6 +5124,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetShallowHealth200),
             "400": decodeError("HealthGetShallowHealth400", HealthGetShallowHealth400),
+            "500": decodeError("HealthGetShallowHealth500", HealthGetShallowHealth500),
             orElse: unexpectedStatus,
           }),
         ),
@@ -4977,6 +5138,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetDeepHealth200),
             "400": decodeError("HealthGetDeepHealth400", HealthGetDeepHealth400),
+            "500": decodeError("HealthGetDeepHealth500", HealthGetDeepHealth500),
             "503": decodeError("HealthGetDeepHealth503", HealthGetDeepHealth503),
             "403": decodeVoidError("403"),
             orElse: unexpectedStatus,
@@ -4999,6 +5161,7 @@ export const make = (
             "2xx": decodeSuccess(SecretScanningReportAlert200),
             "400": decodeError("SecretScanningReportAlert400", SecretScanningReportAlert400),
             "401": decodeError("SecretScanningReportAlert401", SecretScanningReportAlert401),
+            "500": decodeError("SecretScanningReportAlert500", SecretScanningReportAlert500),
             "503": decodeError("SecretScanningReportAlert503", SecretScanningReportAlert503),
             orElse: unexpectedStatus,
           }),
@@ -5016,6 +5179,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "400": decodeError("ProblemsGet400", ProblemsGet400),
                 "404": decodeError("ProblemsGet404", ProblemsGet404),
+                "500": decodeError("ProblemsGet500", ProblemsGet500),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -5025,8 +5189,8 @@ export const make = (
   };
 };
 
-export interface RegistryClient {
-  readonly httpClient: HttpClient.HttpClient;
+export interface RegistryClient<E = HttpClientError.HttpClientError, R = never> {
+  readonly httpClient: HttpClient.HttpClient.With<E, R>;
   /**
    * Returns service metadata and documentation entrypoints when docs are enabled.
    */
@@ -5035,13 +5199,23 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<MetaGet200, Config>,
-      HttpClientError.HttpClientError | SchemaError | RegistryClientError<"MetaGet400", MetaGet400>
+      | E
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"MetaGet400", MetaGet400>
+      | RegistryClientError<"MetaGet500", MetaGet500>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<MetaGet200, Config | undefined>,
-      HttpClientError.HttpClientError | SchemaError | RegistryClientError<"MetaGet400", MetaGet400>
+      | E
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"MetaGet400", MetaGet400>
+      | RegistryClientError<"MetaGet500", MetaGet500>,
+      R
     >;
   };
   /**
@@ -5053,20 +5227,24 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<AuthIssueDeviceCode200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"AuthIssueDeviceCode400", AuthIssueDeviceCode400>
-      | RegistryClientError<"AuthIssueDeviceCode500", AuthIssueDeviceCode500>
+      | RegistryClientError<"AuthIssueDeviceCode500", AuthIssueDeviceCode500>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof AuthIssueDeviceCodeRequestFormUrlEncoded.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
       WithOptionalResponse<AuthIssueDeviceCode200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"AuthIssueDeviceCode400", AuthIssueDeviceCode400>
-      | RegistryClientError<"AuthIssueDeviceCode500", AuthIssueDeviceCode500>
+      | RegistryClientError<"AuthIssueDeviceCode500", AuthIssueDeviceCode500>,
+      R
     >;
   };
   /**
@@ -5078,22 +5256,26 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<AuthExchangeToken200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"AuthExchangeToken400", AuthExchangeToken400>
       | RegistryClientError<"AuthExchangeToken500", AuthExchangeToken500>
-      | RegistryClientError<"AuthExchangeToken503", AuthExchangeToken503>
+      | RegistryClientError<"AuthExchangeToken503", AuthExchangeToken503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof AuthExchangeTokenRequestFormUrlEncoded.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
       WithOptionalResponse<AuthExchangeToken200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"AuthExchangeToken400", AuthExchangeToken400>
       | RegistryClientError<"AuthExchangeToken500", AuthExchangeToken500>
-      | RegistryClientError<"AuthExchangeToken503", AuthExchangeToken503>
+      | RegistryClientError<"AuthExchangeToken503", AuthExchangeToken503>,
+      R
     >;
   };
   /**
@@ -5105,20 +5287,26 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<void, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"AuthRevokeOAuthToken400", AuthRevokeOAuthToken400>
-      | RegistryClientError<"AuthRevokeOAuthToken503", AuthRevokeOAuthToken503>
+      | RegistryClientError<"AuthRevokeOAuthToken500", AuthRevokeOAuthToken500>
+      | RegistryClientError<"AuthRevokeOAuthToken503", AuthRevokeOAuthToken503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof AuthRevokeOAuthTokenRequestFormUrlEncoded.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
       WithOptionalResponse<void, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"AuthRevokeOAuthToken400", AuthRevokeOAuthToken400>
-      | RegistryClientError<"AuthRevokeOAuthToken503", AuthRevokeOAuthToken503>
+      | RegistryClientError<"AuthRevokeOAuthToken500", AuthRevokeOAuthToken500>
+      | RegistryClientError<"AuthRevokeOAuthToken503", AuthRevokeOAuthToken503>,
+      R
     >;
   };
   /**
@@ -5129,23 +5317,27 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<AuthGetMe200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"AuthGetMe400", AuthGetMe400>
       | RegistryClientError<"AuthGetMe401", AuthGetMe401>
       | RegistryClientError<"AuthGetMe500", AuthGetMe500>
-      | RegistryClientError<"AuthGetMe503", AuthGetMe503>
+      | RegistryClientError<"AuthGetMe503", AuthGetMe503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<AuthGetMe200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"AuthGetMe400", AuthGetMe400>
       | RegistryClientError<"AuthGetMe401", AuthGetMe401>
       | RegistryClientError<"AuthGetMe500", AuthGetMe500>
-      | RegistryClientError<"AuthGetMe503", AuthGetMe503>
+      | RegistryClientError<"AuthGetMe503", AuthGetMe503>,
+      R
     >;
   };
   /**
@@ -5157,13 +5349,15 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<TokensList200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"TokensList400", TokensList400>
       | RegistryClientError<"TokensList401", TokensList401>
       | RegistryClientError<"TokensList403", TokensList403>
       | RegistryClientError<"TokensList500", TokensList500>
-      | RegistryClientError<"TokensList503", TokensList503>
+      | RegistryClientError<"TokensList503", TokensList503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options:
@@ -5174,13 +5368,15 @@ export interface RegistryClient {
         | undefined,
     ): Effect.Effect<
       WithOptionalResponse<TokensList200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"TokensList400", TokensList400>
       | RegistryClientError<"TokensList401", TokensList401>
       | RegistryClientError<"TokensList403", TokensList403>
       | RegistryClientError<"TokensList500", TokensList500>
-      | RegistryClientError<"TokensList503", TokensList503>
+      | RegistryClientError<"TokensList503", TokensList503>,
+      R
     >;
   };
   /**
@@ -5192,6 +5388,7 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<TokensCreate201, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"TokensCreate400", TokensCreate400>
@@ -5200,13 +5397,15 @@ export interface RegistryClient {
       | RegistryClientError<"TokensCreate404", TokensCreate404>
       | RegistryClientError<"TokensCreate422", TokensCreate422>
       | RegistryClientError<"TokensCreate500", TokensCreate500>
-      | RegistryClientError<"TokensCreate503", TokensCreate503>
+      | RegistryClientError<"TokensCreate503", TokensCreate503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof TokensCreateRequestJson.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
       WithOptionalResponse<TokensCreate201, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"TokensCreate400", TokensCreate400>
@@ -5215,7 +5414,8 @@ export interface RegistryClient {
       | RegistryClientError<"TokensCreate404", TokensCreate404>
       | RegistryClientError<"TokensCreate422", TokensCreate422>
       | RegistryClientError<"TokensCreate500", TokensCreate500>
-      | RegistryClientError<"TokensCreate503", TokensCreate503>
+      | RegistryClientError<"TokensCreate503", TokensCreate503>,
+      R
     >;
   };
   /**
@@ -5227,30 +5427,34 @@ export interface RegistryClient {
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<void, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"TokensDelete400", TokensDelete400>
       | RegistryClientError<"TokensDelete401", TokensDelete401>
       | RegistryClientError<"TokensDelete403", TokensDelete403>
       | RegistryClientError<"TokensDelete500", TokensDelete500>
-      | RegistryClientError<"TokensDelete503", TokensDelete503>
+      | RegistryClientError<"TokensDelete503", TokensDelete503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       tokenId: string,
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<void, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"TokensDelete400", TokensDelete400>
       | RegistryClientError<"TokensDelete401", TokensDelete401>
       | RegistryClientError<"TokensDelete403", TokensDelete403>
       | RegistryClientError<"TokensDelete500", TokensDelete500>
-      | RegistryClientError<"TokensDelete503", TokensDelete503>
+      | RegistryClientError<"TokensDelete503", TokensDelete503>,
+      R
     >;
   };
   /**
-   * Returns the minimal public owner summary for the provided handle.
+   * Returns a minimal public owner summary, or the authenticated user's own active owner summary. Managed individual owners remain hidden from other callers.
    */
   readonly OwnersGetOwner: {
     <Config extends OperationConfig | undefined = undefined>(
@@ -5258,22 +5462,30 @@ export interface RegistryClient {
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<OwnersGetOwner200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"OwnersGetOwner400", OwnersGetOwner400>
+      | RegistryClientError<"OwnersGetOwner401", OwnersGetOwner401>
       | RegistryClientError<"OwnersGetOwner404", OwnersGetOwner404>
-      | RegistryClientError<"OwnersGetOwner503", OwnersGetOwner503>
+      | RegistryClientError<"OwnersGetOwner500", OwnersGetOwner500>
+      | RegistryClientError<"OwnersGetOwner503", OwnersGetOwner503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       handle: string,
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<OwnersGetOwner200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"OwnersGetOwner400", OwnersGetOwner400>
+      | RegistryClientError<"OwnersGetOwner401", OwnersGetOwner401>
       | RegistryClientError<"OwnersGetOwner404", OwnersGetOwner404>
-      | RegistryClientError<"OwnersGetOwner503", OwnersGetOwner503>
+      | RegistryClientError<"OwnersGetOwner500", OwnersGetOwner500>
+      | RegistryClientError<"OwnersGetOwner503", OwnersGetOwner503>,
+      R
     >;
   };
   /**
@@ -5288,12 +5500,14 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsListByOwner200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsListByOwner400", ExtensionsListByOwner400>
       | RegistryClientError<"ExtensionsListByOwner401", ExtensionsListByOwner401>
       | RegistryClientError<"ExtensionsListByOwner500", ExtensionsListByOwner500>
-      | RegistryClientError<"ExtensionsListByOwner503", ExtensionsListByOwner503>
+      | RegistryClientError<"ExtensionsListByOwner503", ExtensionsListByOwner503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5305,12 +5519,14 @@ export interface RegistryClient {
         | undefined,
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsListByOwner200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsListByOwner400", ExtensionsListByOwner400>
       | RegistryClientError<"ExtensionsListByOwner401", ExtensionsListByOwner401>
       | RegistryClientError<"ExtensionsListByOwner500", ExtensionsListByOwner500>
-      | RegistryClientError<"ExtensionsListByOwner503", ExtensionsListByOwner503>
+      | RegistryClientError<"ExtensionsListByOwner503", ExtensionsListByOwner503>,
+      R
     >;
   };
   /**
@@ -5326,12 +5542,14 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsListByType200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsListByType400", ExtensionsListByType400>
       | RegistryClientError<"ExtensionsListByType401", ExtensionsListByType401>
       | RegistryClientError<"ExtensionsListByType500", ExtensionsListByType500>
-      | RegistryClientError<"ExtensionsListByType503", ExtensionsListByType503>
+      | RegistryClientError<"ExtensionsListByType503", ExtensionsListByType503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5344,12 +5562,14 @@ export interface RegistryClient {
         | undefined,
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsListByType200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsListByType400", ExtensionsListByType400>
       | RegistryClientError<"ExtensionsListByType401", ExtensionsListByType401>
       | RegistryClientError<"ExtensionsListByType500", ExtensionsListByType500>
-      | RegistryClientError<"ExtensionsListByType503", ExtensionsListByType503>
+      | RegistryClientError<"ExtensionsListByType503", ExtensionsListByType503>,
+      R
     >;
   };
   /**
@@ -5363,6 +5583,7 @@ export interface RegistryClient {
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsGet200 | void, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsGet400", ExtensionsGet400>
@@ -5370,7 +5591,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsGet404", ExtensionsGet404>
       | RegistryClientError<"ExtensionsGet409", ExtensionsGet409>
       | RegistryClientError<"ExtensionsGet500", ExtensionsGet500>
-      | RegistryClientError<"ExtensionsGet503", ExtensionsGet503>
+      | RegistryClientError<"ExtensionsGet503", ExtensionsGet503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5379,6 +5601,7 @@ export interface RegistryClient {
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsGet200 | void, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsGet400", ExtensionsGet400>
@@ -5386,7 +5609,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsGet404", ExtensionsGet404>
       | RegistryClientError<"ExtensionsGet409", ExtensionsGet409>
       | RegistryClientError<"ExtensionsGet500", ExtensionsGet500>
-      | RegistryClientError<"ExtensionsGet503", ExtensionsGet503>
+      | RegistryClientError<"ExtensionsGet503", ExtensionsGet503>,
+      R
     >;
   };
   /**
@@ -5400,6 +5624,7 @@ export interface RegistryClient {
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<void, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"400", undefined>
@@ -5407,7 +5632,8 @@ export interface RegistryClient {
       | RegistryClientError<"404", undefined>
       | RegistryClientError<"409", undefined>
       | RegistryClientError<"500", undefined>
-      | RegistryClientError<"503", undefined>
+      | RegistryClientError<"503", undefined>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5416,6 +5642,7 @@ export interface RegistryClient {
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<void, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"400", undefined>
@@ -5423,7 +5650,8 @@ export interface RegistryClient {
       | RegistryClientError<"404", undefined>
       | RegistryClientError<"409", undefined>
       | RegistryClientError<"500", undefined>
-      | RegistryClientError<"503", undefined>
+      | RegistryClientError<"503", undefined>,
+      R
     >;
   };
   /**
@@ -5441,6 +5669,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsUpdateVisibility200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsUpdateVisibility400", ExtensionsUpdateVisibility400>
@@ -5451,7 +5680,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsUpdateVisibility410", ExtensionsUpdateVisibility410>
       | RegistryClientError<"ExtensionsUpdateVisibility412", ExtensionsUpdateVisibility412>
       | RegistryClientError<"ExtensionsUpdateVisibility500", ExtensionsUpdateVisibility500>
-      | RegistryClientError<"ExtensionsUpdateVisibility503", ExtensionsUpdateVisibility503>
+      | RegistryClientError<"ExtensionsUpdateVisibility503", ExtensionsUpdateVisibility503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5464,6 +5694,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsUpdateVisibility200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsUpdateVisibility400", ExtensionsUpdateVisibility400>
@@ -5474,7 +5705,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsUpdateVisibility410", ExtensionsUpdateVisibility410>
       | RegistryClientError<"ExtensionsUpdateVisibility412", ExtensionsUpdateVisibility412>
       | RegistryClientError<"ExtensionsUpdateVisibility500", ExtensionsUpdateVisibility500>
-      | RegistryClientError<"ExtensionsUpdateVisibility503", ExtensionsUpdateVisibility503>
+      | RegistryClientError<"ExtensionsUpdateVisibility503", ExtensionsUpdateVisibility503>,
+      R
     >;
   };
   /**
@@ -5489,6 +5721,7 @@ export interface RegistryClient {
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsGetVersion200 | void, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsGetVersion400", ExtensionsGetVersion400>
@@ -5497,7 +5730,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsGetVersion409", ExtensionsGetVersion409>
       | RegistryClientError<"ExtensionsGetVersion410", ExtensionsGetVersion410>
       | RegistryClientError<"ExtensionsGetVersion500", ExtensionsGetVersion500>
-      | RegistryClientError<"ExtensionsGetVersion503", ExtensionsGetVersion503>
+      | RegistryClientError<"ExtensionsGetVersion503", ExtensionsGetVersion503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5507,6 +5741,7 @@ export interface RegistryClient {
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsGetVersion200 | void, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsGetVersion400", ExtensionsGetVersion400>
@@ -5515,7 +5750,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsGetVersion409", ExtensionsGetVersion409>
       | RegistryClientError<"ExtensionsGetVersion410", ExtensionsGetVersion410>
       | RegistryClientError<"ExtensionsGetVersion500", ExtensionsGetVersion500>
-      | RegistryClientError<"ExtensionsGetVersion503", ExtensionsGetVersion503>
+      | RegistryClientError<"ExtensionsGetVersion503", ExtensionsGetVersion503>,
+      R
     >;
   };
   /**
@@ -5533,6 +5769,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsPublishVersion200 | ExtensionsPublishVersion201, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsPublishVersion400", ExtensionsPublishVersion400>
@@ -5545,7 +5782,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsPublishVersion415", ExtensionsPublishVersion415>
       | RegistryClientError<"ExtensionsPublishVersion422", ExtensionsPublishVersion422>
       | RegistryClientError<"ExtensionsPublishVersion500", ExtensionsPublishVersion500>
-      | RegistryClientError<"ExtensionsPublishVersion503", ExtensionsPublishVersion503>
+      | RegistryClientError<"ExtensionsPublishVersion503", ExtensionsPublishVersion503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5561,6 +5799,7 @@ export interface RegistryClient {
         ExtensionsPublishVersion200 | ExtensionsPublishVersion201,
         Config | undefined
       >,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsPublishVersion400", ExtensionsPublishVersion400>
@@ -5573,7 +5812,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsPublishVersion415", ExtensionsPublishVersion415>
       | RegistryClientError<"ExtensionsPublishVersion422", ExtensionsPublishVersion422>
       | RegistryClientError<"ExtensionsPublishVersion500", ExtensionsPublishVersion500>
-      | RegistryClientError<"ExtensionsPublishVersion503", ExtensionsPublishVersion503>
+      | RegistryClientError<"ExtensionsPublishVersion503", ExtensionsPublishVersion503>,
+      R
     >;
   };
   /**
@@ -5588,6 +5828,7 @@ export interface RegistryClient {
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<Uint8Array | void, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsDownloadArchive400", ExtensionsDownloadArchive400>
@@ -5596,7 +5837,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsDownloadArchive409", ExtensionsDownloadArchive409>
       | RegistryClientError<"ExtensionsDownloadArchive500", ExtensionsDownloadArchive500>
       | RegistryClientError<"ExtensionsDownloadArchive503", ExtensionsDownloadArchive503>
-      | RegistryClientError<"416", undefined>
+      | RegistryClientError<"416", undefined>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5606,6 +5848,7 @@ export interface RegistryClient {
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<Uint8Array | void, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsDownloadArchive400", ExtensionsDownloadArchive400>
@@ -5614,7 +5857,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsDownloadArchive409", ExtensionsDownloadArchive409>
       | RegistryClientError<"ExtensionsDownloadArchive500", ExtensionsDownloadArchive500>
       | RegistryClientError<"ExtensionsDownloadArchive503", ExtensionsDownloadArchive503>
-      | RegistryClientError<"416", undefined>
+      | RegistryClientError<"416", undefined>,
+      R
     >;
   };
   /**
@@ -5625,7 +5869,7 @@ export interface RegistryClient {
     type: string,
     name: string,
     version: string,
-  ) => Stream.Stream<Uint8Array, HttpClientError.HttpClientError>;
+  ) => Stream.Stream<Uint8Array, E | HttpClientError.HttpClientError, R>;
   /**
    * Evaluate extension visibility
    */
@@ -5640,6 +5884,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsGetVisibility200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsGetVisibility400", ExtensionsGetVisibility400>
@@ -5647,7 +5892,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsGetVisibility403", ExtensionsGetVisibility403>
       | RegistryClientError<"ExtensionsGetVisibility404", ExtensionsGetVisibility404>
       | RegistryClientError<"ExtensionsGetVisibility500", ExtensionsGetVisibility500>
-      | RegistryClientError<"ExtensionsGetVisibility503", ExtensionsGetVisibility503>
+      | RegistryClientError<"ExtensionsGetVisibility503", ExtensionsGetVisibility503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5661,6 +5907,7 @@ export interface RegistryClient {
         | undefined,
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsGetVisibility200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsGetVisibility400", ExtensionsGetVisibility400>
@@ -5668,7 +5915,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsGetVisibility403", ExtensionsGetVisibility403>
       | RegistryClientError<"ExtensionsGetVisibility404", ExtensionsGetVisibility404>
       | RegistryClientError<"ExtensionsGetVisibility500", ExtensionsGetVisibility500>
-      | RegistryClientError<"ExtensionsGetVisibility503", ExtensionsGetVisibility503>
+      | RegistryClientError<"ExtensionsGetVisibility503", ExtensionsGetVisibility503>,
+      R
     >;
   };
   /**
@@ -5682,6 +5930,7 @@ export interface RegistryClient {
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsGetArchival200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsGetArchival400", ExtensionsGetArchival400>
@@ -5689,7 +5938,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsGetArchival403", ExtensionsGetArchival403>
       | RegistryClientError<"ExtensionsGetArchival404", ExtensionsGetArchival404>
       | RegistryClientError<"ExtensionsGetArchival500", ExtensionsGetArchival500>
-      | RegistryClientError<"ExtensionsGetArchival503", ExtensionsGetArchival503>
+      | RegistryClientError<"ExtensionsGetArchival503", ExtensionsGetArchival503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5698,6 +5948,7 @@ export interface RegistryClient {
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsGetArchival200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsGetArchival400", ExtensionsGetArchival400>
@@ -5705,7 +5956,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsGetArchival403", ExtensionsGetArchival403>
       | RegistryClientError<"ExtensionsGetArchival404", ExtensionsGetArchival404>
       | RegistryClientError<"ExtensionsGetArchival500", ExtensionsGetArchival500>
-      | RegistryClientError<"ExtensionsGetArchival503", ExtensionsGetArchival503>
+      | RegistryClientError<"ExtensionsGetArchival503", ExtensionsGetArchival503>,
+      R
     >;
   };
   /**
@@ -5723,6 +5975,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsPutArchival200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsPutArchival400", ExtensionsPutArchival400>
@@ -5732,7 +5985,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsPutArchival409", ExtensionsPutArchival409>
       | RegistryClientError<"ExtensionsPutArchival412", ExtensionsPutArchival412>
       | RegistryClientError<"ExtensionsPutArchival500", ExtensionsPutArchival500>
-      | RegistryClientError<"ExtensionsPutArchival503", ExtensionsPutArchival503>
+      | RegistryClientError<"ExtensionsPutArchival503", ExtensionsPutArchival503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5745,6 +5999,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsPutArchival200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsPutArchival400", ExtensionsPutArchival400>
@@ -5754,7 +6009,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsPutArchival409", ExtensionsPutArchival409>
       | RegistryClientError<"ExtensionsPutArchival412", ExtensionsPutArchival412>
       | RegistryClientError<"ExtensionsPutArchival500", ExtensionsPutArchival500>
-      | RegistryClientError<"ExtensionsPutArchival503", ExtensionsPutArchival503>
+      | RegistryClientError<"ExtensionsPutArchival503", ExtensionsPutArchival503>,
+      R
     >;
   };
   /**
@@ -5771,6 +6027,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsDeleteArchival200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsDeleteArchival400", ExtensionsDeleteArchival400>
@@ -5780,7 +6037,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsDeleteArchival409", ExtensionsDeleteArchival409>
       | RegistryClientError<"ExtensionsDeleteArchival412", ExtensionsDeleteArchival412>
       | RegistryClientError<"ExtensionsDeleteArchival500", ExtensionsDeleteArchival500>
-      | RegistryClientError<"ExtensionsDeleteArchival503", ExtensionsDeleteArchival503>
+      | RegistryClientError<"ExtensionsDeleteArchival503", ExtensionsDeleteArchival503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5792,6 +6050,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsDeleteArchival200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsDeleteArchival400", ExtensionsDeleteArchival400>
@@ -5801,7 +6060,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsDeleteArchival409", ExtensionsDeleteArchival409>
       | RegistryClientError<"ExtensionsDeleteArchival412", ExtensionsDeleteArchival412>
       | RegistryClientError<"ExtensionsDeleteArchival500", ExtensionsDeleteArchival500>
-      | RegistryClientError<"ExtensionsDeleteArchival503", ExtensionsDeleteArchival503>
+      | RegistryClientError<"ExtensionsDeleteArchival503", ExtensionsDeleteArchival503>,
+      R
     >;
   };
   /**
@@ -5815,6 +6075,7 @@ export interface RegistryClient {
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsGetDeprecation200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsGetDeprecation400", ExtensionsGetDeprecation400>
@@ -5822,7 +6083,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsGetDeprecation403", ExtensionsGetDeprecation403>
       | RegistryClientError<"ExtensionsGetDeprecation404", ExtensionsGetDeprecation404>
       | RegistryClientError<"ExtensionsGetDeprecation500", ExtensionsGetDeprecation500>
-      | RegistryClientError<"ExtensionsGetDeprecation503", ExtensionsGetDeprecation503>
+      | RegistryClientError<"ExtensionsGetDeprecation503", ExtensionsGetDeprecation503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5831,6 +6093,7 @@ export interface RegistryClient {
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsGetDeprecation200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsGetDeprecation400", ExtensionsGetDeprecation400>
@@ -5838,7 +6101,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsGetDeprecation403", ExtensionsGetDeprecation403>
       | RegistryClientError<"ExtensionsGetDeprecation404", ExtensionsGetDeprecation404>
       | RegistryClientError<"ExtensionsGetDeprecation500", ExtensionsGetDeprecation500>
-      | RegistryClientError<"ExtensionsGetDeprecation503", ExtensionsGetDeprecation503>
+      | RegistryClientError<"ExtensionsGetDeprecation503", ExtensionsGetDeprecation503>,
+      R
     >;
   };
   /**
@@ -5856,6 +6120,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsPutDeprecation200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsPutDeprecation400", ExtensionsPutDeprecation400>
@@ -5865,7 +6130,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsPutDeprecation409", ExtensionsPutDeprecation409>
       | RegistryClientError<"ExtensionsPutDeprecation412", ExtensionsPutDeprecation412>
       | RegistryClientError<"ExtensionsPutDeprecation500", ExtensionsPutDeprecation500>
-      | RegistryClientError<"ExtensionsPutDeprecation503", ExtensionsPutDeprecation503>
+      | RegistryClientError<"ExtensionsPutDeprecation503", ExtensionsPutDeprecation503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5878,6 +6144,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsPutDeprecation200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsPutDeprecation400", ExtensionsPutDeprecation400>
@@ -5887,7 +6154,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsPutDeprecation409", ExtensionsPutDeprecation409>
       | RegistryClientError<"ExtensionsPutDeprecation412", ExtensionsPutDeprecation412>
       | RegistryClientError<"ExtensionsPutDeprecation500", ExtensionsPutDeprecation500>
-      | RegistryClientError<"ExtensionsPutDeprecation503", ExtensionsPutDeprecation503>
+      | RegistryClientError<"ExtensionsPutDeprecation503", ExtensionsPutDeprecation503>,
+      R
     >;
   };
   /**
@@ -5904,6 +6172,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsDeleteDeprecation200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsDeleteDeprecation400", ExtensionsDeleteDeprecation400>
@@ -5913,7 +6182,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsDeleteDeprecation409", ExtensionsDeleteDeprecation409>
       | RegistryClientError<"ExtensionsDeleteDeprecation412", ExtensionsDeleteDeprecation412>
       | RegistryClientError<"ExtensionsDeleteDeprecation500", ExtensionsDeleteDeprecation500>
-      | RegistryClientError<"ExtensionsDeleteDeprecation503", ExtensionsDeleteDeprecation503>
+      | RegistryClientError<"ExtensionsDeleteDeprecation503", ExtensionsDeleteDeprecation503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5925,6 +6195,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsDeleteDeprecation200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsDeleteDeprecation400", ExtensionsDeleteDeprecation400>
@@ -5934,7 +6205,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsDeleteDeprecation409", ExtensionsDeleteDeprecation409>
       | RegistryClientError<"ExtensionsDeleteDeprecation412", ExtensionsDeleteDeprecation412>
       | RegistryClientError<"ExtensionsDeleteDeprecation500", ExtensionsDeleteDeprecation500>
-      | RegistryClientError<"ExtensionsDeleteDeprecation503", ExtensionsDeleteDeprecation503>
+      | RegistryClientError<"ExtensionsDeleteDeprecation503", ExtensionsDeleteDeprecation503>,
+      R
     >;
   };
   /**
@@ -5952,6 +6224,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsYankVersion200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsYankVersion400", ExtensionsYankVersion400>
@@ -5960,7 +6233,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsYankVersion404", ExtensionsYankVersion404>
       | RegistryClientError<"ExtensionsYankVersion409", ExtensionsYankVersion409>
       | RegistryClientError<"ExtensionsYankVersion500", ExtensionsYankVersion500>
-      | RegistryClientError<"ExtensionsYankVersion503", ExtensionsYankVersion503>
+      | RegistryClientError<"ExtensionsYankVersion503", ExtensionsYankVersion503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -5973,6 +6247,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsYankVersion200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsYankVersion400", ExtensionsYankVersion400>
@@ -5981,7 +6256,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsYankVersion404", ExtensionsYankVersion404>
       | RegistryClientError<"ExtensionsYankVersion409", ExtensionsYankVersion409>
       | RegistryClientError<"ExtensionsYankVersion500", ExtensionsYankVersion500>
-      | RegistryClientError<"ExtensionsYankVersion503", ExtensionsYankVersion503>
+      | RegistryClientError<"ExtensionsYankVersion503", ExtensionsYankVersion503>,
+      R
     >;
   };
   /**
@@ -5996,6 +6272,7 @@ export interface RegistryClient {
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsUnyankVersion200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsUnyankVersion400", ExtensionsUnyankVersion400>
@@ -6004,7 +6281,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsUnyankVersion404", ExtensionsUnyankVersion404>
       | RegistryClientError<"ExtensionsUnyankVersion409", ExtensionsUnyankVersion409>
       | RegistryClientError<"ExtensionsUnyankVersion500", ExtensionsUnyankVersion500>
-      | RegistryClientError<"ExtensionsUnyankVersion503", ExtensionsUnyankVersion503>
+      | RegistryClientError<"ExtensionsUnyankVersion503", ExtensionsUnyankVersion503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -6014,6 +6292,7 @@ export interface RegistryClient {
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsUnyankVersion200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ExtensionsUnyankVersion400", ExtensionsUnyankVersion400>
@@ -6022,7 +6301,8 @@ export interface RegistryClient {
       | RegistryClientError<"ExtensionsUnyankVersion404", ExtensionsUnyankVersion404>
       | RegistryClientError<"ExtensionsUnyankVersion409", ExtensionsUnyankVersion409>
       | RegistryClientError<"ExtensionsUnyankVersion500", ExtensionsUnyankVersion500>
-      | RegistryClientError<"ExtensionsUnyankVersion503", ExtensionsUnyankVersion503>
+      | RegistryClientError<"ExtensionsUnyankVersion503", ExtensionsUnyankVersion503>,
+      R
     >;
   };
   /**
@@ -6039,6 +6319,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsYankAvailableVersions200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<
@@ -6068,7 +6349,8 @@ export interface RegistryClient {
       | RegistryClientError<
           "ExtensionsYankAvailableVersions503",
           ExtensionsYankAvailableVersions503
-        >
+        >,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       owner: string,
@@ -6080,6 +6362,7 @@ export interface RegistryClient {
       },
     ): Effect.Effect<
       WithOptionalResponse<ExtensionsYankAvailableVersions200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<
@@ -6109,7 +6392,8 @@ export interface RegistryClient {
       | RegistryClientError<
           "ExtensionsYankAvailableVersions503",
           ExtensionsYankAvailableVersions503
-        >
+        >,
+      R
     >;
   };
   /**
@@ -6121,26 +6405,30 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<ResolutionsPostMetadata200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ResolutionsPostMetadata400", ResolutionsPostMetadata400>
       | RegistryClientError<"ResolutionsPostMetadata401", ResolutionsPostMetadata401>
       | RegistryClientError<"ResolutionsPostMetadata413", ResolutionsPostMetadata413>
       | RegistryClientError<"ResolutionsPostMetadata500", ResolutionsPostMetadata500>
-      | RegistryClientError<"ResolutionsPostMetadata503", ResolutionsPostMetadata503>
+      | RegistryClientError<"ResolutionsPostMetadata503", ResolutionsPostMetadata503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof ResolutionsPostMetadataRequestJson.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
       WithOptionalResponse<ResolutionsPostMetadata200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ResolutionsPostMetadata400", ResolutionsPostMetadata400>
       | RegistryClientError<"ResolutionsPostMetadata401", ResolutionsPostMetadata401>
       | RegistryClientError<"ResolutionsPostMetadata413", ResolutionsPostMetadata413>
       | RegistryClientError<"ResolutionsPostMetadata500", ResolutionsPostMetadata500>
-      | RegistryClientError<"ResolutionsPostMetadata503", ResolutionsPostMetadata503>
+      | RegistryClientError<"ResolutionsPostMetadata503", ResolutionsPostMetadata503>,
+      R
     >;
   };
   /**
@@ -6152,6 +6440,7 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<PublishPreviewsPreviewExtensionPublishes200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<
@@ -6173,13 +6462,15 @@ export interface RegistryClient {
       | RegistryClientError<
           "PublishPreviewsPreviewExtensionPublishes503",
           PublishPreviewsPreviewExtensionPublishes503
-        >
+        >,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof PublishPreviewsPreviewExtensionPublishesRequestJson.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
       WithOptionalResponse<PublishPreviewsPreviewExtensionPublishes200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<
@@ -6201,7 +6492,8 @@ export interface RegistryClient {
       | RegistryClientError<
           "PublishPreviewsPreviewExtensionPublishes503",
           PublishPreviewsPreviewExtensionPublishes503
-        >
+        >,
+      R
     >;
   };
   /**
@@ -6213,26 +6505,30 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<DiscoveryPostDiscovery200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"DiscoveryPostDiscovery400", DiscoveryPostDiscovery400>
       | RegistryClientError<"DiscoveryPostDiscovery401", DiscoveryPostDiscovery401>
       | RegistryClientError<"DiscoveryPostDiscovery413", DiscoveryPostDiscovery413>
       | RegistryClientError<"DiscoveryPostDiscovery415", DiscoveryPostDiscovery415>
-      | RegistryClientError<"DiscoveryPostDiscovery500", DiscoveryPostDiscovery500>
+      | RegistryClientError<"DiscoveryPostDiscovery500", DiscoveryPostDiscovery500>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof DiscoveryPostDiscoveryRequestJson.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
       WithOptionalResponse<DiscoveryPostDiscovery200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"DiscoveryPostDiscovery400", DiscoveryPostDiscovery400>
       | RegistryClientError<"DiscoveryPostDiscovery401", DiscoveryPostDiscovery401>
       | RegistryClientError<"DiscoveryPostDiscovery413", DiscoveryPostDiscovery413>
       | RegistryClientError<"DiscoveryPostDiscovery415", DiscoveryPostDiscovery415>
-      | RegistryClientError<"DiscoveryPostDiscovery500", DiscoveryPostDiscovery500>
+      | RegistryClientError<"DiscoveryPostDiscovery500", DiscoveryPostDiscovery500>,
+      R
     >;
   };
   /**
@@ -6243,17 +6539,23 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<HealthGetShallowHealth200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"HealthGetShallowHealth400", HealthGetShallowHealth400>
+      | RegistryClientError<"HealthGetShallowHealth500", HealthGetShallowHealth500>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<HealthGetShallowHealth200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"HealthGetShallowHealth400", HealthGetShallowHealth400>
+      | RegistryClientError<"HealthGetShallowHealth500", HealthGetShallowHealth500>,
+      R
     >;
   };
   /**
@@ -6265,11 +6567,14 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<HealthGetDeepHealth200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"HealthGetDeepHealth400", HealthGetDeepHealth400>
+      | RegistryClientError<"HealthGetDeepHealth500", HealthGetDeepHealth500>
       | RegistryClientError<"HealthGetDeepHealth503", HealthGetDeepHealth503>
-      | RegistryClientError<"403", undefined>
+      | RegistryClientError<"403", undefined>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options:
@@ -6280,11 +6585,14 @@ export interface RegistryClient {
         | undefined,
     ): Effect.Effect<
       WithOptionalResponse<HealthGetDeepHealth200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"HealthGetDeepHealth400", HealthGetDeepHealth400>
+      | RegistryClientError<"HealthGetDeepHealth500", HealthGetDeepHealth500>
       | RegistryClientError<"HealthGetDeepHealth503", HealthGetDeepHealth503>
-      | RegistryClientError<"403", undefined>
+      | RegistryClientError<"403", undefined>,
+      R
     >;
   };
   /**
@@ -6297,11 +6605,14 @@ export interface RegistryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<SecretScanningReportAlert200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"SecretScanningReportAlert400", SecretScanningReportAlert400>
       | RegistryClientError<"SecretScanningReportAlert401", SecretScanningReportAlert401>
-      | RegistryClientError<"SecretScanningReportAlert503", SecretScanningReportAlert503>
+      | RegistryClientError<"SecretScanningReportAlert500", SecretScanningReportAlert500>
+      | RegistryClientError<"SecretScanningReportAlert503", SecretScanningReportAlert503>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly params?: typeof SecretScanningReportAlertParams.Encoded | undefined;
@@ -6309,11 +6620,14 @@ export interface RegistryClient {
       readonly config?: Config | undefined;
     }): Effect.Effect<
       WithOptionalResponse<SecretScanningReportAlert200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"SecretScanningReportAlert400", SecretScanningReportAlert400>
       | RegistryClientError<"SecretScanningReportAlert401", SecretScanningReportAlert401>
-      | RegistryClientError<"SecretScanningReportAlert503", SecretScanningReportAlert503>
+      | RegistryClientError<"SecretScanningReportAlert500", SecretScanningReportAlert500>
+      | RegistryClientError<"SecretScanningReportAlert503", SecretScanningReportAlert503>,
+      R
     >;
   };
   /**
@@ -6325,20 +6639,26 @@ export interface RegistryClient {
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<void, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ProblemsGet400", ProblemsGet400>
       | RegistryClientError<"ProblemsGet404", ProblemsGet404>
+      | RegistryClientError<"ProblemsGet500", ProblemsGet500>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       code: string,
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<void, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | RegistryClientError<"ProblemsGet400", ProblemsGet400>
       | RegistryClientError<"ProblemsGet404", ProblemsGet404>
+      | RegistryClientError<"ProblemsGet500", ProblemsGet500>,
+      R
     >;
   };
 }

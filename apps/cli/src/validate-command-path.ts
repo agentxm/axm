@@ -1,6 +1,5 @@
 import * as Effect from "effect/Effect";
-import * as Console from "effect/Console";
-import { CliConfig, CliError, Command, GlobalFlag } from "effect/cli";
+import { CliConfig, CliError, CliOutput, Command, GlobalFlag } from "effect/cli";
 
 const probeFlag = "--axm-command-path-probe";
 
@@ -34,11 +33,7 @@ export const validateCommandPath = (command: Command.Command.Any, argv: Readonly
       Effect.provideService(CliConfig.CliConfig, {
         builtIns: config.builtIns.filter((flag) => flag._tag !== "Action"),
       }),
-      Effect.provideService(Console.Console, {
-        ...globalThis.console,
-        log: () => undefined,
-        error: () => undefined,
-      }),
+      Effect.provideService(CliOutput.Presenter, { present: () => Effect.void }),
       Effect.catchTag("ShowHelp", (error) => {
         const errors = error.errors.filter(
           (entry) => entry._tag !== "UnrecognizedOption" || entry.option !== probeFlag,

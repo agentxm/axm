@@ -53,6 +53,10 @@ const harness = (quiet = false) =>
     const opened = yield* Queue.unbounded<void>();
     const readers = yield* Ref.make(0);
     const terminal = Terminal.make({
+      size: Queue.unbounded<Terminal.Size, Cause.Done>().pipe(
+        Effect.tap((queue) => Queue.offer(queue, { columns: 80, rows: 4 })),
+        Effect.map(Queue.asDequeue),
+      ),
       columns: Effect.succeed(80),
       rows: Effect.succeed(4),
       readInput: Effect.gen(function* () {

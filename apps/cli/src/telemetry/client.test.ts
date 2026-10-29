@@ -158,12 +158,10 @@ describe("TelemetryClientLive", () => {
             request,
             Response.json(
               {
-                kind: "TelemetryPayloadTooLargeError",
                 type: "https://t.agentxm.ai/problems/payload_too_large",
                 title: "Payload Too Large",
                 status: 413,
                 detail: "Error reports must be at most 64 KiB.",
-                code: "payload_too_large",
               },
               { status: 413, headers: { "content-type": "application/problem+json" } },
             ),
@@ -186,7 +184,7 @@ describe("TelemetryClientLive", () => {
         .pipe(Effect.flip);
       expect(refusal).toMatchObject({
         _tag: "ErrorsIngest413",
-        cause: { code: "payload_too_large", status: 413 },
+        cause: { type: "https://t.agentxm.ai/problems/payload_too_large", status: 413 },
         response: { status: 413 },
       });
     }),

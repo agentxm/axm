@@ -260,8 +260,10 @@ export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
         ? failure
         : undefined;
 
-    for (const event of yield* Queue.takeAll(events)) {
-      yield* presentBuiltInOutput(event, {
+    while (true) {
+      const event = yield* Queue.poll(events);
+      if (Option.isNone(event)) break;
+      yield* presentBuiltInOutput(event.value, {
         helpRequest,
         format: isJson ? "json" : "text",
       });

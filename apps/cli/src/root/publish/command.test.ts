@@ -301,7 +301,7 @@ describe("root publish", () => {
           request,
           new Response(
             JSON.stringify({
-              type: "about:blank",
+              type: "https://registry.agentxm.ai/v1/problems/not_found",
               title: "Not Found",
               status: 404,
               detail: "Extension not found",

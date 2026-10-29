@@ -2,23 +2,13 @@ import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
-const REPOSITORY_LOCAL_GIT_VARIABLES = new Set([
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-  "GIT_CEILING_DIRECTORIES",
-  "GIT_COMMON_DIR",
-  "GIT_DIR",
-  "GIT_INDEX_FILE",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_PREFIX",
-  "GIT_WORK_TREE",
-]);
+import { withoutLocalGitEnvironment } from "@agentxm/host-primitives";
 
 export const foreignGitEnvironment = (
   environment: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv =>
-  Object.fromEntries(
-    Object.entries(environment).filter(([key]) => !REPOSITORY_LOCAL_GIT_VARIABLES.has(key)),
-  );
+  // Foreign release repositories still need the caller's CI transport credentials.
+  withoutLocalGitEnvironment(environment, { preserveCommandConfig: true });
 
 const runWithOptions = (
   command: string,

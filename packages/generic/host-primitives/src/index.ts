@@ -9,3 +9,4 @@ export * from "./loopback.js";
 export * from "./path-containment.js";
 export * from "./request-budget.js";
 export * from "./user-home.js";
+export * from "./git-environment.js";

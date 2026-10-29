@@ -14,6 +14,7 @@
  * @packageDocumentation
  */
 
+import { withoutLocalGitEnvironment } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -161,29 +162,4 @@ export const SourceHostProvidersTest = (
  * repository, so a test's Git commands act on the temporary repository they
  * name even when the suite itself runs inside a Git hook or worktree.
  */
-export const isolatedGitEnv = (
-  hostEnv: Readonly<Record<string, string | undefined>>,
-): Record<string, string | undefined> => {
-  const env = { ...hostEnv };
-  for (const name of [
-    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-    "GIT_COMMON_DIR",
-    "GIT_CONFIG",
-    "GIT_CONFIG_COUNT",
-    "GIT_CONFIG_PARAMETERS",
-    "GIT_DIR",
-    "GIT_GRAFT_FILE",
-    "GIT_IMPLICIT_WORK_TREE",
-    "GIT_INDEX_FILE",
-    "GIT_INTERNAL_SUPER_PREFIX",
-    "GIT_NO_REPLACE_OBJECTS",
-    "GIT_OBJECT_DIRECTORY",
-    "GIT_PREFIX",
-    "GIT_REPLACE_REF_BASE",
-    "GIT_SHALLOW_FILE",
-    "GIT_WORK_TREE",
-  ]) {
-    delete env[name];
-  }
-  return env;
-};
+export const isolatedGitEnv = withoutLocalGitEnvironment;

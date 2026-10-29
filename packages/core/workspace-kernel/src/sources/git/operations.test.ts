@@ -52,6 +52,38 @@ describe("git", () => {
   };
 
   it.effect(
+    "fetches a pinned commit without changing an inherited linked-worktree repository",
+    () =>
+      Effect.gen(function* () {
+        const sentinel = path.join(tempDir, "sentinel");
+        const linked = path.join(tempDir, "linked");
+        const source = path.join(tempDir, "source");
+        const destination = path.join(tempDir, "destination");
+        yield* Effect.promise(() => createLocalRepo(sentinel));
+        yield* Effect.promise(() => createLocalRepo(source));
+        const environment = isolatedGitEnv(process.env);
+        const git = (cwd: string, ...args: string[]) =>
+          execFileSync("git", args, { cwd, env: environment, encoding: "utf8" }).trim();
+        git(sentinel, "worktree", "add", "--detach", linked);
+        git(sentinel, "remote", "add", "sentinel", source);
+        const refs = git(sentinel, "show-ref");
+        const remotes = git(sentinel, "remote", "-v");
+        const commit = git(source, "rev-parse", "HEAD");
+        fs.mkdirSync(destination);
+        vi.stubEnv("GIT_DIR", git(linked, "rev-parse", "--absolute-git-dir"));
+        vi.stubEnv("GIT_EXEC_PATH", path.join(tempDir, "caller-helpers"));
+        // Capture failure so that caller integrity is checked even when acquisition fails.
+        const outcome = yield* shallowFetchCommit(source, destination, commit).pipe(Effect.exit);
+        expect(git(sentinel, "config", "--bool", "core.bare")).toBe("false");
+        expect(git(sentinel, "show-ref")).toBe(refs);
+        expect(git(sentinel, "remote", "-v")).toBe(remotes);
+        expect(outcome._tag).toBe("Success");
+        expect(git(destination, "rev-parse", "HEAD")).toBe(commit);
+        expect(fs.readFileSync(path.join(destination, "README.md"), "utf8")).toBe("# Test Repo");
+      }),
+  );
+
+  it.effect(
     "passes inherited transport settings and noninteractive overrides without editors or pagers",
     () =>
       Effect.sync(() => {

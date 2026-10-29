@@ -57,7 +57,8 @@ const INTERACTIVE_COMMAND_VARIABLES: ReadonlySet<string> = new Set([
 const createGit = (baseDir: string, abort?: AbortSignal): SimpleGit => {
   // Git never opens an editor or pager here, and simple-git rejects inherited
   // editor and pager commands. Remove them under the same trimmed,
-  // case-insensitive key match simple-git applies; keep every other key.
+  // case-insensitive key match simple-git applies. Repository selectors have
+  // already been removed by the inherited transport adapter.
   const environment = {
     ...Object.fromEntries(
       Object.entries(inheritedGitEnvironment()).filter(

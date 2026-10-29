@@ -11,7 +11,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { isLexicallyWithin, isRelativeWithin } from "@agentxm/host-primitives";
+import {
+  isLexicallyWithin,
+  isRelativeWithin,
+  withoutLocalGitEnvironment,
+} from "@agentxm/host-primitives";
 import * as Stream from "effect/Stream";
 import { ChildProcess } from "effect/process";
 import { createHash } from "node:crypto";
@@ -37,32 +41,9 @@ interface IndexEntry {
 // eslint-disable-next-line no-restricted-properties -- Centralized env var access point; callers filter the snapshot before passing it to child processes
 const readEnvironment = (): Readonly<Record<string, string | undefined>> => ({ ...process.env });
 
-const GIT_REPOSITORY_ENVIRONMENT_VARIABLES = new Set([
-  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-  "GIT_COMMON_DIR",
-  "GIT_CONFIG",
-  "GIT_CONFIG_COUNT",
-  "GIT_CONFIG_PARAMETERS",
-  "GIT_DIR",
-  "GIT_GRAFT_FILE",
-  "GIT_IMPLICIT_WORK_TREE",
-  "GIT_INDEX_FILE",
-  "GIT_NO_REPLACE_OBJECTS",
-  "GIT_OBJECT_DIRECTORY",
-  "GIT_PREFIX",
-  "GIT_REPLACE_REF_BASE",
-  "GIT_SHALLOW_FILE",
-  "GIT_WORK_TREE",
-]);
-
 /** Remove repository-local variables inherited from Git hook processes. */
 export const isolatedGitEnvironment = (): Record<string, string> => ({
-  ...Object.fromEntries(
-    Object.entries(readEnvironment()).filter(
-      (entry): entry is [string, string] =>
-        entry[1] !== undefined && !GIT_REPOSITORY_ENVIRONMENT_VARIABLES.has(entry[0]),
-    ),
-  ),
+  ...withoutLocalGitEnvironment(readEnvironment()),
   GIT_TERMINAL_PROMPT: "0",
   GIT_LFS_SKIP_SMUDGE: "1",
 });

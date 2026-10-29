@@ -193,6 +193,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:*
         version: link:packages/core/extension-model
+      '@agentxm/host-primitives':
+        specifier: workspace:*
+        version: link:packages/generic/host-primitives
       '@agentxm/registry-client':
         specifier: workspace:*
         version: link:packages/supporting/registry-client
@@ -990,6 +993,9 @@ importers:
 
   tools/e2e-utils:
     dependencies:
+      '@agentxm/host-primitives':
+        specifier: workspace:*
+        version: link:../../packages/generic/host-primitives
       execa:
         specifier: 'catalog:'
         version: 10.1.1

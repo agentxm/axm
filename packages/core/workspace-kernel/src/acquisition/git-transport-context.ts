@@ -6,11 +6,13 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { withoutLocalGitEnvironment } from "@agentxm/host-primitives";
 import { createHash } from "node:crypto";
 
-/** The environment a child Git process inherits from this process. */
-// eslint-disable-next-line no-restricted-properties -- This process adapter forwards inherited transport settings to child Git processes.
-export const inheritedGitEnvironment = () => ({ ...process.env });
+/** Transport context with repository selectors removed; fingerprint this same environment. */
+export const inheritedGitEnvironment = () =>
+  // eslint-disable-next-line no-restricted-properties -- This process adapter forwards inherited transport settings to child Git processes.
+  withoutLocalGitEnvironment(process.env, { preserveCommandConfig: true });
 
 /** Distinguish source reads under different inherited transport or credential contexts. */
 export const gitTransportContextFingerprint = (): string =>

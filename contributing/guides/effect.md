@@ -1,6 +1,6 @@
 ---
 status: active
-last-reviewed: 2026-08-18
+last-reviewed: 2026-10-29
 version: 0.4.0
 description: Consult before writing Effect code in AXM. Routes portable Effect v4 topics to the installed skill and Knowledge bundle and records AXM-only policy.
 depends-on:
@@ -52,6 +52,28 @@ and outbound registry transport policy to
   cancellation boundary.
 - Follow [Effect Layers](./effect-layers.md) for AXM CLI composition and
   `runCliMain` policy.
+
+### Filesystem and process adapters
+
+Captured workspace filesystems implement both `readDirectory` and
+`readDirectoryEntries`, plus `lstat`, against the same view and containment
+policy. Build wrappers with `FileSystem.make` so native `glob` uses those
+operations rather than an inherited no-op. Glob patterns and results use `/`;
+select dotfile and exclusion policy explicitly. The captured-view tests cover
+staged bytes, internal symlinks, external traversal, and exclusions.
+
+Maven cache discovery uses native filesystem globbing. Extension-name selectors
+retain their domain-specific `*` matcher: they match namespace strings, treat
+other metacharacters literally, and are not filesystem path patterns.
+
+Pass secret-bearing browser URLs and hook environment references as native
+`Redacted` process words. Keep argument-array execution, scoped child ownership,
+and concurrent draining of stdout, stderr, and exit status. Use
+`CommandLine.display` for diagnostic command text, not shell interpolation.
+
+The Registry contract sync tool provides native `Digest.layerWebCrypto` at its
+process boundary and records the same SHA-256 hex format. Crypto families are
+explicit dependencies; platform service bundles do not supply them implicitly.
 
 ### Language-service diagnostics
 

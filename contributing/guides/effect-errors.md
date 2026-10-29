@@ -1,6 +1,6 @@
 ---
 status: active
-last-reviewed: 2026-10-20
+last-reviewed: 2026-10-29
 version: 0.7.0
 description: Consult when an AXM service or command can fail. Defines the AXM-only AppError, registry translation, cancellation, and runtime-boundary policy.
 depends-on:
@@ -81,6 +81,19 @@ focused schema next to a use case that needs a specific field. Configure transpo
 the shared boundary described by the Effect v4
 [HTTP client](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect/src/http-client.md)
 guide.
+
+The generated Registry contract uses native RFC 9457 problem type URIs. Product
+reason codes remain structured extensions where they select recovery, but a
+reason does not necessarily equal the final segment of the type URI. Decode
+specialized lint and identity failures with generated schemas. Do not accept
+legacy `kind` or redundant `error` discriminators as alternate contracts.
+
+Use the HTTP status for categorization and the validated `x-request-id` header
+for correlation, including when a body cannot be decoded. A body member cannot
+override that header. Native request-validation problems may be `about:blank`
+without product codes or issue pointers; safe server failures need not disclose
+schema or provider details. Preserve raw response evidence only as diagnostics,
+not as an alternate source for typed recovery decisions.
 
 ## Cancellation and interruption
 

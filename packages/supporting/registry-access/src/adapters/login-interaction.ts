@@ -8,6 +8,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Redacted from "effect/Redacted";
+import type * as CommandLine from "effect/process/CommandLine";
 import * as Effect from "effect/Effect";
 import * as Base64 from "effect/encoding/Base64";
 import * as Layer from "effect/Layer";
@@ -26,7 +28,7 @@ import { authVariableIsSet, isSSH } from "./environment.js";
 
 interface CommandInvocation {
   readonly command: string;
-  readonly args: ReadonlyArray<string>;
+  readonly args: ReadonlyArray<CommandLine.Word>;
   readonly stdinText?: string;
 }
 
@@ -95,16 +97,16 @@ export const browserCommands = (
 ): ReadonlyArray<CommandInvocation> => {
   switch (platform) {
     case "darwin":
-      return [{ command: "open", args: [url] }];
+      return [{ command: "open", args: [Redacted.make(url)] }];
     case "win32":
       return [
         {
           command: "rundll32",
-          args: ["url.dll,FileProtocolHandler", url],
+          args: ["url.dll,FileProtocolHandler", Redacted.make(url)],
         },
       ];
     default:
-      return [{ command: "xdg-open", args: [url] }];
+      return [{ command: "xdg-open", args: [Redacted.make(url)] }];
   }
 };
 

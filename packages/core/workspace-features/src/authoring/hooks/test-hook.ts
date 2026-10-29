@@ -12,6 +12,8 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Stream from "effect/Stream";
+import * as Redacted from "effect/Redacted";
+import type * as CommandLine from "effect/process/CommandLine";
 import { ChildProcess } from "effect/process";
 import { envOption, isLexicallyWithin, writeFileAtomic } from "@agentxm/host-primitives";
 import { readExtensionManifest } from "@agentxm/extension-content";
@@ -104,7 +106,7 @@ export const TestHook = {
     const read = (relative: string) =>
       packageFile(relative).pipe(Effect.flatMap(fs.readFileString));
     const environmentNames = new Set<string>(["PATH", "HOME", "TMPDIR", "SystemRoot", "PATHEXT"]);
-    const value = (input: HookValue): Effect.Effect<string, OperationRefused> =>
+    const value = (input: HookValue): Effect.Effect<CommandLine.Word, OperationRefused> =>
       Effect.gen(function* () {
         if (typeof input === "string") return input;
         const configured = "config" in input ? values[input.config] : input;
@@ -119,7 +121,7 @@ export const TestHook = {
         );
         if (Option.isNone(env))
           return yield* failed(`Environment reference ${configured.env} is not set`);
-        return env.value;
+        return Redacted.make(env.value);
       });
     const startedAt = yield* Clock.currentTimeMillis;
     const contentHash = yield* computePackageContentHash(root);
@@ -146,7 +148,7 @@ export const TestHook = {
         fixture.expect.stderr === undefined ? undefined : yield* read(fixture.expect.stderr);
       const entrypoint = yield* packageFile(binding.handler.entrypoint);
       const argv = yield* Effect.forEach(binding.handler.args ?? [], value);
-      const env: Record<string, string> = {};
+      const env: Record<string, CommandLine.Word> = {};
       for (const name of ["PATH", "HOME", "TMPDIR", "SystemRoot", "PATHEXT"]) {
         const current = yield* envOption(name).pipe(
           Effect.mapError(() => failed(`Cannot read ${name} for hook execution`)),

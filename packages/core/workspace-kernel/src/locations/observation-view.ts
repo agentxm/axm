@@ -120,6 +120,9 @@ const observationViewFileSystem = (view: NativeObservationView) =>
       readLink: (target) => resolve(target, false).pipe(Effect.flatMap(fs.readLink)),
       realPath: (target) => resolve(target).pipe(Effect.flatMap(fs.realPath)),
       stat: (target) => resolve(target).pipe(Effect.flatMap(fs.stat)),
+      lstat: (target) => resolve(target, false).pipe(Effect.flatMap(fs.lstat)),
+      readDirectoryEntries: (target) =>
+        resolve(target).pipe(Effect.flatMap(fs.readDirectoryEntries)),
       readDirectory,
       open: (target, options) =>
         options?.flag !== undefined && options.flag !== "r"

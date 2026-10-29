@@ -37,9 +37,8 @@ describe("Incomplete Registry assessment", () => {
           respond: () => ({
             status: 404,
             body: {
-              kind: "NotFoundError",
-              type: "about:blank",
-              title: "Extension not found",
+              type: "https://registry.agentxm.ai/v1/problems/not_found",
+              title: "Not Found",
               status: 404,
               code: "extension_not_found",
               detail: "Fixture extension not found",

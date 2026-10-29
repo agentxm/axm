@@ -1,6 +1,6 @@
 ---
 status: active
-last-reviewed: 2026-08-17
+last-reviewed: 2026-10-29
 version: 0.4.0
 description: Consult when composing the AXM CLI runtime or providing command dependencies. Defines AXM-only entry-point and command-provision policy.
 depends-on:
@@ -46,6 +46,19 @@ const deploy = Command.make("deploy", { environment }, handler).pipe(
   ),
 );
 ```
+
+## Built-in CLI output
+
+`app.ts` supplies native `CliOutput.Presenter` at the command-run boundary.
+Presenter events feed AXM's Screen and machine-output renderer directly; do not
+capture console text, serialize help as an intermediate string, or decode that
+string to recover a help document. Command-path probes use a silent Presenter
+so probing cannot emit a second help event.
+
+`HelpDoc.commandPath` owns the parsed path. Human and machine help expose
+`inheritedFlags` separately from local flags. Terminal test implementations
+supply a size queue with an initial value, preserving Screen's ownership of
+presentation and output streams.
 
 ## Checklist
 

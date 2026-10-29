@@ -4,6 +4,8 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
+import * as Redacted from "effect/Redacted";
+import * as CommandLine from "effect/process/CommandLine";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as PlatformError from "effect/PlatformError";
@@ -26,9 +28,19 @@ describe("browserCommands", () => {
     expect(browserCommands(url, "win32")).toEqual([
       {
         command: "rundll32",
-        args: ["url.dll,FileProtocolHandler", url],
+        args: ["url.dll,FileProtocolHandler", Redacted.make(url)],
       },
     ]);
+  });
+  it("redacts authorization URLs from native command diagnostics on every platform", () => {
+    for (const platform of ["win32", "darwin", "linux"] as const) {
+      for (const invocation of browserCommands(LINK, platform)) {
+        expect(CommandLine.display([invocation.command, ...invocation.args])).not.toContain(LINK);
+        const url = invocation.args.at(-1);
+        expect(Redacted.isRedacted(url)).toBe(true);
+        if (Redacted.isRedacted(url)) expect(Redacted.value(url)).toBe(LINK);
+      }
+    }
   });
 });
 

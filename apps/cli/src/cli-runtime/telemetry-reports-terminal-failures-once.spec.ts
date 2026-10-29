@@ -28,7 +28,6 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import type * as HttpClient from "effect/http/HttpClient";
-import { CliOutput } from "effect/cli";
 
 import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 import { StepFailure } from "@agentxm/workspace-kernel/operations";
@@ -41,7 +40,6 @@ import { runLintCommand } from "../root/lint/command.js";
 import { makeAppError } from "../app-error/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { ExecutionDirectory } from "../execution-directory.js";
-import { makeAxmFormatter } from "../formatter.js";
 import { baseLayer, withWorkspace, makeArtifactHttpClientLayer } from "../runtime.js";
 import {
   OutputStreams,
@@ -501,9 +499,7 @@ describe("Terminal failure reporting", () => {
   it.effect("a usage error before any command runs is reported once, in the bootstrap phase", () =>
     Effect.gen(function* () {
       const reports = yield* reportsOf(
-        runCommand(["install", "--no-such-flag"], true).pipe(
-          Effect.provide(Layer.mergeAll(baseLayer, CliOutput.layer(makeAxmFormatter()))),
-        ),
+        runCommand(["install", "--no-such-flag"], true).pipe(Effect.provide(baseLayer)),
       );
 
       expectOneReport(reports, {
@@ -520,9 +516,7 @@ describe("Terminal failure reporting", () => {
     () =>
       Effect.gen(function* () {
         const reports = yield* reportsOf(
-          runCommand(["help", "no-such-topic"], true).pipe(
-            Effect.provide(Layer.mergeAll(baseLayer, CliOutput.layer(makeAxmFormatter()))),
-          ),
+          runCommand(["help", "no-such-topic"], true).pipe(Effect.provide(baseLayer)),
         );
 
         expectOneReport(reports, {

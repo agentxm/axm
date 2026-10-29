@@ -1,21 +1,6 @@
-/**
- * Effect CLI output formatter for AXM.
- *
- * Effect CLI renders built-in help and version output through this string
- * formatter and its console. The formatter owns no styling, layout, or output
- * mode: every document it formats is the machine document, which the
- * application reads back and presents through the Screen (see
- * `built-in-output.ts`). Parse errors are not rendered here at all; the
- * application paints them from the parser's failure.
- */
+/** AXM command annotations and learn-more footer presentation. */
 
-import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
-import type { HelpDoc } from "effect/cli/HelpDoc";
-import { CliOutput } from "effect/cli";
-
-import { JsonHelpDocSchema, JsonVersionDocSchema, toJsonHelpDoc } from "./cli-runtime/index.js";
-
 /**
  * Annotation key for "learn more" footer text.
  * Attach to commands via `Command.annotate(LearnMore, "...")`.
@@ -79,24 +64,3 @@ export const learnMoreRows = (
   }
   return { title, rows };
 };
-
-const getLearnMore = (doc: HelpDoc): string => ServiceMap.get(doc.annotations, LearnMore);
-
-/** Creates the CLI output formatter: help and version as their machine documents. */
-export const makeAxmFormatter = (): CliOutput.Formatter => ({
-  ...CliOutput.defaultFormatter({ colors: false }),
-
-  formatHelpDoc: (doc: HelpDoc): string =>
-    JSON.stringify(
-      Schema.encodeSync(JsonHelpDocSchema)(toJsonHelpDoc(doc, { learnMore: getLearnMore(doc) })),
-      null,
-      2,
-    ),
-
-  formatVersion: (name: string, version: string): string =>
-    JSON.stringify(
-      Schema.encodeSync(JsonVersionDocSchema)({ type: "version", name, version }),
-      null,
-      2,
-    ),
-});

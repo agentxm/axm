@@ -179,28 +179,29 @@ const sendJson = (response: http.ServerResponse, status: number, body: unknown) 
   response.end(payload);
 };
 
-const PROBLEM_CODE_BY_STATUS: Readonly<Record<number, string>> = {
-  401: "unauthorized",
-  404: "not_found",
-  405: "method_not_allowed",
-  409: "publish_publish_conflict",
-  500: "internal_error",
+const PROBLEM_BY_STATUS: Readonly<
+  Record<number, { readonly type: string; readonly code: string }>
+> = {
+  401: { type: "unauthorized", code: "unauthorized" },
+  404: { type: "not_found", code: "not_found" },
+  409: { type: "conflict", code: "publish_publish_conflict" },
+  412: { type: "publish_precondition_changed", code: "publish_precondition_changed" },
+  422: { type: "unprocessable_entity", code: "publish_integrity_mismatch" },
 };
 
-/**
- * RFC 9457 problem body in the registry's dialect. `code` is required by the
- * generated client's `ProblemDetails` schema — omit it and even an expected 404
- * fails to decode, which the CLI reports as a schema mismatch rather than as
- * "not found".
- */
-const sendProblem = (response: http.ServerResponse, status: number, detail: string) =>
+/** Declared product failures use their native type; transport failures use about:blank. */
+const sendProblem = (response: http.ServerResponse, status: number, detail: string) => {
+  const problem = PROBLEM_BY_STATUS[status];
   sendJson(response, status, {
-    type: "about:blank",
-    title: http.STATUS_CODES[status] ?? "Error",
+    type:
+      problem === undefined
+        ? "about:blank"
+        : `https://registry.agentxm.ai/v1/problems/${problem.type}`,
     status,
     detail,
-    code: PROBLEM_CODE_BY_STATUS[status] ?? "error",
+    ...(problem === undefined ? {} : { code: problem.code }),
   });
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -567,8 +568,7 @@ export const startHttpRegistry = async (
         }
         await readBody(request);
         sendJson(response, 403, {
-          kind: "ForbiddenError",
-          type: "about:blank",
+          type: "https://registry.agentxm.ai/v1/problems/forbidden",
           title: "Forbidden",
           status: 403,
           detail: "Create access tokens in web settings.",
@@ -588,13 +588,13 @@ export const startHttpRegistry = async (
           return;
         }
         if (options.publishPreviewMode === "service-unavailable") {
+          response.setHeader("x-request-id", "fc9c43e7-e99a-46ee-a55c-c0e8ef747c65");
           sendJson(response, 503, {
-            type: "about:blank",
+            type: "https://registry.agentxm.ai/v1/problems/service_unavailable",
             title: "Service Unavailable",
             status: 503,
             detail: "Publish admission is temporarily unavailable.",
             code: "service_unavailable",
-            requestId: "req_preview_503",
             internalDiagnostic: "must-not-leak",
           });
           return;
@@ -1104,8 +1104,7 @@ export const startHttpRegistry = async (
         if (pendingIndexFailures.delete(`${plural}/${name}`)) {
           response.setHeader("retry-after", "2");
           sendJson(response, 503, {
-            kind: "ServiceUnavailableError",
-            type: "about:blank",
+            type: "https://registry.agentxm.ai/v1/problems/service_unavailable",
             title: "Service Unavailable",
             status: 503,
             detail: "Retry this metadata request.",

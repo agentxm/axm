@@ -35,6 +35,7 @@ export interface JsonHelpDoc {
   readonly description: string;
   readonly usage: string;
   readonly flags: ReadonlyArray<JsonFlagDoc>;
+  readonly inheritedFlags?: ReadonlyArray<JsonFlagDoc> | undefined;
   readonly globalFlags?: ReadonlyArray<JsonFlagDoc> | undefined;
   readonly args?: ReadonlyArray<JsonArgDoc> | undefined;
   readonly subcommands?: ReadonlyArray<JsonSubcommandGroupDoc> | undefined;
@@ -67,6 +68,7 @@ export const JsonHelpDocSchema = Schema.Struct({
   description: Schema.String,
   usage: Schema.String,
   flags: Schema.Array(JsonFlagDocSchema),
+  inheritedFlags: Schema.optional(Schema.Array(JsonFlagDocSchema)),
   globalFlags: Schema.optional(Schema.Array(JsonFlagDocSchema)),
   args: Schema.optional(Schema.Array(JsonArgDocSchema)),
   subcommands: Schema.optional(Schema.Array(JsonSubcommandGroupDocSchema)),
@@ -79,17 +81,6 @@ export const JsonVersionDocSchema = Schema.Struct({
   name: Schema.String,
   version: Schema.String,
 });
-
-/** What the formatter writes to Effect CLI's console: one built-in document. */
-const FormatterDocumentSchema = Schema.Union([JsonHelpDocSchema, JsonVersionDocSchema]);
-export type FormatterDocument = typeof FormatterDocumentSchema.Type;
-
-/**
- * Reads a formatter document back from the console text Effect CLI wrote.
- * `None` is console text that is not a formatter document.
- */
-export const decodeFormatterDocument: (text: string) => Option.Option<FormatterDocument> =
-  Schema.decodeUnknownOption(Schema.fromJsonString(FormatterDocumentSchema));
 
 const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
   name: flag.name,
@@ -120,7 +111,7 @@ export const toJsonHelpDoc = (
         ...(arg.variadic ? { variadic: { min: arg.required ? 1 : 0 } } : {}),
       },
   );
-  const path = doc.usage.replace(/\s*[[<].*$/u, "").trim();
+  const path = doc.commandPath?.join(" ") ?? doc.usage.replace(/\s*[[<].*$/u, "").trim();
   const usage =
     doc.subcommands !== undefined && doc.subcommands.some((group) => group.commands.length > 0)
       ? `${path} <${path === "axm" ? "command" : "subcommand"}> [flags]`
@@ -135,6 +126,7 @@ export const toJsonHelpDoc = (
     description: doc.description,
     usage,
     flags: doc.flags.map(flagRecord),
+    inheritedFlags: doc.inheritedFlags?.map(flagRecord),
     globalFlags: doc.globalFlags?.map(
       (flag) => globalRecords.find((record) => record.name === flag.name) ?? toJsonFlagDoc(flag),
     ),

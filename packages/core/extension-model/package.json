@@ -376,7 +376,7 @@
     "spdx-expression-parse": "5.0.0"
   },
   "peerDependencies": {
-    "effect": "^4.0.6"
+    "effect": "^4.1.0"
   },
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:*",

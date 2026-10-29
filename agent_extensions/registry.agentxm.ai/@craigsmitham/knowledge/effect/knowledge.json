@@ -1,0 +1,142 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@craigsmitham",
+  "name": "effect",
+  "version": "4.1.0",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript",
+  "keywords": [
+    "effect",
+    "effect-v4",
+    "typescript",
+    "functional-programming",
+    "schema",
+    "branded-types",
+    "option",
+    "optics",
+    "error-modeling",
+    "services",
+    "layers",
+    "config",
+    "resource-safety",
+    "structured-concurrency",
+    "streams",
+    "request-batching",
+    "cache",
+    "observability",
+    "testing",
+    "cloudflare-workers",
+    "httpapi",
+    "http-client",
+    "keyed-resources",
+    "rcmap",
+    "sql",
+    "transactions",
+    "datetime",
+    "duration",
+    "clock",
+    "opentelemetry"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "knowledge/effect"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "recommendedPacks": [
+    "@craigsmitham/packs/effect"
+  ],
+  "standalone": true,
+  "packages": [
+    {
+      "purl": "pkg:npm/effect",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/platform-browser",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/platform-bun",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/platform-deno",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/platform-node",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/platform-node-shared",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-clickhouse",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-d1",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-libsql",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-mssql",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-mysql2",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-pg",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-pglite",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-sqlite-bun",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-sqlite-do",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-sqlite-node",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-sqlite-react-native",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/sql-sqlite-wasm",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/opentelemetry",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/vitest",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    },
+    {
+      "purl": "pkg:npm/%40effect/openapi-generator",
+      "versionRange": "vers:npm/>=4.1.0|<5.0.0"
+    }
+  ]
+}

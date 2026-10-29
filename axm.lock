@@ -58,12 +58,12 @@ publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
 tree = "sha256-tree-v2:0f033079da45eb9cd8d9d94a0391aa058c92115d4b70bc1a236655f2435ec9f6"
 
 [[package]]
-id = "registry.agentxm.ai/@craigsmitham/knowledge/effect-v4"
+id = "registry.agentxm.ai/@craigsmitham/knowledge/effect"
 source = { registry = "https://registry.agentxm.ai" }
-version = "1.0.6"
-archive = "sha512-9PbXbZUaGqIS8RuEdItvyiz/rTQqWTrWbW36PBx0YTwp6yn1RZKML6m83Q4Ajc19AlNmWxCumowSFNJ6CXrm6g=="
+version = "4.1.0"
+archive = "sha512-E1FaKJ+sUQOBRKlDnpYmnYNCHBMV1YpQY750wTFoG9tnTVQ9H2C8foWecEg9TKPgnhdQX5lk28f/ujnrY/z+mw=="
 publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
-tree = "sha256-tree-v2:80211090257c974fa4a9751d9a4396059756ccfe3a5337f1cd8ecc3decac1023"
+tree = "sha256-tree-v2:eea9d708d912628be4c0de57da3e3c159ff1494d6a4640cbe2a0baf80e9bfd0b"
 
 [[package]]
 id = "registry.agentxm.ai/@craigsmitham/knowledge/product-engineering"
@@ -88,17 +88,17 @@ dependencies = [
 ]
 
 [[package]]
-id = "registry.agentxm.ai/@craigsmitham/packs/effect-v4"
+id = "registry.agentxm.ai/@craigsmitham/packs/effect"
 source = { registry = "https://registry.agentxm.ai" }
-version = "1.0.0"
-archive = "sha512-mkRcmpRKL3FlFXqhGtZXYdGc9aJ8MwGLsHLJS2PHjCOxEh7gB98NDn2eK2dabG26lLYn0zkG6zTRFjMYMd3UMg=="
+version = "4.1.0"
+archive = "sha512-BUKmXMZ8En6cxRAGCXsH0QZtqD5tlDC2DnmWhrijF6RcIfwtJDsuu7Vc+0muwCN8aa4kdP4+3drUrC6yAq0Avw=="
 publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
-tree = "sha256-tree-v2:01b22d61d3470c1ac65d8933e38eaadb9467a794fa8f1cb026f79785407d1dc2"
-manifest-version = "1.0.0"
-manifest-identity = "f8de3e0ce5cfaf323413d7171bbe21c8e951a3c5da0ef6d0fcfd411ce7d160f8"
+tree = "sha256-tree-v2:4640abe72d3d028e87f3f77614b21b7d084847e06eb73134a2aba7550439b2b7"
+manifest-version = "4.1.0"
+manifest-identity = "773a95ac8326f08477857c487a120b69ad1a3a24c6ba9766a61c53da26cb87fa"
 dependencies = [
-  { name = "@craigsmitham/knowledge/effect-v4", range = ">=1.0.0" },
-  { name = "@craigsmitham/rules/use-effect-v4", range = ">=0.1.0" },
+  { name = "@craigsmitham/knowledge/effect", range = ">=4.1.0 <5.0.0" },
+  { name = "@craigsmitham/rules/use-effect", range = ">=4.0.0 <5.0.0" },
 ]
 
 [[package]]
@@ -116,12 +116,12 @@ dependencies = [
 ]
 
 [[package]]
-id = "registry.agentxm.ai/@craigsmitham/rules/use-effect-v4"
+id = "registry.agentxm.ai/@craigsmitham/rules/use-effect"
 source = { registry = "https://registry.agentxm.ai" }
-version = "0.2.0"
-archive = "sha512-EX1W8Ow8ODQb+PFiBoPfScg4FpRImUpwUaQYiWwwBsaEbSf02F55imD1pupPgYjWXyYEfeyvJWDrMOUw5nkwEA=="
+version = "4.0.0"
+archive = "sha512-ISzCDta6yOZ4Qnj9wV1Reaumj7ByAeA99q/oAN5SI1MaTM8jjWOlUWDp0es9qHogKjSOUgfKE7mAUtX3X+FwDQ=="
 publisher = "hbnd_01ks5vvdf0fx08m9gcaq7y2wv7"
-tree = "sha256-tree-v2:9b3f9fe7a1f39e168f2de5e4215ab89661c0d42cb3243f6e3abfe397c77724c0"
+tree = "sha256-tree-v2:a23876b98fd3d6e5e8013e641764aaf82d392d661079281da8997b8dcd7f7b73"
 
 [[package]]
 id = "registry.agentxm.ai/@craigsmitham/skills/devops-docs"
@@ -191,44 +191,57 @@ research = { package = "registry.agentxm.ai/@craigsmitham/skills/research", name
 spot-spew = { package = "registry.agentxm.ai/@craigsmitham/skills/spot-spew", name = "@craigsmitham/skills/spot-spew" }
 
 [rules]
-use-effect-v4 = { package = "registry.agentxm.ai/@craigsmitham/rules/use-effect-v4", name = "@craigsmitham/rules/use-effect-v4" }
+use-effect = { package = "registry.agentxm.ai/@craigsmitham/rules/use-effect", name = "@craigsmitham/rules/use-effect" }
 
 [knowledge]
 agent-engineering = { package = "registry.agentxm.ai/@agentxm/knowledge/agent-engineering", name = "@agentxm/knowledge/agent-engineering" }
 agentxm = { package = "registry.agentxm.ai/@agentxm/knowledge/agentxm", name = "@agentxm/knowledge/agentxm" }
 docs = { package = "registry.agentxm.ai/@craigsmitham/knowledge/docs", name = "@craigsmitham/knowledge/docs" }
-effect-v4 = { package = "registry.agentxm.ai/@craigsmitham/knowledge/effect-v4", name = "@craigsmitham/knowledge/effect-v4" }
+effect = { package = "registry.agentxm.ai/@craigsmitham/knowledge/effect", name = "@craigsmitham/knowledge/effect" }
 product-engineering = { package = "registry.agentxm.ai/@craigsmitham/knowledge/product-engineering", name = "@craigsmitham/knowledge/product-engineering" }
 
 [packs]
 agent-engineering = { package = "registry.agentxm.ai/@agentxm/packs/agent-engineering", name = "@agentxm/packs/agent-engineering" }
 docs = { package = "registry.agentxm.ai/@craigsmitham/packs/docs", name = "@craigsmitham/packs/docs" }
-effect-v4 = { package = "registry.agentxm.ai/@craigsmitham/packs/effect-v4", name = "@craigsmitham/packs/effect-v4" }
+effect = { package = "registry.agentxm.ai/@craigsmitham/packs/effect", name = "@craigsmitham/packs/effect" }
 work-management = { package = "registry.agentxm.ai/@craigsmitham/packs/work-management", name = "@craigsmitham/packs/work-management" }
 
 [projections.rules]
 contract = 1
 
-[projections.rules.units]
-"AGENTS.md" = { gen = "sha256:3a50ccbd560497484bf382d3dca7b137816e4f070125b5a40b346d3b6c67d603", output = "sha256:bf301ad83fddb38ab87f210df162d7446784f6a53315d66a4b3f1cd3b9f1448b" }
+[projections.rules.units."AGENTS.md"]
+gen = "sha256:8af458fe40cb456a986c641eb5104f8c8b302b29b4cdabdf84bb38ed2625cbc7"
+output = "sha256:9ca58a0fbfae94c9f405fd74c7915d5565c016ae695d2c9a49331f2341e3f794"
 
 [projections.knowledge]
 contract = 1
 
-[projections.knowledge.units]
-"AGENTS.md" = { gen = "sha256:67740c641fa0ffdd50765d3ba593e495bce97174661887fbd061a9aa14cac9af", output = "sha256:ff30f29c1d859562c2ebb4bc0c8a8bf8a05b07aa616b9e3feb26d8f66f8f4e62" }
+[projections.knowledge.units."AGENTS.md"]
+gen = "sha256:4cdbd5f529209b0df0c7652ecd54cfaedad4b93fee31b91f7c2abf0ecf211c43"
+output = "sha256:5446fa7bfb9d33ed416ffc8d0248bd946352b785bab1824f8ddf9086102e79a6"
 
 [projections.instructions]
 contract = 1
 
-[projections.instructions.units]
-".gitignore" = { gen = "sha256:39065cd41c1abc152f85e9a3f2ac45671a3b358d4d93231581a7f2dc98ef20b4", output = "sha256:33a01c811f5271907f7d3b1a4fe8fa316aedbce40a349a59133b102cc0b54cac" }
+[projections.instructions.units.".gitignore"]
+gen = "sha256:39065cd41c1abc152f85e9a3f2ac45671a3b358d4d93231581a7f2dc98ef20b4"
+output = "sha256:33a01c811f5271907f7d3b1a4fe8fa316aedbce40a349a59133b102cc0b54cac"
 
 [projections.subagents]
 contract = 1
 
-[projections.subagents.units]
-".claude/agents/researcher.md" = { gen = "sha256:e7154b9cc3e1182dc2a1c233e3bfe5b6f86ad841fb07d344d941ae8208c4561a", output = "sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc" }
-".codex/agents/researcher.toml" = { gen = "sha256:79f3a4d16bf35c188e158242dac28aef07d76744bce6f8aa9d3892bc805f6f8e", output = "sha256:7e00757fbacb261923e9020b1634e4ebdd3a07fc5e8f000749b876f779a3f1da" }
-".grok/agents/researcher.md" = { gen = "sha256:91f1aae5b1384836218c005850d6b44b5df48a9ea3ba7caad97953d3ff90e575", output = "sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc" }
-".opencode/agents/researcher.md" = { gen = "sha256:49b1327aea4694d6060fd472ad298ef8c6e4274f115ca34aec4bc083a8d6378c", output = "sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc" }
+[projections.subagents.units.".claude/agents/researcher.md"]
+gen = "sha256:e7154b9cc3e1182dc2a1c233e3bfe5b6f86ad841fb07d344d941ae8208c4561a"
+output = "sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc"
+
+[projections.subagents.units.".codex/agents/researcher.toml"]
+gen = "sha256:79f3a4d16bf35c188e158242dac28aef07d76744bce6f8aa9d3892bc805f6f8e"
+output = "sha256:7e00757fbacb261923e9020b1634e4ebdd3a07fc5e8f000749b876f779a3f1da"
+
+[projections.subagents.units.".grok/agents/researcher.md"]
+gen = "sha256:91f1aae5b1384836218c005850d6b44b5df48a9ea3ba7caad97953d3ff90e575"
+output = "sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc"
+
+[projections.subagents.units.".opencode/agents/researcher.md"]
+gen = "sha256:49b1327aea4694d6060fd472ad298ef8c6e4274f115ca34aec4bc083a8d6378c"
+output = "sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc"

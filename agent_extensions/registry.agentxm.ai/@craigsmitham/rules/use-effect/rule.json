@@ -1,0 +1,32 @@
+{
+  "$schema": "https://axm.sh/schemas/rule.schema.json",
+  "owner": "@craigsmitham",
+  "name": "use-effect",
+  "version": "4.0.0",
+  "type": "rule",
+  "title": "Use Effect",
+  "priority": 90,
+  "description": "Directs agents to use Effect v4 as the foundation for all TypeScript code and incrementally migrate relevant existing code with each change",
+  "keywords": [
+    "effect",
+    "effect-v4",
+    "typescript",
+    "version-migration"
+  ],
+  "recommendedPacks": [
+    "@craigsmitham/packs/effect"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "rules/use-effect"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "packages": [
+    {
+      "purl": "pkg:npm/effect",
+      "versionRange": "vers:npm/>=4.0.0|<5.0.0"
+    }
+  ]
+}

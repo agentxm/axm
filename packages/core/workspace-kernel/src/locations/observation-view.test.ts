@@ -24,6 +24,12 @@ describe("captured filesystem view", () => {
       yield* fs.symlink(path.join(live, "config"), path.join(staged, "alias"));
       yield* fs.symlink(path.join(external, "config"), path.join(staged, "escape"));
       yield* fs.symlink("loop", path.join(staged, "loop"));
+      yield* fs.makeDirectory(path.join(staged, "nested"));
+      yield* fs.writeFileString(path.join(staged, "nested", "staged.txt"), "staged");
+      yield* fs.makeDirectory(path.join(live, "nested"));
+      yield* fs.writeFileString(path.join(live, "nested", "live.txt"), "live");
+      yield* fs.symlink(path.join(live, "nested"), path.join(staged, "directory-alias"));
+      yield* fs.symlink(external, path.join(staged, "directory-escape"));
       const view = yield* FileSystem.FileSystem.pipe(
         Effect.provide(
           observationViewLayer({
@@ -34,6 +40,31 @@ describe("captured filesystem view", () => {
           }),
         ),
       );
+      expect(yield* view.readDirectoryEntries(path.join(staged, "directory-alias"))).toEqual([
+        { name: "staged.txt", type: "File" },
+      ]);
+      expect((yield* view.lstat(path.join(staged, "directory-alias"))).type).toBe("SymbolicLink");
+      for (const directory of [live, path.join(staged, "directory-escape")]) {
+        const result = yield* view.readDirectoryEntries(directory).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") expect(result.failure.reason._tag).toBe("PermissionDenied");
+      }
+      yield* fs.writeFileString(path.join(staged, "nested", ".hidden.txt"), "hidden");
+      expect(yield* view.glob("**/*.txt", { root: staged })).toEqual(["nested/staged.txt"]);
+      expect(yield* view.glob("**/*.txt", { root: staged, dot: true })).toEqual([
+        "nested/.hidden.txt",
+        "nested/staged.txt",
+      ]);
+      expect(yield* view.glob("**/*.txt", { root: staged, exclude: ["nested"] })).toEqual([]);
+      expect(yield* view.glob("directory-alias/*.txt", { root: staged })).toEqual([
+        "directory-alias/staged.txt",
+      ]);
+      const escapedGlob = yield* view
+        .glob("directory-escape/*.txt", { root: staged })
+        .pipe(Effect.result);
+      expect(escapedGlob._tag).toBe("Failure");
+      if (escapedGlob._tag === "Failure")
+        expect(escapedGlob.failure.reason._tag).toBe("PermissionDenied");
       expect(yield* view.readFileString(path.join(staged, "alias"))).toBe("staged-only");
       expect(yield* view.readLink(path.join(staged, "alias"))).toBe(path.join(live, "config"));
       expect(yield* view.realPath(path.join(staged, "alias"))).toBe(path.join(staged, "config"));

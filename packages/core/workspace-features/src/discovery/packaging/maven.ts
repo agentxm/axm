@@ -313,7 +313,7 @@ const deduplicatePackages = (
 };
 
 /**
- * List files matching a glob pattern in a directory.
+ * List Gradle cache hash directories.
  */
 const listDirectory = (dirPath: string) =>
   Effect.gen(function* () {
@@ -327,9 +327,12 @@ const listDirectory = (dirPath: string) =>
  */
 const findJarsInDir = (dirPath: string) =>
   Effect.gen(function* () {
-    const entries = yield* listDirectory(dirPath);
-    if (Option.isNone(entries)) return [];
-    return entries.value.filter((e) => e.endsWith(".jar"));
+    const fs = yield* FileSystem.FileSystem;
+    // Keep hidden JARs eligible, as with directory listing. Native glob gives
+    // deterministic names relative to this cache directory on every platform.
+    return yield* fs
+      .glob("*.jar", { root: dirPath, dot: true })
+      .pipe(Effect.catch(() => Effect.succeed([])));
   });
 
 /**

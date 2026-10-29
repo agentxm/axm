@@ -27,9 +27,8 @@ describe("login after the Registry refuses a stored credential", () => {
             path === "/v1/auth/me"
               ? Response.json(
                   {
-                    kind: "TokenEndedError",
-                    type: `https://registry.example.test/problems/${code}`,
-                    title: "Token ended",
+                    type: "https://registry.agentxm.ai/v1/problems/token_ended",
+                    title: "Token Ended",
                     status: 401,
                     detail: "The presented credential has ended.",
                     code,

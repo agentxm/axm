@@ -3,14 +3,14 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
-import { JsonHelpDocSchema, JsonVersionDocSchema } from "./cli-runtime/index.js";
+import { JsonHelpDocSchema } from "./cli-runtime/index.js";
 
 import {
   captureHelpDoc,
   collectCommandAliases,
   collectHelpFiles,
 } from "./test-support/command-tree-test-helpers.js";
-import { makeAxmFormatter } from "./formatter.js";
+import { toJsonHelpDoc } from "./cli-runtime/json-help-doc.js";
 import {
   FORMATTER_VERSION_CONTRACT,
   MACHINE_OUTPUT_CONTRACT_ROWS,
@@ -138,11 +138,9 @@ describe("machine-output contract register", () => {
   it.effect("runtime-encodes every registered --help document with JsonHelpDocSchema", () =>
     Effect.gen(function* () {
       const helpFiles = yield* collectHelpFiles();
-      const formatter = makeAxmFormatter();
 
       for (const [path, doc] of helpFiles) {
-        const output = formatter.formatHelpDoc(doc);
-        const parsed: unknown = JSON.parse(output);
+        const parsed: unknown = toJsonHelpDoc(doc);
 
         expect(() => Schema.decodeUnknownSync(JsonHelpDocSchema)(parsed), path).not.toThrow();
         expect(parsed, path).toMatchObject({ type: "help" });
@@ -153,22 +151,13 @@ describe("machine-output contract register", () => {
   it.effect("runtime-encodes --help through every alias path", () =>
     Effect.gen(function* () {
       const aliases = yield* collectCommandAliases();
-      const formatter = makeAxmFormatter();
 
       for (const aliasPath of aliases.keys()) {
         const doc = yield* captureHelpDoc(aliasPath.split(" ").slice(1));
-        const parsed: unknown = JSON.parse(formatter.formatHelpDoc(doc));
+        const parsed: unknown = toJsonHelpDoc(doc);
 
         expect(() => Schema.decodeUnknownSync(JsonHelpDocSchema)(parsed), aliasPath).not.toThrow();
       }
     }),
   );
-
-  it("runtime-encodes the formatter-owned --version document", () => {
-    const formatter = makeAxmFormatter();
-    const parsed: unknown = JSON.parse(formatter.formatVersion("axm", "1.2.3"));
-
-    expect(() => Schema.decodeUnknownSync(JsonVersionDocSchema)(parsed)).not.toThrow();
-    expect(parsed).toStrictEqual({ type: "version", name: "axm", version: "1.2.3" });
-  });
 });

@@ -233,6 +233,7 @@ const commandHelpSections = (doc: JsonHelpDoc): Doc =>
       ),
     ),
     section("FLAGS", fieldsNode(flagFields(doc.flags))),
+    section("INHERITED FLAGS", fieldsNode(flagFields(doc.inheritedFlags ?? []))),
     section(GLOBAL_FLAGS_LABEL, fieldsNode(flagFields(doc.globalFlags ?? []))),
     ...(doc.subcommands ?? []).map((group) =>
       section(

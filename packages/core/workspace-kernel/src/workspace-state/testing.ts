@@ -149,21 +149,25 @@ const syncFileCall = <A>(method: string, target: string, run: () => A) =>
       }),
   });
 
-const fileInfo = (target: string): FileSystem.File.Info => {
-  const stat = fs.statSync(target, { bigint: true });
-  const type: FileSystem.File.Type = stat.isDirectory()
-    ? "Directory"
-    : stat.isFile()
-      ? "File"
-      : stat.isBlockDevice()
-        ? "BlockDevice"
-        : stat.isCharacterDevice()
-          ? "CharacterDevice"
-          : stat.isFIFO()
-            ? "FIFO"
-            : stat.isSocket()
-              ? "Socket"
-              : "Unknown";
+const fileInfo = (target: string, followLinks = true): FileSystem.File.Info => {
+  const stat = followLinks
+    ? fs.statSync(target, { bigint: true })
+    : fs.lstatSync(target, { bigint: true });
+  const type: FileSystem.File.Type = stat.isSymbolicLink()
+    ? "SymbolicLink"
+    : stat.isDirectory()
+      ? "Directory"
+      : stat.isFile()
+        ? "File"
+        : stat.isBlockDevice()
+          ? "BlockDevice"
+          : stat.isCharacterDevice()
+            ? "CharacterDevice"
+            : stat.isFIFO()
+              ? "FIFO"
+              : stat.isSocket()
+                ? "Socket"
+                : "Unknown";
   return {
     type,
     mtime: Option.some(stat.mtime),
@@ -188,7 +192,12 @@ export const SyncNodeFileSystem: Layer.Layer<FileSystem.FileSystem> = Layer.succ
   FileSystem.make({
     ...FileSystem.makeNoop({}),
     readDirectory: (target) => syncFileCall("readDirectory", target, () => fs.readdirSync(target)),
+    readDirectoryEntries: (target) =>
+      syncFileCall("readDirectoryEntries", target, () =>
+        fs.readdirSync(target).map((name) => ({ name, type: "Unknown" as const })),
+      ),
     stat: (target) => syncFileCall("stat", target, () => fileInfo(target)),
+    lstat: (target) => syncFileCall("lstat", target, () => fileInfo(target, false)),
     readLink: (target) => syncFileCall("readLink", target, () => fs.readlinkSync(target)),
     readFile: (target) => syncFileCall("readFile", target, () => fs.readFileSync(target)),
   }),

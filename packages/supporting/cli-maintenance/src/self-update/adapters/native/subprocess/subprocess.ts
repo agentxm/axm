@@ -8,6 +8,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Stream from "effect/Stream";
+import * as CommandLine from "effect/process/CommandLine";
 import * as ChildProcess from "effect/process/ChildProcess";
 import type { ChildProcessSpawner as ChildProcessSpawnerService } from "effect/process/ChildProcessSpawner";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
@@ -98,7 +99,10 @@ const makeRunCommand =
         )
         .pipe(Effect.option);
       if (Option.isNone(spawned)) {
-        return unavailableResult("not-started", `Failed to execute ${command}`);
+        return unavailableResult(
+          "not-started",
+          `Failed to execute ${CommandLine.display([command, ...args])}`,
+        );
       }
 
       const completed = yield* Effect.all(
@@ -117,7 +121,10 @@ const makeRunCommand =
         }),
       );
       if (Option.isNone(completed)) {
-        return unavailableResult("timed-out", `Timed out executing ${command}`);
+        return unavailableResult(
+          "timed-out",
+          `Timed out executing ${CommandLine.display([command, ...args])}`,
+        );
       }
 
       const stdout = sanitizeExternalOutput(completed.value.stdout);

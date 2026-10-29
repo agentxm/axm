@@ -46,6 +46,10 @@ const makeHarness: Effect.Effect<Harness> = Effect.gen(function* () {
     shown,
     transcript,
     terminal: Terminal.make({
+      size: Queue.unbounded<Terminal.Size, Cause.Done>().pipe(
+        Effect.tap((queue) => Queue.offer(queue, { columns: 80, rows: 24 })),
+        Effect.map(Queue.asDequeue),
+      ),
       columns: Effect.succeed(80),
       rows: Effect.succeed(24),
       readInput: Effect.succeed(Queue.asDequeue(keys)),

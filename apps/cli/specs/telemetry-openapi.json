@@ -26,11 +26,21 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
                 }
               }
             }
@@ -74,11 +84,21 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
                 }
               }
             }
@@ -99,14 +119,7 @@
             "name": "x-health-key",
             "in": "header",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           }
@@ -313,11 +326,11 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
@@ -333,6 +346,16 @@
                   ]
                 },
                 "required": true
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                }
               }
             }
           },
@@ -551,14 +574,7 @@
             "name": "x-health-key",
             "in": "header",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -566,14 +582,7 @@
             "name": "level",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           },
@@ -581,17 +590,10 @@
             "name": "scenario",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "enum": [
-                    "effect-handled-500",
-                    "surface-unhandled-500"
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "string",
+              "enum": [
+                "effect-handled-500",
+                "surface-unhandled-500"
               ]
             },
             "required": false
@@ -600,14 +602,7 @@
             "name": "scenarioId",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           }
@@ -772,13 +767,9 @@
                                 "reason": {
                                   "anyOf": [
                                     {
-                                      "anyOf": [
-                                        {
-                                          "type": "string",
-                                          "enum": [
-                                            "sentry-issue-reporter-disabled"
-                                          ]
-                                        }
+                                      "type": "string",
+                                      "enum": [
+                                        "sentry-issue-reporter-disabled"
                                       ]
                                     },
                                     {
@@ -835,11 +826,11 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
@@ -855,6 +846,16 @@
                   ]
                 },
                 "required": true
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                }
               }
             }
           }
@@ -883,21 +884,31 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "413": {
-            "description": "TelemetryPayloadTooLargeError",
+            "description": "Payload Too Large",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/TelemetryPayloadTooLargeErrorEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
                 }
               }
             }
@@ -937,21 +948,31 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "413": {
-            "description": "TelemetryPayloadTooLargeError",
+            "description": "Payload Too Large",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/TelemetryPayloadTooLargeErrorEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
                 }
               }
             }
@@ -974,30 +995,46 @@
   },
   "components": {
     "schemas": {
-      "DecodeErrorResponse": {
+      "InternalServerErrorProblemEncoded": {
         "type": "object",
         "properties": {
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
           "instance": {
             "type": "string"
           },
-          "code": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "about:blank"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              500
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Internal Server Error"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "BadRequestProblemEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
             "type": "string"
           },
-          "requestId": {
+          "instance": {
             "type": "string"
           },
           "errors": {
@@ -1005,71 +1042,92 @@
             "items": {
               "type": "object",
               "properties": {
-                "pointer": {
-                  "type": "string"
+                "path": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "Infinity",
+                          "-Infinity",
+                          "NaN"
+                        ]
+                      }
+                    ]
+                  }
                 },
-                "detail": {
+                "message": {
                   "type": "string"
                 }
               },
               "required": [
-                "pointer",
-                "detail"
+                "path",
+                "message"
               ],
               "additionalProperties": false
             }
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "about:blank"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              400
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Bad Request"
+            ]
           }
         },
         "required": [
-          "type",
-          "title",
-          "status",
-          "detail",
-          "code",
-          "requestId",
-          "errors"
+          "type"
         ],
-        "additionalProperties": false,
-        "title": "Decode Error Problem Details",
-        "description": "RFC 9457 Problem Details for a request that failed schema decoding; each `errors` entry points at one offending location."
+        "additionalProperties": false
       },
       "TelemetryPayloadTooLargeErrorEncoded": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "TelemetryPayloadTooLargeError"
-            ]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
           "instance": {
             "type": "string"
           },
-          "code": {
-            "type": "string"
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://t.agentxm.ai/problems/payload_too_large"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              413
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Payload Too Large"
+            ]
           }
         },
         "required": [
-          "kind",
-          "type",
-          "title",
-          "status",
-          "detail",
-          "code"
+          "type"
         ],
         "additionalProperties": false
       },
@@ -1907,20 +1965,16 @@
             "additionalProperties": {
               "anyOf": [
                 {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    },
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
                 },
                 {
                   "type": "array",
@@ -1954,20 +2008,16 @@
                 "additionalProperties": {
                   "anyOf": [
                     {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
                     },
                     {
                       "type": "array",
@@ -1998,20 +2048,16 @@
                 "additionalProperties": {
                   "anyOf": [
                     {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
                     },
                     {
                       "type": "array",

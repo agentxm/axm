@@ -11,18 +11,16 @@ import {
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Cause from "effect/Cause";
-import * as Console from "effect/Console";
+import * as Queue from "effect/Queue";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliConfig, CliError, CliOutput, Command, GlobalFlag } from "effect/cli";
-import { format as formatConsoleArgs } from "node:util";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 import {
   InteractiveScreen,
   MachineScreen,
-  Screen,
   type OutputWriteFailed,
   resolveCliOutputPolicy,
   stderrIsTTY,
@@ -39,7 +37,7 @@ import {
 } from "./cli-runtime/index.js";
 import { TelemetryClientLive } from "./telemetry/index.js";
 
-import { LearnMore, formatLearnMore, makeAxmFormatter } from "./formatter.js";
+import { LearnMore, formatLearnMore } from "./formatter.js";
 import { presentBuiltInOutput } from "./built-in-output.js";
 import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";
 
@@ -225,24 +223,13 @@ const rejectsTokenOutputAtStartup = (args: ReadonlyArray<string>): AppError | un
 };
 
 /**
- * One invocation of the command tree, with everything Effect CLI writes to its
- * console routed through the Screen. Built-in help and version output is
- * presented from the formatter's machine document, and the parser's own error
- * rendering is switched off because the application paints usage errors too.
- *
- * @internal Exported for the output specifications that drive a real invocation.
+ * Route native CLI presenter events through Screen after parsing completes.
+ * The process boundary owns usage errors and output-write failures.
+ * @internal Exported for real-invocation output specifications.
  */
 export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
   Effect.gen(function* () {
-    const screen = yield* Screen;
-    const stdout: Array<string> = [];
-    const stderr: Array<string> = [];
-    const bufferedConsole: Console.Console = {
-      ...globalThis.console,
-      log: (...args: ReadonlyArray<unknown>) => void stdout.push(`${formatConsoleArgs(...args)}\n`),
-      error: (...args: ReadonlyArray<unknown>) =>
-        void stderr.push(`${formatConsoleArgs(...args)}\n`),
-    };
+    const events = yield* Queue.unbounded<CliOutput.Presenter.Event>();
     const exit = yield* Effect.exit(
       validateCommandPath(rootCommand, argv).pipe(
         Effect.catchTag("ShowHelp", (error) =>
@@ -262,7 +249,9 @@ export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
             Effect.provideService(CommandRoute, route),
           ),
         ),
-        Effect.provideService(Console.Console, bufferedConsole),
+        Effect.provideService(CliOutput.Presenter, {
+          present: (event) => Queue.offer(events, event).pipe(Effect.asVoid),
+        }),
       ),
     );
     const failure = Exit.isFailure(exit) ? Cause.squash(exit.cause) : undefined;
@@ -271,11 +260,12 @@ export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
         ? failure
         : undefined;
 
-    yield* presentBuiltInOutput(stdout.join(""), {
-      helpRequest,
-      format: isJson ? "json" : "text",
-    });
-    if (stderr.length > 0) yield* screen.note([{ _tag: "raw", content: stderr.join("") }]);
+    for (const event of yield* Queue.takeAll(events)) {
+      yield* presentBuiltInOutput(event, {
+        helpRequest,
+        format: isJson ? "json" : "text",
+      });
+    }
 
     if (Exit.isFailure(exit)) return yield* Effect.failCause(exit.cause);
     const exitCode = yield* getOperationExitCode;
@@ -338,15 +328,11 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
           isStderrTTY: stderrIsTTY(),
         },
       }).pipe(
-        // Built-in --help / --version output is formatter-driven: the formatter
-        // emits machine documents, and the Screen selected above presents them,
-        // deciding colour and width per stream.
         Effect.provide(
           Layer.mergeAll(
             baseLayer,
             startupUpdateCheckLayer,
             rendererLayer,
-            CliOutput.layer(makeAxmFormatter()),
             // Recovery commands are addressed to the workspace scope only where
             // the registered route takes `--scope`; the tree says which do.
             ScopedRoutesLive(rootCommand),

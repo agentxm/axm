@@ -281,7 +281,6 @@ describe("registry-client failure conversion (golden pairs)", () => {
     const error = toAppError(
       registryErrorToProblem(
         {
-          kind: "TooManyRequestsError",
           type: "about:blank",
           title: "Too Many Requests",
           status: 429,
@@ -303,8 +302,7 @@ describe("registry-client failure conversion (golden pairs)", () => {
     const error = toAppError(
       registryErrorToProblem(
         {
-          kind: "ForbiddenError",
-          type: "about:blank",
+          type: "https://registry.agentxm.ai/v1/problems/forbidden",
           title: "Forbidden",
           status: 403,
           detail: "Token lacks required scope",
@@ -330,13 +328,10 @@ describe("registry-client failure conversion (golden pairs)", () => {
     const error = toAppError(
       registryErrorToProblem(
         {
-          kind: "ExtensionLintFailedError",
-          type: "about:blank",
-          title: "Extension lint failed",
+          type: "https://registry.agentxm.ai/v1/problems/extension_lint_failed",
           status: 422,
           detail: "Lint failed",
           code: "extension_lint_failed",
-          error: "extension_lint_failed",
           identity: {
             owner: "@acme",
             type: "skill",

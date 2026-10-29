@@ -51,13 +51,17 @@ describe("registryErrorToProblem", () => {
     };
     const cause = new Error("generated failure");
 
-    const error = registryErrorToProblem(body, responseFor(503), { cause });
+    const error = registryErrorToProblem(
+      body,
+      responseFor(503, { "x-request-id": "e28fe126-3ad9-4c2b-8144-d4580982c064" }),
+      { cause },
+    );
 
     expect(error.category).toBe("unavailable");
     expect(error.detail).toBe("The service is unavailable.");
     expect(error.metadata?.response).toEqual({
       status: 503,
-      requestId: "req_mismatch",
+      requestId: "e28fe126-3ad9-4c2b-8144-d4580982c064",
       problemCode: "service_unavailable",
       body,
     });
@@ -95,8 +99,7 @@ describe("registryErrorToProblem", () => {
   it("adds retry-after suggestions from the header before the body", () => {
     const error = registryErrorToProblem(
       {
-        kind: "TooManyRequestsError",
-        type: "about:blank",
+        type: "https://registry.agentxm.ai/v1/problems/rate_limited",
         title: "Too Many Requests",
         status: 429,
         detail: "Rate limited",
@@ -124,15 +127,12 @@ describe("registryErrorToProblem", () => {
   it("adds registry request and normalized response metadata", () => {
     const error = registryErrorToProblem(
       {
-        kind: "InternalServerError",
         type: "about:blank",
         title: "Internal Server Error",
         status: 500,
         detail: "An unexpected error occurred.",
-        code: "internal",
-        requestId: "req_123",
       },
-      responseFor(500),
+      responseFor(500, { "x-request-id": "f687f556-0b7e-4c3a-85fe-4194e9a74e8b" }),
     );
 
     expect(error.metadata).toEqual({
@@ -143,16 +143,12 @@ describe("registryErrorToProblem", () => {
       },
       response: {
         status: 500,
-        requestId: "req_123",
-        problemCode: "internal",
+        requestId: "f687f556-0b7e-4c3a-85fe-4194e9a74e8b",
         body: {
-          kind: "InternalServerError",
           type: "about:blank",
           title: "Internal Server Error",
           status: 500,
           detail: "An unexpected error occurred.",
-          code: "internal",
-          requestId: "req_123",
         },
       },
     });
@@ -161,8 +157,7 @@ describe("registryErrorToProblem", () => {
   it("recovers a narrowed credential by naming the session, never a new sign-in", () => {
     const error = registryErrorToProblem(
       {
-        kind: "ForbiddenError",
-        type: "about:blank",
+        type: "https://registry.agentxm.ai/v1/problems/forbidden",
         title: "Forbidden",
         status: 403,
         detail: "Token lacks required scope",
@@ -185,8 +180,7 @@ describe("registryErrorToProblem", () => {
   it("points browser-only token creation to the Registry settings page", () => {
     const error = registryErrorToProblem(
       {
-        kind: "ForbiddenError",
-        type: "about:blank",
+        type: "https://registry.agentxm.ai/v1/problems/forbidden",
         title: "Forbidden",
         status: 403,
         detail: "Create access tokens in web settings.",
@@ -205,8 +199,7 @@ describe("registryErrorToProblem", () => {
   it("keeps the Registry's own words for a forbidding rule it has no recovery for", () => {
     const error = registryErrorToProblem(
       {
-        kind: "ForbiddenError",
-        type: "about:blank",
+        type: "https://registry.agentxm.ai/v1/problems/forbidden",
         title: "Forbidden",
         status: 403,
         detail: "Resource groups are not yours to move",
@@ -224,8 +217,7 @@ describe("registryErrorToProblem", () => {
   it("suggests the lifecycle command for archived publication", () => {
     const error = registryErrorToProblem(
       {
-        kind: "LifecycleBlockedError",
-        type: "about:blank",
+        type: "https://registry.agentxm.ai/v1/problems/lifecycle_blocked",
         title: "Lifecycle blocked",
         status: 409,
         detail: "Archived extensions do not accept new releases.",
@@ -266,13 +258,11 @@ describe("registryErrorToProblem", () => {
   it("adds lint finding suggestions for publish lint responses", () => {
     const error = registryErrorToProblem(
       {
-        kind: "ExtensionLintFailedError",
-        type: "about:blank",
-        title: "Extension lint failed",
+        type: "https://registry.agentxm.ai/v1/problems/extension_lint_failed",
+        title: "Extension Lint Failed",
         status: 422,
         detail: "Lint failed",
         code: "extension_lint_failed",
-        error: "extension_lint_failed",
         identity: {
           owner: "@acme",
           type: "skill",
@@ -314,13 +304,11 @@ describe("registryErrorToProblem", () => {
     };
     const error = registryErrorToProblem(
       {
-        kind: "ExtensionLintFailedError",
-        type: "about:blank",
-        title: "Extension lint failed",
+        type: "https://registry.agentxm.ai/v1/problems/extension_lint_failed",
+        title: "Extension Lint Failed",
         status: 422,
         detail: "Lint failed",
         code: "extension_lint_failed",
-        error: "extension_lint_failed",
         identity: {
           owner: "@acme",
           type: "skill",
@@ -341,13 +329,11 @@ describe("registryErrorToProblem", () => {
   it("adds identity mismatch suggestions for publish identity responses", () => {
     const error = registryErrorToProblem(
       {
-        kind: "ExtensionIdentityMismatchError",
-        type: "about:blank",
-        title: "Extension identity mismatch",
+        type: "https://registry.agentxm.ai/v1/problems/extension_identity_mismatch",
+        title: "Extension Identity Mismatch",
         status: 422,
         detail: "Identity mismatch",
         code: "extension_identity_mismatch",
-        error: "extension_identity_mismatch",
         identity: {
           owner: "@acme",
           type: "skill",

@@ -6900,6 +6900,79 @@
             "additionalProperties": false
           }
         },
+        "inheritedFlags": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "aliases": { "type": "array", "items": { "type": "string" } },
+                  "type": { "type": "string" },
+                  "required": { "type": "boolean" },
+                  "description": { "type": "string" },
+                  "valueName": { "type": "string" },
+                  "variadic": {
+                    "type": "object",
+                    "properties": {
+                      "min": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "max": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "choices": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": { "value": { "type": "string" } },
+                      "required": ["value"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "default": {
+                    "anyOf": [
+                      { "type": "string" },
+                      { "type": "number" },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] },
+                      { "type": "boolean" }
+                    ]
+                  },
+                  "range": {
+                    "type": "object",
+                    "properties": {
+                      "min": {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                        ]
+                      },
+                      "max": {
+                        "anyOf": [
+                          { "type": "number" },
+                          { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                        ]
+                      }
+                    },
+                    "required": ["min", "max"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["name", "aliases", "type", "required"],
+                "additionalProperties": false
+              }
+            },
+            { "type": "null" }
+          ]
+        },
         "globalFlags": {
           "anyOf": [
             {

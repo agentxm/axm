@@ -26,11 +26,21 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
                 }
               }
             }
@@ -80,7 +90,7 @@
             }
           },
           "400": {
-            "description": "DeviceCodeOAuthError | DecodeErrorResponse",
+            "description": "DeviceCodeOAuthError | Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -89,17 +99,24 @@
               },
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -189,16 +206,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | OAuth 2.0 token error response (RFC 6749 §5.2). Keys are protocol-defined snake_case and exempt from the Registry's camelCase rule. | DecodeErrorResponse",
+            "description": "Invalid Request | OAuth 2.0 token error response (RFC 6749 §5.2). Keys are protocol-defined snake_case and exempt from the Registry's camelCase rule. | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -211,21 +228,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -425,7 +449,7 @@
             "description": "<No Content>"
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -450,17 +474,27 @@
               },
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -551,23 +585,23 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -578,21 +612,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -612,15 +653,8 @@
             "name": "cursor",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "description": "Opaque cursor from a previous page's `cursor`. Do not construct or parse it."
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string",
+              "description": "Opaque cursor from a previous page's `cursor`. Do not construct or parse it."
             },
             "required": false
           },
@@ -628,15 +662,8 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "description": "Items per page, 1–100. Defaults to 50."
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string",
+              "description": "Items per page, 1–100. Defaults to 50."
             },
             "required": false
           }
@@ -678,16 +705,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -695,13 +722,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -712,7 +739,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -722,21 +749,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -788,16 +822,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -805,13 +839,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -822,7 +856,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -832,41 +866,48 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "422": {
-            "description": "UnprocessableEntityError",
+            "description": "Unprocessable Entity",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/UnprocessableEntityErrorEncoded"
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -912,16 +953,16 @@
             "description": "<No Content>"
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -929,13 +970,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -946,7 +987,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -956,21 +997,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -996,7 +1044,12 @@
             "required": true
           }
         ],
-        "security": [],
+        "security": [
+          {},
+          {
+            "bearer": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Minimal owner summary for machine clients.",
@@ -1006,40 +1059,134 @@
                   "$ref": "#/components/schemas/OwnerResponse"
                 }
               }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
+              }
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized | Token Ended",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
+                }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
+              }
+            }
+          },
+          "500": {
+            "description": "Internal | Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                },
+                "required": true
+              },
+              "pragma": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-cache"
+                  ]
+                },
+                "required": true
               }
             }
           }
         },
-        "description": "Returns the minimal public owner summary for the provided handle.",
+        "description": "Returns a minimal public owner summary, or the authenticated user's own active owner summary. Managed individual owners remain hidden from other callers.",
         "summary": "Get owner"
       }
     },
@@ -1062,15 +1209,8 @@
             "name": "cursor",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "description": "Opaque cursor from a previous page's `cursor`. Do not construct or parse it."
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string",
+              "description": "Opaque cursor from a previous page's `cursor`. Do not construct or parse it."
             },
             "required": false
           },
@@ -1078,15 +1218,8 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "description": "Items per page, 1–100. Defaults to 50."
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string",
+              "description": "Items per page, 1–100. Defaults to 50."
             },
             "required": false
           }
@@ -1109,16 +1242,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -1126,13 +1259,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -1143,21 +1276,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -1194,15 +1334,8 @@
             "name": "cursor",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "description": "Opaque cursor from a previous page's `cursor`. Do not construct or parse it."
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string",
+              "description": "Opaque cursor from a previous page's `cursor`. Do not construct or parse it."
             },
             "required": false
           },
@@ -1210,15 +1343,8 @@
             "name": "limit",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "description": "Items per page, 1–100. Defaults to 50."
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string",
+              "description": "Items per page, 1–100. Defaults to 50."
             },
             "required": false
           },
@@ -1226,14 +1352,7 @@
             "name": "filter[name]",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/ExtensionName"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "$ref": "#/components/schemas/ExtensionName"
             },
             "required": false
           }
@@ -1256,16 +1375,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -1273,13 +1392,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -1290,21 +1409,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -1422,22 +1548,22 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse"
+            "description": "Bad Request"
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError"
+            "description": "Unauthorized | Token Ended"
           },
           "404": {
-            "description": "NotFoundError"
+            "description": "Not Found"
           },
           "409": {
-            "description": "LifecycleBlockedError"
+            "description": "Lifecycle Blocked"
           },
           "500": {
-            "description": "InternalError"
+            "description": "Internal | Internal Server Error"
           },
           "503": {
-            "description": "ServiceUnavailableError"
+            "description": "Service Unavailable"
           }
         },
         "summary": "Check whether an extension exists"
@@ -1694,23 +1820,23 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -1721,17 +1847,17 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "LifecycleBlockedError",
+            "description": "Lifecycle Blocked",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1741,21 +1867,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -1839,16 +1972,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -1856,13 +1989,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -1873,7 +2006,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1883,50 +2016,44 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "ConflictError | LifecycleBlockedError",
+            "description": "Conflict | Lifecycle Blocked",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/ConflictErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
                     }
-                  ],
-                  "discriminator": {
-                    "propertyName": "code",
-                    "mapping": {
-                      "lifecycle_blocked": "#/components/schemas/LifecycleBlockedErrorEncoded"
-                    }
-                  }
+                  ]
                 }
               }
             }
           },
           "410": {
-            "description": "GoneError",
+            "description": "Gone",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/GoneErrorEncoded"
                 }
               }
             }
           },
           "412": {
-            "description": "PreconditionFailedError",
+            "description": "Precondition Failed",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1936,21 +2063,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -2248,23 +2382,23 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -2275,17 +2409,17 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "LifecycleBlockedError",
+            "description": "Lifecycle Blocked",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2295,31 +2429,38 @@
             }
           },
           "410": {
-            "description": "GoneError",
+            "description": "Gone",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/GoneErrorEncoded"
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -2401,14 +2542,7 @@
             "name": "visibility",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/Visibility"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "$ref": "#/components/schemas/Visibility"
             },
             "required": false
           }
@@ -2542,16 +2676,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -2559,13 +2693,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -2576,7 +2710,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2586,23 +2720,23 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "ConflictError | LifecycleBlockedError | ExtensionNameHeldError",
+            "description": "Conflict | Lifecycle Blocked | Extension Name Held",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/ConflictErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
@@ -2610,20 +2744,13 @@
                     {
                       "$ref": "#/components/schemas/ExtensionNameHeldErrorEncoded"
                     }
-                  ],
-                  "discriminator": {
-                    "propertyName": "code",
-                    "mapping": {
-                      "lifecycle_blocked": "#/components/schemas/LifecycleBlockedErrorEncoded",
-                      "extension_name_held": "#/components/schemas/ExtensionNameHeldErrorEncoded"
-                    }
-                  }
+                  ]
                 }
               }
             }
           },
           "412": {
-            "description": "PreconditionFailedError",
+            "description": "Precondition Failed",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2633,33 +2760,33 @@
             }
           },
           "413": {
-            "description": "PayloadTooLargeError",
+            "description": "Payload Too Large",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/PayloadTooLargeErrorEncoded"
                 }
               }
             }
           },
           "415": {
-            "description": "UnsupportedMediaTypeError",
+            "description": "Unsupported Media Type",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/UnsupportedMediaTypeErrorEncoded"
                 }
               }
             }
           },
           "422": {
-            "description": "UnprocessableEntityError | ExtensionLintFailedError | ExtensionIdentityMismatchError",
+            "description": "Unprocessable Entity | Extension Lint Failed | Extension Identity Mismatch",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnprocessableEntityErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/ExtensionLintFailedErrorEncoded"
@@ -2667,34 +2794,34 @@
                     {
                       "$ref": "#/components/schemas/ExtensionIdentityMismatchErrorEncoded"
                     }
-                  ],
-                  "discriminator": {
-                    "propertyName": "code",
-                    "mapping": {
-                      "extension_lint_failed": "#/components/schemas/ExtensionLintFailedErrorEncoded",
-                      "extension_identity_mismatch": "#/components/schemas/ExtensionIdentityMismatchErrorEncoded"
-                    }
-                  }
+                  ]
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -3051,23 +3178,23 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -3078,17 +3205,17 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "LifecycleBlockedError",
+            "description": "Lifecycle Blocked",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3134,21 +3261,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -3192,14 +3326,7 @@
             "name": "intentVisibility",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/Visibility"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "$ref": "#/components/schemas/Visibility"
             },
             "required": false
           },
@@ -3207,17 +3334,10 @@
             "name": "intentSource",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "enum": [
-                    "manifest",
-                    "workspace"
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "string",
+              "enum": [
+                "manifest",
+                "workspace"
               ]
             },
             "required": false
@@ -3226,14 +3346,7 @@
             "name": "intentFingerprint",
             "in": "query",
             "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/VisibilityFingerprint"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "$ref": "#/components/schemas/VisibilityFingerprint"
             },
             "required": false
           }
@@ -3275,16 +3388,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -3292,13 +3405,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -3309,7 +3422,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3319,31 +3432,38 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -3421,23 +3541,23 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -3448,7 +3568,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3458,31 +3578,38 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -3566,16 +3693,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -3583,13 +3710,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -3600,7 +3727,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3610,27 +3737,34 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "LifecycleBlockedError",
+            "description": "Lifecycle Blocked | Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ConflictErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "412": {
-            "description": "PreconditionFailedError",
+            "description": "Precondition Failed",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3640,21 +3774,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -3748,16 +3889,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -3765,13 +3906,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -3782,7 +3923,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3792,27 +3933,34 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "LifecycleBlockedError",
+            "description": "Lifecycle Blocked | Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ConflictErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "412": {
-            "description": "PreconditionFailedError",
+            "description": "Precondition Failed",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3822,21 +3970,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -3894,23 +4049,23 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -3921,7 +4076,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3931,31 +4086,38 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -4019,16 +4181,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -4036,13 +4198,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -4053,7 +4215,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4063,40 +4225,34 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "ConflictError | LifecycleBlockedError",
+            "description": "Conflict | Lifecycle Blocked",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/ConflictErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
                     }
-                  ],
-                  "discriminator": {
-                    "propertyName": "code",
-                    "mapping": {
-                      "lifecycle_blocked": "#/components/schemas/LifecycleBlockedErrorEncoded"
-                    }
-                  }
+                  ]
                 }
               }
             }
           },
           "412": {
-            "description": "PreconditionFailedError",
+            "description": "Precondition Failed",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4106,21 +4262,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -4194,16 +4357,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -4211,13 +4374,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -4228,7 +4391,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4238,40 +4401,34 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "ConflictError | LifecycleBlockedError",
+            "description": "Conflict | Lifecycle Blocked",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/ConflictErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
                     }
-                  ],
-                  "discriminator": {
-                    "propertyName": "code",
-                    "mapping": {
-                      "lifecycle_blocked": "#/components/schemas/LifecycleBlockedErrorEncoded"
-                    }
-                  }
+                  ]
                 }
               }
             }
           },
           "412": {
-            "description": "PreconditionFailedError",
+            "description": "Precondition Failed",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4281,21 +4438,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -4464,16 +4628,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -4481,13 +4645,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -4498,7 +4662,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4508,41 +4672,55 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "LifecycleBlockedError",
+            "description": "Lifecycle Blocked | Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ConflictErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -4690,16 +4868,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -4707,13 +4885,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -4724,7 +4902,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4734,41 +4912,55 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "LifecycleBlockedError",
+            "description": "Lifecycle Blocked | Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ConflictErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -4899,16 +5091,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -4916,13 +5108,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -4933,7 +5125,7 @@
             }
           },
           "403": {
-            "description": "ForbiddenError",
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4943,41 +5135,55 @@
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
                 }
               }
             }
           },
           "409": {
-            "description": "LifecycleBlockedError",
+            "description": "Lifecycle Blocked | Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ConflictErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -5021,7 +5227,7 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -5048,19 +5254,19 @@
               },
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -5098,11 +5304,18 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -5172,16 +5385,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -5189,13 +5402,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -5206,7 +5419,7 @@
             }
           },
           "413": {
-            "description": "PublishPreviewBatchTooLargeHttpError",
+            "description": "Publish Preview Batch Too Large Http",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5216,21 +5429,28 @@
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -5512,16 +5732,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -5529,13 +5749,13 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError | TokenEndedError",
+            "description": "Unauthorized | Token Ended",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/TokenEndedErrorEncoded"
@@ -5546,31 +5766,38 @@
             }
           },
           "413": {
-            "description": "PayloadTooLargeError",
+            "description": "Payload Too Large",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/PayloadTooLargeErrorEncoded"
                 }
               }
             }
           },
           "415": {
-            "description": "UnsupportedMediaTypeError",
+            "description": "Unsupported Media Type",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/UnsupportedMediaTypeErrorEncoded"
                 }
               }
             }
           },
           "500": {
-            "description": "InternalError",
+            "description": "Internal | Internal Server Error",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -5760,11 +5987,21 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
                 }
               }
             }
@@ -5785,14 +6022,7 @@
             "name": "x-health-key",
             "in": "header",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string"
             },
             "required": false
           }
@@ -5999,11 +6229,11 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
@@ -6019,6 +6249,16 @@
                   ]
                 },
                 "required": true
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                }
               }
             }
           },
@@ -6237,15 +6477,8 @@
             "name": "github-public-key-identifier",
             "in": "header",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "description": "Identifier of the GitHub secret scanning key that signed the alert."
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string",
+              "description": "Identifier of the GitHub secret scanning key that signed the alert."
             },
             "required": false
           },
@@ -6253,15 +6486,8 @@
             "name": "github-public-key-signature",
             "in": "header",
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "description": "Base64 ECDSA P-256 SHA-256 signature over the exact request body."
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": "string",
+              "description": "Base64 ECDSA P-256 SHA-256 signature over the exact request body."
             },
             "required": false
           }
@@ -6282,16 +6508,16 @@
             }
           },
           "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
+            "description": "Invalid Request | Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ProblemDetails"
+                      "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
                     },
                     {
-                      "$ref": "#/components/schemas/DecodeErrorResponse"
+                      "$ref": "#/components/schemas/BadRequestProblemEncoded"
                     }
                   ]
                 }
@@ -6299,21 +6525,31 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "Unauthorized",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
                 }
               }
             }
           },
           "503": {
-            "description": "ServiceUnavailableError",
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
                 }
               }
             }
@@ -6345,7 +6581,7 @@
             "in": "path",
             "schema": {
               "type": "string",
-              "description": "A problem `code` from a Registry problem response."
+              "description": "A native problem type identifier or a product reason code."
             },
             "required": true
           }
@@ -6375,21 +6611,31 @@
             }
           },
           "400": {
-            "description": "DecodeErrorResponse",
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponse"
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
                 }
               }
             }
           },
           "404": {
-            "description": "NotFoundError",
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
                 }
               }
             }
@@ -6402,30 +6648,46 @@
   },
   "components": {
     "schemas": {
-      "DecodeErrorResponse": {
+      "InternalServerErrorProblemEncoded": {
         "type": "object",
         "properties": {
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
           "instance": {
             "type": "string"
           },
-          "code": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "about:blank"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              500
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Internal Server Error"
+            ]
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "BadRequestProblemEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
             "type": "string"
           },
-          "requestId": {
+          "instance": {
             "type": "string"
           },
           "errors": {
@@ -6433,48 +6695,65 @@
             "items": {
               "type": "object",
               "properties": {
-                "pointer": {
-                  "type": "string"
+                "path": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "Infinity",
+                          "-Infinity",
+                          "NaN"
+                        ]
+                      }
+                    ]
+                  }
                 },
-                "detail": {
+                "message": {
                   "type": "string"
                 }
               },
               "required": [
-                "pointer",
-                "detail"
+                "path",
+                "message"
               ],
               "additionalProperties": false
             }
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "about:blank"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              400
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Bad Request"
+            ]
           }
         },
         "required": [
-          "type",
-          "title",
-          "status",
-          "detail",
-          "code",
-          "requestId",
-          "errors"
+          "type"
         ],
-        "additionalProperties": false,
-        "title": "Decode Error Problem Details",
-        "description": "RFC 9457 Problem Details for a request that failed schema decoding; each `errors` entry points at one offending location."
+        "additionalProperties": false
       },
-      "ProblemDetails": {
+      "NotFoundErrorEncoded": {
         "type": "object",
         "properties": {
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
@@ -6482,22 +6761,43 @@
             "type": "string"
           },
           "code": {
-            "$ref": "#/components/schemas/RegistryProblemCode"
+            "type": "string",
+            "enum": [
+              "not_found",
+              "owner_not_found",
+              "extension_not_found",
+              "version_not_found",
+              "publish_owner_not_found",
+              "problem_not_found"
+            ]
           },
           "details": {
             "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/not_found"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              404
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Not Found"
+            ]
           }
         },
         "required": [
-          "type",
-          "title",
-          "status",
-          "detail",
-          "code"
+          "code",
+          "type"
         ],
-        "additionalProperties": false,
-        "title": "Problem Details",
-        "description": "RFC 9457 Problem Details payload for AgentXM Registry errors."
+        "additionalProperties": false
       },
       "PublishDetails": {
         "type": "object",
@@ -6544,86 +6844,147 @@
         "title": "Publish Details",
         "description": "Extended error details for publish-related and retryable error responses."
       },
-      "RegistryProblemCode": {
-        "type": "string",
-        "enum": [
-          "invalid_request",
-          "invalid_cursor",
-          "publish_malformed_request",
-          "publish_ingest_malformed_archive",
-          "publish_ingest_unsupported_compression",
-          "publish_invalid_digest",
-          "publish_invalid_content_length",
-          "publish_empty_archive",
-          "deprecation_invalid_guidance",
-          "unauthorized",
-          "token_expired",
-          "token_revoked",
-          "forbidden",
-          "insufficient_scope",
-          "resource_restriction",
-          "credential_not_admitted",
-          "browser_session_required",
-          "identity_suspended",
-          "invitation_binding_mismatch",
-          "plan_admission_required",
-          "staff_credential_required",
-          "staff_role_required",
-          "delegated_permission_not_held",
-          "different_target_required",
-          "staff_administrator_required",
-          "impersonation_not_allowed",
-          "publish_quota_exceeded",
-          "publish_insufficient_scope",
-          "publish_resource_restriction",
-          "publish_handle_not_owned",
-          "publish_publish_forbidden",
-          "publish_plan_limit_reached",
-          "visibility_plan_limit_reached",
-          "not_found",
-          "owner_not_found",
-          "extension_not_found",
-          "version_not_found",
-          "publish_owner_not_found",
-          "problem_not_found",
-          "conflict",
-          "publish_publish_conflict",
-          "publish_owner_frozen",
-          "visibility_pack_blocked",
-          "deprecation_replacement_unavailable",
-          "lifecycle_blocked",
-          "extension_name_held",
-          "version_purged",
-          "version_retired",
-          "publish_precondition_changed",
-          "visibility_stale_revision",
-          "deprecation_stale_revision",
-          "archival_stale_revision",
-          "payload_too_large",
-          "publish_ingest_request_too_large",
-          "publish_ingest_archive_too_large",
-          "publish_ingest_decompression_limit",
-          "publish_preflight_batch_too_large",
-          "unsupported_media_type",
-          "publish_ingest_unsupported_content_type",
-          "unprocessable_entity",
-          "invalid_scope",
-          "invalid_scope_qualifier",
-          "invalid_permissions",
-          "invalid_expiry",
-          "token_creation_failed",
-          "publish_integrity_mismatch",
-          "extension_lint_failed",
-          "extension_identity_mismatch",
-          "internal_error",
-          "archive_missing",
-          "archive_read_failed",
-          "publish_internal_error",
-          "service_unavailable",
-          "publish_database_contention"
+      "ServiceUnavailableErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "service_unavailable",
+              "publish_database_contention"
+            ]
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/service_unavailable"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              503
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Service Unavailable"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
         ],
-        "title": "Registry Problem Code",
-        "description": "Machine-readable problem code. `GET /v1/problems/{code}` describes each one."
+        "additionalProperties": false
+      },
+      "UnauthorizedErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "unauthorized"
+                ]
+              }
+            ]
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/unauthorized"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              401
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Unauthorized"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "InvalidRequestErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "invalid_cursor",
+              "publish_malformed_request",
+              "publish_ingest_malformed_archive",
+              "publish_ingest_unsupported_compression",
+              "publish_invalid_digest",
+              "publish_invalid_content_length",
+              "publish_empty_archive",
+              "deprecation_invalid_guidance"
+            ]
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/invalid_request"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              400
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Invalid Request"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
+        ],
+        "additionalProperties": false
       },
       "SecretScanningLabel": {
         "type": "object",
@@ -6663,23 +7024,6 @@
       "TokenEndedErrorEncoded": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "TokenEndedError"
-            ]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
@@ -6703,18 +7047,168 @@
           },
           "endedAt": {
             "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/token_ended"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              401
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Token Ended"
+            ]
           }
         },
         "required": [
-          "kind",
-          "type",
-          "title",
-          "status",
-          "detail",
           "code",
           "tokenId",
           "tokenPrefix",
-          "endedAt"
+          "endedAt",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "UnsupportedMediaTypeErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "unsupported_media_type",
+              "publish_ingest_unsupported_content_type"
+            ]
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/unsupported_media_type"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              415
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Unsupported Media Type"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "PayloadTooLargeErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "payload_too_large",
+              "publish_ingest_request_too_large",
+              "publish_ingest_archive_too_large",
+              "publish_ingest_decompression_limit"
+            ]
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/payload_too_large"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              413
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Payload Too Large"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "InternalErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "internal_error",
+              "archive_missing",
+              "archive_read_failed",
+              "publish_internal_error"
+            ]
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/internal_error"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              500
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Internal"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
         ],
         "additionalProperties": false
       },
@@ -6745,23 +7239,6 @@
       "PublishPreviewBatchTooLargeHttpErrorEncoded": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "PublishPreviewBatchTooLargeHttpError"
-            ]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
@@ -6779,16 +7256,30 @@
             "enum": [
               100
             ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/publish_preflight_batch_too_large"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              413
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Publish Preview Batch Too Large Http"
+            ]
           }
         },
         "required": [
-          "kind",
-          "type",
-          "title",
-          "status",
-          "detail",
           "code",
-          "maxItems"
+          "maxItems",
+          "type"
         ],
         "additionalProperties": false
       },
@@ -8393,10 +8884,10 @@
         "anyOf": [
           {
             "type": "string",
+            "format": "uri",
             "examples": [
               "https://github.com/acme/code-review/issues"
-            ],
-            "format": "uri"
+            ]
           },
           {
             "type": "object",
@@ -8409,10 +8900,10 @@
                       {
                         "minLength": 1,
                         "description": "Issue tracker URL.",
+                        "format": "uri",
                         "examples": [
                           "https://github.com/acme/code-review/issues"
-                        ],
-                        "format": "uri"
+                        ]
                       }
                     ]
                   },
@@ -8429,10 +8920,10 @@
                       {
                         "minLength": 1,
                         "description": "Contact email for bug reports.",
+                        "format": "email",
                         "examples": [
                           "bugs@acme.dev"
-                        ],
-                        "format": "email"
+                        ]
                       }
                     ]
                   },
@@ -8452,11 +8943,11 @@
         "anyOf": [
           {
             "type": "string",
+            "format": "uri-reference",
             "examples": [
               "https://github.com/acme/code-review",
               "github:acme/code-review"
-            ],
-            "format": "uri-reference"
+            ]
           },
           {
             "type": "object",
@@ -8482,10 +8973,10 @@
                   {
                     "minLength": 1,
                     "description": "Repository URL.",
+                    "format": "uri",
                     "examples": [
                       "https://github.com/acme/code-review"
-                    ],
-                    "format": "uri"
+                    ]
                   }
                 ]
               },
@@ -8718,26 +9209,57 @@
         ],
         "additionalProperties": false
       },
+      "ConflictErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "conflict",
+              "account_selection_changed",
+              "publish_publish_conflict",
+              "publish_owner_frozen",
+              "visibility_pack_blocked",
+              "deprecation_replacement_unavailable"
+            ]
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/conflict"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              409
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Conflict"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
+        ],
+        "additionalProperties": false
+      },
       "LifecycleBlockedErrorEncoded": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "LifecycleBlockedError"
-            ]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
@@ -8757,39 +9279,36 @@
               "held",
               "archived"
             ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/lifecycle_blocked"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              409
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Lifecycle Blocked"
+            ]
           }
         },
         "required": [
-          "kind",
-          "type",
-          "title",
-          "status",
-          "detail",
           "code",
-          "reason"
+          "reason",
+          "type"
         ],
         "additionalProperties": false
       },
       "ForbiddenErrorEncoded": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "ForbiddenError"
-            ]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
@@ -8805,13 +9324,14 @@
               "credential_not_admitted",
               "browser_session_required",
               "identity_suspended",
+              "employer_authorization_required",
+              "individual_public_publishing_not_allowed",
+              "personal_account_required",
               "invitation_binding_mismatch",
               "plan_admission_required",
               "staff_credential_required",
-              "staff_role_required",
-              "delegated_permission_not_held",
               "different_target_required",
-              "staff_administrator_required",
+              "company_identity_managed_by_provider",
               "impersonation_not_allowed",
               "publish_quota_exceeded",
               "publish_insufficient_scope",
@@ -8831,15 +9351,29 @@
                 "$ref": "#/components/schemas/AuthorizationDenyDetails"
               }
             ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/forbidden"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              403
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Forbidden"
+            ]
           }
         },
         "required": [
-          "kind",
-          "type",
-          "title",
-          "status",
-          "detail",
-          "code"
+          "code",
+          "type"
         ],
         "additionalProperties": false
       },
@@ -9043,23 +9577,6 @@
       "ExtensionIdentityMismatchErrorEncoded": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "ExtensionIdentityMismatchError"
-            ]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
@@ -9072,16 +9589,6 @@
               "extension_identity_mismatch"
             ]
           },
-          "error": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "extension_identity_mismatch"
-                ]
-              }
-            ]
-          },
           "identity": {
             "$ref": "#/components/schemas/PublishIdentity"
           },
@@ -9090,18 +9597,31 @@
             "items": {
               "$ref": "#/components/schemas/PublishIdentityMismatchEntry"
             }
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/extension_identity_mismatch"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              422
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Extension Identity Mismatch"
+            ]
           }
         },
         "required": [
-          "kind",
-          "type",
-          "title",
-          "status",
-          "detail",
           "code",
-          "error",
           "identity",
-          "mismatches"
+          "mismatches",
+          "type"
         ],
         "additionalProperties": false
       },
@@ -9176,23 +9696,6 @@
       "ExtensionLintFailedErrorEncoded": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "ExtensionLintFailedError"
-            ]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
@@ -9205,16 +9708,6 @@
               "extension_lint_failed"
             ]
           },
-          "error": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "extension_lint_failed"
-                ]
-              }
-            ]
-          },
           "identity": {
             "$ref": "#/components/schemas/PublishIdentity"
           },
@@ -9224,25 +9717,38 @@
           "findings": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PublishLintFinding_1"
+              "$ref": "#/components/schemas/PublishLintFinding"
             }
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/extension_lint_failed"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              422
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Extension Lint Failed"
+            ]
           }
         },
         "required": [
-          "kind",
-          "type",
-          "title",
-          "status",
-          "detail",
           "code",
-          "error",
           "identity",
           "displayRoot",
-          "findings"
+          "findings",
+          "type"
         ],
         "additionalProperties": false
       },
-      "PublishLintFinding_1": {
+      "PublishLintFinding": {
         "type": "object",
         "properties": {
           "kind": {
@@ -9275,7 +9781,7 @@
           "suggestions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SuggestedAction_1"
+              "$ref": "#/components/schemas/SuggestedAction"
             }
           }
         },
@@ -9290,38 +9796,6 @@
         "additionalProperties": false,
         "title": "Publish Lint Finding",
         "description": "One lint finding produced against the publish subject."
-      },
-      "SuggestedAction_1": {
-        "type": "object",
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "cmd": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "description"
-        ],
-        "additionalProperties": false
       },
       "PublishFindingLocation": {
         "type": "object",
@@ -9397,26 +9871,58 @@
         "title": "Finding Location",
         "description": "Accessor-relative location of a lint finding."
       },
+      "UnprocessableEntityErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "unprocessable_entity",
+              "invalid_scope",
+              "invalid_scope_qualifier",
+              "invalid_permissions",
+              "invalid_expiry",
+              "token_creation_failed",
+              "publish_integrity_mismatch"
+            ]
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/unprocessable_entity"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              422
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Unprocessable Entity"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
+        ],
+        "additionalProperties": false
+      },
       "PreconditionFailedErrorEncoded": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "PreconditionFailedError"
-            ]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
@@ -9434,38 +9940,35 @@
           },
           "details": {
             "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/publish_precondition_changed"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              412
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Precondition Failed"
+            ]
           }
         },
         "required": [
-          "kind",
-          "type",
-          "title",
-          "status",
-          "detail",
-          "code"
+          "code",
+          "type"
         ],
         "additionalProperties": false
       },
       "ExtensionNameHeldErrorEncoded": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "ExtensionNameHeldError"
-            ]
-          },
-          "type": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "status": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
-          },
           "detail": {
             "type": "string"
           },
@@ -9480,67 +9983,32 @@
           },
           "reclaimableAt": {
             "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/extension_name_held"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              409
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Extension Name Held"
+            ]
           }
         },
         "required": [
-          "kind",
-          "type",
-          "title",
-          "status",
-          "detail",
           "code",
-          "reclaimableAt"
+          "reclaimableAt",
+          "type"
         ],
         "additionalProperties": false
-      },
-      "PublishLintFinding": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "advisory",
-              "autofixable"
-            ]
-          },
-          "ruleId": {
-            "type": "string"
-          },
-          "severity": {
-            "type": "string",
-            "enum": [
-              "error",
-              "warning",
-              "info"
-            ]
-          },
-          "message": {
-            "type": "string"
-          },
-          "location": {
-            "$ref": "#/components/schemas/PublishFindingLocation"
-          },
-          "path": {
-            "type": "string"
-          },
-          "suggestions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SuggestedAction"
-            }
-          }
-        },
-        "required": [
-          "kind",
-          "ruleId",
-          "severity",
-          "message",
-          "path",
-          "suggestions"
-        ],
-        "additionalProperties": false,
-        "title": "Publish Lint Finding",
-        "description": "One lint finding produced against the publish subject."
       },
       "Visibility": {
         "type": "string",
@@ -9601,7 +10069,7 @@
       "DeprecationRevision": {
         "type": "string",
         "minLength": 1,
-        "description": "Opaque publisher lifecycle revision used for conditional writes."
+        "description": "Opaque owner lifecycle revision used for conditional writes."
       },
       "PutDeprecationBody": {
         "type": "object",
@@ -9614,7 +10082,7 @@
               {
                 "type": "string",
                 "maxLength": 500,
-                "description": "Optional publisher notes, normalized by the Registry."
+                "description": "Optional owner notes, normalized by the Registry."
               },
               {
                 "type": "null"
@@ -9817,7 +10285,7 @@
               {
                 "type": "string",
                 "maxLength": 500,
-                "description": "Publisher message; omit to preserve it, or use null to clear it."
+                "description": "Owner message; omit to preserve it, or use null to clear it."
               },
               {
                 "type": "null"
@@ -9866,6 +10334,50 @@
         "required": [
           "archival",
           "revision"
+        ],
+        "additionalProperties": false
+      },
+      "GoneErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "version_purged",
+              "version_retired"
+            ]
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/version_retired"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              410
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Gone"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
         ],
         "additionalProperties": false
       },
@@ -10033,13 +10545,13 @@
         "type": "string",
         "title": "License Expression",
         "description": "SPDX license expression, or `UNLICENSED` for proprietary code.",
+        "format": "spdx-expression",
         "examples": [
           "MIT",
           "Apache-2.0",
           "MIT OR Apache-2.0",
           "UNLICENSED"
-        ],
-        "format": "spdx-expression"
+        ]
       },
       "Bugs": {
         "type": "object",

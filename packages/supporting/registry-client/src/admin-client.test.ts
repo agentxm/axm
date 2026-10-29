@@ -22,13 +22,13 @@ describe("Registry admin failure mapping", () => {
       status: 503,
       detail: "Try the lifecycle operation again shortly.",
       code: "registry_overloaded",
-      requestId: "req_admin_123",
     };
     const lifecycle = makeRegistryLifecycleClient(
       REGISTRY,
       makeHttpClient(() =>
         Response.json(body, {
           status: 418,
+          headers: { "x-request-id": "fc9c43e7-e99a-46ee-a55c-c0e8ef747c62" },
         }),
       ),
     );
@@ -48,9 +48,9 @@ describe("Registry admin failure mapping", () => {
       expect(error.title).toBe("Registry overloaded");
       expect(error.detail).toBe("Try the lifecycle operation again shortly.");
       expect(error.metadata?.response).toEqual({
+        requestId: "fc9c43e7-e99a-46ee-a55c-c0e8ef747c62",
         status: 418,
         problemCode: "registry_overloaded",
-        requestId: "req_admin_123",
         body,
       });
       expect(error.cause).toMatchObject({ _tag: "HttpClientError" });

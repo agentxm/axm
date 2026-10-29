@@ -65,25 +65,19 @@ describe("Discovery request limits", () => {
                 rejectedStatus !== undefined && batches.length === 2
                   ? new Response(
                       JSON.stringify({
-                        type: "https://registry.example.test/problems/invalid_request",
-                        title: "Invalid discovery request",
+                        type:
+                          rejectedStatus === 413
+                            ? "https://registry.agentxm.ai/v1/problems/payload_too_large"
+                            : "about:blank",
                         status: rejectedStatus,
-                        code: rejectedStatus === 413 ? "payload_too_large" : "invalid_request",
+                        ...(rejectedStatus === 413 ? { code: "payload_too_large" } : {}),
                         detail: "Invalid package metadata",
-                        ...(rejectedStatus === 400
-                          ? {
-                              requestId: "fc9c43e7-e99a-46ee-a55c-c0e8ef747c62",
-                              errors: [
-                                { pointer: "/packages", detail: "Invalid package metadata" },
-                              ],
-                            }
-                          : {}),
                       }),
                       {
                         status: rejectedStatus,
                         headers: {
                           "x-request-id": "fc9c43e7-e99a-46ee-a55c-c0e8ef747c62",
-                          "content-type": "application/json",
+                          "content-type": "application/problem+json",
                         },
                       },
                     )

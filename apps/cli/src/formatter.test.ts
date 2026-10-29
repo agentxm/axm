@@ -3,9 +3,9 @@ import * as ServiceMap from "effect/Context";
 import type { HelpDoc } from "effect/cli/HelpDoc";
 import { describe, expect, it } from "vitest";
 
-import { LearnMore, formatLearnMore, learnMoreRows, makeAxmFormatter } from "./formatter.js";
+import { LearnMore, formatLearnMore, learnMoreRows } from "./formatter.js";
 
-const ESCAPE = "\u001b";
+import { toJsonHelpDoc } from "./cli-runtime/json-help-doc.js";
 
 const makeHelpDoc = (overrides: Partial<HelpDoc> = {}): HelpDoc => ({
   description: "",
@@ -32,9 +32,7 @@ const globalFlags = [
   },
 ];
 
-describe("makeAxmFormatter", () => {
-  const formatter = makeAxmFormatter();
-
+describe("machine help document", () => {
   it("emits the machine help document without styling", () => {
     const footerText = "LEARN MORE\n  Visit https://example.com for files.";
     const doc = makeHelpDoc({
@@ -52,9 +50,8 @@ describe("makeAxmFormatter", () => {
       ],
     });
 
-    const output = formatter.formatHelpDoc(doc);
-    expect(output).not.toContain(ESCAPE);
-    expect(JSON.parse(output)).toMatchObject({
+    const output = toJsonHelpDoc(doc, { learnMore: footerText });
+    expect(output).toMatchObject({
       type: "help",
       usage: "axm skills install [flags]",
       learnMore: footerText,
@@ -76,15 +73,7 @@ describe("makeAxmFormatter", () => {
 
   it("omits an empty learn-more footer from the help document", () => {
     const doc = makeHelpDoc({ annotations: ServiceMap.make(LearnMore, "") });
-    expect(JSON.parse(formatter.formatHelpDoc(doc))).not.toHaveProperty("learnMore");
-  });
-
-  it("emits the machine version document", () => {
-    expect(JSON.parse(formatter.formatVersion("axm", "1.2.3"))).toEqual({
-      type: "version",
-      name: "axm",
-      version: "1.2.3",
-    });
+    expect(toJsonHelpDoc(doc, { learnMore: "" })).not.toHaveProperty("learnMore");
   });
 });
 

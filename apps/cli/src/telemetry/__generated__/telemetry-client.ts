@@ -35,39 +35,52 @@ export const TelemetryMetaResponse = Schema.Struct({
     "Service metadata and documentation entrypoints exposed by the telemetry root endpoint. Documentation URLs are null when docs are disabled for the environment.",
   identifier: "TelemetryMetaResponse",
 });
-export type DecodeErrorResponse = {
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+export type BadRequestProblemEncoded = {
+  readonly detail?: string;
   readonly instance?: string;
-  readonly code: string;
-  readonly requestId: string;
-  readonly errors: ReadonlyArray<{ readonly pointer: string; readonly detail: string }>;
+  readonly errors?: ReadonlyArray<{
+    readonly path: ReadonlyArray<string | number | "Infinity" | "-Infinity" | "NaN">;
+    readonly message: string;
+  }>;
+  readonly type: "about:blank";
+  readonly status?: 400;
+  readonly title?: "Bad Request";
 };
-export const DecodeErrorResponse = Schema.Struct({
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+export const BadRequestProblemEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
-  requestId: Schema.String,
-  errors: Schema.Array(Schema.Struct({ pointer: Schema.String, detail: Schema.String })),
-}).annotate({
-  title: "Decode Error Problem Details",
-  description:
-    "RFC 9457 Problem Details for a request that failed schema decoding; each `errors` entry points at one offending location.",
-  identifier: "DecodeErrorResponse",
-});
+  errors: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        path: Schema.Array(
+          Schema.Union([
+            Schema.String,
+            Schema.Finite,
+            Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+          ]),
+        ),
+        message: Schema.String,
+      }),
+    ),
+  ),
+  type: Schema.Literal("about:blank"),
+  status: Schema.optionalKey(Schema.Literal(400)),
+  title: Schema.optionalKey(Schema.Literal("Bad Request")),
+}).annotate({ identifier: "BadRequestProblemEncoded" });
+export type InternalServerErrorProblemEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly type: "about:blank";
+  readonly status?: 500;
+  readonly title?: "Internal Server Error";
+};
+export const InternalServerErrorProblemEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  type: Schema.Literal("about:blank"),
+  status: Schema.optionalKey(Schema.Literal(500)),
+  title: Schema.optionalKey(Schema.Literal("Internal Server Error")),
+}).annotate({ identifier: "InternalServerErrorProblemEncoded" });
 export type IsoDateTimeString = string;
 export const IsoDateTimeString = Schema.String.annotate({
   title: "ISO Date-Time String",
@@ -234,12 +247,12 @@ export const ExtensionName = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])", "u")).annotate(
-      {
-        expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])",
-        identifier: "ExtensionName",
-      },
-    ),
+    Schema.isPattern(
+      new globalThis.RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])", "u"),
+    ).annotate({
+      expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])",
+      identifier: "ExtensionName",
+    }),
   );
 export type TelemetryEvent = {
   readonly eventId: string;
@@ -272,7 +285,7 @@ export const TelemetryEvent = Schema.Struct({
   event: Schema.String.check(
     Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
   ).check(
-    Schema.isPattern(new RegExp("^(?!skill_install_completed$).+$", "u")).annotate({
+    Schema.isPattern(new globalThis.RegExp("^(?!skill_install_completed$).+$", "u")).annotate({
       expected: "a string matching the RegExp ^(?!skill_install_completed$).+$",
     }),
   ),
@@ -289,7 +302,10 @@ export const TelemetryEvent = Schema.Struct({
     Schema.Record(
       Schema.String,
       Schema.Union([
-        Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]),
+        Schema.String,
+        Schema.Finite,
+        Schema.Boolean,
+        Schema.Null,
         Schema.Array(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null])),
       ]).annotate({
         title: "User Property Value",
@@ -304,7 +320,10 @@ export const TelemetryEvent = Schema.Struct({
         Schema.Record(
           Schema.String,
           Schema.Union([
-            Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]),
+            Schema.String,
+            Schema.Finite,
+            Schema.Boolean,
+            Schema.Null,
             Schema.Array(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null])),
           ]).annotate({
             title: "User Property Value",
@@ -317,7 +336,10 @@ export const TelemetryEvent = Schema.Struct({
         Schema.Record(
           Schema.String,
           Schema.Union([
-            Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]),
+            Schema.String,
+            Schema.Finite,
+            Schema.Boolean,
+            Schema.Null,
             Schema.Array(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null])),
           ]).annotate({
             title: "User Property Value",
@@ -363,30 +385,18 @@ export const TelemetryEventsReceipt = Schema.Struct({
   identifier: "TelemetryEventsReceipt",
 });
 export type TelemetryPayloadTooLargeErrorEncoded = {
-  readonly kind: "TelemetryPayloadTooLargeError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
+  readonly detail?: string;
   readonly instance?: string;
-  readonly code: string;
+  readonly type: "https://t.agentxm.ai/problems/payload_too_large";
+  readonly status?: 413;
+  readonly title?: "Payload Too Large";
 };
 export const TelemetryPayloadTooLargeErrorEncoded = Schema.Struct({
-  kind: Schema.Literal("TelemetryPayloadTooLargeError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Int.check(
-    Schema.isGreaterThanOrEqualTo(-9007199254740991).annotate({
-      expected: "a value greater than or equal to -9007199254740991",
-    }),
-  ).check(
-    Schema.isLessThanOrEqualTo(9007199254740991).annotate({
-      expected: "a value less than or equal to 9007199254740991",
-    }),
-  ),
-  detail: Schema.String,
+  detail: Schema.optionalKey(Schema.String),
   instance: Schema.optionalKey(Schema.String),
-  code: Schema.String,
+  type: Schema.Literal("https://t.agentxm.ai/problems/payload_too_large"),
+  status: Schema.optionalKey(Schema.Literal(413)),
+  title: Schema.optionalKey(Schema.Literal("Payload Too Large")),
 }).annotate({ identifier: "TelemetryPayloadTooLargeErrorEncoded" });
 export type TelemetryReportingClient = {
   readonly name: string;
@@ -477,7 +487,7 @@ export const TelemetryReportingClient = Schema.Struct({
       Schema.isMaxCodePoints(32).annotate({ expected: "a string with at most 32 code points" }),
     )
     .check(
-      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$", "u")).annotate({
+      Schema.isPattern(new globalThis.RegExp("^[a-z][a-z0-9-]*$", "u")).annotate({
         expected: "a string matching the RegExp ^[a-z][a-z0-9-]*$",
       }),
     ),
@@ -489,7 +499,7 @@ export const TelemetryReportingClient = Schema.Struct({
       Schema.isMaxCodePoints(64).annotate({ expected: "a string with at most 64 code points" }),
     )
     .check(
-      Schema.isPattern(new RegExp("^[0-9A-Za-z.+-]+$", "u")).annotate({
+      Schema.isPattern(new globalThis.RegExp("^[0-9A-Za-z.+-]+$", "u")).annotate({
         expected: "a string matching the RegExp ^[0-9A-Za-z.+-]+$",
       }),
     ),
@@ -504,7 +514,7 @@ export const TelemetryReportingClient = Schema.Struct({
       Schema.isMaxCodePoints(64).annotate({ expected: "a string with at most 64 code points" }),
     )
     .check(
-      Schema.isPattern(new RegExp("^[0-9A-Za-z.+-]+$", "u")).annotate({
+      Schema.isPattern(new globalThis.RegExp("^[0-9A-Za-z.+-]+$", "u")).annotate({
         expected: "a string matching the RegExp ^[0-9A-Za-z.+-]+$",
       }),
     ),
@@ -516,7 +526,7 @@ export const TelemetryReportingClient = Schema.Struct({
       Schema.isMaxCodePoints(32).annotate({ expected: "a string with at most 32 code points" }),
     )
     .check(
-      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$", "u")).annotate({
+      Schema.isPattern(new globalThis.RegExp("^[a-z][a-z0-9-]*$", "u")).annotate({
         expected: "a string matching the RegExp ^[a-z][a-z0-9-]*$",
       }),
     ),
@@ -528,7 +538,7 @@ export const TelemetryReportingClient = Schema.Struct({
       Schema.isMaxCodePoints(32).annotate({ expected: "a string with at most 32 code points" }),
     )
     .check(
-      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$", "u")).annotate({
+      Schema.isPattern(new globalThis.RegExp("^[a-z][a-z0-9-]*$", "u")).annotate({
         expected: "a string matching the RegExp ^[a-z][a-z0-9-]*$",
       }),
     ),
@@ -628,7 +638,10 @@ export const TelemetryFailureRequest = Schema.Struct({
     Schema.Union([
       Schema.String.annotate({ format: "uuid" }).check(
         Schema.isPattern(
-          new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+          new globalThis.RegExp(
+            "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "u",
+          ),
         ).annotate({
           expected:
             "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -703,7 +716,7 @@ export const TelemetryFailureFrame = Schema.Struct({
     Schema.isMaxCodePoints(240).annotate({ expected: "a string with at most 240 code points" }),
   ).check(
     Schema.isPattern(
-      new RegExp(
+      new globalThis.RegExp(
         "^src\\/(?:[a-zA-Z0-9_-]+\\/)*[a-zA-Z0-9_-]+(?:\\.[a-zA-Z0-9_-]+)*\\.(?:ts|tsx|js|jsx)$",
         "u",
       ),
@@ -738,7 +751,7 @@ export const TelemetryErrorReceipt = Schema.Struct({
     format: "uuid",
   }).check(
     Schema.isPattern(
-      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+      new globalThis.RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
     ).annotate({
       expected:
         "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -795,7 +808,7 @@ export type SkillInstallEvent = {
 export const SkillInstallEvent = Schema.Struct({
   eventId: Schema.String.annotate({ format: "uuid" }).check(
     Schema.isPattern(
-      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+      new globalThis.RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
     ).annotate({
       expected:
         "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -804,7 +817,7 @@ export const SkillInstallEvent = Schema.Struct({
   event: Schema.Literal("skill_install_completed"),
   distinctId: Schema.String.annotate({ format: "uuid" }).check(
     Schema.isPattern(
-      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+      new globalThis.RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
     ).annotate({
       expected:
         "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -825,7 +838,10 @@ export const SkillInstallEvent = Schema.Struct({
       activityId: Schema.optionalKey(
         Schema.String.annotate({ format: "uuid" }).check(
           Schema.isPattern(
-            new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+            new globalThis.RegExp(
+              "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "u",
+            ),
           ).annotate({
             expected:
               "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -840,7 +856,7 @@ export const SkillInstallEvent = Schema.Struct({
           }),
         ).check(
           Schema.isPattern(
-            new RegExp(
+            new globalThis.RegExp(
               "^https:\\/\\/github\\.com\\/[A-Za-z0-9][A-Za-z0-9-]*\\/[A-Za-z0-9_.-]+$",
               "u",
             ),
@@ -860,7 +876,7 @@ export const SkillInstallEvent = Schema.Struct({
       revision: Schema.Struct({
         kind: Schema.Literal("git"),
         commitSha: Schema.String.check(
-          Schema.isPattern(new RegExp("^[0-9a-f]{40}$", "u")).annotate({
+          Schema.isPattern(new globalThis.RegExp("^[0-9a-f]{40}$", "u")).annotate({
             expected: "a string matching the RegExp ^[0-9a-f]{40}$",
           }),
         ),
@@ -875,7 +891,10 @@ export const SkillInstallEvent = Schema.Struct({
       activityId: Schema.optionalKey(
         Schema.String.annotate({ format: "uuid" }).check(
           Schema.isPattern(
-            new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+            new globalThis.RegExp(
+              "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "u",
+            ),
           ).annotate({
             expected:
               "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -886,7 +905,9 @@ export const SkillInstallEvent = Schema.Struct({
         kind: Schema.Literal("registry"),
         registryUrl: Schema.Literal("https://registry.agentxm.ai"),
         publisherBindingId: Schema.String.check(
-          Schema.isPattern(new RegExp("^hbnd_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
+          Schema.isPattern(
+            new globalThis.RegExp("^hbnd_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u"),
+          ).annotate({
             expected: "a string matching the RegExp ^hbnd_[0-7][0-9a-hjkmnp-tv-z]{25}$",
           }),
         ),
@@ -907,7 +928,7 @@ export const SkillInstallEvent = Schema.Struct({
           )
           .check(
             Schema.isPattern(
-              new RegExp(
+              new globalThis.RegExp(
                 "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
                 "u",
               ),
@@ -918,7 +939,7 @@ export const SkillInstallEvent = Schema.Struct({
           ),
         integrity: Schema.optionalKey(
           Schema.String.check(
-            Schema.isPattern(new RegExp("^sha512-[A-Za-z0-9+/]{86}==$", "u")).annotate({
+            Schema.isPattern(new globalThis.RegExp("^sha512-[A-Za-z0-9+/]{86}==$", "u")).annotate({
               expected: "a string matching the RegExp ^sha512-[A-Za-z0-9+/]{86}==$",
             }),
           ),
@@ -1149,7 +1170,10 @@ export const TelemetryContext = Schema.Struct({
       format: "uuid",
     }).check(
       Schema.isPattern(
-        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+        new globalThis.RegExp(
+          "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "u",
+        ),
       ).annotate({
         expected:
           "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -1206,7 +1230,7 @@ export const TelemetryErrorReport = Schema.Struct({
     format: "uuid",
   }).check(
     Schema.isPattern(
-      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+      new globalThis.RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
     ).annotate({
       expected:
         "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -1217,7 +1241,7 @@ export const TelemetryErrorReport = Schema.Struct({
     format: "uuid",
   }).check(
     Schema.isPattern(
-      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+      new globalThis.RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
     ).annotate({
       expected:
         "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -1231,7 +1255,10 @@ export const TelemetryErrorReport = Schema.Struct({
       format: "uuid",
     }).check(
       Schema.isPattern(
-        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+        new globalThis.RegExp(
+          "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "u",
+        ),
       ).annotate({
         expected:
           "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -1244,7 +1271,10 @@ export const TelemetryErrorReport = Schema.Struct({
       format: "uuid",
     }).check(
       Schema.isPattern(
-        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+        new globalThis.RegExp(
+          "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "u",
+        ),
       ).annotate({
         expected:
           "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -1262,7 +1292,9 @@ export const TelemetryErrorReport = Schema.Struct({
         Schema.isMaxCodePoints(64).annotate({ expected: "a string with at most 64 code points" }),
       )
       .check(
-        Schema.isPattern(new RegExp("^[a-z][a-z0-9:_-]*( [a-z][a-z0-9:_-]*)*$", "u")).annotate({
+        Schema.isPattern(
+          new globalThis.RegExp("^[a-z][a-z0-9:_-]*( [a-z][a-z0-9:_-]*)*$", "u"),
+        ).annotate({
           expected: "a string matching the RegExp ^[a-z][a-z0-9:_-]*( [a-z][a-z0-9:_-]*)*$",
         }),
       ),
@@ -1281,7 +1313,7 @@ export const TelemetryErrorReport = Schema.Struct({
         Schema.isMaxCodePoints(64).annotate({ expected: "a string with at most 64 code points" }),
       )
       .check(
-        Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
+        Schema.isPattern(new globalThis.RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
           expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
         }),
       ),
@@ -1293,7 +1325,7 @@ export const TelemetryErrorReport = Schema.Struct({
         Schema.isMaxCodePoints(32).annotate({ expected: "a string with at most 32 code points" }),
       )
       .check(
-        Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
+        Schema.isPattern(new globalThis.RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
           expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
         }),
       ),
@@ -1310,7 +1342,7 @@ export const TelemetryErrorReport = Schema.Struct({
         Schema.isMaxCodePoints(64).annotate({ expected: "a string with at most 64 code points" }),
       )
       .check(
-        Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
+        Schema.isPattern(new globalThis.RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
           expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
         }),
       ),
@@ -1380,7 +1412,9 @@ export const TelemetryErrorReport = Schema.Struct({
                 }),
               )
               .check(
-                Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
+                Schema.isPattern(
+                  new globalThis.RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u"),
+                ).annotate({
                   expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
                 }),
               ),
@@ -1393,7 +1427,9 @@ export const TelemetryErrorReport = Schema.Struct({
                 }),
               )
               .check(
-                Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
+                Schema.isPattern(
+                  new globalThis.RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u"),
+                ).annotate({
                   expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
                 }),
               ),
@@ -1439,7 +1475,9 @@ export const TelemetryErrorReport = Schema.Struct({
                 }),
               )
               .check(
-                Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
+                Schema.isPattern(
+                  new globalThis.RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u"),
+                ).annotate({
                   expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
                 }),
               ),
@@ -1498,17 +1536,21 @@ export const TelemetryEventsRequest = Schema.Struct({
 // schemas
 export type MetaGet200 = TelemetryMetaResponse;
 export const MetaGet200 = TelemetryMetaResponse;
-export type MetaGet400 = DecodeErrorResponse;
-export const MetaGet400 = DecodeErrorResponse;
+export type MetaGet400 = BadRequestProblemEncoded;
+export const MetaGet400 = BadRequestProblemEncoded;
+export type MetaGet500 = InternalServerErrorProblemEncoded;
+export const MetaGet500 = InternalServerErrorProblemEncoded;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),
 });
-export type HealthGetShallowHealth400 = DecodeErrorResponse;
-export const HealthGetShallowHealth400 = DecodeErrorResponse;
-export type HealthGetDeepHealthParams = { readonly "x-health-key"?: string | null };
+export type HealthGetShallowHealth400 = BadRequestProblemEncoded;
+export const HealthGetShallowHealth400 = BadRequestProblemEncoded;
+export type HealthGetShallowHealth500 = InternalServerErrorProblemEncoded;
+export const HealthGetShallowHealth500 = InternalServerErrorProblemEncoded;
+export type HealthGetDeepHealthParams = { readonly "x-health-key"?: string };
 export const HealthGetDeepHealthParams = Schema.Struct({
-  "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  "x-health-key": Schema.optionalKey(Schema.String),
 });
 export type HealthGetDeepHealth200 = {
   readonly status: "pass" | "warn" | "fail";
@@ -1568,8 +1610,10 @@ export const HealthGetDeepHealth200 = Schema.Struct({
   ),
   output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
-export type HealthGetDeepHealth400 = DecodeErrorResponse;
-export const HealthGetDeepHealth400 = DecodeErrorResponse;
+export type HealthGetDeepHealth400 = BadRequestProblemEncoded;
+export const HealthGetDeepHealth400 = BadRequestProblemEncoded;
+export type HealthGetDeepHealth500 = InternalServerErrorProblemEncoded;
+export const HealthGetDeepHealth500 = InternalServerErrorProblemEncoded;
 export type HealthGetDeepHealth503 = {
   readonly status: "pass" | "warn" | "fail";
   readonly serviceId?: string | null;
@@ -1629,18 +1673,16 @@ export const HealthGetDeepHealth503 = Schema.Struct({
   output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type HealthGetObservabilityVerificationParams = {
-  readonly "x-health-key"?: string | null;
-  readonly level?: string | null;
-  readonly scenario?: "effect-handled-500" | "surface-unhandled-500" | null;
-  readonly scenarioId?: string | null;
+  readonly "x-health-key"?: string;
+  readonly level?: string;
+  readonly scenario?: "effect-handled-500" | "surface-unhandled-500";
+  readonly scenarioId?: string;
 };
 export const HealthGetObservabilityVerificationParams = Schema.Struct({
-  "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  level: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  scenario: Schema.optionalKey(
-    Schema.Union([Schema.Literals(["effect-handled-500", "surface-unhandled-500"]), Schema.Null]),
-  ),
-  scenarioId: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  "x-health-key": Schema.optionalKey(Schema.String),
+  level: Schema.optionalKey(Schema.String),
+  scenario: Schema.optionalKey(Schema.Literals(["effect-handled-500", "surface-unhandled-500"])),
+  scenarioId: Schema.optionalKey(Schema.String),
 });
 export type HealthGetObservabilityVerification200 = {
   readonly status: "ok" | "warn" | "error";
@@ -1715,24 +1757,30 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
     ),
   }),
 });
-export type HealthGetObservabilityVerification400 = DecodeErrorResponse;
-export const HealthGetObservabilityVerification400 = DecodeErrorResponse;
+export type HealthGetObservabilityVerification400 = BadRequestProblemEncoded;
+export const HealthGetObservabilityVerification400 = BadRequestProblemEncoded;
+export type HealthGetObservabilityVerification500 = InternalServerErrorProblemEncoded;
+export const HealthGetObservabilityVerification500 = InternalServerErrorProblemEncoded;
 export type EventsIngestRequestJson = TelemetryEventsRequest;
 export const EventsIngestRequestJson = TelemetryEventsRequest;
 export type EventsIngest200 = TelemetryEventsReceipt;
 export const EventsIngest200 = TelemetryEventsReceipt;
-export type EventsIngest400 = DecodeErrorResponse;
-export const EventsIngest400 = DecodeErrorResponse;
+export type EventsIngest400 = BadRequestProblemEncoded;
+export const EventsIngest400 = BadRequestProblemEncoded;
 export type EventsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
 export const EventsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
+export type EventsIngest500 = InternalServerErrorProblemEncoded;
+export const EventsIngest500 = InternalServerErrorProblemEncoded;
 export type ErrorsIngestRequestJson = TelemetryErrorReport;
 export const ErrorsIngestRequestJson = TelemetryErrorReport;
 export type ErrorsIngest200 = TelemetryErrorReceipt;
 export const ErrorsIngest200 = TelemetryErrorReceipt;
-export type ErrorsIngest400 = DecodeErrorResponse;
-export const ErrorsIngest400 = DecodeErrorResponse;
+export type ErrorsIngest400 = BadRequestProblemEncoded;
+export const ErrorsIngest400 = BadRequestProblemEncoded;
 export type ErrorsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
 export const ErrorsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
+export type ErrorsIngest500 = InternalServerErrorProblemEncoded;
+export const ErrorsIngest500 = InternalServerErrorProblemEncoded;
 
 export interface OperationConfig {
   /**
@@ -1760,13 +1808,16 @@ export type WithOptionalResponse<A, Config extends OperationConfig | undefined> 
     ? A
     : A | [A, HttpClientResponse.HttpClientResponse];
 
-export const make = (
-  httpClient: HttpClient.HttpClient,
+export const make = <E, R>(
+  httpClient: HttpClient.HttpClient.With<E, R>,
   options: {
     readonly transformClient?:
-      ((client: HttpClient.HttpClient) => Effect.Effect<HttpClient.HttpClient>) | undefined;
+      | ((
+          client: HttpClient.HttpClient.With<E, R>,
+        ) => Effect.Effect<HttpClient.HttpClient.With<E, R>>)
+      | undefined;
   } = {},
-): TelemetryClient => {
+): TelemetryClient<E, R> => {
   const unexpectedStatus = (response: HttpClientResponse.HttpClientResponse) =>
     Effect.flatMap(
       Effect.orElseSucceed(response.json, () => "Unexpected status code"),
@@ -1786,7 +1837,7 @@ export const make = (
     <Config extends OperationConfig>(config: Config | undefined) =>
     (
       f: (response: HttpClientResponse.HttpClientResponse) => Effect.Effect<any, any>,
-    ): ((request: HttpClientRequest.HttpClientRequest) => Effect.Effect<any, any>) => {
+    ): ((request: HttpClientRequest.HttpClientRequest) => Effect.Effect<any, any, R>) => {
       const withOptionalResponse = (
         config?.includeResponse
           ? (response: HttpClientResponse.HttpClientResponse) =>
@@ -1825,6 +1876,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(MetaGet200),
             "400": decodeError("MetaGet400", MetaGet400),
+            "500": decodeError("MetaGet500", MetaGet500),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1835,6 +1887,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetShallowHealth200),
             "400": decodeError("HealthGetShallowHealth400", HealthGetShallowHealth400),
+            "500": decodeError("HealthGetShallowHealth500", HealthGetShallowHealth500),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1848,6 +1901,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(HealthGetDeepHealth200),
             "400": decodeError("HealthGetDeepHealth400", HealthGetDeepHealth400),
+            "500": decodeError("HealthGetDeepHealth500", HealthGetDeepHealth500),
             "503": decodeError("HealthGetDeepHealth503", HealthGetDeepHealth503),
             "403": decodeVoidError("403"),
             orElse: unexpectedStatus,
@@ -1873,6 +1927,10 @@ export const make = (
               "HealthGetObservabilityVerification400",
               HealthGetObservabilityVerification400,
             ),
+            "500": decodeError(
+              "HealthGetObservabilityVerification500",
+              HealthGetObservabilityVerification500,
+            ),
             "403": decodeVoidError("403"),
             orElse: unexpectedStatus,
           }),
@@ -1886,6 +1944,7 @@ export const make = (
             "2xx": decodeSuccess(EventsIngest200),
             "400": decodeError("EventsIngest400", EventsIngest400),
             "413": decodeError("EventsIngest413", EventsIngest413),
+            "500": decodeError("EventsIngest500", EventsIngest500),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1898,6 +1957,7 @@ export const make = (
             "2xx": decodeSuccess(ErrorsIngest200),
             "400": decodeError("ErrorsIngest400", ErrorsIngest400),
             "413": decodeError("ErrorsIngest413", ErrorsIngest413),
+            "500": decodeError("ErrorsIngest500", ErrorsIngest500),
             orElse: unexpectedStatus,
           }),
         ),
@@ -1905,8 +1965,8 @@ export const make = (
   };
 };
 
-export interface TelemetryClient {
-  readonly httpClient: HttpClient.HttpClient;
+export interface TelemetryClient<E = HttpClientError.HttpClientError, R = never> {
+  readonly httpClient: HttpClient.HttpClient.With<E, R>;
   /**
    * Returns service metadata and the documentation entrypoints.
    */
@@ -1915,13 +1975,23 @@ export interface TelemetryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<MetaGet200, Config>,
-      HttpClientError.HttpClientError | SchemaError | TelemetryClientError<"MetaGet400", MetaGet400>
+      | E
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"MetaGet400", MetaGet400>
+      | TelemetryClientError<"MetaGet500", MetaGet500>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<MetaGet200, Config | undefined>,
-      HttpClientError.HttpClientError | SchemaError | TelemetryClientError<"MetaGet400", MetaGet400>
+      | E
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"MetaGet400", MetaGet400>
+      | TelemetryClientError<"MetaGet500", MetaGet500>,
+      R
     >;
   };
   /**
@@ -1932,17 +2002,23 @@ export interface TelemetryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<HealthGetShallowHealth200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"HealthGetShallowHealth400", HealthGetShallowHealth400>
+      | TelemetryClientError<"HealthGetShallowHealth500", HealthGetShallowHealth500>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<HealthGetShallowHealth200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"HealthGetShallowHealth400", HealthGetShallowHealth400>
+      | TelemetryClientError<"HealthGetShallowHealth500", HealthGetShallowHealth500>,
+      R
     >;
   };
   /**
@@ -1954,11 +2030,14 @@ export interface TelemetryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<HealthGetDeepHealth200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"HealthGetDeepHealth400", HealthGetDeepHealth400>
+      | TelemetryClientError<"HealthGetDeepHealth500", HealthGetDeepHealth500>
       | TelemetryClientError<"HealthGetDeepHealth503", HealthGetDeepHealth503>
-      | TelemetryClientError<"403", undefined>
+      | TelemetryClientError<"403", undefined>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options:
@@ -1969,11 +2048,14 @@ export interface TelemetryClient {
         | undefined,
     ): Effect.Effect<
       WithOptionalResponse<HealthGetDeepHealth200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"HealthGetDeepHealth400", HealthGetDeepHealth400>
+      | TelemetryClientError<"HealthGetDeepHealth500", HealthGetDeepHealth500>
       | TelemetryClientError<"HealthGetDeepHealth503", HealthGetDeepHealth503>
-      | TelemetryClientError<"403", undefined>
+      | TelemetryClientError<"403", undefined>,
+      R
     >;
   };
   /**
@@ -1985,13 +2067,19 @@ export interface TelemetryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<HealthGetObservabilityVerification200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<
           "HealthGetObservabilityVerification400",
           HealthGetObservabilityVerification400
         >
-      | TelemetryClientError<"403", undefined>
+      | TelemetryClientError<
+          "HealthGetObservabilityVerification500",
+          HealthGetObservabilityVerification500
+        >
+      | TelemetryClientError<"403", undefined>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(
       options:
@@ -2002,13 +2090,19 @@ export interface TelemetryClient {
         | undefined,
     ): Effect.Effect<
       WithOptionalResponse<HealthGetObservabilityVerification200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<
           "HealthGetObservabilityVerification400",
           HealthGetObservabilityVerification400
         >
-      | TelemetryClientError<"403", undefined>
+      | TelemetryClientError<
+          "HealthGetObservabilityVerification500",
+          HealthGetObservabilityVerification500
+        >
+      | TelemetryClientError<"403", undefined>,
+      R
     >;
   };
   /**
@@ -2020,20 +2114,26 @@ export interface TelemetryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<EventsIngest200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"EventsIngest400", EventsIngest400>
       | TelemetryClientError<"EventsIngest413", EventsIngest413>
+      | TelemetryClientError<"EventsIngest500", EventsIngest500>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof EventsIngestRequestJson.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
       WithOptionalResponse<EventsIngest200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"EventsIngest400", EventsIngest400>
       | TelemetryClientError<"EventsIngest413", EventsIngest413>
+      | TelemetryClientError<"EventsIngest500", EventsIngest500>,
+      R
     >;
   };
   /**
@@ -2068,20 +2168,26 @@ export interface TelemetryClient {
       readonly config: Config;
     }): Effect.Effect<
       WithOptionalResponse<ErrorsIngest200, Config>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"ErrorsIngest400", ErrorsIngest400>
       | TelemetryClientError<"ErrorsIngest413", ErrorsIngest413>
+      | TelemetryClientError<"ErrorsIngest500", ErrorsIngest500>,
+      R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof ErrorsIngestRequestJson.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
       WithOptionalResponse<ErrorsIngest200, Config | undefined>,
+      | E
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"ErrorsIngest400", ErrorsIngest400>
       | TelemetryClientError<"ErrorsIngest413", ErrorsIngest413>
+      | TelemetryClientError<"ErrorsIngest500", ErrorsIngest500>,
+      R
     >;
   };
 }

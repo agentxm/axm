@@ -51,9 +51,8 @@ describe("Local-only discovery", () => {
     const registry = makeRecordedRegistryPort(() => ({
       status: 503,
       body: {
-        kind: "ServiceUnavailableError",
-        type: "about:blank",
-        title: "Service unavailable",
+        type: "https://registry.agentxm.ai/v1/problems/service_unavailable",
+        title: "Service Unavailable",
         status: 503,
         code: "service_unavailable",
         detail: "Fixture Registry unavailable",

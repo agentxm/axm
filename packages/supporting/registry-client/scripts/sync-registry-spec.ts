@@ -1,3 +1,4 @@
+// @effect-diagnostics unstableApiUsage:off — this adapter owns the pinned native Digest API; the recorded SHA-256 verifies format stability.
 /**
  * Import the Registry OpenAPI contract from its endpoint or an exported file,
  * or check the recorded snapshot against the endpoint.
@@ -18,6 +19,7 @@ import * as Config from "effect/Config";
 import * as Console from "effect/Console";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Digest from "effect/crypto/Digest";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -86,13 +88,8 @@ const describeDocument = (document: unknown) =>
 const canonicalText = (document: unknown): string => `${JSON.stringify(document, undefined, 2)}\n`;
 
 const sha256Hex = (text: string) =>
-  Effect.tryPromise({
-    try: () => crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
-    catch: (cause) => new SpecImportFailed({ message: "Could not digest the document", cause }),
-  }).pipe(
-    Effect.map((digest) =>
-      Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""),
-    ),
+  Effect.flatMap(Digest.Digest, (digest) =>
+    digest.digestHex(Digest.sha256, new TextEncoder().encode(text)),
   );
 
 const parseDocument = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
@@ -172,5 +169,9 @@ const sync = Effect.gen(function* () {
 });
 
 NodeRuntime.runMain(
-  sync.pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer))),
+  sync.pipe(
+    Effect.provide(
+      Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, Digest.layerWebCrypto),
+    ),
+  ),
 );

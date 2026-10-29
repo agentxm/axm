@@ -582,7 +582,7 @@ describe("HTTP registry transport", () => {
         message: "Publish admission is temporarily unavailable.",
         responseStatus: 503,
         problemCode: "service_unavailable",
-        requestId: "req_preview_503",
+        requestId: "fc9c43e7-e99a-46ee-a55c-c0e8ef747c65",
       });
       expect(execution["failure"]).not.toHaveProperty("body");
 

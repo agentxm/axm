@@ -31,14 +31,16 @@ describe("mapRegistryFailure", () => {
         detail: "Maintenance is in progress.",
         status: 400,
         code: "maintenance",
-        requestId: "req_json",
       };
       const client = captureRegistryErrorResponseBodies(
         HttpClient.make((request) =>
           Effect.succeed(
             HttpClientResponse.fromWeb(
               request,
-              new Response(JSON.stringify(body), { status: 503 }),
+              new Response(JSON.stringify(body), {
+                status: 503,
+                headers: { "x-request-id": "fc9c43e7-e99a-46ee-a55c-c0e8ef747c62" },
+              }),
             ),
           ),
         ),
@@ -57,8 +59,8 @@ describe("mapRegistryFailure", () => {
       expect(error.category).toBe("unavailable");
       expect(error.detail).toBe("Maintenance is in progress.");
       expect(error.metadata?.response).toEqual({
+        requestId: "fc9c43e7-e99a-46ee-a55c-c0e8ef747c62",
         status: 503,
-        requestId: "req_json",
         problemCode: "maintenance",
         body,
       });

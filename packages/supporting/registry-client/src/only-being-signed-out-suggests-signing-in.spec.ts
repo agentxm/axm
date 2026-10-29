@@ -27,8 +27,7 @@ const FORBIDDEN_CODES = ForbiddenErrorEncoded.fields.code.literals;
 const forbidden = (code: string, details?: Readonly<Record<string, unknown>>) =>
   registryErrorToProblem(
     {
-      kind: "ForbiddenError",
-      type: "about:blank",
+      type: "https://registry.agentxm.ai/v1/problems/forbidden",
       title: "Forbidden",
       status: 403,
       detail: `The Registry refused this: ${code}.`,

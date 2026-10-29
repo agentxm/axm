@@ -45,9 +45,8 @@ describe("Publication lifecycle refusal evidence", () => {
             Effect.succeed(
               jsonRegistryResponse(
                 {
-                  kind: "LifecycleBlockedError",
-                  type: "https://agentxm.ai/problems/lifecycle-blocked",
-                  title: "Lifecycle action blocked",
+                  type: "https://registry.agentxm.ai/v1/problems/lifecycle_blocked",
+                  title: "Lifecycle Blocked",
                   status: 409,
                   detail: `The extension is ${reason} and cannot perform this action.`,
                   code: "lifecycle_blocked",

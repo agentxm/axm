@@ -4,7 +4,6 @@ export { JsonErrorEnvelopeSchema, makeJsonErrorEnvelopeFromAppError } from "./js
 export {
   JsonHelpDocSchema,
   JsonVersionDocSchema,
-  decodeFormatterDocument,
   toJsonHelpDoc,
   type JsonArgDoc,
   type JsonFlagDoc,

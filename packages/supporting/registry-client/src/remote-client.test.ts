@@ -170,9 +170,7 @@ const typedErrorResponse = (
 ) =>
   new Response(
     JSON.stringify({
-      kind: getErrorKind(status),
-      type: "about:blank",
-      title: "Error",
+      type: `https://registry.agentxm.ai/v1/problems/${getProblemType(status)}`,
       status,
       detail,
       code,
@@ -180,41 +178,44 @@ const typedErrorResponse = (
     }),
     {
       status,
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/problem+json",
+        "x-request-id": "fc9c43e7-e99a-46ee-a55c-c0e8ef747c62",
+      },
     },
   );
 
 /**
- * Map status code to error kind for typed error schemas.
+ * Map status codes to native problem identities in the public contract.
  */
-const getErrorKind = (status: number): string => {
+const getProblemType = (status: number): string => {
   switch (status) {
     case 400:
-      return "InvalidRequestError";
+      return "invalid_request";
     case 401:
-      return "UnauthorizedError";
+      return "unauthorized";
     case 403:
-      return "ForbiddenError";
+      return "forbidden";
     case 404:
-      return "NotFoundError";
+      return "not_found";
     case 409:
-      return "ConflictError";
+      return "conflict";
     case 413:
-      return "PayloadTooLargeError";
+      return "payload_too_large";
     case 415:
-      return "UnsupportedMediaTypeError";
+      return "unsupported_media_type";
     case 422:
-      return "UnprocessableEntityError";
+      return "unprocessable_entity";
     case 429:
-      return "TooManyRequestsError";
+      return "rate_limited";
     case 500:
-      return "InternalError";
+      return "internal_error";
     case 501:
-      return "NotImplementedError";
+      return "not_implemented";
     case 503:
-      return "ServiceUnavailableError";
+      return "service_unavailable";
     default:
-      return "InternalError";
+      return "internal_error";
   }
 };
 
@@ -484,9 +485,6 @@ describe("getExtensionIndex", () => {
               title: "Bad Request",
               status: 400,
               detail: "Invalid request",
-              code: "invalid_request",
-              requestId: "req_invalid",
-              errors: [{ pointer: "/owner", detail: "Expected a handle" }],
             }),
             { status: 400 },
           ),
@@ -1707,9 +1705,7 @@ describe("previewExtensionPublishes", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "PublishPreviewBatchTooLargeHttpError",
-              type: "about:blank",
-              title: "Payload Too Large",
+              type: "https://registry.agentxm.ai/v1/problems/publish_preflight_batch_too_large",
               status: 413,
               detail: "At most 100 candidates are allowed.",
               code: "publish_preflight_batch_too_large",
@@ -1737,9 +1733,7 @@ describe("previewExtensionPublishes", () => {
     [503, "service_unavailable", "Publish preview is temporarily unavailable.", "unavailable"],
   ] as const)("preserves a declared %s problem response", ([status, code, detail, expectedCode]) =>
     Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(() =>
-        typedErrorResponse(status, code, detail, { requestId: `req_${String(status)}` }),
-      );
+      const httpClient = makeMockHttpClient(() => typedErrorResponse(status, code, detail));
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(
@@ -1754,7 +1748,7 @@ describe("previewExtensionPublishes", () => {
       expect(error.metadata?.response).toMatchObject({
         status,
         problemCode: code,
-        requestId: `req_${String(status)}`,
+        requestId: "fc9c43e7-e99a-46ee-a55c-c0e8ef747c62",
         body: { detail, code },
       });
       expect(error.cause).toMatchObject({
@@ -2066,9 +2060,7 @@ describe("publishExtension", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "ForbiddenError",
-              type: "about:blank",
-              title: "Forbidden",
+              type: "https://registry.agentxm.ai/v1/problems/forbidden",
               status: 403,
               detail: "Insufficient permissions",
               code: "insufficient_scope",
@@ -2149,9 +2141,7 @@ describe("publishExtension", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "ForbiddenError",
-              type: "about:blank",
-              title: "Forbidden",
+              type: "https://registry.agentxm.ai/v1/problems/forbidden",
               status: 403,
               detail: "Storage quota exceeded",
               code: "publish_quota_exceeded",
@@ -2176,9 +2166,7 @@ describe("publishExtension", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "ConflictError",
-              type: "about:blank",
-              title: "Conflict",
+              type: "https://registry.agentxm.ai/v1/problems/conflict",
               status: 409,
               detail: "Version already exists",
               code: "publish_publish_conflict",
@@ -2226,9 +2214,7 @@ describe("publishExtension", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "PayloadTooLargeError",
-              type: "about:blank",
-              title: "Payload Too Large",
+              type: "https://registry.agentxm.ai/v1/problems/payload_too_large",
               status: 413,
               detail: "Archive too large",
               code: "publish_ingest_archive_too_large",
@@ -2250,9 +2236,7 @@ describe("publishExtension", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "UnsupportedMediaTypeError",
-              type: "about:blank",
-              title: "Unsupported Media Type",
+              type: "https://registry.agentxm.ai/v1/problems/unsupported_media_type",
               status: 415,
               detail: "Unsupported content type",
               code: "publish_ingest_unsupported_content_type",
@@ -2274,9 +2258,7 @@ describe("publishExtension", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "UnprocessableEntityError",
-              type: "about:blank",
-              title: "Unprocessable Entity",
+              type: "https://registry.agentxm.ai/v1/problems/unprocessable_entity",
               status: 422,
               detail: "Integrity mismatch",
               code: "publish_integrity_mismatch",
@@ -2298,9 +2280,7 @@ describe("publishExtension", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "TooManyRequestsError",
-              type: "about:blank",
-              title: "Too Many Requests",
+              type: "https://registry.agentxm.ai/v1/problems/rate_limited",
               status: 429,
               detail: "Rate limited",
               code: "rate_limited",
@@ -2327,9 +2307,7 @@ describe("publishExtension", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "ServiceUnavailableError",
-              type: "about:blank",
-              title: "Service Unavailable",
+              type: "https://registry.agentxm.ai/v1/problems/service_unavailable",
               status: 503,
               detail: "Service unavailable",
               code: "service_unavailable",
@@ -2362,9 +2340,7 @@ describe("publishExtension", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "InternalError",
-              type: "about:blank",
-              title: "Internal Server Error",
+              type: "https://registry.agentxm.ai/v1/problems/internal_error",
               status: 500,
               detail: "Something went wrong",
               code: "internal_error",

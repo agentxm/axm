@@ -8,7 +8,7 @@ import { createTempDir, runCli } from "./e2e/utils.js";
 const settingsPath = (root: string): string => path.join(root, "axm.json");
 
 describe("global directory flag", () => {
-  it("characterizes the first repeated directory option", async () => {
+  it("rejects repeated directory options before changing a workspace", async () => {
     const invoking = createTempDir("axm-directory-default-");
     const first = createTempDir("axm-directory-first-");
     const second = createTempDir("axm-directory-second-");
@@ -30,8 +30,10 @@ describe("global directory flag", () => {
         { cwd: invoking.path },
       );
 
-      expect(duplicate.exitCode, duplicate.stdout + duplicate.stderr).toBe(0);
-      expect(fs.existsSync(settingsPath(first.path))).toBe(true);
+      expect(duplicate.exitCode, duplicate.stdout + duplicate.stderr).toBe(2);
+      expect(duplicate.stderr).toContain("at most 1 value");
+      expect(fs.existsSync(settingsPath(invoking.path))).toBe(false);
+      expect(fs.existsSync(settingsPath(first.path))).toBe(false);
       expect(fs.existsSync(settingsPath(second.path))).toBe(false);
     } finally {
       invoking.cleanup();

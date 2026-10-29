@@ -76,7 +76,7 @@ const readOnlyRegistry = HttpClient.make((request) => {
           ownerRead
             ? { displayName: "Acme" }
             : {
-                type: "about:blank",
+                type: "https://registry.agentxm.ai/v1/problems/not_found",
                 title: "Not Found",
                 status: 404,
                 detail: "Extension not found",

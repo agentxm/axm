@@ -241,7 +241,11 @@ describe("registry-client failure conversion (golden pairs)", () => {
     };
     const cause = new Error("generated failure");
 
-    const producer = registryErrorToProblem(body, responseFor(503), { cause });
+    const producer = registryErrorToProblem(
+      body,
+      responseFor(503, { "x-request-id": "12345678-1234-4234-8234-123456789abc" }),
+      { cause },
+    );
     const error = toAppError(producer);
 
     expect(error.code).toBe("unavailable");
@@ -255,7 +259,7 @@ describe("registry-client failure conversion (golden pairs)", () => {
       },
       response: {
         status: 503,
-        requestId: "req_mismatch",
+        requestId: "12345678-1234-4234-8234-123456789abc",
         problemCode: "service_unavailable",
         body,
       },

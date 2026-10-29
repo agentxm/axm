@@ -447,8 +447,7 @@ export const jsonRegistryResponse = (body: unknown, status = 200): Response =>
 export const registryProblem = (code: string, status: number): Response =>
   jsonRegistryResponse(
     {
-      type: `https://agentxm.ai/problems/${code}`,
-      title: "Request rejected",
+      type: status === 500 ? "about:blank" : `https://registry.agentxm.ai/v1/problems/${code}`,
       status,
       detail: "Synthetic Registry rejection",
       code,

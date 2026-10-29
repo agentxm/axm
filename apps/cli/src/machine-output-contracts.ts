@@ -51,7 +51,14 @@ const helpFamily = {
   schemaNames: ["JsonHelpDocSchema"],
   requiredEnvelopeKeys: ["type", "description", "usage", "flags"],
   requiredTopLevelKeys: ["type", "description", "usage", "flags"],
-  optionalTopLevelKeys: ["globalFlags", "args", "subcommands", "examples", "learnMore"],
+  optionalTopLevelKeys: [
+    "globalFlags",
+    "inheritedFlags",
+    "args",
+    "subcommands",
+    "examples",
+    "learnMore",
+  ],
   rationale: "Effect CLI owns built-in help rendering before a command handler runs.",
 } satisfies MachineOutputFamily;
 

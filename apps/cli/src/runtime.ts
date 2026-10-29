@@ -16,14 +16,13 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/cli";
+import { CliConfig, Flag, GlobalFlag } from "effect/cli";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 
@@ -331,10 +330,7 @@ const versionGlobalFlag = GlobalFlag.Action({
     Flag.withDescription("Show version information"),
     Flag.withDefault(false),
   ),
-  run: Effect.fnUntraced(function* (_, context) {
-    const formatter = yield* CliOutput.Formatter;
-    yield* Console.log(formatter.formatVersion(context.command.name, context.version));
-  }),
+  run: GlobalFlag.Version.run,
 });
 
 export const cliConfigLayer = CliConfig.layer({ builtIns: [GlobalFlag.Help, versionGlobalFlag] });

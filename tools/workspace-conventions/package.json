@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/workspace-conventions",
-  "version": "0.50.2",
+  "version": "0.51.0",
   "description": "Engineering conventions for Nx and pnpm TypeScript workspaces: an ESLint flat-config preset that enforces capability boundaries and a staged commit gate for Git pre-commit hooks. Engineering support, not part of the runtime. Unstable and unsupported.",
   "type": "module",
   "license": "FSL-1.1-MIT",

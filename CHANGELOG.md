@@ -1,3 +1,18 @@
+## 0.51.0 (2026-10-30)
+
+### 🩹 Fixes
+
+- Isolate Git source acquisition from inherited repository variables so commands run from linked-worktree hooks cannot modify the caller repository. ([707bdf355](https://github.com/agentxm/axm/commit/707bdf355))
+
+### ⚠️ Breaking Changes
+
+- Export accepted resolutions as CycloneDX and require deliberate acknowledgement plus current Registry eligibility before external execution exposure. ([f495a78bb](https://github.com/agentxm/axm/commit/f495a78bb))
+- Adopt Effect 4.1 native CLI presentation, portable filesystem discovery, and RFC 9457 Registry responses. Regenerate Registry and Telemetry clients, use header-based request correlation, and remove superseded built-in output interception and error formats. Reject repeated single-value CLI options instead of silently choosing the first value. ([e0a575b63](https://github.com/agentxm/axm/commit/e0a575b63))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.50.2 (2026-10-26)
 
 ### 🚀 Features

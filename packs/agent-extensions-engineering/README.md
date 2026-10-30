@@ -22,8 +22,11 @@ release cohort.
 | -------------------------------------- | ------------------------------------------------- |
 | `@agentxm/packs/agent-engineering`     | `@agentxm/packs/agent-extensions-engineering`     |
 | `@agentxm/knowledge/agent-engineering` | `@agentxm/knowledge/agent-extensions-engineering` |
-| `@agentxm/skills/agent-skills`         | `@agentxm/skills/agent-extensions-engineering`    |
-| `@agentxm/skills/agent-instructions`   | `@agentxm/skills/agent-extensions-engineering`    |
+| `@agentxm/skills/agent-skills`         | `@agentxm/packs/agent-extensions-engineering`     |
+| `@agentxm/skills/agent-instructions`   | `@agentxm/packs/agent-extensions-engineering`     |
+
+Both old skills migrate to the pack so the routing skill and its required
+knowledge are installed together.
 
 The replacement deliberately narrows the scope to extensions. It does not
 replace broader agent runtime, planning, memory, or multi-agent engineering

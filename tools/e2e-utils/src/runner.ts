@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { execa } from "execa";
 
-import { withoutLocalGitEnvironment } from "@agentxm/host-primitives";
+import { withoutLocalGitEnvironment } from "./git-environment.js";
 import type { CliResult, RunCliOptions } from "./types.js";
 
 // E2E commands run concurrently and can exceed two minutes under load even

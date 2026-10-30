@@ -993,9 +993,6 @@ importers:
 
   tools/e2e-utils:
     dependencies:
-      '@agentxm/host-primitives':
-        specifier: workspace:*
-        version: link:../../packages/generic/host-primitives
       execa:
         specifier: 'catalog:'
         version: 10.1.1

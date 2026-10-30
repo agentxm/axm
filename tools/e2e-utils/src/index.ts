@@ -1,5 +1,5 @@
 export { copyFixture } from "./fixtures.js";
-export { withoutLocalGitEnvironment } from "@agentxm/host-primitives";
+export { withoutLocalGitEnvironment } from "./git-environment.js";
 export { createBinaryRunner, createCliRunner, runCommand } from "./runner.js";
 export { createTempDir } from "./temp-dir.js";
 export type {

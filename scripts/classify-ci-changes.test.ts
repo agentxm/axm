@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -64,6 +65,34 @@ const declaredGenerationPaths = (projectRoot: string): readonly string[] => {
 };
 
 describe("classifyCiChanges", () => {
+  it("classifies a cold checkout before workspace dependencies or outputs exist", () => {
+    const checkout = fs.mkdtempSync(path.join(os.tmpdir(), "axm-ci-bootstrap-"));
+    try {
+      for (const file of [
+        "scripts/classify-ci-changes.ts",
+        "scripts/release-identity.ts",
+        "scripts/release-command.ts",
+      ]) {
+        const destination = path.join(checkout, file);
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        fs.copyFileSync(path.join(repoRoot, file), destination);
+      }
+      const output = execFileSync(
+        "bun",
+        [
+          "--no-install",
+          "--eval",
+          'import { classifyCiChanges } from "./scripts/classify-ci-changes.ts"; console.log(JSON.stringify(classifyCiChanges(["contributing/guides/setup.md"])));',
+        ],
+        { cwd: checkout, encoding: "utf8" },
+      );
+      const result: unknown = JSON.parse(output);
+      expect(result).toMatchObject({ code: false, documentation: true });
+    } finally {
+      fs.rmSync(checkout, { recursive: true, force: true });
+    }
+  });
+
   it.each([
     [
       "pull_request",

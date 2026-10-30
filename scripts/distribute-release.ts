@@ -16,13 +16,8 @@ import * as Redacted from "effect/Redacted";
 import { validateReleaseCohort } from "./release-packages.js";
 import { requireFullSha, requireStableVersion } from "./release-identity.js";
 import { RELEASE_PACKAGES, RELEASE_REPO } from "./release-shared.js";
-import {
-  capture,
-  foreignGitEnvironment,
-  requireForeignGitRoot,
-  run,
-  runIn,
-} from "./release-command.js";
+import { capture, run, runIn } from "./release-command.js";
+import { foreignGitEnvironment, requireForeignGitRoot } from "./release-foreign-git.js";
 import {
   CHECKSUM_MANIFEST,
   EXPECTED_RELEASE_ASSETS,

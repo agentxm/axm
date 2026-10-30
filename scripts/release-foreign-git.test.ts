@@ -3,12 +3,8 @@ import { mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  captureIn,
-  foreignGitEnvironment,
-  requireForeignGitRoot,
-  runIn,
-} from "./release-command.js";
+import { captureIn, runIn } from "./release-command.js";
+import { foreignGitEnvironment, requireForeignGitRoot } from "./release-foreign-git.js";
 
 const directories: string[] = [];
 

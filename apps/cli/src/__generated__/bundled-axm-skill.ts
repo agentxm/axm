@@ -12,7 +12,7 @@ export const AXM_SKILL_CLI_VERSION = "0.51.0";
 export const AXM_SKILL_CLI_VERSION_RANGE = ">=0.51.0 <0.52.0";
 
 export const AXM_SKILL_JSON =
-  '{\n  "$schema": "https://axm.sh/schemas/skill.schema.json",\n  "owner": "@agentxm",\n  "type": "skill",\n  "name": "axm",\n  "version": "0.51.0",\n  "description": "Broad, bounded extension management for canonical packages, workspace state, agent projections, composition, installation, distribution, and lifecycle",\n  "keywords": [\n    "agent-extensions",\n    "skills",\n    "subagents",\n    "mcp",\n    "rules",\n    "hooks",\n    "knowledge",\n    "packs"\n  ],\n  "repository": {\n    "type": "git",\n    "url": "https://github.com/agentxm/axm",\n    "directory": "skills/axm"\n  },\n  "homepage": "https://axm.sh",\n  "license": "FSL-1.1-MIT",\n  "publish": {\n    "exclude": [\n      "/AGENTS.md"\n    ]\n  }\n}\n';
+  '{\n  "$schema": "https://axm.sh/schemas/skill.schema.json",\n  "owner": "@agentxm",\n  "type": "skill",\n  "name": "axm",\n  "version": "0.51.0",\n  "description": "Broad, bounded extension management for canonical packages, workspace state, agent projections, composition, installation, distribution, and lifecycle",\n  "keywords": [\n    "agent-extensions",\n    "skills",\n    "subagents",\n    "mcp",\n    "rules",\n    "hooks",\n    "knowledge",\n    "packs"\n  ],\n  "repository": {\n    "type": "git",\n    "url": "https://github.com/agentxm/axm",\n    "directory": "skills/axm"\n  },\n  "homepage": "https://axm.sh",\n  "license": "FSL-1.1-MIT",\n  "publish": {\n    "exclude": ["/AGENTS.md"]\n  }\n}\n';
 
 export const AXM_SKILL_SOURCE_FILES = [
   {

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@agentxm",
+  "type": "skill",
+  "name": "agent-extensions-engineering",
+  "version": "0.1.0",
+  "description": "Routes extension design, authoring, review, and maintenance requests to focused knowledge guidance",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm",
+    "directory": "skills/agent-extensions-engineering"
+  },
+  "keywords": ["agent-extensions", "engineering", "skills", "instructions", "knowledge", "packs"],
+  "recommendedPacks": ["@agentxm/packs/agent-extensions-engineering"],
+  "standalone": false
+}

@@ -14,17 +14,19 @@
     "devops-docs": "agentxm:@craigsmitham/skills/devops-docs",
     "okf": "agentxm:@craigsmitham/skills/okf",
     "research": "@craigsmitham/skills/research@>=3.0.1",
-    "testing": "workspace"
+    "testing": "workspace",
+    "agent-extensions-engineering": "workspace"
   },
   "knowledge": {
     "agentxm": "agentxm:@agentxm/knowledge/agentxm@1.4.0",
-    "product-engineering": "agentxm:@craigsmitham/knowledge/product-engineering"
+    "product-engineering": "agentxm:@craigsmitham/knowledge/product-engineering",
+    "agent-extensions-engineering": "workspace"
   },
   "packs": {
-    "agent-engineering": "agentxm:@agentxm/packs/agent-engineering",
     "docs": "agentxm:@craigsmitham/packs/docs",
     "work-management": "agentxm:@craigsmitham/packs/work-management",
-    "effect": "agentxm:@craigsmitham/packs/effect@^4.0.0"
+    "effect": "agentxm:@craigsmitham/packs/effect@^4.0.0",
+    "agent-extensions-engineering": "workspace"
   },
   "subagents": {
     "researcher": {

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://axm.sh/schemas/knowledge.schema.json",
+  "owner": "@agentxm",
+  "name": "agent-extensions-engineering",
+  "version": "0.1.0",
+  "type": "knowledge",
+  "format": {
+    "name": "okf",
+    "version": "0.2"
+  },
+  "bundleRoot": "src",
+  "description": "Design, author, review, and maintain agent extensions: skills, instructions, knowledge, agent definitions, hooks, MCP connections, and packs",
+  "license": "CC-BY-4.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm",
+    "directory": "knowledge/agent-extensions-engineering"
+  },
+  "keywords": ["agent-extensions", "engineering", "skills", "instructions", "knowledge", "packs"],
+  "recommendedPacks": ["@agentxm/packs/agent-extensions-engineering"],
+  "standalone": true
+}

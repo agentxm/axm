@@ -1,0 +1,19 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@agentxm",
+  "type": "pack",
+  "name": "agent-extensions-engineering",
+  "version": "0.1.0",
+  "description": "One routing skill and its knowledge bundle for engineering agent extensions",
+  "dependencies": {
+    "@agentxm/skills/agent-extensions-engineering": "0.1.0",
+    "@agentxm/knowledge/agent-extensions-engineering": "0.1.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm",
+    "directory": "packs/agent-extensions-engineering"
+  },
+  "keywords": ["agent-extensions", "engineering", "skills", "instructions", "knowledge", "packs"]
+}

@@ -77,7 +77,7 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 
 | Bundle | Description |
 | --- | --- |
-| [agent-engineering](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
+| [agent-extensions-engineering](knowledge/agent-extensions-engineering/src/index.md) | Design, author, review, and maintain agent extensions: skills, instructions, knowledge, agent definitions, hooks, MCP connections, and packs |
 | [agentxm](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm/src/index.md) | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing |
 
 ### @craigsmitham

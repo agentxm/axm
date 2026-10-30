@@ -1,3 +1,17 @@
+## 0.51.0 (2026-10-30)
+
+### 🩹 Fixes
+
+- Isolate Git source acquisition from inherited repository variables so commands run from linked-worktree hooks cannot modify the caller repository. ([707bdf355](https://github.com/agentxm/axm/commit/707bdf355))
+
+### ⚠️ Breaking Changes
+
+- Export accepted resolutions as CycloneDX and require deliberate acknowledgement plus current Registry eligibility before external execution exposure. ([f495a78bb](https://github.com/agentxm/axm/commit/f495a78bb))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.50.2 (2026-10-26)
 
 ### 🚀 Features

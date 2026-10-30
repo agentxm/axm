@@ -128,11 +128,16 @@ describe("Release preparation workflow", () => {
       const source = names.indexOf("Resolve and validate preparation source");
       const candidate = names.indexOf("Generate and validate exact candidate");
       const refresh = names.indexOf("Refresh installed workspace after versioning");
+      const format = names.indexOf("Format generated candidate");
       const commit = names.indexOf("Commit candidate");
       expect(source).toBeGreaterThan(-1);
       expect(candidate).toBeGreaterThan(source);
       expect(refresh).toBeGreaterThan(candidate);
-      expect(commit).toBeGreaterThan(refresh);
+      expect(format).toBeGreaterThan(refresh);
+      expect(commit).toBeGreaterThan(format);
+      expect(Reflect.get(namedStep(workflow.steps, "Format generated candidate"), "run")).toBe(
+        "pnpm run format",
+      );
       const serialized = JSON.stringify(workflow.steps);
       expect(serialized).not.toContain("secrets.");
       expect(serialized).not.toContain(["registry", "agentxm", "ai"].join("."));

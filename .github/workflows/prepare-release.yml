@@ -55,6 +55,9 @@ jobs:
       - name: Refresh installed workspace after versioning
         run: pnpm install --frozen-lockfile
 
+      - name: Format generated candidate
+        run: pnpm run format
+
       - name: Commit candidate
         id: candidate
         run: |

@@ -1421,12 +1421,16 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("disables declared MCP entries with the host flag or exact removal", () =>
+  it.effect.each([
+    { agent: "claude-code", configPath: ".mcp.json", supportsDisable: false },
+    { agent: "cursor", configPath: ".cursor/mcp.json", supportsDisable: false },
+    { agent: "codex", configPath: ".codex/config.toml", supportsDisable: true },
+  ])("disables declared MCP entries for $agent", ({ agent, configPath, supportsDisable }) =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = path.join(tempDir, ".axm");
       writeWorkspaceFiles(axmDir, {
-        agents: ["claude-code", "cursor", "codex"],
+        agents: [agent],
         mcps: {
           browser: {
             source: "workspace",
@@ -1443,17 +1447,12 @@ describe("root sync handler", () => {
 
       yield* provide(handleSync({ preview: false }));
 
-      expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toContain('"browser"');
-      expect(fs.readFileSync(path.join(tempDir, ".cursor", "mcp.json"), "utf8")).toContain(
-        '"browser"',
-      );
-      expect(fs.readFileSync(path.join(tempDir, ".codex", "config.toml"), "utf8")).toContain(
-        "browser",
-      );
+      const nativePath = path.join(tempDir, configPath);
+      expect(fs.readFileSync(nativePath, "utf8")).toContain("browser");
 
       rendererState.results.length = 0;
       writeWorkspaceFiles(axmDir, {
-        agents: ["claude-code", "cursor", "codex"],
+        agents: [agent],
         mcps: {
           browser: {
             source: "workspace",
@@ -1491,15 +1490,13 @@ describe("root sync handler", () => {
         },
       ]);
 
-      const claudeConfig = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
-      const cursorConfig = JSON.parse(
-        fs.readFileSync(path.join(tempDir, ".cursor", "mcp.json"), "utf8"),
-      );
-      const codexConfig = fs.readFileSync(path.join(tempDir, ".codex", "config.toml"), "utf8");
-      expect(claudeConfig.mcpServers).toEqual({});
-      expect(cursorConfig.mcpServers).toEqual({});
-      expect(codexConfig).toContain("browser");
-      expect(codexConfig).toContain("enabled = false");
+      const nativeConfig = fs.readFileSync(nativePath, "utf8");
+      if (supportsDisable) {
+        expect(nativeConfig).toContain("browser");
+        expect(nativeConfig).toContain("enabled = false");
+      } else {
+        expect(property(expectRecord(JSON.parse(nativeConfig)), "mcpServers")).toEqual({});
+      }
     }),
   );
 

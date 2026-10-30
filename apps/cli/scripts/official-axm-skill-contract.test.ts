@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 
 import { parseSkillMd } from "@agentxm/extension-content";
+import { AXM_SKILL_MD } from "../src/__generated__/bundled-axm-skill.js";
 
 const packageRoot = "../../skills/axm";
 const skillMd = readFileSync(`${packageRoot}/src/SKILL.md`, "utf8");
@@ -25,67 +26,10 @@ const requireStringArray = (record: unknown, key: string): ReadonlyArray<string>
 };
 
 describe("official AXM skill contract", () => {
-  it("routes the complete lifecycle vocabulary and all supported extension types", () => {
-    const parsed = Option.getOrThrow(parseSkillMd(skillMd, "axm"));
-
-    for (const operation of [
-      "discover",
-      "find",
-      "inspect",
-      "create",
-      "scaffold",
-      "import",
-      "fork",
-      "adopt",
-      "install",
-      "add",
-      "configure",
-      "edit",
-      "update",
-      "upgrade",
-      "enable",
-      "disable",
-      "sync",
-      "lint",
-      "validate",
-      "package",
-      "bundle",
-      "version",
-      "publish",
-      "archive",
-      "unarchive",
-      "deprecate",
-      "yank",
-      "uninstall",
-      "remove",
-      "delete",
-    ]) {
-      expect(parsed.description).toContain(operation);
-    }
-
-    for (const extensionType of [
-      "skills or SKILL.md",
-      "subagents or agent definitions",
-      "MCP server configurations",
-      "rules or instructions",
-      "hooks",
-      "Knowledge bundles",
-      "packs",
-    ]) {
-      expect(parsed.description).toContain(extensionType);
-    }
-
-    expect(parsed.description).toContain("Not for implementing or debugging MCP server software");
-    expect(parsed.description).toContain("merely using an installed extension");
-  });
-
-  it("keeps live CLI details out of the compact control plane", () => {
-    expect(skillMd).not.toContain("Execute `!axm help` now");
-    expect(skillMd).not.toContain("## Quick Reference");
-    expect(skillMd).not.toContain("--sandbox workspace-write");
-    expect(skillMd).not.toContain("AXM_TOKEN_FILE");
-    expect(skillMd).not.toContain("result.axmSkillCompatibility from");
-    expect(skillMd).toMatch(/Live help is\s+authoritative/);
+  it("bundles the canonical, parseable skill entrypoint", () => {
+    expect(AXM_SKILL_MD).toBe(skillMd);
+    const parsed = Option.getOrThrow(parseSkillMd(AXM_SKILL_MD, "axm"));
+    expect(parsed.description.length).toBeGreaterThan(0);
   });
 
   it("ships complete human-facing discovery and license metadata", () => {

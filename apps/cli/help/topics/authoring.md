@@ -1,4 +1,4 @@
-# Authoring metadata
+# Authoring extensions
 
 For repository, Registry archive, canonical-install, and agent-projection
 boundaries—including `publish.include` and `publish.exclude`—read `axm help publish`.
@@ -13,6 +13,27 @@ name that sibling by its extension identity and let the agent resolve it through
 its own discovery — never by file path. See `axm help packs` for pack
 composition. `recommendedPacks` is metadata only; it does not install the pack
 or its members.
+
+## Basic authoring
+
+1. Use the type's `new --help` to scaffold a package under its authored root,
+   or use the source-specific routes below for existing content.
+2. Read the type topic and schema, such as `axm help skills` and `axm help
+skill-schema`. Write content for the user's purpose, inputs, expected result,
+   and boundaries in the canonical package.
+3. Run `axm lint --json`, resolve relevant findings, and inspect `axm sync
+--preview --json` before materializing changes when needed. Exercise a
+   representative request in the intended host; structural validity does not
+   establish useful behavior.
+
+This core path works without another authoring extension. For more opinionated
+extension design, review, and patterns, use the optional, encouraged
+`@agentxm/packs/agent-extension-engineering` collection. Its single routing skill
+selects focused knowledge. Install it only when wanted; its absence does not
+block ordinary authoring.
+
+The writing examples below are recommendations unless a schema or an explicit
+AXM convention says otherwise.
 
 ## Creating from existing content
 
@@ -36,7 +57,7 @@ states:
   into a project-workspace package when it has a lossless package form. It
   starts disabled unless `--enable` is supplied.
 
-Package creation commands create target version `0.1.0` and start a fresh target disabled
+The fork and native-import commands above create target version `0.1.0` and start a fresh target disabled
 unless `--enable` is supplied. Disabled `fork`, `skills import`, and `subagents
 import` operations leave their source projections untouched. MCP package import is the
 explicit adoption case: after the managed package validates, it replaces the
@@ -129,11 +150,12 @@ can read it from the exact-version response; list and search results omit it.
 
 A `README.md` at the extension root is published as part of the package and is
 the long-form, human-facing companion to the one-line `description`. AXM ships
-it in the package but **excludes it from agent artifacts** — it is never copied
-into an agent-facing artifact, so it never becomes model context. Write it for
-a person deciding whether to install.
+it in the archive when publication selection includes it. A package-root README
+outside `src/` is not projected as skill instructions. Agents can still read it
+from the repository or retained package; projection exclusion does not prevent
+that reading. Write it for a person deciding whether to install.
 
-Cover, in order:
+A useful starting structure is:
 
 1. What the extension does and who it is for.
 2. When to use it — and when not to.
@@ -141,8 +163,7 @@ Cover, in order:
 4. A short usage example.
 
 Keep agent-facing instructions in `SKILL.md` (or the content file), not the
-README. The two do not overlap: the README sells the extension to a human; the
-content file instructs the model.
+README. Link shared facts instead of maintaining competing instructions in both.
 
 If you keep a version history, put it in `CHANGELOG.md`: AXM republishes the
 README with every version, so a change log inside it freezes at that version.
@@ -152,8 +173,8 @@ README with every version, so a change log inside it freezes at that version.
 An optional `CHANGELOG.md` at the extension root records what changed between
 published versions — one entry per version, newest first, naming the behavior,
 requirement, or authority changes a consumer must act on. It ships in the
-archive and, sitting outside `src/`, never becomes model context. AXM assigns
-it no special behavior.
+archive when selected for publication. Sitting outside `src/` keeps it out of
+the skill projection, but agents may still read it. AXM assigns it no special behavior.
 
 ## Where to go next
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@agentxm",
-  "name": "agent-extensions-engineering",
+  "name": "agent-extension-engineering",
   "version": "0.1.0",
   "type": "knowledge",
   "format": {
@@ -14,10 +14,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/agentxm/axm",
-    "directory": "knowledge/agent-extensions-engineering"
+    "directory": "knowledge/agent-extension-engineering"
   },
   "keywords": ["agent-extensions", "engineering", "skills", "instructions", "knowledge", "packs"],
-  "recommendedPacks": ["@agentxm/packs/agent-extensions-engineering"],
+  "recommendedPacks": ["@agentxm/packs/agent-extension-engineering"],
   "standalone": true,
   "publish": {
     "exclude": ["/AGENTS.md"]

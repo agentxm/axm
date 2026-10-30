@@ -27,10 +27,18 @@ for workspace setup and recovery.
 > Create a skill that audits API documentation, keep its source canonical under
 > AXM, and prepare the package for publication.
 
-AXM handles package and lifecycle state while the applicable skill-authoring
-workflow handles the audit skill's semantic content.
+AXM resolves package and lifecycle state, then routes basic authoring through
+CLI help. The optional `@agentxm/packs/agent-extension-engineering` collection
+adds deeper design and review guidance; ordinary use does not require it.
 
 ## License
 
 FSL-1.1-MIT. See the package [license](LICENSE) or the
 [canonical repository terms](https://github.com/agentxm/axm/blob/main/LICENSE).
+
+## Behavioral evidence
+
+[The 2026-10-30 baseline and candidate exercises](evals/2026-10-30/README.md)
+retain synthetic authoring artifacts, planning responses, consulted-source
+hashes, and limits. Evaluation records are repository-only and excluded from
+publication.

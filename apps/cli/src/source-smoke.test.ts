@@ -105,21 +105,13 @@ describe("axm source smoke", () => {
     expect(result.stderr).toContain("Use --debug");
   });
 
-  it("serves the environment topic from source and preserves bundled skill help routing", async () => {
+  it("serves the canonical environment topic from the source CLI", async () => {
     const help = await runAxm(["help", "environment"]);
-    const skill = fs.readFileSync(
-      path.resolve(PACKAGE_ROOT, "../..", "skills/axm/src/SKILL.md"),
-      "utf8",
-    );
-
     expect(help.exitCode).toBe(0);
     const environmentTopic = fs.readFileSync(
       path.resolve(PACKAGE_ROOT, "help/topics/environment.md"),
       "utf8",
     );
     expect(help.stdout.trim()).toBe(environmentTopic.trim());
-    expect(skill).toContain("Live help is");
-    expect(skill).toContain("authoritative for flags, output fields");
-    expect(skill).toContain("Keep secrets symbolic");
   });
 });

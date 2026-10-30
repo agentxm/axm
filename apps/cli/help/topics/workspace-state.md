@@ -529,3 +529,28 @@ than replacing the common outcome.
 - `axm help axm-lock-schema` — accepted-resolution lockfile schema
 - `axm sync --help` — reconciliation flags
 - `axm help packs` — pack reachability, constraints, and retention
+
+## Diagnose before repairing
+
+Use `axm lint --json` to identify ownership, compatibility, declaration, and
+projection findings. Select `--scope user` only for the user workspace. Inspect
+`axm list --json` for management and `axm sync --preview --fail-on-change --json`
+for convergence; a preview changes nothing. Use each finding's rule ID and
+suggested recovery instead of deleting files by guessed ownership.
+
+When currency is relevant, `axm list --outdated --json` and `axm list
+--deprecated --json` inspect configured sources. `axm upgrade --preview --json`
+checks the executable separately. These checks may need network access; skipped
+or unavailable checks do not establish currency.
+
+For a directly selected deprecated Registry extension, inspect its structured
+reason and replacement with `axm view <fqn> --json`. `axm migrate <fqn> --preview`
+plans replacement for a superseded selection or removal for an obsolete one.
+Apply `axm migrate <fqn>` only with authority for that change. A dependency
+selected by a pack must be changed through the owning pack. Unmaintained or
+other deprecations require a deliberate successor choice. Read `axm migrate
+--help` for the installed version's supported cases and flags.
+
+After an authorized repair, rerun the affected lint and convergence checks.
+Verify the actual result before reporting success; preserve failed prerequisites
+and avoid dependent removals until their replacements verify.

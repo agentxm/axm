@@ -15,18 +15,18 @@
     "okf": "agentxm:@craigsmitham/skills/okf",
     "research": "@craigsmitham/skills/research@>=3.0.1",
     "testing": "workspace",
-    "agent-extensions-engineering": "workspace"
+    "agent-extension-engineering": "workspace"
   },
   "knowledge": {
     "agentxm": "agentxm:@agentxm/knowledge/agentxm@1.4.0",
     "product-engineering": "agentxm:@craigsmitham/knowledge/product-engineering",
-    "agent-extensions-engineering": "workspace"
+    "agent-extension-engineering": "workspace"
   },
   "packs": {
     "docs": "agentxm:@craigsmitham/packs/docs",
     "work-management": "agentxm:@craigsmitham/packs/work-management",
     "effect": "agentxm:@craigsmitham/packs/effect@^4.0.0",
-    "agent-extensions-engineering": "workspace"
+    "agent-extension-engineering": "workspace"
   },
   "subagents": {
     "researcher": {

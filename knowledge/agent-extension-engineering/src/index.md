@@ -2,7 +2,7 @@
 okf_version: "0.2"
 ---
 
-# Agent extensions engineering
+# Agent extension engineering
 
 Guidance for designing, authoring, reviewing, and maintaining extensions to
 existing agents. Start with the use case below. Agent runtimes, planning loops,

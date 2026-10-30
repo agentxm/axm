@@ -96,18 +96,16 @@ extension identity and let the agent resolve it through its own discovery.
 
 ## Writing the `description` for model invocation
 
-The `SKILL.md` frontmatter `description` is the single biggest lever on whether
-a skill actually fires. When a skill is model-invocable, the agent matches this
-text against the current task to decide whether to load it. Write it for the
-model, not for a human catalog — this is a different job from the registry-facing
-manifest `description` (see `axm help authoring`).
+The `SKILL.md` frontmatter `description` helps a supporting host decide when
+to load the skill. Keep it distinct from the human-facing manifest description
+(see `axm help authoring`). AXM preserves this metadata; the host controls
+selection, so valid packaging does not guarantee activation.
 
-- **Write in the third person and lead with what it does**, then add a `Use
-when…` clause naming concrete triggers: the task verbs, file types, tools, or
-  keywords a matching request will contain.
-- **Include the literal terms** a user would actually type. The model matches on
-  overlap, so name the technology and the action.
-- **State when _not_ to use it** if the skill could over-fire on adjacent tasks.
+As a writing recommendation, state the capability and the situations where it
+is useful. Use concrete task vocabulary and add an adjacent exclusion where it
+prevents plausible confusion. Third-person wording and literal keyword overlap
+are not AXM requirements or a universal model-selection algorithm. Test realistic
+requests, paraphrases, and a nearby task that should use another workflow.
 
 ```yaml
 ---
@@ -116,8 +114,8 @@ description: Reviews TypeScript diffs for Effect idioms and common bugs. Use whe
 ---
 ```
 
-Weaker: `description: Helps with code.` — no triggers, so the model rarely
-knows when to load it.
+`description: Helps with code.` gives little information for distinguishing
+this skill from other coding workflows.
 
 Invocation behavior outside the standard frontmatter is agent-specific. Keep
 author-provided native configuration intact. AXM preserves these fields without
@@ -198,3 +196,7 @@ never by file path. See `axm help packs` for pack composition.
 - `axm help authoring` — writing the registry `description`, keywords, and README
 - `axm help packs` — bundling skill extensions with extension packs
 - `axm help workspace-state` — desired, accepted-resolution, and observed semantics
+
+For deeper authoring judgment and evaluation patterns, the optional
+`@agentxm/packs/agent-extension-engineering` collection supplies one routing
+skill and its knowledge bundle. Basic skill creation and use do not require it.

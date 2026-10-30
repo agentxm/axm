@@ -1,5 +1,5 @@
 ---
-name: agent-extensions-engineering
+name: agent-extension-engineering
 description: >-
   Routes requests to design, create, revise, review, audit, or remediate agent
   extensions to focused knowledge guidance: skills and SKILL.md, scoped
@@ -9,12 +9,12 @@ description: >-
   MCP servers, ordinary use of an installed extension, or package management alone.
 ---
 
-# Agent extensions engineering
+# Agent extension engineering
 
-Select guidance from `@agentxm/knowledge/agent-extensions-engineering`, the
-required sibling in `@agentxm/packs/agent-extensions-engineering`. Resolve it
+Select guidance from `@agentxm/knowledge/agent-extension-engineering`, the
+required sibling in `@agentxm/packs/agent-extension-engineering`. Resolve it
 through the active host or extension manager. With AXM, use
-`axm knowledge concepts get '@agentxm/knowledge/agent-extensions-engineering#<concept>'`.
+`axm knowledge concepts get '@agentxm/knowledge/agent-extension-engineering#<concept>'`.
 
 ## Select the use case
 

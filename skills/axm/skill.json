@@ -23,6 +23,6 @@
   "homepage": "https://axm.sh",
   "license": "FSL-1.1-MIT",
   "publish": {
-    "exclude": ["/AGENTS.md"]
+    "exclude": ["/AGENTS.md", "/evals/"]
   }
 }

@@ -4,7 +4,7 @@ title: "Authoring and revising skills"
 description: "Use when creating or changing a skill; define its routing and workflow contracts and check representative requests."
 tags: ["skills", "skill.md", "author", "revise", "routing", "progressive-disclosure"]
 status: draft
-generated: { by: "codex/gpt-6", at: "2026-10-30T20:56:27Z" }
+generated: { by: "codex/gpt-6", at: "2026-10-30T23:29:26Z" }
 ---
 
 # Authoring and revising skills
@@ -35,6 +35,24 @@ itself authorize performing the external actions that skill describes.
    through the host or manager, never by another extension's filesystem path.
 8. Add host-specific metadata only for supported hosts. Do not infer runtime
    support from a valid manifest or a generated projection.
+
+## Make activation a testable design choice
+
+These are engineering recommendations, not AXM validation rules or guarantees
+about every host. Choose vocabulary from realistic requests, keep the capability
+coherent, and add exclusions only for plausible adjacent tasks. A description can
+use third person, imperative wording, or another clear form; wording style alone
+does not establish activation quality.
+
+For example, a release-announcement editor can name revision of release notes and
+preservation of factual claims. "Use for every writing task" would also attract
+research and unrelated correspondence. Compare direct and paraphrased requests,
+then an adjacent negative such as researching an unreleased feature. Inspect the
+selected route and result; do not explain success as literal keyword matching.
+
+Keep basic use independent of optional companions. Where a skill truly requires
+knowledge, make the dependency explicit and package the complete composition.
+Host discovery and model behavior remain separate from structural conformance.
 
 ## Resources and changes
 

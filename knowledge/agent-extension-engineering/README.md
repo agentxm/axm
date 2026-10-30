@@ -1,10 +1,10 @@
-# Agent extensions engineering knowledge
+# Agent extension engineering knowledge
 
 Focused guidance for extension authors and reviewers. Browse [the knowledge index](src/index.md).
 
-Install the collection with `axm install @agentxm/packs/agent-extensions-engineering@0.1.0`.
+Install the collection with `axm install @agentxm/packs/agent-extension-engineering@0.1.0`.
 
-See the [pack migration and release notes](https://github.com/agentxm/axm/tree/main/packs/agent-extensions-engineering).
+See the [pack migration and release notes](https://github.com/agentxm/axm/tree/main/packs/agent-extension-engineering).
 
 The extension-focused guidance adapts concepts from the published
 `@agentxm/knowledge/agent-engineering@0.11.0` (AgentXM, CC-BY-4.0),

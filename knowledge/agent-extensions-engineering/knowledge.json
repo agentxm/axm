@@ -18,5 +18,8 @@
   },
   "keywords": ["agent-extensions", "engineering", "skills", "instructions", "knowledge", "packs"],
   "recommendedPacks": ["@agentxm/packs/agent-extensions-engineering"],
-  "standalone": true
+  "standalone": true,
+  "publish": {
+    "exclude": ["/AGENTS.md"]
+  }
 }

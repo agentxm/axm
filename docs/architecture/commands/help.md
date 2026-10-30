@@ -3,12 +3,17 @@ type: Architecture
 status: stable
 description: CLI help surfaces, resolution, authority, discoverability, and verification.
 depends-on:
+  - ../extension-enablement.md
   - ./overview.md
   - ./output.md
   - ../principles.md
 ---
 
 # CLI help and discoverability
+
+The [Agent extension enablement architecture](../extension-enablement.md) owns
+the boundary between CLI help, the AXM skill, the engineering collection, and
+website docs. This document specializes the CLI help surface.
 
 AXM help is one connected discovery surface with several forms. Root help
 orients a reader to the command families, command help describes an executable

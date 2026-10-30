@@ -1,5 +1,8 @@
 # CLI Help Topics
 
+Before changing help content, read the
+[Agent extension enablement architecture](../../../docs/architecture/extension-enablement.md).
+
 Files in `topics/` are bundled into `axm help <topic>`.
 
 Use this Markdown subset so interactive terminal rendering stays predictable:

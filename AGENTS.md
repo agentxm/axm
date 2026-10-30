@@ -63,6 +63,10 @@ Actions flow in the [release runbook](devops/runbooks/release-cli.md).
 
 ## Guidance
 
+Before changing the AXM skill, CLI help, agent-extensions-engineering packages,
+website docs, or their relationships, read
+[Agent extension enablement architecture](docs/architecture/extension-enablement.md).
+
 [Contributor guides](contributing/guides/README.md) own implementation
 procedures; [DevOps](devops/index.md) owns environments and operations.
 Shared product language belongs to the AgentXM Knowledge bundle below.

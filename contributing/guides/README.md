@@ -17,6 +17,9 @@ commands or executable sources.
 
 ## Engineering and operations
 
+- [Agent extension enablement architecture](../../docs/architecture/extension-enablement.md)
+  — responsibilities and boundaries for maintaining the AXM skill, CLI help,
+  engineering collection, website sources, and generated website reference
 - [DevOps documentation](../../devops/index.md) — environments, tools, provider
   relationships, release procedures, and automated review
 

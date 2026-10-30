@@ -14,6 +14,9 @@ Navigation for the accepted product and system architecture of AXM.
 
 ## Foundations
 
+- [Agent extension enablement architecture](extension-enablement.md) —
+  responsibilities, boundaries, and shared principles for the surfaces that
+  enable humans and agents to discover, use, and engineer agent extensions
 - [Overview](overview.md) — AXM's purpose, responsibilities, state model, and
   major system elements
 - [Package architecture](package-architecture.md) — package responsibilities

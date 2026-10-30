@@ -21,5 +21,8 @@
     "directory": "skills/axm"
   },
   "homepage": "https://axm.sh",
-  "license": "FSL-1.1-MIT"
+  "license": "FSL-1.1-MIT",
+  "publish": {
+    "exclude": ["/AGENTS.md"]
+  }
 }

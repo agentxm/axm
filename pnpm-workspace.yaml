@@ -19,11 +19,11 @@ pmOnFail: ignore
 catalog:
   "@effect/eslint-plugin": ^0.3.2
   "@effect/language-service": ^0.87.5
-  "@effect/openapi-generator": 4.1.0
-  "@effect/platform-node": 4.1.0
-  "@effect/platform-node-shared": 4.1.0
+  "@effect/openapi-generator": 4.1.1
+  "@effect/platform-node": 4.1.1
+  "@effect/platform-node-shared": 4.1.1
   "@effect/tsgo": ^0.53.3
-  "@effect/vitest": 4.1.0
+  "@effect/vitest": 4.1.1
   "@eslint/js": ^10.0.0
   "@nx/devkit": 24.0.1
   "@nx/eslint": 24.0.1
@@ -40,7 +40,7 @@ catalog:
   allure: ^3.21.0
   allure-js-commons: ^3.13.0
   allure-vitest: ^3.13.0
-  effect: 4.1.0
+  effect: 4.1.1
   eslint: ^10.13.0
   execa: ^10.1.1
   "@fast-check/vitest": ^0.5.0
@@ -76,12 +76,12 @@ allowBuilds:
 
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
-  # Exact cohort selected for the Effect 4.1 migration.
-  - "effect@4.1.0"
-  - "@effect/openapi-generator@4.1.0"
-  - "@effect/platform-node@4.1.0"
-  - "@effect/platform-node-shared@4.1.0"
-  - "@effect/vitest@4.1.0"
+  # Exact cohort selected for the Effect 4.1.1 update.
+  - "effect@4.1.1"
+  - "@effect/openapi-generator@4.1.1"
+  - "@effect/platform-node@4.1.1"
+  - "@effect/platform-node-shared@4.1.1"
+  - "@effect/vitest@4.1.1"
   # Reviewed exact-version exceptions for the selected dependency refresh.
   - "@effect/tsgo@0.53.3"
   - "@effect/tsgo-darwin-arm64@0.53.3"

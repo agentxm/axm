@@ -2400,56 +2400,69 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect(
-    "previews and re-renders a managed subagent after its authoritative source changes",
-    () =>
-      Effect.gen(function* () {
-        const first = makeLayers({ machine: true });
-        writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-          agents: ["claude-code"],
-          subagents: { researcher: "workspace" },
-        });
-        writeSubagentExtension(tempDir, "researcher");
-        yield* first.provide(handleSync({ preview: false }));
+  it.effect("previews an updated managed subagent without replacing native edits", () =>
+    Effect.gen(function* () {
+      const first = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        subagents: { researcher: "workspace" },
+      });
+      writeSubagentExtension(tempDir, "researcher");
+      yield* first.provide(handleSync({ preview: false }));
 
-        const sourcePath = path.join(tempDir, "subagents", "researcher", "src", "researcher.md");
-        const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
-        // A hand edit is not drift; it is flagged once a rewrite is planned.
-        fs.writeFileSync(projectionPath, "# Edited by hand\n");
-        fs.writeFileSync(sourcePath, "# Updated researcher body\n");
+      const sourcePath = path.join(tempDir, "subagents", "researcher", "src", "researcher.md");
+      const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
+      // A hand edit is not drift; it is flagged once a rewrite is planned.
+      fs.writeFileSync(projectionPath, "# Edited by hand\n");
+      fs.writeFileSync(sourcePath, "# Updated researcher body\n");
 
-        const preview = makeLayers({ machine: true });
-        yield* preview.provide(handleSync({ preview: true }));
-        expectPreviewedPlanResult(preview.rendererState.results[0]?.data, {
-          planName: "Sync workspace",
-          totalSteps: 1,
-        });
-        expect(JSON.stringify(preview.rendererState.results[0]?.data)).toContain(
-          JSON.stringify({
-            path: ".claude/agents/researcher.md",
-            change: "updated",
-            lastWrite: "modified",
-          }),
-        );
-        expect(fs.readFileSync(projectionPath, "utf8")).toBe("# Edited by hand\n");
+      const preview = makeLayers({ machine: true });
+      yield* preview.provide(handleSync({ preview: true }));
+      expectPreviewedPlanResult(preview.rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 1,
+      });
+      expect(JSON.stringify(preview.rendererState.results[0]?.data)).toContain(
+        JSON.stringify({
+          path: ".claude/agents/researcher.md",
+          change: "updated",
+          lastWrite: "modified",
+        }),
+      );
+      expect(fs.readFileSync(projectionPath, "utf8")).toBe("# Edited by hand\n");
+    }),
+  );
 
-        const apply = makeLayers({ machine: true });
-        yield* apply.provide(handleSync({ preview: false }));
-        expect(fs.readFileSync(projectionPath, "utf8")).toContain("Updated researcher body");
-        expect(JSON.stringify(apply.rendererState)).toContain(
-          "Replaced .claude/agents/researcher.md, which was modified since AXM last wrote it",
-        );
+  it.effect("re-renders an updated managed subagent and converges", () =>
+    Effect.gen(function* () {
+      const first = makeLayers({ machine: true });
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+        agents: ["claude-code"],
+        subagents: { researcher: "workspace" },
+      });
+      writeSubagentExtension(tempDir, "researcher");
+      yield* first.provide(handleSync({ preview: false }));
 
-        const converged = makeLayers({ machine: true });
-        yield* converged.provide(handleSync({ preview: true }));
-        const result = expectNoOpPlanResult(converged.rendererState.results[0]?.data, {
-          planName: "Sync workspace",
-          message: "Workspace materialization is up to date",
-        });
-        expect(result).toMatchObject({ mode: "preview" });
-      }),
-    // Four independent sync invocations measured 23 seconds in the CI profile.
-    40_000,
+      const sourcePath = path.join(tempDir, "subagents", "researcher", "src", "researcher.md");
+      const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
+      fs.writeFileSync(projectionPath, "# Edited by hand\n");
+      fs.writeFileSync(sourcePath, "# Updated researcher body\n");
+
+      const apply = makeLayers({ machine: true });
+      yield* apply.provide(handleSync({ preview: false }));
+      expect(fs.readFileSync(projectionPath, "utf8")).toContain("Updated researcher body");
+      expect(JSON.stringify(apply.rendererState)).toContain(
+        "Replaced .claude/agents/researcher.md, which was modified since AXM last wrote it",
+      );
+
+      const converged = makeLayers({ machine: true });
+      yield* converged.provide(handleSync({ preview: true }));
+      const result = expectNoOpPlanResult(converged.rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        message: "Workspace materialization is up to date",
+      });
+      expect(result).toMatchObject({ mode: "preview" });
+    }),
   );
 
   it.effect("preserves foreign native modes for unsupported subagent targets", () =>

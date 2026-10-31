@@ -18,8 +18,9 @@ export const withReleaseFileSnapshots = <A, E, R>(
         fs.readFileString(path).pipe(Effect.map((original) => ({ path, original }))),
       ),
       use,
+      // Attempt every restore and retain all typed write failures.
       (snapshots) =>
-        Effect.forEach(snapshots, ({ path, original }) => fs.writeFileString(path, original), {
+        Effect.validate(snapshots, ({ path, original }) => fs.writeFileString(path, original), {
           discard: true,
         }),
     );

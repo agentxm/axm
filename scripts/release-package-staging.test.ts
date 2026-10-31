@@ -5,9 +5,44 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as PlatformError from "effect/PlatformError";
 import { withReleaseFileSnapshots } from "./release-package-staging.js";
 
 describe("preview package source restoration", () => {
+  it.effect("restores later files and reports an earlier restoration failure", () =>
+    Effect.gen(function* () {
+      const files = ["package.json", "skill.md"] as const;
+      const contents = new Map<string, string>(files.map((file) => [file, `original:${file}`]));
+      const attempted: string[] = [];
+      const denied = PlatformError.systemError({
+        _tag: "PermissionDenied",
+        module: "FileSystem",
+        method: "writeFileString",
+        pathOrDescriptor: files[0],
+      });
+      const fs = FileSystem.makeNoop({
+        readFileString: (file) => Effect.sync(() => contents.get(file) ?? ""),
+        writeFileString: (file, content) =>
+          Effect.suspend(() => {
+            if (content === `original:${file}`) {
+              attempted.push(file);
+              if (file === files[0]) return Effect.fail(denied);
+            }
+            return Effect.sync(() => {
+              contents.set(file, content);
+            });
+          }),
+      });
+      const failure = yield* withReleaseFileSnapshots(files, (snapshots) =>
+        Effect.forEach(snapshots, ({ path }) => fs.writeFileString(path, "preview")),
+      ).pipe(Effect.provideService(FileSystem.FileSystem, fs), Effect.flip);
+      expect(attempted).toEqual(files);
+      expect(contents.get(files[0])).toBe("preview");
+      expect(contents.get(files[1])).toBe(`original:${files[1]}`);
+      expect(failure).toEqual([denied]);
+    }),
+  );
+
   for (const outcome of ["success", "failure", "interruption"] as const) {
     it.effect(`restores every authored file after ${outcome}`, () =>
       Effect.gen(function* () {

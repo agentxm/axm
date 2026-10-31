@@ -49,7 +49,6 @@ it.effect("does not treat failed cache configuration as absent release-age evide
               baseDir: "/workspace",
               settings: { ...createDefaultSettings(), minimumReleaseAge: "24h" },
             }),
-            ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
             Layer.provide(
               RegistryTransportTest(
                 Layer.succeed(
@@ -61,7 +60,11 @@ it.effect("does not treat failed cache configuration as absent release-age evide
                   ),
                 ),
               ),
-              Layer.mergeAll(Path.layer, FileSystem.layerNoop({})),
+              Layer.mergeAll(
+                Path.layer,
+                FileSystem.layerNoop({}),
+                ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
+              ),
             ),
           ),
         ),

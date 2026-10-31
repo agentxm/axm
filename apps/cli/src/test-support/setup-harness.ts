@@ -129,8 +129,11 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
     Layer.succeed(AgentExecutableResolver, {
       exists: () => Effect.succeed(false),
     }),
-    ConfigProvider.layer(
-      ConfigProvider.fromEnv({ env: { ...environmentWithHome(home), ...options.environment } }),
+  ).pipe(
+    Layer.provideMerge(
+      ConfigProvider.layer(
+        ConfigProvider.fromEnv({ env: { ...environmentWithHome(home), ...options.environment } }),
+      ),
     ),
   );
 

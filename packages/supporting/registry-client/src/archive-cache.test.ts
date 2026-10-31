@@ -145,7 +145,7 @@ describe("ArchiveCache", () => {
     ),
   );
 
-  it.effect("lets a waiting caller retry when the leading borrower is interrupted", () =>
+  it.effect("keeps a shared acquisition running when its first caller is interrupted", () =>
     withCache((cacheRoot) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -154,23 +154,103 @@ describe("ArchiveCache", () => {
         const archive = new Uint8Array([8, 7, 6]);
         const integrity = yield* computeIntegrity(archive);
         const started = yield* Deferred.make<void>();
-        const leader = yield* cache
-          .load(
-            "selection",
-            integrity,
-            Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
-          )
-          .pipe(Effect.forkChild);
+        const release = yield* Deferred.make<void>();
+        const fetches = yield* Ref.make(0);
+        const interrupted = yield* Ref.make(false);
+        const fetch = Ref.update(fetches, (count) => count + 1).pipe(
+          Effect.andThen(Deferred.succeed(started, undefined)),
+          Effect.andThen(Deferred.await(release)),
+          Effect.as(archive),
+          Effect.onInterrupt(() => Ref.set(interrupted, true)),
+        );
+        const first = yield* cache
+          .load("selection", integrity, fetch)
+          .pipe(Effect.forkChild({ startImmediately: true }));
         yield* Deferred.await(started);
-        const waiter = yield* cache
-          .load("selection", integrity, Effect.succeed(archive))
-          .pipe(Effect.forkChild);
-        yield* Effect.yieldNow;
-        yield* Fiber.interrupt(leader);
-        expect(Array.from(yield* Fiber.join(waiter))).toEqual([8, 7, 6]);
+        const second = yield* cache
+          .load("selection", integrity, fetch)
+          .pipe(Effect.forkChild({ startImmediately: true }));
+        yield* Fiber.interrupt(first);
+        expect(yield* Ref.get(interrupted)).toBe(false);
+        expect(yield* Ref.get(fetches)).toBe(1);
+        yield* Deferred.succeed(release, undefined);
+        expect(Array.from(yield* Fiber.join(second))).toEqual([8, 7, 6]);
         expect(
           Array.from(yield* cache.load("selection", integrity, Effect.die("cache miss"))),
         ).toEqual([8, 7, 6]);
+      }),
+    ),
+  );
+
+  it.effect("abandons a lookup after its last caller leaves and admits work during cleanup", () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
+        const archive = new Uint8Array([8, 7, 6]);
+        const integrity = yield* computeIntegrity(archive);
+        const started = yield* Deferred.make<void>();
+        const finalizing = yield* Deferred.make<void>();
+        const finishFinalizer = yield* Deferred.make<void>();
+        const fetch = Deferred.succeed(started, undefined).pipe(
+          Effect.andThen(Effect.never),
+          Effect.onInterrupt(() =>
+            Deferred.succeed(finalizing, undefined).pipe(
+              Effect.andThen(Deferred.await(finishFinalizer)),
+            ),
+          ),
+        );
+        const first = yield* cache.load("selection", integrity, fetch).pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        const interrupted = yield* Fiber.interrupt(first).pipe(
+          Effect.forkChild({ startImmediately: true }),
+        );
+        yield* Deferred.await(finalizing);
+        yield* Effect.gen(function* () {
+          expect(
+            Array.from(yield* cache.load("selection", integrity, Effect.succeed(archive))),
+          ).toEqual([8, 7, 6]);
+        }).pipe(Effect.ensuring(Deferred.succeed(finishFinalizer, undefined)));
+        yield* Fiber.join(interrupted);
+        expect(
+          Array.from(yield* cache.load("selection", integrity, Effect.die("cache miss"))),
+        ).toEqual([8, 7, 6]);
+      }),
+    ),
+  );
+
+  it.effect("keeps distinct selection authority separate even when archive integrity matches", () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
+        const archive = new Uint8Array([8, 7, 6]);
+        const integrity = yield* computeIntegrity(archive);
+        yield* cache.write(integrity, archive);
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const first = yield* cache
+          .load(
+            "allowed-selection",
+            integrity,
+            Effect.die("cache miss"),
+            Deferred.succeed(started, undefined).pipe(Effect.andThen(Deferred.await(release))),
+          )
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        const denied = new RegistryOperationFailed({
+          category: "forbidden",
+          detail: "access denied",
+        });
+        expect(
+          yield* cache
+            .load("denied-selection", integrity, Effect.die("cache miss"), Effect.fail(denied))
+            .pipe(Effect.flip),
+        ).toBe(denied);
+        yield* Deferred.succeed(release, undefined);
+        expect(yield* Fiber.join(first)).toEqual(archive);
       }),
     ),
   );

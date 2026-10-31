@@ -3,10 +3,16 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as Cause from "effect/Cause";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
+import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
+import * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import { afterEach, beforeEach } from "vitest";
+import { runWorkspaceTransaction } from "../../settlement/index.js";
+import { WorkspaceTransactionScopeTest } from "../../settlement/testing.js";
 import { createSymlink } from "./create-symlink.js";
 
 const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
@@ -60,6 +66,90 @@ describe("createSymlink", () => {
         expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
       }),
     ),
+  );
+
+  it.effect.each(["parent creation", "link creation"] as const)(
+    "restores the preimage when interrupted after native %s",
+    (phase) =>
+      withNodeContext(
+        Effect.gen(function* () {
+          const target = path.join(tmpDir, "target");
+          const workspaceDir = path.join(tmpDir, ".axm");
+          const parent = path.join(tmpDir, "links");
+          const link = path.join(parent, "link");
+          fs.mkdirSync(target);
+          fs.mkdirSync(workspaceDir);
+          fs.writeFileSync(path.join(target, "content.txt"), "retained source\n");
+          const before = fs.readdirSync(tmpDir, { recursive: true }).sort();
+          const published = yield* Deferred.make<void>();
+          const release = yield* Deferred.make<void>();
+          const holdCompletion = Deferred.succeed(published, undefined).pipe(
+            Effect.andThen(Deferred.await(release)),
+          );
+          const fileSystem = yield* FileSystem.FileSystem;
+          const controlled: FileSystem.FileSystem = {
+            ...fileSystem,
+            makeDirectory: (directory, options) =>
+              fileSystem
+                .makeDirectory(directory, options)
+                .pipe(
+                  Effect.andThen(
+                    phase === "parent creation" && directory === parent
+                      ? holdCompletion
+                      : Effect.void,
+                  ),
+                ),
+            symlink: (from, to) =>
+              fileSystem
+                .symlink(from, to)
+                .pipe(
+                  Effect.andThen(
+                    phase === "link creation" && to === link ? holdCompletion : Effect.void,
+                  ),
+                ),
+          };
+
+          yield* Effect.gen(function* () {
+            const transaction = yield* runWorkspaceTransaction({
+              claimDefaultTargets: false,
+              targets: [parent],
+              transition: createSymlink({ target, link }),
+              validate: () => Effect.void,
+            }).pipe(
+              Effect.provide(
+                WorkspaceTransactionScopeTest({
+                  workspaceDir,
+                  settingsPath: path.join(tmpDir, "axm.json"),
+                  lockPath: path.join(tmpDir, "axm.lock"),
+                }),
+              ),
+              Effect.provideService(FileSystem.FileSystem, controlled),
+              Effect.forkChild,
+            );
+            yield* Deferred.await(published);
+            expect(fs.statSync(parent).isDirectory()).toBe(true);
+            if (phase === "link creation") {
+              expect(fs.readlinkSync(link)).toBe(path.relative(parent, target));
+            } else {
+              expect(fs.existsSync(link)).toBe(false);
+            }
+            const interrupt = yield* Fiber.interrupt(transaction).pipe(
+              Effect.forkChild({ startImmediately: true }),
+            );
+            yield* Deferred.succeed(release, undefined);
+            yield* Fiber.join(interrupt);
+            const exit = yield* Fiber.await(transaction);
+            expect(Exit.isFailure(exit)).toBe(true);
+            if (Exit.isFailure(exit)) {
+              expect(Cause.hasInterruptsOnly(exit.cause), JSON.stringify(exit.cause)).toBe(true);
+            }
+            expect(fs.readdirSync(tmpDir, { recursive: true }).sort()).toEqual(before);
+            expect(fs.readFileSync(path.join(target, "content.txt"), "utf8")).toBe(
+              "retained source\n",
+            );
+          }).pipe(Effect.ensuring(Deferred.succeed(release, undefined)));
+        }).pipe(Effect.scoped),
+      ),
   );
 
   it.effect("returns no-op when existing symlink points to correct target", () =>

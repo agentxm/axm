@@ -49,42 +49,45 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     const existingResult = yield* inspectExisting(fs, p, opts.link, resolvedTarget);
     if (existingResult === "no-op") return "no-op" as const;
     yield* protectWorkspacePath(opts.link);
-
-    // If something exists that needs replacing, remove it
-    if (existingResult === "replace") {
-      yield* fs
-        .remove(opts.link, { recursive: true })
-        .pipe(
-          Effect.mapError(
-            (cause) =>
-              new SymlinkCreationError({ path: opts.link, step: "remove-existing", cause }),
-          ),
-        );
-    }
-
-    // Create parent directories
     const linkParent = p.dirname(opts.link);
     yield* protectCreatedAncestors(fs, p, linkParent);
-    yield* fs
-      .makeDirectory(linkParent, { recursive: true })
-      .pipe(
-        Effect.mapError(
-          (cause) => new SymlinkCreationError({ path: linkParent, step: "mkdir-parent", cause }),
-        ),
-      );
 
-    // Create the symlink
-    yield* fs
-      .symlink(relTarget, opts.link)
-      .pipe(
-        Effect.mapError(
-          (cause) => new SymlinkCreationError({ path: opts.link, step: "symlink", cause }),
-        ),
-      );
-    yield* recordFootprint({
-      path: opts.link,
-      change: existingResult === "replace" ? "modified" : "created",
-    });
+    // Native mutations can finish after interruption. Record their postimage
+    // before allowing interruption to start rollback.
+    yield* Effect.uninterruptible(
+      Effect.gen(function* () {
+        if (existingResult === "replace") {
+          yield* fs
+            .remove(opts.link, { recursive: true })
+            .pipe(
+              Effect.mapError(
+                (cause) =>
+                  new SymlinkCreationError({ path: opts.link, step: "remove-existing", cause }),
+              ),
+            );
+        }
+
+        yield* fs
+          .makeDirectory(linkParent, { recursive: true })
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new SymlinkCreationError({ path: linkParent, step: "mkdir-parent", cause }),
+            ),
+          );
+        yield* fs
+          .symlink(relTarget, opts.link)
+          .pipe(
+            Effect.mapError(
+              (cause) => new SymlinkCreationError({ path: opts.link, step: "symlink", cause }),
+            ),
+          );
+        yield* recordFootprint({
+          path: opts.link,
+          change: existingResult === "replace" ? "modified" : "created",
+        });
+      }),
+    );
 
     return existingResult === "replace" ? ("replaced" as const) : ("created" as const);
   });
@@ -92,8 +95,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
 /**
  * Inspect what exists at the link path.
  *
- * Uses readLink to detect symlinks (since Effect's FileSystem.stat always
- * follows symlinks — there is no lstat equivalent). Falls back to stat
+ * Uses readLink to retain the target text of symlinks. Falls back to stat
  * for non-symlink entries.
  */
 const inspectExisting = (

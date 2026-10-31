@@ -8,6 +8,7 @@ import type { HelpTopicName } from "../../__generated__/help-topics.js";
  * when a description outlives the topic it described.
  */
 export const HELP_TOPIC_DESCRIPTIONS = {
+  glossary: "Shared meanings for agent extensions, their types, and AXM and AgentXM",
   "getting-started": "Set up AXM in a new workspace and install your first extension",
   "basic-usage": "Everyday commands for installing, updating, and removing extensions",
   diagnostics: "Review and export retained local failure diagnostics",

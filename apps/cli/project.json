@@ -14,7 +14,9 @@
         "{projectRoot}/help/topics/*.md",
         "{workspaceRoot}/skills/axm/skill.json",
         "{workspaceRoot}/skills/axm/src/**/*",
-        { "dependentTasksOutputFiles": "**/diagnostic-sources.ts" }
+        {
+          "dependentTasksOutputFiles": "**/diagnostic-sources.ts"
+        }
       ],
       "outputs": ["{projectRoot}/dist/src"],
       "options": {
@@ -43,11 +45,21 @@
     },
     "lint": {
       "dependsOn": ["generate", "build:diagnostic-sources"],
-      "inputs": ["...", { "dependentTasksOutputFiles": "**/diagnostic-sources.ts" }]
+      "inputs": [
+        "...",
+        {
+          "dependentTasksOutputFiles": "**/diagnostic-sources.ts"
+        }
+      ]
     },
     "test": {
       "dependsOn": ["...", "build:diagnostic-sources"],
-      "inputs": ["...", { "dependentTasksOutputFiles": "**/diagnostic-sources.ts" }]
+      "inputs": [
+        "...",
+        {
+          "dependentTasksOutputFiles": "**/diagnostic-sources.ts"
+        }
+      ]
     },
     "test:screen": {
       "executor": "nx:run-commands",
@@ -63,7 +75,12 @@
     },
     "typecheck": {
       "dependsOn": ["...", "build:diagnostic-sources"],
-      "inputs": ["...", { "dependentTasksOutputFiles": "**/diagnostic-sources.ts" }]
+      "inputs": [
+        "...",
+        {
+          "dependentTasksOutputFiles": "**/diagnostic-sources.ts"
+        }
+      ]
     },
     "generate": {
       "executor": "nx:noop",
@@ -171,7 +188,12 @@
     },
     "generate:help-topics": {
       "cache": true,
-      "dependsOn": ["generate:type-enumerations", "generate:schemas", "^build"],
+      "dependsOn": [
+        "generate:glossary",
+        "generate:type-enumerations",
+        "generate:schemas",
+        "^build"
+      ],
       "inputs": [
         "{projectRoot}/help/topics/*.md",
         "{projectRoot}/scripts/generate-help-topics.ts",
@@ -202,6 +224,9 @@
             "vitest",
             "yaml"
           ]
+        },
+        {
+          "dependentTasksOutputFiles": "**/help/topics/glossary.md"
         }
       ],
       "outputs": ["{projectRoot}/src/__generated__/help-topics.ts"],
@@ -213,7 +238,7 @@
     },
     "generate:bundled-axm-skill": {
       "cache": true,
-      "dependsOn": ["^build"],
+      "dependsOn": ["generate:glossary", "^build"],
       "inputs": [
         "{projectRoot}/scripts/bundled-axm-skill-contract.ts",
         "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
@@ -241,6 +266,9 @@
             "vitest",
             "yaml"
           ]
+        },
+        {
+          "dependentTasksOutputFiles": "**/references/glossary.md"
         }
       ],
       "outputs": ["{projectRoot}/src/__generated__/bundled-axm-skill.ts"],
@@ -553,6 +581,29 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "bun scripts/generate-diagnostic-sources.ts",
+        "cwd": "apps/cli"
+      }
+    },
+    "generate:glossary": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "inputs": [
+        "{workspaceRoot}/knowledge/agent-extension-engineering/src/glossary.md",
+        "{workspaceRoot}/knowledge/agent-extension-engineering/knowledge.json",
+        "{projectRoot}/scripts/glossary.ts",
+        "{projectRoot}/scripts/generate-glossary.ts",
+        "toolchain",
+        {
+          "externalDependencies": ["effect", "@effect/platform-node", "yaml"]
+        }
+      ],
+      "outputs": [
+        "{projectRoot}/help/topics/glossary.md",
+        "{workspaceRoot}/skills/axm/src/references/glossary.md",
+        "{projectRoot}/site-content/__generated__/agent-extension-glossary.md"
+      ],
+      "options": {
+        "command": "bun scripts/generate-glossary.ts",
         "cwd": "apps/cli"
       }
     }

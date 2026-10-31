@@ -29,7 +29,7 @@ describe("release content", () => {
 
     produceReleaseContent(source, output);
 
-    expect(validateReleaseContentAssets(output)).toEqual({ contentCount: 17 });
+    expect(validateReleaseContentAssets(output)).toEqual({ contentCount: 18 });
     for (const name of EXPECTED_CONTENT_ASSETS) {
       expect(readFileSync(join(output, name), "utf8")).toBe(`content:${name}`);
     }

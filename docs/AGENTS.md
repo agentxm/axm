@@ -90,8 +90,9 @@ Four departures from `author-okf`, in force for this bundle:
   responsibilities and non-responsibilities, and the relationships among its
   siblings.
 - **`glossary.md` defines local language.** Keep it to terms AXM itself owns; for
-  shared product language, link the public AgentXM Knowledge bundle instead of
-  redefining it.
+  shared extension terminology, link the engineering bundle’s
+  [glossary](../knowledge/agent-extension-engineering/src/glossary.md). Deeper
+  platform explanations remain in the public AgentXM Knowledge bundle.
 
 ## Before Working Here
 

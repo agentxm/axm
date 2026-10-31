@@ -247,6 +247,12 @@ describe("repository task interface", () => {
     const cli = projects.find((project) => project.name === "cli");
     const help = cli?.data.targets?.["generate:help-topics"];
     expect(help?.dependsOn).toContain("generate:schemas");
+    expect(help?.dependsOn).toContain("generate:glossary");
+    const skill = cli?.data.targets?.["generate:bundled-axm-skill"];
+    expect(skill?.dependsOn).toContain("generate:glossary");
+    expect(skill?.inputs).toContainEqual({
+      dependentTasksOutputFiles: "**/references/glossary.md",
+    });
     expect(help?.dependsOn).toContain("generate:type-enumerations");
     expect(help?.inputs).toContainEqual({ dependentTasksOutputFiles: "**/*.schema.json" });
     expect(help?.inputs).toContainEqual({

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "prune",
+  "version": "0.0.2",
+  "description": "Prune a codebase or a specified part by removing unnecessary elements and their associated maintenance burden.",
+  "keywords": [
+    "pruning",
+    "software contraction",
+    "maintenance",
+    "dead code",
+    "removal",
+    "simplification"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/prune"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "standalone": true,
+  "recommendedPacks": [
+    "@craigsmitham/packs/codebase-renewal"
+  ]
+}

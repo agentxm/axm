@@ -42,9 +42,9 @@ describe("release checksums", () => {
     expect(lines).toHaveLength(5);
     expect(lines.map((line) => line.slice(66))).toEqual([...EXPECTED_BINARY_ASSETS].sort());
     expect(validateReleaseAssets(directory)).toEqual({
-      assetCount: 23,
+      assetCount: 24,
       binaryCount: 5,
-      contentCount: 17,
+      contentCount: 18,
     });
   });
 

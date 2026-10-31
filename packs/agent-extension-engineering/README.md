@@ -5,13 +5,13 @@ and maintaining extensions to existing agents. This optional, encouraged pack
 adds engineering judgment; basic AXM use and authoring work without it.
 
 ```sh
-axm install @agentxm/packs/agent-extension-engineering@0.1.0
+axm install @agentxm/packs/agent-extension-engineering@0.2.0
 ```
 
 | Member                                           | Version | Responsibility                               |
 | ------------------------------------------------ | ------- | -------------------------------------------- |
-| `@agentxm/skills/agent-extension-engineering`    | `0.1.0` | Select focused knowledge for the use case    |
-| `@agentxm/knowledge/agent-extension-engineering` | `0.1.0` | Own substantive extension craft and patterns |
+| `@agentxm/skills/agent-extension-engineering`    | `0.2.0` | Select focused knowledge for the use case    |
+| `@agentxm/knowledge/agent-extension-engineering` | `0.2.0` | Own substantive extension craft and patterns |
 
 The AXM skill owns package management and workspace operations and is bundled
 with the CLI. It is not a member of this pack. This collection's versions are
@@ -36,6 +36,13 @@ Prefer installing the replacement pack as a unit: the routing skill requires
 its knowledge sibling. Inspect desired settings, accepted versions, canonical
 packages, and projections afterward; verify the new concept routes. Do not
 hand-delete manager-owned files or lock rows.
+
+## Candidate 0.2.0
+
+Adds the shared glossary and its routing entry. Definitions are seeded from the
+existing public vocabulary and await terminology review. CLI help, the AXM skill,
+and both websites receive generated snapshots; installing this pack remains
+optional. This candidate has not been published.
 
 ## Release 0.1.0
 

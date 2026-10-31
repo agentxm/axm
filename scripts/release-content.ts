@@ -12,6 +12,7 @@ export const RELEASE_CONTENT_SOURCES = {
   "install.ps1": "apps/cli/site-content/install.ps1",
   "install.cmd": "apps/cli/site-content/install.cmd",
   "install.md": "apps/cli/site-content/install.md",
+  "agent-extension-glossary.md": "apps/cli/site-content/__generated__/agent-extension-glossary.md",
   "agent-catalog.json": "apps/cli/site-content/__generated__/agent-catalog/agent-catalog.json",
   "cli-reference.json": "apps/cli/site-content/__generated__/cli-reference/cli-reference.json",
   "agent-extensions.schema.json":

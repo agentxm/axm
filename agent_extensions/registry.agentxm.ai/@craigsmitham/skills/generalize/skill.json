@@ -1,0 +1,25 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "generalize",
+  "version": "0.0.2",
+  "description": "Generalize a codebase or a specified part to support a broader, coherent family of cases.",
+  "keywords": [
+    "generalization",
+    "reuse",
+    "software design",
+    "abstraction"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/generalize"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "standalone": true,
+  "recommendedPacks": [
+    "@craigsmitham/packs/codebase-renewal"
+  ]
+}

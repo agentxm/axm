@@ -8,6 +8,10 @@ Guidance for designing, authoring, reviewing, and maintaining extensions to
 existing agents. Start with the use case below. Agent runtimes, planning loops,
 and MCP server implementation are outside this bundle.
 
+## Shared vocabulary
+
+- [Agent Extension Glossary](glossary.md) — Shared definitions for agent extensions, their types, distribution, and the AXM and AgentXM product surfaces.
+
 ## Choose and compose
 
 - [Choosing extension boundaries](choosing-extensions.md) — Use when deciding how to extend an agent; choose the smallest extension types that own the required behavior.

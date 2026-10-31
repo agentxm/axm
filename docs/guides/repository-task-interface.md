@@ -377,6 +377,11 @@ change the result, and their outputs have one owner. Git-history checks,
 benchmarks, release mutations, artifact/download operations, external install
 verification, and projection observations run fresh.
 
+`cli:generate:glossary` owns the glossary copies in CLI topics, the AXM skill,
+and release site content. Help-topic and skill bundling depend on it and hash
+its generated outputs. Its inputs include the canonical concept and knowledge
+manifest, so terminology or source-version changes invalidate all consumers.
+
 The help-topic generator declares prerequisite schemas and generated Markdown
 through `dependentTasksOutputFiles`, so Nx hashes their contents after their
 producers finish.

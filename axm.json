@@ -26,7 +26,8 @@
     "docs": "agentxm:@craigsmitham/packs/docs",
     "work-management": "agentxm:@craigsmitham/packs/work-management",
     "effect": "agentxm:@craigsmitham/packs/effect@^4.0.0",
-    "agent-extension-engineering": "workspace"
+    "agent-extension-engineering": "workspace",
+    "codebase-renewal": "agentxm:@craigsmitham/packs/codebase-renewal@0.0.1"
   },
   "subagents": {
     "researcher": {

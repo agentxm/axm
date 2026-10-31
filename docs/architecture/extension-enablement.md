@@ -38,6 +38,25 @@ engineering knowledge, and agents can use the website before installing AXM.
    successful use and basic authoring without the engineering pack. The pack
    adds stronger authoring judgment, and the website makes both accessible.
 
+## Shared vocabulary
+
+The [Agent Extension Glossary](../../knowledge/agent-extension-engineering/src/glossary.md)
+in `@agentxm/knowledge/agent-extension-engineering` owns shared term definitions.
+Its reference authority is distinct from the collection’s opinionated engineering
+guidance. The AgentXM Knowledge bundle owns deeper product explanations and naming
+conventions; schemas and external standards retain their own contract authority.
+
+`cli:generate:glossary` derives one portable Markdown snapshot for CLI help, the
+AXM skill’s local reference, and the released website asset. Help and skill
+bundling depend on that step. Copies retain source identity, version, digest, and
+attribution; both websites consume the released asset. Core use is offline and
+does not require installing the engineering pack. Each CLI release and its
+bundled skill share a snapshot; engineering releases remain independently versioned.
+
+Change definitions once, regenerate derivatives, and review affected surrounding
+prose and discovery routes. Generated-output checks establish synchronization;
+consumer checks establish availability. Neither alone proves correct term use.
+
 ## Application
 
 Use this contract when changing any of the four surfaces or their discovery,

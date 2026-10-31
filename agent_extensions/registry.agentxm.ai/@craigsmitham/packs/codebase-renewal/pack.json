@@ -1,0 +1,31 @@
+{
+  "$schema": "https://axm.sh/schemas/pack.schema.json",
+  "owner": "@craigsmitham",
+  "version": "0.0.1",
+  "description": "Five standalone skills for codebase renewal: align with guidance, prune unnecessary elements, improve quality, generalize capabilities, and experiment to reduce uncertainty.",
+  "keywords": [
+    "codebase renewal",
+    "software maintenance",
+    "alignment",
+    "pruning",
+    "improvement",
+    "generalization",
+    "experimentation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "packs/codebase-renewal"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "type": "pack",
+  "name": "codebase-renewal",
+  "dependencies": {
+    "@craigsmitham/skills/align": ">=0.0.2",
+    "@craigsmitham/skills/prune": ">=0.0.2",
+    "@craigsmitham/skills/improve": ">=0.0.2",
+    "@craigsmitham/skills/generalize": ">=0.0.2",
+    "@craigsmitham/skills/experiment": ">=0.0.2"
+  }
+}

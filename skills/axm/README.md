@@ -36,6 +36,10 @@ adds deeper design and review guidance; ordinary use does not require it.
 FSL-1.1-MIT. See the package [license](LICENSE) or the
 [canonical repository terms](https://github.com/agentxm/axm/blob/main/LICENSE).
 
+The local `references/glossary.md` is a generated snapshot of the engineering
+knowledge glossary, available without that pack. `axm help glossary` carries the
+same definitions. The glossary retains its CC-BY-4.0 attribution.
+
 ## Behavioral evidence
 
 [The 2026-10-30 baseline and candidate exercises](evals/2026-10-30/README.md)

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://axm.sh/schemas/skill.schema.json",
+  "owner": "@craigsmitham",
+  "type": "skill",
+  "name": "improve",
+  "version": "0.0.2",
+  "description": "Improve a codebase or a specified part with evidence-backed gains in fitness for its intended purpose.",
+  "keywords": [
+    "improvement",
+    "software quality",
+    "perfective maintenance",
+    "maintainability",
+    "fitness for purpose"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craigsmitham/agent-extensions",
+    "directory": "skills/improve"
+  },
+  "homepage": "https://github.com/craigsmitham/agent-extensions",
+  "license": "MIT",
+  "standalone": true,
+  "recommendedPacks": [
+    "@craigsmitham/packs/codebase-renewal"
+  ]
+}

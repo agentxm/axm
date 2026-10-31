@@ -13,6 +13,9 @@ AXM manages skills, MCP servers, subagents, rules, hook extensions, knowledge bu
 - Package and publish your extensions to the AgentXM.ai registry
 - Discover and distribute agent extensions for your platform package ecosystems, including JavaScript, Python, Rust, Java, .NET, Ruby, Go, and more
 
+For shared definitions of extensions, their types, and the AXM and AgentXM
+product surfaces, use `axm help glossary`.
+
 ## How to use AXM
 
 The best way to use AXM is just to ask your agent to do it:

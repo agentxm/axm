@@ -28,6 +28,11 @@ metadata:
 Use AXM to discover and manage agent extensions. Keep package and workspace
 operations separate from the semantic work the extension performs.
 
+Use the shared meanings in [Agent Extension Glossary](references/glossary.md)
+when interpreting or explaining extension concepts. Consult the relevant entries
+when terminology affects classification or action. The same glossary is available
+offline through `axm help glossary`; the engineering pack is not required.
+
 ## Choose the task
 
 - For explanation or capability discovery, use `axm help` and the narrowest

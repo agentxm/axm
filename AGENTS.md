@@ -69,7 +69,10 @@ website docs, or their relationships, read
 
 [Contributor guides](contributing/guides/README.md) own implementation
 procedures; [DevOps](devops/index.md) owns environments and operations.
-Shared product language belongs to the AgentXM Knowledge bundle below.
+Shared extension terminology belongs to the
+[Agent Extension Glossary](knowledge/agent-extension-engineering/src/glossary.md).
+The AgentXM Knowledge bundle below owns deeper platform explanations and naming
+conventions. Change definitions at their canonical owner, then regenerate consumers.
 
 <!-- prettier-ignore-start -->
 <!-- axm:knowledge -->

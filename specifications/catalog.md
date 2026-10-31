@@ -6262,6 +6262,19 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `apps/cli/help/README.md`, `apps/cli/src/root/help/command.test.ts`
 - Source: [`apps/cli-e2e/src/help/schema-topics-return-json.spec.ts`](../apps/cli-e2e/src/help/schema-topics-return-json.spec.ts)
 
+##### Core consumers carry the shared extension glossary
+
+- Requirement: `cli/help/shared-extension-glossary`
+- Owner: `cli`
+- Statement: CLI glossary help, the bundled AXM skill reference, and the released website glossary shall preserve the canonical engineering knowledge concept's complete definitions and source identity, version, attribution, and digest; reading CLI help shall require neither a workspace nor installation of the engineering pack.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `trustworthy-distribution`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Compares shipped generated artifacts with canonical source and invokes the real help handler using only its presentation port.
+- Methods: contract
+- Source: [`apps/cli/src/shared-glossary.spec.ts`](../apps/cli/src/shared-glossary.spec.ts)
+
 ##### Machine topic help identifies text and structured JSON schemas
 
 - Requirement: `cli/help/topics-identify-content-kind`
@@ -8022,7 +8035,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `system/process/release-cohort-includes-site-content`
 - Owner: `axm`
-- Statement: Each stable release shall publish the four installer documents, the generated agent catalog and CLI reference, and eleven generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.
+- Statement: Each stable release shall publish the four installer documents, the generated agent catalog, CLI reference, and shared glossary, and eleven generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`

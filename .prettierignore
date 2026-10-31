@@ -27,3 +27,8 @@ benchmarks/evidence/**/*.json
 # Contract snapshots preserve the canonical bytes written by their import targets.
 packages/supporting/registry-client/specs/registry-openapi.json
 apps/cli/specs/telemetry-openapi.json
+
+# Exact generated glossary snapshots; format their canonical knowledge source.
+apps/cli/help/topics/glossary.md
+skills/axm/src/references/glossary.md
+apps/cli/site-content/__generated__/agent-extension-glossary.md

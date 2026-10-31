@@ -3,11 +3,11 @@
   "owner": "@agentxm",
   "type": "pack",
   "name": "agent-extension-engineering",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "One routing skill and its knowledge bundle for engineering agent extensions",
   "dependencies": {
-    "@agentxm/skills/agent-extension-engineering": "0.1.0",
-    "@agentxm/knowledge/agent-extension-engineering": "0.1.0"
+    "@agentxm/skills/agent-extension-engineering": "0.2.0",
+    "@agentxm/knowledge/agent-extension-engineering": "0.2.0"
   },
   "license": "MIT",
   "repository": {

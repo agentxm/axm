@@ -20,6 +20,7 @@ through the active host or extension manager. With AXM, use
 
 | User intent                                                 | Concept                                              |
 | ----------------------------------------------------------- | ---------------------------------------------------- |
+| Define or distinguish shared terms                          | `glossary`                                           |
 | Choose an extension type or divide responsibilities         | `choosing-extensions`                                |
 | Create or revise a skill                                    | `authoring-skills`                                   |
 | Create or improve instructions or rules                     | `authoring-instructions`                             |
@@ -31,6 +32,8 @@ through the active host or extension manager. With AXM, use
 | Check routing, behavior, portability, or improvement claims | `verification`                                       |
 | Assess execution, provenance, credentials, or side effects  | `trust-and-authority`                                |
 | Publish, replace, deprecate, or retire extensions           | `lifecycle`                                          |
+
+Use `glossary` when shared terminology affects interpretation or a design decision.
 
 Read only the selected concepts and the additional guidance their application
 requires. For mixed requests, select the relevant routes together. Resolve

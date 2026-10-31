@@ -210,7 +210,7 @@ export const makeWorkspaceWorld = <P>(
       }).pipe(Layer.provide(WorkspaceBoundaryClaimsTest(directories.boundaryClaimsDirectory))),
     ),
     ConfigProvider.layer(options.configureConfigProvider?.(isolatedConfig) ?? isolatedConfig),
-  );
+  ).pipe(Layer.provideMerge(CanonicalNativePathLive));
   const projection = Layer.provideMerge(WorkspaceCatalogLive, base);
   return { ...directories, transport, projection };
 };
@@ -227,9 +227,7 @@ export const withLiveSources = <P>(
       RegistryResolutionPolicyLive,
     ),
   );
-  return Layer.provideMerge(sourceProviders, projection).pipe(
-    Layer.provideMerge(CanonicalNativePathLive),
-  );
+  return Layer.provideMerge(sourceProviders, projection);
 };
 
 /**

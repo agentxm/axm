@@ -25,7 +25,6 @@ import {
   readNpmPublication,
   verifyNpmDownload,
   releaseCohortTarballPath,
-  releaseBoundaryError,
   ReleaseBoundaryFailed,
   requireInitializedNpmPackages,
   reconcileNpmStableTag,
@@ -778,15 +777,13 @@ describe("distribution ordering and recovery", () => {
         const boundaries = (["artifacts", "distribution", "npm", "tap"] as const).map((name) => ({
           name,
           publish: () =>
-            Effect.tryPromise({
-              try: async () => {
-                if (name === failed && failure) throw new Error("publisher failed");
-                if (!completed.has(name)) {
-                  writes.push(name);
-                  completed.add(name);
-                }
-              },
-              catch: releaseBoundaryError,
+            Effect.gen(function* () {
+              if (name === failed && failure)
+                return yield* new ReleaseBoundaryFailed({ cause: new Error("publisher failed") });
+              if (!completed.has(name)) {
+                writes.push(name);
+                completed.add(name);
+              }
             }),
         }));
         const firstFailure = yield* Effect.flip(
@@ -927,6 +924,20 @@ describe("npm download readiness", () => {
       );
       expect(failure.message).toContain("integrity conflict");
       expect(fetcher).toHaveBeenCalledTimes(conflict === "metadata" ? 1 : 2);
+    }),
+  );
+
+  it.effect("retries a native HTTP transport failure", () =>
+    Effect.gen(function* () {
+      let downloads = 0;
+      yield* advance(
+        withFetch(verifyNpmDownload(input, boundedObservation()), async (url) => {
+          if (String(url) !== tarball) return metadata();
+          if (++downloads === 1) throw new TypeError("connection reset");
+          return new Response(bytes);
+        }),
+      );
+      expect(downloads).toBe(2);
     }),
   );
 

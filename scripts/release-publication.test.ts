@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from "@effect/vitest";
+import { describe, expect, expectTypeOf, it, vi } from "@effect/vitest";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as Deferred from "effect/Deferred";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import {
@@ -647,7 +648,41 @@ describe("bounded publication observation", () => {
   });
 });
 
+class PublicationPermission extends Context.Service<
+  PublicationPermission,
+  { readonly allowed: boolean }
+>()("axm/scripts/release-publication.test/PublicationPermission") {}
+
 describe("distribution ordering and recovery", () => {
+  it.effect("retains a publisher's typed failure and service requirement", () =>
+    Effect.gen(function* () {
+      const failure = new PublicationHttpError("publisher refused", 403);
+      const records: PublicationStates[] = [];
+      const program = distributeRelease(
+        Effect.void,
+        [
+          {
+            name: "npm",
+            publish: () =>
+              Effect.flatMap(PublicationPermission, ({ allowed }) =>
+                allowed ? Effect.void : Effect.fail(failure),
+              ),
+          },
+        ],
+        (state) => records.push(state),
+      );
+      expectTypeOf(program).toEqualTypeOf<
+        Effect.Effect<"distributed" | "superseded", PublicationHttpError, PublicationPermission>
+      >();
+      const result = yield* program.pipe(
+        Effect.provideService(PublicationPermission, { allowed: false }),
+        Effect.flip,
+      );
+      expect(result).toBe(failure);
+      expect(result._tag).toBe("PublicationHttpError");
+      expect(records.at(-1)?.npm).toBe("failed");
+    }),
+  );
   it.effect.each(["artifacts", "distribution", "npm", "tap"] as const)(
     "records %s failure and permits a rerun to reuse prior outputs",
     (failed) =>

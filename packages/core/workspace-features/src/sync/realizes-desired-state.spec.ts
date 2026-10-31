@@ -94,7 +94,7 @@ describe("Sync realizes desired workspace state", () => {
           expect(workspace.exists(skillPath)).toBe(true);
           expect(workspace.exists(subagentPath)).toBe(true);
           expect(workspace.exists(rulePath)).toBe(false);
-          yield* applySync();
+          yield* applySync(syncRequest({ types: ["rule"] }));
           const ruleBytes = workspace.readFile(`${rulePath}/src/RULE.md`);
           workspace.writeSettings(base);
           const cleanup = expectResolved(yield* applySync(selected));

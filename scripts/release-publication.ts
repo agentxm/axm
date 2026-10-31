@@ -9,6 +9,7 @@ import * as semver from "semver";
 import { requireStableVersion } from "./release-identity.js";
 
 export class SupersededRelease extends Error {
+  readonly _tag = "SupersededRelease";
   constructor(
     readonly candidate: string,
     readonly observed: string,
@@ -64,6 +65,7 @@ export const contentIntegrity = (bytes: Uint8Array): string =>
   `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
 
 export class PublicationHttpError extends Error {
+  readonly _tag = "PublicationHttpError";
   readonly retryable: boolean;
 
   constructor(
@@ -131,6 +133,7 @@ const transientObservation = (error: unknown): PublicationObservation =>
     : { kind: "transient" };
 
 export class PublicationReadbackTimeout extends Error {
+  readonly _tag = "PublicationReadbackTimeout";
   readonly publication: string;
   readonly phase: "preflight" | "readback";
   readonly attempts: number;
@@ -456,21 +459,23 @@ export const publishImmutableInDependencyOrder = (
     );
   });
 
-export interface PublicationBoundary {
-  readonly name: "artifacts" | "distribution" | "npm" | "tap";
-  readonly publish: () => Effect.Effect<void, unknown>;
+type PublicationBoundaryName = "artifacts" | "distribution" | "npm" | "tap";
+
+export interface PublicationBoundary<E, R> {
+  readonly name: PublicationBoundaryName;
+  readonly publish: () => Effect.Effect<void, E, R>;
 }
 export type PublicationStates = Record<
-  PublicationBoundary["name"],
+  PublicationBoundaryName,
   "pending" | "succeeded" | "failed" | "superseded"
 >;
 
 /** Preflight all mutable owners before any publication; recheck each owner at its write boundary. */
-export const distributeRelease = (
-  preflight: Effect.Effect<void, unknown>,
-  boundaries: ReadonlyArray<PublicationBoundary>,
+export const distributeRelease = <E, R>(
+  preflight: Effect.Effect<void, E, R>,
+  boundaries: ReadonlyArray<PublicationBoundary<E, R>>,
   record: (states: PublicationStates) => void,
-): Effect.Effect<"distributed" | "superseded", unknown> => {
+): Effect.Effect<"distributed" | "superseded", E, R> => {
   return Effect.gen(function* () {
     const states: PublicationStates = {
       artifacts: "pending",
@@ -478,7 +483,7 @@ export const distributeRelease = (
       npm: "pending",
       tap: "pending",
     };
-    let active: PublicationBoundary["name"] | undefined;
+    let active: PublicationBoundaryName | undefined;
     return yield* Effect.gen(function* () {
       yield* preflight;
       for (const boundary of boundaries) {
@@ -489,7 +494,7 @@ export const distributeRelease = (
       }
       return "distributed" as const;
     }).pipe(
-      Effect.catch((error: unknown) =>
+      Effect.catch((error: E) =>
         Effect.gen(function* () {
           if (active !== undefined)
             states[active] = error instanceof SupersededRelease ? "superseded" : "failed";

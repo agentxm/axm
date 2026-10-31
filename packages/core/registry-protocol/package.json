@@ -77,7 +77,7 @@
     "@agentxm/extension-model": "workspace:^"
   },
   "peerDependencies": {
-    "effect": "^4.1.0"
+    "effect": "^4.1.1"
   },
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:*",

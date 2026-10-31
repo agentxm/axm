@@ -21,15 +21,17 @@ it.effect.each([
 ] as const)(
   "preserves cache configuration failure during $type installation",
   ({ type, plural }) => {
-    const { workspace, cleanup } = makeInstallWorld({ settings: { sources: [registry] } });
+    const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
+    const { workspace, cleanup } = makeInstallWorld({
+      settings: { sources: [registry] },
+      configureConfigProvider: (original) =>
+        ConfigProvider.make((path) =>
+          path[0] === "XDG_CACHE_HOME" ? Effect.fail(sourceError) : original.load(path),
+        ),
+    });
     return workspace
       .provide(
         Effect.gen(function* () {
-          const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
-          const original = yield* ConfigProvider.ConfigProvider;
-          const provider = ConfigProvider.make((path) =>
-            path[0] === "XDG_CACHE_HOME" ? Effect.fail(sourceError) : original.load(path),
-          );
           const before = workspace.snapshot();
           const homeBefore = workspace.homeSnapshot();
           const failure = yield* InstallExtensions.prepare(
@@ -37,7 +39,7 @@ it.effect.each([
               type,
               subject: { kind: "source", source: `test:@acme/${plural}/review` },
             }),
-          ).pipe(Effect.provideService(ConfigProvider.ConfigProvider, provider), Effect.flip);
+          ).pipe(Effect.flip);
           expect(failure).toMatchObject({ _tag: "ConfigError", cause: sourceError });
           expect(workspace.snapshot()).toEqual(before);
           expect(workspace.homeSnapshot()).toEqual(homeBefore);
@@ -53,25 +55,25 @@ it.effect.each([
 ] as const)(
   "does not turn failed cache configuration into a blocked $plural unit",
   ({ type, plural }) => {
+    const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
     const { workspace, cleanup } = makeInstallWorld({
       settings: {
         sources: [registry],
         [plural]: { review: `test:@acme/${plural}/review` },
       },
+      configureConfigProvider: (original) =>
+        ConfigProvider.make((path) =>
+          path[0] === "XDG_CACHE_HOME" ? Effect.fail(sourceError) : original.load(path),
+        ),
     });
     return workspace
       .provide(
         Effect.gen(function* () {
-          const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
-          const original = yield* ConfigProvider.ConfigProvider;
-          const provider = ConfigProvider.make((path) =>
-            path[0] === "XDG_CACHE_HOME" ? Effect.fail(sourceError) : original.load(path),
-          );
           const before = workspace.snapshot();
           const homeBefore = workspace.homeSnapshot();
           const failure = yield* UpdateExtensions.prepare(
             configuredUpdateRequest({ type, nameFilters: ["review"] }),
-          ).pipe(Effect.provideService(ConfigProvider.ConfigProvider, provider), Effect.flip);
+          ).pipe(Effect.flip);
           expect(failure).toMatchObject({ _tag: "ConfigError", cause: sourceError });
           expect(workspace.snapshot()).toEqual(before);
           expect(workspace.homeSnapshot()).toEqual(homeBefore);

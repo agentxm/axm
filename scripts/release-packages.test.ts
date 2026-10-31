@@ -5,11 +5,16 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
+import * as FileSystem from "effect/FileSystem";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { RELEASE_PACKAGES } from "./release-shared.js";
 import { capture, captureIn } from "./release-command.js";
 import {
   RELEASE_COHORT_MANIFEST,
+  produceReleaseCohort,
   stampBootstrapCohortReferences,
   stampBootstrapManifest,
   stampBootstrapSkillDocument,
@@ -40,6 +45,27 @@ const manifest = () => ({
 });
 
 describe("release cohort artifact manifest", () => {
+  it.effect("removes staging when interrupted while a package command is pending", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const output = yield* fs.makeTempDirectoryScoped({ prefix: "axm-release-staging-" });
+      const started = yield* Deferred.make<void>();
+      const pendingCommand = ChildProcessSpawner.make(() =>
+        Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
+      );
+      const fiber = yield* produceReleaseCohort(version, commit, output).pipe(
+        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, pendingCommand),
+        Effect.forkChild,
+      );
+      yield* Deferred.await(started);
+      expect((yield* fs.readDirectory(output)).some((name) => name.startsWith(".pack-"))).toBe(
+        true,
+      );
+      yield* Fiber.interrupt(fiber);
+      expect(yield* fs.readDirectory(output)).toEqual([]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it("accepts the complete fixed cohort for the exact commit and version", () => {
     expect(validateReleaseCohortManifest(manifest(), version, commit).packages).toHaveLength(
       RELEASE_PACKAGES.length,

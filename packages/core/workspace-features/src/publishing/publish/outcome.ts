@@ -7,6 +7,7 @@
  */
 
 import { redactCredentialText } from "@agentxm/host-primitives";
+import * as Data from "effect/Data";
 import * as Option from "effect/Option";
 
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
@@ -36,6 +37,25 @@ import type {
 import { publishItemId } from "./publication.js";
 import type { PublishPublicationSet, PublishResultItem } from "./result.js";
 import { publishPolicyRefusal } from "../errors.js";
+
+/** Settlement evidence retained by a failed step and its operation journal. */
+export class UnresolvedCandidateOutput extends Data.TaggedClass("UnresolvedCandidateOutput")<{
+  readonly targetKey: string;
+  readonly reason: "settlement_unresolved" | "authorization_expired";
+}> {}
+
+export const unresolvedPublishResult = (
+  result: PublishResultItem,
+  output: UnresolvedCandidateOutput,
+): PublishResultItem => ({
+  ...result,
+  phase: "upload_execution",
+  reason: output.reason,
+  status: "unknown",
+  settlement: "unresolved",
+  message:
+    "The Registry may have committed this version, but bounded readback and one exact replay could not prove the outcome.",
+});
 
 /**
  * Publish steps settle with the kernel's rendering of the typed failure, and
@@ -96,6 +116,8 @@ export const interruptedPublishResults = (
       };
     }
     if (step !== undefined && step.result.result === "error") {
+      if (step.result.output instanceof UnresolvedCandidateOutput)
+        return unresolvedPublishResult(result, step.result.output);
       const failure = publishStepFailureCause(step.result.error);
       return {
         ...result,

@@ -333,4 +333,37 @@ describe("executedUnits", () => {
     expect(units[1]?.state).toBe("failed");
     expect(units[1]?.disposition).toBe("restored");
   });
+
+  it("retains typed operation facts when a step fails", () => {
+    const output = { settlement: "unresolved", attempts: 2 } as const;
+    const error = new StepFailure({ category: "network", detail: "readback unavailable" });
+    const units = executedUnits({
+      _tag: "ExecutedPlan",
+      name: "Publish extensions",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              key: "candidate",
+              label: "Publish candidate",
+              result: { result: "error", message: error.detail, error, output },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(units).toEqual([
+      {
+        id: "candidate",
+        label: "Publish candidate",
+        state: "failed",
+        message: error.detail,
+        error,
+        output,
+      },
+    ]);
+  });
 });

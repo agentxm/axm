@@ -463,6 +463,7 @@ export const executedUnits = <Output>(
         ...base,
         message: step.result.message,
         error: step.result.error,
+        ...(step.result.output === undefined ? {} : { output: step.result.output }),
       };
       const blocking = step.result.blocking;
       if (blocking !== undefined) {

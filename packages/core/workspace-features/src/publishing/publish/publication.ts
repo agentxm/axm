@@ -51,7 +51,7 @@ import {
 } from "@agentxm/registry-client";
 
 import { previewPublishUploadBinding, type ResolvedPublishPreview } from "../authorization.js";
-import { settlePublish } from "../settlement.js";
+import { settlePublish, type SettledPublish } from "../settlement.js";
 
 import type { PublishFailure } from "../failure.js";
 import type { PublishCandidate, TargetRegistry, UploadCandidate } from "./model.js";
@@ -279,7 +279,7 @@ export const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(f
 export type PublishedCandidate =
   | {
       readonly status: "unknown";
-      readonly reason: string;
+      readonly reason: Extract<SettledPublish, { readonly status: "unknown" }>["reason"];
       readonly settlement: "unresolved";
       readonly failure: PublishFailure;
     }

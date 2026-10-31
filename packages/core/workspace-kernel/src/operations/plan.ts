@@ -316,6 +316,8 @@ export type JobStepResult<Output = never> =
       readonly result: "error";
       readonly message: string;
       readonly error: StepFailure;
+      /** Operation facts established before the step failed. */
+      readonly output?: Output;
       /** Present when the unit was prevented rather than failing on its own. */
       readonly blocking?: UnitBlocking;
     };

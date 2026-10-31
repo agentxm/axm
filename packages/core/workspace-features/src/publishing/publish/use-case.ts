@@ -129,6 +129,8 @@ import {
   publishStepFailureCause,
   selectedResult,
   unconfirmedPublishOutcomes,
+  UnresolvedCandidateOutput,
+  unresolvedPublishResult,
 } from "./outcome.js";
 import {
   previewPublishCandidates,
@@ -194,13 +196,15 @@ type PublishPreparation =
   | { readonly _tag: "Settled"; readonly outcome: PublishOutcome }
   | { readonly _tag: "Ready"; readonly candidate: PublishCandidateSet };
 
-interface PublishPlanOutput {
+interface PublishedCandidateOutput {
   readonly _tag: "PublishedCandidateOutput";
   readonly targetKey: string;
   readonly visibility: PublishVisibility;
   readonly warnings: ReadonlyArray<RegistryPublishWarning>;
   readonly settlement: Exclude<PublishSettlement, "unresolved">;
 }
+
+type PublishPlanOutput = PublishedCandidateOutput | UnresolvedCandidateOutput;
 
 type PublishPlanRequirements =
   | RegistryClientFactory
@@ -648,8 +652,6 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
   // Invocation-local evidence of dispatched uploads: which candidates'
   // requests were released toward the registry before termination.
   const dispatchedUploads = yield* Ref.make<ReadonlySet<string>>(new Set());
-  const unresolvedSettlements = yield* Ref.make<ReadonlyMap<string, PublishFailure>>(new Map());
-  const unresolvedReasons = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
 
   const candidateStep = (
     candidate: UploadCandidate,
@@ -661,16 +663,16 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         Ref.update(dispatchedUploads, (dispatched) => new Set([...dispatched, candidate.fqn])),
       );
       if (published.status === "unknown") {
-        const key = publishTargetKey(candidate);
-        yield* Ref.update(
-          unresolvedSettlements,
-          (settlements) => new Map([...settlements, [key, published.failure]]),
-        );
-        yield* Ref.update(
-          unresolvedReasons,
-          (reasons) => new Map([...reasons, [key, published.reason]]),
-        );
-        return yield* Effect.fail(published.failure);
+        const error = publishStepFailure(published.failure);
+        return {
+          result: "error",
+          message: `${error.detail} (${error.category})`,
+          error,
+          output: new UnresolvedCandidateOutput({
+            targetKey: publishTargetKey(candidate),
+            reason: published.reason,
+          }),
+        } satisfies JobStepResult<PublishPlanOutput>;
       }
       return {
         ...published.stepResult,
@@ -885,10 +887,10 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
     unit.output === undefined ? [] : [unit.output],
   );
   const publishedOutputs = new Map(
-    executionOutputs.map((output) => [output.targetKey, output] as const),
+    executionOutputs.flatMap((output) =>
+      output._tag === "PublishedCandidateOutput" ? [[output.targetKey, output] as const] : [],
+    ),
   );
-  const unresolvedFailures = yield* Ref.get(unresolvedSettlements);
-  const unresolvedByTarget = yield* Ref.get(unresolvedReasons);
   const failedStepFailures = resolution.units.flatMap((unit) =>
     unit.state === "failed" && unit.error !== undefined
       ? [publishStepFailureCause(unit.error)]
@@ -923,23 +925,8 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
             blockedBy,
           };
         }
-        const targetKey = candidate === undefined ? undefined : publishTargetKey(candidate);
-        const unresolvedReason =
-          targetKey === undefined ? undefined : unresolvedByTarget.get(targetKey);
-        if (unresolvedReason !== undefined) {
-          return {
-            ...result,
-            phase: "upload_execution",
-            reason:
-              unresolvedReason === "authorization_expired"
-                ? "authorization_expired"
-                : "settlement_unresolved",
-            status: "unknown",
-            settlement: "unresolved",
-            message:
-              "The Registry may have committed this version, but bounded readback and one exact replay could not prove the outcome.",
-          };
-        }
+        if (unit.output?._tag === "UnresolvedCandidateOutput")
+          return unresolvedPublishResult(result, unit.output);
         const unitFailure =
           unit.error === undefined ? undefined : publishStepFailureCause(unit.error);
         const cause = unitFailure === undefined ? undefined : publishCause(unitFailure);
@@ -1055,10 +1042,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
       : failed.length > 0
         ? {
             _tag: "Failed",
-            failure: aggregatePublishFailure(failed.length, [
-              ...unresolvedFailures.values(),
-              ...failedStepFailures,
-            ]),
+            failure: aggregatePublishFailure(failed.length, failedStepFailures),
           }
         : unconfirmed.length > 0
           ? {

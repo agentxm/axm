@@ -1,4 +1,11 @@
-import { isTransientPublicationError, observePublication } from "./release-publication.js";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
+import {
+  isTransientPublicationError,
+  observePublication,
+  PublicationUnconfirmed,
+} from "./release-publication.js";
 
 export type GitHubReleaseObservation = {
   readonly tagSha: string | null;
@@ -11,106 +18,96 @@ export type GitHubReleaseObservation = {
   };
 };
 
-export type GitHubReleaseHost = {
-  readonly read: (signal: AbortSignal) => Promise<GitHubReleaseObservation>;
-  readonly createDraft: (tagExists: boolean) => Promise<void>;
-  readonly publishDraft: (releaseId: number) => Promise<void>;
+export type GitHubReleaseHost<E, R> = {
+  readonly read: Effect.Effect<GitHubReleaseObservation, E, R>;
+  readonly createDraft: (tagExists: boolean) => Effect.Effect<void, E, R>;
+  readonly publishDraft: (releaseId: number) => Effect.Effect<void, E, R>;
 };
 
-const validateObservation = (
-  observed: GitHubReleaseObservation,
-  expectedSha: string,
-): GitHubReleaseObservation => {
-  if (observed.tagSha !== null && observed.tagSha !== expectedSha) {
-    throw new Error(
-      `Release tag integrity conflict: expected ${expectedSha}, observed ${observed.tagSha}.`,
-    );
+class GitHubReleaseConflict extends Data.TaggedError("GitHubReleaseConflict")<{
+  readonly detail: string;
+}> {
+  override get message(): string {
+    return this.detail;
   }
-  if (observed.release !== null && observed.release.targetCommitish !== expectedSha) {
-    throw new Error(
-      `GitHub Release target integrity conflict: expected ${expectedSha}, observed ${observed.release.targetCommitish}.`,
-    );
-  }
-  if (observed.release?.draft === false && observed.tagSha === null) {
-    throw new Error("Published GitHub Release exists without its release tag.");
-  }
-  if (observed.release?.prerelease === true) {
-    throw new Error("Stable AXM releases cannot be GitHub prereleases.");
-  }
-  return observed;
+}
+
+const validateObservation = (observed: GitHubReleaseObservation, expectedSha: string) => {
+  const detail =
+    observed.tagSha !== null && observed.tagSha !== expectedSha
+      ? `Release tag integrity conflict: expected ${expectedSha}, observed ${observed.tagSha}.`
+      : observed.release !== null && observed.release.targetCommitish !== expectedSha
+        ? `GitHub Release target integrity conflict: expected ${expectedSha}, observed ${observed.release.targetCommitish}.`
+        : observed.release?.draft === false && observed.tagSha === null
+          ? "Published GitHub Release exists without its release tag."
+          : observed.release?.prerelease === true
+            ? "Stable AXM releases cannot be GitHub prereleases."
+            : undefined;
+  return detail === undefined
+    ? Effect.succeed(observed)
+    : Effect.fail(new GitHubReleaseConflict({ detail }));
 };
 
-const observeExactRelease = async (
-  host: GitHubReleaseHost,
+const observeExactRelease = <E, R>(
+  host: GitHubReleaseHost<E, R>,
   expectedSha: string,
   draft: boolean,
-): Promise<GitHubReleaseObservation> =>
+) =>
   observePublication({
     name: `GitHub Release at ${expectedSha}`,
-    read: async (signal) => validateObservation(await host.read(signal), expectedSha),
+    read: host.read.pipe(Effect.flatMap((observed) => validateObservation(observed, expectedSha))),
     matches: (observed) => observed.release?.draft === draft,
-    conflicts: (observed) => observed.tagSha !== null && observed.tagSha !== expectedSha,
     retryError: isTransientPublicationError,
     timeoutMs: 90_000,
   });
 
-export const ensureExactDraftRelease = async (
-  host: GitHubReleaseHost,
-  expectedSha: string,
-): Promise<"created-draft" | "reused-draft" | "already-published"> => {
-  const initial = validateObservation(await host.read(AbortSignal.timeout(30_000)), expectedSha);
-  if (initial.release !== null) {
-    return initial.release.draft ? "reused-draft" : "already-published";
-  }
+export const ensureExactDraftRelease = Effect.fn("Release.ensureExactDraftRelease")(function* <
+  E,
+  R,
+>(host: GitHubReleaseHost<E, R>, expectedSha: string) {
+  const initial = yield* host.read.pipe(
+    Effect.timeout(30_000),
+    Effect.flatMap((observed) => validateObservation(observed, expectedSha)),
+  );
+  if (initial.release !== null)
+    return initial.release.draft ? ("reused-draft" as const) : ("already-published" as const);
+  const submission = yield* Effect.result(host.createDraft(initial.tagSha !== null));
+  yield* observeExactRelease(host, expectedSha, true).pipe(
+    Effect.mapError((cause) =>
+      Result.isFailure(submission)
+        ? new PublicationUnconfirmed({
+            publication: "GitHub Release creation",
+            submissionFailure: submission.failure,
+            cause,
+          })
+        : cause,
+    ),
+  );
+  return "created-draft" as const;
+});
 
-  let submissionFailure: unknown;
-  try {
-    await host.createDraft(initial.tagSha !== null);
-  } catch (error) {
-    submissionFailure = error;
-  }
-
-  try {
-    await observeExactRelease(host, expectedSha, true);
-    return "created-draft";
-  } catch (readbackFailure) {
-    if (submissionFailure !== undefined) {
-      throw new AggregateError(
-        [submissionFailure, readbackFailure],
-        "GitHub Release creation and bounded readback failed.",
-        { cause: readbackFailure },
-      );
-    }
-    throw readbackFailure;
-  }
-};
-
-export const publishExactDraftRelease = async (
-  host: GitHubReleaseHost,
-  expectedSha: string,
-): Promise<"published" | "already-published"> => {
-  const initial = validateObservation(await host.read(AbortSignal.timeout(30_000)), expectedSha);
-  if (initial.release === null) throw new Error("Cannot publish a missing GitHub Release.");
-  if (!initial.release.draft) return "already-published";
-
-  let submissionFailure: unknown;
-  try {
-    await host.publishDraft(initial.release.id);
-  } catch (error) {
-    submissionFailure = error;
-  }
-
-  try {
-    await observeExactRelease(host, expectedSha, false);
-    return "published";
-  } catch (readbackFailure) {
-    if (submissionFailure !== undefined) {
-      throw new AggregateError(
-        [submissionFailure, readbackFailure],
-        "GitHub Release publication and bounded readback failed.",
-        { cause: readbackFailure },
-      );
-    }
-    throw readbackFailure;
-  }
-};
+export const publishExactDraftRelease = Effect.fn("Release.publishExactDraftRelease")(function* <
+  E,
+  R,
+>(host: GitHubReleaseHost<E, R>, expectedSha: string) {
+  const initial = yield* host.read.pipe(
+    Effect.timeout(30_000),
+    Effect.flatMap((observed) => validateObservation(observed, expectedSha)),
+  );
+  if (initial.release === null)
+    return yield* new GitHubReleaseConflict({ detail: "Cannot publish a missing GitHub Release." });
+  if (!initial.release.draft) return "already-published" as const;
+  const submission = yield* Effect.result(host.publishDraft(initial.release.id));
+  yield* observeExactRelease(host, expectedSha, false).pipe(
+    Effect.mapError((cause) =>
+      Result.isFailure(submission)
+        ? new PublicationUnconfirmed({
+            publication: "GitHub Release publication",
+            submissionFailure: submission.failure,
+            cause,
+          })
+        : cause,
+    ),
+  );
+  return "published" as const;
+});

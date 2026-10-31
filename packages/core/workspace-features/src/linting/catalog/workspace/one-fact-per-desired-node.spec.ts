@@ -148,12 +148,11 @@ describe("One fact per desired node", () => {
   });
 
   /**
-   * A workspace that realizes the member: as one of a Pack's two members,
+   * A workspace configured to realize the member: as one of a Pack's two members,
    * declared directly, or as the shared member two Packs require and the
    * workspace also pins. `loseMember` then removes the member's resolution
    * and, optionally, disables the member or stops the Registry publishing it
-   * so sync cannot restore it. It yields every lint finding the realized
-   * workspace reported before the member was lost.
+   * so sync cannot restore it.
    */
   const workspaceMissingMember = (
     options: {
@@ -190,15 +189,12 @@ describe("One fact per desired node", () => {
     };
     const workspace = makeSyncFixture({ settings });
     cleanups.push(workspace.cleanup);
-    const loseMember = Effect.gen(function* () {
-      yield* applySync();
-      const realized = yield* allFindings(workspace);
+    const loseMember = Effect.sync(() => {
       forgetMember(workspace, registry);
       if (options.member !== undefined) {
         workspace.writeSettings({ ...settings, skills: { [MEMBER]: options.member } });
       }
       if (options.unpublished === true) registry.writeSkill(MEMBER, []);
-      return realized;
     });
     return { workspace, registry, loseMember };
   };
@@ -233,7 +229,9 @@ describe("One fact per desired node", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            const realized = yield* loseMember;
+            yield* applySync();
+            const realized = yield* allFindings(workspace);
+            yield* loseMember;
             // The whole lint run adds exactly one finding: no artifact or
             // content rule restates the member's absent canonical tree.
             const findings = yield* allFindings(workspace);
@@ -264,6 +262,7 @@ describe("One fact per desired node", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
+          yield* applySync();
           yield* loseMember;
           expect(yield* memberFindings(workspace)).toHaveLength(1);
           yield* applySync();

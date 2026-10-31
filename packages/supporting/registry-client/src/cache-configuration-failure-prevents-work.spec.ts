@@ -74,9 +74,12 @@ describe("Cache placement configuration", () => {
             Effect.flatMap((cache) => cache.prune()),
             Effect.asVoid,
           ),
-          factory
-            .forEndpoint(decodeRegistryEndpointSync("https://registry.example.test"))
-            .pipe(Effect.asVoid),
+          factory.pipe(
+            Effect.flatMap((value) =>
+              value.forEndpoint(decodeRegistryEndpointSync("https://registry.example.test")),
+            ),
+            Effect.asVoid,
+          ),
         ];
         for (const effect of effects) {
           const failure = yield* effect.pipe(

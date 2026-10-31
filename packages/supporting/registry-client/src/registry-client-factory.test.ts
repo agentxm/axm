@@ -5,7 +5,10 @@ import { pathToFileURL } from "node:url";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/http/HttpClient";
@@ -17,6 +20,8 @@ import {
   decodeHandleSync,
 } from "@agentxm/extension-model/unstable/extensions";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { computeIntegrity } from "@agentxm/host-primitives";
+import { exactVersion } from "./test-helpers.js";
 
 import { RegistryClientFactory, RegistryClientFactoryLive } from "./registry-client-factory.js";
 import { RegistryHttpClient, RegistryRequestAuthorization } from "./registry-transport.js";
@@ -57,6 +62,83 @@ const factoryLayer = (client: HttpClient.HttpClient) =>
   );
 
 describe("RegistryClientFactory", () => {
+  it.effect("retains cache configuration failure without disabling unrelated transports", () =>
+    Effect.gen(function* () {
+      const sourceError = new ConfigProvider.SourceError({ message: "cache source unavailable" });
+      let reads = 0;
+      const config = ConfigProvider.make((path) => {
+        if (path[0] !== "XDG_CACHE_HOME") return Effect.succeed(undefined);
+        reads += 1;
+        return Effect.fail(sourceError);
+      });
+      yield* Effect.gen(function* () {
+        const factory = yield* RegistryClientFactory;
+        const file = yield* factory.forEndpoint(decodeRegistryEndpointSync("file:///registry"));
+        expect(file).toBeDefined();
+        const endpoint = decodeRegistryEndpointSync("https://registry.example.test");
+        expect(yield* factory.lifecycle(endpoint, "Deprecating")).toBeDefined();
+        expect(yield* factory.wire(endpoint, { operation: "Signing in" })).toBeDefined();
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const failure = yield* factory.forEndpoint(endpoint).pipe(Effect.flip);
+          expect(failure.cause).toBe(sourceError);
+        }
+        expect(reads).toBe(1);
+      }).pipe(
+        Effect.provide(
+          factoryLayer(recorded().client).pipe(Layer.provide(ConfigProvider.layer(config))),
+        ),
+      );
+    }),
+  );
+
+  it.effect("shares an active archive acquisition across clients from one factory", () => {
+    const root = mkdtempSync(nodePath.join(tmpdir(), "axm-registry-factory-"));
+    return Effect.gen(function* () {
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const archive = new Uint8Array([1, 2, 3]);
+      const integrity = yield* computeIntegrity(archive);
+      const requests: string[] = [];
+      const transport = HttpClient.make((request) =>
+        Effect.gen(function* () {
+          requests.push(request.method);
+          yield* Deferred.succeed(started, undefined);
+          yield* Deferred.await(release);
+          return HttpClientResponse.fromWeb(request, new Response(archive));
+        }),
+      );
+      const acquisition = Effect.gen(function* () {
+        const factory = yield* RegistryClientFactory;
+        const endpoint = decodeRegistryEndpointSync("https://registry.example.test");
+        const firstClient = yield* factory.forEndpoint(endpoint);
+        const secondClient = yield* factory.forEndpoint(endpoint);
+        const args = {
+          owner: decodeHandleSync("@acme"),
+          type: "skill" as const,
+          name: decodeExtensionNameSync("shared"),
+          exact: { version: exactVersion("1.0.0"), integrity, publisherBindingId: "hbnd_test" },
+        };
+        const first = yield* firstClient.getExtensionPackage(args).pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        const second = yield* secondClient.getExtensionPackage(args).pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+        yield* Deferred.succeed(release, undefined);
+        expect((yield* Fiber.join(first)).archive).toEqual(archive);
+        expect((yield* Fiber.join(second)).archive).toEqual(archive);
+        expect(requests).toEqual(["GET"]);
+      });
+      yield* acquisition.pipe(
+        Effect.provide(
+          factoryLayer(transport).pipe(
+            Layer.provide(
+              ConfigProvider.layer(ConfigProvider.fromUnknown({ AXM_USER_HOME: root })),
+            ),
+          ),
+        ),
+      );
+    }).pipe(Effect.ensuring(Effect.sync(() => rmSync(root, { recursive: true, force: true }))));
+  });
+
   it.effect("names the directory a percent-encoded file: URL decodes to", () => {
     const root = mkdtempSync(nodePath.join(tmpdir(), "axm-registry-factory-"));
     const namedRoot = nodePath.join(root, "my registry");

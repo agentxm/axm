@@ -244,7 +244,7 @@ export const authClientOver = (httpClient: HttpClient.HttpClient) =>
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(RegistryHttpClient, httpClient),
-        Layer.succeed(
+        Layer.effect(
           RegistryClientFactory,
           makeRegistryClientFactory({
             httpClient,

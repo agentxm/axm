@@ -13,6 +13,7 @@ import { onTestFinished } from "vitest";
 import { makeNativeFileStore } from "@agentxm/test-support";
 
 import { WorkspaceBoundaryClaimsTest } from "@agentxm/workspace-kernel/settlement/testing";
+import { CanonicalNativePathLive } from "@agentxm/workspace-kernel/locations/live";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
@@ -504,8 +505,9 @@ export const makeCliTestContext = (opts?: {
           recordingFileSystemLayer(opts.onFileSystemWrite),
           fileSystemPlatformLayer,
         );
-  const platformLayer = Layer.merge(
+  const platformLayer = Layer.mergeAll(
     fileSystemServices,
+    CanonicalNativePathLive,
     WorkspaceBoundaryClaimsTest(boundaryClaimsDirectory),
   );
   // Registry clients travel the test transport as it is: a fixture that

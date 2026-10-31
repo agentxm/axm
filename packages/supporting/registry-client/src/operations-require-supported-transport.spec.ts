@@ -38,7 +38,7 @@ describe("Registry transport support", () => {
     const file = decodeRegistryEndpointSync("file:///srv/registry");
     const httpClient = HttpClient.make(() => Effect.die("Building a client sends no request."));
     return Effect.gen(function* () {
-      const factory = makeRegistryClientFactory({
+      const factory = yield* makeRegistryClientFactory({
         httpClient,
         fileSystem: FileSystem.makeNoop({}),
         path: yield* Path.Path,
@@ -70,7 +70,7 @@ describe("Registry transport support", () => {
       ),
     );
     return Effect.gen(function* () {
-      const factory = makeRegistryClientFactory({
+      const factory = yield* makeRegistryClientFactory({
         httpClient,
         fileSystem,
         path: yield* Path.Path,

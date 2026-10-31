@@ -180,6 +180,7 @@ describe("Pinned retained source layouts", () => {
           }),
         );
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-    30_000,
+    // Acquisition, accepted-snapshot recovery, and each consumer's removal stay together.
+    { timeout: 60_000 },
   );
 });

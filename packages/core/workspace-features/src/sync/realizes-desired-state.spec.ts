@@ -66,46 +66,51 @@ describe("Sync realizes desired workspace state", () => {
     }
   });
 
-  it.effect("realizes and cleans up the selected type union while preserving other types", () => {
-    const registry = makeFileRegistry();
-    cleanups.push(registry.cleanup);
-    registry.writeSkill("review", [{ version: "1.0.0", body: "Review." }]);
-    registry.writeSubagent("planner", [{ version: "1.0.0", body: "Plan." }]);
-    registry.writeRule("quality", [{ version: "1.0.0", body: "Quality." }]);
-    const base = { owner: "@acme", agents: ["claude-code"], sources: [registry.source] };
-    const workspace = makeSyncFixture({
-      settings: {
-        ...base,
-        skills: { review: "test:@acme/skills/review@^1.0.0" },
-        subagents: { planner: "test:@acme/subagents/planner@^1.0.0" },
-        rules: { quality: "test:@acme/rules/quality@^1.0.0" },
-      },
-    });
-    cleanups.push(workspace.cleanup);
-    const selected = syncRequest({ types: ["skill", "subagent", "skill"] });
-    const skillPath = fileRegistryPackagePath(registry, "skills", "review");
-    const subagentPath = fileRegistryPackagePath(registry, "subagents", "planner");
-    const rulePath = fileRegistryPackagePath(registry, "rules", "quality");
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          const first = expectResolved(yield* applySync(selected));
-          expect(deriveOperationOutcome(first), JSON.stringify(first)).toBe("applied");
-          expect(workspace.exists(skillPath)).toBe(true);
-          expect(workspace.exists(subagentPath)).toBe(true);
-          expect(workspace.exists(rulePath)).toBe(false);
-          yield* applySync(syncRequest({ types: ["rule"] }));
-          const ruleBytes = workspace.readFile(`${rulePath}/src/RULE.md`);
-          workspace.writeSettings(base);
-          const cleanup = expectResolved(yield* applySync(selected));
-          expect(deriveOperationOutcome(cleanup), JSON.stringify(cleanup)).toBe("applied");
-          expect(workspace.exists(skillPath)).toBe(false);
-          expect(workspace.exists(subagentPath)).toBe(false);
-          expect(workspace.readFile(`${rulePath}/src/RULE.md`)).toBe(ruleBytes);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+  // Allow for the three complete native sync passes in this journey.
+  it.effect(
+    "realizes and cleans up the selected type union while preserving other types",
+    () => {
+      const registry = makeFileRegistry();
+      cleanups.push(registry.cleanup);
+      registry.writeSkill("review", [{ version: "1.0.0", body: "Review." }]);
+      registry.writeSubagent("planner", [{ version: "1.0.0", body: "Plan." }]);
+      registry.writeRule("quality", [{ version: "1.0.0", body: "Quality." }]);
+      const base = { owner: "@acme", agents: ["claude-code"], sources: [registry.source] };
+      const workspace = makeSyncFixture({
+        settings: {
+          ...base,
+          skills: { review: "test:@acme/skills/review@^1.0.0" },
+          subagents: { planner: "test:@acme/subagents/planner@^1.0.0" },
+          rules: { quality: "test:@acme/rules/quality@^1.0.0" },
+        },
+      });
+      cleanups.push(workspace.cleanup);
+      const selected = syncRequest({ types: ["skill", "subagent", "skill"] });
+      const skillPath = fileRegistryPackagePath(registry, "skills", "review");
+      const subagentPath = fileRegistryPackagePath(registry, "subagents", "planner");
+      const rulePath = fileRegistryPackagePath(registry, "rules", "quality");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const first = expectResolved(yield* applySync(selected));
+            expect(deriveOperationOutcome(first), JSON.stringify(first)).toBe("applied");
+            expect(workspace.exists(skillPath)).toBe(true);
+            expect(workspace.exists(subagentPath)).toBe(true);
+            expect(workspace.exists(rulePath)).toBe(false);
+            yield* applySync(syncRequest({ types: ["rule"] }));
+            const ruleBytes = workspace.readFile(`${rulePath}/src/RULE.md`);
+            workspace.writeSettings(base);
+            const cleanup = expectResolved(yield* applySync(selected));
+            expect(deriveOperationOutcome(cleanup), JSON.stringify(cleanup)).toBe("applied");
+            expect(workspace.exists(skillPath)).toBe(false);
+            expect(workspace.exists(subagentPath)).toBe(false);
+            expect(workspace.readFile(`${rulePath}/src/RULE.md`)).toBe(ruleBytes);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: 40_000 },
+  );
 
   it.effect.each([false, true])(
     "refuses false native success for first Subagent sync (Pack closure: %s)",

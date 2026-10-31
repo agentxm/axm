@@ -22,7 +22,11 @@ import {
   type InstallExtensionsRequest,
   type InstallSubject,
 } from "../lifecycle/index.js";
-import { makeLifecycleFixture, type LifecycleFixture } from "../lifecycle/testing.js";
+import {
+  makeLifecycleFixture,
+  type LifecycleFixture,
+  type LifecycleFixtureOptions,
+} from "../lifecycle/testing.js";
 
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 /** The request every route builds, with the parts a given example leaves out. */
@@ -110,6 +114,7 @@ export const makeInstallWorld = (
     /** Reuse a Registry another workspace already published into. */
     readonly registry?: FileRegistry;
     readonly installedExecutables?: ReadonlyArray<string>;
+    readonly configureConfigProvider?: LifecycleFixtureOptions["configureConfigProvider"];
   } = {},
 ): InstallWorld => {
   const owned = options.registry === undefined;
@@ -117,6 +122,7 @@ export const makeInstallWorld = (
   const workspace = makeLifecycleFixture({
     ...(options.scope === undefined ? {} : { scope: options.scope }),
     sources: "live",
+    configureConfigProvider: options.configureConfigProvider,
     ...(options.installedExecutables === undefined
       ? {}
       : { installedExecutables: options.installedExecutables }),

@@ -11,6 +11,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/http/HttpClient";
@@ -105,6 +106,9 @@ export interface LifecycleFixtureOptions {
   readonly files?: Readonly<Record<string, string>>;
   /** Agent executables the machine reports as present. */
   readonly installedExecutables?: ReadonlyArray<string>;
+  /** Wrap the isolated configuration before lifecycle services are acquired. */
+  readonly configureConfigProvider?:
+    ((provider: ConfigProvider.ConfigProvider) => ConfigProvider.ConfigProvider) | undefined;
   /**
    * How the fixture resolves sources. `none` (the default) refuses every
    * lookup, which is what an activation fixture wants: turning something on
@@ -166,6 +170,7 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
     lockfile: options.lockfile,
     files: options.files,
     installedExecutables: options.installedExecutables,
+    configureConfigProvider: options.configureConfigProvider,
     httpClient: options.httpClient,
     ports: Layer.mergeAll(
       interaction.layer,

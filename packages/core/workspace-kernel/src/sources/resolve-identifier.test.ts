@@ -104,7 +104,6 @@ describe("resolveIdentifier", () => {
                   },
                 ],
               }),
-              ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
               Layer.provide(
                 RegistryTransportTest(
                   Layer.succeed(
@@ -116,7 +115,10 @@ describe("resolveIdentifier", () => {
                     ),
                   ),
                 ),
-                NodeServices.layer,
+                Layer.merge(
+                  NodeServices.layer,
+                  ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
+                ),
               ),
             ),
           ),

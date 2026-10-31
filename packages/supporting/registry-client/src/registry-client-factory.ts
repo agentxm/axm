@@ -25,6 +25,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import type * as HttpClient from "effect/http/HttpClient";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import {
@@ -85,49 +86,57 @@ export class RegistryClientFactory extends ServiceMap.Service<
  * Build the factory over the Registry transport. Every HTTP(S) client it
  * builds travels on `authorization` applied to the plain Registry wire.
  */
-export const makeRegistryClientFactory = (services: {
-  readonly httpClient: HttpClient.HttpClient;
-  readonly fileSystem: FileSystem.FileSystem;
-  readonly path: Path.Path;
-  readonly authorization: RegistryRequestAuthorizationService;
-}): RegistryClientFactoryService => {
-  const transport = (endpoint: HttpRegistryEndpoint) =>
-    services.authorization.authorize(endpoint, registryWire(endpoint, services.httpClient));
+export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")(
+  function* (services: {
+    readonly httpClient: HttpClient.HttpClient;
+    readonly fileSystem: FileSystem.FileSystem;
+    readonly path: Path.Path;
+    readonly authorization: RegistryRequestAuthorizationService;
+  }) {
+    // Cache availability belongs to this invocation. A failed cache configuration
+    // disables remote archive clients without preventing file, lifecycle, or auth
+    // operations that never use the cache. Every remote client shares this result
+    // and, when available, the same acquisition and pruning state.
+    const archiveCache = yield* makeUserArchiveCache().pipe(
+      Effect.provideService(FileSystem.FileSystem, services.fileSystem),
+      Effect.provideService(Path.Path, services.path),
+      Effect.result,
+    );
+    const transport = (endpoint: HttpRegistryEndpoint) =>
+      services.authorization.authorize(endpoint, registryWire(endpoint, services.httpClient));
 
-  const forEndpoint: RegistryClientFactoryService["forEndpoint"] = (endpoint, options) =>
-    Effect.gen(function* () {
-      if (!isHttpRegistryEndpoint(endpoint)) {
-        return createLocalRegistryClient(
-          fromFileLocation(endpoint.href),
-          services.fileSystem,
-          services.path,
+    const forEndpoint: RegistryClientFactoryService["forEndpoint"] = (endpoint, options) =>
+      Effect.gen(function* () {
+        if (!isHttpRegistryEndpoint(endpoint)) {
+          return createLocalRegistryClient(
+            fromFileLocation(endpoint.href),
+            services.fileSystem,
+            services.path,
+          );
+        }
+        if (Result.isFailure(archiveCache)) return yield* Effect.fail(archiveCache.failure);
+        return createRemoteRegistryClient(
+          endpoint,
+          transport(endpoint),
+          archiveCache.success,
+          options?.requestPolicy,
         );
-      }
-      const archiveCache = yield* makeUserArchiveCache().pipe(
-        Effect.provideService(FileSystem.FileSystem, services.fileSystem),
-        Effect.provideService(Path.Path, services.path),
-      );
-      return createRemoteRegistryClient(
-        endpoint,
-        transport(endpoint),
-        archiveCache,
-        options?.requestPolicy,
-      );
-    });
+      });
 
-  return {
-    forEndpoint,
-    lifecycle: (endpoint, operation) =>
-      Effect.map(requireHttpRegistryEndpoint(endpoint, "lifecycle", operation), (http) =>
-        makeRegistryLifecycleClient(http, transport(http)),
-      ),
-    wire: (endpoint, options) =>
-      Effect.map(requireHttpRegistryEndpoint(endpoint, "auth", options.operation), (http) => ({
-        endpoint: http,
-        httpClient: transport(http),
-      })),
-  };
-};
+    return {
+      forEndpoint,
+      lifecycle: (endpoint, operation) =>
+        Effect.map(requireHttpRegistryEndpoint(endpoint, "lifecycle", operation), (http) =>
+          makeRegistryLifecycleClient(http, transport(http)),
+        ),
+      wire: (endpoint, options) =>
+        Effect.map(requireHttpRegistryEndpoint(endpoint, "auth", options.operation), (http) => ({
+          endpoint: http,
+          httpClient: transport(http),
+        })),
+    } satisfies RegistryClientFactoryService;
+  },
+);
 
 /**
  * The authorized factory every feature uses. The transport services are
@@ -141,7 +150,7 @@ export const RegistryClientFactoryLive: Layer.Layer<
 > = Layer.effect(
   RegistryClientFactory,
   Effect.gen(function* () {
-    return makeRegistryClientFactory({
+    return yield* makeRegistryClientFactory({
       httpClient: yield* RegistryHttpClient,
       fileSystem: yield* FileSystem.FileSystem,
       path: yield* Path.Path,

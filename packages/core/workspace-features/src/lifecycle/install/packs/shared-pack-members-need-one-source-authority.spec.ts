@@ -224,6 +224,7 @@ describe("Pack member source authority", () => {
     { timeout: 20_000 },
   );
 
+  // Six native mutations verify each surviving route and the final retirement.
   it.effect(
     "retains one member through direct and multiple Pack routes until the final removal",
     () =>
@@ -267,6 +268,7 @@ describe("Pack member source authority", () => {
           }),
         );
       }).pipe(Effect.provide(NodeServices.layer)),
+    { timeout: 40_000 },
   );
 
   it.effect(

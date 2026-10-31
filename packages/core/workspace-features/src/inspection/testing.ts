@@ -93,7 +93,7 @@ export const makeRecordedRegistryPort = (
   const layer = Layer.effect(
     RegistryClientFactory,
     Effect.gen(function* () {
-      return makeRegistryClientFactory({
+      return yield* makeRegistryClientFactory({
         httpClient,
         fileSystem: yield* FileSystem.FileSystem,
         path: yield* Path.Path,

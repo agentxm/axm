@@ -88,7 +88,7 @@ export const makeRecordedRegistryPort = (
     requests,
     firstRequest: Deferred.await(firstRequest),
     client: Effect.gen(function* () {
-      const factory = makeRegistryClientFactory({
+      const factory = yield* makeRegistryClientFactory({
         httpClient,
         fileSystem: yield* FileSystem.FileSystem,
         path: yield* Path.Path,

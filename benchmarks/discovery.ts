@@ -168,12 +168,15 @@ const measureAll = Effect.gen(function* () {
         "registry-owners",
       ]) {
         const measured = yield* instrument(fs, admission);
-        const client = yield* makeRegistryClientFactory({
+        const factory = yield* makeRegistryClientFactory({
           httpClient: HttpClient.make(() => Effect.die("A file Registry sends no requests.")),
           fileSystem: measured.fs,
           path,
           authorization: passThroughRegistryAuthorization,
-        }).forEndpoint(decodeRegistryEndpointSync(pathToFileURL(path.join(root, "registry")).href));
+        });
+        const client = yield* factory.forEndpoint(
+          decodeRegistryEndpointSync(pathToFileURL(path.join(root, "registry")).href),
+        );
         const operation =
           scenario === "workspace-scanners" || scenario === "acquired-scanner"
             ? makeWorkspaceReadModel("project").pipe(

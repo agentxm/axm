@@ -104,18 +104,18 @@ const makeSetupTestContext = (opts?: {
           confirmInstructionSync: () => Effect.succeed(syncInstructionsOverride),
         }),
   });
-  const baseLayer = Layer.mergeAll(
-    ConfigProvider.layer(
-      ConfigProvider.fromEnvRecord(
-        {
-          ...process.env,
-          // Keep user configuration inside the fixture, including on hosted runners.
-          XDG_CONFIG_HOME: path.join(process.env["HOME"] ?? os.homedir(), ".config"),
-          ...opts?.environment,
-        },
-        { preserveEmptyStrings: true },
-      ),
+  const configuration = ConfigProvider.layer(
+    ConfigProvider.fromEnvRecord(
+      {
+        ...process.env,
+        // Keep user configuration inside the fixture, including on hosted runners.
+        XDG_CONFIG_HOME: path.join(process.env["HOME"] ?? os.homedir(), ".config"),
+        ...opts?.environment,
+      },
+      { preserveEmptyStrings: true },
     ),
+  );
+  const baseLayer = Layer.mergeAll(
     Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
     makeArtifactHttpClientLayer(globalThis.fetch),
     FetchHttpClient.layer,
@@ -133,7 +133,7 @@ const makeSetupTestContext = (opts?: {
       exists: () => Effect.succeed(false),
     }),
     ScopedRoutesLive(rootCommand),
-  );
+  ).pipe(Layer.provideMerge(configuration));
   const layer = baseLayer;
   const handleSetup = handleSetupLive;
   /** Whether the bundled AXM skill's canonical package is present. */

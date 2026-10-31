@@ -136,7 +136,7 @@ describe("Registry credential isolation", () => {
       ),
     );
     return Effect.gen(function* () {
-      const factory = makeRegistryClientFactory({
+      const factory = yield* makeRegistryClientFactory({
         httpClient: transport,
         fileSystem: FileSystem.makeNoop({}),
         path: yield* Path.Path,

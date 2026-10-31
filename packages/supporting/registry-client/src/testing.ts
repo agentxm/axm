@@ -83,7 +83,7 @@ export const RegistryClientFactoryTest = (
   Layer.effect(
     RegistryClientFactory,
     Effect.gen(function* () {
-      return makeRegistryClientFactory({
+      return yield* makeRegistryClientFactory({
         httpClient: yield* HttpClient.HttpClient,
         fileSystem: yield* FileSystem.FileSystem,
         path: yield* Path.Path,
@@ -166,7 +166,7 @@ export const makeRecordedRegistryTransport = (
   const factory = Layer.effect(
     RegistryClientFactory,
     Effect.gen(function* () {
-      return makeRegistryClientFactory({
+      return yield* makeRegistryClientFactory({
         httpClient,
         fileSystem: yield* FileSystem.FileSystem,
         path: yield* Path.Path,

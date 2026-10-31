@@ -88,7 +88,11 @@ export const localRegistryClient = (
       fileSystem,
       path,
       authorization: passThroughRegistryAuthorization,
-    }).forEndpoint(decodeRegistryEndpointSync(pathToFileURL(root).href)),
+    }).pipe(
+      Effect.flatMap((factory) =>
+        factory.forEndpoint(decodeRegistryEndpointSync(pathToFileURL(root).href)),
+      ),
+    ),
   );
 
 /** Build a remote client through its public factory with isolated cache configuration. */
@@ -103,16 +107,17 @@ export const remoteRegistryClient = (
     fileSystem,
     path,
     authorization: passThroughRegistryAuthorization,
-  })
-    .forEndpoint(decodeRegistryEndpointSync("https://registry.example.test"), {
-      requestPolicy: {
-        requestTimeout: "1 second",
-        totalDeadline: "2 seconds",
-        maxAttempts: 3,
-        initialBackoff: "0 millis",
-        maxBackoff: "0 millis",
-      },
-    })
-    .pipe(
-      Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ AXM_USER_HOME: userHome }))),
-    );
+  }).pipe(
+    Effect.flatMap((factory) =>
+      factory.forEndpoint(decodeRegistryEndpointSync("https://registry.example.test"), {
+        requestPolicy: {
+          requestTimeout: "1 second",
+          totalDeadline: "2 seconds",
+          maxAttempts: 3,
+          initialBackoff: "0 millis",
+          maxBackoff: "0 millis",
+        },
+      }),
+    ),
+    Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ AXM_USER_HOME: userHome }))),
+  );

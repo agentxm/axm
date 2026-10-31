@@ -6,9 +6,10 @@
 
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
-import * as Cause from "effect/Cause";
+import * as Cache from "effect/Cache";
 import type * as Config from "effect/Config";
-import * as Deferred from "effect/Deferred";
+import * as Equal from "effect/Equal";
+import * as Hash from "effect/Hash";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -74,15 +75,27 @@ interface CacheEntry {
   readonly accessedAt: DateTime.Utc;
 }
 
-interface LoadAdmission {
-  readonly leader: boolean;
-  readonly result: Deferred.Deferred<LoadCompletion, RegistryClientFailure>;
+/** The first caller supplies work; only complete selection identity determines sharing. */
+class ArchiveAcquisition implements Equal.Equal {
+  constructor(
+    readonly selectionKey: string,
+    readonly integrity: string,
+    readonly fetch: Effect.Effect<Uint8Array, RegistryClientFailure>,
+    readonly validateCached: Effect.Effect<void, RegistryClientFailure> | undefined,
+  ) {}
+
+  [Equal.symbol](other: unknown): boolean {
+    return (
+      other instanceof ArchiveAcquisition &&
+      this.selectionKey === other.selectionKey &&
+      this.integrity === other.integrity
+    );
+  }
+
+  [Hash.symbol](): number {
+    return Hash.combine(Hash.string(this.integrity))(Hash.string(this.selectionKey));
+  }
 }
-
-type LoadCompletion =
-  { readonly _tag: "ready"; readonly archive: Uint8Array } | { readonly _tag: "retry" };
-
-type InFlightLoads = Map<string, Deferred.Deferred<LoadCompletion, RegistryClientFailure>>;
 
 const cacheError = (detail: string, cause?: unknown): RegistryOperationFailed =>
   new RegistryOperationFailed({
@@ -119,7 +132,6 @@ export const makeArchiveCache = (
   Effect.gen(function* () {
     const maxBytes = options.maxBytes ?? ARCHIVE_CACHE_MAX_BYTES;
     const maxAge = options.maxAge ?? ARCHIVE_CACHE_MAX_AGE;
-    const inFlight = yield* Ref.make<InFlightLoads>(new Map());
     const active = yield* Ref.make(new Map<string, number>());
     const writesSincePrune = yield* Ref.make(0);
 
@@ -294,58 +306,33 @@ export const makeArchiveCache = (
         }
       });
 
+    const inFlight = yield* Cache.make({
+      lookup: (request: ArchiveAcquisition) =>
+        Effect.acquireUseRelease(
+          acquireActive(request.integrity),
+          () =>
+            Effect.gen(function* () {
+              const cached = yield* read(request.integrity);
+              if (Option.isSome(cached)) {
+                if (request.validateCached !== undefined) yield* request.validateCached;
+                return cached.value;
+              }
+              const archive = yield* request.fetch;
+              yield* write(request.integrity, archive);
+              return archive;
+            }),
+          () => releaseActive(request.integrity),
+        ),
+      // This invocation-owned table holds only active calls, never completed bytes
+      // or failures. Operation admission budgets bound downstream work. Pending
+      // entries must not be evicted, which would admit a second load for the key.
+      capacity: Infinity,
+      timeToLive: Duration.zero,
+      requireServicesAt: "lookup",
+    });
+
     const load: ArchiveCache["load"] = (selectionKey, integrity, fetch, validateCached) =>
-      Effect.uninterruptibleMask((restore) =>
-        Effect.gen(function* () {
-          const proposed = yield* Deferred.make<LoadCompletion, RegistryClientFailure>();
-          const admission = yield* Ref.modify(
-            inFlight,
-            (current): readonly [LoadAdmission, InFlightLoads] => {
-              const existing = current.get(selectionKey);
-              if (existing !== undefined) return [{ leader: false, result: existing }, current];
-              const next = new Map(current);
-              next.set(selectionKey, proposed);
-              return [{ leader: true, result: proposed }, next];
-            },
-          );
-          if (!admission.leader) {
-            const completed = yield* restore(Deferred.await(admission.result));
-            return completed._tag === "ready"
-              ? completed.archive
-              : yield* restore(load(selectionKey, integrity, fetch, validateCached));
-          }
-          yield* acquireActive(integrity);
-          const acquire = Effect.gen(function* () {
-            const cached = yield* read(integrity);
-            if (Option.isSome(cached)) {
-              if (validateCached !== undefined) yield* validateCached;
-              return cached.value;
-            }
-            const archive = yield* fetch;
-            yield* write(integrity, archive);
-            return archive;
-          });
-          return yield* restore(acquire).pipe(
-            Effect.onExit((exit) =>
-              Effect.gen(function* () {
-                yield* Ref.update(inFlight, (current) => {
-                  const next = new Map(current);
-                  next.delete(selectionKey);
-                  return next;
-                });
-                yield* releaseActive(integrity);
-                if (exit._tag === "Success") {
-                  yield* Deferred.succeed(proposed, { _tag: "ready", archive: exit.value });
-                } else if (Cause.hasInterruptsOnly(exit.cause)) {
-                  yield* Deferred.succeed(proposed, { _tag: "retry" });
-                } else {
-                  yield* Deferred.failCause(proposed, exit.cause);
-                }
-              }),
-            ),
-          );
-        }),
-      );
+      Cache.get(inFlight, new ArchiveAcquisition(selectionKey, integrity, fetch, validateCached));
 
     const status = (): Effect.Effect<ArchiveCacheStatus, RegistryClientFailure> =>
       Effect.map(listEntries(), (entries) => ({

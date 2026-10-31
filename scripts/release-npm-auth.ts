@@ -30,17 +30,20 @@ export const npmPublicationProcessEnvironment = (
   packageExists: boolean,
   authentication: NpmPublicationAuth,
   environment: NodeJS.ProcessEnv,
-): NodeJS.ProcessEnv => {
-  if (!packageExists && authentication.kind !== "initialize") {
-    throw new NpmPackagesUninitialized({ packages: [name] });
-  }
-  const result = { ...environment };
-  delete result["NPM_INITIAL_PUBLISH_TOKEN"];
-  delete result["NODE_AUTH_TOKEN"];
-  delete result["NPM_CONFIG_USERCONFIG"];
-  if (!packageExists && authentication.kind === "initialize") {
-    result["NODE_AUTH_TOKEN"] = Redacted.value(authentication.token);
-    result["NPM_CONFIG_USERCONFIG"] = authentication.userConfig;
-  }
-  return result;
-};
+) =>
+  Effect.gen(function* () {
+    if (!packageExists && authentication.kind !== "initialize") {
+      return yield* new NpmPackagesUninitialized({ packages: [name] });
+    }
+    const result: Record<string, string | Redacted.Redacted<string> | undefined> = {
+      ...environment,
+    };
+    delete result["NPM_INITIAL_PUBLISH_TOKEN"];
+    delete result["NODE_AUTH_TOKEN"];
+    delete result["NPM_CONFIG_USERCONFIG"];
+    if (!packageExists && authentication.kind === "initialize") {
+      result["NODE_AUTH_TOKEN"] = authentication.token;
+      result["NPM_CONFIG_USERCONFIG"] = authentication.userConfig;
+    }
+    return result;
+  });

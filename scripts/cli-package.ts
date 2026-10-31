@@ -18,7 +18,7 @@ const manifestFields = Schema.Struct({
 const manifestJson = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
 const bundledEffectPackages = ["@effect/platform-node", "@effect/platform-node-shared"];
 
-class CliPackageError extends Data.TaggedError("CliPackageError")<{
+export class CliPackageError extends Data.TaggedError("CliPackageError")<{
   readonly message: string;
 }> {}
 

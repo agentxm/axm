@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
+import * as Redacted from "effect/Redacted";
 import { loadNpmPublicationAuth, npmPublicationProcessEnvironment } from "./release-npm-auth.js";
 
 const configuredEnvironment = {
@@ -15,14 +16,15 @@ describe("npm initial package authentication", () => {
     Effect.gen(function* () {
       const authentication = yield* loadNpmPublicationAuth(ConfigProvider.fromEnvRecord({}));
       expect(authentication).toEqual({ kind: "oidc" });
-      expect(() =>
+      const failure = yield* Effect.flip(
         npmPublicationProcessEnvironment(
           "@agentxm/new",
           false,
           authentication,
           configuredEnvironment,
         ),
-      ).toThrow("npm packages are not initialized");
+      );
+      expect(failure._tag).toBe("NpmPackagesUninitialized");
     }),
   );
 
@@ -58,13 +60,18 @@ describe("npm initial package authentication", () => {
       expect(JSON.stringify(authentication)).not.toContain(
         configuredEnvironment.NPM_INITIAL_PUBLISH_TOKEN,
       );
-      const environment = npmPublicationProcessEnvironment(
+      const environment = yield* npmPublicationProcessEnvironment(
         "@agentxm/new",
         false,
         authentication,
         configuredEnvironment,
       );
-      expect(environment["NODE_AUTH_TOKEN"]).toBe(configuredEnvironment.NPM_INITIAL_PUBLISH_TOKEN);
+      const token = environment["NODE_AUTH_TOKEN"];
+      if (!Redacted.isRedacted(token)) throw new Error("Expected a redacted publication token.");
+      expect(Redacted.value(token)).toBe(configuredEnvironment.NPM_INITIAL_PUBLISH_TOKEN);
+      expect(JSON.stringify(environment)).not.toContain(
+        configuredEnvironment.NPM_INITIAL_PUBLISH_TOKEN,
+      );
       expect(environment["NPM_CONFIG_USERCONFIG"]).toBe(
         configuredEnvironment.NPM_CONFIG_USERCONFIG,
       );
@@ -81,7 +88,7 @@ describe("npm initial package authentication", () => {
         const authentication = yield* loadNpmPublicationAuth(
           ConfigProvider.fromEnvRecord(configuredEnvironment),
         );
-        const environment = npmPublicationProcessEnvironment(
+        const environment = yield* npmPublicationProcessEnvironment(
           "@agentxm/existing",
           true,
           authentication,

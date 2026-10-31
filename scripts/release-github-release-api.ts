@@ -1,6 +1,5 @@
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-
-import type { GitHubReleaseObservation } from "./release-github-release.js";
 
 const RELEASES_PER_PAGE = 100;
 
@@ -24,32 +23,30 @@ const ReleaseAssetView = Schema.Struct({
 
 export type GitHubReleaseAssetView = typeof ReleaseAssetView.Type;
 
-type Release = NonNullable<GitHubReleaseObservation["release"]>;
+export const decodeGitHubReleaseAssetView = (value: string) =>
+  Schema.decodeUnknownEffect(Schema.fromJsonString(ReleaseAssetView))(value);
 
-export const decodeGitHubReleaseAssetView = (value: string): GitHubReleaseAssetView =>
-  Schema.decodeUnknownSync(Schema.fromJsonString(ReleaseAssetView))(value);
-
-export const readGitHubReleaseByTag = async (input: {
+export const readGitHubReleaseByTag = <E, R>(input: {
   readonly tag: string;
-  readonly signal: AbortSignal;
-  readonly readPage: (page: number, signal: AbortSignal) => Promise<unknown>;
-}): Promise<Release | null> => {
-  let page = 1;
-  while (true) {
-    const releases = Schema.decodeUnknownSync(ReleaseInventoryPage)(
-      await input.readPage(page, input.signal),
-    );
-    const release = releases.find((candidate) => candidate.tag_name === input.tag);
-    if (release !== undefined) {
-      return {
-        id: release.id,
-        targetCommitish: release.target_commitish,
-        draft: release.draft,
-        prerelease: release.prerelease,
-        url: release.html_url,
-      };
+  readonly readPage: (page: number) => Effect.Effect<unknown, E, R>;
+}) =>
+  Effect.gen(function* () {
+    let page = 1;
+    while (true) {
+      const releases = yield* Schema.decodeUnknownEffect(ReleaseInventoryPage)(
+        yield* input.readPage(page),
+      );
+      const release = releases.find((candidate) => candidate.tag_name === input.tag);
+      if (release !== undefined) {
+        return {
+          id: release.id,
+          targetCommitish: release.target_commitish,
+          draft: release.draft,
+          prerelease: release.prerelease,
+          url: release.html_url,
+        };
+      }
+      if (releases.length < RELEASES_PER_PAGE) return null;
+      page += 1;
     }
-    if (releases.length < RELEASES_PER_PAGE) return null;
-    page += 1;
-  }
-};
+  });

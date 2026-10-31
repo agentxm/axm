@@ -1,80 +1,127 @@
 import { describe, expect, it, vi } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
+import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import type { GitHubReleaseAssetView } from "./release-github-release-api.js";
 import { makeReleaseAssetReader } from "./release-asset-readback.js";
 import { contentIntegrity, publishImmutableCohort } from "./release-publication.js";
 
 const releaseCommit = "a".repeat(40);
 const bytes = new TextEncoder().encode("axm binary");
-const signal = AbortSignal.timeout(1_000);
 
-const reader = (assets: GitHubReleaseAssetView["assets"], targetCommitish = releaseCommit) => {
-  const viewRelease = vi.fn(async () => ({ targetCommitish, assets }));
-  const downloadAsset = vi.fn(async () => bytes);
-  return {
-    read: makeReleaseAssetReader({ releaseCommit, viewRelease, downloadAsset }),
-    viewRelease,
-    downloadAsset,
-  };
-};
+const reader = (assets: GitHubReleaseAssetView["assets"], targetCommitish = releaseCommit) =>
+  Effect.gen(function* () {
+    const viewRelease = vi.fn(() => ({ targetCommitish, assets }));
+    const downloadAsset = vi.fn((_name: string) => Effect.succeed(bytes));
+    const read = yield* makeReleaseAssetReader({
+      releaseCommit,
+      viewRelease: Effect.sync(viewRelease),
+      downloadAsset,
+    });
+    return { read, viewRelease, downloadAsset };
+  });
 
 describe("GitHub Release asset readback", () => {
-  it.each([
+  for (const { observed, reason } of [
     { observed: [], reason: "missing" },
     { observed: [{ name: "axm", state: "new", size: bytes.byteLength }], reason: "not uploaded" },
-  ])("treats an asset that is $reason as absent without downloading", async ({ observed }) => {
-    const { read, downloadAsset } = reader(observed);
-    await expect(read({ name: "axm", size: bytes.byteLength }, signal)).resolves.toBeNull();
-    expect(downloadAsset).not.toHaveBeenCalled();
-  });
-
-  it("reports an uploaded asset of another size as a mismatch without downloading", async () => {
-    const { read, downloadAsset } = reader([{ name: "axm", state: "uploaded", size: 1 }]);
-    await expect(read({ name: "axm", size: bytes.byteLength }, signal)).resolves.toBe("size:1");
-    expect(downloadAsset).not.toHaveBeenCalled();
-    const publish = vi.fn(async () => undefined);
-    await expect(
-      publishImmutableCohort([
-        {
-          name: "axm",
-          integrity: contentIntegrity(bytes),
-          read: (readSignal) => read({ name: "axm", size: bytes.byteLength }, readSignal),
-          publish,
-        },
-      ]),
-    ).rejects.toThrow("Published content integrity conflict: axm.");
-    expect(publish).not.toHaveBeenCalled();
-    expect(downloadAsset).not.toHaveBeenCalled();
-  });
-
-  it("digests the downloaded bytes of an uploaded asset at the expected size", async () => {
-    const { read, downloadAsset } = reader([
-      { name: "axm", state: "uploaded", size: bytes.byteLength },
-    ]);
-    await expect(read({ name: "axm", size: bytes.byteLength }, signal)).resolves.toBe(
-      contentIntegrity(bytes),
+  ]) {
+    it.effect(`treats an asset that is ${reason} as absent without downloading`, () =>
+      Effect.gen(function* () {
+        const { read, downloadAsset } = yield* reader(observed);
+        expect(yield* read({ name: "axm", size: bytes.byteLength })).toBeNull();
+        expect(downloadAsset).not.toHaveBeenCalled();
+      }),
     );
-    expect(downloadAsset).toHaveBeenCalledWith("axm", signal);
-  });
+  }
 
-  it("rejects a release whose target is not the release commit", async () => {
-    const { read } = reader([], "b".repeat(40));
-    await expect(read({ name: "axm", size: bytes.byteLength }, signal)).rejects.toThrow(
-      "GitHub Release target integrity conflict",
-    );
-  });
+  it.effect("rejects an uploaded size mismatch before downloading or publishing", () =>
+    Effect.gen(function* () {
+      const { read, downloadAsset } = yield* reader([{ name: "axm", state: "uploaded", size: 1 }]);
+      expect(yield* read({ name: "axm", size: bytes.byteLength })).toBe("size:1");
+      const publish = vi.fn();
+      const failure = yield* Effect.flip(
+        publishImmutableCohort([
+          {
+            name: "axm",
+            integrity: contentIntegrity(bytes),
+            read: read({ name: "axm", size: bytes.byteLength }),
+            publish: Effect.sync(publish),
+          },
+        ]),
+      );
+      expect(failure.message).toContain("Published content integrity conflict: axm.");
+      expect(publish).not.toHaveBeenCalled();
+      expect(downloadAsset).not.toHaveBeenCalled();
+    }),
+  );
 
-  it("shares one in-flight release view among concurrent readers and refreshes afterwards", async () => {
-    const { read, viewRelease } = reader([
-      { name: "one", state: "uploaded", size: bytes.byteLength },
-      { name: "two", state: "new", size: 0 },
-    ]);
-    await expect(
-      Promise.all(
-        ["one", "two", "three"].map((name) => read({ name, size: bytes.byteLength }, signal)),
-      ),
-    ).resolves.toEqual([contentIntegrity(bytes), null, null]);
-    expect(viewRelease).toHaveBeenCalledTimes(1);
-    await read({ name: "one", size: bytes.byteLength }, signal);
-    expect(viewRelease).toHaveBeenCalledTimes(2);
-  });
+  it.effect("digests uploaded bytes at the expected size", () =>
+    Effect.gen(function* () {
+      const { read, downloadAsset } = yield* reader([
+        { name: "axm", state: "uploaded", size: bytes.byteLength },
+      ]);
+      expect(yield* read({ name: "axm", size: bytes.byteLength })).toBe(contentIntegrity(bytes));
+      expect(downloadAsset).toHaveBeenCalledWith("axm");
+    }),
+  );
+
+  it.effect("rejects a release whose target is not the release commit", () =>
+    Effect.gen(function* () {
+      const { read } = yield* reader([], "b".repeat(40));
+      expect(yield* Effect.flip(read({ name: "axm", size: bytes.byteLength }))).toMatchObject({
+        _tag: "ReleaseAssetTargetConflict",
+        expected: releaseCommit,
+        observed: "b".repeat(40),
+      });
+    }),
+  );
+
+  it.effect(
+    "shares a pending view, isolates reader interruption, and refreshes settled views",
+    () =>
+      Effect.gen(function* () {
+        const started = yield* Deferred.make<void>();
+        const finish = yield* Deferred.make<void>();
+        const view = vi.fn();
+        const read = yield* makeReleaseAssetReader({
+          releaseCommit,
+          viewRelease: Effect.gen(function* () {
+            view();
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(finish);
+            return { targetCommitish: releaseCommit, assets: [] };
+          }),
+          downloadAsset: () => Effect.succeed(bytes),
+        });
+        const first = yield* Effect.forkChild(read({ name: "one", size: 0 }));
+        yield* Deferred.await(started);
+        const second = yield* Effect.forkChild(read({ name: "two", size: 0 }));
+        yield* Effect.yieldNow;
+        yield* Fiber.interrupt(first);
+        yield* Deferred.succeed(finish, undefined);
+        expect(yield* Fiber.join(second)).toBeNull();
+        expect(view).toHaveBeenCalledTimes(1);
+        yield* read({ name: "three", size: 0 });
+        expect(view).toHaveBeenCalledTimes(2);
+      }),
+  );
+
+  it.effect("cancels the underlying view when every reader abandons it", () =>
+    Effect.gen(function* () {
+      const started = yield* Deferred.make<void>();
+      const canceled = yield* Deferred.make<void>();
+      const read = yield* makeReleaseAssetReader({
+        releaseCommit,
+        viewRelease: Effect.andThen(Deferred.succeed(started, undefined), Effect.never).pipe(
+          Effect.onInterrupt(() => Deferred.succeed(canceled, undefined)),
+        ),
+        downloadAsset: () => Effect.succeed(bytes),
+      });
+      const fiber = yield* Effect.forkChild(read({ name: "one", size: 0 }));
+      yield* Deferred.await(started);
+      yield* Fiber.interrupt(fiber);
+      expect(yield* Deferred.isDone(canceled)).toBe(true);
+    }),
+  );
 });

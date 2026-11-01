@@ -17,7 +17,7 @@ import * as Context from "effect/Context";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { readFileStringIfPresent } from "@agentxm/host-primitives";
+import { isNotFound, readFileStringIfPresent } from "@agentxm/host-primitives";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { McpInspectionError } from "./errors.js";
 import type { ConfiguredAgentOutcome } from "../../operations/index.js";
@@ -29,6 +29,7 @@ import {
   observeNativeMcpTargets,
   readNativeMcpValues,
   McpDefinitionInvalid,
+  McpConfigIoFailed,
   planMcpServerTargets,
   unresolvedMcpAgentTargets,
   readNativeMcpConfig,
@@ -96,6 +97,8 @@ export interface DesiredMcpServerInspection {
   readonly outcomes: ReadonlyArray<ConfiguredAgentOutcome>;
   /** Every configured agent either holds the expected entry or cannot represent it. */
   readonly current: boolean;
+  /** Internal source-probe evidence. Public outcomes use only the owned safe reason. */
+  readonly sourceDiagnostics?: ReadonlyArray<McpConfigIoFailed>;
   /**
    * The shared-target conflict that blocks a group of readers, when one does:
    * the connection has no native shape every reader of that file accepts, so
@@ -308,7 +311,7 @@ const inspectPlannedAgent = (
   });
 
 /** Without a source manifest, native presence cannot prove projected currency. */
-const inspectUnavailableSource = (args: InspectDesiredMcpServerArgs) =>
+const inspectUnavailableSource = (args: InspectDesiredMcpServerArgs, probeFailed: boolean) =>
   resolveConfiguredMcpTargets(args).pipe(
     Effect.map((groups) =>
       args.agentIds.flatMap((agentId) => {
@@ -324,8 +327,9 @@ const inspectUnavailableSource = (args: InspectDesiredMcpServerArgs) =>
                 terminalInspection({
                   agentId,
                   status: "unverified",
-                  reason:
-                    "The canonical MCP manifest is unavailable; expected native values cannot be verified.",
+                  reason: probeFailed
+                    ? "The canonical MCP manifest could not be inspected; expected native values cannot be verified."
+                    : "The canonical MCP manifest is unavailable; expected native values cannot be verified.",
                   target: member.target,
                 }),
               ),
@@ -335,22 +339,35 @@ const inspectUnavailableSource = (args: InspectDesiredMcpServerArgs) =>
     ),
   );
 
-const findManifestRoot = (
+const findManifestRoot = Effect.fnUntraced(function* (
   workspaceRoot: string,
   canonicalPaths: ReadonlyArray<string>,
-): Effect.Effect<Option.Option<string>, never, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    for (const candidate of canonicalPaths) {
-      const resolved = path.resolve(workspaceRoot, candidate);
-      const manifestPath = path.join(resolved, manifestFilenameForType("mcp-server"));
-      if (yield* fs.exists(manifestPath).pipe(Effect.catch(() => Effect.succeed(false)))) {
-        return Option.some(resolved);
-      }
+): Effect.fn.Return<
+  { readonly root: Option.Option<string>; readonly diagnostics: ReadonlyArray<McpConfigIoFailed> },
+  never,
+  FileSystem.FileSystem | Path.Path
+> {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const diagnostics: McpConfigIoFailed[] = [];
+  for (const candidate of canonicalPaths) {
+    const resolved = path.resolve(workspaceRoot, candidate);
+    const manifestPath = path.join(resolved, manifestFilenameForType("mcp-server"));
+    const exists = yield* fs.exists(manifestPath).pipe(Effect.result);
+    if (Result.isFailure(exists)) {
+      if (!isNotFound(exists.failure))
+        diagnostics.push(
+          new McpConfigIoFailed({
+            detail: `Failed to inspect MCP server manifest: ${manifestPath}`,
+            cause: exists.failure,
+          }),
+        );
+      continue;
     }
-    return Option.none();
-  });
+    if (exists.success) return { root: Option.some(resolved), diagnostics };
+  }
+  return { root: Option.none(), diagnostics };
+});
 
 /** The declaration an inspection renders: the entry as it would be projected when enabled. */
 const inspectedDeclaration = (
@@ -465,13 +482,14 @@ const inspectDesiredMcpServerUncached = (
       });
     }
     const inline = declaration.connection !== undefined;
-    const manifestRoot = inline
-      ? Option.none<string>()
+    const source = inline
+      ? { root: Option.none<string>(), diagnostics: [] }
       : yield* findManifestRoot(args.workspaceRoot, args.canonicalPaths);
+    const manifestRoot = source.root;
     const observed = yield* Effect.gen(function* () {
       if (!inline && Option.isNone(manifestRoot))
         return {
-          inspections: yield* inspectUnavailableSource(args),
+          inspections: yield* inspectUnavailableSource(args, source.diagnostics.length > 0),
           nativeLocations: [],
           conflict: Option.none<string>(),
         };
@@ -587,6 +605,7 @@ const inspectDesiredMcpServerUncached = (
     });
     return {
       ...observed,
+      ...(source.diagnostics.length === 0 ? {} : { sourceDiagnostics: source.diagnostics }),
       outcomes: observed.inspections.map((inspection) =>
         mcpInspectionOutcome({ name: args.node.name, inspection, state }),
       ),

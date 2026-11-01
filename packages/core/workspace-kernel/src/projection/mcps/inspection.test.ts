@@ -201,6 +201,95 @@ const writeHermesEntry = (workspaceRoot: string, entry: Readonly<Record<string, 
   });
 
 describe("agent MCP config inspection", () => {
+  for (const condition of ["missing", "PermissionDenied", "Unknown", "later-found"] as const) {
+    it.effect(`preserves ${condition} evidence when probing a canonical MCP manifest`, () =>
+      withNode(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-mcp-source-probe-" });
+          const blocked = path.join(root, "unavailable/mcp.json");
+          const cause = PlatformError.systemError({
+            _tag: condition === "PermissionDenied" ? "PermissionDenied" : "Unknown",
+            module: "FileSystem",
+            method: "exists",
+            pathOrDescriptor: blocked,
+            cause: new Error("private-provider-detail"),
+          });
+          if (condition === "later-found") {
+            yield* fs.makeDirectory(path.join(root, "available"));
+            yield* fs.writeFileString(
+              path.join(root, "available/mcp.json"),
+              JSON.stringify({
+                owner: "@acme",
+                type: "mcp-server",
+                name: "context",
+                version: "1.0.0",
+                server: {
+                  name: "ai.acme/context",
+                  description: "Context",
+                  version: "1.0.0",
+                  packages: [
+                    {
+                      registryType: "npm",
+                      identifier: "@acme/context",
+                      version: "1.0.0",
+                      transport: { type: "stdio" },
+                    },
+                  ],
+                },
+              }),
+            );
+          }
+          const result = yield* inspectDesiredMcpServer({
+            workspaceRoot: root,
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+            scope: "project",
+            agentIds: ["claude-code"],
+            node: { name: "context", authority: "sourced" },
+            entry: {
+              ...registryContextEntry,
+              distribution: {
+                kind: "package",
+                registryType: "npm",
+                identifier: "@acme/context",
+                transport: "stdio",
+              },
+            },
+            canonicalPaths: ["unavailable", ...(condition === "later-found" ? ["available"] : [])],
+            state: "projected",
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, {
+              ...fs,
+              exists: (target) =>
+                target === blocked && condition !== "missing"
+                  ? Effect.fail(cause)
+                  : fs.exists(target),
+            }),
+          );
+          if (condition === "missing") {
+            expect(result.sourceDiagnostics).toBeUndefined();
+            expect(result.inspections[0]?.reason).toContain("manifest is unavailable");
+          } else {
+            expect(result.sourceDiagnostics).toHaveLength(1);
+            expect(result.sourceDiagnostics?.[0]).toMatchObject({
+              _tag: "McpConfigIoFailed",
+              cause,
+            });
+            if (condition !== "later-found")
+              expect(result.inspections[0]?.reason).toContain("manifest could not be inspected");
+          }
+          expect(result.current).toBe(condition === "later-found");
+          expect(result.inspections[0]?.status).toBe(
+            condition === "later-found" ? "match" : "unverified",
+          );
+          expect(JSON.stringify(result.outcomes)).not.toContain("private-provider-detail");
+          expect(JSON.stringify(result.outcomes)).not.toContain("McpConfigIoFailed");
+        }).pipe(Effect.scoped),
+      ),
+    );
+  }
+
   it.effect("shares detailed observations within one query and rereads the next query", () =>
     withNode(
       Effect.gen(function* () {

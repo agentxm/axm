@@ -81,7 +81,7 @@ import {
   ResolvePlanInteractionTest,
 } from "@agentxm/workspace-kernel/planning/testing";
 import { layer as WorkspaceStateLayer } from "@agentxm/workspace-kernel/workspace-state/live";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 
 import { isPublishRefusal } from "./errors.js";
 import { normalizePublishResult, type PublishResult } from "./publish/result.js";
@@ -251,7 +251,7 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
       recordingFileSystemLayer((event) => void writes.push(event)),
       WorkspaceFileWriteLocksLive,
     ),
-    NodeServices.layer,
+    NativePlatformTest,
   );
   const interaction = ResolvePlanInteractionTest();
   const base = Layer.provideMerge(
@@ -714,7 +714,7 @@ export const makeRegistryManagementWorld = (
     RegistryContextTest(testRegistryUrl),
     Layer.provide(
       RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, httpClient)),
-      NodeServices.layer,
+      NativePlatformTest,
     ),
   );
   return {

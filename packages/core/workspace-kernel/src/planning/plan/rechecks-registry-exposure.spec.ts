@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -178,7 +178,7 @@ describe("Registry eligibility at exposure", () => {
         expect(requests).toEqual(
           scenario === "no-registry-exposure" ? [] : ["POST", "HEAD", "POST", "HEAD"],
         );
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }
 });

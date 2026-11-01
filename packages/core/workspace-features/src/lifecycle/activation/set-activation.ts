@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 /**
  * Activation: turning one installed extension on or off without changing
  * what the workspace acquired.
@@ -453,7 +454,12 @@ const blockedMaterialization = (
 const instructionGate = (): Effect.Effect<
   Option.Option<OperationRefused>,
   ExtensionManagerFailure,
-  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation | LockfileReader
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeEntryRemoval
+  | SettingsReader
+  | WorkspaceLocation
+  | LockfileReader
 > =>
   Effect.gen(function* () {
     const config = yield* activeInstructionsConfig();

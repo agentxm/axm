@@ -1,6 +1,4 @@
-// @effect-diagnostics nodeBuiltinImport:off — Node rmdir supplies an atomic empty-only directory removal absent from FileSystem.remove
-import { rmdir } from "node:fs/promises";
-
+import { NativeEntryRemoval } from "../locations/index.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -110,7 +108,7 @@ export const removeEmptyRuntimeDirectories = (identities: ReadonlyArray<Containe
           }))
         )
           return;
-        yield* Effect.tryPromise(() => rmdir(identity.physicalPath));
+        yield* (yield* NativeEntryRemoval).removeEmptyDirectory(identity.physicalPath);
       }).pipe(Effect.ignore),
     { discard: true },
   );

@@ -15,7 +15,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientError from "effect/http/HttpClientError";
 
@@ -46,14 +46,14 @@ export const OfflineHttpClient: Layer.Layer<HttpClient.HttpClient> = Layer.succe
 /** Registry clients over the refusing transport: no request leaves the process. */
 const OfflineRegistryClients = Layer.provide(
   RegistryClientFactoryTest(OfflineHttpClient),
-  NodeServices.layer,
+  NativePlatformTest,
 );
 
 /** Every service a lint run over `fixture` reads the workspace through. */
 export const lintServices = (fixture: LintWorkspaceFixture) =>
   fixture.layer.pipe(
     Layer.provideMerge(
-      Layer.mergeAll(NodeServices.layer, OfflineRegistryClients, NoProjectionParticipants),
+      Layer.mergeAll(NativePlatformTest, OfflineRegistryClients, NoProjectionParticipants),
     ),
   );
 

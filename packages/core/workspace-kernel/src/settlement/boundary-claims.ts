@@ -1,3 +1,4 @@
+import { NativeEntryRemoval } from "../locations/index.js";
 /** Active physical mutation claims; the transition lock supplies all lease mechanics. */
 import { randomUUID } from "node:crypto";
 
@@ -62,12 +63,13 @@ export const makeBoundaryClaims = (
 ): Effect.Effect<
   BoundaryClaims,
   WorkspaceSnapshotError,
-  FileSystem.FileSystem | Path.Path | Scope.Scope
+  FileSystem.FileSystem | Path.Path | Scope.Scope | NativeEntryRemoval
 > =>
   Effect.gen(function* () {
     if (directory === null)
       return { claim: () => Effect.void, compromised: Effect.never, isCompromised: () => false };
     const fs = yield* FileSystem.FileSystem;
+    const removal = yield* NativeEntryRemoval;
     const path = yield* Path.Path;
     const lifetime = yield* Scope.Scope;
     const failure = (cause: unknown) =>
@@ -331,6 +333,7 @@ export const makeBoundaryClaims = (
       ).pipe(
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
+        Effect.provideService(NativeEntryRemoval, removal),
       );
     return {
       claim,

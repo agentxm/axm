@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -113,7 +113,7 @@ describe("Setup preview input resolution", () => {
         expect(approved.promptState().presentSetupPlanCalls).toEqual(
           unapproved.promptState().presentSetupPlanCalls,
         );
-      }).pipe(Effect.provide(NodeServices.layer));
+      }).pipe(Effect.provide(NativePlatformTest));
     },
   );
 
@@ -131,7 +131,7 @@ describe("Setup preview input resolution", () => {
           );
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect("the preview discloses the explicit request as the membership input", () => {
@@ -160,7 +160,7 @@ describe("Setup preview input resolution", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect("the preview discloses detected membership when the project shows an agent", () => {
@@ -187,7 +187,7 @@ describe("Setup preview input resolution", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   for (const scope of ["project", "user"] as const) {
@@ -226,7 +226,7 @@ describe("Setup preview input resolution", () => {
               expectNoPrompt(created);
             }),
           )
-          .pipe(Effect.provide(NodeServices.layer));
+          .pipe(Effect.provide(NativePlatformTest));
       },
     );
   }
@@ -247,7 +247,7 @@ describe("Setup preview input resolution", () => {
           );
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect(
@@ -274,7 +274,7 @@ describe("Setup preview input resolution", () => {
         expect(userSettled).not.toMatchObject({
           outcome: { instructions: expect.anything() },
         });
-      }).pipe(Effect.provide(NodeServices.layer));
+      }).pipe(Effect.provide(NativePlatformTest));
     },
   );
   for (const instructions of [false, { fileName: "TEAM.md" }, { fileName: "./off" }] as const) {
@@ -306,7 +306,7 @@ describe("Setup preview input resolution", () => {
               expect(created.exists("CLAUDE.md")).toBe(false);
             }),
           )
-          .pipe(Effect.provide(NodeServices.layer));
+          .pipe(Effect.provide(NativePlatformTest));
       },
     );
   }
@@ -333,7 +333,7 @@ describe("Setup preview input resolution", () => {
             expect(created.snapshot()).toEqual(before);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer));
+        .pipe(Effect.provide(NativePlatformTest));
     });
   }
   it.effect("rejects project instruction choices in user scope without writes", () => {
@@ -353,6 +353,6 @@ describe("Setup preview input resolution", () => {
           expect(created.homeSnapshot()).toEqual(before);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 });

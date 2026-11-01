@@ -1,7 +1,7 @@
+import { NativePlatformTest } from "../locations/testing.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -25,7 +25,7 @@ afterEach(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-const services = NodeServices.layer;
+const services = NativePlatformTest;
 
 describe("workspace transition lock", () => {
   it.effect("C-20: holds, records the holder, and releases with its scope", () =>
@@ -378,7 +378,7 @@ describe("workspace transition lock", () => {
                 : real.writeFileString(...args),
           };
         }),
-      ).pipe(Layer.provideMerge(NodeServices.layer));
+      ).pipe(Layer.provideMerge(NativePlatformTest));
       const fiber = yield* Effect.forkChild(
         Effect.scoped(
           lock
@@ -535,7 +535,7 @@ const holderWriteFailingServices = Layer.effect(
           : real.writeFileString(...args),
     };
   }),
-).pipe(Layer.provideMerge(NodeServices.layer));
+).pipe(Layer.provideMerge(NativePlatformTest));
 
 /** A contender with its own lock instance, as a separate process would have. */
 const acquireWorkspaceTransitionLockForTest = (

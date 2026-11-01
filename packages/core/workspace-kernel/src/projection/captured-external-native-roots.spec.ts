@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -103,7 +103,7 @@ describe("captured external native roots", () => {
         expect(yield* f.command(f.withdraw)).toBe(false);
         expect(yield* f.fs.readFileString(f.target.path)).toBe(f.raw);
         expect(yield* f.fs.exists(f.external)).toBe(true);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -133,7 +133,7 @@ describe("captured external native roots", () => {
               ._tag,
           ).toBe("Failure");
         }).pipe(Effect.provide(authority));
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   for (const foreign of [false, true]) {
@@ -155,7 +155,7 @@ describe("captured external native roots", () => {
           expect(
             (yield* f.fs.readDirectory(f.parent)).some((name) => name.startsWith(".axm-retired-")),
           ).toBe(false);
-        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+        }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }
 
@@ -177,7 +177,7 @@ describe("captured external native roots", () => {
         expect(yield* f.fs.readFileString(f.target.path)).toBe(f.raw);
         expect(yield* f.command(f.withdraw)).toBe(true);
         expect(yield* f.fs.exists(f.external)).toBe(false);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("refuses an undeclared sibling and a native root claiming another workspace", () =>
@@ -193,7 +193,7 @@ describe("captured external native roots", () => {
         }
       }).pipe(Effect.provide(f.authority));
       expect(yield* f.fs.readDirectory(f.external)).toEqual(["axm.json"]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("refuses a captured root retargeted to another directory", () =>
@@ -211,7 +211,7 @@ describe("captured external native roots", () => {
         expect((yield* writer.protect(f.target.path).pipe(Effect.result))._tag).toBe("Failure");
         expect(yield* f.fs.readDirectory(replacement)).toEqual([]);
       }).pipe(Effect.provide(f.authority));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("refuses to create missing ancestors above an explicitly selected root", () =>
@@ -242,6 +242,6 @@ describe("captured external native roots", () => {
         ).toBe("Failure");
         expect(yield* f.fs.exists(missing)).toBe(false);
       }).pipe(Effect.provide(authority));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

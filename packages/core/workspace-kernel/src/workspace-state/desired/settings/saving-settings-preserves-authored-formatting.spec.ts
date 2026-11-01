@@ -1,8 +1,8 @@
+import { NativePlatformTest } from "../../../locations/testing.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
@@ -75,7 +75,7 @@ describe("Saving settings", () => {
 
       const authored: unknown = JSON.parse(text);
       const settings = yield* decodeSettings(authored);
-      yield* writeSettingsAtPath(settingsPath, settings).pipe(Effect.provide(NodeServices.layer));
+      yield* writeSettingsAtPath(settingsPath, settings).pipe(Effect.provide(NativePlatformTest));
 
       expect(fs.readFileSync(settingsPath, "utf8")).toBe(text);
     }),
@@ -97,7 +97,7 @@ describe("Saving settings", () => {
         agents: ["claude-code"],
       };
       const settings = yield* decodeSettings(targetDocument);
-      yield* writeSettingsAtPath(settingsPath, settings).pipe(Effect.provide(NodeServices.layer));
+      yield* writeSettingsAtPath(settingsPath, settings).pipe(Effect.provide(NativePlatformTest));
 
       const written = fs.readFileSync(settingsPath, "utf8");
       expect(written).toContain(`"futureCapability": { "enabled": true }`);

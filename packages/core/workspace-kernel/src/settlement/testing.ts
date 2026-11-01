@@ -1,3 +1,4 @@
+import { NativeEntryRemoval } from "../locations/index.js";
 /**
  * @agentxm/workspace-kernel/settlement deterministic test ports.
  *
@@ -34,7 +35,11 @@ export { makeMemoryTransitionLockWorld } from "./memory-transition-lock.js";
 export const WorkspaceTransactionScopeTest = (
   paths: WorkspaceTransactionPaths,
   options?: { readonly lock?: WorkspaceTransitionLock },
-): Layer.Layer<WorkspaceTransactionScope, never, FileSystem.FileSystem | Path.Path> =>
+): Layer.Layer<
+  WorkspaceTransactionScope,
+  never,
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval
+> =>
   Layer.effect(
     WorkspaceTransactionScope,
     makeWorkspaceTransactionScope(

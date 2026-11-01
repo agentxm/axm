@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach } from "vitest";
@@ -62,7 +62,7 @@ describe("setup native-output preflight", () => {
             expect(fixture.snapshot()).toEqual(before);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer));
+        .pipe(Effect.provide(NativePlatformTest));
     },
   );
 
@@ -117,7 +117,7 @@ describe("setup native-output preflight", () => {
             for (const link of links) expect(fs.readlinkSync(link)).toBe(target);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer));
+        .pipe(Effect.provide(NativePlatformTest));
     },
   );
 });

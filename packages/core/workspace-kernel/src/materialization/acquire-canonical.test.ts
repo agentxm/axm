@@ -1,9 +1,9 @@
+import { NativePlatformTest } from "../locations/testing.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
@@ -52,7 +52,7 @@ describe("canonical acquisition dispatch", () => {
       ),
     );
     const services = Layer.merge(authority, RegistryTransportTest(FetchHttpClient.layer)).pipe(
-      Layer.provideMerge(NodeServices.layer),
+      Layer.provideMerge(NativePlatformTest),
     );
     return effect.pipe(Effect.provide(services));
   };

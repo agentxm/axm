@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -49,7 +49,7 @@ describe("Changing Knowledge source", () => {
           expect(captured).toEqual({ outcome: "corpus-changing" });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   // Every discovery operation shares that one capture entry point.
@@ -66,7 +66,7 @@ describe("Changing Knowledge source", () => {
           expect(result.outcome).toBe("corpus-changing");
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   it.effect("query with text", () => {
@@ -84,7 +84,7 @@ describe("Changing Knowledge source", () => {
           expect(result.outcome).toBe("corpus-changing");
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   it.effect("query", () => {
@@ -102,7 +102,7 @@ describe("Changing Knowledge source", () => {
           expect(result.outcome).toBe("corpus-changing");
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   it.effect("resolve", () => {
@@ -120,7 +120,7 @@ describe("Changing Knowledge source", () => {
           expect(result.outcome).toBe("corpus-changing");
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   it.effect("related", () => {
@@ -138,6 +138,6 @@ describe("Changing Knowledge source", () => {
           expect(result.outcome).toBe("corpus-changing");
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 });

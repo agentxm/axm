@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 /**
  * Configured-agent membership: which coding agents this workspace configures,
  * and the change a request makes to that set.
@@ -176,7 +177,7 @@ const prepareAddConfiguredAgents = (
 ): Effect.Effect<
   AddConfiguredAgentsCandidate | ConfiguredAgentsUnchanged,
   ConfigureAgentsFailure,
-  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
+  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path | NativeEntryRemoval
 > =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
@@ -266,6 +267,7 @@ interface MembershipReconciliation<Requirements, Output> {
  * reconciliation steps the application supplied still need.
  */
 type MembershipExecutionRequirements<Requirements> =
+  | NativeEntryRemoval
   | Requirements
   | ConfiguredAgentOutcomesProvider
   | DesiredStateReader
@@ -637,7 +639,12 @@ export const listConfiguredAgents = (
 ): Effect.Effect<
   ConfiguredAgentInventory,
   ConfigureAgentsFailure,
-  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path | LockfileReader
+  | SettingsReader
+  | WorkspaceLocation
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeEntryRemoval
+  | LockfileReader
 > =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;

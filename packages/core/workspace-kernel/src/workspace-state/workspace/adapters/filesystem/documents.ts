@@ -1,3 +1,4 @@
+import { NativeEntryRemoval } from "../../../../locations/index.js";
 /** Filesystem encoding and transaction-aware publication of workspace documents. */
 
 import * as Context from "effect/Context";
@@ -19,7 +20,11 @@ import { WorkspaceFileWriteLocks } from "../../../../settlement/index.js";
 export const FilesystemWorkspaceDocuments: Layer.Layer<
   WorkspaceDocuments,
   never,
-  WorkspaceLocation | FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+  | WorkspaceLocation
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceFileWriteLocks
+  | NativeEntryRemoval
 > = Layer.effect(
   WorkspaceDocuments,
   Effect.gen(function* () {
@@ -29,6 +34,7 @@ export const FilesystemWorkspaceDocuments: Layer.Layer<
     const io = Context.make(FileSystem.FileSystem, fs).pipe(
       Context.add(Path.Path, yield* Path.Path),
       Context.add(WorkspaceFileWriteLocks, locks),
+      Context.add(NativeEntryRemoval, yield* NativeEntryRemoval),
     );
     const acceptedResolutions = readLockfileCell(location, location.runtimeDir).pipe(
       Effect.provideContext(io),

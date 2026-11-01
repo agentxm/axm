@@ -22,7 +22,7 @@ import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -134,7 +134,7 @@ export const makeVisibilityWorld = (
       RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, transport)),
     ),
     Layer.merge(
-      Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+      Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
       // A hermetic user home: user-scope state is this world's, and the
       // machine's real home is never read or written.
       ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),

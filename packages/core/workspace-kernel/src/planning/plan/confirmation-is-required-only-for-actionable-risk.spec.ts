@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -90,7 +90,7 @@ describe("Confirmation and actionable risk", () => {
       expect(deriveOperationOutcome(resolution)).toBe("applied");
       expect(applied).toBe(1);
       expect(services.interaction.state.confirmApplyChangesCalls).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("an apply with nothing to do finishes without asking", () =>
@@ -109,7 +109,7 @@ describe("Confirmation and actionable risk", () => {
 
       expect(deriveOperationOutcome(resolution)).toBe("no-op");
       expect(services.interaction.state.confirmApplyChangesCalls).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("a declined confirmation cancels and changes nothing", () =>
@@ -137,7 +137,7 @@ describe("Confirmation and actionable risk", () => {
       expect(deriveOperationOutcome(resolution)).toBe("cancelled");
       expect(applied).toBe(0);
       expect(services.interaction.state.confirmApplyChangesCalls).toHaveLength(1);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("an accepted confirmation applies the plan it asked about", () =>
@@ -166,7 +166,7 @@ describe("Confirmation and actionable risk", () => {
       expect(applied).toBe(1);
       expect(resolution.declined).not.toBe(true);
       expect(services.interaction.state.confirmApplyChangesCalls).toHaveLength(1);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("an apply that cannot open a prompt stops as approval required", () =>
@@ -192,6 +192,6 @@ describe("Confirmation and actionable risk", () => {
       expect(resolution.blocking?.class).toBe("approval-required");
       expect(applied).toBe(0);
       expect(services.interaction.state.confirmApplyChangesCalls).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

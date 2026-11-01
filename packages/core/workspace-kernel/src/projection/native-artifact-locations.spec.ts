@@ -1,7 +1,7 @@
+import { NativePlatformTest } from "../locations/testing.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { codingAgentForId } from "../agent-adapters/index.js";
@@ -89,7 +89,7 @@ describe("Native artifact location outcomes", () => {
       expect(
         result[0]?.availability.every((availability) => availability.state === "unverified"),
       ).toBe(true);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("drops a retired alias consumer while preserving the region outcome", () =>
@@ -130,7 +130,7 @@ describe("Native artifact location outcomes", () => {
       });
       expect(result[0]?.aliases).not.toContain(alias);
       expect(result[0]?.potentialReaders).not.toContain("claude-code");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("ignores a foreign dangling link at an unconfigured agent's reader path", () =>
@@ -165,7 +165,7 @@ describe("Native artifact location outcomes", () => {
       expect(result[0]?.aliases).not.toContain(foreign);
       expect(result[0]?.potentialReaders).not.toContain("gemini-cli");
       expect(yield* fs.readLink(foreign)).toBe("does-not-exist.md");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("counts an alias link to a missing region file as that region's reader", () =>
@@ -202,7 +202,7 @@ describe("Native artifact location outcomes", () => {
         aliases: expect.arrayContaining([source, alias]),
         configuredConsumers: ["claude-code"],
       });
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("fails explicitly when a final reader route cannot be observed", () =>
@@ -241,7 +241,7 @@ describe("Native artifact location outcomes", () => {
           target: alias,
           reason: "unreadable",
         });
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("reports a populated conditional alias as an unverified potential reader", () =>
@@ -286,7 +286,7 @@ describe("Native artifact location outcomes", () => {
           },
         ],
       });
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect.each(["", "# Override\n"])(
@@ -323,7 +323,7 @@ describe("Native artifact location outcomes", () => {
           ],
         });
         expect(yield* fs.readFileString(alias)).toBe(contents);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect.each([false, true])("reports bounded retirement with foreign children: %s", (foreign) =>
@@ -357,7 +357,7 @@ describe("Native artifact location outcomes", () => {
       expect(after[0]).not.toHaveProperty("proof");
       if (foreign)
         expect(yield* fs.readFileString(path.join(target, "personal.txt"))).toBe("Keep\n");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("groups shared aliases once and keeps policy independent of configured readers", () =>
@@ -399,6 +399,6 @@ describe("Native artifact location outcomes", () => {
       });
       expect(outcomes[0]?.aliases).toContain(path.join(root, ".claude/skills/review"));
       expect(outcomes[0]?.availability.every((entry) => entry.state === "unverified")).toBe(true);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

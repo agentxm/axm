@@ -1,3 +1,4 @@
+import { NativePlatformTest } from "../locations/testing.js";
 import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
@@ -8,7 +9,6 @@ import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as TestClock from "effect/testing/TestClock";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -201,7 +201,7 @@ describe("Concurrent workspace changes", () => {
         });
         expect(nodeFs.existsSync(nodePath.join(workspace.root, ".axm", "tmp"))).toBe(false);
         yield* Fiber.interrupt(driver);
-      }).pipe(Effect.provide(Layer.fresh(NodeServices.layer)));
+      }).pipe(Effect.provide(Layer.fresh(NativePlatformTest)));
     },
     30000,
   );

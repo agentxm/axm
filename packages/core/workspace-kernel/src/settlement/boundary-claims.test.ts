@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Clock from "effect/Clock";
 import * as Deferred from "effect/Deferred";
@@ -31,7 +31,7 @@ describe("physical boundary admission timing", () => {
       expect(result._tag).toBe("Failure");
       expect(yield* fs.readDirectory(outside)).toEqual(["sentinel"]);
       expect(yield* fs.readFileString(path.join(outside, "sentinel"))).toBe("keep");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("refuses an admission scaffold redirected outside the coordination namespace", () =>
@@ -53,7 +53,7 @@ describe("physical boundary admission timing", () => {
       expect(yield* fs.readDirectory(outside)).toEqual(["sentinel"]);
       expect(yield* fs.readFileString(path.join(outside, "sentinel"))).toBe("keep");
       expect(yield* fs.exists(path.join(namespace, "active.json"))).toBe(false);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("keeps admission through lease retirement before admitting a successor", () =>
@@ -124,7 +124,7 @@ describe("physical boundary admission timing", () => {
         yield* Fiber.join(closing);
         expect(yield* Fiber.join(second)).toMatchObject({ _tag: "Success" });
       }).pipe(Effect.ensuring(Deferred.succeed(release, undefined)));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("finishes actual OS-lock contention while application time remains frozen", () =>
@@ -207,6 +207,6 @@ describe("physical boundary admission timing", () => {
       yield* TestClock.adjust("1 second");
       yield* Fiber.join(timer);
       expect(yield* Ref.get(applicationTimerRan)).toBe(true);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

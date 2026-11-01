@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const platform = WorkspaceFileWriteLocksLive.pipe(Layer.provideMerge(NodeServices.layer));
+const platform = WorkspaceFileWriteLocksLive.pipe(Layer.provideMerge(NativePlatformTest));
 const settings = Schema.decodeUnknownEffect(Schema.fromJsonString(SettingsSchema));
 
 describe("settings intent round trips", () => {

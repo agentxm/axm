@@ -1,3 +1,4 @@
+import { NativeEntryRemoval } from "../../locations/index.js";
 /**
  * Instruction reconciliation over the workspace: the one observation a
  * caller derives its views from, the readiness preflight that decides
@@ -114,7 +115,12 @@ export const observeInstructions = (
 ): Effect.Effect<
   InstructionProjectionSnapshot,
   WorkspaceSettingsReadFailure | WorkspaceLockfileReadFailure,
-  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation | LockfileReader
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeEntryRemoval
+  | SettingsReader
+  | WorkspaceLocation
+  | LockfileReader
 > =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -214,6 +220,7 @@ export const removeInstructionTargetsFor = (
   | FileSystem.FileSystem
   | Path.Path
   | NativeWriteAuthority
+  | NativeEntryRemoval
   | SettingsReader
   | WorkspaceLocation
   | LockfileReader
@@ -238,6 +245,7 @@ type ReconcileRequirements =
   | FileSystem.FileSystem
   | Path.Path
   | NativeWriteAuthority
+  | NativeEntryRemoval
   | LockfileReader
   | AcceptedResolutionWriter;
 
@@ -395,7 +403,13 @@ export const observeInstructionSurfacePlans = <E, R>(
 ): Effect.Effect<
   ReadonlyArray<ProjectionUnitObservation>,
   E | WorkspaceSettingsReadFailure | WorkspaceLockfileReadFailure | InstructionMaintenanceFailure,
-  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation | LockfileReader
+  | R
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeEntryRemoval
+  | SettingsReader
+  | WorkspaceLocation
+  | LockfileReader
 > =>
   Effect.gen(function* () {
     const observations = yield* observeProjectionPlans(plans);

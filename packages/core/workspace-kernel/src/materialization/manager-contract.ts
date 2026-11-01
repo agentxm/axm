@@ -4,7 +4,7 @@ import type * as Path from "effect/Path";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import type { NativeWriteAuthority } from "../agent-adapters/index.js";
-import type { NativeLocationOutcome } from "../locations/index.js";
+import type { NativeEntryRemoval, NativeLocationOutcome } from "../locations/index.js";
 import type { ConfiguredAgentOutcome } from "../operations/index.js";
 import type {
   DesiredStateReader,
@@ -16,6 +16,7 @@ import type {
 /** Canonical acquisition keeps filesystem, client, and cleanup authority in R. */
 export type CanonicalMaterializationRequirements =
   | FileSystem.FileSystem
+  | NativeEntryRemoval
   | Path.Path
   | RegistryClientFactory
   | WorkspaceLocation

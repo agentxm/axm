@@ -13,6 +13,7 @@ import {
   type NativeWriteAuthorityService,
 } from "../agent-adapters/index.js";
 import {
+  NativeEntryRemoval,
   applyStructuralInverse,
   assertNativeMutationWithinRoots,
   captureNativeAuthorityRoots,
@@ -45,6 +46,7 @@ const sameRoute = (before: ContainerIdentity, after: ContainerIdentity): boolean
 /** The owning workspace supplies persistence, authority, and transaction capabilities once. */
 export const makeNativeInsertionAuthority = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
+  const removal = yield* NativeEntryRemoval;
   const path = yield* Path.Path;
   const location = yield* WorkspaceLocation;
   const locks = yield* WorkspaceFileWriteLocks;
@@ -81,11 +83,12 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
     });
   const finish = <A, E>(
     target: string,
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | NativeEntryRemoval>,
   ): Effect.Effect<A, NativeWriteRefused> =>
     effect.pipe(
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
+      Effect.provideService(NativeEntryRemoval, removal),
       Effect.mapError((cause) =>
         cause instanceof NativeWriteRefused
           ? cause

@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -51,7 +51,7 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
   return Layer.mergeAll(
     makeWorkspaceMock(axmDir, wsOpts),
     MockWorkspaceTransactionScope(axmDir),
-  ).pipe(Layer.provideMerge(NodeServices.layer));
+  ).pipe(Layer.provideMerge(NativePlatformTest));
 };
 
 /** Creates a pack manifest on disk and returns its content hash. */

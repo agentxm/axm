@@ -1,9 +1,9 @@
+import { NativePlatformTest } from "../../locations/testing.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -114,7 +114,7 @@ describe("accepted canonical source transitions", () => {
       expect(nodeFs.existsSync(unrelatedPath)).toBe(true);
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer)),
+      Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest)),
     ),
   );
 });

@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -51,7 +51,7 @@ describe("Local inventory before setup", () => {
           expect(fixture.exists("axm.lock")).toBe(false);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 
   it.effect("finds a native skill without taking ownership", () => {
@@ -80,7 +80,7 @@ describe("Local inventory before setup", () => {
           expect(fixture.readFile(".agents/skills/native-only/SKILL.md")).toContain("# Native");
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 
   // Supporting coverage: every per-type inventory answers the same way.
@@ -104,6 +104,6 @@ describe("Local inventory before setup", () => {
             expect(fixture.exists("axm.lock")).toBe(false);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+        .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
     });
 });

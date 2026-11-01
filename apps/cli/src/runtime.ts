@@ -1,5 +1,9 @@
+import { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 import { axmBooleanEnabled } from "@agentxm/host-primitives";
-import { CanonicalNativePathLive } from "@agentxm/workspace-kernel/locations/live";
+import {
+  CanonicalNativePathLive,
+  NativeEntryRemovalLive,
+} from "@agentxm/workspace-kernel/locations/live";
 import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 import { resolveNativeReferent } from "@agentxm/workspace-kernel/locations";
 import {
@@ -206,6 +210,7 @@ export const makeRegistryHttpClientLayer = (fetchImplementation: typeof globalTh
 export const PlatformLayer = Layer.mergeAll(
   NodeServices.layer,
   CanonicalNativePathLive,
+  NativeEntryRemovalLive,
   AxmHttpClientLayer,
   makeArtifactHttpClientLayer(globalThis.fetch),
   makeRegistryHttpClientLayer(globalThis.fetch),
@@ -279,7 +284,7 @@ export const makeRegistryContextLayer = (
 ): Layer.Layer<
   RegistryContext,
   never,
-  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
 > =>
   Layer.effect(
     RegistryContext,
@@ -288,7 +293,7 @@ export const makeRegistryContextLayer = (
       // reads the settings through the invocation's own file services and
       // write locks, under the configuration it was composed with.
       const services = yield* Effect.context<
-        FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+        FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
       >();
       const configProvider = yield* ConfigProvider.ConfigProvider;
       const snapshot = yield* Effect.cached(
@@ -318,6 +323,7 @@ export const makeRegistryContextLayer = (
 const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
   CanonicalNativePathLive,
+  NativeEntryRemovalLive,
   makeAxmSkillCompatibilityPolicyLayer(loadVersion()),
   // AuthLoginInteractionLive spawns platform commands via ChildProcessSpawner,
   // provided by NodeServices (memoized with the merged instance above).

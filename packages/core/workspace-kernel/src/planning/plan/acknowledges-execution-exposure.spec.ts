@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -198,7 +198,7 @@ describe("Execution-change acknowledgment", () => {
         }
         if (scenario.stale) expect(result.blocking?.class).toBe("stale-candidate");
         if (scenario.publisher) expect(result.blocking?.subject).toBe("publisher-ownership-change");
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }
 });

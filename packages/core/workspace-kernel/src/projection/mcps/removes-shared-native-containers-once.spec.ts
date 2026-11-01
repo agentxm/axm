@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -60,7 +60,7 @@ describe("shared native MCP withdrawal", () => {
       expect(yield* fs.readFileString(first)).toBe(before);
       expect(yield* fs.readFileString(second)).toBe("{broken");
       expect((yield* authority.observed).records).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("refuses an incompatible Hook co-reader before changing the MCP container", () =>
@@ -91,7 +91,7 @@ describe("shared native MCP withdrawal", () => {
       expect(yield* fs.exists(path.join(root, ".mcp.json"))).toBe(false);
       expect(yield* fs.readLink(alias)).toBe("../.codex/config.toml");
       expect((yield* authority.observed).records).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -126,7 +126,7 @@ describe("shared native MCP withdrawal", () => {
           foreign: true,
         });
         expect(yield* fs.readLink(alias)).toBe("../.mcp.json");
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("preserves the shared native file and aliases after explicit key removal", () =>
@@ -166,6 +166,6 @@ describe("shared native MCP withdrawal", () => {
         expect(yield* fs.readLink(alias)).toBe("../.mcp.json");
         expect(yield* fs.exists(path.join(root, ".axm/projection-containers.json"))).toBe(false);
       }).pipe(Effect.provide(authority));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

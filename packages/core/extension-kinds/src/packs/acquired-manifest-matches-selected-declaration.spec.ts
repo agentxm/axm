@@ -1,6 +1,6 @@
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { AcquiredContent, sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -136,7 +136,7 @@ describe("Acquired Pack manifest agreement", () => {
         );
         expect(yield* fs.exists(path.join(canonical, "pack.json"))).toBe(false);
       }),
-    ).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    ).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("accepts equivalent formatting and records the complete dependency declaration", () =>
@@ -152,6 +152,6 @@ describe("Acquired Pack manifest agreement", () => {
         if (Option.isSome(accepted))
           expect(accepted.value.entry.dependencies).toEqual(manifest.dependencies);
       }),
-    ).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    ).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

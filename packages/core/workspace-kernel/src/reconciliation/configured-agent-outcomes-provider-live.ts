@@ -46,6 +46,7 @@ import {
   KnowledgeManager,
 } from "../materialization/index.js";
 import {
+  NativeEntryRemoval,
   nativeUnitReference,
   combineNativeLocationOutcomes,
   type NativeLocationOutcome,
@@ -66,6 +67,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
       Layer.succeed(CodingAgentRepository, yield* CodingAgentRepository),
       Layer.succeed(FileSystem.FileSystem, yield* FileSystem.FileSystem),
       Layer.succeed(Path.Path, yield* Path.Path),
+      Layer.succeed(NativeEntryRemoval, yield* NativeEntryRemoval),
       Layer.succeed(RegistryClientFactory, yield* RegistryClientFactory),
       Layer.succeed(NativeWriteAuthority, yield* NativeWriteAuthority),
       Layer.succeed(WorkspaceLocation, yield* WorkspaceLocation),

@@ -1,5 +1,5 @@
+import { NativePlatformTest } from "../../locations/testing.js";
 import * as nodeFs from "node:fs";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -131,6 +131,6 @@ describe("Acquired content through confirmation", () => {
       expect(applied).toBe(false);
       expect(yield* fs.readFileString(workspace.settingsPath)).toBe('{\n  "skills": {}\n}\n');
       expect(yield* fs.readFileString(workspace.lockPath)).toBe("version = 1\n");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

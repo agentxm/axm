@@ -13,7 +13,7 @@ import {
   parseLockfileToml,
   type Settings,
 } from "@agentxm/workspace-kernel/workspace-state";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
@@ -116,11 +116,11 @@ const makeSetupTestContext = (opts?: {
     ),
   );
   const baseLayer = Layer.mergeAll(
-    Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+    Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
     makeArtifactHttpClientLayer(globalThis.fetch),
     FetchHttpClient.layer,
-    Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NodeServices.layer),
-    Layer.provide(WorkspaceTransactionScopesLive, NodeServices.layer),
+    Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NativePlatformTest),
+    Layer.provide(WorkspaceTransactionScopesLive, NativePlatformTest),
     // Setup applies the bundled official skill inside the initialization
     // closure, through the same asset layer the executable composes.
     BundledAxmSkillAssetLive,

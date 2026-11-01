@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -94,7 +94,7 @@ describe("physical restoration boundaries", () => {
           expect(yield* fs.readFileString(recovery.recoveryPath)).toBe("original");
         if (result.failure.snapshotDir !== undefined)
           yield* fs.remove(result.failure.snapshotDir, { recursive: true });
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }
 
@@ -141,7 +141,7 @@ describe("physical restoration boundaries", () => {
         if (result.failure.snapshotDir !== undefined)
           yield* fs.remove(result.failure.snapshotDir, { recursive: true });
       }
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("reports surviving original entries when a foreign postimage blocks restoration", () =>
@@ -192,7 +192,7 @@ describe("physical restoration boundaries", () => {
         if (result.failure.snapshotDir !== undefined)
           yield* fs.remove(result.failure.snapshotDir, { recursive: true });
       }
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("coalesces an initially absent leaf into its later protected absent parent", () =>
@@ -226,7 +226,7 @@ describe("physical restoration boundaries", () => {
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") expect(result.failure).toBe("native-projection-refused");
       expect(yield* fs.exists(directory)).toBe(false);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   for (const order of ["child-first", "parent-first"] as const) {
@@ -268,7 +268,7 @@ describe("physical restoration boundaries", () => {
         if (result._tag === "Failure") expect(result.failure).toBe("failed-step");
         expect(yield* fs.readFileString(file)).toBe("before");
         expect(yield* fs.readLink(path.join(root, "alias"))).toBe(directory);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }
 
@@ -312,7 +312,7 @@ describe("physical restoration boundaries", () => {
         }
       } else expect.fail("Expected incomplete restoration with preserved recovery evidence");
       expect(yield* fs.readFileString(file)).toBe('{"foreign":2,"managed":true}');
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -364,7 +364,7 @@ describe("physical restoration boundaries", () => {
         expect(yield* fs.readFileString(recovery.recoveryPath)).toBe("foreign before");
         if (result.failure.snapshotDir !== undefined)
           yield* fs.remove(result.failure.snapshotDir, { recursive: true });
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("does not absorb a foreign sibling into a later AXM child write", () =>
@@ -403,7 +403,7 @@ describe("physical restoration boundaries", () => {
         expect(result.failure._tag).toBe("WorkspaceRestorationIncomplete");
       else expect.fail("Expected refusal to erase a foreign child");
       expect(yield* fs.readFileString(foreign)).toBe("keep");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   for (const whole of [false, true]) {
@@ -456,7 +456,7 @@ describe("physical restoration boundaries", () => {
           expect(
             (yield* fs.readDirectory(root)).filter((name) => name.startsWith(".axm-retired-")),
           ).toEqual([]);
-        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+        }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }
 
@@ -490,7 +490,7 @@ describe("physical restoration boundaries", () => {
       expect(
         (yield* fs.readDirectory(root)).filter((name) => name.startsWith(".axm-retired-")),
       ).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("keeps copied-directory ownership receipts valid after a failed removal", () =>
@@ -527,6 +527,6 @@ describe("physical restoration boundaries", () => {
       expect(Option.isSome(yield* readCopiedDirectory(directory))).toBe(true);
       expect(yield* retireCopiedDirectory(directory)).toBe(true);
       expect(yield* fs.exists(directory)).toBe(false);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

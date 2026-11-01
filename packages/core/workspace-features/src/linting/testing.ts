@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 /**
  * @agentxm/workspace-features/linting deterministic test fixtures.
  *
@@ -113,12 +114,19 @@ export interface LintWorkspaceFixtureOptions {
  * fact to invent.
  */
 export type LintWorkspaceServices = Layer.Layer<
-  | Exclude<LintWorkspaceRequirements, FileSystem.FileSystem | Path.Path | RegistryClientFactory>
+  | Exclude<
+      LintWorkspaceRequirements,
+      FileSystem.FileSystem | Path.Path | NativeEntryRemoval | RegistryClientFactory
+    >
   | NativeWriteAuthority
   | AcceptedResolutionWriter
   | WorkspaceTransactionScope,
   WorkspaceStateError,
-  FileSystem.FileSystem | Path.Path | RegistryClientFactory | ProjectionParticipants
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeEntryRemoval
+  | RegistryClientFactory
+  | ProjectionParticipants
 >;
 
 export interface LintWorkspaceFixture {

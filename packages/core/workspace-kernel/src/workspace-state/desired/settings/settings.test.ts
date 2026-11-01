@@ -1,7 +1,7 @@
+import { NativePlatformTest } from "../../../locations/testing.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -26,7 +26,7 @@ describe("settings", () => {
   });
 
   const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.provide(NodeServices.layer));
+    effect.pipe(Effect.provide(NativePlatformTest));
 
   describe("createDefaultSettings", () => {
     it("returns empty object", () => {

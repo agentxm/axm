@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 /**
  * One workspace transaction for a configured-agent membership change.
  *
@@ -63,6 +64,7 @@ interface AtomicMembershipStepsArgs<Requirements, Output> {
 
 /** The transaction scope and platform every atomic membership step joins. */
 export type AtomicMembershipRequirements<Requirements> =
+  | NativeEntryRemoval
   | Requirements
   | FileSystem.FileSystem
   | Path.Path

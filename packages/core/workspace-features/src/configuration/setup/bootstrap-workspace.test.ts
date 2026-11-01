@@ -7,7 +7,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -70,7 +70,7 @@ describe("bootstrapWorkspace", () => {
     });
     const base = Layer.provideMerge(
       Layer.mergeAll(WorkspaceFileWriteLocksLive, workspaceInitInteraction.layer),
-      NodeServices.layer,
+      NativePlatformTest,
     );
     // Initialization reads non-interactivity from the options, not the flag.
     const wsOptions = {
@@ -209,7 +209,7 @@ describe("bootstrapWorkspace", () => {
             setupWorkspaceTestLayer(defaultOptions),
             Layer.provideMerge(
               Layer.mergeAll(WorkspaceFileWriteLocksLive, interaction.layer),
-              NodeServices.layer,
+              NativePlatformTest,
             ),
           ),
         ),
@@ -259,7 +259,7 @@ describe("bootstrapWorkspace", () => {
             expect(fixture.exists("axm.json")).toBe(false);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+        .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
     },
   );
 });

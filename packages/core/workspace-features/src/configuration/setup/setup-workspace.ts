@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 import { observeSetupOutputConcerns, setupOutputConcernMessage } from "./output-concerns.js";
 import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
 /**
@@ -286,7 +287,7 @@ export const prepareSetupWorkspace = (
 ): Effect.Effect<
   SetupWorkspaceCandidate | SetupApprovalRequired,
   OperationRefused | Config.ConfigError,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval
 > =>
   Effect.gen(function* () {
     if (request.scope === "user" && request.instructions !== undefined)
@@ -423,6 +424,7 @@ const previewOrApplySetupWorkspace = <BundledSkillError = never, BundledSkillReq
   SetupWorkspaceFailure | BundledSkillError,
   | BundledSkillRequirements
   | NativeWriteAuthority
+  | NativeEntryRemoval
   | WorkspaceTransactionScopes
   | WorkspaceFileWriteLocks
   | FileSystem.FileSystem
@@ -549,7 +551,7 @@ const reportSetupWorkspace = (
 ): Effect.Effect<
   SetupOutcome,
   SetupReportFailure,
-  FileSystem.FileSystem | Path.Path | CodingAgentRepository
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval | CodingAgentRepository
 > =>
   Effect.gen(function* () {
     const path = yield* Path.Path;

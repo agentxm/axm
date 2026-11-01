@@ -1,3 +1,4 @@
+import { NativeEntryRemoval } from "../locations/index.js";
 /**
  * @agentxm/workspace-kernel/workspace-state environment-backed composition.
  *
@@ -69,7 +70,7 @@ const stateServicesOver = (
 ): Layer.Layer<
   WorkspaceStateServices,
   WorkspaceStateError,
-  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
 > => {
   // The shared mutex and cache are composition-internal: one instance (the
   // layer is memoized by reference within a build) provided to every service
@@ -107,14 +108,14 @@ export const WorkspaceStateLive = (
 ): Layer.Layer<
   WorkspaceStateServices,
   WorkspaceStateError,
-  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
 > => stateServicesOver(WorkspaceLocationLive(options));
 
 /** The production transaction scope over the located workspace's paths. */
 const WorkspaceTransactionScopeLive: Layer.Layer<
   WorkspaceTransactionScope,
   never,
-  WorkspaceLocation | FileSystem.FileSystem | Path.Path
+  WorkspaceLocation | FileSystem.FileSystem | Path.Path | NativeEntryRemoval
 > = Layer.unwrap(
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -142,7 +143,7 @@ export const layer = (
 ): Layer.Layer<
   WorkspaceStateServices | WorkspaceTransactionScope,
   WorkspaceStateError,
-  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
 > => Layer.provideMerge(WorkspaceTransactionScopeLive, WorkspaceStateLive(options));
 
 /**
@@ -156,7 +157,7 @@ export const readProjectSourceConfiguration = (args: {
 }): Effect.Effect<
   SourceConfigurationSnapshot,
   WorkspaceStateError | WorkspaceSettingsReadFailure,
-  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
 > =>
   readSourceConfigurationSnapshot.pipe(
     Effect.provide(

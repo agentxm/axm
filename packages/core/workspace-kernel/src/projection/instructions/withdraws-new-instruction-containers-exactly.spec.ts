@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -79,7 +79,7 @@ describe("instruction container withdrawal", () => {
         expect(yield* fs.exists(external)).toBe(false);
         expect(yield* fs.readFileString(path.join(home, "AGENTS.md"))).toBe("source\n");
       }).pipe(Effect.provide(authority));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   for (const baseline of [undefined, "dist/\r\n# authored\r\n"]) {
@@ -137,7 +137,7 @@ describe("instruction container withdrawal", () => {
             else expect(yield* fs.readFileString(path.join(root, ".gitignore"))).toBe(baseline);
             expect(yield* fs.exists(path.join(root, ".axm"))).toBe(false);
           }).pipe(Effect.provide(authority));
-        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+        }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }
 
@@ -170,7 +170,7 @@ describe("instruction container withdrawal", () => {
         expect(yield* fs.readFileString(path.join(root, ".junie/notes.txt"))).toBe("foreign\n");
         expect(yield* fs.exists(path.join(root, ".junie/AGENTS.md"))).toBe(false);
       }).pipe(Effect.provide(authority));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
   it.effect("ordinary reconciliation does not establish new directory cleanup authority", () =>
     Effect.gen(function* () {
@@ -200,6 +200,6 @@ describe("instruction container withdrawal", () => {
         expect(yield* fs.exists(path.join(root, ".junie"))).toBe(true);
         expect(yield* fs.exists(path.join(root, ".axm"))).toBe(false);
       }).pipe(Effect.provide(authority));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

@@ -1,7 +1,8 @@
+import type { NativeEntryRemoval } from "../../locations/index.js";
+import { NativePlatformTest } from "../../locations/testing.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
@@ -15,8 +16,9 @@ import { runWorkspaceTransaction } from "../../settlement/index.js";
 import { WorkspaceTransactionScopeTest } from "../../settlement/testing.js";
 import { createSymlink } from "./create-symlink.js";
 
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
+const withNodeContext = <A, E>(
+  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | NativeEntryRemoval>,
+) => effect.pipe(Effect.provide(NativePlatformTest));
 
 describe("createSymlink", () => {
   let tmpDir: string;

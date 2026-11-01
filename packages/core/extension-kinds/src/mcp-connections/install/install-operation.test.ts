@@ -12,7 +12,7 @@ import { recordFootprint } from "@agentxm/workspace-kernel/settlement";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -116,7 +116,7 @@ const acceptedCanonicalTrees = (
       }
     }
     return { lockfileVersion: 1, skills: {}, mcpServers } as const satisfies AcceptedResolutions;
-  }).pipe(Effect.provide(NodeServices.layer));
+  }).pipe(Effect.provide(NativePlatformTest));
 
 const withServices = (
   axmDir: string,
@@ -172,7 +172,7 @@ const makeServices = (
       McpServerManagerLive,
       Layer.mergeAll(
         Layer.mergeAll(
-          Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+          Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
           NativeWriteAuthorityPermissive,
           FootprintRecorderTest,
         ),
@@ -484,7 +484,7 @@ describe("installMcpServer", () => {
         const accepted = yield* acceptedCanonicalTrees(base, location);
         fs.writeFileSync(path.join(canonicalPath, "mcp.json"), '{ "edited": true }');
         const drifted = yield* computeMaterializedTreeIntegrity(canonicalPath).pipe(
-          Effect.provide(NodeServices.layer),
+          Effect.provide(NativePlatformTest),
         );
         let persisted: McpServerLockEntry | undefined;
 

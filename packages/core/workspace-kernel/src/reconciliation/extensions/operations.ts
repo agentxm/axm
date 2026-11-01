@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "../../locations/index.js";
 import type { HookConfigurationValues } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type * as FileSystem from "effect/FileSystem";
 import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
@@ -253,6 +254,7 @@ interface StepFailureAdapter<F = never> {
 export type RecipeRequirements =
   | LockfileReader
   | NativeWriteAuthority
+  | NativeEntryRemoval
   | WorkspaceTransactionScope
   | FootprintRecorder
   | WorkspaceLocation
@@ -282,6 +284,7 @@ const applyManagerProjectionPlans = <F, R>(
   | InstructionMaintenanceFailure,
   | R
   | NativeWriteAuthority
+  | NativeEntryRemoval
   | FileSystem.FileSystem
   | Path.Path
   | SettingsReader

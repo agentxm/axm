@@ -1,10 +1,11 @@
+import type { NativeEntryRemoval } from "../../locations/index.js";
+import { NativePlatformTest } from "../../locations/testing.js";
 import {
   MAX_OPERATION_SCRATCH_BYTES,
   OperationScratchBudget,
   makeOperationScratchBudget,
 } from "../../acquisition/index.js";
 import { WorkspaceTransactionScopeLive } from "../../settlement/live.js";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as FileSystem from "effect/FileSystem";
@@ -173,7 +174,7 @@ const makeTestContext = (
   scope: Layer.Layer<
     WorkspaceTransactionScope,
     PlatformError.PlatformError,
-    FileSystem.FileSystem | Path.Path
+    FileSystem.FileSystem | Path.Path | NativeEntryRemoval
   > = isolatedScope(),
 ) => {
   const interaction = ResolvePlanInteractionTest({
@@ -196,7 +197,7 @@ const makeTestContext = (
       Layer.effect(OperationJournal, makeOperationJournal),
       Layer.effect(FootprintRecorder, makeFootprintRecorder),
       scope,
-    ).pipe(Layer.provideMerge(NodeServices.layer)),
+    ).pipe(Layer.provideMerge(NativePlatformTest)),
     interactionState: interaction.state,
   };
 };
@@ -341,7 +342,7 @@ describe("previewOrApply", () => {
       expect(result.units.map((unit) => unit.state)).toEqual(["failed", "committed"]);
       expect(yield* fs.exists(failedScratch)).toBe(false);
       expect(yield* fs.exists(healthyScratch)).toBe(false);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect("refuses a source before fetching when operation scratch is exhausted", () =>
@@ -1383,7 +1384,7 @@ describe("previewOrApply", () => {
       );
 
       expect(withEvidence.id).not.toBe(withoutEvidence.id);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect("includes observed workspace inputs in execution candidate identity", () =>
@@ -1410,7 +1411,7 @@ describe("previewOrApply", () => {
 
       expect(before.id).not.toBe(after.id);
       expect(before.observedInputFingerprint).toBe("before");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect.each(["region", "key-path"] as const)(
@@ -1505,7 +1506,7 @@ describe("previewOrApply", () => {
         yield* fs.writeFileString(path.join(left, "native.md"), "Changed after planning");
         expect(yield* isExecutionCandidateFresh(first)).toBe(false);
         expect(yield* isExecutionCandidateFresh(relocated)).toBe(true);
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect("fingerprints nested link text and executable modes without following cycles", () =>
@@ -1540,7 +1541,7 @@ describe("previewOrApply", () => {
       yield* fs.remove(link);
       yield* fs.symlink("run.sh", link);
       expect(yield* isExecutionCandidateFresh(executable)).toBe(false);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect("fingerprints the layout's exact settings and lock paths", () =>
@@ -1566,7 +1567,7 @@ describe("previewOrApply", () => {
       expect(candidate.materialPaths).toEqual([lockPath, settingsPath].sort());
       yield* fs.writeFileString(settingsPath, '{"agents":[]}');
       expect(yield* isExecutionCandidateFresh(candidate)).toBe(false);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -1599,7 +1600,7 @@ describe("previewOrApply", () => {
         const beforeMember = yield* makeExecutionCandidate(plan, paths);
         yield* fs.writeFileString(path.join(members, "added.txt"), "new member");
         expect(yield* isExecutionCandidateFresh(beforeMember)).toBe(false);
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -1776,7 +1777,7 @@ describe("previewOrApply", () => {
       expect(acquisitions).toBe(1);
       expect(confirmedAfterAcquisition).toBe(true);
       expect(appliedCount).toBe(0);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect("C-02: revalidates material after a delayed pre-apply gate", () =>
@@ -1828,7 +1829,7 @@ describe("previewOrApply", () => {
       expect(deriveOperationOutcome(result)).toBe("blocked");
       expect(result.blocking?.class).toBe("stale-candidate");
       expect(appliedCount).toBe(0);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -1924,7 +1925,7 @@ describe("previewOrApply", () => {
         // The first closure's commit survives; nothing of the failed closure
         // remains.
         expect(yield* fs.readFileString(target)).toBe("changed");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect("C-06: a failed closure rolls back only itself while ready closures continue", () =>
@@ -2017,7 +2018,7 @@ describe("previewOrApply", () => {
       expect(yield* fs.readFileString(fileA)).toBe("a-changed");
       expect(yield* fs.readFileString(fileB)).toBe("b-original");
       expect(yield* fs.readFileString(fileC)).toBe("c-changed");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.live("C-15: interruption mid-apply restores only the in-flight closure", () =>
@@ -2106,7 +2107,7 @@ describe("previewOrApply", () => {
       // The settled first closure stands; the in-flight closure was restored.
       expect(yield* fs.readFileString(fileA)).toBe("a-changed");
       expect(yield* fs.readFileString(fileB)).toBe("b-original");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   // Restoration failure is a typed fact on the transaction's error channel:
@@ -2193,7 +2194,7 @@ describe("previewOrApply", () => {
       expect(yield* fs.exists(path.join(workspaceDir, "tmp", "recovery"))).toBe(false);
       expect(yield* fs.exists(path.join(workspaceDir, "operations"))).toBe(false);
       yield* fs.remove(snapshotDir, { recursive: true, force: true });
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   // Nothing about a restoration failure persists in the workspace: the next
@@ -2299,7 +2300,7 @@ describe("previewOrApply", () => {
       if (snapshotDir !== undefined) {
         yield* fs.remove(snapshotDir, { recursive: true, force: true });
       }
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   // Lock lifetime: the workspace transition is acquired after confirmation,
@@ -2356,7 +2357,7 @@ describe("previewOrApply", () => {
       expect(lockOnDisk).toEqual([true]);
       expect(heldAfter).toBe(false);
       expect(yield* fs.exists(lockPath)).toBe(false);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect("C-20: preview never requests the workspace transition", () =>
@@ -2418,7 +2419,7 @@ describe("previewOrApply", () => {
       }).pipe(Effect.provide(context.layer));
       expect(deriveOperationOutcome(applied)).toBe("applied");
       expect(acquisitions).toBe(1);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect("C-20: contention terminates blocked with the holder reference", () =>
@@ -2461,6 +2462,6 @@ describe("previewOrApply", () => {
       expect(result.blocking?.reference).toBe("install (pid 1234)");
       expect(result.blocking?.detail).toContain("waited 60s");
       expect(result.units.every((unit) => unit.state === "ready")).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 });

@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -78,7 +78,7 @@ describe("Installed extension detail", () => {
             expect(Array.isArray(result.agentOutcomes)).toBe(true);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+        .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
     });
 
   // A sourced MCP connection is shown under its local name, while its
@@ -134,7 +134,7 @@ describe("Installed extension detail", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 
   // The arrangement is an installation, not a lockfile written by hand: the

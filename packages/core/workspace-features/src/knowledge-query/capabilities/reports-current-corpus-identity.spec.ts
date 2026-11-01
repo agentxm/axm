@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as fs from "node:fs";
@@ -55,7 +55,7 @@ describe("Knowledge discovery capability capture", () => {
           expect(second.document.corpusFingerprint).not.toBe(first.document.corpusFingerprint);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   it.effect("refuses changing capture without a success document", () => {
@@ -71,7 +71,7 @@ describe("Knowledge discovery capability capture", () => {
           expect(result).toEqual({ outcome: "corpus-changing" });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   it.effect("keeps an invalid manifest as a typed capture failure", () => {
@@ -93,6 +93,6 @@ describe("Knowledge discovery capability capture", () => {
             expect(failure.detail).toMatch(/platform.*manifest/iu);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 });

@@ -1,7 +1,7 @@
+import { NativePlatformTest } from "../locations/testing.js";
 import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -68,7 +68,7 @@ const detailOf = (
       : `machinery:${error._tag}`;
 
 const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
+  effect.pipe(Effect.provide(NativePlatformTest));
 
 describe("runWorkspaceTransaction", () => {
   let tempDir: string;
@@ -454,7 +454,7 @@ describe("runWorkspaceTransaction", () => {
               : real.copy(...args),
         };
       }),
-    ).pipe(Layer.provideMerge(NodeServices.layer));
+    ).pipe(Layer.provideMerge(NativePlatformTest));
     let snapshotDir: string | undefined;
     return runWorkspaceTransaction({
       workspaceDir,
@@ -519,7 +519,7 @@ describe("runWorkspaceTransaction", () => {
             }).pipe(Effect.andThen(real.remove(...args))),
         };
       }),
-    ).pipe(Layer.provideMerge(NodeServices.layer));
+    ).pipe(Layer.provideMerge(NativePlatformTest));
     return runWorkspaceTransaction({
       workspaceDir,
       targets: [settingsPath],

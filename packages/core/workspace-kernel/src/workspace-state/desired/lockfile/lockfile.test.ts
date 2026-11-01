@@ -1,7 +1,9 @@
+import type * as NodeServices from "@effect/platform-node/NodeServices";
+import type { NativeEntryRemoval } from "../../../locations/index.js";
+import { NativePlatformTest } from "../../../locations/testing.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Context from "effect/Context";
@@ -54,10 +56,14 @@ describe("lockfile", () => {
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   const run = <A, E>(
-    effect: Effect.Effect<A, E, NodeServices.NodeServices | WorkspaceFileWriteLocks>,
+    effect: Effect.Effect<
+      A,
+      E,
+      NodeServices.NodeServices | NativeEntryRemoval | WorkspaceFileWriteLocks
+    >,
   ) =>
     effect.pipe(
-      Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer)),
+      Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest)),
     );
 
   it.effect("refuses invalid programmatic aliases before replacing the file", () =>

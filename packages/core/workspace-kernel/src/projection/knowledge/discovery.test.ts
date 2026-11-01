@@ -1,7 +1,7 @@
+import { NativePlatformTest } from "../../locations/testing.js";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -76,7 +76,7 @@ const run = (
         Layer.provide(
           Layer.merge(WorkspaceReadTest({ baseDir: root }), WorkspaceFileWriteLocksLive),
         ),
-        Layer.provideMerge(NodeServices.layer),
+        Layer.provideMerge(NativePlatformTest),
       ),
     ),
   );

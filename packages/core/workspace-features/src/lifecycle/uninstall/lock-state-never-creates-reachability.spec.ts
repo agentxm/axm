@@ -6,7 +6,7 @@ import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -140,7 +140,7 @@ describe("Lock state and desired-state reachability", () => {
       // Nothing desires it, so no node carries it and nothing downstream can
       // reach it to acquire or realize it.
       expect(desired.nodes.map((node) => node.name)).not.toContain(row.name);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect("a workspace-authored declaration never reaches an acquired row of its name", () =>
@@ -163,7 +163,7 @@ describe("Lock state and desired-state reachability", () => {
       expect(node?.identity).toEqual({ authority: "workspace", fqn: "@acme/skills/review" });
       expect(node && Option.isNone(acceptedRowKey(node))).toBe(true);
       expect(desiredReachesAcceptedRow(desired, { type: "skill", key: "review" })).toBe(false);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -207,7 +207,7 @@ describe("Lock state and desired-state reachability", () => {
             expect(workspace.snapshot()).toEqual(settled);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer));
+        .pipe(Effect.provide(NativePlatformTest));
     },
     { timeout: 20_000 },
   );
@@ -251,7 +251,7 @@ describe("Lock state and desired-state reachability", () => {
             expect(workspace.snapshot()).toEqual(before);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer));
+        .pipe(Effect.provide(NativePlatformTest));
     },
     { timeout: 20_000 },
   );
@@ -273,7 +273,7 @@ describe("Lock state and desired-state reachability", () => {
       // the stale row is sync's leftover to retire, not a removal's authority.
       expect(deriveOperationOutcome(resolution)).toBe("no-op");
       expect(workspace.readFile("axm.lock")).toBe(lockBefore);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(NativePlatformTest)),
   );
 
   it.effect.each(lockOnlyRows)(
@@ -292,6 +292,6 @@ describe("Lock state and desired-state reachability", () => {
 
         expect(rows.map((entry) => entry.name)).not.toContain(row.name);
         expect(rows).toEqual([]);
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.provide(NativePlatformTest)),
   );
 });

@@ -1,10 +1,12 @@
+import type * as NodeServices from "@effect/platform-node/NodeServices";
+import type { NativeEntryRemoval } from "../../locations/index.js";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { CanonicalNativePathLive } from "../../locations/live.js";
 import type { InstructionStatusItem } from "./instruction-status.js";
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
 import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
 import { describe, expect, it } from "@effect/vitest";
@@ -100,14 +102,18 @@ describe("agent instructions", () => {
     effect: Effect.Effect<
       A,
       E,
-      NodeServices.NodeServices | NativeWriteAuthority | AcceptedResolutionWriter | LockfileReader
+      | NodeServices.NodeServices
+      | NativeEntryRemoval
+      | NativeWriteAuthority
+      | AcceptedResolutionWriter
+      | LockfileReader
     >,
   ) =>
     effect.pipe(
       Effect.provide(
         Layer.mergeAll(
           NativeWriteAuthorityPermissive,
-          NodeServices.layer,
+          NativePlatformTest,
           CanonicalNativePathLive,
           ProjectionRowsTest(),
         ),

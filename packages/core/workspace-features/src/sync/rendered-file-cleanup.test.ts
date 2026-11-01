@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import { NativeWriteAuthorityPermissive } from "@agentxm/workspace-kernel/agent-adapters/testing";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -117,7 +117,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         };
         const layer = Layer.mergeAll(
           NativeWriteAuthorityPermissive,
-          NodeServices.layer,
+          NativePlatformTest,
           WorkspaceReadTest({
             baseDir: tempDir,
             runtimeDir: axmDir,
@@ -217,7 +217,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         const cursor = codingAgentForId("cursor");
         const layer = Layer.mergeAll(
           NativeWriteAuthorityPermissive,
-          NodeServices.layer,
+          NativePlatformTest,
           WorkspaceReadTest({
             baseDir: tempDir,
             runtimeDir: path.join(tempDir, ".axm"),
@@ -289,7 +289,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         };
         const layer = Layer.mergeAll(
           NativeWriteAuthorityPermissive,
-          NodeServices.layer,
+          NativePlatformTest,
           WorkspaceReadTest({ baseDir: tempDir, runtimeDir: axmDir }),
           Layer.succeed(CodingAgentRepository, agentRepo),
         );
@@ -332,7 +332,7 @@ describe("cleanupStaleManagedSkillDirectories", () => {
         };
         const layer = Layer.mergeAll(
           NativeWriteAuthorityPermissive,
-          NodeServices.layer,
+          NativePlatformTest,
           WorkspaceReadTest({ baseDir: tempDir, runtimeDir: path.join(tempDir, ".axm") }),
           Layer.succeed(CodingAgentRepository, agentRepo),
         );
@@ -381,7 +381,7 @@ describe("cleanupStaleManagedSkillDirectories", () => {
           };
           const layer = Layer.mergeAll(
             NativeWriteAuthorityPermissive,
-            NodeServices.layer,
+            NativePlatformTest,
             WorkspaceReadTest({
               baseDir: tempDir,
               runtimeDir: path.join(tempDir, ".axm"),
@@ -446,7 +446,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
     };
     return Layer.mergeAll(
       NativeWriteAuthorityPermissive,
-      NodeServices.layer,
+      NativePlatformTest,
       WorkspaceReadTest({ baseDir: tempDir, runtimeDir: path.join(tempDir, ".axm") }),
       Layer.succeed(CodingAgentRepository, agentRepo),
     );
@@ -793,6 +793,6 @@ describe("authored skill cleanup exclusion", () => {
         } finally {
           workspace.cleanup();
         }
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.provide(NativePlatformTest)),
   );
 });

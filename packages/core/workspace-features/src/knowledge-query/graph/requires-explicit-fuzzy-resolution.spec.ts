@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -60,7 +60,7 @@ describe("Explicit fuzzy resolution", () => {
       expect(first.outcome === "ambiguous" ? first.candidates : []).toHaveLength(maximumCandidates);
       expect("candidate" in first).toBe(false);
       expect(resolveKnowledgeConcept(snapshot, "Session", maximumCandidates, true)).toEqual(first);
-    }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+    }).pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   it.effect("resolves a unique concept ID when fuzzy matching is requested", () => {
@@ -75,6 +75,6 @@ describe("Explicit fuzzy resolution", () => {
         outcome: "resolved",
         candidate: { ref: { conceptId: "session" } },
       });
-    }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+    }).pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 });

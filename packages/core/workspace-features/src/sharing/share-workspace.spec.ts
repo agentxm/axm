@@ -5,7 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -105,14 +105,14 @@ describe("Share workspace", () => {
       const before = snapshot(root);
       const layer = Layer.provideMerge(
         WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
-        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
       );
       const result = yield* ShareWorkspace.query().pipe(Effect.provide(layer));
       const discovered = yield* discoverExtensionPackages(root, {
         names: [],
         owner: Option.none(),
         type: "*",
-      }).pipe(Effect.provide(NodeServices.layer));
+      }).pipe(Effect.provide(NativePlatformTest));
 
       expect(discovered.map((candidate) => candidate.standing)).toContain("held");
       expect(result.extensions).toEqual(
@@ -168,7 +168,7 @@ describe("Share workspace", () => {
           projectRoot: decodeAbsolutePathSync(root),
           allowUninitialized: true,
         }),
-        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
       );
       const result = yield* ShareWorkspace.query().pipe(Effect.provide(layer));
       expect(result.extensions.map((entry) => entry.selector).sort()).toEqual([
@@ -188,7 +188,7 @@ describe("Share workspace", () => {
       const before = snapshot(root);
       const layer = Layer.provideMerge(
         WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
-        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
       );
       const result = yield* ShareWorkspace.query().pipe(Effect.provide(layer), Effect.result);
 
@@ -209,7 +209,7 @@ describe("Share workspace", () => {
       roots.push(root);
       const layer = Layer.provideMerge(
         WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
-        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
       );
       const result = yield* ShareWorkspace.query({ ecosystem: "npm" }).pipe(Effect.provide(layer));
 
@@ -239,7 +239,7 @@ describe("Share workspace", () => {
       roots.push(root);
       const layer = Layer.provideMerge(
         WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
-        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
       );
 
       for (const ecosystem of packageMetadataEcosystems) {

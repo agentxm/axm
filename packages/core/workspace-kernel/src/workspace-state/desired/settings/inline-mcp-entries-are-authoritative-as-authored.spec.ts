@@ -1,9 +1,9 @@
+import { NativePlatformTest } from "../../../locations/testing.js";
 import * as fs from "node:fs";
 import { UNCONSTRAINED_DESIRED_NODE } from "../../index.js";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../../../settlement/live.js";
@@ -86,7 +86,7 @@ const makeInlineWorkspace = () => {
             projectRoot: decodeAbsolutePathSync(root),
           }).pipe(
             Layer.provideMerge(WorkspaceFileWriteLocksLive),
-            Layer.provideMerge(NodeServices.layer),
+            Layer.provideMerge(NativePlatformTest),
           ),
         ),
       ),

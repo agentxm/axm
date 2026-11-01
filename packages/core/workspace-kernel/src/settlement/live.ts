@@ -1,3 +1,5 @@
+import { NativeEntryRemoval } from "../locations/index.js";
+import type * as Context from "effect/Context";
 /** Filesystem transaction composition, with one admission permit and lock instance per runtime. */
 
 import * as Effect from "effect/Effect";
@@ -29,6 +31,7 @@ export const WorkspaceFileWriteLocksLive = Layer.effect(
 const makeFilesystemScope = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
+  removal: Context.Service.Shape<typeof NativeEntryRemoval>,
   paths: WorkspaceTransactionPaths,
   providedLock?: WorkspaceTransitionLock,
   boundaryClaimsDirectory?: string | null,
@@ -71,6 +74,7 @@ const makeFilesystemScope = (
       }).pipe(
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
+        Effect.provideService(NativeEntryRemoval, removal),
       );
     const runtime: FilesystemTransactionRuntime = {
       ...paths,
@@ -79,6 +83,7 @@ const makeFilesystemScope = (
       nativeRootWitnesses,
       boundaryClaimsDirectory,
       fs,
+      removal,
       path,
       admission,
       acquire,
@@ -101,29 +106,40 @@ const makeFilesystemScope = (
 export const makeWorkspaceTransactionScope = (
   paths: WorkspaceTransactionPaths,
   lock?: WorkspaceTransitionLock,
-): Effect.Effect<WorkspaceTransactionScopeService, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  WorkspaceTransactionScopeService,
+  never,
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const removal = yield* NativeEntryRemoval;
     const path = yield* Path.Path;
     const directory = yield* BoundaryClaimsDirectory;
-    return yield* makeFilesystemScope(fs, path, paths, lock, directory);
+    return yield* makeFilesystemScope(fs, path, removal, paths, lock, directory);
   });
 
 export const WorkspaceTransactionScopesLive: Layer.Layer<
   WorkspaceTransactionScopes,
   never,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval
 > = Layer.effect(
   WorkspaceTransactionScopes,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const removal = yield* NativeEntryRemoval;
     const path = yield* Path.Path;
     const directory = yield* BoundaryClaimsDirectory;
-    return { forWorkspace: (paths) => makeFilesystemScope(fs, path, paths, undefined, directory) };
+    return {
+      forWorkspace: (paths) => makeFilesystemScope(fs, path, removal, paths, undefined, directory),
+    };
   }),
 );
 
 export const WorkspaceTransactionScopeLive = (
   paths: WorkspaceTransactionPaths,
-): Layer.Layer<WorkspaceTransactionScope, never, FileSystem.FileSystem | Path.Path> =>
-  Layer.effect(WorkspaceTransactionScope, makeWorkspaceTransactionScope(paths));
+): Layer.Layer<
+  WorkspaceTransactionScope,
+  never,
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval
+> => Layer.effect(WorkspaceTransactionScope, makeWorkspaceTransactionScope(paths));

@@ -1,6 +1,4 @@
-// @effect-diagnostics nodeBuiltinImport:off — FileSystem.remove uses rm; unlink removes an owned directory link without traversing its source
-import { unlink } from "node:fs/promises";
-
+import { NativeEntryRemoval } from "../locations/index.js";
 /**
  * Destructive reconciliation of AXM-owned agent-native outputs. Read-only
  * ownership and claimant discovery lives in `@agentxm/workspace-kernel/projection`.
@@ -146,7 +144,7 @@ const removeOwnedFile = (
     } else {
       // Directory-wide markers cannot authorize removal of foreign children.
       if (address.kind === "directory") return;
-      if (address.kind === "symlink") yield* Effect.tryPromise(() => unlink(address.entryPath));
+      if (address.kind === "symlink") yield* (yield* NativeEntryRemoval).unlink(address.entryPath);
       else yield* fs.remove(address.entryPath);
     }
     yield* recordFootprint({ path: address.entryPath, change: "removed" });
@@ -176,6 +174,7 @@ export const reconcileAgentOutputs = (
   | WorkspaceLocation
   | NativeWriteAuthority
   | LockfileReader
+  | NativeEntryRemoval
 > =>
   Effect.gen(function* () {
     const authority =

@@ -1,3 +1,4 @@
+import { NativePlatformTest } from "../../locations/testing.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { SkillExtensionTarget } from "../../workspace-state/index.js";
 /**
@@ -9,7 +10,6 @@ import { afterEach, beforeEach, vi } from "vitest";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { protectWorkspacePath, recordFootprint } from "../../settlement/index.js";
 import { WorkspaceTransactionScopeTest } from "../../settlement/testing.js";
@@ -95,7 +95,7 @@ const grounded = <A, E>(
           NativeWriteAuthorityPermissive,
           FootprintRecorderTest,
           RegistryTransportTest(FetchHttpClient.layer),
-        ).pipe(Layer.provideMerge(NodeServices.layer)),
+        ).pipe(Layer.provideMerge(NativePlatformTest)),
       ),
     ),
   );

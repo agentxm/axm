@@ -1,10 +1,54 @@
 // Host adapter: Effect's realPath retains caller spelling. These OS interfaces
 // return the spelling of resolved directory entries without enumerating ancestors.
-import { open, readlink, realpath, stat } from "node:fs/promises";
+import { open, readlink, realpath, rmdir, stat, unlink } from "node:fs/promises";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Result from "effect/Result";
+import * as PlatformError from "effect/PlatformError";
 import { CanonicalNativePath, NativeLocationError } from "./native-address.js";
+import { NativeEntryRemoval } from "./native-entry-removal.js";
+
+const removalFailure = (method: string, target: string, cause: unknown) => {
+  const code =
+    typeof cause === "object" && cause !== null && "code" in cause ? cause.code : undefined;
+  const reason =
+    code === "ENOENT"
+      ? "NotFound"
+      : code === "EACCES" || code === "EPERM"
+        ? "PermissionDenied"
+        : code === "EBUSY"
+          ? "Busy"
+          : code === "EISDIR" || code === "ENOTDIR" || code === "ELOOP"
+            ? "BadResource"
+            : "Unknown";
+  return PlatformError.systemError({
+    _tag: reason,
+    module: "NativeEntryRemoval",
+    method,
+    pathOrDescriptor: target,
+    cause,
+  });
+};
+
+// These syscalls have no cancellation hook. Observe their completion before
+// delivering interruption; each caller owns its surrounding mutation journal.
+// Do not replace unlink with rm: Windows rm recovery can visit the referent.
+export const NativeEntryRemovalLive = Layer.succeed(NativeEntryRemoval, {
+  unlink: (target) =>
+    Effect.uninterruptible(
+      Effect.tryPromise({
+        try: () => unlink(target),
+        catch: (cause) => removalFailure("unlink", target, cause),
+      }),
+    ),
+  removeEmptyDirectory: (target) =>
+    Effect.uninterruptible(
+      Effect.tryPromise({
+        try: () => rmdir(target),
+        catch: (cause) => removalFailure("removeEmptyDirectory", target, cause),
+      }),
+    ),
+});
 
 // Node omits O_PATH from fs.constants. Linux's x64/arm64 UAPI defines 010000000:
 // https://github.com/torvalds/linux/blob/v6.12/include/uapi/asm-generic/fcntl.h

@@ -1,6 +1,4 @@
-// @effect-diagnostics nodeBuiltinImport:off — atomic empty-only removal is absent from FileSystem.remove
-import { rmdir } from "node:fs/promises";
-
+import { NativeEntryRemoval } from "../locations/index.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -30,10 +28,15 @@ import { equalPathStates, observePathState } from "./path-state.js";
 export const retireWorkspacePath = (
   target: string,
   options?: { readonly emptyOnly: boolean },
-): Effect.Effect<void, WorkspaceSnapshotError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  void,
+  WorkspaceSnapshotError,
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval
+> =>
   Effect.uninterruptible(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
+      const removal = yield* NativeEntryRemoval;
       const path = yield* Path.Path;
       const current = yield* CurrentWorkspaceTransaction;
       const closure = yield* CurrentWorkspaceClosure;
@@ -41,7 +44,7 @@ export const retireWorkspacePath = (
         const failure = (cause: unknown) =>
           new WorkspaceSnapshotError({ target, step: "copy", cause });
         if (options?.emptyOnly === true)
-          yield* Effect.tryPromise(() => rmdir(target)).pipe(Effect.mapError(failure));
+          yield* removal.removeEmptyDirectory(target).pipe(Effect.mapError(failure));
         else
           yield* fs
             .remove(target, { recursive: true, force: false })
@@ -140,7 +143,7 @@ export const retireWorkspacePath = (
                 cause: "foreign-change",
               });
             yield* fs.rename(address.entryPath, backup);
-          }).pipe(Effect.onError(() => Effect.tryPromise(() => rmdir(store)).pipe(Effect.ignore)));
+          }).pipe(Effect.onError(() => removal.removeEmptyDirectory(store).pipe(Effect.ignore)));
           return {
             ...ledger,
             snapshots: ledger.snapshots.map((snapshot) =>

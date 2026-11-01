@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -89,7 +89,7 @@ describe("Type-specific inventory", () => {
             expect(inventory.items[0]?.paths.length).toBeGreaterThan(0);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+        .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
     });
 
   it.effect("keeps a configured but absent disabled skill in the inventory", () => {
@@ -108,7 +108,7 @@ describe("Type-specific inventory", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 
   it.effect("reports unsupported subagents without claiming a separately authored Skill", () => {

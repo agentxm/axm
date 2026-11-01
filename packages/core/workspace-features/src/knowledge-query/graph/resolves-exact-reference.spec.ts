@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -59,6 +59,6 @@ describe("Exact reference resolution", () => {
         expect(
           resolved.outcome === "resolved" ? resolved.candidate.ref.contentRevision : undefined,
         ).toMatch(/^sha256:[0-9a-f]{64}$/u);
-      }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      }).pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
     });
 });

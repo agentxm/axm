@@ -1,3 +1,4 @@
+import { NativeEntryRemoval } from "../../locations/index.js";
 import type {
   InstructionMechanism,
   InstructionHealth,
@@ -1691,7 +1692,11 @@ export interface ObserveInstructionProjectionArgs {
  */
 export const observeInstructionProjection = (
   args: ObserveInstructionProjectionArgs,
-): Effect.Effect<InstructionProjectionSnapshot, never, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  InstructionProjectionSnapshot,
+  never,
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval
+> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const nativeRoots = nativeAuthorityRoots(
@@ -2575,7 +2580,7 @@ export const applyInstructionProjection = (args: {
 }): Effect.Effect<
   AppliedInstructionProjection,
   InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     const { snapshot } = args;
@@ -2773,7 +2778,7 @@ export const syncInstructions = (
 ): Effect.Effect<
   InstructionsSyncResult,
   InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     const snapshot = yield* observeInstructionProjection(args);

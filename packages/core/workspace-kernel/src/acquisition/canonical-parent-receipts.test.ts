@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -48,7 +48,7 @@ describe("canonical parent creation receipts", () => {
           }).pipe(Effect.provide(authority));
           expect(yield* fs.exists(canonicalPath)).toBe(false);
           expect(yield* fs.exists(path.join(root, "registry"))).toBe(!eligible);
-        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+        }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }
 
@@ -87,6 +87,6 @@ describe("canonical parent creation receipts", () => {
       }).pipe(Effect.provide(authority));
       expect(yield* fs.readFileString(foreignPath)).toBe("foreign");
       expect(yield* fs.exists(path.join(root, "registry", "@acme"))).toBe(false);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

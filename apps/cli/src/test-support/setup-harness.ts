@@ -26,7 +26,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -101,9 +101,9 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
     options.recordWrites === true
       ? Layer.provideMerge(
           recordingFileSystemLayer((event) => void writes.push(event)),
-          NodeServices.layer,
+          NativePlatformTest,
         )
-      : NodeServices.layer;
+      : NativePlatformTest;
   const foundation = Layer.provideMerge(WorkspaceFileWriteLocksLive, platformLayer);
   const layer = Layer.mergeAll(
     Layer.provide(

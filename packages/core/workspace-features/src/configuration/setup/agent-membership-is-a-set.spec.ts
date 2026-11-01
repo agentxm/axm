@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -69,7 +69,7 @@ describe("Coding-agent membership", () => {
           expect(offered).toHaveLength(new Set(offered).size);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect("records a repeated selection once", () => {
@@ -86,7 +86,7 @@ describe("Coding-agent membership", () => {
           expect(readSettings(fixture)).toMatchObject({ agents: ["claude-code", "codex"] });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect("records a repeated request once", () => {
@@ -113,6 +113,6 @@ describe("Coding-agent membership", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 });

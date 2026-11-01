@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "../locations/index.js";
 /**
  * The registry of capabilities that own projection units.
  *
@@ -45,6 +46,7 @@ import {
  * evaluates the facts composes them once.
  */
 export type ProjectionParticipantRequirements =
+  | NativeEntryRemoval
   | FileSystem.FileSystem
   | Path.Path
   | RegistryClientFactory

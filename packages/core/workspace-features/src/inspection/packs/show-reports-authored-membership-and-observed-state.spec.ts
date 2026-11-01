@@ -3,7 +3,7 @@ import {
   LockfileSchema,
   parseLockfileToml,
 } from "@agentxm/workspace-kernel/workspace-state";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -91,7 +91,7 @@ describe("Pack state inspection", () => {
             expect(fixture.snapshot()).toEqual(before);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+        .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
     });
 
   it.effect("reports a member the pack's own range excludes, with the version it judged", () => {
@@ -141,7 +141,7 @@ describe("Pack state inspection", () => {
           ]);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 
   it.effect.each([
@@ -281,7 +281,7 @@ describe("Pack state inspection", () => {
             expect(fixture.readFile("axm.lock")).toBe(lockBefore);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+        .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
     },
   );
 
@@ -303,6 +303,6 @@ describe("Pack state inspection", () => {
           );
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 });

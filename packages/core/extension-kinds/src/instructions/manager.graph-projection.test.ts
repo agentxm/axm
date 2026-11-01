@@ -35,7 +35,7 @@ import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlemen
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as Schema from "effect/Schema";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import {
   SourceHostProviders,
@@ -234,7 +234,7 @@ describe("RuleManager graph-derived region projection", () => {
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
       Layer.provideMerge(
-        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
       ),
     );
   };

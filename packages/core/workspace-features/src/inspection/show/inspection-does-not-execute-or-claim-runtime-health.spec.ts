@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -65,7 +65,7 @@ describe("passive MCP inspection", () => {
           }),
         )
         .pipe(
-          Effect.provide(Layer.merge(NodeServices.layer, Layer.mock(ChildProcessSpawner, {}))),
+          Effect.provide(Layer.merge(NativePlatformTest, Layer.mock(ChildProcessSpawner, {}))),
           Effect.ensuring(
             Effect.sync(() => {
               fetch.mockRestore();

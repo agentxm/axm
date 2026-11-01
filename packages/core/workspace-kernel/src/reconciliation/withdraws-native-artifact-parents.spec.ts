@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -133,6 +133,6 @@ describe("native artifact parent withdrawal", () => {
             else
               expect((yield* readContainerReceipts(path.join(root, ".axm"))).entries).toEqual([]);
           }).pipe(Effect.provide(services));
-        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+        }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
       );
 });

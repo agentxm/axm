@@ -1,3 +1,4 @@
+import { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 // @effect-diagnostics anyUnknownInErrorContext:off — lint converts opaque read-model failures into fact-only findings at this boundary
 /**
  * `LintWorkspaceBuild` — single helper that produces both the per-rule
@@ -204,7 +205,8 @@ export const buildLintWorkspace = (
   args: BuildLintWorkspaceArgs,
 ): Effect.Effect<
   LintWorkspaceBuild,
-  WorkspaceRootEscape | SettingsReadError | LockfileReadError
+  WorkspaceRootEscape | SettingsReadError | LockfileReadError,
+  NativeEntryRemoval
 > => {
   const platformLayer = Layer.mergeAll(
     Layer.succeed(FileSystem.FileSystem, args.platform.fs),
@@ -288,11 +290,12 @@ const makeInstructionAccessor = (args: {
   readonly scope: "project" | "user";
   readonly readModel: WorkspaceReadModel;
   readonly gitIndexView: boolean;
-}): Effect.Effect<WorkspaceInstructionAccessor> =>
+}): Effect.Effect<WorkspaceInstructionAccessor, never, NativeEntryRemoval> =>
   Effect.gen(function* () {
     const platformLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, args.platform.fs),
       Layer.succeed(Path.Path, args.platform.path),
+      Layer.succeed(NativeEntryRemoval, yield* NativeEntryRemoval),
     );
     const snapshot = yield* Effect.cached(
       Effect.gen(function* () {

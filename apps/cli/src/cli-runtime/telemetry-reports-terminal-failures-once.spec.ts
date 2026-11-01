@@ -15,7 +15,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
@@ -129,7 +129,7 @@ const invocationLayer = (streams: ReturnType<typeof recordingStreams>) =>
   Layer.mergeAll(
     Layer.provide(ScreenMachine(), streams.layer),
     TestFlagsLayer({ json: true }),
-    Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+    Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
   );
 
 /** What the process renders and exits with once the invocation ends. */
@@ -251,7 +251,7 @@ const inProjectWorkspace = <A, R>(
     Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(root) }),
     // Building the workspace never reaches the Registry here.
     Effect.provide(
-      Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NodeServices.layer),
+      Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NativePlatformTest),
     ),
   );
 
@@ -290,7 +290,7 @@ describe("Terminal failure reporting", () => {
             Layer.mergeAll(
               baseLayer,
               makeArtifactHttpClientLayer(globalThis.fetch),
-              Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NodeServices.layer),
+              Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NativePlatformTest),
             ),
           ),
           Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(root) }),
@@ -343,7 +343,7 @@ describe("Terminal failure reporting", () => {
             Layer.mergeAll(
               baseLayer,
               makeArtifactHttpClientLayer(globalThis.fetch),
-              Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NodeServices.layer),
+              Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NativePlatformTest),
             ),
           ),
           Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(root) }),

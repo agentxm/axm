@@ -3,7 +3,7 @@ import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/h
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -92,7 +92,7 @@ describe("Unexplained content classification", () => {
           expect(fixture.requests).toEqual([]);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 
   it.effect("classifies an installed package the user workspace does not configure", () => {
@@ -124,6 +124,6 @@ describe("Unexplained content classification", () => {
           ]);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 });

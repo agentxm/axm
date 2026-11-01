@@ -1,4 +1,6 @@
-import { describe, expect, it } from "@effect/vitest";
+import { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
+import * as Layer from "effect/Layer";
+import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as PlatformError from "effect/PlatformError";
 import * as Predicate from "effect/Predicate";
@@ -205,7 +207,12 @@ const buildAndEvaluate = (
     };
   });
 
-describe("buildLintWorkspace manifest JSON population", () => {
+const noNativeRemoval = Layer.succeed(NativeEntryRemoval, {
+  unlink: () => Effect.die("Native removal must not escape the in-memory read model"),
+  removeEmptyDirectory: () => Effect.die("Native removal must not escape the in-memory read model"),
+});
+
+it.layer(noNativeRemoval)("buildLintWorkspace manifest JSON population", (it) => {
   it.effect("validates acquired AXM manifests without imposing content conformance", () =>
     Effect.gen(function* () {
       const { view, rendered } = yield* buildAndEvaluate(fixture(manifestFixtures.pack));

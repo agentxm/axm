@@ -1,3 +1,5 @@
+import { NativeEntryRemoval } from "../locations/index.js";
+import type * as Context from "effect/Context";
 /**
  * Workspace transaction mechanics: the snapshot/restore/validate/rollback
  * runner and the closure settlement operations, implemented against the
@@ -59,6 +61,7 @@ export interface FilesystemTransactionRuntime extends WorkspaceTransactionPaths 
   readonly boundaryClaimsDirectory: string | null | undefined;
   readonly nativeRootWitnesses: ReadonlyArray<NativeAuthorityRootWitness>;
   readonly fs: FileSystem.FileSystem;
+  readonly removal: Context.Service.Shape<typeof NativeEntryRemoval>;
   readonly path: Path.Path;
   readonly admission: Semaphore.Semaphore;
   readonly acquire: WorkspaceTransactionScopeService["acquire"];
@@ -255,6 +258,7 @@ export const runFilesystemTransaction = <A, E, R>(
             ).pipe(
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
+              Effect.provideService(NativeEntryRemoval, scope.removal),
             );
             const isCompromised = () => claims.isCompromised() || (held?.isCompromised() ?? false);
             const ledger = yield* SynchronizedRef.make(emptyLedger);

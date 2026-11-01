@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -122,7 +122,7 @@ for (const kind of ["rules", "knowledge"] as const) {
           proof: "planned-instruction-target",
         });
         expect(yield* fs.readFileString(file)).toBe(bytes);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("rewrites an unrecorded region once and records its row", () =>
@@ -144,7 +144,7 @@ for (const kind of ["rules", "knowledge"] as const) {
           recorded: recordedAfter(first.rowChange),
         }).pipe(Effect.provide(authority.layer));
         expect(second.changed).toBe(false);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("keeps recorded currency portable between project checkouts", () =>
@@ -168,7 +168,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         expect(yield* fs.readFileString(`${second}/AGENTS.md`)).toBe(
           yield* fs.readFileString(`${first}/AGENTS.md`),
         );
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("adopts an unchanged region by recording it, writing no file", () =>
@@ -212,7 +212,7 @@ for (const kind of ["rules", "knowledge"] as const) {
             adoption: { expectedRaw: "# No region\n" },
           }).pipe(Effect.provide(authority.layer), Effect.result))._tag,
         ).toBe("Failure");
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("resolves an instruction alias through the captured user vendor root", () =>
@@ -253,7 +253,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         expect(result.nativeLocation.configuredConsumers).toEqual(["claude-code"]);
         expect(yield* fs.readLink(path.join(home, "AGENTS.md"))).toBe(target);
         expect(yield* fs.readFileString(target)).toContain("Managed body");
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     for (const baseline of [undefined, "", "# Foreign instructions\r\n\r\n"]) {
@@ -289,7 +289,7 @@ for (const kind of ["rules", "knowledge"] as const) {
             });
             if (baseline === undefined) expect(yield* fs.exists(file)).toBe(false);
             else expect(yield* fs.readFileString(file)).toBe(baseline);
-          }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+          }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
       );
     }
 
@@ -323,7 +323,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         }).pipe(Effect.provide(authority.layer));
         expect(withdrawal.nativeLocation.state).toBe("removed");
         expect(yield* fs.readFileString(file)).toBe("");
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("compares a rewritten region's body with AXM's last write in a preview", () =>
@@ -365,7 +365,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         ).toBe("unrecorded");
         yield* fs.remove(file);
         expect(yield* preview({})).toBeUndefined();
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("refuses contributors without accepted source authority before any write", () =>
@@ -380,7 +380,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         }).pipe(Effect.provide(authority.layer), Effect.result);
         expect(result._tag).toBe("Failure");
         expect(yield* fs.exists(`${root}/AGENTS.md`)).toBe(false);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("preserves mixed foreign line endings and formatter output of a current body", () =>
@@ -434,7 +434,7 @@ for (const kind of ["rules", "knowledge"] as const) {
           body: "",
         }).pipe(Effect.provide(authority.layer));
         expect(yield* fs.readFileString(file)).toBe(prefix + suffix);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("preserves a current body rewrite without renewing its absent-file inverse", () =>
@@ -472,7 +472,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         }).pipe(Effect.provide(authority));
         expect(yield* fs.exists(file)).toBe(true);
         expect(yield* fs.readFileString(file)).toBe("");
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("converges when withdrawing an absent region by withdrawing its row", () =>
@@ -506,7 +506,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         }).pipe(Effect.provide(authority.layer));
         expect(Option.isNone(settled.rowChange)).toBe(true);
         expect(yield* fs.readFileString(file)).toBe("# Hand-cleaned\n");
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("ignores a fence inside fenced code and leaves other files' fences alone", () =>
@@ -528,7 +528,7 @@ for (const kind of ["rules", "knowledge"] as const) {
           `${example}<!-- axm:${kind} -->\nManaged body\n<!-- /axm:${kind} -->\n`,
         );
         expect(yield* fs.readFileString(readme)).toBe(foreign);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     for (const [problem, content] of [
@@ -565,7 +565,7 @@ for (const kind of ["rules", "knowledge"] as const) {
             problem,
           });
           expect(yield* fs.readFileString(file)).toBe(content);
-        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+        }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
       );
     }
 
@@ -623,7 +623,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         expect(yield* fs.readFileString(originalFile)).toBe("# Original\n");
         expect(yield* fs.readFileString(replacementFile)).toBe("# Replacement\n");
         expect((yield* recording.observed).protectedPaths).toEqual([]);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
 
     it.effect("refuses an instruction alias into its contributor source before mutation", () =>
@@ -645,7 +645,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         ).toBe("Failure");
         expect(yield* fs.readFileString(source)).toBe("# Source\n");
         expect((yield* authority.observed).protectedPaths).toEqual([]);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   });
 }

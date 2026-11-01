@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -148,7 +148,7 @@ describe("A plan-family operation's lifecycle", () => {
         deriveOperationOutcome(resolution),
       );
       expect(deriveOperationOutcome(resolution)).toBe("applied");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("states why a unit failed on the event that resolves it", () =>
@@ -170,7 +170,7 @@ describe("A plan-family operation's lifecycle", () => {
       for (const event of resolved.filter((candidate) => candidate.state === "committed")) {
         expect(event.failure).toBeUndefined();
       }
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("redacts a credential out of the detail it publishes", () =>
@@ -194,7 +194,7 @@ describe("A plan-family operation's lifecycle", () => {
       const detail = failed?._tag === "UnitResolved" ? (failed.failure?.detail ?? "") : "";
       expect(detail.length).toBeGreaterThan(0);
       expect(detail).not.toContain(secret);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("settles a preview as previewed without entering the apply phase", () =>
@@ -215,7 +215,7 @@ describe("A plan-family operation's lifecycle", () => {
         deriveOperationOutcome(resolution),
       );
       expect(deriveOperationOutcome(resolution)).toBe("previewed");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("settles an operation with nothing to do as a no-op", () =>
@@ -233,6 +233,6 @@ describe("A plan-family operation's lifecycle", () => {
         deriveOperationOutcome(resolution),
       );
       expect(deriveOperationOutcome(resolution)).toBe("no-op");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

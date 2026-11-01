@@ -1,3 +1,4 @@
+import { NativePlatformTest } from "../locations/testing.js";
 /**
  * Closure settlement on a real temporary filesystem: each semantic closure
  * either commits or restores exactly its own writes, independently of the
@@ -8,7 +9,6 @@
 import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -99,7 +99,7 @@ describe("closure settlement", () => {
           expect(read(target)).toBe(`alpha: ${target}\n`);
         }
         expect(nodeFs.existsSync(nodePath.join(workspaceDir, "tmp"))).toBe(false);
-      }).pipe(Effect.provide(scope().pipe(Layer.provideMerge(NodeServices.layer)))),
+      }).pipe(Effect.provide(scope().pipe(Layer.provideMerge(NativePlatformTest)))),
   );
 
   it.effect(
@@ -124,7 +124,7 @@ describe("closure settlement", () => {
         });
         expect([read(a), read(b), read(c)]).toEqual(["changed\n", "original\n", "changed\n"]);
         expect(yield* pendingClosureRestorations).toEqual(Option.none());
-      }).pipe(Effect.provide(scope().pipe(Layer.provideMerge(NodeServices.layer)))),
+      }).pipe(Effect.provide(scope().pipe(Layer.provideMerge(NativePlatformTest)))),
   );
 
   it.effect(
@@ -165,7 +165,7 @@ describe("closure settlement", () => {
                   operation.kind === "writeFileString" && operation.path === projectionPath,
               ),
             ),
-            Layer.provideMerge(NodeServices.layer),
+            Layer.provideMerge(NativePlatformTest),
           ),
         ),
       ),
@@ -204,7 +204,7 @@ describe("closure settlement", () => {
                 (operation) => operation.kind === "writeFile" && operation.path === settingsPath,
               ),
             ),
-            Layer.provideMerge(NodeServices.layer),
+            Layer.provideMerge(NativePlatformTest),
           ),
         ),
       ),
@@ -232,7 +232,7 @@ describe("closure settlement", () => {
         validate: () => Effect.void,
       });
       expect(read(nested)).toBe("original\n");
-    }).pipe(Effect.provide(scope().pipe(Layer.provideMerge(NodeServices.layer)))),
+    }).pipe(Effect.provide(scope().pipe(Layer.provideMerge(NativePlatformTest)))),
   );
 
   it.effect("the closure API is a no-op outside a transaction", () =>
@@ -275,7 +275,7 @@ describe("closure settlement", () => {
           WorkspaceTransactionScopeTest(
             { workspaceDir, settingsPath, lockPath },
             { lock: world.invocation() },
-          ).pipe(Layer.provideMerge(NodeServices.layer)),
+          ).pipe(Layer.provideMerge(NativePlatformTest)),
         ),
       );
     },

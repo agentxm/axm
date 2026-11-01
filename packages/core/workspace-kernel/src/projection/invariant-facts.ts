@@ -1,3 +1,4 @@
+import { NativeEntryRemoval } from "../locations/index.js";
 /**
  * Shared invariant-fact evaluation for AXM-owned projection units.
  *
@@ -243,6 +244,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
     const fsPathLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
+      Layer.succeed(NativeEntryRemoval, yield* NativeEntryRemoval),
     );
     const workspaceReadLayer = (observedGraph?: DesiredStateGraph) =>
       Layer.mergeAll(

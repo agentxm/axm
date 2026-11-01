@@ -754,6 +754,9 @@ importers:
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../registry-protocol
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.1(effect@4.1.1)(redis@6.2.1(@node-rs/xxhash@1.7.8))
       effect:
         specifier: 'catalog:'
         version: 4.1.1
@@ -794,9 +797,6 @@ importers:
       '@agentxm/test-reporting':
         specifier: workspace:*
         version: link:../../../tools/test-reporting
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.1.1(effect@4.1.1)(redis@6.2.1(@node-rs/xxhash@1.7.8))
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.1(effect@4.1.1)(vitest@5.0.5)

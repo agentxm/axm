@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { afterEach } from "vitest";
 
 import * as fs from "node:fs";
@@ -72,7 +72,7 @@ describe("Repeated setup", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect.each([true, false])("preserves explicit alias ignore choice %s", (gitignoreAliases) => {
@@ -101,7 +101,7 @@ describe("Repeated setup", () => {
           expect(fixture.snapshot()).toEqual(before);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   /** A workspace as an unattended first install leaves it: no instruction choice recorded. */
@@ -146,7 +146,7 @@ describe("Repeated setup", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect("leaves the choice open where nobody can answer or approve", () => {
@@ -164,7 +164,7 @@ describe("Repeated setup", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect("records a declined choice so setup does not ask again", () => {
@@ -195,7 +195,7 @@ describe("Repeated setup", () => {
           expect(again).toMatchObject({ outcome: { status: "already-initialized" } });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   /** An undecided workspace whose canonical file and a differing alias both exist. */
@@ -232,7 +232,7 @@ describe("Repeated setup", () => {
           expect(fixture.snapshot()).toEqual(before);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect("replaces a differing unrecorded alias only on explicit intent", () => {
@@ -248,7 +248,7 @@ describe("Repeated setup", () => {
           expect(fixture.readFile("AGENTS.md")).toBe("# Canonical instructions\n");
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect("refuses a newer lockfile before writing anything", () => {
@@ -266,7 +266,7 @@ describe("Repeated setup", () => {
           expect(fixture.snapshot()).toEqual(before);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
   it.effect("preserves a settled instruction choice and names the day-two commands", () => {
     const fixture = makeSetupFixture();
@@ -291,7 +291,7 @@ describe("Repeated setup", () => {
           expect(fixture.snapshot()).toEqual(before);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
   it.effect(
     "settles an unresolved instruction choice explicitly while retaining configured membership",
@@ -319,7 +319,7 @@ describe("Repeated setup", () => {
             expect(fixture.readFile("CLAUDE.md")).toBe("# Team instructions\n");
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer));
+        .pipe(Effect.provide(NativePlatformTest));
     },
   );
 });

@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -57,7 +57,7 @@ const empty: Lockfile = { lockfileVersion: LOCKFILE_VERSION, skills: {} };
 const encodeToml = (lockfile: Lockfile) =>
   emitLockfileToml(Schema.encodeSync(LockfileSchema)(lockfile));
 const decode = (document: unknown) => Schema.decodeUnknownExit(LockfileSchema)(document);
-const platform = WorkspaceFileWriteLocksLive.pipe(Layer.provideMerge(NodeServices.layer));
+const platform = WorkspaceFileWriteLocksLive.pipe(Layer.provideMerge(NativePlatformTest));
 
 const rulesState = (contract: number): ProjectionKindState => ({
   contract,

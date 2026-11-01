@@ -1,9 +1,9 @@
+import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -100,7 +100,7 @@ const declareFromPrimary = (range: string) => {
             settingsPath: nodePath.join(root, "axm.json"),
             lockPath: nodePath.join(root, "axm.lock"),
           }),
-        ).pipe(Layer.provideMerge(NodeServices.layer)),
+        ).pipe(Layer.provideMerge(NativePlatformTest)),
       ),
     ),
   );

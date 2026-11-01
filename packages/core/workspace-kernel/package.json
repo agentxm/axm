@@ -151,6 +151,11 @@
       "axm-source": "./src/locations/live.ts",
       "default": "./dist/src/locations/live.js"
     },
+    "./locations/testing": {
+      "types": "./dist/src/locations/testing.d.ts",
+      "axm-source": "./src/locations/testing.ts",
+      "default": "./dist/src/locations/testing.js"
+    },
     "./locations": {
       "types": "./dist/src/locations/index.d.ts",
       "axm-source": "./src/locations/index.ts",
@@ -175,6 +180,7 @@
     "@agentxm/registry-access": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
+    "@effect/platform-node": "catalog:",
     "effect": "catalog:",
     "ignore": "7.0.12",
     "jsonc-parser": "catalog:",
@@ -190,7 +196,6 @@
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:^",
     "@agentxm/test-reporting": "workspace:*",
-    "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@fast-check/vitest": "catalog:",
     "@types/bun": "catalog:",

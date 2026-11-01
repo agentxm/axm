@@ -1,3 +1,4 @@
+import { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
@@ -33,6 +34,11 @@ describe("Workspace home configuration", () => {
         const sourceError = new ConfigProvider.SourceError({ message: "source unavailable" });
         const observations: string[] = [];
         const platform = Layer.mergeAll(
+          Layer.succeed(NativeEntryRemoval, {
+            unlink: () => Effect.die("Native removal must not run before configuration succeeds"),
+            removeEmptyDirectory: () =>
+              Effect.die("Native removal must not run before configuration succeeds"),
+          }),
           Path.layer,
           ConfigProvider.layer(ConfigProvider.make(() => Effect.fail(sourceError))),
           FileSystem.layerNoop({

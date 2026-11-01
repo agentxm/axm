@@ -1,4 +1,7 @@
-import { CanonicalNativePathLive } from "@agentxm/workspace-kernel/locations/live";
+import {
+  CanonicalNativePathLive,
+  NativeEntryRemovalLive,
+} from "@agentxm/workspace-kernel/locations/live";
 import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 /** Shared filesystem and service world for state-changing workspace fixtures. */
 
@@ -210,7 +213,7 @@ export const makeWorkspaceWorld = <P>(
       }).pipe(Layer.provide(WorkspaceBoundaryClaimsTest(directories.boundaryClaimsDirectory))),
     ),
     ConfigProvider.layer(options.configureConfigProvider?.(isolatedConfig) ?? isolatedConfig),
-  ).pipe(Layer.provideMerge(CanonicalNativePathLive));
+  ).pipe(Layer.provideMerge(Layer.merge(CanonicalNativePathLive, NativeEntryRemovalLive)));
   const projection = Layer.provideMerge(WorkspaceCatalogLive, base);
   return { ...directories, transport, projection };
 };

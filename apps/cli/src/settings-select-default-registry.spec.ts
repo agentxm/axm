@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
@@ -80,7 +80,7 @@ const contextFor = (fixture: SettingsFixture, explicit: Option.Option<string> = 
     makeRegistryContextLayer(decodeAbsolutePathSync(fixture.project), explicit),
     Layer.merge(
       ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: fixture.home } })),
-      Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+      Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
     ),
   );
 

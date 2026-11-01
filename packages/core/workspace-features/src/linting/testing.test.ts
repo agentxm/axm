@@ -3,7 +3,7 @@ import { it } from "@effect/vitest";
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientError from "effect/http/HttpClientError";
@@ -72,7 +72,7 @@ describe("./testing.js", () => {
         workspace.layer.pipe(
           Layer.provideMerge(
             Layer.mergeAll(
-              Layer.provideMerge(RegistryTransportTest(OfflineHttpClient), NodeServices.layer),
+              Layer.provideMerge(RegistryTransportTest(OfflineHttpClient), NativePlatformTest),
               NoProjectionParticipants,
             ),
           ),

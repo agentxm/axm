@@ -26,7 +26,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as Option from "effect/Option";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import { KnowledgeManager } from "@agentxm/workspace-kernel/materialization";
@@ -188,7 +188,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
       ),
       Layer.provideMerge(WorkspaceFileWriteLocksLive),
       Layer.provideMerge(
-        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
       ),
     );
   };

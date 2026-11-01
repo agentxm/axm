@@ -2,7 +2,7 @@ import { WorkspaceTransactionScopeLive } from "@agentxm/workspace-kernel/settlem
 import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -129,7 +129,7 @@ describe("withOperationLifecycle", () => {
             renderer.layer,
             TestFlagsLayer({ nonInteractive: true }),
             Layer.effect(WorkspaceLocation, makeWorkspaceLocationMock(workspaceDir)),
-          ).pipe(Layer.provideMerge(NodeServices.layer)),
+          ).pipe(Layer.provideMerge(NativePlatformTest)),
         ),
         Effect.forkChild,
       );
@@ -179,7 +179,7 @@ describe("withOperationLifecycle", () => {
               settingsPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.json"),
               lockPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.lock"),
             }),
-          ).pipe(Layer.provideMerge(NodeServices.layer)),
+          ).pipe(Layer.provideMerge(NativePlatformTest)),
         ),
       );
       expect(heldAtBodyStart).toBe(false);

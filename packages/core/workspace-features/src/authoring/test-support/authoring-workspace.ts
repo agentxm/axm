@@ -23,7 +23,7 @@ import {
 import * as os from "node:os";
 import * as nodePath from "node:path";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
@@ -174,7 +174,7 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
   );
   const platform = Layer.provideMerge(
     WorkspaceFileWriteLocksLive,
-    Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer),
+    Layer.mergeAll(NativePlatformTest, FetchHttpClient.layer),
   );
   const presence = Layer.provideMerge(AgentPresenceProbeLive, platform);
   const state = Layer.provideMerge(

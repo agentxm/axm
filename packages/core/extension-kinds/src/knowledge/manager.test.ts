@@ -24,7 +24,7 @@ import {
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -243,7 +243,7 @@ const managerLayer = (
     ),
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
     Layer.provideMerge(
-      Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+      Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
     ),
   );
 };

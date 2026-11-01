@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 import { makeRegistryContextLayer } from "../runtime.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { RegistryClientFactoryTest, RegistryContextTest } from "@agentxm/registry-client/testing";
@@ -13,7 +14,10 @@ import { onTestFinished } from "vitest";
 import { makeNativeFileStore } from "@agentxm/test-support";
 
 import { WorkspaceBoundaryClaimsTest } from "@agentxm/workspace-kernel/settlement/testing";
-import { CanonicalNativePathLive } from "@agentxm/workspace-kernel/locations/live";
+import {
+  CanonicalNativePathLive,
+  NativeEntryRemovalLive,
+} from "@agentxm/workspace-kernel/locations/live";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
@@ -508,6 +512,7 @@ export const makeCliTestContext = (opts?: {
   const platformLayer = Layer.mergeAll(
     fileSystemServices,
     CanonicalNativePathLive,
+    NativeEntryRemovalLive,
     WorkspaceBoundaryClaimsTest(boundaryClaimsDirectory),
   );
   // Registry clients travel the test transport as it is: a fixture that
@@ -612,7 +617,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly workspaceLayer?: Layer.Layer<
     WorkspaceStateServices | WorkspaceTransactionScope,
     WorkspaceStateError,
-    FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+    FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
   >;
   readonly wsOptions?:
     | (Omit<Partial<WorkspaceStateOptions>, "projectRoot"> & {

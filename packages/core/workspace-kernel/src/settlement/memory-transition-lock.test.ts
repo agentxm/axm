@@ -1,4 +1,4 @@
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import { NativePlatformTest } from "../locations/testing.js";
 import * as NodePath from "@effect/platform-node/NodePath";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
@@ -10,7 +10,7 @@ import * as TestClock from "effect/testing/TestClock";
 
 import { makeMemoryTransitionLockWorld } from "./memory-transition-lock.js";
 
-const platformLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer);
+const platformLayer = Layer.mergeAll(NativePlatformTest, NodePath.layer);
 
 describe("makeMemoryTransitionLockWorld", () => {
   it.effect("reports contention under virtual time and releases on interruption", () =>

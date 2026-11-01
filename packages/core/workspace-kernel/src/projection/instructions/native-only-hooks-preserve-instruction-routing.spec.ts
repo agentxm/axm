@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -81,7 +81,7 @@ describe("native Hook instruction routing", () => {
               Layer.mergeAll(workspace, NativeWriteAuthorityPermissive, ProjectionRowsTest()),
             ),
           );
-        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+        }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }
 
@@ -123,6 +123,6 @@ describe("native Hook instruction routing", () => {
           Layer.mergeAll(workspace, NativeWriteAuthorityPermissive, ProjectionRowsTest()),
         ),
       );
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

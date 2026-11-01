@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -87,7 +87,7 @@ describe("Setup preview purity", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   // Preapproval cannot make a preview do anything: preapproval is the one
@@ -122,7 +122,7 @@ describe("Setup preview purity", () => {
             expect(fixture.exists(".axm")).toBe(false);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer));
+        .pipe(Effect.provide(NativePlatformTest));
     },
   );
 
@@ -150,7 +150,7 @@ describe("Setup preview purity", () => {
             expect(fixture.exists(".axm")).toBe(false);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer));
+        .pipe(Effect.provide(NativePlatformTest));
     },
   );
   it.effect("the machine report preserves the human plan's blocked target and reason", () => {
@@ -186,7 +186,7 @@ describe("Setup preview purity", () => {
           expect(fixture.snapshot()).toEqual(before);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
   for (const nativeTarget of [".claude/skills/axm", ".agents/skills/axm"]) {
     it.effect(`an unowned ${nativeTarget} blocks both views without changing it`, () => {
@@ -219,7 +219,7 @@ describe("Setup preview purity", () => {
             expect(fixture.snapshot()).toEqual(before);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer));
+        .pipe(Effect.provide(NativePlatformTest));
     });
   }
 });

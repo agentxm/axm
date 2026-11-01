@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 /**
  * Instruction-file management: whether this workspace propagates one source
  * instruction file to the agents it configures, and the transition between
@@ -149,7 +150,12 @@ const DISABLED_STATUS: InstructionsStatus = {
 const instructionsStatus = (): Effect.Effect<
   InstructionsStatus,
   Effect.Error<ReturnType<typeof observeInstructions>>,
-  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path | LockfileReader
+  | SettingsReader
+  | WorkspaceLocation
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeEntryRemoval
+  | LockfileReader
 > =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
@@ -260,7 +266,7 @@ const reconciliationGate = (
 ): Effect.Effect<
   Option.Option<string>,
   never,
-  WorkspaceLocation | FileSystem.FileSystem | Path.Path
+  WorkspaceLocation | FileSystem.FileSystem | Path.Path | NativeEntryRemoval
 > =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -423,6 +429,7 @@ export type ManageInstructionsRequirements =
   | AcceptedResolutionWriter
   | KnowledgeManager
   | NativeWriteAuthority
+  | NativeEntryRemoval
   | ConfiguredAgentOutcomesProvider
   | FileSystem.FileSystem
   | FootprintRecorder

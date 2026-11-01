@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -77,6 +77,6 @@ describe("Acquisition boundary during apply", () => {
       expect(guarded).toBe(true);
       expect(yield* fs.readFileString(workspace.settingsPath)).toBe('{\n  "skills": {}\n}\n');
       expect(yield* fs.readFileString(workspace.lockPath)).toBe("version = 1\n");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

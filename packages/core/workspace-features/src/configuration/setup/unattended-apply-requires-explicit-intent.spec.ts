@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -94,7 +94,7 @@ describe("Unattended setup intent", () => {
             expect(fixture.exists("AGENTS.md")).toBe(false);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer));
+        .pipe(Effect.provide(NativePlatformTest));
     },
   );
 
@@ -126,7 +126,7 @@ describe("Unattended setup intent", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 
   it.effect("preapproval does not replace a differing unrecorded instruction alias", () => {
@@ -150,6 +150,6 @@ describe("Unattended setup intent", () => {
           expect(fixture.exists("axm.json")).toBe(false);
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer));
+      .pipe(Effect.provide(NativePlatformTest));
   });
 });

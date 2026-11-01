@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 /**
  * Linting a workspace: admitting the request, gathering the facts every rule
  * catalog decides against, and reporting what the workspace actually is.
@@ -222,6 +223,7 @@ export interface LintWorkspaceResult {
 
 /** Every service a lint run reads the workspace and its projections through. */
 export type LintWorkspaceRequirements =
+  | NativeEntryRemoval
   | AxmSkillCompatibilityPolicy
   | RegistryClientFactory
   | CodingAgentRepository
@@ -570,6 +572,7 @@ export const fixLintWorkspace = (
   LintWorkspaceFailure,
   | LintWorkspaceRequirements
   | NativeWriteAuthority
+  | NativeEntryRemoval
   | AcceptedResolutionWriter
   | WorkspaceTransactionScope
 > =>

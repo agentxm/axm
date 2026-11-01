@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as TestClock from "effect/testing/TestClock";
@@ -67,7 +67,7 @@ describe("Knowledge continuation", () => {
           expect(cursor).toBeUndefined();
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   for (const change of ["query", "scope", "source", "age", "malformed"] as const)
@@ -102,7 +102,7 @@ describe("Knowledge continuation", () => {
             expect(continued.outcome).toBe("cursor-expired");
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+        .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
     });
 
   it.effect("search continues through all matches without repeating a concept", () => {
@@ -143,7 +143,7 @@ describe("Knowledge continuation", () => {
           expect(cursor).toBeUndefined();
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   for (const change of ["query", "scope", "source", "age", "malformed"] as const)
@@ -210,6 +210,6 @@ describe("Knowledge continuation", () => {
             expect(restarted.page.items).toHaveLength(1);
           }),
         )
-        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+        .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
     });
 });

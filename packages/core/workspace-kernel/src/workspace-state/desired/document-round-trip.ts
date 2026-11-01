@@ -8,6 +8,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { writeFileAtomic } from "@agentxm/host-primitives";
 import {
+  NativeEntryRemoval,
   applyStructuralInverse,
   assertNativeMutationWithin,
   captureContainerIdentity,
@@ -74,6 +75,7 @@ export const prepareDocumentRoundTrip = <E>(args: {
 }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const removal = yield* NativeEntryRemoval;
     const path = yield* Path.Path;
     const locks = args.context.locks;
     const proof = {
@@ -200,6 +202,7 @@ export const prepareDocumentRoundTrip = <E>(args: {
         ).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
+          Effect.provideService(NativeEntryRemoval, removal),
           Effect.mapError((cause) => mapFailure(target, cause)),
         ),
       write: (target, text) =>
@@ -224,6 +227,7 @@ export const prepareDocumentRoundTrip = <E>(args: {
         }).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
+          Effect.provideService(NativeEntryRemoval, removal),
           Effect.mapError((cause) => mapFailure(target, cause)),
         ),
       retire: (target) =>
@@ -233,6 +237,7 @@ export const prepareDocumentRoundTrip = <E>(args: {
         }).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),
+          Effect.provideService(NativeEntryRemoval, removal),
           Effect.mapError((cause) => mapFailure(target, cause)),
         ),
     };

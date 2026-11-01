@@ -6,7 +6,7 @@ import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlemen
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -93,7 +93,7 @@ describe("packs list.handler", () => {
     const rendererLayer = renderer.layer;
     const rendererState = renderer.state;
     const BaseLayer = Layer.mergeAll(
-      Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+      Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
       rendererLayer,
       TestFlagsLayer(),
     );

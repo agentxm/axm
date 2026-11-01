@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import { ensureSkillAgentArtifact, removeSkillAgentArtifact } from "./materialization.js";
 
@@ -41,7 +41,7 @@ describe("Skill native materialization", () => {
       );
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
 
@@ -57,7 +57,7 @@ describe("Skill native materialization", () => {
       expect(yield* fs.readDirectory(source)).toEqual(["SKILL.md"]);
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
 
@@ -77,7 +77,7 @@ describe("Skill native materialization", () => {
       );
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
 
@@ -104,7 +104,7 @@ describe("Skill native materialization", () => {
       expect(yield* fs.exists(target)).toBe(false);
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
 
@@ -164,7 +164,7 @@ describe("Skill native materialization", () => {
       expect(yield* fs.readFileString(path.join(source, "SKILL.md"))).toBe("# Updated source\n");
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
 
@@ -178,7 +178,7 @@ describe("Skill native materialization", () => {
       expect(yield* fs.readFileString(path.join(target, "SKILL.md"))).toBe("# User\n");
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
   it.effect(
@@ -228,7 +228,7 @@ describe("Skill native materialization", () => {
         );
       }).pipe(
         Effect.scoped,
-        Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+        Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
       ),
   );
 });

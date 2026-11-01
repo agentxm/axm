@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -114,7 +114,7 @@ describe("runtime receipt handoff", () => {
           validate: () => Effect.void,
         });
         expect(yield* fs.readDirectory(home)).toEqual([]);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("removes an initially absent runtime after the last receipt in a later command", () =>
@@ -128,7 +128,7 @@ describe("runtime receipt handoff", () => {
       expect(yield* f.fs.exists(f.path.join(f.workspaceDir, "tmp"))).toBe(false);
       yield* f.command(f.withdraw);
       expect(yield* f.fs.exists(f.workspaceDir)).toBe(false);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("keeps a preexisting empty runtime and scratch directory", () =>
@@ -143,7 +143,7 @@ describe("runtime receipt handoff", () => {
       );
       expect(yield* f.fs.readDirectory(f.workspaceDir)).toEqual(["tmp"]);
       expect(yield* f.fs.readDirectory(f.path.join(f.workspaceDir, "tmp"))).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("preserves foreign additions after withdrawing the final receipt", () =>
@@ -154,7 +154,7 @@ describe("runtime receipt handoff", () => {
       yield* f.command(f.withdraw);
       expect(yield* f.fs.readDirectory(f.workspaceDir)).toEqual(["foreign.txt"]);
       expect(yield* f.fs.readFileString(f.path.join(f.workspaceDir, "foreign.txt"))).toBe("keep");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -169,7 +169,7 @@ describe("runtime receipt handoff", () => {
         yield* f.command(f.withdraw);
         expect(yield* f.fs.exists(f.workspaceDir)).toBe(true);
         expect(yield* f.fs.readDirectory(f.workspaceDir)).toEqual([]);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("restores absence after failed admitted work without persisting creation proof", () =>
@@ -180,6 +180,6 @@ describe("runtime receipt handoff", () => {
         .pipe(Effect.result);
       expect(result._tag).toBe("Failure");
       expect(yield* f.fs.exists(f.workspaceDir)).toBe(false);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

@@ -1,3 +1,4 @@
+import { NativeEntryRemoval } from "../locations/index.js";
 /**
  * Sync plan policy: recovery identities, aggregate-unit reconciliation steps
  * (knowledge discovery, managed hook projections, instruction files, stale
@@ -143,6 +144,7 @@ export const SYNC_PRESENTATION: OperationPresentation = {
  * declare.
  */
 export type SyncStepRequirements =
+  | NativeEntryRemoval
   | ManagerRequirements
   | RecipeRequirements
   | SettingsReader
@@ -546,6 +548,7 @@ export const collectCleanupStep: (args: {
   | SettingsReader
   | DesiredStateReader
   | NativeWriteAuthority
+  | NativeEntryRemoval
   | ConfiguredAgentOutcomesProvider
   | WorkspaceRecords
   | LockfileReader

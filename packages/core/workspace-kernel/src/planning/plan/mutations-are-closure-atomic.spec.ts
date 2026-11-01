@@ -1,6 +1,6 @@
+import { NativePlatformTest } from "../../locations/testing.js";
 import { WorkspaceTransactionScopeLive } from "../../settlement/live.js";
 import * as nodePath from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -214,7 +214,7 @@ describe("A workspace change that cannot complete", () => {
       expect(deriveOperationOutcome(resolution)).toBe("blocked");
       expect(resolution.units.map((unit) => unit.state)).toEqual(["blocked"]);
       expect(yield* snapshot(workspace.root)).toEqual(before);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("writes nothing when the prepared candidate turns stale before apply", () =>
@@ -274,7 +274,7 @@ describe("A workspace change that cannot complete", () => {
       expect(resolution.candidateId).toBe(previewed.candidateId);
       expect(applied).toBe(0);
       expect(yield* fs.readFileString(target)).toBe("original");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("restores a closure that fails after it has already written", () =>
@@ -353,7 +353,7 @@ describe("A workspace change that cannot complete", () => {
       expect(resolution.atomicity.applied).toBe("closure-atomic");
       // Every family the closure had already written is back as it was.
       expect(yield* snapshot(workspace.root)).toEqual(before);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -436,7 +436,7 @@ describe("A workspace change that cannot complete", () => {
         expect(deriveOperationOutcome(retry)).toBe("applied");
         expect(yield* fs.readFileString(alpha)).toBe("alpha-realized");
         expect(yield* fs.readFileString(beta)).toBe("beta-realized");
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("blocks a dependent closure and writes nothing for it", () =>
@@ -496,7 +496,7 @@ describe("A workspace change that cannot complete", () => {
       expect(pack?.state).toBe("blocked");
       expect(pack?.blocking?.reference).toBe("skill:beta");
       expect(yield* fs.exists(dependent)).toBe(false);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("names the retained paths when a restoration cannot complete", () =>
@@ -565,6 +565,6 @@ describe("A workspace change that cannot complete", () => {
       expect(snapshotDir.length).toBeGreaterThan(0);
       expect(yield* fs.readFileString(path.join(snapshotDir, "0.snap"))).toBe("original");
       yield* fs.remove(snapshotDir, { recursive: true, force: true });
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

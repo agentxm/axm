@@ -1,3 +1,4 @@
+import { NativePlatformTest } from "../../locations/testing.js";
 /**
  * Requirement: source-resolution/minimum-release-age-withholds-unaged-releases.
  *
@@ -18,7 +19,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
 import * as Option from "effect/Option";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -115,7 +115,7 @@ const evaluationFor = (scenario: Scenario = {}) => {
           Layer.succeed(ReleaseAgePosture, scenario.posture ?? "enforce"),
         ),
         Layer.merge(
-          Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+          Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
           ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),
         ),
       ),

@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -82,7 +82,7 @@ describe("native instruction boundaries", () => {
       expect(yield* fs.readDirectory(root)).not.toContain(".muse");
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
 
@@ -121,7 +121,7 @@ describe("native instruction boundaries", () => {
       expect(firstSupported).toBe(true);
       expect(secondSupported).toBe(true);
       expect(yield* fs.readDirectory(root)).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("preserves a runtime directory another writer creates during probing", () =>
@@ -147,7 +147,7 @@ describe("native instruction boundaries", () => {
       expect(result).toBe(true);
       expect(yield* fs.exists(runtime)).toBe(true);
       expect(yield* fs.readDirectory(runtime)).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("does not read a source link that leaves the selected workspace", () =>
@@ -183,7 +183,7 @@ describe("native instruction boundaries", () => {
       expect(snapshot.status.missingSources).toContain(source);
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
 
@@ -212,7 +212,7 @@ describe("native instruction boundaries", () => {
       expect(yield* fs.readFileString(foreign)).toBe("foreign\n");
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
 
@@ -235,7 +235,7 @@ describe("native instruction boundaries", () => {
       expect(snapshot.status.staleTargets).toEqual([]);
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
 
@@ -272,7 +272,7 @@ describe("native instruction boundaries", () => {
       expect(yield* fs.readFileString(target)).toBe(foreign);
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
   it.effect("refuses to probe symlinks through an external runtime directory", () =>
@@ -292,7 +292,7 @@ describe("native instruction boundaries", () => {
       expect(yield* fs.readDirectory(outside)).toEqual([]);
     }).pipe(
       Effect.scoped,
-      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
     ),
   );
 });

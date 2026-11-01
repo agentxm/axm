@@ -10,7 +10,7 @@ import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlemen
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -118,10 +118,10 @@ describe("axm lint handler", () => {
   const makeLayers = (opts?: { machine?: boolean; quiet?: boolean; verbose?: boolean }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const baseLayer = Layer.mergeAll(
-      Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+      Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),
       makeArtifactHttpClientLayer(globalThis.fetch),
       FetchHttpClient.layer,
-      Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NodeServices.layer),
+      Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NativePlatformTest),
       renderer.layer,
       TestFlagsLayer({
         nonInteractive: true,

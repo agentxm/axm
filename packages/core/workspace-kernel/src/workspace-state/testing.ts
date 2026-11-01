@@ -1,3 +1,4 @@
+import type { NativeEntryRemoval } from "../locations/index.js";
 /**
  * @agentxm/workspace-kernel/workspace-state deterministic test layers and fixtures.
  *
@@ -225,7 +226,11 @@ export const treeIntegrityOfSync = (root: string): TreeIntegrity =>
 export const MockWorkspaceTransactionScope = (
   axmDir = "/tmp/axm",
   options?: { readonly lock?: WorkspaceTransitionLock },
-): Layer.Layer<WorkspaceTransactionScope, never, FileSystem.FileSystem | Path.Path> =>
+): Layer.Layer<
+  WorkspaceTransactionScope,
+  never,
+  FileSystem.FileSystem | Path.Path | NativeEntryRemoval
+> =>
   WorkspaceTransactionScopeTest(
     {
       workspaceDir: axmDir,

@@ -1,3 +1,4 @@
+import { NativePlatformTest } from "../locations/testing.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
@@ -6,7 +7,6 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../settlement/live.js";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -284,7 +284,7 @@ describe("Invalid workspace state gates operations", () => {
         // The refusal precedes every workspace write: both scopes are exactly
         // as the fault left them.
         expect(workspace.states()).toEqual(before);
-      }).pipe(Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer))),
+      }).pipe(Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest))),
   );
 
   it.effect("correcting the file restores the records the operation needed", () =>
@@ -307,6 +307,6 @@ describe("Invalid workspace state gates operations", () => {
 
       fs.writeFileSync(settingsPath, valid);
       expect(yield* read()).toEqual([]);
-    }).pipe(Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer))),
+    }).pipe(Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest))),
   );
 });

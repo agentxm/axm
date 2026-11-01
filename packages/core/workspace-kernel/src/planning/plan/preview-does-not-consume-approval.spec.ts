@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -88,7 +88,7 @@ describe("Preview and advance approval", () => {
       expect(applied).toBe(0);
       // A prompt was available and was not opened, so no approval was spent.
       expect(services.interaction.state.confirmApplyChangesCalls).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -126,7 +126,7 @@ describe("Preview and advance approval", () => {
         // available: the approval the second request carried was not spent.
         expect(applied).toBe(0);
         expect(services.interaction.state.confirmApplyChangesCalls).toEqual([]);
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("an unattended apply after a preview still stops as approval required", () =>
@@ -153,6 +153,6 @@ describe("Preview and advance approval", () => {
       expect(applied).toBe(0);
       // No prompt could open, so nothing was asked and nothing was consumed.
       expect(services.interaction.state.confirmApplyChangesCalls).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

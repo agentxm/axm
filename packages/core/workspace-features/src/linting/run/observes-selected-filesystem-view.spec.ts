@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
@@ -104,7 +104,7 @@ const lintView = (
   }).pipe(Effect.scoped);
 
 const viewServices = Layer.mergeAll(
-  Layer.provideMerge(RegistryTransportTest(OfflineHttpClient), NodeServices.layer),
+  Layer.provideMerge(RegistryTransportTest(OfflineHttpClient), NativePlatformTest),
   NoProjectionParticipants,
 );
 

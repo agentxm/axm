@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import { applyPlan } from "@agentxm/workspace-kernel/planning";
 import {
@@ -56,7 +56,7 @@ describe("makeAtomicMembershipSteps", () => {
   it.effect("restores membership and an earlier materialized target after add failure", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-add-transaction-"));
     writeWorkspace(root, []);
-    const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer);
+    const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest);
     const workspace = Layer.provide(
       coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
@@ -137,7 +137,7 @@ describe("makeAtomicMembershipSteps", () => {
   it.effect("attributes a membership-step failure only to that membership step", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agents-membership-failure-"));
     writeWorkspace(root, []);
-    const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer);
+    const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest);
     const workspace = Layer.provide(
       coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
@@ -196,7 +196,7 @@ describe("makeAtomicMembershipSteps", () => {
     const target = path.join(root, ".cursor", "commands", "review.md");
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, "managed\n");
-    const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer);
+    const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest);
     const workspace = Layer.provide(
       coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,

@@ -24,7 +24,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
@@ -201,7 +201,7 @@ const makeTestLayer = (overrides?: {
     Layer.provide(SourceHostProvidersTest()),
     Layer.provideMerge(
       Layer.mergeAll(
-        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
+        Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
         NativeWriteAuthorityPermissive,
       ),
     ),

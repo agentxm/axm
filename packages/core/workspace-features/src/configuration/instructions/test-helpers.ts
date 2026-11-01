@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as PlatformError from "effect/PlatformError";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 
 import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
@@ -54,10 +54,10 @@ export const makeSymlinkRefusingPlatform = () => {
           }),
       })),
     ),
-    NodeServices.layer,
+    NativePlatformTest,
   );
   return {
     rejectedSymlinkTargets,
-    layer: Layer.provideMerge(layer, NodeServices.layer),
+    layer: Layer.provideMerge(layer, NativePlatformTest),
   };
 };

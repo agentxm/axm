@@ -47,6 +47,7 @@ import type * as Scope from "effect/Scope";
 import * as lockfile from "proper-lockfile";
 
 import {
+  NativeEntryRemoval,
   readContainerReceipts,
   verifyContainerIdentity,
   type ContainerIdentity,
@@ -119,7 +120,7 @@ export interface WorkspaceTransitionLock {
   ) => Effect.Effect<
     Option.Option<TransitionContention>,
     WorkspaceTransitionAcquireFailure,
-    FileSystem.FileSystem | Path.Path | Scope.Scope
+    FileSystem.FileSystem | Path.Path | Scope.Scope | NativeEntryRemoval
   >;
   /** The live hold for a workspace this lock instance acquired, when one exists. */
   readonly held: (workspaceDir: string) => Effect.Effect<Option.Option<HeldWorkspaceTransition>>;
@@ -278,7 +279,7 @@ const acquireWorkspaceTransitionLock = (
 ): Effect.Effect<
   Option.Option<TransitionContention>,
   WorkspaceTransitionAcquireFailure,
-  FileSystem.FileSystem | Path.Path | Scope.Scope
+  FileSystem.FileSystem | Path.Path | Scope.Scope | NativeEntryRemoval
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;

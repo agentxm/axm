@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -63,7 +63,7 @@ describe("native insertion receipts", () => {
         expect(yield* fs.exists(parent)).toBe(false);
         expect((yield* readContainerReceipts(path.join(root, ".axm"))).entries).toEqual([]);
       }).pipe(Effect.provide(authorityLayer(root)));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
   it.effect("does not claim a parent created by another writer after insertion capture", () =>
     Effect.gen(function* () {
@@ -90,7 +90,7 @@ describe("native insertion receipts", () => {
         expect(yield* fs.exists(parent)).toBe(true);
         expect(yield* fs.readDirectory(parent)).toEqual([]);
       }).pipe(Effect.provide(authorityLayer(root)));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -153,7 +153,7 @@ describe("native insertion receipts", () => {
           ).toBe(true);
           expect(yield* fs.exists(file)).toBe(false);
         }).pipe(Effect.provide(authorityLayer(root)));
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("keeps preexisting insertion receipts valid after an in-place update rolls back", () =>
@@ -219,7 +219,7 @@ describe("native insertion receipts", () => {
           Option.getOrUndefined(yield* authority.resolveInsertion({ ...target, raw: before })),
         ).toEqual({ kind: "restore-text", text: "{ }" });
       }).pipe(Effect.provide(authorityLayer(root)));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("distinguishes absent from preexisting empty and compact native files", () =>
@@ -272,7 +272,7 @@ describe("native insertion receipts", () => {
           );
         }).pipe(Effect.provide(authorityLayer(root)));
       }
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("removes only proven empty created parents and retains a foreign sibling", () =>
@@ -303,7 +303,7 @@ describe("native insertion receipts", () => {
             expect(yield* fs.readFileString(path.join(parent, "personal.txt"))).toBe("keep");
         }).pipe(Effect.provide(authorityLayer(root)));
       }
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("refuses receipt creation after an identical-byte replacement during a write", () =>
@@ -329,7 +329,7 @@ describe("native insertion receipts", () => {
         expect(result._tag).toBe("Failure");
         expect((yield* readContainerReceipts(path.join(root, ".axm"))).entries).toEqual([]);
       }).pipe(Effect.provide(authorityLayer(root)));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect(
@@ -380,7 +380,7 @@ describe("native insertion receipts", () => {
             false,
           );
         }).pipe(Effect.provide(authorityLayer(root)));
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
   it.effect("revalidates actual publication bytes before persisting proof", () =>
@@ -405,6 +405,6 @@ describe("native insertion receipts", () => {
         ).toBe("Failure");
         expect((yield* readContainerReceipts(path.join(root, ".axm"))).entries).toEqual([]);
       }).pipe(Effect.provide(authorityLayer(root)));
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

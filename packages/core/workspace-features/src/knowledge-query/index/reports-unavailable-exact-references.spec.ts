@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
@@ -46,7 +46,7 @@ describe("Missing exact concept", () => {
           expect(Result.isFailure(result) && result.failure._tag).toBe("KnowledgeConceptNotFound");
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   it.effect("related", () => {
@@ -58,7 +58,7 @@ describe("Missing exact concept", () => {
           expect(Result.isFailure(result) && result.failure._tag).toBe("KnowledgeConceptNotFound");
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
   it.effect("resolve", () => {
@@ -73,6 +73,6 @@ describe("Missing exact concept", () => {
           });
         }),
       )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+      .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 });

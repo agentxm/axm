@@ -8,7 +8,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { runWorkspaceTransaction, protectWorkspacePath, recordFootprint, WorkspaceFileWriteLocks } from "@agentxm/workspace-kernel/settlement";
 import { WorkspaceTransactionScopeLive, WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import { WorkspaceBoundaryClaimsTest } from "@agentxm/workspace-kernel/settlement/testing";
@@ -64,7 +64,7 @@ const result = await Effect.runPromise(runWorkspaceTransaction({
     workspaceDir: path.join(options.owner, ".axm"), settingsPath: settings,
     lockPath: path.join(options.owner, "axm.lock"), nativeRoots: [options.owner, options.nativeRoot],
   }), WorkspaceFileWriteLocksLive).pipe(options.namespace === undefined ? layer => layer : Layer.provide(WorkspaceBoundaryClaimsTest(options.namespace)))),
-  Effect.provide(NodeServices.layer), Effect.result,
+  Effect.provide(NativePlatformTest), Effect.result,
 ));
 if (result._tag === "Failure") {
   send("failure:" + JSON.stringify(failureDetails(result.failure)));

@@ -15,7 +15,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { acquireWorkspaceTransition, runWorkspaceTransaction } from "${settlementModule}";
 import { WorkspaceTransactionScopeLive } from "${settlementLiveModule}";
 const [root, label] = process.argv.slice(1);
@@ -67,7 +67,7 @@ await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
   workspaceDir: path.join(root, ".axm"),
   settingsPath: path.join(root, "axm.json"),
   lockPath: path.join(root, "axm.lock"),
-})), Effect.provide(NodeServices.layer)));
+})), Effect.provide(NativePlatformTest)));
 send("released");
 process.disconnect?.();
 `;

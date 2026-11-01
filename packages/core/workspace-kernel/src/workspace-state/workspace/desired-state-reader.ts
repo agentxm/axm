@@ -121,138 +121,137 @@ const registryEndpointsOf = (
  * authored Pack's document once. External Packs use accepted declarations. A proposal's manifest is recorded with its
  * provenance instead of being read.
  */
-export const captureDesiredStateInputs = (
+export const captureDesiredStateInputs = Effect.fnUntraced(function* (
   args: CaptureDesiredStateInputsArgs,
-): Effect.Effect<DesiredEvaluationInputs> =>
-  Effect.gen(function* () {
-    const scope = args.scope ?? "project";
-    const settings = args.settings;
-    const inheritedSettings = args.inheritedSettings ?? {};
-    const project = scope === "project" ? settings : inheritedSettings;
-    const user = scope === "project" ? inheritedSettings : settings;
-    const defaultRegistry = args.defaultRegistry ?? defaultRegistrySelection(project, user).name;
-    const registryEndpoints =
-      args.registryEndpoints ??
-      registryEndpointsOf(
-        mergeSources(project.sources ?? [], user.sources ?? [], args.builtInSources ?? []),
-      );
-    const acceptedResolutions: Lockfile = args.acceptedResolutions ?? {
-      lockfileVersion: LOCKFILE_VERSION,
-      skills: {},
-    };
-    const prospectivePacks = args.prospectivePacks ?? [];
-    const reusable = new Map(
-      (args.reuse?.packDocuments ?? [])
-        .filter((document) => document.provenance.kind === "authored")
-        .map((document) => [document.settingsName, document] as const),
+): Effect.fn.Return<DesiredEvaluationInputs> {
+  const scope = args.scope ?? "project";
+  const settings = args.settings;
+  const inheritedSettings = args.inheritedSettings ?? {};
+  const project = scope === "project" ? settings : inheritedSettings;
+  const user = scope === "project" ? inheritedSettings : settings;
+  const defaultRegistry = args.defaultRegistry ?? defaultRegistrySelection(project, user).name;
+  const registryEndpoints =
+    args.registryEndpoints ??
+    registryEndpointsOf(
+      mergeSources(project.sources ?? [], user.sources ?? [], args.builtInSources ?? []),
     );
+  const acceptedResolutions: Lockfile = args.acceptedResolutions ?? {
+    lockfileVersion: LOCKFILE_VERSION,
+    skills: {},
+  };
+  const prospectivePacks = args.prospectivePacks ?? [];
+  const reusable = new Map(
+    (args.reuse?.packDocuments ?? [])
+      .filter((document) => document.provenance.kind === "authored")
+      .map((document) => [document.settingsName, document] as const),
+  );
 
-    const packDocuments: ObservedPackDocument[] = [];
-    for (const [settingsName, entry] of Object.entries(settings.packs ?? {})) {
-      const accepted = acceptedResolutions.packs?.[settingsName];
-      const identify = (hint: ProspectivePackRef | undefined) =>
-        configuredPackIdentity(
-          settingsName,
-          entry.source,
-          settings,
-          defaultRegistry,
-          registryEndpoints,
-          accepted,
-          hint,
-        );
-      // A proposal applies to the entry whose identity it names.
-      const proposal = prospectivePacks.find(
-        (ref) => identify(ref)?.fqn === `${ref.owner}/packs/${ref.pack.name}`,
+  const packDocuments: ObservedPackDocument[] = [];
+  for (const [settingsName, entry] of Object.entries(settings.packs ?? {})) {
+    const accepted = acceptedResolutions.packs?.[settingsName];
+    const identify = (hint: ProspectivePackRef | undefined) =>
+      configuredPackIdentity(
+        settingsName,
+        entry.source,
+        settings,
+        defaultRegistry,
+        registryEndpoints,
+        accepted,
+        hint,
       );
-      const identity = identify(proposal);
-      if (identity === undefined) continue;
-      if (proposal !== undefined) {
-        const manifest: PackManifest = {
-          owner: proposal.owner,
-          type: "pack",
-          name: proposal.pack.name,
-          version: proposal.version,
-          dependencies: proposal.pack.dependencies,
-        };
-        packDocuments.push({
-          settingsName,
-          path: `proposed ${proposal.owner}/packs/${proposal.pack.name}`,
-          relativePath: `proposed ${proposal.owner}/packs/${proposal.pack.name}`,
-          observation: {
-            status: "decoded",
-            manifest,
-            contentIdentity: computePackManifestContentIdentity(manifest),
-          },
-          provenance: { kind: "proposed", ref: proposal },
-        });
-        continue;
-      }
-      if (identity.identity.authority !== "workspace") {
-        const lockPath =
-          args.readSet?.find((read) => read.role === "accepted-resolutions")?.path ?? LOCKFILE_NAME;
-        const rowPath = `${LOCKFILE_NAME}#packs.${settingsName}`;
-        packDocuments.push({
-          settingsName,
-          path: `${lockPath}#packs.${settingsName}`,
-          relativePath: rowPath,
-          observation:
-            accepted === undefined
-              ? { status: "absent" }
-              : {
-                  status: "decoded",
-                  manifest: {
-                    owner: accepted.identity.owner,
-                    type: "pack",
-                    name: accepted.identity.name,
-                    version: accepted.manifestVersion,
-                    dependencies: accepted.dependencies,
-                  },
-                  contentIdentity: accepted.manifestContentIdentity,
-                },
-          provenance: { kind: "accepted-lock", lockPath, settingsName },
-        });
-        continue;
-      }
-      const located = args.manifests.locate({
-        owner: identity.owner,
-        name: identity.name,
-        relativeTo: args.baseDir,
-        workspace:
-          args.layout === undefined ? { baseDir: args.baseDir, settings } : { layout: args.layout },
-      });
-      const reused = reusable.get(settingsName);
-      if (reused !== undefined && reused.path === located.path) {
-        packDocuments.push(reused);
-        continue;
-      }
-      const observation = yield* located.manifest;
+    // A proposal applies to the entry whose identity it names.
+    const proposal = prospectivePacks.find(
+      (ref) => identify(ref)?.fqn === `${ref.owner}/packs/${ref.pack.name}`,
+    );
+    const identity = identify(proposal);
+    if (identity === undefined) continue;
+    if (proposal !== undefined) {
+      const manifest: PackManifest = {
+        owner: proposal.owner,
+        type: "pack",
+        name: proposal.pack.name,
+        version: proposal.version,
+        dependencies: proposal.pack.dependencies,
+      };
       packDocuments.push({
         settingsName,
-        path: located.path,
-        relativePath: located.relativePath,
-        observation,
-        provenance: { kind: "authored" },
+        path: `proposed ${proposal.owner}/packs/${proposal.pack.name}`,
+        relativePath: `proposed ${proposal.owner}/packs/${proposal.pack.name}`,
+        observation: {
+          status: "decoded",
+          manifest,
+          contentIdentity: computePackManifestContentIdentity(manifest),
+        },
+        provenance: { kind: "proposed", ref: proposal },
       });
+      continue;
     }
+    if (identity.identity.authority !== "workspace") {
+      const lockPath =
+        args.readSet?.find((read) => read.role === "accepted-resolutions")?.path ?? LOCKFILE_NAME;
+      const rowPath = `${LOCKFILE_NAME}#packs.${settingsName}`;
+      packDocuments.push({
+        settingsName,
+        path: `${lockPath}#packs.${settingsName}`,
+        relativePath: rowPath,
+        observation:
+          accepted === undefined
+            ? { status: "absent" }
+            : {
+                status: "decoded",
+                manifest: {
+                  owner: accepted.identity.owner,
+                  type: "pack",
+                  name: accepted.identity.name,
+                  version: accepted.manifestVersion,
+                  dependencies: accepted.dependencies,
+                },
+                contentIdentity: accepted.manifestContentIdentity,
+              },
+        provenance: { kind: "accepted-lock", lockPath, settingsName },
+      });
+      continue;
+    }
+    const located = args.manifests.locate({
+      owner: identity.owner,
+      name: identity.name,
+      relativeTo: args.baseDir,
+      workspace:
+        args.layout === undefined ? { baseDir: args.baseDir, settings } : { layout: args.layout },
+    });
+    const reused = reusable.get(settingsName);
+    if (reused !== undefined && reused.path === located.path) {
+      packDocuments.push(reused);
+      continue;
+    }
+    const observation = yield* located.manifest;
+    packDocuments.push({
+      settingsName,
+      path: located.path,
+      relativePath: located.relativePath,
+      observation,
+      provenance: { kind: "authored" },
+    });
+  }
 
-    return {
-      scope,
-      settings,
-      inheritedSettings,
-      defaultRegistry,
-      registryEndpoints,
-      acceptedResolutions,
-      packDocuments,
-      readSet: [
-        ...(args.readSet ?? []),
-        ...packDocuments.flatMap((document) =>
-          document.provenance.kind === "authored"
-            ? [{ path: document.path, role: "pack-manifest" as const }]
-            : [],
-        ),
-      ],
-    };
-  });
+  return {
+    scope,
+    settings,
+    inheritedSettings,
+    defaultRegistry,
+    registryEndpoints,
+    acceptedResolutions,
+    packDocuments,
+    readSet: [
+      ...(args.readSet ?? []),
+      ...packDocuments.flatMap((document) =>
+        document.provenance.kind === "authored"
+          ? [{ path: document.path, role: "pack-manifest" as const }]
+          : [],
+      ),
+    ],
+  };
+});
 
 export const makeDesiredStateReader = (
   location: WorkspaceLocationService,
@@ -274,8 +273,8 @@ export const makeDesiredStateReader = (
     { path: location.lockPath, role: "accepted-resolutions" },
   ];
 
-  const evaluate: DesiredStateReaderService["evaluate"] = (options) =>
-    Effect.gen(function* () {
+  const evaluate: DesiredStateReaderService["evaluate"] = Effect.fn("DesiredStateReader.evaluate")(
+    function* (options) {
       const settings = options?.settings ?? (yield* documents.settings());
       const inheritedSettings = yield* documents.settings(inheritedScope);
       const layout = yield* Ref.get(location.layout);
@@ -296,13 +295,14 @@ export const makeDesiredStateReader = (
         readSet: authoritativeReads(yield* inheritedSettingsPath),
       });
       return { inputs, graph: evaluateDesiredState(inputs) };
-    }).pipe(Effect.withSpan("DesiredStateReader.evaluate"));
+    },
+  );
 
   const graph: DesiredStateReaderService["graph"] = (options) =>
     Effect.map(evaluate(options), (evaluation) => evaluation.graph);
 
-  const propose: DesiredStateReaderService["propose"] = (base, settings) =>
-    Effect.gen(function* () {
+  const propose: DesiredStateReaderService["propose"] = Effect.fn("DesiredStateReader.propose")(
+    function* (base, settings) {
       const layout = yield* Ref.get(location.layout);
       const inputs = yield* captureDesiredStateInputs({
         manifests,
@@ -320,27 +320,27 @@ export const makeDesiredStateReader = (
         readSet: base.inputs.readSet.filter((read) => read.role !== "pack-manifest"),
       });
       return { inputs, graph: evaluateDesiredState(inputs) };
-    }).pipe(Effect.withSpan("DesiredStateReader.propose"));
+    },
+  );
 
   return {
     evaluate,
     graph,
     propose,
-    isRequiredByInstalledPack: (target) =>
-      Effect.gen(function* () {
-        if (target.type === "pack") return false;
-        const current = yield* graph();
-        // A negative answer needs every active Pack's routes established.
-        if (unresolvedPackRoutes(current).length > 0) {
-          return yield* new DesiredPackGraphIncomplete();
-        }
-        return current.nodes.some(
-          (node) =>
-            node.type === target.type &&
-            node.name === target.name &&
-            node.origins.some((origin) => origin.type === "pack"),
-        );
-      }),
+    isRequiredByInstalledPack: Effect.fnUntraced(function* (target) {
+      if (target.type === "pack") return false;
+      const current = yield* graph();
+      // A negative answer needs every active Pack's routes established.
+      if (unresolvedPackRoutes(current).length > 0) {
+        return yield* new DesiredPackGraphIncomplete();
+      }
+      return current.nodes.some(
+        (node) =>
+          node.type === target.type &&
+          node.name === target.name &&
+          node.origins.some((origin) => origin.type === "pack"),
+      );
+    }),
   };
 };
 

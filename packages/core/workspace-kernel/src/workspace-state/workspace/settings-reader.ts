@@ -138,15 +138,14 @@ export const makeSettingsReader = (
       ),
     registrySourceHosts,
     defaultRegistry,
-    bindRegistrySource: (locator) =>
-      Effect.gen(function* () {
-        const sourceName = bindRegistrySource(locator.sourceName, yield* defaultRegistry);
-        const hosts = yield* registrySourceHosts;
-        return {
-          sourceName,
-          host: Option.fromUndefinedOr(hosts.find((host) => host.name === sourceName)),
-        };
-      }).pipe(Effect.withSpan("SettingsReader.bindRegistrySource")),
+    bindRegistrySource: Effect.fn("SettingsReader.bindRegistrySource")(function* (locator) {
+      const sourceName = bindRegistrySource(locator.sourceName, yield* defaultRegistry);
+      const hosts = yield* registrySourceHosts;
+      return {
+        sourceName,
+        host: Option.fromUndefinedOr(hosts.find((host) => host.name === sourceName)),
+      };
+    }),
     owner: Effect.gen(function* () {
       const project = yield* projectSettings;
       if (project.owner) return Option.some(project.owner);

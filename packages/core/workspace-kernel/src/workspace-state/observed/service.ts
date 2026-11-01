@@ -151,21 +151,20 @@ export type ResolvedWorkspaceRoot = string & Brand.Brand<"ResolvedWorkspaceRoot"
 const ResolvedWorkspaceRoot = Brand.nominal<ResolvedWorkspaceRoot>();
 
 /** Resolve a workspace root, and validate it resides within `allowedRoot` when one bounds it. */
-export const validateWorkspaceReadRoot = (
+export const validateWorkspaceReadRoot = Effect.fnUntraced(function* (
   pathSvc: Path.Path,
   candidate: AbsolutePath,
   allowedRoot: Option.Option<AbsolutePath>,
-): Effect.Effect<ResolvedWorkspaceRoot, WorkspaceRootEscape> =>
-  Effect.gen(function* () {
-    const resolved = pathSvc.resolve(candidate);
-    if (Option.isSome(allowedRoot) && !isLexicallyWithin(pathSvc, allowedRoot.value, resolved)) {
-      return yield* new WorkspaceRootEscape({
-        workspaceRoot: candidate,
-        allowedRoot: allowedRoot.value,
-      });
-    }
-    return ResolvedWorkspaceRoot(resolved);
-  });
+): Effect.fn.Return<ResolvedWorkspaceRoot, WorkspaceRootEscape> {
+  const resolved = pathSvc.resolve(candidate);
+  if (Option.isSome(allowedRoot) && !isLexicallyWithin(pathSvc, allowedRoot.value, resolved)) {
+    return yield* new WorkspaceRootEscape({
+      workspaceRoot: candidate,
+      allowedRoot: allowedRoot.value,
+    });
+  }
+  return ResolvedWorkspaceRoot(resolved);
+});
 
 // Per-scope wiring
 // ---------------------------------------------------------------------------
@@ -447,55 +446,54 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
  * environment so the same warnings flow into every scope built against the
  * same layer.
  */
-export const makeWorkspaceReadModel = (
+export const makeWorkspaceReadModel = Effect.fn("workspace.read-model.make")(function* (
   scope: Scope,
-): Effect.Effect<
+): Effect.fn.Return<
   WorkspaceReadModel,
   WorkspaceRootEscape,
   FileSystem.FileSystem | Path.Path | WorkspaceReadModelConfig | AgentRootResolver
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const pathSvc = yield* Path.Path;
-    const config = yield* WorkspaceReadModelConfig;
-    const resolver = yield* AgentRootResolver;
+> {
+  const fs = yield* FileSystem.FileSystem;
+  const pathSvc = yield* Path.Path;
+  const config = yield* WorkspaceReadModelConfig;
+  const resolver = yield* AgentRootResolver;
 
-    // Validate roots eagerly — the only path that surfaces `WorkspaceRootEscape`.
-    const projectRootResolved = yield* validateWorkspaceReadRoot(
-      pathSvc,
-      config.projectRoot,
-      config.allowedRoot,
-    );
-    const userHomeResolved = yield* validateWorkspaceReadRoot(
-      pathSvc,
-      config.userHome,
-      config.allowedRoot,
-    );
+  // Validate roots eagerly — the only path that surfaces `WorkspaceRootEscape`.
+  const projectRootResolved = yield* validateWorkspaceReadRoot(
+    pathSvc,
+    config.projectRoot,
+    config.allowedRoot,
+  );
+  const userHomeResolved = yield* validateWorkspaceReadRoot(
+    pathSvc,
+    config.userHome,
+    config.allowedRoot,
+  );
 
-    // Workspace path layout per scope.
-    const workspaceRoot = scope === "project" ? projectRootResolved : userHomeResolved;
-    const projectPaths = resolveProjectWorkspaceStatePaths(pathSvc, config.projectRoot);
-    const userLayout = yield* resolveUserWorkspaceLayout(
-      makeAbsolutePath(pathSvc, userHomeResolved),
-    ).pipe(Effect.provideService(Path.Path, pathSvc));
-    const settingsPath = scope === "project" ? projectPaths.settingsPath : userLayout.settingsPath;
-    const lockfilePath = scope === "project" ? projectPaths.lockPath : userLayout.lockPath;
+  // Workspace path layout per scope.
+  const workspaceRoot = scope === "project" ? projectRootResolved : userHomeResolved;
+  const projectPaths = resolveProjectWorkspaceStatePaths(pathSvc, config.projectRoot);
+  const userLayout = yield* resolveUserWorkspaceLayout(
+    makeAbsolutePath(pathSvc, userHomeResolved),
+  ).pipe(Effect.provideService(Path.Path, pathSvc));
+  const settingsPath = scope === "project" ? projectPaths.settingsPath : userLayout.settingsPath;
+  const lockfilePath = scope === "project" ? projectPaths.lockPath : userLayout.lockPath;
 
-    // Pre-seed agent-root collision warnings into the project scope only;
-    // the user scope receives a clean buffer.
-    const diagnosticsRef = yield* Ref.make<ReadonlyArray<Warning>>(
-      scope === "project" ? resolver.collisionWarnings : [],
-    );
+  // Pre-seed agent-root collision warnings into the project scope only;
+  // the user scope receives a clean buffer.
+  const diagnosticsRef = yield* Ref.make<ReadonlyArray<Warning>>(
+    scope === "project" ? resolver.collisionWarnings : [],
+  );
 
-    return yield* buildScope({
-      nativeDirectoryInputs: config.nativeDirectoryInputs,
-      scope,
-      fs,
-      path: pathSvc,
-      workspaceRoot,
-      settingsPath,
-      lockfilePath,
-      rootResolverState: resolver.state,
-      diagnosticsRef,
-    });
-  }).pipe(Effect.withSpan("workspace.read-model.make"));
+  return yield* buildScope({
+    nativeDirectoryInputs: config.nativeDirectoryInputs,
+    scope,
+    fs,
+    path: pathSvc,
+    workspaceRoot,
+    settingsPath,
+    lockfilePath,
+    rootResolverState: resolver.state,
+    diagnosticsRef,
+  });
+});

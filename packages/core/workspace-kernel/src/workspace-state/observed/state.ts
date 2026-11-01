@@ -51,51 +51,48 @@ export interface ScopedStateDeps {
 // ---------------------------------------------------------------------------
 
 /** Decode settings from cached raw bytes. Source-independent (Decision 2). */
-const loadSettings = (
+const loadSettings = Effect.fn("workspace.read-model.state.settings")(function* (
   rawCell: Effect.Effect<Option.Option<RawSourceBytes>, SettingsIoError>,
-): Effect.Effect<Option.Option<DecodedSettings>, SettingsReadError> =>
-  Effect.gen(function* () {
-    const rawOpt = yield* rawCell;
-    if (Option.isNone(rawOpt)) return Option.none<DecodedSettings>();
-    return Option.some(yield* decodeSettingsBytes(rawOpt.value.path, rawOpt.value.bytes));
-  }).pipe(Effect.withSpan("workspace.read-model.state.settings"));
+): Effect.fn.Return<Option.Option<DecodedSettings>, SettingsReadError> {
+  const rawOpt = yield* rawCell;
+  if (Option.isNone(rawOpt)) return Option.none<DecodedSettings>();
+  return Option.some(yield* decodeSettingsBytes(rawOpt.value.path, rawOpt.value.bytes));
+});
 
 // ---------------------------------------------------------------------------
 // Lockfile loader (decode pipeline) — sources bytes from the cached raw cell
 // ---------------------------------------------------------------------------
 
 /** Decode lockfile from cached raw bytes. Source-independent (Decision 2). */
-const loadLockfile = (
+const loadLockfile = Effect.fn("workspace.read-model.state.lockfile")(function* (
   rawCell: ScopedStateLoaders["lockfileRaw"],
-): Effect.Effect<Option.Option<DecodedLockfile>, LockfileReadError> =>
-  Effect.gen(function* () {
-    const rawOpt = yield* rawCell;
-    if (Option.isNone(rawOpt)) return Option.none<DecodedLockfile>();
-    return Option.some(yield* decodeLockfileBytes(rawOpt.value.path, rawOpt.value.bytes));
-  }).pipe(Effect.withSpan("workspace.read-model.state.lockfile"));
+): Effect.fn.Return<Option.Option<DecodedLockfile>, LockfileReadError> {
+  const rawOpt = yield* rawCell;
+  if (Option.isNone(rawOpt)) return Option.none<DecodedLockfile>();
+  return Option.some(yield* decodeLockfileBytes(rawOpt.value.path, rawOpt.value.bytes));
+});
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /** Build the cached, requirement-free `ScopedStateLoaders` for one scope. */
-export const makeScopedStateApi = (
+export const makeScopedStateApi = Effect.fnUntraced(function* (
   _scope: Scope,
   deps: ScopedStateDeps,
-): Effect.Effect<ScopedStateLoaders> =>
-  Effect.gen(function* () {
-    const { fs, settingsPath, lockfilePath } = deps;
-    const settingsRaw = yield* Effect.cached(readSettingsBytes({ fs, settingsPath }));
-    const settings = yield* Effect.cached(loadSettings(settingsRaw));
+): Effect.fn.Return<ScopedStateLoaders> {
+  const { fs, settingsPath, lockfilePath } = deps;
+  const settingsRaw = yield* Effect.cached(readSettingsBytes({ fs, settingsPath }));
+  const settings = yield* Effect.cached(loadSettings(settingsRaw));
 
-    const lockfileRaw: ScopedStateLoaders["lockfileRaw"] =
-      lockfilePath === null
-        ? Effect.succeed(Option.none<RawSourceBytes>())
-        : yield* Effect.cached(readLockfileBytes(fs, lockfilePath));
-    const lockfile: ScopedStateLoaders["lockfile"] =
-      lockfilePath === null
-        ? Effect.succeed(Option.none<DecodedLockfile>())
-        : yield* Effect.cached(loadLockfile(lockfileRaw));
+  const lockfileRaw: ScopedStateLoaders["lockfileRaw"] =
+    lockfilePath === null
+      ? Effect.succeed(Option.none<RawSourceBytes>())
+      : yield* Effect.cached(readLockfileBytes(fs, lockfilePath));
+  const lockfile: ScopedStateLoaders["lockfile"] =
+    lockfilePath === null
+      ? Effect.succeed(Option.none<DecodedLockfile>())
+      : yield* Effect.cached(loadLockfile(lockfileRaw));
 
-    return { settings, lockfile, settingsRaw, lockfileRaw } satisfies ScopedStateLoaders;
-  });
+  return { settings, lockfile, settingsRaw, lockfileRaw } satisfies ScopedStateLoaders;
+});

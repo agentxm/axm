@@ -257,7 +257,6 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           }),
         );
       }).pipe(Effect.provide(NodeServices.layer)),
-    { timeout: 15_000 },
   );
 
   it.effect("repairs a stale Git projection without recopying current accepted content", () =>

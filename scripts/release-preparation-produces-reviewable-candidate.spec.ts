@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import { describe, expect, it } from "@effect/vitest";
 import YAML from "yaml";
 
@@ -77,23 +78,20 @@ const namedStep = (steps: ReadonlyArray<Record<PropertyKey, unknown>>, name: str
   return step;
 };
 
-const recordingCandidateHost = () => {
-  const events: string[] = [];
+const recordingCandidateHost = Effect.gen(function* () {
+  const events = yield* Ref.make<readonly string[]>([]);
+  const record = (event: string) => Ref.update(events, (entries) => [...entries, event]);
   const host: ReleaseCandidateHost<"version-context"> = {
-    version: async () => {
-      events.push("version");
-      return { version: "1.2.3", context: "version-context" };
-    },
-    changelog: async () => {
-      events.push("changelog");
-    },
-    stampSkill: () => events.push("stamp"),
-    generateSkill: () => events.push("generate-skill"),
-    generateCliReference: () => events.push("generate-cli-reference"),
-    validateCohort: () => events.push("validate"),
+    version: () =>
+      record("version").pipe(Effect.as({ version: "1.2.3", context: "version-context" })),
+    changelog: () => record("changelog"),
+    stampSkill: () => record("stamp"),
+    generateSkill: () => record("generate-skill"),
+    generateCliReference: () => record("generate-cli-reference"),
+    validateCohort: () => record("validate"),
   };
   return { events, host };
-};
+});
 
 describe("Release preparation workflow", () => {
   it.effect("requires an explicit exact source revision", () =>
@@ -167,10 +165,10 @@ describe("Release preparation workflow", () => {
     }),
   );
   it.effect("validates the exact cohort only after it has been generated", () =>
-    Effect.promise(async () => {
-      const { events, host } = recordingCandidateHost();
-      await runReleaseCandidatePreparation(host);
-      expect(events).toEqual([
+    Effect.gen(function* () {
+      const { events, host } = yield* recordingCandidateHost;
+      yield* runReleaseCandidatePreparation(host);
+      expect(yield* Ref.get(events)).toEqual([
         "version",
         "changelog",
         "stamp",

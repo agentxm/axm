@@ -1,22 +1,22 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { readFileSync, statSync } from "node:fs";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { makeReleaseSnapshot } from "./release-runtime.js";
 
 import { RELEASE_COHORT_TAG } from "./release-cohort.js";
 import {
-  RELEASE_PACKAGES,
   parseCiArtifacts,
   parseGitHubRuns,
   readGeneratedSkillCompatibilityFromContent,
-  readSkillCompatibility,
-  stampSkillCompatibility,
+  readSkillCompatibilityFromContent,
+  stampSkillCompatibilityContent,
   transitionSkillCompatibility,
   validateGeneratedSkillCompatibility,
   validateCiRunDetails,
   validateExactCiRunDetails,
-  writeSkillVersion,
+  stampSkillManifestContent,
 } from "./release-shared.js";
 
 const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
@@ -28,68 +28,66 @@ const readJsonRecord = (path: string): Record<PropertyKey, unknown> => {
   return parsed;
 };
 
-const temporaryDirectories: string[] = [];
 const preparedRuntimeFile = "packages/core/extension-model/dist/src/unstable/extensions/common.js";
 
-afterEach(() => {
-  for (const directory of temporaryDirectories.splice(0)) {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
 describe("release tag helpers", () => {
-  it("derives the cohort from the release group nx.json selects", () => {
-    const nxJson = readJsonRecord("nx.json");
-    const release = Reflect.get(nxJson, "release");
-    if (!isRecord(release)) throw new Error("Expected a release configuration in nx.json.");
+  it.effect("derives the cohort from the release group nx.json selects", () =>
+    Effect.gen(function* () {
+      const { packages: cohort } = yield* makeReleaseSnapshot();
+      const nxJson = readJsonRecord("nx.json");
+      const release = Reflect.get(nxJson, "release");
+      if (!isRecord(release)) throw new Error("Expected a release configuration in nx.json.");
 
-    // Derivation reads the `release:cli` tag directly, so Nx must still select
-    // the release group by that same tag for the two to describe one cohort.
-    expect(Reflect.get(release, "projects")).toEqual([`tag:${RELEASE_COHORT_TAG}`]);
-    expect(Reflect.get(release, "projectsRelationship")).toBe("fixed");
-    expect(RELEASE_PACKAGES.map(({ name }) => name).sort()).toEqual([
-      "@agentxm/extension-content",
-      "@agentxm/extension-model",
-      "@agentxm/registry-protocol",
-      "@agentxm/specification-metadata",
-      "@agentxm/workspace-conventions",
-      "axm.sh",
-    ]);
-  });
+      // Derivation reads the `release:cli` tag directly, so Nx must still select
+      // the release group by that same tag for the two to describe one cohort.
+      expect(Reflect.get(release, "projects")).toEqual([`tag:${RELEASE_COHORT_TAG}`]);
+      expect(Reflect.get(release, "projectsRelationship")).toBe("fixed");
+      expect(cohort.map(({ name }) => name).sort()).toEqual([
+        "@agentxm/extension-content",
+        "@agentxm/extension-model",
+        "@agentxm/registry-protocol",
+        "@agentxm/specification-metadata",
+        "@agentxm/workspace-conventions",
+        "axm.sh",
+      ]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
-  it("publishes every cohort member after the members its manifest depends on", () => {
-    const releaseOrder = new Map(RELEASE_PACKAGES.map(({ name }, index) => [name, index]));
+  it.effect("publishes every cohort member after the members its manifest depends on", () =>
+    Effect.gen(function* () {
+      const { packages: cohort } = yield* makeReleaseSnapshot();
+      const releaseOrder = new Map(cohort.map(({ name }, index) => [name, index]));
 
-    for (const releasePackage of RELEASE_PACKAGES) {
-      const packageJson = readJsonRecord(releasePackage.path);
-      const dependencies = Reflect.get(packageJson, "dependencies");
-      if (!isRecord(dependencies)) continue;
+      for (const releasePackage of cohort) {
+        const packageJson = readJsonRecord(releasePackage.path);
+        const dependencies = Reflect.get(packageJson, "dependencies");
+        if (!isRecord(dependencies)) continue;
 
-      const packageIndex = releaseOrder.get(releasePackage.name);
-      if (packageIndex === undefined)
-        throw new Error(`Missing ${releasePackage.name} in release order.`);
+        const packageIndex = releaseOrder.get(releasePackage.name);
+        if (packageIndex === undefined)
+          throw new Error(`Missing ${releasePackage.name} in release order.`);
 
-      for (const dependencyName of Object.keys(dependencies)) {
-        const dependencyIndex = releaseOrder.get(dependencyName);
-        if (dependencyIndex !== undefined) expect(dependencyIndex).toBeLessThan(packageIndex);
+        for (const dependencyName of Object.keys(dependencies)) {
+          const dependencyIndex = releaseOrder.get(dependencyName);
+          if (dependencyIndex !== undefined) expect(dependencyIndex).toBeLessThan(packageIndex);
+        }
       }
-    }
-  });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
   it("uses the shared cohort in the canonical publication helper", () => {
     const workflow = readFileSync(".github/workflows/publish.yml", "utf8");
     expect(workflow).toContain("axm:distribute-release");
     const publisher = readFileSync("scripts/distribute-release.ts", "utf8");
-    expect(publisher).toContain("RELEASE_PACKAGES");
+    expect(publisher).toContain("yield* ReleaseSnapshot");
     expect(workflow).not.toContain("release_packages=(");
   });
 
   it("emits release metadata through the root target without rebuilding prepared runtime", () => {
     const runtimeBefore = statSync(preparedRuntimeFile, { bigint: true });
-    const cliPackageJson = JSON.parse(readFileSync("apps/cli/package.json", "utf8")) as {
-      readonly version: string;
-    };
-    const tag = `cli-v${cliPackageJson.version}`;
+    const cliPackageJson = readJsonRecord("apps/cli/package.json");
+    if (typeof cliPackageJson["version"] !== "string") throw new Error("Expected CLI version.");
+    const tag = `cli-v${cliPackageJson["version"]}`;
     const headSha = execFileSync("git", ["rev-parse", "HEAD"], {
       cwd: process.cwd(),
       encoding: "utf8",
@@ -121,7 +119,7 @@ describe("release tag helpers", () => {
     );
 
     expect(output).toContain(`tag=${tag}`);
-    expect(output).toContain(`version=${cliPackageJson.version}`);
+    expect(output).toContain(`version=${cliPackageJson["version"]}`);
     const runtimeAfter = statSync(preparedRuntimeFile, { bigint: true });
     expect(runtimeAfter.ino).toBe(runtimeBefore.ino);
     expect(runtimeAfter.mtimeNs).toBe(runtimeBefore.mtimeNs);
@@ -255,31 +253,17 @@ describe("release CI producer provenance", () => {
 });
 
 describe("bundled skill release stamps", () => {
-  it("updates the manifest and transitions the managed compatibility range", () => {
-    const directory = mkdtempSync(join(tmpdir(), "axm-release-skill-"));
-    temporaryDirectories.push(directory);
-    const manifestPath = join(directory, "skill.json");
-    const documentPath = join(directory, "SKILL.md");
-
-    writeFileSync(
-      manifestPath,
+  it("renders the manifest and transitions the managed compatibility range", () => {
+    const manifest = stampSkillManifestContent(
       '{\n  "name": "axm",\n  "version": "0.2.8",\n  "description": "Test skill"\n}\n',
-      "utf8",
+      "0.24.9",
     );
-    writeFileSync(
-      documentPath,
+    const document = stampSkillCompatibilityContent(
       '---\nname: axm\ndescription: AXM test skill.\nmetadata:\n  axm.sh/cli-version: "0.2.8"\n  axm.sh/cli-version-range: ">=0.2.0 <0.3.0"\n---\n\n# AXM\n',
-      "utf8",
+      "0.24.9",
     );
-
-    writeSkillVersion("0.24.9", manifestPath);
-    stampSkillCompatibility("0.24.9", documentPath);
-
-    expect(JSON.parse(readFileSync(manifestPath, "utf8"))).toMatchObject({
-      version: "0.24.9",
-      description: "Test skill",
-    });
-    expect(readSkillCompatibility(documentPath)).toEqual({
+    expect(JSON.parse(manifest)).toMatchObject({ version: "0.24.9", description: "Test skill" });
+    expect(readSkillCompatibilityFromContent(document, "SKILL.md")).toEqual({
       cliVersion: "0.24.9",
       cliVersionRange: ">=0.24.0 <0.25.0",
     });

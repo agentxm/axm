@@ -10,7 +10,8 @@ import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { RELEASE_PACKAGES } from "./release-shared.js";
+import { ReleaseSnapshot } from "./release-runtime.js";
+import type { ReleasePackage } from "./release-cohort.js";
 import { capture, captureIn } from "./release-command.js";
 import {
   RELEASE_COHORT_MANIFEST,
@@ -22,6 +23,27 @@ import {
   validateReleaseCohort,
   validateReleaseCohortManifest,
 } from "./release-packages.js";
+
+// A controlled cohort makes these artifact validators independent of checkout inventory.
+const cohort: readonly ReleasePackage[] = [
+  "@agentxm/extension-model",
+  "@agentxm/extension-content",
+  "@agentxm/registry-protocol",
+  "@agentxm/specification-metadata",
+  "@agentxm/workspace-conventions",
+  "axm.sh",
+].map((name) => ({
+  name,
+  path: `${name}/package.json`,
+  project: name,
+  tarballPrefix: `${name.replace(/^@/u, "").replace(/\//gu, "-")}-`,
+}));
+const snapshot = ReleaseSnapshot.of({
+  describe: "artifact fixture",
+  root: process.cwd(),
+  packages: cohort,
+  read: () => Effect.die("Artifact validators must not read source descriptors."),
+});
 
 const commit = "a".repeat(40);
 const version = "1.2.3";
@@ -37,7 +59,7 @@ const manifest = () => ({
   schemaVersion: 1,
   commit,
   version,
-  packages: RELEASE_PACKAGES.map((pkg) => ({
+  packages: cohort.map((pkg) => ({
     name: pkg.name,
     filename: `${pkg.tarballPrefix}${version}.tgz`,
     integrity: "sha512-candidate",
@@ -63,23 +85,27 @@ describe("release cohort artifact manifest", () => {
       );
       yield* Fiber.interrupt(fiber);
       expect(yield* fs.readDirectory(output)).toEqual([]);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provideService(ReleaseSnapshot, snapshot), Effect.provide(NodeServices.layer)),
   );
 
   it("accepts the complete fixed cohort for the exact commit and version", () => {
-    expect(validateReleaseCohortManifest(manifest(), version, commit).packages).toHaveLength(
-      RELEASE_PACKAGES.length,
-    );
+    expect(
+      validateReleaseCohortManifest(manifest(), version, commit, cohort).packages,
+    ).toHaveLength(cohort.length);
   });
 
   it("rejects wrong commit, wrong version, and incomplete metadata", () => {
-    expect(() => validateReleaseCohortManifest(manifest(), version, "b".repeat(40))).toThrow(
-      "commit",
+    expect(() =>
+      validateReleaseCohortManifest(manifest(), version, "b".repeat(40), cohort),
+    ).toThrow("commit");
+    expect(() => validateReleaseCohortManifest(manifest(), "1.2.4", commit, cohort)).toThrow(
+      "version",
     );
-    expect(() => validateReleaseCohortManifest(manifest(), "1.2.4", commit)).toThrow("version");
     const incomplete = manifest();
     incomplete.packages.pop();
-    expect(() => validateReleaseCohortManifest(incomplete, version, commit)).toThrow("incomplete");
+    expect(() => validateReleaseCohortManifest(incomplete, version, commit, cohort)).toThrow(
+      "incomplete",
+    );
   });
 
   it("rejects a renamed or duplicated cohort member", () => {
@@ -87,7 +113,9 @@ describe("release cohort artifact manifest", () => {
     const first = renamed.packages[0];
     if (first === undefined) throw new Error("Expected release cohort package fixture.");
     first.filename = "wrong.tgz";
-    expect(() => validateReleaseCohortManifest(renamed, version, commit)).toThrow(first.name);
+    expect(() => validateReleaseCohortManifest(renamed, version, commit, cohort)).toThrow(
+      first.name,
+    );
   });
 
   it.effect("rejects a tarball whose bytes do not match the recorded integrity", () =>
@@ -104,7 +132,7 @@ describe("release cohort artifact manifest", () => {
       expect(failure.message).toContain(
         `Release cohort integrity mismatch: ${first.name}@${version}`,
       );
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provideService(ReleaseSnapshot, snapshot), Effect.provide(NodeServices.layer)),
   );
 });
 
@@ -147,6 +175,7 @@ describe("bootstrap cohort manifests", () => {
         }),
         "package.json",
         preview,
+        cohort,
       ),
     );
 
@@ -182,6 +211,7 @@ describe("bootstrap cohort manifests", () => {
           },
         }),
         preview,
+        cohort,
       ),
     );
     expect(stamped).toEqual({
@@ -195,9 +225,9 @@ describe("bootstrap cohort manifests", () => {
   });
 
   it("rejects a manifest without a version field", () => {
-    expect(() => stampBootstrapManifest('{"name":"fixture"}', "fixture.json", "1.0.0")).toThrow(
-      "fixture.json",
-    );
+    expect(() =>
+      stampBootstrapManifest('{"name":"fixture"}', "fixture.json", "1.0.0", cohort),
+    ).toThrow("fixture.json");
   });
 });
 
@@ -235,7 +265,7 @@ describe("packed package contracts", () => {
       packedFixture({ bin: { fixture: "./dist/cli.js" } }),
       "@fixture/package-contract",
       version,
-    ).pipe(Effect.provide(NodeServices.layer)),
+    ).pipe(Effect.provideService(ReleaseSnapshot, snapshot), Effect.provide(NodeServices.layer)),
   );
 
   for (const fields of [
@@ -250,7 +280,7 @@ describe("packed package contracts", () => {
           validatePack(packedFixture(fields), "@fixture/package-contract", version),
         );
         expect(failure.message).toContain("Invalid packed package @fixture/package-contract@1.2.3");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.provideService(ReleaseSnapshot, snapshot), Effect.provide(NodeServices.layer)),
     );
   }
 
@@ -264,7 +294,7 @@ describe("packed package contracts", () => {
         ),
       );
       expect(failure.message).toContain("Packed CLI must expose its compiled bin");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provideService(ReleaseSnapshot, snapshot), Effect.provide(NodeServices.layer)),
   );
 
   for (const reference of ["workspace:^", "file:../local", "link:../local"]) {
@@ -278,7 +308,7 @@ describe("packed package contracts", () => {
           ),
         );
         expect(failure.message).toContain("Nonportable packed dependency: local");
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.provideService(ReleaseSnapshot, snapshot), Effect.provide(NodeServices.layer)),
     );
   }
 
@@ -296,7 +326,7 @@ describe("packed package contracts", () => {
         ),
       );
       expect(failure.message).toContain("bootstrap cohort dependency must be exact");
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provideService(ReleaseSnapshot, snapshot), Effect.provide(NodeServices.layer)),
   );
 
   it.effect(
@@ -339,7 +369,7 @@ describe("packed package contracts", () => {
         expect(published).not.toHaveProperty(["exports", ".", "axm-source"]);
         expect(published).not.toHaveProperty(["imports", "#local", "axm-source"]);
         expect(readFileSync(join(packageRoot, "package.json"), "utf8")).toBe(original);
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.provideService(ReleaseSnapshot, snapshot), Effect.provide(NodeServices.layer)),
   );
 });
 

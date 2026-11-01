@@ -1,44 +1,17 @@
-import { readFileSync, writeFileSync } from "node:fs";
 import * as Option from "effect/Option";
 
 import { parseSkillMd } from "@agentxm/extension-content";
 
-import { capture, run } from "./release-command.js";
-import {
-  readPackageVersion,
-  readPackageVersionAtRef,
-  validateReleaseVersion,
-} from "./release-identity.js";
-import {
-  type ReleasePackage,
-  gitRefSnapshot,
-  resolveReleaseCohort,
-  workingTreeSnapshot,
-} from "./release-cohort.js";
+import { validateReleaseVersion } from "./release-identity.js";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
 } from "@agentxm/cli-maintenance/official-skill/domain";
 
-const readEnvWithDefault = (env: NodeJS.ProcessEnv, name: string, fallback: string): string => {
-  const value = env[name];
-  return typeof value === "string" && value.length > 0 ? value : fallback;
-};
-
-export const RELEASE_PACKAGES: readonly ReleasePackage[] =
-  resolveReleaseCohort(workingTreeSnapshot());
-
-export const RELEASE_PACKAGE_JSON_PATHS = RELEASE_PACKAGES.map(({ path }) => path);
-
 export const AXM_SKILL_MANIFEST_PATH = "skills/axm/skill.json";
 export const AXM_SKILL_DOCUMENT_PATH = "skills/axm/src/SKILL.md";
 export const AXM_SKILL_GENERATED_PATH = "apps/cli/src/__generated__/bundled-axm-skill.ts";
-
-const releaseVersionJsonPaths = (packages: readonly ReleasePackage[]): readonly string[] => [
-  ...packages.map(({ path }) => path),
-  AXM_SKILL_MANIFEST_PATH,
-];
 
 export type GitHubRun = {
   databaseId: number;
@@ -59,8 +32,7 @@ export type GitHubArtifact = {
   readonly digest: string;
 };
 
-export const RELEASE_PROCESS_ENV = {
-  ...process.env,
+export const RELEASE_NX_ENV = {
   NX_TUI: "false",
   NX_DEFAULT_OUTPUT_STYLE: "static",
   NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
@@ -68,17 +40,6 @@ export const RELEASE_PROCESS_ENV = {
 
 const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
   value != null && typeof value === "object";
-
-export const RELEASE_REPO = readEnvWithDefault(process.env, "GITHUB_REPOSITORY", "agentxm/axm");
-
-export const fail = (message: string): never => {
-  console.error(message);
-  process.exit(1);
-  throw new Error("Unreachable");
-};
-
-export const runNx = (...args: readonly string[]) =>
-  run("pnpm", ["exec", "nx", ...args, "--outputStyle=static"], RELEASE_PROCESS_ENV);
 
 export interface GeneratedAxmSkillCompatibility extends AxmSkillCompatibilityDeclaration {
   readonly version: string;
@@ -105,17 +66,6 @@ export const readGeneratedSkillCompatibilityFromContent = (
   cliVersionRange: readGeneratedStringConstant(content, "AXM_SKILL_CLI_VERSION_RANGE", source),
 });
 
-const readGeneratedSkillCompatibility = (
-  path: string = AXM_SKILL_GENERATED_PATH,
-): GeneratedAxmSkillCompatibility =>
-  readGeneratedSkillCompatibilityFromContent(readFileSync(path, "utf8"), path);
-
-const readGeneratedSkillCompatibilityAtRef = (
-  ref: string,
-  path: string = AXM_SKILL_GENERATED_PATH,
-): GeneratedAxmSkillCompatibility =>
-  readGeneratedSkillCompatibilityFromContent(git("show", `${ref}:${path}`), `${ref}:${path}`);
-
 export interface AxmSkillCompatibilityDeclaration {
   readonly cliVersion: string;
   readonly cliVersionRange: string;
@@ -138,17 +88,6 @@ export const readSkillCompatibilityFromContent = (
   return { cliVersion, cliVersionRange };
 };
 
-export const readSkillCompatibility = (
-  path: string = AXM_SKILL_DOCUMENT_PATH,
-): AxmSkillCompatibilityDeclaration =>
-  readSkillCompatibilityFromContent(readFileSync(path, "utf8"), path);
-
-const readSkillCompatibilityAtRef = (
-  ref: string,
-  path: string = AXM_SKILL_DOCUMENT_PATH,
-): AxmSkillCompatibilityDeclaration =>
-  readSkillCompatibilityFromContent(git("show", `${ref}:${path}`), `${ref}:${path}`);
-
 const replaceExactlyOnce = (
   content: string,
   pattern: RegExp,
@@ -157,22 +96,24 @@ const replaceExactlyOnce = (
 ): string => {
   const matches = content.match(pattern);
   if (matches?.length !== 1) {
-    return fail(`Expected exactly one release stamp in ${source}.`);
+    throw new Error(`Expected exactly one release stamp in ${source}.`);
   }
 
   return content.replace(pattern, replacement);
 };
 
-export const writeSkillVersion = (version: string, path: string = AXM_SKILL_MANIFEST_PATH) => {
+export const stampSkillManifestContent = (
+  content: string,
+  version: string,
+  path: string = AXM_SKILL_MANIFEST_PATH,
+) => {
   validateReleaseVersion(version);
-  const content = readFileSync(path, "utf8");
-  const updated = replaceExactlyOnce(
+  return replaceExactlyOnce(
     content,
     /^([ \t]*"version"[ \t]*:[ \t]*)"[^"]+"([ \t]*,?[ \t]*)$/gm,
     `$1"${version}"$2`,
     path,
   );
-  writeFileSync(path, updated, "utf8");
 };
 
 const requireCompatibleSkillDeclaration = (
@@ -215,7 +156,7 @@ const minorBandRange = (version: string): string => {
   const major = match?.[1];
   const minor = match?.[2];
   if (major === undefined || minor === undefined) {
-    return fail(`Cannot derive a compatibility range from version: ${version}`);
+    throw new Error(`Cannot derive a compatibility range from version: ${version}`);
   }
   return `>=${major}.${minor}.0 <${major}.${Number(minor) + 1}.0`;
 };
@@ -241,12 +182,12 @@ export const transitionSkillCompatibility = (
   return requireCompatibleSkillDeclaration(releaseVersion, next, "next AXM skill");
 };
 
-export const stampSkillCompatibility = (
+export const stampSkillCompatibilityContent = (
+  content: string,
   version: string,
   path: string = AXM_SKILL_DOCUMENT_PATH,
 ) => {
   validateReleaseVersion(version);
-  const content = readFileSync(path, "utf8");
   const next = transitionSkillCompatibility(
     readSkillCompatibilityFromContent(content, path),
     version,
@@ -257,26 +198,12 @@ export const stampSkillCompatibility = (
     `  ${AXM_SKILL_CLI_VERSION_METADATA_KEY}: "${next.cliVersion}"`,
     path,
   );
-  const updated = replaceExactlyOnce(
+  return replaceExactlyOnce(
     withVersion,
     /^[ \t]*axm\.sh\/cli-version-range:[ \t]*.+$/gm,
     `  ${AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY}: "${next.cliVersionRange}"`,
     path,
   );
-  writeFileSync(path, updated, "utf8");
-};
-
-export const git = (...args: readonly string[]): string => capture("git", args);
-
-export const fetchOriginMain = () => {
-  run("git", ["fetch", "origin", "main"]);
-};
-
-export const requireCleanWorkingTree = () => {
-  const status = git("status", "--porcelain");
-  if (status.length > 0) {
-    fail("Working tree is not clean. Commit or stash changes first.");
-  }
 };
 
 const requireMatchingVersions = (
@@ -308,14 +235,6 @@ export const requireMatchingReleaseCompatibility = (
   return version;
 };
 
-const failOnReleaseCompatibilityError = (validate: () => string): string => {
-  try {
-    return validate();
-  } catch (error) {
-    return fail(error instanceof Error ? error.message : String(error));
-  }
-};
-
 export const validateGeneratedSkillCompatibility = (
   version: string,
   declaration: AxmSkillCompatibilityDeclaration,
@@ -332,32 +251,6 @@ export const validateGeneratedSkillCompatibility = (
     );
   }
 };
-
-export const requireMatchingReleasePackageVersions = (): string =>
-  failOnReleaseCompatibilityError(() =>
-    requireMatchingReleaseCompatibility(
-      releaseVersionJsonPaths(RELEASE_PACKAGES).map(
-        (filePath) => [filePath, readPackageVersion(filePath)] as const,
-      ),
-      readSkillCompatibility(),
-      readGeneratedSkillCompatibility(),
-      "working tree",
-    ),
-  );
-
-export const requireMatchingReleasePackageVersionsAtRef = (ref: string): string =>
-  failOnReleaseCompatibilityError(() =>
-    requireMatchingReleaseCompatibility(
-      releaseVersionJsonPaths(resolveReleaseCohort(gitRefSnapshot(ref))).map(
-        (filePath) => [filePath, readPackageVersionAtRef(ref, filePath)] as const,
-      ),
-      readSkillCompatibilityAtRef(ref),
-      readGeneratedSkillCompatibilityAtRef(ref),
-      ref,
-    ),
-  );
-
-export const currentHeadSha = (): string => git("rev-parse", "HEAD");
 
 export const parseGitHubRuns = (value: string): GitHubRun[] => {
   const parsed: unknown = JSON.parse(value);
@@ -394,25 +287,6 @@ export const parseGitHubRuns = (value: string): GitHubRun[] => {
 
     return [];
   });
-};
-
-const listCiRunsForCommit = (sha: string): GitHubRun[] => {
-  const output = capture("gh", [
-    "run",
-    "list",
-    "--repo",
-    RELEASE_REPO,
-    "--workflow",
-    "ci.yml",
-    "--commit",
-    sha,
-    "--limit",
-    "20",
-    "--json",
-    "databaseId,event,headSha,number,status,conclusion,url,workflowName",
-  ]);
-
-  return parseGitHubRuns(output);
 };
 
 export const validateCiRunDetails = (value: unknown, expected: GitHubRun): VerifiedGitHubRun => {
@@ -466,48 +340,6 @@ export const validateExactCiRunDetails = (
   });
 };
 
-export const requireSuccessfulCiRunById = (
-  databaseId: number,
-  sha: string,
-  event: "push" | "workflow_dispatch",
-): VerifiedGitHubRun => {
-  if (!Number.isSafeInteger(databaseId) || databaseId < 1)
-    throw new Error("Expected a positive exact CI run ID.");
-  const details: unknown = JSON.parse(
-    capture("gh", ["api", `repos/${RELEASE_REPO}/actions/runs/${databaseId}`]),
-  );
-  return validateExactCiRunDetails(details, { databaseId, headSha: sha, event });
-};
-
-export const requireSuccessfulCiRun = (sha: string): VerifiedGitHubRun => {
-  const runs = listCiRunsForCommit(sha);
-  const successfulRun = runs.find(
-    (run) => run.headSha === sha && run.status === "completed" && run.conclusion === "success",
-  );
-  if (successfulRun != null) {
-    const details: unknown = JSON.parse(
-      capture("gh", ["api", `repos/${RELEASE_REPO}/actions/runs/${successfulRun.databaseId}`]),
-    );
-    return validateCiRunDetails(details, successfulRun);
-  }
-
-  const latestRun =
-    runs[0] ??
-    fail(
-      `No CI workflow run found for commit ${sha}. Push the release commit to origin/main first.`,
-    );
-
-  if (latestRun.status !== "completed" || latestRun.conclusion == null) {
-    return fail(
-      `CI workflow for commit ${sha} has not completed successfully yet. Wait for it to finish: ${latestRun.url}`,
-    );
-  }
-
-  return fail(
-    `CI workflow for commit ${sha} concluded with ${latestRun.conclusion}: ${latestRun.url}`,
-  );
-};
-
 export const parseCiArtifacts = (
   value: unknown,
   run: VerifiedGitHubRun,
@@ -536,27 +368,4 @@ export const parseCiArtifacts = (
       return { id, name, digest };
     });
   });
-};
-
-export const requireCiArtifacts = (
-  run: VerifiedGitHubRun,
-  expectedNames: ReadonlyArray<string>,
-): ReadonlyArray<GitHubArtifact> => {
-  const response: unknown = JSON.parse(
-    capture("gh", [
-      "api",
-      "--paginate",
-      "--slurp",
-      `repos/${RELEASE_REPO}/actions/runs/${run.databaseId}/artifacts?per_page=100`,
-    ]),
-  );
-  const artifacts = parseCiArtifacts(response, run);
-  for (const expected of expectedNames) {
-    const matches = artifacts.filter((artifact) => artifact.name === expected);
-    if (matches.length !== 1)
-      throw new Error(
-        `Expected exactly one ${expected} artifact from CI run ${run.databaseId} attempt ${run.attempt}; found ${matches.length}.`,
-      );
-  }
-  return artifacts;
 };

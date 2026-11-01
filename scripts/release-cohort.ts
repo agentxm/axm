@@ -10,10 +10,7 @@
  * silently applying today's cohort to an older commit.
  */
 
-import { readFileSync } from "node:fs";
 import * as Schema from "effect/Schema";
-
-import { capture } from "./release-command.js";
 
 export const RELEASE_COHORT_TAG = "release:cli";
 
@@ -34,30 +31,6 @@ export interface CohortSnapshot {
   readonly listProjectFiles: () => readonly string[];
   readonly read: (path: string) => string;
 }
-
-const isProjectFile = (path: string): boolean =>
-  path === PROJECT_FILE || path.endsWith(`/${PROJECT_FILE}`);
-
-/**
- * Tracked project files as they currently exist on disk, so an uncommitted tag
- * change is visible to the validators that inspect the working tree.
- */
-export const workingTreeSnapshot = (): CohortSnapshot => ({
-  describe: "working tree",
-  listProjectFiles: () =>
-    capture("git", ["ls-files", "--", `*${PROJECT_FILE}`])
-      .split("\n")
-      .filter(isProjectFile),
-  read: (path) => readFileSync(path, "utf8"),
-});
-
-/** The cohort exactly as the named ref declares it, independent of the checkout. */
-export const gitRefSnapshot = (ref: string): CohortSnapshot => ({
-  describe: ref,
-  listProjectFiles: () =>
-    capture("git", ["ls-tree", "-r", "--name-only", ref]).split("\n").filter(isProjectFile),
-  read: (path) => capture("git", ["show", `${ref}:${path}`]),
-});
 
 const projectDeclaration = Schema.Struct({
   name: Schema.optional(Schema.String),

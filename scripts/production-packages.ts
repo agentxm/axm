@@ -10,8 +10,11 @@
  * structure.
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
+import { ReleaseValidationFailed } from "./release-process.js";
 
 import { readWorkspacePackageDirectories } from "./workspace-packages.js";
 
@@ -35,14 +38,6 @@ const PRODUCTION_DEPENDENCY_FIELDS = [
 const LEVEL_TAG_PREFIX = "role:";
 const NON_PRODUCTION_LEVELS: ReadonlySet<string> = new Set(["e2e", "tooling"]);
 
-const readJsonObject = (filePath: string): Partial<Record<string, unknown>> => {
-  const parsed: unknown = JSON.parse(fs.readFileSync(filePath, "utf8"));
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`${filePath} must be a JSON object`);
-  }
-  return { ...parsed };
-};
-
 const stringEntries = (value: unknown): ReadonlyArray<string> =>
   Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
 
@@ -60,32 +55,43 @@ const declaredDependencyNames = (
  * Lists every production package with the dependencies it declares on other
  * production packages, in directory order.
  */
-export const readProductionPackages = (repoRoot: string): ReadonlyArray<ProductionPackage> => {
-  const declared = readWorkspacePackageDirectories(repoRoot).flatMap(
-    (directory): ProductionPackage[] => {
-      const projectPath = path.join(repoRoot, directory, "project.json");
-      const manifestPath = path.join(repoRoot, directory, "package.json");
-      if (!fs.existsSync(projectPath)) {
-        return [];
-      }
-      const levels = stringEntries(readJsonObject(projectPath)["tags"])
-        .filter((tag) => tag.startsWith(LEVEL_TAG_PREFIX))
-        .map((tag) => tag.slice(LEVEL_TAG_PREFIX.length))
-        .filter((level) => !NON_PRODUCTION_LEVELS.has(level));
-      if (levels.length === 0) {
-        return [];
-      }
-      const manifest = readJsonObject(manifestPath);
-      const name = manifest["name"];
-      if (typeof name !== "string") {
-        throw new Error(`${manifestPath} must declare a package name`);
-      }
-      return [{ name, directory, levels, dependencies: declaredDependencyNames(manifest) }];
-    },
-  );
+const jsonObject = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
+
+export const readProductionPackages = Effect.fnUntraced(function* (repoRoot: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const directories = yield* readWorkspacePackageDirectories(repoRoot);
+  const declared: ProductionPackage[] = [];
+  for (const directory of directories) {
+    const projectPath = path.join(repoRoot, directory, "project.json");
+    const source = yield* fs.readFileString(projectPath).pipe(
+      Effect.catchIf(
+        (error) => error.reason._tag === "NotFound",
+        () => Effect.succeed(undefined),
+      ),
+    );
+    if (source === undefined) continue;
+    const project = yield* Schema.decodeUnknownEffect(jsonObject)(source);
+    const levels = stringEntries(project["tags"])
+      .filter((tag) => tag.startsWith(LEVEL_TAG_PREFIX))
+      .map((tag) => tag.slice(LEVEL_TAG_PREFIX.length))
+      .filter((level) => !NON_PRODUCTION_LEVELS.has(level));
+    if (levels.length === 0) continue;
+    const manifestPath = path.join(repoRoot, directory, "package.json");
+    const manifest = yield* Schema.decodeUnknownEffect(jsonObject)(
+      yield* fs.readFileString(manifestPath),
+    );
+    const name = manifest["name"];
+    if (typeof name !== "string")
+      return yield* new ReleaseValidationFailed({
+        operation: "Read production package",
+        cause: `${manifestPath} must declare a package name`,
+      });
+    declared.push({ name, directory, levels, dependencies: declaredDependencyNames(manifest) });
+  }
   const productionNames = new Set(declared.map((entry) => entry.name));
   return declared.map((entry) => ({
     ...entry,
     dependencies: entry.dependencies.filter((dependency) => productionNames.has(dependency)),
   }));
-};
+});

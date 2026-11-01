@@ -1,3 +1,5 @@
+import * as Effect from "effect/Effect";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 /**
  * The module-boundary controls: dependency direction and acyclicity across
  * production packages.
@@ -20,9 +22,9 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ESLint } from "eslint";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "@effect/vitest";
 
-import { readProductionPackages } from "./production-packages.js";
+import { readProductionPackages, type ProductionPackage } from "./production-packages.js";
 import { readWorkspacePackageDirectories } from "./workspace-packages.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
@@ -44,9 +46,9 @@ const LEVEL_DEPTH = {
 const isKnownLevel = (level: string): level is keyof typeof LEVEL_DEPTH =>
   Object.hasOwn(LEVEL_DEPTH, level);
 
-const depthByPackage = (): ReadonlyMap<string, number> =>
+const depthByPackage = (packages: readonly ProductionPackage[]): ReadonlyMap<string, number> =>
   new Map(
-    readProductionPackages(repoRoot).map((entry) => {
+    packages.map((entry) => {
       const level = entry.levels[0];
       if (level === undefined || !isKnownLevel(level)) {
         throw new Error(`${entry.name} declares no known dependency level`);
@@ -79,48 +81,57 @@ const findDependencyCycles = (
 };
 
 describe("production package dependency structure", () => {
-  it("every production package declares exactly one known role", () => {
-    const packages = readProductionPackages(repoRoot);
-    expect(packages.length).toBeGreaterThan(0);
-    for (const entry of packages) {
-      expect(entry.levels, entry.name).toHaveLength(1);
-      expect(Object.keys(LEVEL_DEPTH), entry.name).toContain(entry.levels[0]);
-    }
-  });
-
-  it("no production package depends on a package at a level nearer the application", () => {
-    const depth = depthByPackage();
-    const outward = readProductionPackages(repoRoot).flatMap((entry) =>
-      entry.dependencies
-        .filter((dependency) => (depth.get(dependency) ?? 0) < (depth.get(entry.name) ?? 0))
-        .map((dependency) => `${entry.name} -> ${dependency}`),
-    );
-    expect(outward).toEqual([]);
-  });
-
-  it("no chain of production package dependencies returns to its starting package", () => {
-    const packages = readProductionPackages(repoRoot);
-    expect(packages.length).toBeGreaterThan(0);
-    expect(findDependencyCycles(new Map(packages.map((e) => [e.name, e.dependencies])))).toEqual(
-      [],
-    );
-  });
-
-  it("resolves active boundary and manifest rules for every workspace package", async () => {
-    const eslint = new ESLint({ cwd: repoRoot });
-    const directories = readWorkspacePackageDirectories(repoRoot);
-    expect(directories.length).toBeGreaterThan(0);
-    for (const directory of directories) {
-      for (const [file, ruleName] of [
-        [`${directory}/src/index.ts`, "@nx/enforce-module-boundaries"],
-        [`${directory}/package.json`, "@nx/dependency-checks"],
-      ] as const) {
-        const config = await eslint.calculateConfigForFile(file);
-        const rule = config?.rules?.[ruleName];
-        expect(Array.isArray(rule) ? rule[0] : rule, `${file}: ${ruleName}`).toBe(2);
+  it.effect("every production package declares exactly one known role", () =>
+    Effect.gen(function* () {
+      const packages = yield* readProductionPackages(repoRoot);
+      expect(packages.length).toBeGreaterThan(0);
+      for (const entry of packages) {
+        expect(entry.levels, entry.name).toHaveLength(1);
+        expect(Object.keys(LEVEL_DEPTH), entry.name).toContain(entry.levels[0]);
       }
-    }
-  });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("no production package depends on a package at a level nearer the application", () =>
+    Effect.gen(function* () {
+      const packages = yield* readProductionPackages(repoRoot);
+      const depth = depthByPackage(packages);
+      const outward = packages.flatMap((entry) =>
+        entry.dependencies
+          .filter((dependency) => (depth.get(dependency) ?? 0) < (depth.get(entry.name) ?? 0))
+          .map((dependency) => `${entry.name} -> ${dependency}`),
+      );
+      expect(outward).toEqual([]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("no chain of production package dependencies returns to its starting package", () =>
+    Effect.gen(function* () {
+      const packages = yield* readProductionPackages(repoRoot);
+      expect(packages.length).toBeGreaterThan(0);
+      expect(findDependencyCycles(new Map(packages.map((e) => [e.name, e.dependencies])))).toEqual(
+        [],
+      );
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("resolves active boundary and manifest rules for every workspace package", () =>
+    Effect.gen(function* () {
+      const eslint = new ESLint({ cwd: repoRoot });
+      const directories = yield* readWorkspacePackageDirectories(repoRoot);
+      expect(directories.length).toBeGreaterThan(0);
+      for (const directory of directories) {
+        for (const [file, ruleName] of [
+          [`${directory}/src/index.ts`, "@nx/enforce-module-boundaries"],
+          [`${directory}/package.json`, "@nx/dependency-checks"],
+        ] as const) {
+          const config = yield* Effect.tryPromise(() => eslint.calculateConfigForFile(file));
+          const rule = config?.rules?.[ruleName];
+          expect(Array.isArray(rule) ? rule[0] : rule, `${file}: ${ruleName}`).toBe(2);
+        }
+      }
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 });
 
 describe("module-boundary constraint reachability", () => {

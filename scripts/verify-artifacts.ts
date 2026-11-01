@@ -1,17 +1,17 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import * as FileSystem from "effect/FileSystem";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import {
   describeUndeclaredTypeDependency,
   findUndeclaredTypeDependencies,
   readBuiltDeclarationSubjects,
 } from "./declared-type-dependencies.js";
 import { packReleaseCohort } from "./release-packages.js";
-import { readPackageVersion } from "./release-identity.js";
-import { RELEASE_PACKAGES } from "./release-shared.js";
+import { readVersionFromJson } from "./release-identity.js";
+import { releaseValidation } from "./release-process.js";
+import { ReleaseSnapshot, releaseSnapshotLayer } from "./release-runtime.js";
 
 class ArtifactVerificationFailure extends Data.TaggedError("ArtifactVerificationFailure")<{
   readonly message: string;
@@ -36,25 +36,19 @@ const verification = Effect.gen(function* () {
     });
   }
 
-  const cli = RELEASE_PACKAGES.find((member) => member.name === "axm.sh");
+  const snapshot = yield* ReleaseSnapshot;
+  const fs = yield* FileSystem.FileSystem;
+  const cli = snapshot.packages.find((member) => member.name === "axm.sh");
   if (cli === undefined) {
     return yield* new ArtifactVerificationFailure({
       message: "axm.sh is not a member of the release cohort.",
     });
   }
-  const version = yield* Effect.try({
-    try: () => readPackageVersion(cli.path),
-    catch: (cause) =>
-      new ArtifactVerificationFailure({ message: "Cannot read the release version.", cause }),
-  });
-  const directory = yield* Effect.try({
-    try: () => mkdtempSync(join(tmpdir(), "axm-pack-verification-")),
-    catch: (cause) =>
-      new ArtifactVerificationFailure({
-        message: "Cannot create artifact verification output.",
-        cause,
-      }),
-  });
+  const source = yield* snapshot.read(cli.path);
+  const version = yield* releaseValidation("Read release version", () =>
+    readVersionFromJson(source, cli.path),
+  );
+  const directory = yield* fs.makeTempDirectory({ prefix: "axm-pack-verification-" });
   // Failed packs are diagnostic artifacts; successful runs remove their output.
   yield* packReleaseCohort(version, directory).pipe(
     Effect.mapError(
@@ -65,17 +59,14 @@ const verification = Effect.gen(function* () {
         }),
     ),
   );
-  yield* Effect.try({
-    try: () => rmSync(directory, { recursive: true, force: true }),
-    catch: (cause) =>
-      new ArtifactVerificationFailure({
-        message: `Cannot remove verified artifacts at ${directory}.`,
-        cause,
-      }),
-  });
+  yield* fs.remove(directory, { recursive: true, force: true });
   yield* Effect.log(
     `Verified workspace declaration dependencies and deterministic packed cohort ${version}, publint package contracts, compiled executables and dependency references.`,
   );
 });
 
-await Effect.runPromise(verification.pipe(Effect.provide(NodeServices.layer)));
+await Effect.runPromise(
+  verification.pipe(
+    Effect.provide(releaseSnapshotLayer().pipe(Layer.provideMerge(NodeServices.layer))),
+  ),
+);

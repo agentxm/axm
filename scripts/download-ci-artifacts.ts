@@ -1,82 +1,64 @@
-import { mkdirSync } from "node:fs";
-
-import { run } from "./release-command.js";
+import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Cause from "effect/Cause";
+import * as Console from "effect/Console";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Schema from "effect/Schema";
 import { EXPECTED_BINARY_ASSETS } from "./release-checksums.js";
 import { releaseContentArtifactName } from "./release-content.js";
+import { releaseValidation, runReleaseCommand } from "./release-process.js";
 import {
-  fail,
-  RELEASE_REPO,
-  requireCiArtifacts,
-  requireSuccessfulCiRun,
-  requireSuccessfulCiRunById,
-} from "./release-shared.js";
+  releaseRepository,
+  releaseCiArtifacts,
+  successfulReleaseCiRun,
+  successfulReleaseCiRunById,
+} from "./release-runtime.js";
 
-const args = process.argv.slice(2);
 const usage =
   "Usage: pnpm download-ci-artifacts -- <commit-sha> <release-output-dir> <npm-output-dir> [ci-run-id]";
+const program = Effect.gen(function* () {
+  const args = process.argv.slice(2);
+  if (args.includes("--help") || args.includes("-h")) return yield* Console.log(usage);
+  const parsedRunId = yield* releaseValidation("Validate artifact download arguments", () => {
+    if (args.length < 3 || args.length > 4) throw new Error(usage);
+    const runId = args[3] === undefined ? undefined : Number(args[3]);
+    if (runId !== undefined && (!Number.isSafeInteger(runId) || runId < 1))
+      throw new Error("Invalid exact CI run ID.");
+    return runId;
+  });
+  const [sha, outputDir, npmOutputDir] = yield* Schema.decodeUnknownEffect(
+    Schema.Tuple([Schema.String, Schema.String, Schema.String]),
+  )(args.slice(0, 3));
+  const repository = yield* releaseRepository;
+  const ciRun = yield* parsedRunId === undefined
+    ? successfulReleaseCiRun(repository, sha)
+    : successfulReleaseCiRunById(repository, parsedRunId, sha, "push");
+  const binaries = EXPECTED_BINARY_ASSETS.map((asset) => `axm-binary-${asset}-${sha}`);
+  const content = releaseContentArtifactName(sha);
+  const npm = `axm-npm-cohort-${sha}`;
+  yield* releaseCiArtifacts(repository, ciRun, [...binaries, content, npm]);
+  const fs = yield* FileSystem.FileSystem;
+  yield* fs.makeDirectory(outputDir, { recursive: true });
+  yield* fs.makeDirectory(npmOutputDir, { recursive: true });
+  for (const name of [...binaries, content, npm])
+    yield* runReleaseCommand("gh", [
+      "run",
+      "download",
+      String(ciRun.databaseId),
+      "--repo",
+      repository,
+      "--name",
+      name,
+      "--dir",
+      name === npm ? npmOutputDir : outputDir,
+    ]);
+});
 
-if (args.includes("--help") || args.includes("-h")) {
-  console.log(usage);
-  process.exit(0);
-}
-
-if (args.length < 3 || args.length > 4) fail(usage);
-
-const sha = args[0] ?? fail(usage);
-const outputDir = args[1] ?? fail(usage);
-const npmOutputDir = args[2] ?? fail(usage);
-const runId = args[3];
-const parsedRunId = runId === undefined ? undefined : Number(runId);
-if (parsedRunId !== undefined && !Number.isSafeInteger(parsedRunId)) {
-  fail("Invalid exact CI run ID.");
-}
-const ciRun =
-  parsedRunId === undefined
-    ? requireSuccessfulCiRun(sha)
-    : requireSuccessfulCiRunById(parsedRunId, sha, "push");
-requireCiArtifacts(ciRun, [
-  ...EXPECTED_BINARY_ASSETS.map((asset) => `axm-binary-${asset}-${sha}`),
-  releaseContentArtifactName(sha),
-  `axm-npm-cohort-${sha}`,
-]);
-
-mkdirSync(outputDir, { recursive: true });
-mkdirSync(npmOutputDir, { recursive: true });
-
-for (const asset of EXPECTED_BINARY_ASSETS) {
-  run("gh", [
-    "run",
-    "download",
-    String(ciRun.databaseId),
-    "--repo",
-    RELEASE_REPO,
-    "--name",
-    `axm-binary-${asset}-${sha}`,
-    "--dir",
-    outputDir,
-  ]);
-}
-
-run("gh", [
-  "run",
-  "download",
-  String(ciRun.databaseId),
-  "--repo",
-  RELEASE_REPO,
-  "--name",
-  releaseContentArtifactName(sha),
-  "--dir",
-  outputDir,
-]);
-
-run("gh", [
-  "run",
-  "download",
-  String(ciRun.databaseId),
-  "--repo",
-  RELEASE_REPO,
-  "--name",
-  `axm-npm-cohort-${sha}`,
-  "--dir",
-  npmOutputDir,
-]);
+NodeRuntime.runMain(
+  program.pipe(
+    Effect.provide(NodeServices.layer),
+    Effect.tapCause((cause) => Console.error(Cause.pretty(cause))),
+  ),
+  { disableErrorReporting: true },
+);

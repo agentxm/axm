@@ -1,4 +1,13 @@
-import { copiedDirectoryReceiptPath } from "@agentxm/workspace-kernel/locations";
+import {
+  copiedDirectoryReceiptPath,
+  NativeEntryRemoval,
+} from "@agentxm/workspace-kernel/locations";
+import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
+import { WorkspaceTransactionScopeTest } from "@agentxm/workspace-kernel/settlement/testing";
+import * as Cause from "effect/Cause";
+import * as Deferred from "effect/Deferred";
+import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import { NativeWriteAuthorityPermissive } from "@agentxm/workspace-kernel/agent-adapters/testing";
 import * as Effect from "effect/Effect";
@@ -29,6 +38,69 @@ const fixture = Effect.gen(function* () {
 });
 
 describe("Skill native materialization", () => {
+  it.effect("restores the owned link when interrupted after native removal", () =>
+    Effect.gen(function* () {
+      const { fs, path, source, target, args } = yield* fixture;
+      const workspaceDir = path.join(args.baseDir, ".axm");
+      yield* fs.makeDirectory(workspaceDir);
+      yield* fs.makeDirectory(args.targetDir, { recursive: true });
+      yield* fs.symlink(source, target);
+      const before = (yield* fs.readDirectory(args.baseDir, { recursive: true })).sort();
+      const published = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const removal = yield* NativeEntryRemoval;
+      const controlled = NativeEntryRemoval.of({
+        ...removal,
+        unlink: (entry) =>
+          removal
+            .unlink(entry)
+            .pipe(
+              Effect.andThen(Deferred.succeed(published, undefined)),
+              Effect.andThen(Deferred.await(release)),
+            ),
+      });
+
+      yield* Effect.gen(function* () {
+        const transaction = yield* runWorkspaceTransaction({
+          claimDefaultTargets: false,
+          targets: [args.targetDir],
+          transition: removeSkillAgentArtifact(args),
+          validate: () => Effect.void,
+        }).pipe(
+          Effect.provide(
+            WorkspaceTransactionScopeTest({
+              workspaceDir,
+              settingsPath: path.join(args.baseDir, "axm.json"),
+              lockPath: path.join(args.baseDir, "axm.lock"),
+            }),
+          ),
+          Effect.provideService(NativeEntryRemoval, controlled),
+          Effect.forkChild,
+        );
+        yield* Deferred.await(published);
+        expect(yield* fs.exists(target)).toBe(false);
+        const interrupt = yield* Fiber.interrupt(transaction).pipe(
+          Effect.forkChild({ startImmediately: true }),
+        );
+        yield* Deferred.succeed(release, undefined);
+        yield* Fiber.join(interrupt);
+        const exit = yield* Fiber.await(transaction);
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          expect(Cause.hasInterruptsOnly(exit.cause), JSON.stringify(exit.cause)).toBe(true);
+        }
+        expect((yield* fs.readDirectory(args.baseDir, { recursive: true })).sort()).toEqual(before);
+        expect(yield* fs.readLink(target)).toBe(source);
+        expect(yield* fs.readFileString(path.join(source, "SKILL.md"))).toBe(
+          "# Source must survive\n",
+        );
+      }).pipe(Effect.ensuring(Deferred.succeed(release, undefined)));
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NativePlatformTest)),
+    ),
+  );
+
   it.effect("removes an owned directory link without removing its canonical skill", () =>
     Effect.gen(function* () {
       const { fs, path, source, target, args } = yield* fixture;

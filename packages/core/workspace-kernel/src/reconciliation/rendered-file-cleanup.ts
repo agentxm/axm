@@ -139,15 +139,21 @@ const removeOwnedFile = (
       root,
     );
     yield* protectWorkspacePath(address.entryPath);
+    const recordRemoval = recordFootprint({ path: address.entryPath, change: "removed" });
     if (output.proof === "copied-directory-receipt") {
       yield* retireCopiedDirectory(address.entryPath, retireWorkspacePath);
+      yield* recordRemoval;
+    } else if (address.kind === "symlink") {
+      // Record the completed mutation before interruption can start restoration.
+      yield* Effect.uninterruptible(
+        (yield* NativeEntryRemoval).unlink(address.entryPath).pipe(Effect.andThen(recordRemoval)),
+      );
     } else {
       // Directory-wide markers cannot authorize removal of foreign children.
       if (address.kind === "directory") return;
-      if (address.kind === "symlink") yield* (yield* NativeEntryRemoval).unlink(address.entryPath);
-      else yield* fs.remove(address.entryPath);
+      yield* fs.remove(address.entryPath);
+      yield* recordRemoval;
     }
-    yield* recordFootprint({ path: address.entryPath, change: "removed" });
     const unit =
       output.extensionType === "skill" ? "skill-parent-directories" : "subagent-parent-directories";
     yield* (yield* NativeWriteAuthority).retireCreatedDirectories({

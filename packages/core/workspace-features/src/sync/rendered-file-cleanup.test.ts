@@ -3,6 +3,14 @@ import { NativeWriteAuthorityPermissive } from "@agentxm/workspace-kernel/agent-
 import * as os from "node:os";
 import * as path from "node:path";
 import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
+import { NativeEntryRemoval, resolveNativeReferent } from "@agentxm/workspace-kernel/locations";
+import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
+import { WorkspaceTransactionScopeTest } from "@agentxm/workspace-kernel/settlement/testing";
+import * as Cause from "effect/Cause";
+import * as Deferred from "effect/Deferred";
+import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
+import * as FileSystem from "effect/FileSystem";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -70,6 +78,96 @@ const expectedNames = (overrides?: {
 });
 
 describe("cleanupManagedArtifactsForRemovedAgents", () => {
+  it.effect("restores the owned skill link when interrupted after native cleanup", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const tempDir = yield* fileSystem
+        .makeTempDirectoryScoped({ prefix: "axm-cleanup-interrupt-" })
+        .pipe(Effect.flatMap(resolveNativeReferent));
+      const workspaceDir = path.join(tempDir, ".axm");
+      const source = path.join(tempDir, "source", "review");
+      const parent = path.join(tempDir, ".cursor", "skills");
+      const target = path.join(parent, "review");
+      yield* fileSystem.makeDirectory(workspaceDir);
+      yield* fileSystem.makeDirectory(source, { recursive: true });
+      yield* fileSystem.makeDirectory(parent, { recursive: true });
+      yield* fileSystem.writeFileString(path.join(source, "SKILL.md"), "# Retained source\n");
+      yield* fileSystem.symlink(source, target);
+      const before = (yield* fileSystem.readDirectory(tempDir, { recursive: true })).sort();
+      const cursor = codingAgentForId("cursor");
+      const agentRepo: CodingAgentRepositoryService = {
+        get: () => Effect.succeed(cursor),
+        all: Effect.succeed([cursor]),
+        getConfiguredAgents: () => Effect.succeed([]),
+        getMaterializationAgents: () => Effect.succeed([]),
+        getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+      };
+      const layer = Layer.mergeAll(
+        NativeWriteAuthorityPermissive,
+        WorkspaceReadTest({ baseDir: tempDir, runtimeDir: workspaceDir }),
+        Layer.succeed(CodingAgentRepository, agentRepo),
+      );
+      const published = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const removal = yield* NativeEntryRemoval;
+      const controlled = NativeEntryRemoval.of({
+        ...removal,
+        unlink: (entry) =>
+          removal
+            .unlink(entry)
+            .pipe(
+              Effect.andThen(Deferred.succeed(published, undefined)),
+              Effect.andThen(Deferred.await(release)),
+            ),
+      });
+
+      yield* Effect.gen(function* () {
+        const transaction = yield* runWorkspaceTransaction({
+          claimDefaultTargets: false,
+          targets: [parent],
+          transition: reconcileAgentOutputs({
+            desiredAgentIds: new Set(),
+            expectedNames: expectedNames({ skill: ["review"] }),
+            authority: outputAuthority({ expectedSkillSources: { review: [source] } }),
+          }),
+          validate: () => Effect.void,
+        }).pipe(
+          Effect.provide(
+            Layer.merge(
+              WorkspaceTransactionScopeTest({
+                workspaceDir,
+                settingsPath: path.join(tempDir, "axm.json"),
+                lockPath: path.join(tempDir, "axm.lock"),
+              }),
+              layer,
+            ),
+          ),
+          Effect.provideService(NativeEntryRemoval, controlled),
+          Effect.forkChild,
+        );
+        yield* Deferred.await(published);
+        expect(yield* fileSystem.exists(target)).toBe(false);
+        const interrupt = yield* Fiber.interrupt(transaction).pipe(
+          Effect.forkChild({ startImmediately: true }),
+        );
+        yield* Deferred.succeed(release, undefined);
+        yield* Fiber.join(interrupt);
+        const exit = yield* Fiber.await(transaction);
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          expect(Cause.hasInterruptsOnly(exit.cause), JSON.stringify(exit.cause)).toBe(true);
+        }
+        expect((yield* fileSystem.readDirectory(tempDir, { recursive: true })).sort()).toEqual(
+          before,
+        );
+        expect(yield* fileSystem.readLink(target)).toBe(source);
+        expect(yield* fileSystem.readFileString(path.join(source, "SKILL.md"))).toBe(
+          "# Retained source\n",
+        );
+      }).pipe(Effect.ensuring(Deferred.succeed(release, undefined)));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
   it.effect("removes only AXM-managed skill and subagent artifacts for removed agents", () =>
     Effect.gen(function* () {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-cleanup-"));

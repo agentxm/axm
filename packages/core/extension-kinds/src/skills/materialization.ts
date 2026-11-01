@@ -435,8 +435,12 @@ export const removeSkillAgentArtifact = (args: {
     );
     if (immediate.entryPath !== source || immediate.kind === "symlink") return;
     yield* protectWorkspacePath(address.entryPath);
-    yield* (yield* NativeEntryRemoval).unlink(address.entryPath);
-    yield* recordFootprint({ path: address.entryPath, change: "removed" });
+    // Record the completed mutation before interruption can start restoration.
+    yield* Effect.uninterruptible(
+      (yield* NativeEntryRemoval)
+        .unlink(address.entryPath)
+        .pipe(Effect.andThen(recordFootprint({ path: address.entryPath, change: "removed" }))),
+    );
     yield* authority.retireCreatedDirectories(parentTarget);
   }).pipe(
     Effect.mapError(

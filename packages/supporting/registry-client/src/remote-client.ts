@@ -125,33 +125,32 @@ const malformedExtensionPage = (detail: string) =>
  * more items without a cursor, or a cursor the Registry has already returned,
  * cannot be continued faithfully, so the listing fails instead of truncating.
  */
-const collectExtensionSummaryPages = (
+const collectExtensionSummaryPages = Effect.fnUntraced(function* (
   fetchPage: (cursor: string | null) => Effect.Effect<ExtensionSummaryPage, RegistryClientFailure>,
-): Effect.Effect<ExtensionSummaryPage["extensions"], RegistryClientFailure> =>
-  Effect.gen(function* () {
-    const extensions: Array<ExtensionSummaryPage["extensions"][number]> = [];
-    const seen = new Set<string>();
-    let cursor: string | null = null;
-    for (;;) {
-      const page: ExtensionSummaryPage = yield* fetchPage(cursor);
-      extensions.push(...page.extensions);
-      if (page.cursor === null) {
-        if (page.hasMore) {
-          return yield* malformedExtensionPage(
-            "Registry extension listing reported more pages without a cursor.",
-          );
-        }
-        return extensions;
-      }
-      if (!page.hasMore || seen.has(page.cursor)) {
+): Effect.fn.Return<ExtensionSummaryPage["extensions"], RegistryClientFailure> {
+  const extensions: Array<ExtensionSummaryPage["extensions"][number]> = [];
+  const seen = new Set<string>();
+  let cursor: string | null = null;
+  for (;;) {
+    const page: ExtensionSummaryPage = yield* fetchPage(cursor);
+    extensions.push(...page.extensions);
+    if (page.cursor === null) {
+      if (page.hasMore) {
         return yield* malformedExtensionPage(
-          "Registry extension listing returned an inconsistent or repeated cursor.",
+          "Registry extension listing reported more pages without a cursor.",
         );
       }
-      seen.add(page.cursor);
-      cursor = page.cursor;
+      return extensions;
     }
-  });
+    if (!page.hasMore || seen.has(page.cursor)) {
+      return yield* malformedExtensionPage(
+        "Registry extension listing returned an inconsistent or repeated cursor.",
+      );
+    }
+    seen.add(page.cursor);
+    cursor = page.cursor;
+  }
+});
 const SETTLEMENT_READ_REQUEST_POLICY: RegistryRequestPolicy = {
   requestTimeout: "10 seconds",
   totalDeadline: "10 seconds",
@@ -400,52 +399,44 @@ const contentLength = (response: HttpClientResponse.HttpClientResponse): number 
  * zero bytes when a retry attempt begins. Only a complete 200 representation is
  * admitted; typed failures retain the response evidence for the caller.
  */
-const downloadArchive = (
+const downloadArchive = Effect.fnUntraced(function* (
   http: HttpClient.HttpClient,
   path: string,
   onProgress: GetExtensionPackageArgs["onProgress"],
-): Effect.Effect<Uint8Array, HttpClientError.HttpClientError | RegistryOperationFailed> =>
-  Effect.gen(function* () {
-    const attempt = Option.map(
-      yield* Effect.serviceOption(RegistryRequestAttempt),
-      ({ n, of }) => ({
-        n,
-        of,
+): Effect.fn.Return<Uint8Array, HttpClientError.HttpClientError | RegistryOperationFailed> {
+  const attempt = Option.map(yield* Effect.serviceOption(RegistryRequestAttempt), ({ n, of }) => ({
+    n,
+    of,
+  }));
+  const report = onProgress ?? (() => Effect.void);
+  if (Option.isSome(attempt) && attempt.value.n > 1) {
+    yield* report({ done: 0, attempt: attempt.value });
+  }
+  const response = yield* HttpClient.filterStatusOk(http).execute(HttpClientRequest.get(path));
+  if (response.status !== 200) {
+    return yield* new HttpClientError.HttpClientError({
+      reason: new HttpClientError.DecodeError({
+        request: response.request,
+        response,
+        description: "An unconditional archive download requires a complete 200 response",
       }),
-    );
-    const report = onProgress ?? (() => Effect.void);
-    if (Option.isSome(attempt) && attempt.value.n > 1) {
-      yield* report({ done: 0, attempt: attempt.value });
-    }
-    const response = yield* HttpClient.filterStatusOk(http).execute(HttpClientRequest.get(path));
-    if (response.status !== 200) {
-      return yield* new HttpClientError.HttpClientError({
-        reason: new HttpClientError.DecodeError({
-          request: response.request,
-          response,
-          description: "An unconditional archive download requires a complete 200 response",
-        }),
-      });
-    }
-    const total = contentLength(response);
-    if (total !== undefined && total > MAX_BUFFERED_ARCHIVE_BYTES) {
-      return yield* new RegistryOperationFailed({
-        category: "quota",
-        detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
-      });
-    }
-    return yield* collectBufferedArchive(
-      response.stream,
-      MAX_BUFFERED_ARCHIVE_BYTES,
-      total,
-      (done) =>
-        report({
-          done,
-          ...(total === undefined ? {} : { total }),
-          ...(Option.isNone(attempt) ? {} : { attempt: attempt.value }),
-        }),
-    );
-  });
+    });
+  }
+  const total = contentLength(response);
+  if (total !== undefined && total > MAX_BUFFERED_ARCHIVE_BYTES) {
+    return yield* new RegistryOperationFailed({
+      category: "quota",
+      detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
+    });
+  }
+  return yield* collectBufferedArchive(response.stream, MAX_BUFFERED_ARCHIVE_BYTES, total, (done) =>
+    report({
+      done,
+      ...(total === undefined ? {} : { total }),
+      ...(Option.isNone(attempt) ? {} : { attempt: attempt.value }),
+    }),
+  );
+});
 
 const registryRequestMetadata = (method: string, url: string): RegistryRequestMetadata => ({
   service: "registry",
@@ -631,169 +622,162 @@ export const createRemoteRegistryClient = (
     );
   };
 
-  const getResolutionMetadata = (request: ResolutionMetadataRequest) =>
-    Effect.gen(function* () {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        const results = yield* collectResolutionMetadataPages(request, (pageRequest) =>
-          executeRemoteRequest(
-            Effect.gen(function* () {
-              const payload = yield* Schema.decodeUnknownEffect(
-                GeneratedRegistryClient.ResolutionsPostMetadataRequestJson,
-              )(pageRequest).pipe(
-                Effect.flatMap(
-                  Schema.encodeEffect(GeneratedRegistryClient.ResolutionsPostMetadataRequestJson),
-                ),
-              );
-              const response = yield* client.ResolutionsPostMetadata({
-                payload,
-                config: undefined,
-              });
-              const encoded = yield* Schema.encodeEffect(
-                GeneratedRegistryClient.ResolutionsPostMetadata200,
-              )(response);
-              return yield* Schema.decodeUnknownEffect(ResolutionMetadataResponseSchema)(encoded);
-            }),
-            {
-              operation: "read resolution metadata",
-              method: "POST",
-              path: "/v1/resolutions/metadata",
-              replaySafety: safe,
-              mapError: (error, nowMillis) =>
-                mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
-            },
-          ),
-        );
-        if (results.every((result) => result.outcome !== "restart-required")) return results;
-      }
-      return yield* new RegistryRequestFailed({
-        reason: "metadata-churn",
-        category: "conflict",
-        detail: "Registry metadata changed repeatedly during pagination.",
-      });
+  const getResolutionMetadata = Effect.fnUntraced(function* (request: ResolutionMetadataRequest) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const results = yield* collectResolutionMetadataPages(request, (pageRequest) =>
+        executeRemoteRequest(
+          Effect.gen(function* () {
+            const payload = yield* Schema.decodeUnknownEffect(
+              GeneratedRegistryClient.ResolutionsPostMetadataRequestJson,
+            )(pageRequest).pipe(
+              Effect.flatMap(
+                Schema.encodeEffect(GeneratedRegistryClient.ResolutionsPostMetadataRequestJson),
+              ),
+            );
+            const response = yield* client.ResolutionsPostMetadata({
+              payload,
+              config: undefined,
+            });
+            const encoded = yield* Schema.encodeEffect(
+              GeneratedRegistryClient.ResolutionsPostMetadata200,
+            )(response);
+            return yield* Schema.decodeUnknownEffect(ResolutionMetadataResponseSchema)(encoded);
+          }),
+          {
+            operation: "read resolution metadata",
+            method: "POST",
+            path: "/v1/resolutions/metadata",
+            replaySafety: safe,
+            mapError: (error, nowMillis) =>
+              mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+          },
+        ),
+      );
+      if (results.every((result) => result.outcome !== "restart-required")) return results;
+    }
+    return yield* new RegistryRequestFailed({
+      reason: "metadata-churn",
+      category: "conflict",
+      detail: "Registry metadata changed repeatedly during pagination.",
     });
+  });
 
   // ---------------------------------------------------------------------------
   // getExtensionsByScope
   // ---------------------------------------------------------------------------
-  const getExtensionsByScope = (
+  const getExtensionsByScope = Effect.fnUntraced(function* (
     args: GetExtensionsByOwnerArgs,
-  ): Effect.Effect<GetExtensionsByOwnerResponse, RegistryClientFailure> =>
-    Effect.gen(function* () {
-      let allIndexes: ReadonlyArray<ExtensionIndex>;
-      const owner = args.owner;
+  ): Effect.fn.Return<GetExtensionsByOwnerResponse, RegistryClientFailure> {
+    let allIndexes: ReadonlyArray<ExtensionIndex>;
+    const owner = args.owner;
 
-      if (args.names.length === 0 || owner === "*") {
-        // List mode: fetch owner listing, then fan-out to get full indexes
-        allIndexes = yield* getListModeExtensions(args);
-        if (args.names.length > 0) {
-          const nameSet = new Set(args.names);
-          const requestedTypes = new Set(args.types);
-          allIndexes = allIndexes.filter(
-            (entry) =>
-              nameSet.has(entry.name) &&
-              (requestedTypes.size === 0 || requestedTypes.has(entry.type)),
-          );
-        }
-      } else {
-        // Named mode: fetch each name+type combination
-        const requestedTypes: ReadonlyArray<ExtensionType> =
-          args.types.length > 0 ? args.types : remoteDiscoveryTypes;
-
-        const requests = args.names.flatMap((name) =>
-          requestedTypes.map((type) => ({ name, type })),
-        );
-        const maybeEntries = yield* Effect.forEach(
-          requests,
-          ({ name, type }) =>
-            Option.match(decodeExtensionName(name), {
-              onNone: () => Effect.succeedNone,
-              onSome: (decodedName) => getExtensionIndex({ owner, type, name: decodedName }),
-            }),
-          { concurrency: REGISTRY_READ_CONCURRENCY },
-        );
-
-        allIndexes = maybeEntries.flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
-      }
-
-      const indexed = allIndexes.flatMap((index) =>
-        Option.match(toRegistryManifest(index, Option.none()), {
-          onNone: () => [],
-          onSome: (manifest) => [{ index, manifest }],
-        }),
-      );
-      const total = indexed.length;
-      const sliced = indexed.slice(args.offset);
-      const page = Option.match(args.limit, {
-        onNone: () => sliced,
-        onSome: (limit) => sliced.slice(0, limit),
-      });
-
-      return {
-        extensions: page.map(({ manifest }) => manifest),
-        indexes: page.map(({ index }) => index),
-        total,
-      };
-    });
-
-  const getListModeExtensions = (
-    args: GetExtensionsByOwnerArgs,
-  ): Effect.Effect<ReadonlyArray<ExtensionIndex>, RegistryClientFailure> =>
-    Effect.gen(function* () {
-      // Named wildcard discovery uses the server's exact filter before any
-      // full index fetch. The owner-wide list has no name filter.
-      let listResults: ReadonlyArray<ExtensionSummaryPage["extensions"]>;
+    if (args.names.length === 0 || owner === "*") {
+      // List mode: fetch owner listing, then fan-out to get full indexes
+      allIndexes = yield* getListModeExtensions(args);
       if (args.names.length > 0) {
-        const names = [
-          ...new Set(
-            args.names.flatMap((name) =>
-              Option.match(decodeExtensionName(name), {
-                onNone: (): ReadonlyArray<ExtensionName> => [],
-                onSome: (decoded) => [decoded],
-              }),
-            ),
-          ),
-        ];
-        const types = args.types.length === 0 ? remoteDiscoveryTypes : args.types;
-        listResults = yield* Effect.forEach(
-          names.flatMap((name) => types.map((type) => ({ name, type }))),
-          ({ name, type }) => fetchExtensionListByType(args.owner, type, name),
-          { concurrency: REGISTRY_READ_CONCURRENCY },
-        );
-      } else if (args.types.length === 0) {
-        listResults = [yield* fetchExtensionList(args.owner)];
-      } else {
-        listResults = yield* Effect.forEach(
-          args.types,
-          (type) => fetchExtensionListByType(args.owner, type),
-          { concurrency: REGISTRY_READ_CONCURRENCY },
+        const nameSet = new Set(args.names);
+        const requestedTypes = new Set(args.types);
+        allIndexes = allIndexes.filter(
+          (entry) =>
+            nameSet.has(entry.name) &&
+            (requestedTypes.size === 0 || requestedTypes.has(entry.type)),
         );
       }
+    } else {
+      // Named mode: fetch each name+type combination
+      const requestedTypes: ReadonlyArray<ExtensionType> =
+        args.types.length > 0 ? args.types : remoteDiscoveryTypes;
 
-      const summaries = listResults.flat();
-
-      // Fetch full indexes for each extension
+      const requests = args.names.flatMap((name) => requestedTypes.map((type) => ({ name, type })));
       const maybeEntries = yield* Effect.forEach(
-        summaries,
-        (summary) =>
-          decodeExtensionIdentity(summary).pipe(
-            Effect.mapError((cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY")),
-            Effect.flatMap(getExtensionIndex),
-          ),
+        requests,
+        ({ name, type }) =>
+          Option.match(decodeExtensionName(name), {
+            onNone: () => Effect.succeedNone,
+            onSome: (decodedName) => getExtensionIndex({ owner, type, name: decodedName }),
+          }),
         { concurrency: REGISTRY_READ_CONCURRENCY },
       );
 
-      const allIndexes = maybeEntries.flatMap((entry) =>
-        Option.isSome(entry) ? [entry.value] : [],
-      );
+      allIndexes = maybeEntries.flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
+    }
 
-      const sorted = [...allIndexes].sort((a, b) => {
-        if (a.owner !== b.owner) return a.owner.localeCompare(b.owner);
-        if (a.name !== b.name) return a.name.localeCompare(b.name);
-        return a.type.localeCompare(b.type);
-      });
-
-      return sorted;
+    const indexed = allIndexes.flatMap((index) =>
+      Option.match(toRegistryManifest(index, Option.none()), {
+        onNone: () => [],
+        onSome: (manifest) => [{ index, manifest }],
+      }),
+    );
+    const total = indexed.length;
+    const sliced = indexed.slice(args.offset);
+    const page = Option.match(args.limit, {
+      onNone: () => sliced,
+      onSome: (limit) => sliced.slice(0, limit),
     });
+
+    return {
+      extensions: page.map(({ manifest }) => manifest),
+      indexes: page.map(({ index }) => index),
+      total,
+    };
+  });
+
+  const getListModeExtensions = Effect.fnUntraced(function* (
+    args: GetExtensionsByOwnerArgs,
+  ): Effect.fn.Return<ReadonlyArray<ExtensionIndex>, RegistryClientFailure> {
+    // Named wildcard discovery uses the server's exact filter before any
+    // full index fetch. The owner-wide list has no name filter.
+    let listResults: ReadonlyArray<ExtensionSummaryPage["extensions"]>;
+    if (args.names.length > 0) {
+      const names = [
+        ...new Set(
+          args.names.flatMap((name) =>
+            Option.match(decodeExtensionName(name), {
+              onNone: (): ReadonlyArray<ExtensionName> => [],
+              onSome: (decoded) => [decoded],
+            }),
+          ),
+        ),
+      ];
+      const types = args.types.length === 0 ? remoteDiscoveryTypes : args.types;
+      listResults = yield* Effect.forEach(
+        names.flatMap((name) => types.map((type) => ({ name, type }))),
+        ({ name, type }) => fetchExtensionListByType(args.owner, type, name),
+        { concurrency: REGISTRY_READ_CONCURRENCY },
+      );
+    } else if (args.types.length === 0) {
+      listResults = [yield* fetchExtensionList(args.owner)];
+    } else {
+      listResults = yield* Effect.forEach(
+        args.types,
+        (type) => fetchExtensionListByType(args.owner, type),
+        { concurrency: REGISTRY_READ_CONCURRENCY },
+      );
+    }
+
+    const summaries = listResults.flat();
+
+    // Fetch full indexes for each extension
+    const maybeEntries = yield* Effect.forEach(
+      summaries,
+      (summary) =>
+        decodeExtensionIdentity(summary).pipe(
+          Effect.mapError((cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY")),
+          Effect.flatMap(getExtensionIndex),
+        ),
+      { concurrency: REGISTRY_READ_CONCURRENCY },
+    );
+
+    const allIndexes = maybeEntries.flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
+
+    const sorted = [...allIndexes].sort((a, b) => {
+      if (a.owner !== b.owner) return a.owner.localeCompare(b.owner);
+      if (a.name !== b.name) return a.name.localeCompare(b.name);
+      return a.type.localeCompare(b.type);
+    });
+
+    return sorted;
+  });
 
   const fetchExtensionList = (
     owner: Handle | "*",
@@ -881,157 +865,155 @@ export const createRemoteRegistryClient = (
   // ---------------------------------------------------------------------------
   // getExtensionPackage
   // ---------------------------------------------------------------------------
-  const validateExtensionAccess = (
+  const validateExtensionAccess = Effect.fnUntraced(function* (
     args: ValidateExtensionAccessArgs,
-  ): Effect.Effect<void, RegistryClientFailure> =>
-    Effect.gen(function* () {
-      const selected = args.exact;
-      const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${toExtensionTypePlural(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
-      const archiveHttpClient =
-        args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient;
-      {
-        const outcomes = yield* getResolutionMetadata({
-          schemaVersion: 1,
-          selectionPolicyVersion: "1",
-          items: [
-            {
-              key: "exact",
-              identity: { owner: args.owner, type: args.type, name: args.name },
-              purpose: "restore-exact",
-              expectedPublisherBinding: selected.publisherBindingId,
-              accepted: { version: selected.version, integrity: selected.integrity },
-            },
-          ],
-        });
-        const outcome = outcomes[0];
-        if (
-          outcome?.outcome !== "metadata" ||
-          outcome.page.publisherBindingId !== selected.publisherBindingId
-        ) {
-          return yield* new RegistryOperationFailed({
-            category: "conflict",
-            detail:
-              "The exact package no longer has matching Registry publisher and version evidence.",
-          });
-        }
-      }
-      // Public metadata is not archive download authorization. HEAD applies
-      // current content access and lifecycle policy without downloading or
-      // counting another delivery, using the same credentials as GET.
-      yield* executeRemoteRequest(
-        Effect.gen(function* () {
-          const response = yield* HttpClient.filterStatusOk(archiveHttpClient).execute(
-            HttpClientRequest.head(archivePath),
-          );
-          if (response.status !== 200 || response.headers["x-integrity"] !== selected.integrity) {
-            return yield* new HttpClientError.HttpClientError({
-              reason: new HttpClientError.DecodeError({
-                request: response.request,
-                response,
-                description: "Exact package access requires a 200 response with matching integrity",
-              }),
-            });
-          }
-        }),
-        {
-          operation: "validate exact package access",
-          method: "HEAD",
-          path: archivePath,
-          replaySafety: safe,
-          mapError: mapArchiveFetchError,
-        },
-      );
-    });
-
-  const getExtensionPackage = (
-    args: GetExtensionPackageArgs,
-  ): Effect.Effect<GetExtensionPackageResponse, RegistryClientFailure> =>
-    Effect.gen(function* () {
-      const selected = yield* Effect.gen(function* () {
-        if (args.exact !== undefined) return args.exact;
-        const indexResult = yield* executeRemoteRequest(
-          client.ExtensionsGet(args.owner, toExtensionTypePlural(args.type), args.name, undefined),
+  ): Effect.fn.Return<void, RegistryClientFailure> {
+    const selected = args.exact;
+    const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${toExtensionTypePlural(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
+    const archiveHttpClient =
+      args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient;
+    {
+      const outcomes = yield* getResolutionMetadata({
+        schemaVersion: 1,
+        selectionPolicyVersion: "1",
+        items: [
           {
-            operation: "get package index",
-            method: "GET",
-            path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`,
-            replaySafety: safe,
-            mapError: mapPackageFetchError,
+            key: "exact",
+            identity: { owner: args.owner, type: args.type, name: args.name },
+            purpose: "restore-exact",
+            expectedPublisherBinding: selected.publisherBindingId,
+            accepted: { version: selected.version, integrity: selected.integrity },
           },
-        );
-
-        if (indexResult === undefined) {
-          return yield* new RegistryRequestFailed({
-            reason: "response-decode",
-            category: "internal",
-            detail: "Remote Registry returned a package index without a body",
-          });
-        }
-
-        const index = yield* mapToExtensionIndex(indexResult).pipe(
-          Effect.mapError((cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY")),
-        );
-        const entry = resolveVersionEntry(index.versions, args.version);
-        if (Option.isNone(entry)) {
-          return yield* new RegistryOperationFailed({
-            category: "not_found",
-            detail: "Requested package version is not available in remote index",
-          });
-        }
-        return {
-          version: entry.value.version,
-          integrity: entry.value.integrity,
-          publisherBindingId: index.publisherBindingId,
-          lifecycleWarnings: extensionLifecycleWarnings(index, entry.value),
-        };
+        ],
       });
-      const warnings = selected.lifecycleWarnings ?? [];
+      const outcome = outcomes[0];
+      if (
+        outcome?.outcome !== "metadata" ||
+        outcome.page.publisherBindingId !== selected.publisherBindingId
+      ) {
+        return yield* new RegistryOperationFailed({
+          category: "conflict",
+          detail:
+            "The exact package no longer has matching Registry publisher and version evidence.",
+        });
+      }
+    }
+    // Public metadata is not archive download authorization. HEAD applies
+    // current content access and lifecycle policy without downloading or
+    // counting another delivery, using the same credentials as GET.
+    yield* executeRemoteRequest(
+      Effect.gen(function* () {
+        const response = yield* HttpClient.filterStatusOk(archiveHttpClient).execute(
+          HttpClientRequest.head(archivePath),
+        );
+        if (response.status !== 200 || response.headers["x-integrity"] !== selected.integrity) {
+          return yield* new HttpClientError.HttpClientError({
+            reason: new HttpClientError.DecodeError({
+              request: response.request,
+              response,
+              description: "Exact package access requires a 200 response with matching integrity",
+            }),
+          });
+        }
+      }),
+      {
+        operation: "validate exact package access",
+        method: "HEAD",
+        path: archivePath,
+        replaySafety: safe,
+        mapError: mapArchiveFetchError,
+      },
+    );
+  });
 
-      // Step 3: Download archive, streaming the body so the caller observes
-      // progress as bytes arrive; the transport never decides how often.
-      const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${toExtensionTypePlural(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
-      const archiveHttpClient =
-        args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient;
-      const fetchArchive = executeRemoteRequest(
-        downloadArchive(archiveHttpClient, archivePath, args.onProgress),
+  const getExtensionPackage = Effect.fnUntraced(function* (
+    args: GetExtensionPackageArgs,
+  ): Effect.fn.Return<GetExtensionPackageResponse, RegistryClientFailure> {
+    const selected = yield* Effect.gen(function* () {
+      if (args.exact !== undefined) return args.exact;
+      const indexResult = yield* executeRemoteRequest(
+        client.ExtensionsGet(args.owner, toExtensionTypePlural(args.type), args.name, undefined),
         {
-          operation: "download package archive",
+          operation: "get package index",
           method: "GET",
-          path: archivePath,
+          path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`,
           replaySafety: safe,
-          mapError: mapArchiveFetchError,
+          mapError: mapPackageFetchError,
         },
       );
-      const validateCached = validateExtensionAccess({
-        owner: args.owner,
-        type: args.type,
-        name: args.name,
-        exact: selected,
-        ...(args.usagePurpose === undefined ? {} : { usagePurpose: args.usagePurpose }),
-      });
-      const archive = yield* archiveCache === undefined
-        ? fetchArchive
-        : archiveCache.load(
-            JSON.stringify([
-              baseUrl,
-              args.owner,
-              args.type,
-              args.name,
-              selected.version,
-              selected.integrity,
-              selected.publisherBindingId,
-              args.usagePurpose ?? "normal",
-            ]),
-            selected.integrity,
-            fetchArchive,
-            validateCached,
-          );
 
+      if (indexResult === undefined) {
+        return yield* new RegistryRequestFailed({
+          reason: "response-decode",
+          category: "internal",
+          detail: "Remote Registry returned a package index without a body",
+        });
+      }
+
+      const index = yield* mapToExtensionIndex(indexResult).pipe(
+        Effect.mapError((cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY")),
+      );
+      const entry = resolveVersionEntry(index.versions, args.version);
+      if (Option.isNone(entry)) {
+        return yield* new RegistryOperationFailed({
+          category: "not_found",
+          detail: "Requested package version is not available in remote index",
+        });
+      }
       return {
-        archive,
-        ...(warnings.length === 0 ? {} : { warnings }),
-      } satisfies GetExtensionPackageResponse;
+        version: entry.value.version,
+        integrity: entry.value.integrity,
+        publisherBindingId: index.publisherBindingId,
+        lifecycleWarnings: extensionLifecycleWarnings(index, entry.value),
+      };
     });
+    const warnings = selected.lifecycleWarnings ?? [];
+
+    // Step 3: Download archive, streaming the body so the caller observes
+    // progress as bytes arrive; the transport never decides how often.
+    const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${toExtensionTypePlural(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
+    const archiveHttpClient =
+      args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient;
+    const fetchArchive = executeRemoteRequest(
+      downloadArchive(archiveHttpClient, archivePath, args.onProgress),
+      {
+        operation: "download package archive",
+        method: "GET",
+        path: archivePath,
+        replaySafety: safe,
+        mapError: mapArchiveFetchError,
+      },
+    );
+    const validateCached = validateExtensionAccess({
+      owner: args.owner,
+      type: args.type,
+      name: args.name,
+      exact: selected,
+      ...(args.usagePurpose === undefined ? {} : { usagePurpose: args.usagePurpose }),
+    });
+    const archive = yield* archiveCache === undefined
+      ? fetchArchive
+      : archiveCache.load(
+          JSON.stringify([
+            baseUrl,
+            args.owner,
+            args.type,
+            args.name,
+            selected.version,
+            selected.integrity,
+            selected.publisherBindingId,
+            args.usagePurpose ?? "normal",
+          ]),
+          selected.integrity,
+          fetchArchive,
+          validateCached,
+        );
+
+    return {
+      archive,
+      ...(warnings.length === 0 ? {} : { warnings }),
+    } satisfies GetExtensionPackageResponse;
+  });
 
   /**
    * Map errors from the index fetch step of getExtensionPackage.

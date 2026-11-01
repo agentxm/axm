@@ -12,15 +12,14 @@ export class OperationExtractionBudget extends ServiceMap.Service<
   OperationExtractionBudgetService
 >()("@agentxm/registry-client/extraction-budget/OperationExtractionBudget") {}
 
-export const makeOperationExtractionBudget = (
+export const makeOperationExtractionBudget = Effect.fnUntraced(function* (
   capacity: number,
-): Effect.Effect<OperationExtractionBudgetService> =>
-  Effect.gen(function* () {
-    if (!Number.isSafeInteger(capacity) || capacity < 1) {
-      return yield* Effect.die(new Error("Extraction capacity must be a positive finite integer"));
-    }
-    const semaphore = yield* Semaphore.make(capacity);
-    return {
-      withExtraction: (effect) => semaphore.withPermit(effect),
-    } satisfies OperationExtractionBudgetService;
-  });
+): Effect.fn.Return<OperationExtractionBudgetService> {
+  if (!Number.isSafeInteger(capacity) || capacity < 1) {
+    return yield* Effect.die(new Error("Extraction capacity must be a positive finite integer"));
+  }
+  const semaphore = yield* Semaphore.make(capacity);
+  return {
+    withExtraction: (effect) => semaphore.withPermit(effect),
+  } satisfies OperationExtractionBudgetService;
+});

@@ -20,25 +20,24 @@ export class OperationBufferedArchiveBudget extends ServiceMap.Service<
   OperationBufferedArchiveBudgetService
 >()("@agentxm/registry-client/buffered-archive-budget/OperationBufferedArchiveBudget") {}
 
-export const makeOperationBufferedArchiveBudget = (
+export const makeOperationBufferedArchiveBudget = Effect.fnUntraced(function* (
   capacityBytes: number,
-): Effect.Effect<OperationBufferedArchiveBudgetService> =>
-  Effect.gen(function* () {
-    if (
-      !Number.isSafeInteger(capacityBytes) ||
-      capacityBytes < BUFFERED_ARCHIVE_RESERVATION_BYTES ||
-      capacityBytes % BUFFERED_ARCHIVE_RESERVATION_BYTES !== 0
-    ) {
-      return yield* Effect.die(
-        new Error("Buffered archive capacity must be a positive whole reservation"),
-      );
-    }
-    const semaphore = yield* Semaphore.make(capacityBytes / BUFFERED_ARCHIVE_RESERVATION_BYTES);
-    return {
-      capacityBytes,
-      withBufferedArchive: (effect) => semaphore.withPermit(effect),
-    } satisfies OperationBufferedArchiveBudgetService;
-  });
+): Effect.fn.Return<OperationBufferedArchiveBudgetService> {
+  if (
+    !Number.isSafeInteger(capacityBytes) ||
+    capacityBytes < BUFFERED_ARCHIVE_RESERVATION_BYTES ||
+    capacityBytes % BUFFERED_ARCHIVE_RESERVATION_BYTES !== 0
+  ) {
+    return yield* Effect.die(
+      new Error("Buffered archive capacity must be a positive whole reservation"),
+    );
+  }
+  const semaphore = yield* Semaphore.make(capacityBytes / BUFFERED_ARCHIVE_RESERVATION_BYTES);
+  return {
+    capacityBytes,
+    withBufferedArchive: (effect) => semaphore.withPermit(effect),
+  } satisfies OperationBufferedArchiveBudgetService;
+});
 
 export const withBufferedArchiveBudget = <A, E, R>(
   effect: Effect.Effect<A, E, R>,

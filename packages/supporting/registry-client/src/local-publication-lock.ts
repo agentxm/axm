@@ -66,14 +66,17 @@ const ownerIsActive = (owner: Owner, lockPath: string) =>
     }),
   );
 
-const releaseOwned = (fs: FileSystem.FileSystem, lockPath: string, token: string) =>
-  Effect.gen(function* () {
-    const owner = yield* readOwner(fs, lockPath);
-    if (Option.isNone(owner) || owner.value.token !== token) return;
-    yield* fs
-      .remove(lockPath, { force: true })
-      .pipe(Effect.mapError((cause) => failure("release", lockPath, cause)));
-  });
+const releaseOwned = Effect.fnUntraced(function* (
+  fs: FileSystem.FileSystem,
+  lockPath: string,
+  token: string,
+) {
+  const owner = yield* readOwner(fs, lockPath);
+  if (Option.isNone(owner) || owner.value.token !== token) return;
+  yield* fs
+    .remove(lockPath, { force: true })
+    .pipe(Effect.mapError((cause) => failure("release", lockPath, cause)));
+});
 
 /** A single exclusive-link attempt, never a contention wait. */
 const tryAcquire = (fs: FileSystem.FileSystem, preparedOwner: string, lockPath: string) =>
@@ -86,105 +89,103 @@ const tryAcquire = (fs: FileSystem.FileSystem, preparedOwner: string, lockPath: 
     ),
   );
 
-const reclaimDeadOwner = (
+const reclaimDeadOwner = Effect.fnUntraced(function* (
   fs: FileSystem.FileSystem,
   lockPath: string,
   preparedOwner: string,
   contender: Owner,
-) =>
-  Effect.gen(function* () {
-    const observed = yield* readOwner(fs, lockPath);
-    if (Option.isNone(observed)) return;
-    const expired = (yield* Clock.currentTimeMillis) - observed.value.acquiredAt >= staleAfter;
-    // A slow or paused live publisher is never evicted because its mtime aged.
-    // A different host's pid cannot be checked by this process.
-    if (
-      !expired ||
-      observed.value.host !== contender.host ||
-      (yield* ownerIsActive(observed.value, lockPath))
-    )
-      return;
+) {
+  const observed = yield* readOwner(fs, lockPath);
+  if (Option.isNone(observed)) return;
+  const expired = (yield* Clock.currentTimeMillis) - observed.value.acquiredAt >= staleAfter;
+  // A slow or paused live publisher is never evicted because its mtime aged.
+  // A different host's pid cannot be checked by this process.
+  if (
+    !expired ||
+    observed.value.host !== contender.host ||
+    (yield* ownerIsActive(observed.value, lockPath))
+  )
+    return;
 
-    const recoveryPath = `${lockPath}.recovery`;
-    yield* Effect.acquireUseRelease(
-      tryAcquire(fs, preparedOwner, recoveryPath),
-      (acquired) =>
-        Effect.gen(function* () {
-          if (!acquired) {
-            const recovery = yield* readOwner(fs, recoveryPath);
-            if (
-              Option.isSome(recovery) &&
-              recovery.value.host === contender.host &&
-              !(yield* ownerIsActive(recovery.value, recoveryPath))
-            ) {
-              return yield* new RegistryOperationFailed({
-                category: "conflict",
-                detail: `A stopped process left publication recovery unfinished: ${recoveryPath}`,
-                suggestions: [
-                  {
-                    description:
-                      "Verify no publication is running, remove the abandoned recovery lock, and retry.",
-                  },
-                ],
-              });
-            }
-            return;
+  const recoveryPath = `${lockPath}.recovery`;
+  yield* Effect.acquireUseRelease(
+    tryAcquire(fs, preparedOwner, recoveryPath),
+    (acquired) =>
+      Effect.gen(function* () {
+        if (!acquired) {
+          const recovery = yield* readOwner(fs, recoveryPath);
+          if (
+            Option.isSome(recovery) &&
+            recovery.value.host === contender.host &&
+            !(yield* ownerIsActive(recovery.value, recoveryPath))
+          ) {
+            return yield* new RegistryOperationFailed({
+              category: "conflict",
+              detail: `A stopped process left publication recovery unfinished: ${recoveryPath}`,
+              suggestions: [
+                {
+                  description:
+                    "Verify no publication is running, remove the abandoned recovery lock, and retry.",
+                },
+              ],
+            });
           }
-          // Serialize stale reapers and re-read inside the gate. Another contender
-          // may have replaced the observed lock before this gate was granted.
-          const current = yield* readOwner(fs, lockPath);
-          if (Option.isNone(current) || current.value.token !== observed.value.token) return;
-          if (yield* ownerIsActive(current.value, lockPath)) return;
-          yield* releaseOwned(fs, lockPath, current.value.token);
-        }),
-      (acquired) => (acquired ? releaseOwned(fs, recoveryPath, contender.token) : Effect.void),
-    );
-  });
+          return;
+        }
+        // Serialize stale reapers and re-read inside the gate. Another contender
+        // may have replaced the observed lock before this gate was granted.
+        const current = yield* readOwner(fs, lockPath);
+        if (Option.isNone(current) || current.value.token !== observed.value.token) return;
+        if (yield* ownerIsActive(current.value, lockPath)) return;
+        yield* releaseOwned(fs, lockPath, current.value.token);
+      }),
+    (acquired) => (acquired ? releaseOwned(fs, recoveryPath, contender.token) : Effect.void),
+  );
+});
 
-export const withLocalPublicationLock = <A, E, R>(
+export const withLocalPublicationLock = Effect.fnUntraced(function* <A, E, R>(
   fs: FileSystem.FileSystem,
   path: Path.Path,
   lockPath: string,
   effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E | RegistryOperationFailed, R> =>
-  Effect.gen(function* () {
-    const owner: Owner = {
-      token: globalThis.crypto.randomUUID(),
-      pid: process.pid,
-      host: hostname(),
-      acquiredAt: yield* Clock.currentTimeMillis,
-    };
-    return yield* Effect.acquireUseRelease(
+): Effect.fn.Return<A, E | RegistryOperationFailed, R> {
+  const owner: Owner = {
+    token: globalThis.crypto.randomUUID(),
+    pid: process.pid,
+    host: hostname(),
+    acquiredAt: yield* Clock.currentTimeMillis,
+  };
+  return yield* Effect.acquireUseRelease(
+    fs
+      .makeTempDirectory({ directory: path.dirname(lockPath), prefix: ".publication-" })
+      .pipe(Effect.mapError((cause) => failure("prepare", lockPath, cause))),
+    (directory) =>
+      Effect.gen(function* () {
+        const preparedOwner = path.join(directory, "owner.json");
+        yield* fs
+          .writeFileString(preparedOwner, JSON.stringify(owner), { flag: "wx", mode: 0o600 })
+          .pipe(Effect.mapError((cause) => failure("record owner of", lockPath, cause)));
+        while (true) {
+          const attempt = yield* Effect.uninterruptibleMask((restore) =>
+            Effect.acquireUseRelease(
+              tryAcquire(fs, preparedOwner, lockPath),
+              (acquired) =>
+                acquired
+                  ? restore(effect).pipe(Effect.map(Option.some))
+                  : Effect.succeed(Option.none<A>()),
+              (acquired) => (acquired ? releaseOwned(fs, lockPath, owner.token) : Effect.void),
+            ),
+          );
+          if (Option.isSome(attempt)) return attempt.value;
+          // Neither the ownership inspection nor the wait is masked. Every grant
+          // above already has release registered before interruption is restored.
+          yield* reclaimDeadOwner(fs, lockPath, preparedOwner, owner);
+          yield* Effect.sleep(retryDelay);
+        }
+      }),
+    (directory) =>
       fs
-        .makeTempDirectory({ directory: path.dirname(lockPath), prefix: ".publication-" })
-        .pipe(Effect.mapError((cause) => failure("prepare", lockPath, cause))),
-      (directory) =>
-        Effect.gen(function* () {
-          const preparedOwner = path.join(directory, "owner.json");
-          yield* fs
-            .writeFileString(preparedOwner, JSON.stringify(owner), { flag: "wx", mode: 0o600 })
-            .pipe(Effect.mapError((cause) => failure("record owner of", lockPath, cause)));
-          while (true) {
-            const attempt = yield* Effect.uninterruptibleMask((restore) =>
-              Effect.acquireUseRelease(
-                tryAcquire(fs, preparedOwner, lockPath),
-                (acquired) =>
-                  acquired
-                    ? restore(effect).pipe(Effect.map(Option.some))
-                    : Effect.succeed(Option.none<A>()),
-                (acquired) => (acquired ? releaseOwned(fs, lockPath, owner.token) : Effect.void),
-              ),
-            );
-            if (Option.isSome(attempt)) return attempt.value;
-            // Neither the ownership inspection nor the wait is masked. Every grant
-            // above already has release registered before interruption is restored.
-            yield* reclaimDeadOwner(fs, lockPath, preparedOwner, owner);
-            yield* Effect.sleep(retryDelay);
-          }
-        }),
-      (directory) =>
-        fs
-          .remove(directory, { recursive: true })
-          .pipe(Effect.mapError((cause) => failure("clean up staged owner of", lockPath, cause))),
-    );
-  });
+        .remove(directory, { recursive: true })
+        .pipe(Effect.mapError((cause) => failure("clean up staged owner of", lockPath, cause))),
+  );
+});

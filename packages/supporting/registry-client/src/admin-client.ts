@@ -264,102 +264,105 @@ export const makeRegistryLifecycleClient = (
       },
     );
 
-  const getExtensionDeprecation = (ref: RegistryExtensionReference) =>
-    Effect.gen(function* () {
-      const result = yield* runAdminCall(
-        client.ExtensionsGetDeprecation(ref.owner, ref.type, ref.name, undefined),
-        {
-          operation: "get extension deprecation",
-          method: "GET",
-          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
-          replaySafety: safe,
-        },
-      );
-      return yield* normalizeManagementView(result);
-    });
+  const getExtensionDeprecation = Effect.fnUntraced(function* (ref: RegistryExtensionReference) {
+    const result = yield* runAdminCall(
+      client.ExtensionsGetDeprecation(ref.owner, ref.type, ref.name, undefined),
+      {
+        operation: "get extension deprecation",
+        method: "GET",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
+        replaySafety: safe,
+      },
+    );
+    return yield* normalizeManagementView(result);
+  });
 
-  const getExtensionArchival = (ref: RegistryExtensionReference) =>
-    Effect.gen(function* () {
-      const result = yield* runAdminCall(
-        client.ExtensionsGetArchival(ref.owner, ref.type, ref.name, undefined),
-        {
-          operation: "get extension archival",
-          method: "GET",
-          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
-          replaySafety: safe,
-        },
-      );
-      return normalizeArchivalManagementView(result);
-    });
+  const getExtensionArchival = Effect.fnUntraced(function* (ref: RegistryExtensionReference) {
+    const result = yield* runAdminCall(
+      client.ExtensionsGetArchival(ref.owner, ref.type, ref.name, undefined),
+      {
+        operation: "get extension archival",
+        method: "GET",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
+        replaySafety: safe,
+      },
+    );
+    return normalizeArchivalManagementView(result);
+  });
 
-  const archiveExtension = (ref: RegistryExtensionReference, input: PutExtensionArchivalInput) =>
-    Effect.gen(function* () {
-      const result = yield* runAdminCall(
-        client.ExtensionsPutArchival(ref.owner, ref.type, ref.name, {
-          params: { "if-match": input.revision },
-          payload: input.message === undefined ? {} : { message: input.message },
-        }),
-        {
-          operation: "archive extension",
-          method: "PUT",
-          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
-          replaySafety: mutation,
-        },
-      );
-      return normalizeArchivalTransition(result);
-    });
+  const archiveExtension = Effect.fnUntraced(function* (
+    ref: RegistryExtensionReference,
+    input: PutExtensionArchivalInput,
+  ) {
+    const result = yield* runAdminCall(
+      client.ExtensionsPutArchival(ref.owner, ref.type, ref.name, {
+        params: { "if-match": input.revision },
+        payload: input.message === undefined ? {} : { message: input.message },
+      }),
+      {
+        operation: "archive extension",
+        method: "PUT",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
+        replaySafety: mutation,
+      },
+    );
+    return normalizeArchivalTransition(result);
+  });
 
-  const unarchiveExtension = (ref: RegistryExtensionReference, revision: string) =>
-    Effect.gen(function* () {
-      const result = yield* runAdminCall(
-        client.ExtensionsDeleteArchival(ref.owner, ref.type, ref.name, {
-          params: { "if-match": revision },
-        }),
-        {
-          operation: "unarchive extension",
-          method: "DELETE",
-          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
-          replaySafety: mutation,
-        },
-      );
-      return normalizeArchivalTransition(result);
-    });
+  const unarchiveExtension = Effect.fnUntraced(function* (
+    ref: RegistryExtensionReference,
+    revision: string,
+  ) {
+    const result = yield* runAdminCall(
+      client.ExtensionsDeleteArchival(ref.owner, ref.type, ref.name, {
+        params: { "if-match": revision },
+      }),
+      {
+        operation: "unarchive extension",
+        method: "DELETE",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
+        replaySafety: mutation,
+      },
+    );
+    return normalizeArchivalTransition(result);
+  });
 
-  const deprecateExtension = (
+  const deprecateExtension = Effect.fnUntraced(function* (
     ref: RegistryExtensionReference,
     input: PutExtensionDeprecationInput,
-  ) =>
-    Effect.gen(function* () {
-      const result = yield* runAdminCall(
-        client.ExtensionsPutDeprecation(ref.owner, ref.type, ref.name, {
-          params: { "if-match": input.revision },
-          payload: { reason: input.reason, message: input.message, replacement: input.replacement },
-        }),
-        {
-          operation: "deprecate extension",
-          method: "PUT",
-          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
-          replaySafety: mutation,
-        },
-      );
-      return yield* normalizeTransition(result);
-    });
+  ) {
+    const result = yield* runAdminCall(
+      client.ExtensionsPutDeprecation(ref.owner, ref.type, ref.name, {
+        params: { "if-match": input.revision },
+        payload: { reason: input.reason, message: input.message, replacement: input.replacement },
+      }),
+      {
+        operation: "deprecate extension",
+        method: "PUT",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
+        replaySafety: mutation,
+      },
+    );
+    return yield* normalizeTransition(result);
+  });
 
-  const undeprecateExtension = (ref: RegistryExtensionReference, revision: string) =>
-    Effect.gen(function* () {
-      const result = yield* runAdminCall(
-        client.ExtensionsDeleteDeprecation(ref.owner, ref.type, ref.name, {
-          params: { "if-match": revision },
-        }),
-        {
-          operation: "undeprecate extension",
-          method: "DELETE",
-          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
-          replaySafety: mutation,
-        },
-      );
-      return yield* normalizeTransition(result);
-    });
+  const undeprecateExtension = Effect.fnUntraced(function* (
+    ref: RegistryExtensionReference,
+    revision: string,
+  ) {
+    const result = yield* runAdminCall(
+      client.ExtensionsDeleteDeprecation(ref.owner, ref.type, ref.name, {
+        params: { "if-match": revision },
+      }),
+      {
+        operation: "undeprecate extension",
+        method: "DELETE",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
+        replaySafety: mutation,
+      },
+    );
+    return yield* normalizeTransition(result);
+  });
 
   return {
     yankExtensionVersion,

@@ -240,68 +240,61 @@ interface DrainState {
 
 const operationCounter = MutableRef.make(0);
 
-export const makeOperationLifecycle = (args: {
+export const makeOperationLifecycle = Effect.fnUntraced(function* (args: {
   readonly name: string;
   readonly mode: OperationMode;
-}): Effect.Effect<OperationLifecycleService> =>
-  Effect.gen(function* () {
-    const events = yield* PubSub.unbounded<OperationEvent>();
-    const sequence = yield* Ref.make(0);
-    const publication = yield* Semaphore.make(1);
-    const unitIndex = yield* Ref.make(0);
-    const drain = yield* Ref.make<DrainState>({ settled: false, pending: 0 });
-    const drained = yield* Latch.make(false);
-    const operationId = `operation-${String(MutableRef.incrementAndGet(operationCounter))}`;
+}): Effect.fn.Return<OperationLifecycleService> {
+  const events = yield* PubSub.unbounded<OperationEvent>();
+  const sequence = yield* Ref.make(0);
+  const publication = yield* Semaphore.make(1);
+  const unitIndex = yield* Ref.make(0);
+  const drain = yield* Ref.make<DrainState>({ settled: false, pending: 0 });
+  const drained = yield* Latch.make(false);
+  const operationId = `operation-${String(MutableRef.incrementAndGet(operationCounter))}`;
 
-    const openWhenDrained = (state: DrainState): Effect.Effect<void> =>
-      state.settled && state.pending === 0 ? Effect.asVoid(drained.open) : Effect.void;
+  const openWhenDrained = (state: DrainState): Effect.Effect<void> =>
+    state.settled && state.pending === 0 ? Effect.asVoid(drained.open) : Effect.void;
 
-    const publish = (make: OperationEventInput): Effect.Effect<void> =>
-      publication.withPermits(1)(
-        Effect.gen(function* () {
-          const seq = yield* Ref.modify(sequence, (current) => [current + 1, current + 1] as const);
-          const atMs = yield* Clock.currentTimeMillis;
-          yield* PubSub.publish(events, make(seq, atMs));
-        }),
-      );
+  const publish = Effect.fnUntraced(function* (make: OperationEventInput): Effect.fn.Return<void> {
+    const seq = yield* Ref.modify(sequence, (current) => [current + 1, current + 1] as const);
+    const atMs = yield* Clock.currentTimeMillis;
+    yield* PubSub.publish(events, make(seq, atMs));
+  }, publication.withPermits(1));
 
-    const settle = (outcome: SettledOutcome): Effect.Effect<void> =>
-      Effect.gen(function* () {
-        const first = yield* Ref.modify(drain, (state) =>
-          state.settled
-            ? ([false, state] as const)
-            : ([true, { ...state, settled: true }] as const),
-        );
-        if (!first) return;
-        yield* publish((seq, atMs) => ({ _tag: "OperationSettled", seq, atMs, outcome }));
-        yield* Effect.flatMap(Ref.get(drain), openWhenDrained);
-      });
-
-    const registerLossless: Effect.Effect<Effect.Effect<void>> = Ref.update(drain, (state) => ({
-      ...state,
-      pending: state.pending + 1,
-    })).pipe(
-      Effect.as(
-        Ref.modify(drain, (state) => {
-          const next = { ...state, pending: Math.max(0, state.pending - 1) };
-          return [next, next] as const;
-        }).pipe(Effect.flatMap(openWhenDrained)),
-      ),
+  const settle = Effect.fnUntraced(function* (outcome: SettledOutcome): Effect.fn.Return<void> {
+    const first = yield* Ref.modify(drain, (state) =>
+      state.settled ? ([false, state] as const) : ([true, { ...state, settled: true }] as const),
     );
-
-    return {
-      operationId,
-      name: args.name,
-      mode: args.mode,
-      events,
-      publish,
-      nextUnitIndex: Ref.modify(unitIndex, (current) => [current, current + 1] as const),
-      settle,
-      settled: Effect.map(Ref.get(drain), (state) => state.settled),
-      drained,
-      registerLossless,
-    } satisfies OperationLifecycleService;
+    if (!first) return;
+    yield* publish((seq, atMs) => ({ _tag: "OperationSettled", seq, atMs, outcome }));
+    yield* Effect.flatMap(Ref.get(drain), openWhenDrained);
   });
+
+  const registerLossless: Effect.Effect<Effect.Effect<void>> = Ref.update(drain, (state) => ({
+    ...state,
+    pending: state.pending + 1,
+  })).pipe(
+    Effect.as(
+      Ref.modify(drain, (state) => {
+        const next = { ...state, pending: Math.max(0, state.pending - 1) };
+        return [next, next] as const;
+      }).pipe(Effect.flatMap(openWhenDrained)),
+    ),
+  );
+
+  return {
+    operationId,
+    name: args.name,
+    mode: args.mode,
+    events,
+    publish,
+    nextUnitIndex: Ref.modify(unitIndex, (current) => [current, current + 1] as const),
+    settle,
+    settled: Effect.map(Ref.get(drain), (state) => state.settled),
+    drained,
+    registerLossless,
+  } satisfies OperationLifecycleService;
+});
 
 // -----------------------------------------------------------------------------
 // Producers (no-ops without a broadcast)
@@ -392,20 +385,22 @@ export const makeThrottledUnitProgress = (options: {
     attempt?: ProgressAttempt | undefined,
   ) => Effect.Effect<void>
 > =>
-  Effect.map(
-    Ref.make<ThrottledProgressState>({ atMs: -Infinity, attempt: undefined }),
-    (last) => (done: number, total?: number | undefined, attempt?: ProgressAttempt | undefined) =>
-      Effect.gen(function* () {
-        const now = yield* Clock.currentTimeMillis;
-        const previous = yield* Ref.get(last);
-        const final = total !== undefined && done >= total;
-        // A new attempt is a discrete transition, not a measurement, so it
-        // never waits out the interval that throttles continuous progress.
-        const retried = attempt?.n !== previous.attempt?.n;
-        if (!final && !retried && now - previous.atMs < (options.intervalMs ?? 100)) return;
-        yield* Ref.set(last, { atMs: now, attempt });
-        yield* publishUnitProgress({ done, unit: options.unit, total, attempt });
-      }),
+  Effect.map(Ref.make<ThrottledProgressState>({ atMs: -Infinity, attempt: undefined }), (last) =>
+    Effect.fnUntraced(function* (
+      done: number,
+      total?: number | undefined,
+      attempt?: ProgressAttempt | undefined,
+    ): Effect.fn.Return<void> {
+      const now = yield* Clock.currentTimeMillis;
+      const previous = yield* Ref.get(last);
+      const final = total !== undefined && done >= total;
+      // A new attempt is a discrete transition, not a measurement, so it
+      // never waits out the interval that throttles continuous progress.
+      const retried = attempt?.n !== previous.attempt?.n;
+      if (!final && !retried && now - previous.atMs < (options.intervalMs ?? 100)) return;
+      yield* Ref.set(last, { atMs: now, attempt });
+      yield* publishUnitProgress({ done, unit: options.unit, total, attempt });
+    }),
   );
 
 export interface ObservedUnit<A = never> {
@@ -562,12 +557,11 @@ export const lifecycleEvents = (
  * the drain latch until it has processed the terminal event. The subscription
  * attaches before this effect returns. No-op when no broadcast is provided.
  */
-export const subscribeLossless = (
+export const subscribeLossless = Effect.fnUntraced(function* (
   service: OperationLifecycleService,
   observe: (event: OperationEvent) => Effect.Effect<void>,
-): Effect.Effect<void, never, Scope.Scope> =>
-  Effect.gen(function* () {
-    const ack = yield* service.registerLossless;
-    const stream = yield* lifecycleEvents(service);
-    yield* stream.pipe(Stream.runForEach(observe), Effect.ensuring(ack), Effect.forkScoped);
-  });
+): Effect.fn.Return<void, never, Scope.Scope> {
+  const ack = yield* service.registerLossless;
+  const stream = yield* lifecycleEvents(service);
+  yield* stream.pipe(Stream.runForEach(observe), Effect.ensuring(ack), Effect.forkScoped);
+});

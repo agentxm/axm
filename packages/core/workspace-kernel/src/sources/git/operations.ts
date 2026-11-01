@@ -15,6 +15,7 @@ import * as Schema from "effect/Schema";
 import { GitObjectIdSchema } from "@agentxm/extension-model/unstable/sources/types";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import type * as PlatformError from "effect/PlatformError";
 import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
 
 import { GitOperationFailed, type GitOperation } from "../errors.js";
@@ -219,56 +220,62 @@ export interface GitDirectoryComparisonResult {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const shallowClone = (url: string, destination: string, ref?: string) =>
-  Effect.gen(function* () {
-    if (ref !== undefined && Schema.is(GitObjectIdSchema)(ref)) {
-      return yield* shallowFetchCommit(url, destination, ref);
-    }
-    const path = yield* Path.Path;
-    return yield* withGitRequestPermit(
-      url,
-      Effect.tryPromise({
-        try: (signal) =>
-          createGit(path.dirname(destination), signal).clone(url, destination, [
-            "--depth",
-            "1",
-            "--single-branch",
-            ...(ref ? ["--branch", ref] : []),
-          ]),
-        catch: mapGitError("clone", `Failed to shallow clone ${url}`),
-      }),
-    );
-  }).pipe(withGitOperationDeadline("clone"), Effect.withSpan("Git.shallowClone"));
+export const shallowClone = Effect.fn("Git.shallowClone")(function* (
+  url: string,
+  destination: string,
+  ref?: string,
+) {
+  if (ref !== undefined && Schema.is(GitObjectIdSchema)(ref)) {
+    return yield* shallowFetchCommit(url, destination, ref);
+  }
+  const path = yield* Path.Path;
+  return yield* withGitRequestPermit(
+    url,
+    Effect.tryPromise({
+      try: (signal) =>
+        createGit(path.dirname(destination), signal).clone(url, destination, [
+          "--depth",
+          "1",
+          "--single-branch",
+          ...(ref ? ["--branch", ref] : []),
+        ]),
+      catch: mapGitError("clone", `Failed to shallow clone ${url}`),
+    }),
+  );
+}, withGitOperationDeadline("clone"));
 
 /** Initialize a shallow checkout at one immutable, remote-reachable commit. */
-export const shallowFetchCommit = (url: string, destination: string, commit: string) =>
-  Effect.gen(function* () {
-    const mapError = mapGitError(
-      "fetch-commit",
-      `Failed to fetch recorded commit ${commit} from ${url}`,
-    );
-    yield* Schema.decodeUnknownEffect(GitObjectIdSchema)(commit).pipe(Effect.mapError(mapError));
-    yield* Effect.tryPromise({
-      try: async (signal) => {
-        const git = createGit(destination, signal);
-        await git.raw(["init", `--object-format=${commit.length === 40 ? "sha1" : "sha256"}`]);
-        await git.addRemote("origin", url);
-      },
+export const shallowFetchCommit = Effect.fn("Git.shallowFetchCommit")(function* (
+  url: string,
+  destination: string,
+  commit: string,
+) {
+  const mapError = mapGitError(
+    "fetch-commit",
+    `Failed to fetch recorded commit ${commit} from ${url}`,
+  );
+  yield* Schema.decodeUnknownEffect(GitObjectIdSchema)(commit).pipe(Effect.mapError(mapError));
+  yield* Effect.tryPromise({
+    try: async (signal) => {
+      const git = createGit(destination, signal);
+      await git.raw(["init", `--object-format=${commit.length === 40 ? "sha1" : "sha256"}`]);
+      await git.addRemote("origin", url);
+    },
+    catch: mapError,
+  });
+  yield* withGitRequestPermit(
+    url,
+    Effect.tryPromise({
+      try: (signal) =>
+        createGit(destination, signal).raw(["fetch", "--depth", "1", "origin", commit]),
       catch: mapError,
-    });
-    yield* withGitRequestPermit(
-      url,
-      Effect.tryPromise({
-        try: (signal) =>
-          createGit(destination, signal).raw(["fetch", "--depth", "1", "origin", commit]),
-        catch: mapError,
-      }),
-    );
-    yield* Effect.tryPromise({
-      try: (signal) => createGit(destination, signal).raw(["checkout", "--detach", "FETCH_HEAD"]),
-      catch: mapError,
-    });
-  }).pipe(withGitOperationDeadline("fetch-commit"), Effect.withSpan("Git.shallowFetchCommit"));
+    }),
+  );
+  yield* Effect.tryPromise({
+    try: (signal) => createGit(destination, signal).raw(["checkout", "--detach", "FETCH_HEAD"]),
+    catch: mapError,
+  });
+}, withGitOperationDeadline("fetch-commit"));
 
 /** Remote branch and tag names advertised by a Git repository. */
 export interface GitRemoteRefs {
@@ -290,18 +297,17 @@ const parseRemoteRefs = (output: string): GitRemoteRefs => {
 };
 
 /** List the remote's advertised branches and tags without cloning it. */
-export const listRemoteRefs = (url: string) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    return yield* withGitRequestPermit(
-      url,
-      Effect.tryPromise({
-        try: (signal) =>
-          createGit(path.resolve("."), signal).raw(["ls-remote", "--heads", "--tags", url]),
-        catch: mapGitError("list-remote-refs", `Failed to list remote Git refs from ${url}`),
-      }).pipe(Effect.map(parseRemoteRefs)),
-    );
-  }).pipe(withGitOperationDeadline("list-remote-refs"), Effect.withSpan("Git.listRemoteRefs"));
+export const listRemoteRefs = Effect.fn("Git.listRemoteRefs")(function* (url: string) {
+  const path = yield* Path.Path;
+  return yield* withGitRequestPermit(
+    url,
+    Effect.tryPromise({
+      try: (signal) =>
+        createGit(path.resolve("."), signal).raw(["ls-remote", "--heads", "--tags", url]),
+      catch: mapGitError("list-remote-refs", `Failed to list remote Git refs from ${url}`),
+    }).pipe(Effect.map(parseRemoteRefs)),
+  );
+}, withGitOperationDeadline("list-remote-refs"));
 
 /** Read one configured remote URL from a local repository. */
 export const getRemoteUrl = (repoPath: string, remoteName: string) =>
@@ -385,16 +391,16 @@ export const getTreeSha = (repoPath: string, subPath = ".") =>
  * boundary; deleted HEAD paths remain present in the returned difference set
  * so that boundary can classify them too.
  */
-export const compareDirectoryToHead = (
-  repositoryRoot: string,
-  directory: string,
-  currentPaths: ReadonlyArray<string>,
-): Effect.Effect<
-  GitDirectoryComparisonResult,
-  GitOperationFailed,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
+export const compareDirectoryToHead = Effect.fn("Git.compareDirectoryToHead")(
+  function* (
+    repositoryRoot: string,
+    directory: string,
+    currentPaths: ReadonlyArray<string>,
+  ): Effect.fn.Return<
+    GitDirectoryComparisonResult,
+    GitOperationFailed | PlatformError.PlatformError,
+    FileSystem.FileSystem | Path.Path
+  > {
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
     const repositoryDirectory = toPosixPath(path.relative(repositoryRoot, directory), path.sep);
@@ -500,15 +506,17 @@ export const compareDirectoryToHead = (
       headRevision: head.revision,
       differences,
     } satisfies GitDirectoryComparisonResult;
-  }).pipe(
-    Effect.mapError((cause) =>
-      cause instanceof GitOperationFailed
-        ? cause
-        : mapGitError(
-            "compare-directory-to-head",
-            `Failed to compare '${directory}' with Git HEAD`,
-          )(cause),
+  },
+  (effect, _repositoryRoot, directory) =>
+    effect.pipe(
+      Effect.mapError((cause) =>
+        cause instanceof GitOperationFailed
+          ? cause
+          : mapGitError(
+              "compare-directory-to-head",
+              `Failed to compare '${directory}' with Git HEAD`,
+            )(cause),
+      ),
+      withGitOperationDeadline("compare-directory-to-head"),
     ),
-    withGitOperationDeadline("compare-directory-to-head"),
-    Effect.withSpan("Git.compareDirectoryToHead"),
-  );
+);

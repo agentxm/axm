@@ -208,250 +208,251 @@ const readRegistryIndex = (
     ),
   );
 
-const probeAxmSkillCompatibility = (
+const probeAxmSkillCompatibility = Effect.fnUntraced(function* (
   client: RegistryClient,
   source: RegistrySource,
   index: ExtensionIndex,
   version: VersionEntry,
-) =>
-  Effect.gen(function* () {
-    const manifest = manifestForVersion(index, version);
-    const ref = toExtensionRef(manifest, source);
-    if (Option.isNone(ref) || ref.value.type !== "skill") {
-      return yield* new SourceNotResolvable({
-        category: "internal",
-        detail: "Registry returned an invalid official AXM skill candidate",
-      });
-    }
-    const { archive } = yield* client.getExtensionPackage({
-      owner: index.owner,
-      type: index.type,
-      name: index.name,
-      exact: {
-        version: version.version,
-        integrity: version.integrity,
-        publisherBindingId: index.publisherBindingId,
-        lifecycleWarnings: extensionLifecycleWarnings(index, version),
-      },
-      usagePurpose: "verification",
+) {
+  const manifest = manifestForVersion(index, version);
+  const ref = toExtensionRef(manifest, source);
+  if (Option.isNone(ref) || ref.value.type !== "skill") {
+    return yield* new SourceNotResolvable({
+      category: "internal",
+      detail: "Registry returned an invalid official AXM skill candidate",
     });
-    const actualIntegrity = yield* computeIntegrity(archive);
-    if (actualIntegrity !== version.integrity) {
-      return yield* new SourceNetworkFailure({
-        detail: `Integrity mismatch for skill:${index.name}@${version.version}`,
-      });
-    }
+  }
+  const { archive } = yield* client.getExtensionPackage({
+    owner: index.owner,
+    type: index.type,
+    name: index.name,
+    exact: {
+      version: version.version,
+      integrity: version.integrity,
+      publisherBindingId: index.publisherBindingId,
+      lifecycleWarnings: extensionLifecycleWarnings(index, version),
+    },
+    usagePurpose: "verification",
+  });
+  const actualIntegrity = yield* computeIntegrity(archive);
+  if (actualIntegrity !== version.integrity) {
+    return yield* new SourceNetworkFailure({
+      detail: `Integrity mismatch for skill:${index.name}@${version.version}`,
+    });
+  }
 
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const gate = yield* AxmSkillCandidateGate;
-    const tmpDir = yield* Effect.acquireRelease(
-      fs.makeTempDirectory({ prefix: "axm-registry-compatibility-" }).pipe(
-        Effect.mapError(
-          (cause) =>
-            new SourceNetworkFailure({
-              detail: "Temporary compatibility-probe directory could not be created",
-              cause,
-            }),
-        ),
-      ),
-      (directory) => fs.remove(directory, { recursive: true }).pipe(Effect.ignore),
-    );
-    yield* extractExternalArchive(archive, "zip", tmpDir).pipe(
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const gate = yield* AxmSkillCandidateGate;
+  const tmpDir = yield* Effect.acquireRelease(
+    fs.makeTempDirectory({ prefix: "axm-registry-compatibility-" }).pipe(
       Effect.mapError(
         (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: "Registry archive cannot be materialized safely",
+          new SourceNetworkFailure({
+            detail: "Temporary compatibility-probe directory could not be created",
             cause,
           }),
       ),
-    );
-    const result = yield* gate.evaluate({
-      ref: ref.value,
-      packageRoot: tmpDir,
-      skillSourcePath: path.join(tmpDir, "src"),
+    ),
+    (directory) => fs.remove(directory, { recursive: true }).pipe(Effect.ignore),
+  );
+  yield* extractExternalArchive(archive, "zip", tmpDir).pipe(
+    Effect.mapError(
+      (cause) =>
+        new SourceNotResolvable({
+          category: "validation",
+          detail: "Registry archive cannot be materialized safely",
+          cause,
+        }),
+    ),
+  );
+  const result = yield* gate.evaluate({
+    ref: ref.value,
+    packageRoot: tmpDir,
+    skillSourcePath: path.join(tmpDir, "src"),
+  });
+  if (result === null) {
+    return yield* new SourceNotResolvable({
+      category: "internal",
+      detail: "Official AXM skill compatibility probe returned no result",
     });
-    if (result === null) {
-      return yield* new SourceNotResolvable({
-        category: "internal",
-        detail: "Official AXM skill compatibility probe returned no result",
-      });
-    }
-    return { result, ref: ref.value } as const;
-  }).pipe(withBufferedArchiveBudget);
+  }
+  return { result, ref: ref.value } as const;
+}, withBufferedArchiveBudget);
 
-const resolveNamedFromClient = (
+const resolveNamedFromClient = Effect.fnUntraced(function* (
   client: RegistryClient,
   source: RegistrySource,
   options: NamedRegistryFindOptions,
-): Effect.Effect<NamedRegistryResolution, SourceResolutionFailure, RegistryProviderRequirements> =>
-  Effect.gen(function* () {
-    const policy = yield* RegistryResolutionPolicy;
-    const indexOption = yield* readRegistryIndex(client, source, {
-      owner: options.owner,
-      type: options.type,
-      name: decodeExtensionNameSync(options.name),
-    });
-    const target = namedTarget(options);
-    if (Option.isNone(indexOption)) {
-      return { kind: "not_found", target } as const;
-    }
-    const index = indexOption.value;
+): Effect.fn.Return<
+  NamedRegistryResolution,
+  SourceResolutionFailure,
+  RegistryProviderRequirements
+> {
+  const policy = yield* RegistryResolutionPolicy;
+  const indexOption = yield* readRegistryIndex(client, source, {
+    owner: options.owner,
+    type: options.type,
+    name: decodeExtensionNameSync(options.name),
+  });
+  const target = namedTarget(options);
+  if (Option.isNone(indexOption)) {
+    return { kind: "not_found", target } as const;
+  }
+  const index = indexOption.value;
 
-    const decision = policy.decideNamedVersion(index, options);
-    switch (decision.kind) {
-      case "not_found":
-        return { kind: "not_found", target } as const;
-      case "version_unsatisfied":
-        return {
-          kind: "version_unsatisfied",
-          target,
-          requestedRange: decision.requestedRange,
-        } as const;
-      case "policy_held":
+  const decision = policy.decideNamedVersion(index, options);
+  switch (decision.kind) {
+    case "not_found":
+      return { kind: "not_found", target } as const;
+    case "version_unsatisfied":
+      return {
+        kind: "version_unsatisfied",
+        target,
+        requestedRange: decision.requestedRange,
+      } as const;
+    case "policy_held":
+      return {
+        kind: "policy_held",
+        target,
+        ...(decision.requestedRange === undefined
+          ? {}
+          : { requestedRange: decision.requestedRange }),
+        candidate: decision.candidate,
+      } as const;
+    case "selected":
+    case "exempted":
+      break;
+  }
+
+  if (isOfficialAxmSkill(options)) {
+    const requested = Option.getOrElse(options.versionRange, () => "*");
+    const exactRequest = semver.valid(requested) === requested;
+    const probeCandidate = (candidate: VersionEntry) =>
+      probeAxmSkillCompatibility(client, source, index, candidate).pipe(
+        Effect.map(Option.some),
+        Effect.catchIf(
+          (error) => !exactRequest && sourceResolutionFailureCategory(error) === "not_found",
+          () => Effect.succeed(Option.none()),
+        ),
+      );
+    let latestIncompatibility: string | null = null;
+    let latestRecoveryAction: string | null = null;
+    let latestRecoveryTarget: string | null = null;
+    for (const candidate of policy.namedCandidates(index, options)) {
+      const entry = yield* entryForVersion(index, candidate.version, target);
+      const probe = yield* probeCandidate(entry);
+      if (Option.isNone(probe)) continue;
+      const probed = probe.value;
+      if (candidate.outcome.kind === "held") {
+        if (probed.result.status === "incompatible") continue;
         return {
           kind: "policy_held",
           target,
-          ...(decision.requestedRange === undefined
-            ? {}
-            : { requestedRange: decision.requestedRange }),
-          candidate: decision.candidate,
-        } as const;
-      case "selected":
-      case "exempted":
-        break;
-    }
-
-    if (isOfficialAxmSkill(options)) {
-      const requested = Option.getOrElse(options.versionRange, () => "*");
-      const exactRequest = semver.valid(requested) === requested;
-      const probeCandidate = (candidate: VersionEntry) =>
-        probeAxmSkillCompatibility(client, source, index, candidate).pipe(
-          Effect.map(Option.some),
-          Effect.catchIf(
-            (error) => !exactRequest && sourceResolutionFailureCategory(error) === "not_found",
-            () => Effect.succeed(Option.none()),
-          ),
-        );
-      let latestIncompatibility: string | null = null;
-      let latestRecoveryAction: string | null = null;
-      let latestRecoveryTarget: string | null = null;
-      for (const candidate of policy.namedCandidates(index, options)) {
-        const entry = yield* entryForVersion(index, candidate.version, target);
-        const probe = yield* probeCandidate(entry);
-        if (Option.isNone(probe)) continue;
-        const probed = probe.value;
-        if (candidate.outcome.kind === "held") {
-          if (probed.result.status === "incompatible") continue;
-          return {
-            kind: "policy_held",
-            target,
-            ...(Option.isSome(options.versionRange)
-              ? { requestedRange: options.versionRange.value }
-              : {}),
-            candidate: candidate.outcome.candidate,
-          } as const;
-        }
-        if (probed.result.status === "incompatible") {
-          latestIncompatibility = probed.result.detail;
-          latestRecoveryAction = probed.result.recoveryCommand;
-          latestRecoveryTarget = probed.result.recoveryTarget;
-          continue;
-        }
-        if (candidate.outcome.kind === "exempted") {
-          return {
-            kind: "exempted",
-            target,
-            ref: probed.ref,
-            bypassed: candidate.outcome.bypassed,
-            exemption: candidate.outcome.exemption,
-          } as const;
-        }
-        return {
-          kind: "selected",
-          target,
-          ref: probed.ref,
-          ...(decision.kind === "selected" && decision.newerHeld !== undefined
-            ? { newerHeld: decision.newerHeld }
+          ...(Option.isSome(options.versionRange)
+            ? { requestedRange: options.versionRange.value }
             : {}),
+          candidate: candidate.outcome.candidate,
         } as const;
       }
-
-      if (exactRequest || latestIncompatibility !== null) {
-        return yield* new SourceNotResolvable({
-          category: "conflict",
-          detail:
-            latestIncompatibility ??
-            `The official AXM skill release ${requested} is incompatible with this AXM CLI.`,
-          recover:
-            latestRecoveryTarget === null
-              ? "Follow the compatibility recovery plan for the running CLI and official skill"
-              : `Converge to ${latestRecoveryTarget}`,
-          ...(latestRecoveryAction === null ? {} : { cmd: latestRecoveryAction }),
-        });
+      if (probed.result.status === "incompatible") {
+        latestIncompatibility = probed.result.detail;
+        latestRecoveryAction = probed.result.recoveryCommand;
+        latestRecoveryTarget = probed.result.recoveryTarget;
+        continue;
       }
-      return { kind: "not_found", target } as const;
-    }
-
-    const version = yield* entryForVersion(index, decision.version, target);
-    const manifest = manifestForVersion(index, version);
-    const ref = toExtensionRef(manifest, source);
-    if (Option.isNone(ref)) {
-      return yield* new SourceNotResolvable({
-        category: "internal",
-        detail: `Registry returned unsupported extension type for ${target}`,
-      });
-    }
-    const visible =
-      decision.newestVisible === undefined ? {} : { newestVisible: decision.newestVisible };
-    return decision.kind === "exempted"
-      ? ({
+      if (candidate.outcome.kind === "exempted") {
+        return {
           kind: "exempted",
           target,
-          ref: ref.value,
-          bypassed: decision.bypassed,
-          exemption: decision.exemption,
-          ...visible,
-        } as const)
-      : ({
-          kind: "selected",
-          target,
-          ref: ref.value,
-          ...(decision.newerHeld === undefined ? {} : { newerHeld: decision.newerHeld }),
-          ...visible,
-        } as const);
-  });
+          ref: probed.ref,
+          bypassed: candidate.outcome.bypassed,
+          exemption: candidate.outcome.exemption,
+        } as const;
+      }
+      return {
+        kind: "selected",
+        target,
+        ref: probed.ref,
+        ...(decision.kind === "selected" && decision.newerHeld !== undefined
+          ? { newerHeld: decision.newerHeld }
+          : {}),
+      } as const;
+    }
 
-const findOfficialAxmSkill = (
+    if (exactRequest || latestIncompatibility !== null) {
+      return yield* new SourceNotResolvable({
+        category: "conflict",
+        detail:
+          latestIncompatibility ??
+          `The official AXM skill release ${requested} is incompatible with this AXM CLI.`,
+        recover:
+          latestRecoveryTarget === null
+            ? "Follow the compatibility recovery plan for the running CLI and official skill"
+            : `Converge to ${latestRecoveryTarget}`,
+        ...(latestRecoveryAction === null ? {} : { cmd: latestRecoveryAction }),
+      });
+    }
+    return { kind: "not_found", target } as const;
+  }
+
+  const version = yield* entryForVersion(index, decision.version, target);
+  const manifest = manifestForVersion(index, version);
+  const ref = toExtensionRef(manifest, source);
+  if (Option.isNone(ref)) {
+    return yield* new SourceNotResolvable({
+      category: "internal",
+      detail: `Registry returned unsupported extension type for ${target}`,
+    });
+  }
+  const visible =
+    decision.newestVisible === undefined ? {} : { newestVisible: decision.newestVisible };
+  return decision.kind === "exempted"
+    ? ({
+        kind: "exempted",
+        target,
+        ref: ref.value,
+        bypassed: decision.bypassed,
+        exemption: decision.exemption,
+        ...visible,
+      } as const)
+    : ({
+        kind: "selected",
+        target,
+        ref: ref.value,
+        ...(decision.newerHeld === undefined ? {} : { newerHeld: decision.newerHeld }),
+        ...visible,
+      } as const);
+});
+
+const findOfficialAxmSkill = Effect.fnUntraced(function* (
   client: RegistryClient,
   source: RegistrySource,
   options: FindOptions,
-) =>
-  Effect.gen(function* () {
-    const owner = Option.getOrNull(Option.isSome(options.owner) ? options.owner : source.owner);
-    if (
-      owner !== "@agentxm" ||
-      options.type !== "skill" ||
-      options.names.length !== 1 ||
-      options.names[0] !== "axm"
-    ) {
-      return Option.none<ReadonlyArray<ExtensionRef>>();
-    }
-    const evaluatedAt = yield* DateTime.now;
-    const resolution = yield* resolveNamedFromClient(client, source, {
-      owner,
-      type: "skill",
-      name: "axm",
-      versionRange: options.versionRange,
-      releaseAgeEvaluation: {
-        minimumReleaseAge: Duration.zero,
-        evaluatedAt,
-        mode: "enforce",
-      },
-    });
-    return Option.some(resolution.kind === "selected" ? [resolution.ref] : []);
+) {
+  const owner = Option.getOrNull(Option.isSome(options.owner) ? options.owner : source.owner);
+  if (
+    owner !== "@agentxm" ||
+    options.type !== "skill" ||
+    options.names.length !== 1 ||
+    options.names[0] !== "axm"
+  ) {
+    return Option.none<ReadonlyArray<ExtensionRef>>();
+  }
+  const evaluatedAt = yield* DateTime.now;
+  const resolution = yield* resolveNamedFromClient(client, source, {
+    owner,
+    type: "skill",
+    name: "axm",
+    versionRange: options.versionRange,
+    releaseAgeEvaluation: {
+      minimumReleaseAge: Duration.zero,
+      evaluatedAt,
+      mode: "enforce",
+    },
   });
+  return Option.some(resolution.kind === "selected" ? [resolution.ref] : []);
+});
 
 const findWithVersionRange = (
   client: RegistryClient,
@@ -627,86 +628,88 @@ const toExtensionRef = (
 /** Map ExtensionRef type to ExtensionType. */
 const refRegistryType = (ref: ExtensionRef): ExtensionType => ref.type;
 
-const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
-  Effect.gen(function* () {
-    if (ref.refType !== "registry") {
-      return yield* new SourceNetworkFailure({
-        detail: "Ref missing registry details (owner, version, integrity)",
-      });
-    }
-
-    // The Registry serves the package under the ref's own name, which may
-    // differ from the workspace name its manifest gives it.
-    const { owner, version, integrity: expectedIntegrity, name } = ref;
-    const type = refRegistryType(ref);
-    const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
-
-    const packageArgs: GetExtensionPackageArgs = Option.match(expectedIntegrity, {
-      onNone: () => ({
-        owner,
-        type,
-        name,
-        version: Option.some(version),
-        onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
-      }),
-      onSome: (integrity) => ({
-        owner,
-        type,
-        name,
-        exact: {
-          version,
-          integrity,
-          publisherBindingId: ref.publisherBindingId,
-          ...(ref.lifecycleWarnings === undefined
-            ? {}
-            : { lifecycleWarnings: ref.lifecycleWarnings }),
-        },
-        onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
-      }),
+const fetchRegistryExtension = Effect.fnUntraced(function* (
+  client: RegistryClient,
+  ref: ExtensionRef,
+) {
+  if (ref.refType !== "registry") {
+    return yield* new SourceNetworkFailure({
+      detail: "Ref missing registry details (owner, version, integrity)",
     });
-    const { archive: archiveBytes, warnings } = yield* client.getExtensionPackage(packageArgs);
-    if (warnings !== undefined) {
-      yield* Effect.forEach(warnings, (warning) => Effect.logWarning(warning), {
-        discard: true,
+  }
+
+  // The Registry serves the package under the ref's own name, which may
+  // differ from the workspace name its manifest gives it.
+  const { owner, version, integrity: expectedIntegrity, name } = ref;
+  const type = refRegistryType(ref);
+  const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
+
+  const packageArgs: GetExtensionPackageArgs = Option.match(expectedIntegrity, {
+    onNone: () => ({
+      owner,
+      type,
+      name,
+      version: Option.some(version),
+      onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+    }),
+    onSome: (integrity) => ({
+      owner,
+      type,
+      name,
+      exact: {
+        version,
+        integrity,
+        publisherBindingId: ref.publisherBindingId,
+        ...(ref.lifecycleWarnings === undefined
+          ? {}
+          : { lifecycleWarnings: ref.lifecycleWarnings }),
+      },
+      onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+    }),
+  });
+  const { archive: archiveBytes, warnings } = yield* client.getExtensionPackage(packageArgs);
+  if (warnings !== undefined) {
+    yield* Effect.forEach(warnings, (warning) => Effect.logWarning(warning), {
+      discard: true,
+    });
+  }
+
+  if (Option.isSome(expectedIntegrity)) {
+    const actualIntegrity = yield* computeIntegrity(archiveBytes);
+    if (actualIntegrity !== expectedIntegrity.value) {
+      return yield* new SourceNetworkFailure({
+        detail: `Integrity mismatch for ${type}:${name}@${version}`,
       });
     }
+  }
 
-    if (Option.isSome(expectedIntegrity)) {
-      const actualIntegrity = yield* computeIntegrity(archiveBytes);
-      if (actualIntegrity !== expectedIntegrity.value) {
-        return yield* new SourceNetworkFailure({
-          detail: `Integrity mismatch for ${type}:${name}@${version}`,
-        });
-      }
-    }
-
-    const fs = yield* FileSystem.FileSystem;
-    const tmpDir = yield* Effect.acquireRelease(
-      fs.makeTempDirectory({ prefix: "axm-registry-package-" }).pipe(
-        Effect.mapError(
-          (e) =>
-            new SourceNetworkFailure({
-              detail: "Temporary source directory could not be created",
-              cause: e,
-            }),
-        ),
-      ),
-      (dir) => fs.remove(dir, { recursive: true }).pipe(Effect.ignore),
-    );
-
-    yield* extractExternalArchive(archiveBytes, "zip", tmpDir).pipe(
+  const fs = yield* FileSystem.FileSystem;
+  const tmpDir = yield* Effect.acquireRelease(
+    fs.makeTempDirectory({ prefix: "axm-registry-package-" }).pipe(
       Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: "Registry archive cannot be materialized safely",
-            cause,
+        (e) =>
+          new SourceNetworkFailure({
+            detail: "Temporary source directory could not be created",
+            cause: e,
           }),
       ),
-    );
+    ),
+    (dir) => fs.remove(dir, { recursive: true }).pipe(Effect.ignore),
+  );
 
-    return { directory: tmpDir } satisfies ExtensionFiles;
-  }).pipe(withBufferedArchiveBudget);
+  yield* extractExternalArchive(archiveBytes, "zip", tmpDir).pipe(
+    Effect.mapError(
+      (cause) =>
+        new SourceNotResolvable({
+          category: "validation",
+          detail: "Registry archive cannot be materialized safely",
+          cause,
+        }),
+    ),
+  );
+
+  return { directory: tmpDir } satisfies ExtensionFiles;
+}, withBufferedArchiveBudget);
 
 // -----------------------------------------------------------------------------
 // LocalRegistrySourceHostProvider
@@ -726,57 +729,56 @@ export const createLocalRegistrySourceHostProvider = (
 
   resolveNamed: (source, options) => resolveNamedFromClient(client, source, options),
 
-  find: (source, options) =>
-    Effect.gen(function* () {
-      const compatibleAxmSkill = yield* findOfficialAxmSkill(client, source, options);
-      if (Option.isSome(compatibleAxmSkill)) return compatibleAxmSkill.value;
+  find: Effect.fnUntraced(function* (source: RegistrySource, options: FindOptions) {
+    const compatibleAxmSkill = yield* findOfficialAxmSkill(client, source, options);
+    if (Option.isSome(compatibleAxmSkill)) return compatibleAxmSkill.value;
 
-      const fsService = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
-      const extensionsDir = pathService.join(fromFileLocation(source.location.href), "extensions");
-      const dirExists = yield* fsService
-        .exists(extensionsDir)
-        .pipe(Effect.orElseSucceed(() => false));
-      if (!dirExists) return [];
+    const fsService = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const extensionsDir = pathService.join(fromFileLocation(source.location.href), "extensions");
+    const dirExists = yield* fsService
+      .exists(extensionsDir)
+      .pipe(Effect.orElseSucceed(() => false));
+    if (!dirExists) return [];
 
-      const entries = yield* fsService
-        .readDirectory(extensionsDir)
-        .pipe(Effect.orElseSucceed((): readonly string[] => []));
-      const namespaces: ReadonlyArray<Handle> = Option.isSome(options.owner)
-        ? [options.owner.value]
-        : yield* Effect.forEach(
-            entries.filter((entry) => entry.startsWith("@")),
-            (entry) =>
-              Schema.decodeUnknownEffect(HandleSchema)(entry).pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new RegistryOperationFailed({
-                      category: "internal",
-                      detail: `Local registry contains an invalid owner directory: ${pathService.join(extensionsDir, entry)}`,
-                      cause,
-                    }),
-                ),
+    const entries = yield* fsService
+      .readDirectory(extensionsDir)
+      .pipe(Effect.orElseSucceed((): readonly string[] => []));
+    const namespaces: ReadonlyArray<Handle> = Option.isSome(options.owner)
+      ? [options.owner.value]
+      : yield* Effect.forEach(
+          entries.filter((entry) => entry.startsWith("@")),
+          (entry) =>
+            Schema.decodeUnknownEffect(HandleSchema)(entry).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new RegistryOperationFailed({
+                    category: "internal",
+                    detail: `Local registry contains an invalid owner directory: ${pathService.join(extensionsDir, entry)}`,
+                    cause,
+                  }),
               ),
+            ),
+        );
+
+    if (needsIndexBackedResolution(options)) {
+      return yield* findWithVersionRange(client, source, namespaces, options);
+    }
+
+    const results = yield* Effect.forEach(
+      namespaces,
+      (owner) =>
+        Effect.gen(function* () {
+          const result = yield* client.getExtensionsByScope(
+            toRegistrySearchOptions(owner, options),
           );
-
-      if (needsIndexBackedResolution(options)) {
-        return yield* findWithVersionRange(client, source, namespaces, options);
-      }
-
-      const results = yield* Effect.forEach(
-        namespaces,
-        (owner) =>
-          Effect.gen(function* () {
-            const result = yield* client.getExtensionsByScope(
-              toRegistrySearchOptions(owner, options),
-            );
-            return getSupportedExtensionRefs(result.extensions, source);
-          }),
-        // Each local scope scan owns its own twenty-read allowance.
-        { concurrency: 1 },
-      );
-      return results.flat();
-    }),
+          return getSupportedExtensionRefs(result.extensions, source);
+        }),
+      // Each local scope scan owns its own twenty-read allowance.
+      { concurrency: 1 },
+    );
+    return results.flat();
+  }),
 
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),
 });
@@ -802,20 +804,19 @@ export const createRemoteRegistrySourceHostProvider = (
 
   resolveNamed: (source, options) => resolveNamedFromClient(client, source, options),
 
-  find: (source, options) =>
-    Effect.gen(function* () {
-      const compatibleAxmSkill = yield* findOfficialAxmSkill(client, source, options);
-      if (Option.isSome(compatibleAxmSkill)) return compatibleAxmSkill.value;
+  find: Effect.fnUntraced(function* (source: RegistrySource, options: FindOptions) {
+    const compatibleAxmSkill = yield* findOfficialAxmSkill(client, source, options);
+    if (Option.isSome(compatibleAxmSkill)) return compatibleAxmSkill.value;
 
-      const owner: Handle | "*" = Option.isSome(options.owner) ? options.owner.value : "*";
-      if (needsIndexBackedResolution(options) && owner !== "*") {
-        return yield* findWithVersionRange(client, source, [owner], options);
-      }
-      const searchOptions =
-        owner === "*" ? toSearchOptions("*", options) : toRegistrySearchOptions(owner, options);
-      const result = yield* client.getExtensionsByScope(searchOptions);
-      return getSupportedExtensionRefs(result.extensions, source);
-    }),
+    const owner: Handle | "*" = Option.isSome(options.owner) ? options.owner.value : "*";
+    if (needsIndexBackedResolution(options) && owner !== "*") {
+      return yield* findWithVersionRange(client, source, [owner], options);
+    }
+    const searchOptions =
+      owner === "*" ? toSearchOptions("*", options) : toRegistrySearchOptions(owner, options);
+    const result = yield* client.getExtensionsByScope(searchOptions);
+    return getSupportedExtensionRefs(result.extensions, source);
+  }),
 
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),
 });
@@ -832,14 +833,15 @@ export const createRemoteRegistrySourceHostProvider = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createRegistrySourceHostProviderFromHost = (host: RegistrySourceHost) =>
-  Effect.gen(function* () {
-    const location = host.location;
-    const client = yield* (yield* RegistryClientFactory).forEndpoint(location);
+export const createRegistrySourceHostProviderFromHost = Effect.fnUntraced(function* (
+  host: RegistrySourceHost,
+) {
+  const location = host.location;
+  const client = yield* (yield* RegistryClientFactory).forEndpoint(location);
 
-    if (location.transport === "file") {
-      return createLocalRegistrySourceHostProvider(client);
-    }
+  if (location.transport === "file") {
+    return createLocalRegistrySourceHostProvider(client);
+  }
 
-    return createRemoteRegistrySourceHostProvider(client);
-  });
+  return createRemoteRegistrySourceHostProvider(client);
+});

@@ -228,103 +228,104 @@ export const SourceHostProvidersLive: Layer.Layer<
           ),
           Effect.withSpan("SourceHostProviders.resolveNamedRegistry"),
         ),
-      acquireForTransition: (ref) =>
-        Effect.gen(function* () {
-          yield* validatePlacement(ref);
-          const retained =
-            ref.refType !== "http" && ref.refType !== "git-hosted"
-              ? undefined
-              : yield* Effect.gen(function* () {
-                  const reader = yield* Effect.serviceOption(LockfileReader);
-                  const workspace = yield* Effect.serviceOption(WorkspaceLocation);
-                  if (Option.isNone(reader) || Option.isNone(workspace)) return undefined;
-                  const lock = yield* reader.value.lockfile.pipe(
-                    Effect.mapError(
-                      (cause) =>
-                        new SourceNotResolvable({
-                          category: "validation",
-                          detail: "Accepted package could not be read",
-                          cause,
-                        }),
-                    ),
-                  );
-                  const binding = retainedPackageBindings(lock).find(
-                    (entry) => entry.packageKey === retainedPackageKeyForRef(ref),
-                  );
-                  if (
-                    binding === undefined ||
-                    (ref.refType === "http"
-                      ? JSON.stringify(binding.entry.resolved) !== JSON.stringify(ref.snapshot)
-                      : !("commit" in binding.entry.resolved) ||
-                        binding.entry.resolved.commit !== ref.gitCommitSha ||
-                        binding.entry.resolved.tree !== ref.gitTreeSha)
-                  )
-                    return undefined;
-                  const layout = yield* Ref.get(workspace.value.layout);
-                  const canonicalPath = computeExtensionPathsForLayout(
-                    path.join,
-                    layout,
-                    ref,
-                    "skills",
-                    ref.name,
-                  ).canonicalPath;
-                  const componentPath = ref.distribution?.componentPath ?? ".";
-                  if (
-                    path.resolve(fromFileLocation(ref.location)) !==
-                    path.resolve(canonicalPath, componentPath)
-                  )
-                    return undefined;
-                  const integrity = yield* Effect.option(
-                    computeMaterializedTreeIntegrity(canonicalPath).pipe(Effect.provide(depLayer)),
-                  );
-                  if (Option.isNone(integrity) || integrity.value !== binding.entry.treeIntegrity)
-                    return undefined;
-                  return {
-                    directory: path.join(canonicalPath, componentPath),
-                    packageDirectory: canonicalPath,
-                    componentPath,
-                  };
-                });
-          const files = retained ?? (yield* fetchImpl(ref.source, ref));
-          if (ref.refType !== "local" && retained === undefined) return files;
-          // Path sources are mutable. The transition consumes captured bytes,
-          // while its normal under-lock freshness check still covers the path.
-          const directory = yield* Effect.acquireRelease(
-            fs.makeTempDirectory({ prefix: "axm-acquired-path-" }).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new SourceNetworkFailure({
-                    detail: "Temporary path-source directory could not be created",
-                    cause,
-                  }),
-              ),
+      acquireForTransition: Effect.fn("SourceHostProviders.acquireForTransition")(function* (
+        ref: ExtensionRef,
+      ) {
+        yield* validatePlacement(ref);
+        const retained =
+          ref.refType !== "http" && ref.refType !== "git-hosted"
+            ? undefined
+            : yield* Effect.gen(function* () {
+                const reader = yield* Effect.serviceOption(LockfileReader);
+                const workspace = yield* Effect.serviceOption(WorkspaceLocation);
+                if (Option.isNone(reader) || Option.isNone(workspace)) return undefined;
+                const lock = yield* reader.value.lockfile.pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new SourceNotResolvable({
+                        category: "validation",
+                        detail: "Accepted package could not be read",
+                        cause,
+                      }),
+                  ),
+                );
+                const binding = retainedPackageBindings(lock).find(
+                  (entry) => entry.packageKey === retainedPackageKeyForRef(ref),
+                );
+                if (
+                  binding === undefined ||
+                  (ref.refType === "http"
+                    ? JSON.stringify(binding.entry.resolved) !== JSON.stringify(ref.snapshot)
+                    : !("commit" in binding.entry.resolved) ||
+                      binding.entry.resolved.commit !== ref.gitCommitSha ||
+                      binding.entry.resolved.tree !== ref.gitTreeSha)
+                )
+                  return undefined;
+                const layout = yield* Ref.get(workspace.value.layout);
+                const canonicalPath = computeExtensionPathsForLayout(
+                  path.join,
+                  layout,
+                  ref,
+                  "skills",
+                  ref.name,
+                ).canonicalPath;
+                const componentPath = ref.distribution?.componentPath ?? ".";
+                if (
+                  path.resolve(fromFileLocation(ref.location)) !==
+                  path.resolve(canonicalPath, componentPath)
+                )
+                  return undefined;
+                const integrity = yield* Effect.option(
+                  computeMaterializedTreeIntegrity(canonicalPath).pipe(Effect.provide(depLayer)),
+                );
+                if (Option.isNone(integrity) || integrity.value !== binding.entry.treeIntegrity)
+                  return undefined;
+                return {
+                  directory: path.join(canonicalPath, componentPath),
+                  packageDirectory: canonicalPath,
+                  componentPath,
+                };
+              });
+        const files = retained ?? (yield* fetchImpl(ref.source, ref));
+        if (ref.refType !== "local" && retained === undefined) return files;
+        // Path sources are mutable. The transition consumes captured bytes,
+        // while its normal under-lock freshness check still covers the path.
+        const directory = yield* Effect.acquireRelease(
+          fs.makeTempDirectory({ prefix: "axm-acquired-path-" }).pipe(
+            Effect.mapError(
+              (cause) =>
+                new SourceNetworkFailure({
+                  detail: "Temporary path-source directory could not be created",
+                  cause,
+                }),
             ),
-            (scratch) => fs.remove(scratch, { recursive: true }).pipe(Effect.ignore),
-          );
-          yield* copyExtensionDirectory(files.packageDirectory ?? files.directory, directory).pipe(
-            Effect.provide(depLayer),
-            Effect.mapError((cause) =>
-              cause instanceof DirectoryCopyLimitExceeded
-                ? new SourceNotResolvable({
-                    category: "validation",
-                    detail: `Path-source content exceeds the ${cause.limit} ${cause.resource} copy limit`,
-                    cause,
-                  })
-                : new SourceNetworkFailure({
-                    detail: "Path-source content could not be captured",
-                    cause,
-                  }),
-            ),
-          );
-          return files.componentPath === undefined
-            ? { directory, scratchRoot: directory }
-            : {
-                directory: path.join(directory, files.componentPath),
-                packageDirectory: directory,
-                componentPath: files.componentPath,
-                scratchRoot: directory,
-              };
-        }).pipe(Effect.withSpan("SourceHostProviders.acquireForTransition")),
+          ),
+          (scratch) => fs.remove(scratch, { recursive: true }).pipe(Effect.ignore),
+        );
+        yield* copyExtensionDirectory(files.packageDirectory ?? files.directory, directory).pipe(
+          Effect.provide(depLayer),
+          Effect.mapError((cause) =>
+            cause instanceof DirectoryCopyLimitExceeded
+              ? new SourceNotResolvable({
+                  category: "validation",
+                  detail: `Path-source content exceeds the ${cause.limit} ${cause.resource} copy limit`,
+                  cause,
+                })
+              : new SourceNetworkFailure({
+                  detail: "Path-source content could not be captured",
+                  cause,
+                }),
+          ),
+        );
+        return files.componentPath === undefined
+          ? { directory, scratchRoot: directory }
+          : {
+              directory: path.join(directory, files.componentPath),
+              packageDirectory: directory,
+              componentPath: files.componentPath,
+              scratchRoot: directory,
+            };
+      }),
       // A fetch under the workspace transition is remote retrieval: it
       // consumes the acquired tree, and the transition refuses any the plan
       // did not select.

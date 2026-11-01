@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as PlatformError from "effect/PlatformError";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -622,6 +623,72 @@ const expectRegistrySubagentRef = (ref: ExtensionRef): RegistrySubagentRef => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.find", () => {
+  for (const reason of ["PermissionDenied", "Unknown", "NotFound"] as const) {
+    it.effect(`retains ${reason} semantics when local registry enumeration fails`, () => {
+      const registry = makeTestRegistry();
+      const provider = createLocalRegistrySourceHostProvider(
+        createMockClient({
+          getExtensionsByScope: () => Effect.die("Failed enumeration must not query a scope"),
+        }),
+      );
+      return runEffect(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const cause = PlatformError.systemError({
+            _tag: reason,
+            module: "FileSystem",
+            method: "readDirectory",
+            pathOrDescriptor: "extensions",
+          });
+          const observed = yield* provider
+            .find(registry.source, {
+              ...defaultFindOptions,
+              owner: Option.some(handle("@test")),
+            })
+            .pipe(
+              Effect.provideService(FileSystem.FileSystem, {
+                ...fs,
+                readDirectory: () => Effect.fail(cause),
+              }),
+              Effect.result,
+            );
+          if (reason === "NotFound") {
+            expect(observed).toMatchObject({ _tag: "Success", success: [] });
+          } else {
+            expect(observed._tag).toBe("Failure");
+            if (observed._tag === "Failure") {
+              expect(observed.failure).toMatchObject({
+                _tag: "RegistryOperationFailed",
+                category: "internal",
+                cause,
+                detail: expect.stringContaining("extensions"),
+              });
+            }
+          }
+        }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
+      );
+    });
+  }
+
+  it.effect("treats an invalid optional name as no match without an index lookup", () => {
+    const registry = makeTestRegistry();
+    const provider = createLocalRegistrySourceHostProvider(
+      createMockClient({
+        getExtensionIndex: () => Effect.die("Invalid optional names must not query an index"),
+      }),
+    );
+    return runEffect(
+      Effect.gen(function* () {
+        const result = yield* provider.find(registry.source, {
+          ...defaultFindOptions,
+          names: ["../invalid"],
+          versionRange: Option.some("*"),
+        });
+        expect(result).toEqual([]);
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
+    );
+  });
+
   it.effect("reports an invalid local owner before looking up any selected scope", () => {
     const registry = makeTestRegistry(["@test", "@bad-owner-"]);
     let lookups = 0;

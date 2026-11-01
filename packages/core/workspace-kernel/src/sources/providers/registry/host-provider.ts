@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 
-import { fromFileLocation } from "@agentxm/host-primitives";
+import { fromFileLocation, isNotFound } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
@@ -49,6 +49,7 @@ import {
 import { computeIntegrity } from "@agentxm/host-primitives";
 import {
   decodeExtensionNameSync,
+  ExtensionNameSchema,
   toExtensionTypePlural,
   toAuthor,
   type Author,
@@ -485,17 +486,16 @@ const findWithVersionRange = (
             Effect.forEach(
               requestedTypes,
               (type) =>
-                Effect.sync(() => {
-                  try {
-                    return decodeExtensionNameSync(name);
-                  } catch {
-                    return undefined;
-                  }
-                }).pipe(
+                Schema.decodeUnknownEffect(ExtensionNameSchema)(name).pipe(
+                  Effect.option,
                   Effect.flatMap((decodedName) =>
-                    decodedName === undefined
+                    Option.isNone(decodedName)
                       ? Effect.succeed(Option.none<RegistryExtensionManifest>())
-                      : readRegistryIndex(client, source, { owner, type, name: decodedName }).pipe(
+                      : readRegistryIndex(client, source, {
+                          owner,
+                          type,
+                          name: decodedName.value,
+                        }).pipe(
                           Effect.flatMap((indexOption) =>
                             Option.match(indexOption, {
                               onNone: () =>
@@ -736,14 +736,20 @@ export const createLocalRegistrySourceHostProvider = (
     const fsService = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
     const extensionsDir = pathService.join(fromFileLocation(source.location.href), "extensions");
-    const dirExists = yield* fsService
-      .exists(extensionsDir)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!dirExists) return [];
-
-    const entries = yield* fsService
-      .readDirectory(extensionsDir)
-      .pipe(Effect.orElseSucceed((): readonly string[] => []));
+    const directory = yield* fsService.readDirectory(extensionsDir).pipe(
+      Effect.map(Option.some),
+      Effect.catchIf(isNotFound, () => Effect.succeed(Option.none())),
+      Effect.mapError(
+        (cause) =>
+          new RegistryOperationFailed({
+            category: "internal",
+            detail: `Could not read local registry owner directories: ${extensionsDir}`,
+            cause,
+          }),
+      ),
+    );
+    if (Option.isNone(directory)) return [];
+    const entries = directory.value;
     const namespaces: ReadonlyArray<Handle> = Option.isSome(options.owner)
       ? [options.owner.value]
       : yield* Effect.forEach(

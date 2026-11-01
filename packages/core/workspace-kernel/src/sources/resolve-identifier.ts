@@ -3,6 +3,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 
 import {
   SourceNotResolvable,
@@ -14,7 +15,7 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
-  decodeExtensionNameSync,
+  ExtensionNameSchema,
   extensionTypePluralSentenceLabels,
   formatFqn,
   parseExtensionFqnParts,
@@ -81,20 +82,21 @@ const isIdentifierResourceType = (type: ExtensionType): type is IdentifierResour
   isInstallableExtensionType(type);
 
 const decodeName = (input: string) =>
-  Effect.try({
-    try: () => decodeExtensionNameSync(input),
-    catch: () =>
-      new SourceNotResolvable({
-        category: "not_found",
-        detail: `No ${input} identifier could be resolved`,
-        suggestions: [
-          {
-            description:
-              "Use a valid bare name, or use a fully-qualified name like @owner/skills/name.",
-          },
-        ],
-      }),
-  });
+  Schema.decodeUnknownEffect(ExtensionNameSchema)(input).pipe(
+    Effect.mapError(
+      () =>
+        new SourceNotResolvable({
+          category: "not_found",
+          detail: `No ${input} identifier could be resolved`,
+          suggestions: [
+            {
+              description:
+                "Use a valid bare name, or use a fully-qualified name like @owner/skills/name.",
+            },
+          ],
+        }),
+    ),
+  );
 
 const makeCandidate = (
   parts: IdentifierParts,

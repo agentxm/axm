@@ -71,24 +71,17 @@ const PluginManifest = Schema.Struct({
 /**
  * Read a file and parse as JSON, returning None on any failure.
  */
-const readDecodedJsonFile = <S extends Schema.Optic<unknown, unknown>>(
+const readDecodedJsonFile = Effect.fnUntraced(function* <S extends Schema.Optic<unknown, unknown>>(
   filePath: string,
   schema: S,
-): Effect.Effect<Option.Option<S["Type"]>, never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(Effect.option);
-    if (Option.isNone(content)) return Option.none();
-    const decode = Schema.decodeUnknownSync(Schema.fromJsonString(schema));
-
-    return yield* Effect.sync(() => {
-      try {
-        return Option.some(decode(content.value));
-      } catch {
-        return Option.none<S["Type"]>();
-      }
-    });
-  });
+): Effect.fn.Return<Option.Option<S["Type"]>, never, FileSystem.FileSystem> {
+  const fs = yield* FileSystem.FileSystem;
+  const content = yield* fs.readFileString(filePath).pipe(Effect.option);
+  if (Option.isNone(content)) return Option.none();
+  return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(schema))(content.value).pipe(
+    Effect.option,
+  );
+});
 
 /**
  * Validate a directory path from a manifest (not a skill path — no dirname).

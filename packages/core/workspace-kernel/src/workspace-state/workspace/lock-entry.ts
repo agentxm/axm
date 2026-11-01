@@ -9,11 +9,12 @@ import { fromFileLocation, toFileLocation } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import { LockEntryEndpointConflict, LockEntryNameInvalid } from "./errors.js";
 import type { WorkspaceRootEscape } from "../observed/errors.js";
 import type { SettingsReadError } from "../desired/settings/errors.js";
 import {
-  decodeExtensionNameSync,
+  ExtensionNameSchema,
   toExtensionTypePlural,
   type ExtensionName,
   type ExtensionTypePlural,
@@ -98,10 +99,9 @@ const localLockEntryPath = (deps: LockEntryToRefDeps, entryPath: string): string
 const invalidName = (name: string) => new LockEntryNameInvalid({ name });
 
 const decodeLockEntryName = (name: string): Effect.Effect<ExtensionName, LockEntryToRefError> =>
-  Effect.try({
-    try: () => decodeExtensionNameSync(name),
-    catch: () => invalidName(name),
-  });
+  Schema.decodeUnknownEffect(ExtensionNameSchema)(name).pipe(
+    Effect.mapError(() => invalidName(name)),
+  );
 
 const registrySourceFromEntry = (
   entry: Extract<LockEntry, { readonly source: { readonly type: "registry" } }>,

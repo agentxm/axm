@@ -17,7 +17,7 @@ import {
   lockEntryMatchesSourceLocator,
 } from "./lock-entry.js";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
-import { LockEntryEndpointConflict } from "./errors.js";
+import { LockEntryEndpointConflict, LockEntryNameInvalid } from "./errors.js";
 
 const entry = Schema.decodeUnknownSync(SkillLockEntrySchema)({
   source: {
@@ -73,6 +73,24 @@ it("derives Registry, Git, and local sources from accepted rows", () => {
 });
 
 describe("lock entry source authority", () => {
+  it.effect("rejects malformed aliases with the lock-entry name failure", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const failure = yield* lockEntryToRef
+        .skill("invalid name", entry, {
+          baseDir: "/workspace",
+          path,
+          scope: "project",
+          getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+        })
+        .pipe(Effect.flip);
+
+      expect(failure).toBeInstanceOf(LockEntryNameInvalid);
+      expect(failure).toMatchObject({ name: "invalid name" });
+      expect(failure).not.toHaveProperty("cause");
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("rehydrates Git directly from the self-describing URL", () =>
     Effect.gen(function* () {
       const path = yield* Path.Path;

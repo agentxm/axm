@@ -81,6 +81,31 @@ const writeRegistrySkill = (registryDir: string, ownerValue: string, nameValue: 
 };
 
 describe("resolveIdentifier", () => {
+  it.effect("reports malformed registry names with identifier recovery guidance", () =>
+    Effect.gen(function* () {
+      const failure = yield* provide(
+        resolveTestIdentifier({
+          input: "invalid name",
+          resourceType: "skill",
+          scope: "registry",
+        }),
+      ).pipe(Effect.flip);
+
+      expect(failure).toMatchObject({
+        _tag: "SourceNotResolvable",
+        category: "not_found",
+        detail: "No invalid name identifier could be resolved",
+        suggestions: [
+          {
+            description:
+              "Use a valid bare name, or use a fully-qualified name like @owner/skills/name.",
+          },
+        ],
+      });
+      expect(failure).not.toHaveProperty("cause");
+    }),
+  );
+
   it.effect(
     "preserves failed cache configuration instead of reporting a missing registry name",
     () =>

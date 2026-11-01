@@ -66,21 +66,43 @@ describe("lockfile", () => {
       Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest)),
     );
 
-  it.effect("refuses invalid programmatic aliases before replacing the file", () =>
-    run(
-      Effect.gen(function* () {
-        const target = path.join(root, "axm.lock");
-        const prior = "version = 1\n";
-        fs.writeFileSync(target, prior);
-        const failure = yield* writeLockfileAtPath(target, {
-          lockfileVersion: LOCKFILE_VERSION,
-          skills: Object.fromEntries([["__proto__", localEntry("/sources/review")]]),
-        }).pipe(Effect.flip);
-        expect(failure._tag).toBe("LockfileWriteError");
-        expect(fs.readFileSync(target, "utf8")).toBe(prior);
-      }),
-    ),
-  );
+  const lockfileWithUnrecognizedField: Lockfile & { readonly unrecognized: string } = {
+    lockfileVersion: LOCKFILE_VERSION,
+    skills: {},
+    unrecognized: "must not be silently discarded",
+  };
+
+  for (const { description, lockfile } of [
+    {
+      description: "invalid programmatic aliases",
+      lockfile: {
+        lockfileVersion: LOCKFILE_VERSION,
+        skills: Object.fromEntries([["__proto__", localEntry("/sources/review")]]),
+      },
+    },
+    {
+      description: "unrecognized programmatic fields",
+      lockfile: lockfileWithUnrecognizedField,
+    },
+  ] satisfies ReadonlyArray<{ readonly description: string; readonly lockfile: Lockfile }>) {
+    it.effect(`refuses ${description} before replacing the file`, () =>
+      run(
+        Effect.gen(function* () {
+          const target = path.join(root, "axm.lock");
+          const prior = "version = 1\n";
+          fs.writeFileSync(target, prior);
+          const failure = yield* writeLockfileAtPath(target, lockfile).pipe(Effect.flip);
+          expect(failure).toMatchObject({
+            _tag: "LockfileWriteError",
+            path: target,
+            step: "encode",
+            cause: { _tag: "SchemaError" },
+          });
+          expect(fs.readFileSync(target, "utf8")).toBe(prior);
+        }),
+      ),
+    );
+  }
 
   it.effect("writes only current accepted-resolution state", () =>
     run(

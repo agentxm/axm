@@ -68,21 +68,23 @@ const priorToolTables = (path: string, prior: string | undefined) =>
   });
 
 /** Encode the view and emit the whole canonical file, carrying tool tables forward. */
-const encodeLockfileToml = (
+const encodeLockfileToml = Effect.fnUntraced(function* (
   lockfilePath: string,
   lockfile: Lockfile,
   tool: ToolTables | undefined,
-) =>
-  Effect.gen(function* () {
-    const encoded = yield* Effect.try({
-      try: () => Schema.encodeSync(LockfileSchema)(lockfile, { onExcessProperty: "error" }),
-      catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "encode", cause }),
-    });
-    return yield* Effect.try({
-      try: () => emitLockfileToml(encoded, tool),
-      catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "serialize", cause }),
-    });
+) {
+  const encoded = yield* Schema.encodeEffect(LockfileSchema)(lockfile, {
+    onExcessProperty: "error",
+  }).pipe(
+    Effect.mapError(
+      (cause) => new LockfileWriteError({ path: lockfilePath, step: "encode", cause }),
+    ),
+  );
+  return yield* Effect.try({
+    try: () => emitLockfileToml(encoded, tool),
+    catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "serialize", cause }),
   });
+});
 
 const patchOptionalMap = <T>(
   fresh: Readonly<Record<string, T>> | undefined,

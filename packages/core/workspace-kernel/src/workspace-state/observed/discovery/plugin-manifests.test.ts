@@ -343,6 +343,27 @@ describe("parsePluginManifests", () => {
     );
   });
 
+  it.effect("keeps a valid sibling manifest when the marketplace shape is invalid", () =>
+    withFileSystem(
+      Effect.gen(function* () {
+        const pluginDir = path.join(tempDir, ".claude-plugin");
+        fs.mkdirSync(pluginDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(pluginDir, "marketplace.json"),
+          JSON.stringify({ plugins: [{ source: "./invalid", skills: [42] }] }),
+        );
+        fs.writeFileSync(
+          path.join(pluginDir, "plugin.json"),
+          JSON.stringify({ skills: ["./tools/valid-skill"] }),
+        );
+
+        const result = yield* parsePluginManifests(tempDir);
+
+        expect(result).toEqual([path.resolve(tempDir, "tools")]);
+      }),
+    ),
+  );
+
   describe("path traversal rejected", () => {
     it.effect("excludes marketplace plugins with source containing ..", () =>
       withFileSystem(

@@ -68,39 +68,38 @@ export const CurrentWorkspaceClosure = ServiceMap.Reference<string | undefined>(
 );
 
 /** Claim the content referent before any shared-file decision read. */
-export const claimWorkspaceContent = (
+export const claimWorkspaceContent = Effect.fnUntraced(function* (
   target: string,
-): Effect.Effect<void, WorkspaceSnapshotError> =>
-  Effect.gen(function* () {
-    const current = yield* CurrentWorkspaceTransaction;
-    if (Option.isNone(current)) return;
-    const context = current.value;
-    const resolve = assertNativeMutationWithinRoots(
-      context.nativeRoots,
+): Effect.fn.Return<void, WorkspaceSnapshotError> {
+  const current = yield* CurrentWorkspaceTransaction;
+  if (Option.isNone(current)) return;
+  const context = current.value;
+  const resolve = assertNativeMutationWithinRoots(
+    context.nativeRoots,
+    target,
+    "content",
+    context.path.dirname(context.workspaceDir),
+    context.nativeRootWitnesses,
+  ).pipe(
+    Effect.provideService(FileSystem.FileSystem, context.fs),
+    Effect.provideService(Path.Path, context.path),
+    Effect.mapError(
+      (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
+    ),
+  );
+  const before = yield* resolve;
+  yield* context.claims.claim([before.address.referentPath ?? before.address.entryPath]);
+  const after = yield* resolve;
+  if (
+    (before.address.referentPath ?? before.address.entryPath) !==
+    (after.address.referentPath ?? after.address.entryPath)
+  )
+    return yield* new WorkspaceSnapshotError({
       target,
-      "content",
-      context.path.dirname(context.workspaceDir),
-      context.nativeRootWitnesses,
-    ).pipe(
-      Effect.provideService(FileSystem.FileSystem, context.fs),
-      Effect.provideService(Path.Path, context.path),
-      Effect.mapError(
-        (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
-      ),
-    );
-    const before = yield* resolve;
-    yield* context.claims.claim([before.address.referentPath ?? before.address.entryPath]);
-    const after = yield* resolve;
-    if (
-      (before.address.referentPath ?? before.address.entryPath) !==
-      (after.address.referentPath ?? after.address.entryPath)
-    )
-      return yield* new WorkspaceSnapshotError({
-        target,
-        step: "inspect-target",
-        cause: "native-alias-changed",
-      });
-  });
+      step: "inspect-target",
+      cause: "native-alias-changed",
+    });
+});
 
 /**
  * Take one target's preimage into the ledger, deduplicating on first touch
@@ -357,62 +356,64 @@ export const protectInContext = (
   );
 
 /** Capture a completed AXM mutation, independently of whether output recording is enabled. */
-export const recordWorkspacePostimage = (target: string): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    const current = yield* CurrentWorkspaceTransaction;
-    if (Option.isNone(current)) return;
-    const context = current.value;
-    const closure = yield* CurrentWorkspaceClosure;
-    const { fs, path } = context;
-    const address = yield* resolveNativeEntry(target).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-      Effect.option,
-    );
-    // Unresolvable state can never become authority to overwrite it during rollback.
-    if (Option.isNone(address)) return;
-    yield* SynchronizedRef.updateEffect(context.ledger, (ledger) =>
-      Effect.gen(function* () {
-        const actual = yield* observePathState(fs, path, address.value.entryPath);
-        const snapshots: Array<Snapshot> = [];
-        for (const snapshot of ledger.snapshots) {
-          const relative = path.relative(snapshot.target, address.value.entryPath);
-          if (snapshot.closure === closure && isRelativeWithin(path, relative)) {
-            const expected = new Map(replacePathState(path, snapshot.expected, relative, actual));
-            // Recursive creation adds ancestor entries too. Observe only each
-            // directory entry, never absorb unrecorded siblings into AXM's delta.
-            if (relative !== "" && actual.get("") !== "absent") {
-              let parent = path.dirname(address.value.entryPath);
-              while (
-                parent === snapshot.target ||
-                parent.startsWith(`${snapshot.target}${path.sep}`)
-              ) {
-                const key = path.relative(snapshot.target, parent);
-                if (expected.get(key) === undefined || expected.get(key) === "absent") {
-                  const parentState = yield* observePathState(fs, path, parent);
-                  const entry = parentState.get("");
-                  if (entry !== undefined) expected.set(key, entry);
-                }
-                if (parent === snapshot.target) break;
-                parent = path.dirname(parent);
+export const recordWorkspacePostimage = Effect.fnUntraced(function* (
+  target: string,
+): Effect.fn.Return<void> {
+  const current = yield* CurrentWorkspaceTransaction;
+  if (Option.isNone(current)) return;
+  const context = current.value;
+  const closure = yield* CurrentWorkspaceClosure;
+  const { fs, path } = context;
+  const address = yield* resolveNativeEntry(target).pipe(
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
+    Effect.option,
+  );
+  // Unresolvable state can never become authority to overwrite it during rollback.
+  if (Option.isNone(address)) return;
+  yield* SynchronizedRef.updateEffect(context.ledger, (ledger) =>
+    Effect.gen(function* () {
+      const actual = yield* observePathState(fs, path, address.value.entryPath);
+      const snapshots: Array<Snapshot> = [];
+      for (const snapshot of ledger.snapshots) {
+        const relative = path.relative(snapshot.target, address.value.entryPath);
+        if (snapshot.closure === closure && isRelativeWithin(path, relative)) {
+          const expected = new Map(replacePathState(path, snapshot.expected, relative, actual));
+          // Recursive creation adds ancestor entries too. Observe only each
+          // directory entry, never absorb unrecorded siblings into AXM's delta.
+          if (relative !== "" && actual.get("") !== "absent") {
+            let parent = path.dirname(address.value.entryPath);
+            while (
+              parent === snapshot.target ||
+              parent.startsWith(`${snapshot.target}${path.sep}`)
+            ) {
+              const key = path.relative(snapshot.target, parent);
+              if (expected.get(key) === undefined || expected.get(key) === "absent") {
+                const parentState = yield* observePathState(fs, path, parent);
+                const entry = parentState.get("");
+                if (entry !== undefined) expected.set(key, entry);
               }
+              if (parent === snapshot.target) break;
+              parent = path.dirname(parent);
             }
-            snapshots.push({ ...snapshot, expected });
-          } else snapshots.push(snapshot);
-        }
-        return { ...ledger, snapshots };
-      }),
-    );
-  });
+          }
+          snapshots.push({ ...snapshot, expected });
+        } else snapshots.push(snapshot);
+      }
+      return { ...ledger, snapshots };
+    }),
+  );
+});
 
 /** Snapshot a path before its first mutation when a workspace transaction is active. */
-export const protectWorkspacePath = (target: string): Effect.Effect<void, WorkspaceSnapshotError> =>
-  Effect.gen(function* () {
-    const current = yield* CurrentWorkspaceTransaction;
-    if (Option.isNone(current)) return;
-    const closure = yield* CurrentWorkspaceClosure;
-    yield* protectInContext(current.value, target, closure);
-  });
+export const protectWorkspacePath = Effect.fnUntraced(function* (
+  target: string,
+): Effect.fn.Return<void, WorkspaceSnapshotError> {
+  const current = yield* CurrentWorkspaceTransaction;
+  if (Option.isNone(current)) return;
+  const closure = yield* CurrentWorkspaceClosure;
+  yield* protectInContext(current.value, target, closure);
+});
 
 /**
  * Protect the first ancestor a recursive directory creation is about to

@@ -31,13 +31,14 @@ export class FootprintRecorder extends ServiceMap.Service<
 >()("@agentxm/workspace-kernel/settlement/FootprintRecorder") {}
 
 /** Record one observed durable change. No-op without a recorder. */
-export const recordFootprint = (observation: FootprintObservation): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    if (observation.change !== "restored") yield* recordWorkspacePostimage(observation.path);
-    const service = yield* Effect.serviceOption(FootprintRecorder);
-    if (Option.isNone(service)) return;
-    yield* Ref.update(service.value.ref, (entries) => [...entries, observation]);
-  });
+export const recordFootprint = Effect.fnUntraced(function* (
+  observation: FootprintObservation,
+): Effect.fn.Return<void> {
+  if (observation.change !== "restored") yield* recordWorkspacePostimage(observation.path);
+  const service = yield* Effect.serviceOption(FootprintRecorder);
+  if (Option.isNone(service)) return;
+  yield* Ref.update(service.value.ref, (entries) => [...entries, observation]);
+});
 
 /** Every durable change observed so far by the operation's recorder. */
 export const readFootprint: Effect.Effect<

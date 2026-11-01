@@ -273,220 +273,219 @@ const withoutHeld = (registry: HeldRegistry, workspaceDir: string): HeldRegistry
  * another invocation holds it. Resolves `None` when acquired (the release is
  * a scope finalizer) and `Some(contention)` when the bound elapsed.
  */
-const acquireWorkspaceTransitionLock = (
+const acquireWorkspaceTransitionLock = Effect.fnUntraced(function* (
   registry: Ref.Ref<HeldRegistry>,
   args: AcquireWorkspaceTransitionArgs,
-): Effect.Effect<
+): Effect.fn.Return<
   Option.Option<TransitionContention>,
   WorkspaceTransitionAcquireFailure,
   FileSystem.FileSystem | Path.Path | Scope.Scope | NativeEntryRemoval
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const workspaceDir = path.resolve(args.workspaceDir);
-    const nativeRoot = path.resolve(args.nativeRoot ?? path.dirname(workspaceDir));
-    const scratchDir = path.join(workspaceDir, "tmp");
-    const lockPath = path.join(scratchDir, TRANSITION_LOCK_FILENAME);
-    const waitBound = args.waitBoundMillis ?? TRANSITION_WAIT_BOUND_MILLIS;
-    const createdDirectories = yield* Ref.make<ReadonlyArray<ContainerIdentity>>([]);
-    const remember = (identity: ContainerIdentity) =>
-      Ref.update(createdDirectories, (current) => [
-        ...current.filter((entry) => entry.physicalPath !== identity.physicalPath),
-        identity,
-      ]);
-    const removeCreatedDirectories = Effect.flatMap(
-      Ref.get(createdDirectories),
-      removeEmptyRuntimeDirectories,
-    );
-    // Registered before acquisition: release runs first, then empty-only
-    // cleanup also covers interruption during the contention wait.
-    yield* Effect.addFinalizer(() => removeCreatedDirectories);
+> {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const workspaceDir = path.resolve(args.workspaceDir);
+  const nativeRoot = path.resolve(args.nativeRoot ?? path.dirname(workspaceDir));
+  const scratchDir = path.join(workspaceDir, "tmp");
+  const lockPath = path.join(scratchDir, TRANSITION_LOCK_FILENAME);
+  const waitBound = args.waitBoundMillis ?? TRANSITION_WAIT_BOUND_MILLIS;
+  const createdDirectories = yield* Ref.make<ReadonlyArray<ContainerIdentity>>([]);
+  const remember = (identity: ContainerIdentity) =>
+    Ref.update(createdDirectories, (current) => [
+      ...current.filter((entry) => entry.physicalPath !== identity.physicalPath),
+      identity,
+    ]);
+  const removeCreatedDirectories = Effect.flatMap(
+    Ref.get(createdDirectories),
+    removeEmptyRuntimeDirectories,
+  );
+  // Registered before acquisition: release runs first, then empty-only
+  // cleanup also covers interruption during the contention wait.
+  yield* Effect.addFinalizer(() => removeCreatedDirectories);
 
-    const compromisedSignal = Deferred.makeUnsafe<never, WorkspaceTransitionCompromised>();
-    let waitedMillis = 0;
-    let reportedWaiting = false;
-    while (true) {
-      // The previous holder removes an empty scratch directory when it
-      // releases. Recreate it before every attempt so that a waiter can
-      // acquire after that cleanup instead of mistaking ENOENT for a hold.
-      yield* createWorkspaceDirectories({
-        nativeRoot,
-        identityOwnerRoot: nativeRoot,
-        workspaceDir,
-        target: scratchDir,
-        record: remember,
-      });
-      // One attempt is atomic with respect to interruption: from the library
-      // granting the hold through finalizer registration there is no
-      // interruptible gap, so an interrupt requested mid-acquisition defers
-      // until the release finalizer exists and then releases through it. The
-      // mask stays narrow — a single no-retry grant plus local metadata —
-      // and the contention wait below remains interruptible.
-      const attempt = yield* Effect.uninterruptible(
-        Effect.gen(function* () {
-          const granted = yield* Effect.tryPromise({
-            try: () =>
-              lockfile.lock(workspaceDir, {
-                lockfilePath: lockPath,
-                realpath: false,
-                retries: 0,
-                fs: lockDirectoryFs,
-                stale: args.timingMillis?.stale ?? LOCK_STALE_MILLIS,
-                update: args.timingMillis?.update ?? LOCK_UPDATE_MILLIS,
-                // The default handler throws inside a timer: an uncatchable
-                // crash that sprays raw frames on stderr. Complete the typed
-                // compromise signal instead — the workspace transaction races
-                // against it and never continues mutating after ownership is
-                // lost.
-                onCompromised: (cause) => {
-                  Deferred.doneUnsafe(
-                    compromisedSignal,
-                    Effect.fail(
-                      new WorkspaceTransitionCompromised({ workspaceDir, lockPath, cause }),
-                    ),
-                  );
-                },
-              }),
-            catch: (cause) => ({ cause, code: errorCode(cause) }),
-          }).pipe(Effect.result);
-          if (granted._tag === "Failure") {
-            if (isContentionErrorCode(granted.failure.code)) {
-              return { _tag: "held" } as const;
-            }
-            return {
-              _tag: "failed",
-              error: new TransitionLockError({
-                path: lockPath,
-                step: "acquire",
-                cause: granted.failure.cause,
-              }),
-            } as const;
-          }
-          const release = granted.success;
-          const token = randomBytes(16).toString("hex");
-          const holderStamped = yield* writeHolder(fs, path, lockPath, {
-            ...args.holder,
-            token,
-          }).pipe(Effect.result);
-          if (holderStamped._tag === "Failure") {
-            // The holder metadata is the only ownership evidence this
-            // acquisition will ever have; holding without it would be
-            // indistinguishable from a successor's half-written acquisition.
-            // Release the lock and fail rather than hold anonymously.
-            yield* Effect.tryPromise({
-              try: () => release(),
-              catch: (cause) => new TransitionLockError({ path: lockPath, step: "release", cause }),
-            }).pipe(Effect.ignore);
-            return { _tag: "failed", error: holderStamped.failure } as const;
-          }
-          yield* Ref.update(registry, (current) =>
-            withHeld(current, workspaceDir, {
-              compromised: Deferred.await(compromisedSignal),
-              isCompromised: () => Deferred.isDoneUnsafe(compromisedSignal),
-              createdDirectories: Ref.get(createdDirectories),
+  const compromisedSignal = Deferred.makeUnsafe<never, WorkspaceTransitionCompromised>();
+  let waitedMillis = 0;
+  let reportedWaiting = false;
+  while (true) {
+    // The previous holder removes an empty scratch directory when it
+    // releases. Recreate it before every attempt so that a waiter can
+    // acquire after that cleanup instead of mistaking ENOENT for a hold.
+    yield* createWorkspaceDirectories({
+      nativeRoot,
+      identityOwnerRoot: nativeRoot,
+      workspaceDir,
+      target: scratchDir,
+      record: remember,
+    });
+    // One attempt is atomic with respect to interruption: from the library
+    // granting the hold through finalizer registration there is no
+    // interruptible gap, so an interrupt requested mid-acquisition defers
+    // until the release finalizer exists and then releases through it. The
+    // mask stays narrow — a single no-retry grant plus local metadata —
+    // and the contention wait below remains interruptible.
+    const attempt = yield* Effect.uninterruptible(
+      Effect.gen(function* () {
+        const granted = yield* Effect.tryPromise({
+          try: () =>
+            lockfile.lock(workspaceDir, {
+              lockfilePath: lockPath,
+              realpath: false,
+              retries: 0,
+              fs: lockDirectoryFs,
+              stale: args.timingMillis?.stale ?? LOCK_STALE_MILLIS,
+              update: args.timingMillis?.update ?? LOCK_UPDATE_MILLIS,
+              // The default handler throws inside a timer: an uncatchable
+              // crash that sprays raw frames on stderr. Complete the typed
+              // compromise signal instead — the workspace transaction races
+              // against it and never continues mutating after ownership is
+              // lost.
+              onCompromised: (cause) => {
+                Deferred.doneUnsafe(
+                  compromisedSignal,
+                  Effect.fail(
+                    new WorkspaceTransitionCompromised({ workspaceDir, lockPath, cause }),
+                  ),
+                );
+              },
             }),
-          );
-          yield* Effect.addFinalizer(() =>
-            Effect.gen(function* () {
-              yield* Ref.update(registry, (current) => withoutHeld(current, workspaceDir));
-              // Removal requires an exact owner-token match, proven before
-              // release() — which would remove the directory unconditionally.
-              // Absent or unreadable holder metadata is indistinguishable from
-              // a successor that reclaimed the stale hold but has not yet
-              // written its holder file, and is never license to remove; the
-              // unowned in-process bookkeeping self-resolves as compromised on
-              // its next update tick without touching the directory.
-              const residualHolder = yield* readHolder(fs, path, lockPath);
-              const ownsResidual = Option.match(residualHolder, {
-                onNone: () => false,
-                onSome: (value) => value.token === token,
-              });
-              if (ownsResidual) {
-                const released = yield* Effect.tryPromise({
-                  try: () => release(),
-                  catch: (cause) =>
-                    new TransitionLockError({ path: lockPath, step: "release", cause }),
-                }).pipe(Effect.result);
-                // A compromised hold makes release() refuse; the directory is
-                // removable only if the same token is still observable. A
-                // successful release may already have admitted a successor.
-                if (
-                  released._tag === "Failure" &&
-                  Option.exists(
-                    yield* readHolder(fs, path, lockPath),
-                    (value) => value.token === token,
-                  )
-                ) {
-                  yield* Effect.tryPromise(
-                    () =>
-                      new Promise<void>((resolve, reject) =>
-                        lockDirectoryFs.rmdir(lockPath, (cause) =>
-                          cause === null ? resolve() : reject(cause),
-                        ),
+          catch: (cause) => ({ cause, code: errorCode(cause) }),
+        }).pipe(Effect.result);
+        if (granted._tag === "Failure") {
+          if (isContentionErrorCode(granted.failure.code)) {
+            return { _tag: "held" } as const;
+          }
+          return {
+            _tag: "failed",
+            error: new TransitionLockError({
+              path: lockPath,
+              step: "acquire",
+              cause: granted.failure.cause,
+            }),
+          } as const;
+        }
+        const release = granted.success;
+        const token = randomBytes(16).toString("hex");
+        const holderStamped = yield* writeHolder(fs, path, lockPath, {
+          ...args.holder,
+          token,
+        }).pipe(Effect.result);
+        if (holderStamped._tag === "Failure") {
+          // The holder metadata is the only ownership evidence this
+          // acquisition will ever have; holding without it would be
+          // indistinguishable from a successor's half-written acquisition.
+          // Release the lock and fail rather than hold anonymously.
+          yield* Effect.tryPromise({
+            try: () => release(),
+            catch: (cause) => new TransitionLockError({ path: lockPath, step: "release", cause }),
+          }).pipe(Effect.ignore);
+          return { _tag: "failed", error: holderStamped.failure } as const;
+        }
+        yield* Ref.update(registry, (current) =>
+          withHeld(current, workspaceDir, {
+            compromised: Deferred.await(compromisedSignal),
+            isCompromised: () => Deferred.isDoneUnsafe(compromisedSignal),
+            createdDirectories: Ref.get(createdDirectories),
+          }),
+        );
+        yield* Effect.addFinalizer(() =>
+          Effect.gen(function* () {
+            yield* Ref.update(registry, (current) => withoutHeld(current, workspaceDir));
+            // Removal requires an exact owner-token match, proven before
+            // release() — which would remove the directory unconditionally.
+            // Absent or unreadable holder metadata is indistinguishable from
+            // a successor that reclaimed the stale hold but has not yet
+            // written its holder file, and is never license to remove; the
+            // unowned in-process bookkeeping self-resolves as compromised on
+            // its next update tick without touching the directory.
+            const residualHolder = yield* readHolder(fs, path, lockPath);
+            const ownsResidual = Option.match(residualHolder, {
+              onNone: () => false,
+              onSome: (value) => value.token === token,
+            });
+            if (ownsResidual) {
+              const released = yield* Effect.tryPromise({
+                try: () => release(),
+                catch: (cause) =>
+                  new TransitionLockError({ path: lockPath, step: "release", cause }),
+              }).pipe(Effect.result);
+              // A compromised hold makes release() refuse; the directory is
+              // removable only if the same token is still observable. A
+              // successful release may already have admitted a successor.
+              if (
+                released._tag === "Failure" &&
+                Option.exists(
+                  yield* readHolder(fs, path, lockPath),
+                  (value) => value.token === token,
+                )
+              ) {
+                yield* Effect.tryPromise(
+                  () =>
+                    new Promise<void>((resolve, reject) =>
+                      lockDirectoryFs.rmdir(lockPath, (cause) =>
+                        cause === null ? resolve() : reject(cause),
                       ),
-                  ).pipe(Effect.ignore);
-                }
+                    ),
+                ).pipe(Effect.ignore);
               }
-            }),
-          );
-          // A previous command persisted these proofs in the same receipt
-          // store. Keep them in this hold even if withdrawal retires the
-          // final receipt before the lock directory itself can disappear.
-          const stored = yield* readContainerReceipts(workspaceDir).pipe(
-            Effect.mapError(
-              (cause) => new TransitionLockError({ path: workspaceDir, step: "acquire", cause }),
-            ),
-          );
-          for (const identity of stored.createdDirectories) {
-            const runtimeAncestor =
-              identity.target !== nativeRoot &&
-              (workspaceDir === identity.target ||
-                workspaceDir.startsWith(`${identity.target}${path.sep}`));
-            if (
-              identity.nativeRoot !== nativeRoot ||
-              identity.ownerRoot !== path.dirname(workspaceDir) ||
-              (identity.identityOwnerRoot !== nativeRoot &&
-                identity.identityOwnerRoot !== path.dirname(workspaceDir)) ||
-              (!runtimeAncestor && identity.target !== scratchDir)
-            )
-              continue;
-            if (
-              yield* verifyContainerIdentity(identity, {
-                nativeRoot,
-                ownerRoot: identity.ownerRoot,
-                identityOwnerRoot: identity.identityOwnerRoot,
-                target: identity.target,
-              })
-            )
-              yield* remember(identity);
-          }
-          return { _tag: "acquired" } as const;
-        }),
-      );
-      if (attempt._tag === "acquired") {
-        return Option.none<TransitionContention>();
-      }
-      if (attempt._tag === "failed") {
-        yield* removeCreatedDirectories;
-        return yield* attempt.error;
-      }
-      // The lock is held: serialize behind the holder with a visible reason,
-      // up to the bound — the loser serializes or times out into a
-      // categorized blocked, never an internal crash.
-      const holder = yield* readHolder(fs, path, lockPath);
-      if (!reportedWaiting && args.onWaiting !== undefined) {
-        reportedWaiting = true;
-        yield* args.onWaiting(holder);
-      }
-      if (waitedMillis >= waitBound) {
-        yield* removeCreatedDirectories;
-        return Option.some({ holder, waitedMillis });
-      }
-      yield* Effect.sleep(WAIT_INTERVAL);
-      waitedMillis += Duration.toMillis(WAIT_INTERVAL);
+            }
+          }),
+        );
+        // A previous command persisted these proofs in the same receipt
+        // store. Keep them in this hold even if withdrawal retires the
+        // final receipt before the lock directory itself can disappear.
+        const stored = yield* readContainerReceipts(workspaceDir).pipe(
+          Effect.mapError(
+            (cause) => new TransitionLockError({ path: workspaceDir, step: "acquire", cause }),
+          ),
+        );
+        for (const identity of stored.createdDirectories) {
+          const runtimeAncestor =
+            identity.target !== nativeRoot &&
+            (workspaceDir === identity.target ||
+              workspaceDir.startsWith(`${identity.target}${path.sep}`));
+          if (
+            identity.nativeRoot !== nativeRoot ||
+            identity.ownerRoot !== path.dirname(workspaceDir) ||
+            (identity.identityOwnerRoot !== nativeRoot &&
+              identity.identityOwnerRoot !== path.dirname(workspaceDir)) ||
+            (!runtimeAncestor && identity.target !== scratchDir)
+          )
+            continue;
+          if (
+            yield* verifyContainerIdentity(identity, {
+              nativeRoot,
+              ownerRoot: identity.ownerRoot,
+              identityOwnerRoot: identity.identityOwnerRoot,
+              target: identity.target,
+            })
+          )
+            yield* remember(identity);
+        }
+        return { _tag: "acquired" } as const;
+      }),
+    );
+    if (attempt._tag === "acquired") {
+      return Option.none<TransitionContention>();
     }
-  });
+    if (attempt._tag === "failed") {
+      yield* removeCreatedDirectories;
+      return yield* attempt.error;
+    }
+    // The lock is held: serialize behind the holder with a visible reason,
+    // up to the bound — the loser serializes or times out into a
+    // categorized blocked, never an internal crash.
+    const holder = yield* readHolder(fs, path, lockPath);
+    if (!reportedWaiting && args.onWaiting !== undefined) {
+      reportedWaiting = true;
+      yield* args.onWaiting(holder);
+    }
+    if (waitedMillis >= waitBound) {
+      yield* removeCreatedDirectories;
+      return Option.some({ holder, waitedMillis });
+    }
+    yield* Effect.sleep(WAIT_INTERVAL);
+    waitedMillis += Duration.toMillis(WAIT_INTERVAL);
+  }
+});
 
 /**
  * One process-lock instance over `proper-lockfile`, with its own registry of

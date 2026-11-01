@@ -25,150 +25,143 @@ import { equalPathStates, observePathState } from "./path-state.js";
  * The existing transaction keeps the original entry, including filesystem
  * identity, until commit. No authority is inferred from reaching this function.
  */
-export const retireWorkspacePath = (
+export const retireWorkspacePath = Effect.fnUntraced(function* (
   target: string,
   options?: { readonly emptyOnly: boolean },
-): Effect.Effect<
+): Effect.fn.Return<
   void,
   WorkspaceSnapshotError,
   FileSystem.FileSystem | Path.Path | NativeEntryRemoval
-> =>
-  Effect.uninterruptible(
+> {
+  const fs = yield* FileSystem.FileSystem;
+  const removal = yield* NativeEntryRemoval;
+  const path = yield* Path.Path;
+  const current = yield* CurrentWorkspaceTransaction;
+  const closure = yield* CurrentWorkspaceClosure;
+  if (Option.isNone(current)) {
+    const failure = (cause: unknown) => new WorkspaceSnapshotError({ target, step: "copy", cause });
+    if (options?.emptyOnly === true)
+      yield* removal.removeEmptyDirectory(target).pipe(Effect.mapError(failure));
+    else yield* fs.remove(target, { recursive: true, force: false }).pipe(Effect.mapError(failure));
+    yield* recordFootprint({ path: target, change: "removed" });
+    return;
+  }
+  const context = current.value;
+  yield* protectInContext(context, target, closure);
+  yield* SynchronizedRef.updateEffect(context.ledger, (ledger) =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const removal = yield* NativeEntryRemoval;
-      const path = yield* Path.Path;
-      const current = yield* CurrentWorkspaceTransaction;
-      const closure = yield* CurrentWorkspaceClosure;
-      if (Option.isNone(current)) {
-        const failure = (cause: unknown) =>
-          new WorkspaceSnapshotError({ target, step: "copy", cause });
-        if (options?.emptyOnly === true)
-          yield* removal.removeEmptyDirectory(target).pipe(Effect.mapError(failure));
-        else
-          yield* fs
-            .remove(target, { recursive: true, force: false })
-            .pipe(Effect.mapError(failure));
-        yield* recordFootprint({ path: target, change: "removed" });
-        return;
-      }
-      const context = current.value;
-      yield* protectInContext(context, target, closure);
-      yield* SynchronizedRef.updateEffect(context.ledger, (ledger) =>
-        Effect.gen(function* () {
-          const selected = yield* assertNativeMutationWithinRoots(
-            context.nativeRoots,
-            target,
-            "entry",
-            path.dirname(context.workspaceDir),
-            context.nativeRootWitnesses,
-          );
-          const address = selected.address;
-          const owner = ledger.snapshots.find(
-            (snapshot) =>
-              snapshot.closure === closure &&
-              (address.entryPath === snapshot.target ||
-                address.entryPath.startsWith(`${snapshot.target}${path.sep}`)),
-          );
-          if (owner === undefined)
-            return yield* new WorkspaceSnapshotError({
-              target,
-              step: "inspect-target",
-              cause: "unprotected-retirement",
-            });
-          const actual = yield* observePathState(fs, path, owner.target);
-          if (!equalPathStates(actual, owner.expected))
-            return yield* new WorkspaceSnapshotError({
-              target,
-              step: "inspect-target",
-              cause: "foreign-change",
-            });
-          if (address.kind === "absent") return ledger;
-          const original = yield* observePathState(fs, path, address.entryPath);
-          if (options?.emptyOnly === true && (address.kind !== "directory" || original.size !== 1))
-            return yield* new WorkspaceSnapshotError({
-              target,
-              step: "inspect-target",
-              cause: "directory-not-empty",
-            });
-          // Keep the quarantine outside the retired subtree on its own device.
-          // Walking toward the authorized native root stops at a mount boundary.
-          const nativeRoot = yield* resolveNativeReferent(selected.nativeRoot);
-          const workspaceRoot = yield* resolveNativeReferent(context.nativeRoot);
-          const separateRoot = nativeRoot !== workspaceRoot;
-          if (address.entryPath === nativeRoot && (!separateRoot || options?.emptyOnly !== true))
-            return yield* new WorkspaceSnapshotError({
-              target,
-              step: "inspect-target",
-              cause: "cannot-retire-authority-root",
-            });
-          let anchor = separateRoot ? path.dirname(nativeRoot) : path.dirname(address.entryPath);
-          const device = (yield* fs.stat(anchor)).dev;
-          while (!separateRoot && anchor !== nativeRoot) {
-            const parent = path.dirname(anchor);
-            if (parent === anchor || (yield* fs.stat(parent)).dev !== device) break;
-            anchor = parent;
-          }
-          if (anchor === owner.target || anchor.startsWith(`${owner.target}${path.sep}`)) {
-            return yield* new WorkspaceSnapshotError({
-              target,
-              step: "inspect-target",
-              cause: "retirement-needs-separate-boundary",
-            });
-          }
-          const store = yield* fs.makeTempDirectory({ directory: anchor, prefix: ".axm-retired-" });
-          const backup = path.join(store, "entry");
-          const storeIdentity = (yield* observePathState(fs, path, store)).get("");
-          if (storeIdentity === undefined || !storeIdentity.startsWith("directory:"))
-            return yield* new WorkspaceSnapshotError({
-              target: store,
-              step: "create-store",
-              cause: "retirement-store-unreadable",
-            });
-          yield* Effect.gen(function* () {
-            const fresh = yield* assertNativeMutationWithinRoots(
-              context.nativeRoots,
-              target,
-              "entry",
-              path.dirname(context.workspaceDir),
-              context.nativeRootWitnesses,
-            );
-            if (
-              fresh.address.entryPath !== address.entryPath ||
-              !equalPathStates(yield* observePathState(fs, path, address.entryPath), original)
-            )
-              return yield* new WorkspaceSnapshotError({
-                target,
-                step: "inspect-target",
-                cause: "foreign-change",
-              });
-            yield* fs.rename(address.entryPath, backup);
-          }).pipe(Effect.onError(() => removal.removeEmptyDirectory(store).pipe(Effect.ignore)));
-          return {
-            ...ledger,
-            snapshots: ledger.snapshots.map((snapshot) =>
-              snapshot === owner
-                ? {
-                    ...snapshot,
-                    retirements: [
-                      ...(snapshot.retirements ?? []),
-                      { target: address.entryPath, backup, original, storeIdentity },
-                    ],
-                  }
-                : snapshot,
-            ),
-          };
-        }).pipe(
-          Effect.mapError((cause) =>
-            cause instanceof WorkspaceSnapshotError
-              ? cause
-              : new WorkspaceSnapshotError({ target, step: "copy", cause }),
-          ),
-        ),
+      const selected = yield* assertNativeMutationWithinRoots(
+        context.nativeRoots,
+        target,
+        "entry",
+        path.dirname(context.workspaceDir),
+        context.nativeRootWitnesses,
       );
-      yield* recordFootprint({ path: target, change: "removed" });
-    }),
+      const address = selected.address;
+      const owner = ledger.snapshots.find(
+        (snapshot) =>
+          snapshot.closure === closure &&
+          (address.entryPath === snapshot.target ||
+            address.entryPath.startsWith(`${snapshot.target}${path.sep}`)),
+      );
+      if (owner === undefined)
+        return yield* new WorkspaceSnapshotError({
+          target,
+          step: "inspect-target",
+          cause: "unprotected-retirement",
+        });
+      const actual = yield* observePathState(fs, path, owner.target);
+      if (!equalPathStates(actual, owner.expected))
+        return yield* new WorkspaceSnapshotError({
+          target,
+          step: "inspect-target",
+          cause: "foreign-change",
+        });
+      if (address.kind === "absent") return ledger;
+      const original = yield* observePathState(fs, path, address.entryPath);
+      if (options?.emptyOnly === true && (address.kind !== "directory" || original.size !== 1))
+        return yield* new WorkspaceSnapshotError({
+          target,
+          step: "inspect-target",
+          cause: "directory-not-empty",
+        });
+      // Keep the quarantine outside the retired subtree on its own device.
+      // Walking toward the authorized native root stops at a mount boundary.
+      const nativeRoot = yield* resolveNativeReferent(selected.nativeRoot);
+      const workspaceRoot = yield* resolveNativeReferent(context.nativeRoot);
+      const separateRoot = nativeRoot !== workspaceRoot;
+      if (address.entryPath === nativeRoot && (!separateRoot || options?.emptyOnly !== true))
+        return yield* new WorkspaceSnapshotError({
+          target,
+          step: "inspect-target",
+          cause: "cannot-retire-authority-root",
+        });
+      let anchor = separateRoot ? path.dirname(nativeRoot) : path.dirname(address.entryPath);
+      const device = (yield* fs.stat(anchor)).dev;
+      while (!separateRoot && anchor !== nativeRoot) {
+        const parent = path.dirname(anchor);
+        if (parent === anchor || (yield* fs.stat(parent)).dev !== device) break;
+        anchor = parent;
+      }
+      if (anchor === owner.target || anchor.startsWith(`${owner.target}${path.sep}`)) {
+        return yield* new WorkspaceSnapshotError({
+          target,
+          step: "inspect-target",
+          cause: "retirement-needs-separate-boundary",
+        });
+      }
+      const store = yield* fs.makeTempDirectory({ directory: anchor, prefix: ".axm-retired-" });
+      const backup = path.join(store, "entry");
+      const storeIdentity = (yield* observePathState(fs, path, store)).get("");
+      if (storeIdentity === undefined || !storeIdentity.startsWith("directory:"))
+        return yield* new WorkspaceSnapshotError({
+          target: store,
+          step: "create-store",
+          cause: "retirement-store-unreadable",
+        });
+      yield* Effect.gen(function* () {
+        const fresh = yield* assertNativeMutationWithinRoots(
+          context.nativeRoots,
+          target,
+          "entry",
+          path.dirname(context.workspaceDir),
+          context.nativeRootWitnesses,
+        );
+        if (
+          fresh.address.entryPath !== address.entryPath ||
+          !equalPathStates(yield* observePathState(fs, path, address.entryPath), original)
+        )
+          return yield* new WorkspaceSnapshotError({
+            target,
+            step: "inspect-target",
+            cause: "foreign-change",
+          });
+        yield* fs.rename(address.entryPath, backup);
+      }).pipe(Effect.onError(() => removal.removeEmptyDirectory(store).pipe(Effect.ignore)));
+      return {
+        ...ledger,
+        snapshots: ledger.snapshots.map((snapshot) =>
+          snapshot === owner
+            ? {
+                ...snapshot,
+                retirements: [
+                  ...(snapshot.retirements ?? []),
+                  { target: address.entryPath, backup, original, storeIdentity },
+                ],
+              }
+            : snapshot,
+        ),
+      };
+    }).pipe(
+      Effect.mapError((cause) =>
+        cause instanceof WorkspaceSnapshotError
+          ? cause
+          : new WorkspaceSnapshotError({ target, step: "copy", cause }),
+      ),
+    ),
   );
+  yield* recordFootprint({ path: target, change: "removed" });
+}, Effect.uninterruptible);
 
 /** Cleanup is part of settlement; a modified retained original is preserved. */
 export const cleanupRetirements = (
@@ -220,29 +213,28 @@ export const cleanupRetirements = (
   );
 
 /** Report only preimages that remain present after attempted restoration. */
-export const recoveryEntries = (
+export const recoveryEntries = Effect.fnUntraced(function* (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   snapshots: ReadonlyArray<Snapshot>,
-): Effect.Effect<ReadonlyArray<WorkspaceRecoveryEntry>> =>
-  Effect.gen(function* () {
-    const entries: Array<WorkspaceRecoveryEntry> = [];
-    for (const snapshot of snapshots) {
-      if (snapshot.state === "copied")
+): Effect.fn.Return<ReadonlyArray<WorkspaceRecoveryEntry>> {
+  const entries: Array<WorkspaceRecoveryEntry> = [];
+  for (const snapshot of snapshots) {
+    if (snapshot.state === "copied")
+      entries.push({
+        originalPath: snapshot.target,
+        recoveryPath: snapshot.backup,
+        kind: "snapshot",
+      });
+    for (const original of snapshot.retirements ?? []) {
+      if ((yield* observePathState(fs, path, original.backup)).get("") !== "absent") {
         entries.push({
-          originalPath: snapshot.target,
-          recoveryPath: snapshot.backup,
-          kind: "snapshot",
+          originalPath: original.target,
+          recoveryPath: original.backup,
+          kind: "retired-entry",
         });
-      for (const original of snapshot.retirements ?? []) {
-        if ((yield* observePathState(fs, path, original.backup)).get("") !== "absent") {
-          entries.push({
-            originalPath: original.target,
-            recoveryPath: original.backup,
-            kind: "retired-entry",
-          });
-        }
       }
     }
-    return entries;
-  });
+  }
+  return entries;
+});

@@ -199,196 +199,197 @@ export const pendingClosureRestorations: Effect.Effect<
  * active transaction joins it: its targets are protected in the active
  * closure and its failure is the outer transaction's to restore.
  */
-export const runFilesystemTransaction = <A, E, R>(
+export const runFilesystemTransaction = Effect.fnUntraced(function* <A, E, R>(
   scope: FilesystemTransactionRuntime,
   args: WorkspaceTransactionArgs<A, E, R>,
-): Effect.Effect<A, WorkspaceTransactionFailure | WorkspaceRestorationIncomplete | E, R> =>
-  Effect.gen(function* () {
-    const targets = [
-      ...(args.claimDefaultTargets === false ? [] : [scope.settingsPath, scope.lockPath]),
-      ...(args.targets ?? []),
-    ];
-    const current = yield* CurrentWorkspaceTransaction;
-    if (Option.isSome(current)) {
-      const activeClosure = yield* CurrentWorkspaceClosure;
-      yield* Effect.forEach(
-        normalizedTargets(current.value.path, targets),
-        (target) => protectInContext(current.value, target, activeClosure),
-        { discard: true },
-      );
-      const value = yield* args.transition;
-      yield* args.validate(value);
-      return value;
-    }
-
-    const { fs, path } = scope;
-    const workspaceDir = path.resolve(scope.workspaceDir);
-    yield* assertNativeMutationWithin(
-      scope.nativeRoot ?? path.dirname(workspaceDir),
-      workspaceDir,
-      "content",
-      path.dirname(workspaceDir),
-    ).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-      Effect.mapError(
-        (cause) => new WorkspaceDirectoryError({ path: workspaceDir, step: "inspect", cause }),
-      ),
+): Effect.fn.Return<A, WorkspaceTransactionFailure | WorkspaceRestorationIncomplete | E, R> {
+  const targets = [
+    ...(args.claimDefaultTargets === false ? [] : [scope.settingsPath, scope.lockPath]),
+    ...(args.targets ?? []),
+  ];
+  const current = yield* CurrentWorkspaceTransaction;
+  if (Option.isSome(current)) {
+    const activeClosure = yield* CurrentWorkspaceClosure;
+    yield* Effect.forEach(
+      normalizedTargets(current.value.path, targets),
+      (target) => protectInContext(current.value, target, activeClosure),
+      { discard: true },
     );
-    return yield* scope.admission.withPermits(1)(
-      Effect.gen(function* () {
-        return yield* Effect.scoped(
-          Effect.gen(function* () {
-            // The invocation-level transition hold already provides
-            // cross-process exclusion; acquiring here again would deadlock on
-            // our own lock.
-            if (Option.isNone(yield* scope.held)) {
-              const contention = yield* scope.acquire({ command: "workspace-transaction" });
-              if (Option.isSome(contention)) {
-                return yield* new TransitionLockUnavailable({
-                  holder: Option.getOrUndefined(contention.value.holder),
-                  waitedMillis: contention.value.waitedMillis,
-                });
-              }
-            }
-            const held = Option.getOrUndefined(yield* scope.held);
-            const claims = yield* makeBoundaryClaims(
-              workspaceDir,
-              scope.boundaryClaimsDirectory,
-            ).pipe(
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-              Effect.provideService(NativeEntryRemoval, scope.removal),
-            );
-            const isCompromised = () => claims.isCompromised() || (held?.isCompromised() ?? false);
-            const ledger = yield* SynchronizedRef.make(emptyLedger);
-            const context: WorkspaceTransactionContext = {
-              isTransitionCompromised: isCompromised,
-              claims,
-              fs,
-              path,
-              workspaceDir,
-              nativeRoot: scope.nativeRoot ?? path.dirname(workspaceDir),
-              nativeRoots: scope.nativeRoots ?? [scope.nativeRoot ?? path.dirname(workspaceDir)],
-              nativeRootWitnesses: scope.nativeRootWitnesses,
-              ledger,
-            };
-            // The store is removed only when nothing in it is still needed:
-            // a closure whose rollback failed leaves its pre-change
-            // snapshots preserved for manual recovery, and the typed
-            // restoration fact names this directory.
-            const removeSnapshotStore = SynchronizedRef.get(ledger).pipe(
-              Effect.flatMap((state) =>
-                state.snapshotDir === undefined || state.pendingRestorations.length > 0
-                  ? Effect.void
-                  : fs
-                      .remove(state.snapshotDir, { recursive: true, force: true })
-                      .pipe(Effect.ignore),
-              ),
-            );
-            // The compromise signal of the hold serializing this mutation:
-            // the invocation-level hold when one exists, else the one just
-            // acquired above. Mutation races against it and stops when
-            // ownership is lost.
+    const value = yield* args.transition;
+    yield* args.validate(value);
+    return value;
+  }
 
-            // Interruptible like the business side: the race runs inside the
-            // uninterruptible rollback guard, and its loser must be
-            // interruptible for the race to settle.
-            const compromiseSignal = Effect.raceFirst(
-              held === undefined ? Effect.never : held.compromised,
-              claims.compromised,
-            ).pipe(Effect.interruptible);
-            const transitionCompromised = isCompromised;
-            const business = Effect.gen(function* () {
-              // The transaction's own declared targets belong to the
-              // operation closure: no semantic closure is active yet.
-              yield* Effect.forEach(
-                normalizedTargets(path, targets),
-                (target) => protectInContext(context, target, undefined),
-                { discard: true },
-              );
-              const value = yield* args.transition;
-              yield* args.validate(value);
-              return value;
-            }).pipe(
-              Effect.provideService(CurrentWorkspaceTransaction, Option.some(context)),
-              Effect.interruptible,
-            );
-
-            const retainAll = (cause: Cause.Cause<unknown>, restorationCause: unknown) =>
-              Effect.gen(function* () {
-                const state = yield* SynchronizedRef.get(ledger);
-                const interruption = Cause.hasInterruptsOnly(cause);
-                return yield* new WorkspaceRestorationIncomplete({
-                  terminationCause: interruption ? "interruption" : "failure",
-                  transitionCause: cause,
-                  restorationCause,
-                  snapshotDir: state.snapshotDir,
-                  recovery: [
-                    ...(yield* recoveryEntries(fs, path, state.snapshots)),
-                    ...state.pendingRestorations.flatMap((failure) => failure.recovery),
-                  ],
-                  retained: (restorationCause instanceof WorkspaceRestorationError &&
-                  restorationCause.retained !== undefined
-                    ? restorationCause.retained
-                    : state.snapshots.map((snapshot) => snapshot.target)
-                  ).map((target) => workspaceRelative(path, workspaceDir, target)),
-                });
+  const { fs, path } = scope;
+  const workspaceDir = path.resolve(scope.workspaceDir);
+  yield* assertNativeMutationWithin(
+    scope.nativeRoot ?? path.dirname(workspaceDir),
+    workspaceDir,
+    "content",
+    path.dirname(workspaceDir),
+  ).pipe(
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
+    Effect.mapError(
+      (cause) => new WorkspaceDirectoryError({ path: workspaceDir, step: "inspect", cause }),
+    ),
+  );
+  return yield* scope.admission.withPermits(1)(
+    Effect.gen(function* () {
+      return yield* Effect.scoped(
+        Effect.gen(function* () {
+          // The invocation-level transition hold already provides
+          // cross-process exclusion; acquiring here again would deadlock on
+          // our own lock.
+          if (Option.isNone(yield* scope.held)) {
+            const contention = yield* scope.acquire({ command: "workspace-transaction" });
+            if (Option.isSome(contention)) {
+              return yield* new TransitionLockUnavailable({
+                holder: Option.getOrUndefined(contention.value.holder),
+                waitedMillis: contention.value.waitedMillis,
               });
+            }
+          }
+          const held = Option.getOrUndefined(yield* scope.held);
+          const claims = yield* makeBoundaryClaims(
+            workspaceDir,
+            scope.boundaryClaimsDirectory,
+          ).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+            Effect.provideService(NativeEntryRemoval, scope.removal),
+          );
+          const isCompromised = () => claims.isCompromised() || (held?.isCompromised() ?? false);
+          const ledger = yield* SynchronizedRef.make(emptyLedger);
+          const context: WorkspaceTransactionContext = {
+            isTransitionCompromised: isCompromised,
+            claims,
+            fs,
+            path,
+            workspaceDir,
+            nativeRoot: scope.nativeRoot ?? path.dirname(workspaceDir),
+            nativeRoots: scope.nativeRoots ?? [scope.nativeRoot ?? path.dirname(workspaceDir)],
+            nativeRootWitnesses: scope.nativeRootWitnesses,
+            ledger,
+          };
+          // The store is removed only when nothing in it is still needed:
+          // a closure whose rollback failed leaves its pre-change
+          // snapshots preserved for manual recovery, and the typed
+          // restoration fact names this directory.
+          const removeSnapshotStore = SynchronizedRef.get(ledger).pipe(
+            Effect.flatMap((state) =>
+              state.snapshotDir === undefined || state.pendingRestorations.length > 0
+                ? Effect.void
+                : fs
+                    .remove(state.snapshotDir, { recursive: true, force: true })
+                    .pipe(Effect.ignore),
+            ),
+          );
+          // The compromise signal of the hold serializing this mutation:
+          // the invocation-level hold when one exists, else the one just
+          // acquired above. Mutation races against it and stops when
+          // ownership is lost.
 
-            // The mask/restore shape is load-bearing: the business runs in
-            // the restored (interruptible) region so an external termination
-            // request reaches it, while the settlement handlers — rollback,
-            // verification, and the typed retain path — run uninterruptibly
-            // and observe the interruption as a cause. A blanket mask would
-            // never deliver the interrupt to the parked business and the
-            // invocation could not stop.
-            return yield* Effect.uninterruptibleMask((restoreInterruptibility) =>
-              restoreInterruptibility(Effect.raceFirst(business, compromiseSignal)).pipe(
-                Effect.matchCauseEffect({
-                  onFailure: (cause) => {
-                    const raceError = Option.getOrUndefined(Cause.findErrorOption(cause));
-                    if (raceError instanceof WorkspaceTransitionCompromised) {
-                      // Ownership is lost: restoring now could overwrite a
-                      // successor's work. Retain everything the failure left,
-                      // keep the snapshots, and fail typed.
-                      return retainAll(cause, raceError);
-                    }
-                    return (args.onRestorationStarted ?? Effect.void)
-                      .pipe(
-                        Effect.andThen(SynchronizedRef.get(ledger)),
-                        Effect.flatMap((state) =>
-                          restoreAll(fs, path, state.snapshots, transitionCompromised).pipe(
-                            Effect.andThen(verifySnapshots(fs, path, state.snapshots)),
-                            Effect.andThen(cleanupRetirements(fs, path, state.snapshots)),
-                          ),
-                        ),
-                      )
-                      .pipe(
-                        Effect.matchEffect({
-                          onFailure: (restorationCause) => retainAll(cause, restorationCause),
-                          onSuccess: () =>
-                            removeSnapshotStore.pipe(Effect.andThen(Effect.failCause(cause))),
-                        }),
-                      );
-                  },
-                  onSuccess: (value) =>
-                    SynchronizedRef.get(ledger).pipe(
-                      Effect.flatMap((state) =>
-                        state.pendingRestorations.length > 0
-                          ? Effect.void
-                          : cleanupRetirements(fs, path, state.snapshots),
-                      ),
-                      Effect.matchEffect({
-                        onFailure: (cause) => retainAll(Cause.fail(cause), cause),
-                        onSuccess: () => removeSnapshotStore.pipe(Effect.as(value)),
-                      }),
-                    ),
-                }),
-              ),
+          // Interruptible like the business side: the race runs inside the
+          // uninterruptible rollback guard, and its loser must be
+          // interruptible for the race to settle.
+          const compromiseSignal = Effect.raceFirst(
+            held === undefined ? Effect.never : held.compromised,
+            claims.compromised,
+          ).pipe(Effect.interruptible);
+          const transitionCompromised = isCompromised;
+          const business = Effect.gen(function* () {
+            // The transaction's own declared targets belong to the
+            // operation closure: no semantic closure is active yet.
+            yield* Effect.forEach(
+              normalizedTargets(path, targets),
+              (target) => protectInContext(context, target, undefined),
+              { discard: true },
             );
-          }),
-        );
-      }),
-    );
-  });
+            const value = yield* args.transition;
+            yield* args.validate(value);
+            return value;
+          }).pipe(
+            Effect.provideService(CurrentWorkspaceTransaction, Option.some(context)),
+            Effect.interruptible,
+          );
+
+          const retainAll = Effect.fnUntraced(function* (
+            cause: Cause.Cause<unknown>,
+            restorationCause: unknown,
+          ) {
+            const state = yield* SynchronizedRef.get(ledger);
+            const interruption = Cause.hasInterruptsOnly(cause);
+            return yield* new WorkspaceRestorationIncomplete({
+              terminationCause: interruption ? "interruption" : "failure",
+              transitionCause: cause,
+              restorationCause,
+              snapshotDir: state.snapshotDir,
+              recovery: [
+                ...(yield* recoveryEntries(fs, path, state.snapshots)),
+                ...state.pendingRestorations.flatMap((failure) => failure.recovery),
+              ],
+              retained: (restorationCause instanceof WorkspaceRestorationError &&
+              restorationCause.retained !== undefined
+                ? restorationCause.retained
+                : state.snapshots.map((snapshot) => snapshot.target)
+              ).map((target) => workspaceRelative(path, workspaceDir, target)),
+            });
+          });
+
+          // The mask/restore shape is load-bearing: the business runs in
+          // the restored (interruptible) region so an external termination
+          // request reaches it, while the settlement handlers — rollback,
+          // verification, and the typed retain path — run uninterruptibly
+          // and observe the interruption as a cause. A blanket mask would
+          // never deliver the interrupt to the parked business and the
+          // invocation could not stop.
+          return yield* Effect.uninterruptibleMask((restoreInterruptibility) =>
+            restoreInterruptibility(Effect.raceFirst(business, compromiseSignal)).pipe(
+              Effect.matchCauseEffect({
+                onFailure: (cause) => {
+                  const raceError = Option.getOrUndefined(Cause.findErrorOption(cause));
+                  if (raceError instanceof WorkspaceTransitionCompromised) {
+                    // Ownership is lost: restoring now could overwrite a
+                    // successor's work. Retain everything the failure left,
+                    // keep the snapshots, and fail typed.
+                    return retainAll(cause, raceError);
+                  }
+                  return (args.onRestorationStarted ?? Effect.void)
+                    .pipe(
+                      Effect.andThen(SynchronizedRef.get(ledger)),
+                      Effect.flatMap((state) =>
+                        restoreAll(fs, path, state.snapshots, transitionCompromised).pipe(
+                          Effect.andThen(verifySnapshots(fs, path, state.snapshots)),
+                          Effect.andThen(cleanupRetirements(fs, path, state.snapshots)),
+                        ),
+                      ),
+                    )
+                    .pipe(
+                      Effect.matchEffect({
+                        onFailure: (restorationCause) => retainAll(cause, restorationCause),
+                        onSuccess: () =>
+                          removeSnapshotStore.pipe(Effect.andThen(Effect.failCause(cause))),
+                      }),
+                    );
+                },
+                onSuccess: (value) =>
+                  SynchronizedRef.get(ledger).pipe(
+                    Effect.flatMap((state) =>
+                      state.pendingRestorations.length > 0
+                        ? Effect.void
+                        : cleanupRetirements(fs, path, state.snapshots),
+                    ),
+                    Effect.matchEffect({
+                      onFailure: (cause) => retainAll(Cause.fail(cause), cause),
+                      onSuccess: () => removeSnapshotStore.pipe(Effect.as(value)),
+                    }),
+                  ),
+              }),
+            ),
+          );
+        }),
+      );
+    }),
+  );
+});

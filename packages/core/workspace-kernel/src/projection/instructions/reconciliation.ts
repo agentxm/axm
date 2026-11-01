@@ -115,7 +115,12 @@ export const observeInstructions = Effect.fn("Instructions.observe")(function* (
 ): Effect.fn.Return<
   InstructionProjectionSnapshot,
   WorkspaceSettingsReadFailure | WorkspaceLockfileReadFailure,
-  FileSystem.FileSystem | Path.Path | NativeEntryRemoval | SettingsReader | WorkspaceLocation | LockfileReader
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeEntryRemoval
+  | SettingsReader
+  | WorkspaceLocation
+  | LockfileReader
 > {
   const location = yield* WorkspaceLocation;
   const settings = yield* SettingsReader;
@@ -394,7 +399,13 @@ export const observeInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>
 ): Effect.fn.Return<
   ReadonlyArray<ProjectionUnitObservation>,
   E | WorkspaceSettingsReadFailure | WorkspaceLockfileReadFailure | InstructionMaintenanceFailure,
-  R | FileSystem.FileSystem | Path.Path | NativeEntryRemoval | SettingsReader | WorkspaceLocation | LockfileReader
+  | R
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeEntryRemoval
+  | SettingsReader
+  | WorkspaceLocation
+  | LockfileReader
 > {
   const observations = yield* observeProjectionPlans(plans);
   const proposedLocations = observations

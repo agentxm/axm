@@ -28,96 +28,94 @@ export const WorkspaceFileWriteLocksLive = Layer.effect(
   Effect.map(makeWorkspaceFileWriteLocks, ({ service }) => service),
 );
 
-const makeFilesystemScope = (
+const makeFilesystemScope = Effect.fnUntraced(function* (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   removal: Context.Service.Shape<typeof NativeEntryRemoval>,
   paths: WorkspaceTransactionPaths,
   providedLock?: WorkspaceTransitionLock,
   boundaryClaimsDirectory?: string | null,
-): Effect.Effect<WorkspaceTransactionScopeService> =>
-  Effect.gen(function* () {
-    const admission = yield* Semaphore.make(1);
-    const lock = providedLock ?? (yield* makeWorkspaceTransitionLock);
-    const workspaceDir = path.resolve(paths.workspaceDir);
-    const nativeRoots = paths.nativeRoots ?? [paths.nativeRoot ?? path.dirname(workspaceDir)];
-    const nativeRootWitnesses = yield* captureNativeAuthorityRoots(nativeRoots).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    );
-    const held = lock.held(workspaceDir);
-    const acquire: WorkspaceTransactionScopeService["acquire"] = (request) =>
-      Effect.gen(function* () {
-        const nativeRoot = paths.nativeRoot ?? path.dirname(workspaceDir);
-        for (const target of [workspaceDir, path.join(workspaceDir, "tmp")]) {
-          yield* assertNativeMutationWithin(
-            nativeRoot,
-            target,
-            "content",
-            path.dirname(workspaceDir),
-          ).pipe(
-            Effect.mapError(
-              (cause) => new WorkspaceDirectoryError({ path: target, step: "inspect", cause }),
-            ),
-          );
-        }
-        return yield* lock.acquire({
-          workspaceDir,
+): Effect.fn.Return<WorkspaceTransactionScopeService> {
+  const admission = yield* Semaphore.make(1);
+  const lock = providedLock ?? (yield* makeWorkspaceTransitionLock);
+  const workspaceDir = path.resolve(paths.workspaceDir);
+  const nativeRoots = paths.nativeRoots ?? [paths.nativeRoot ?? path.dirname(workspaceDir)];
+  const nativeRootWitnesses = yield* captureNativeAuthorityRoots(nativeRoots).pipe(
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
+  );
+  const held = lock.held(workspaceDir);
+  const acquire: WorkspaceTransactionScopeService["acquire"] = Effect.fnUntraced(
+    function* (request: Parameters<WorkspaceTransactionScopeService["acquire"]>[0]) {
+      const nativeRoot = paths.nativeRoot ?? path.dirname(workspaceDir);
+      for (const target of [workspaceDir, path.join(workspaceDir, "tmp")]) {
+        yield* assertNativeMutationWithin(
           nativeRoot,
-          holder: {
-            command: request.command,
-            pid: process.pid,
-            ...(request.candidateId === undefined ? {} : { candidateId: request.candidateId }),
-          },
-          ...(request.onWaiting === undefined ? {} : { onWaiting: request.onWaiting }),
-        });
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-        Effect.provideService(NativeEntryRemoval, removal),
-      );
-    const runtime: FilesystemTransactionRuntime = {
-      ...paths,
-      workspaceDir,
-      nativeRoots,
-      nativeRootWitnesses,
-      boundaryClaimsDirectory,
-      fs,
-      removal,
-      path,
-      admission,
-      acquire,
-      held,
-    };
-    const service: WorkspaceTransactionScopeService = {
-      acquire,
-      isHeld: Effect.map(held, Option.isSome),
-      createdDirectories: Effect.flatMap(held, (value) =>
-        Option.isSome(value) ? value.value.createdDirectories : Effect.succeed([]),
+          target,
+          "content",
+          path.dirname(workspaceDir),
+        ).pipe(
+          Effect.mapError(
+            (cause) => new WorkspaceDirectoryError({ path: target, step: "inspect", cause }),
+          ),
+        );
+      }
+      return yield* lock.acquire({
+        workspaceDir,
+        nativeRoot,
+        holder: {
+          command: request.command,
+          pid: process.pid,
+          ...(request.candidateId === undefined ? {} : { candidateId: request.candidateId }),
+        },
+        ...(request.onWaiting === undefined ? {} : { onWaiting: request.onWaiting }),
+      });
+    },
+    Effect.provideService(FileSystem.FileSystem, fs),
+    Effect.provideService(Path.Path, path),
+    Effect.provideService(NativeEntryRemoval, removal),
+  );
+  const runtime: FilesystemTransactionRuntime = {
+    ...paths,
+    workspaceDir,
+    nativeRoots,
+    nativeRootWitnesses,
+    boundaryClaimsDirectory,
+    fs,
+    removal,
+    path,
+    admission,
+    acquire,
+    held,
+  };
+  const service: WorkspaceTransactionScopeService = {
+    acquire,
+    isHeld: Effect.map(held, Option.isSome),
+    createdDirectories: Effect.flatMap(held, (value) =>
+      Option.isSome(value) ? value.value.createdDirectories : Effect.succeed([]),
+    ),
+    run: (args) =>
+      runFilesystemTransaction(runtime, args).pipe(
+        Effect.provideService(WorkspaceTransactionScope, service),
       ),
-      run: (args) =>
-        runFilesystemTransaction(runtime, args).pipe(
-          Effect.provideService(WorkspaceTransactionScope, service),
-        ),
-    };
-    return service;
-  });
+  };
+  return service;
+});
 
-export const makeWorkspaceTransactionScope = (
+export const makeWorkspaceTransactionScope = Effect.fnUntraced(function* (
   paths: WorkspaceTransactionPaths,
   lock?: WorkspaceTransitionLock,
-): Effect.Effect<
+): Effect.fn.Return<
   WorkspaceTransactionScopeService,
   never,
   FileSystem.FileSystem | Path.Path | NativeEntryRemoval
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const removal = yield* NativeEntryRemoval;
-    const path = yield* Path.Path;
-    const directory = yield* BoundaryClaimsDirectory;
-    return yield* makeFilesystemScope(fs, path, removal, paths, lock, directory);
-  });
+> {
+  const fs = yield* FileSystem.FileSystem;
+  const removal = yield* NativeEntryRemoval;
+  const path = yield* Path.Path;
+  const directory = yield* BoundaryClaimsDirectory;
+  return yield* makeFilesystemScope(fs, path, removal, paths, lock, directory);
+});
 
 export const WorkspaceTransactionScopesLive: Layer.Layer<
   WorkspaceTransactionScopes,

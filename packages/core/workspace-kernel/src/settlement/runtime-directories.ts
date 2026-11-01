@@ -12,17 +12,17 @@ import {
 import { WorkspaceDirectoryError } from "./errors.js";
 
 /** Only successful exclusive mkdir calls establish creation authority. */
-export const createWorkspaceDirectories = (args: {
-  readonly nativeRoot: string;
-  readonly workspaceDir: string;
-  readonly target: string;
-  /** Runtime ancestors can precede the workspace owner's creation. */
-  readonly identityOwnerRoot?: string;
-  readonly mode?: number;
-  readonly prepare?: (target: string) => Effect.Effect<void, unknown>;
-  readonly record: (identity: ContainerIdentity) => Effect.Effect<void>;
-}) =>
-  Effect.gen(function* () {
+export const createWorkspaceDirectories = Effect.fnUntraced(
+  function* (args: {
+    readonly nativeRoot: string;
+    readonly workspaceDir: string;
+    readonly target: string;
+    /** Runtime ancestors can precede the workspace owner's creation. */
+    readonly identityOwnerRoot?: string;
+    readonly mode?: number;
+    readonly prepare?: (target: string) => Effect.Effect<void, unknown>;
+    readonly record: (identity: ContainerIdentity) => Effect.Effect<void>;
+  }) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const missing: string[] = [];
@@ -85,13 +85,16 @@ export const createWorkspaceDirectories = (args: {
       target: args.target,
     });
     return createdIdentities;
-  }).pipe(
-    Effect.mapError((cause) =>
-      cause instanceof WorkspaceDirectoryError
-        ? cause
-        : new WorkspaceDirectoryError({ path: args.target, step: "create", cause }),
+  },
+  (effect, args) =>
+    effect.pipe(
+      Effect.mapError((cause) =>
+        cause instanceof WorkspaceDirectoryError
+          ? cause
+          : new WorkspaceDirectoryError({ path: args.target, step: "create", cause }),
+      ),
     ),
-  );
+);
 
 /** rmdir refuses foreign additions atomically, including additions after the identity check. */
 export const removeEmptyRuntimeDirectories = (identities: ReadonlyArray<ContainerIdentity>) =>

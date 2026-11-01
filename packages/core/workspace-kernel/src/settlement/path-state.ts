@@ -4,43 +4,47 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import type { PlatformError } from "effect/PlatformError";
 import { nativeInode } from "../locations/index.js";
 
 /** Flat entry observations allow one writer's delta to update only its own subtree. */
 export type PathState = ReadonlyMap<string, string>;
 
 /** Existing directory routes only: later AXM-created ancestors are covered by their snapshots. */
-export const observeAncestorRoute = (fs: FileSystem.FileSystem, path: Path.Path, target: string) =>
-  Effect.gen(function* () {
-    const route = new Map<string, string>();
-    let parent = path.dirname(target);
-    while (true) {
-      const observed = yield* fs.stat(parent).pipe(Effect.result);
-      if (observed._tag === "Failure") {
-        if (observed.failure.reason._tag !== "NotFound") return yield* observed.failure;
-      } else {
-        const info = observed.success;
-        const physical = yield* fs.realPath(parent);
-        const inode = nativeInode(info);
-        route.set(
-          parent,
-          info.type !== "Directory" || Option.isNone(inode) || Option.isNone(info.birthtime)
-            ? "unreadable"
-            : `${physical}:${info.dev}:${inode.value}:${info.birthtime.value.getTime()}:${info.mode}`,
-        );
-      }
-      const next = path.dirname(parent);
-      if (next === parent) return route;
-      parent = next;
-    }
-  });
-
-export const observePathState = (
+export const observeAncestorRoute = Effect.fnUntraced(function* (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   target: string,
-): Effect.Effect<PathState> =>
-  Effect.gen(function* () {
+) {
+  const route = new Map<string, string>();
+  let parent = path.dirname(target);
+  while (true) {
+    const observed = yield* fs.stat(parent).pipe(Effect.result);
+    if (observed._tag === "Failure") {
+      if (observed.failure.reason._tag !== "NotFound") return yield* observed.failure;
+    } else {
+      const info = observed.success;
+      const physical = yield* fs.realPath(parent);
+      const inode = nativeInode(info);
+      route.set(
+        parent,
+        info.type !== "Directory" || Option.isNone(inode) || Option.isNone(info.birthtime)
+          ? "unreadable"
+          : `${physical}:${info.dev}:${inode.value}:${info.birthtime.value.getTime()}:${info.mode}`,
+      );
+    }
+    const next = path.dirname(parent);
+    if (next === parent) return route;
+    parent = next;
+  }
+});
+
+export const observePathState = Effect.fnUntraced(
+  function* (
+    fs: FileSystem.FileSystem,
+    path: Path.Path,
+    target: string,
+  ): Effect.fn.Return<PathState, PlatformError> {
     const link = yield* fs.readLink(target).pipe(Effect.option);
     if (Option.isSome(link)) return new Map([["", `link:${link.value}`]]);
     const info = yield* fs.stat(target).pipe(Effect.result);
@@ -64,7 +68,9 @@ export const observePathState = (
       for (const [name, value] of child) state.set(path.join(entry, name), value);
     }
     return state;
-  }).pipe(Effect.catch(() => Effect.succeed(new Map([["", "unreadable"]]))));
+  },
+  Effect.catch(() => Effect.succeed(new Map([["", "unreadable"]]))),
+);
 
 export const equalPathStates = (left: PathState, right: PathState): boolean =>
   left.size === right.size &&

@@ -16,12 +16,14 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import * as semver from "semver";
 
-import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   RegistryClientFactory,
+  RegistryOperationFailed,
   extensionLifecycleWarnings,
   withBufferedArchiveBudget,
   type RegistryClient,
@@ -742,7 +744,20 @@ export const createLocalRegistrySourceHostProvider = (
         .pipe(Effect.orElseSucceed((): readonly string[] => []));
       const namespaces: ReadonlyArray<Handle> = Option.isSome(options.owner)
         ? [options.owner.value]
-        : entries.filter((d) => d.startsWith("@")).map((entry) => decodeHandleSync(entry));
+        : yield* Effect.forEach(
+            entries.filter((entry) => entry.startsWith("@")),
+            (entry) =>
+              Schema.decodeUnknownEffect(HandleSchema)(entry).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new RegistryOperationFailed({
+                      category: "internal",
+                      detail: `Local registry contains an invalid owner directory: ${pathService.join(extensionsDir, entry)}`,
+                      cause,
+                    }),
+                ),
+              ),
+          );
 
       if (needsIndexBackedResolution(options)) {
         return yield* findWithVersionRange(client, source, namespaces, options);

@@ -622,6 +622,31 @@ const expectRegistrySubagentRef = (ref: ExtensionRef): RegistrySubagentRef => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.find", () => {
+  it.effect("reports an invalid local owner before looking up any selected scope", () => {
+    const registry = makeTestRegistry(["@test", "@bad-owner-"]);
+    let lookups = 0;
+    const client = createMockClient({
+      getExtensionsByScope: () =>
+        Effect.sync(() => {
+          lookups += 1;
+          return { indexes: [], extensions: [], total: 0 };
+        }),
+    });
+    const provider = createLocalRegistrySourceHostProvider(client);
+    return runEffect(
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(provider.find(registry.source, defaultFindOptions));
+        expect(failure).toMatchObject({
+          _tag: "RegistryOperationFailed",
+          category: "internal",
+          cause: { _tag: "SchemaError" },
+          detail: expect.stringMatching(/extensions.*@bad-owner-/u),
+        });
+        expect(lookups).toBe(0);
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
+    );
+  });
+
   it.effect("keeps nested local index reads within one registry IO allowance", () => {
     const registry = makeTestRegistry(["@first", "@second"]);
     return runEffect(

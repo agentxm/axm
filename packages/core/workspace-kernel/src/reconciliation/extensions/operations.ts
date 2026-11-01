@@ -325,23 +325,22 @@ export const forecastInstallChange = (args: {
 }): InstallChange => (args.installedBefore ? "updated" : "created");
 
 /** Run one transition and return the durable workspace changes recorded during it. */
-const observeFootprint = <A, E, R>(
+const observeFootprint = Effect.fnUntraced(function* <A, E, R>(
   effect: Effect.Effect<A, E, R>,
-): Effect.Effect<
+): Effect.fn.Return<
   { readonly value: A; readonly footprint: ReadonlyArray<FootprintObservation> },
   E,
   R | FootprintRecorder | WorkspaceLocation | Path.Path
-> =>
-  Effect.gen(function* () {
-    const location = yield* WorkspaceLocation;
-    const path = yield* Path.Path;
-    const before = (yield* readFootprint).length;
-    const value = yield* effect;
-    const footprint = (yield* readFootprint)
-      .slice(before)
-      .filter(isWorkspaceFootprint(path, location.baseDir));
-    return { value, footprint };
-  });
+> {
+  const location = yield* WorkspaceLocation;
+  const path = yield* Path.Path;
+  const before = (yield* readFootprint).length;
+  const value = yield* effect;
+  const footprint = (yield* readFootprint)
+    .slice(before)
+    .filter(isWorkspaceFootprint(path, location.baseDir));
+  return { value, footprint };
+});
 
 // -----------------------------------------------------------------------------
 // Install Operation
@@ -467,11 +466,11 @@ const isConfigured = <F, R>(
  * resolution before validating the observable postcondition. Pack-derived
  * installs omit the root settings declaration while retaining that resolution.
  */
-const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
-  manager: InstallMaterialization<TRef, TMaterialization, CallerStepFailure<F>, R>,
-  args: InstallOperationArgs<TRef, TMaterialization, F, R>,
-): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
-  Effect.gen(function* () {
+const runInstallOperation = Effect.fnUntraced(
+  function* <TRef extends ExtensionRef, TMaterialization, F, R>(
+    manager: InstallMaterialization<TRef, TMaterialization, CallerStepFailure<F>, R>,
+    args: InstallOperationArgs<TRef, TMaterialization, F, R>,
+  ): Effect.fn.Return<JobStepResult, CallerStepFailure<F> | StepFailure, R | RecipeRequirements> {
     const target = targetFromRef(args.ref);
     // The desired-state graph is the one authority for what the workspace
     // already holds for this target.
@@ -665,11 +664,12 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
         ? {}
         : { warnings: transaction.projectionWarnings }),
     } satisfies JobStepResult;
-  }).pipe(
-    Effect.mapError((failure) =>
+  },
+  (effect, _manager, args) =>
+    Effect.mapError(effect, (failure) =>
       failure instanceof StepFailure ? failure : args.toStepFailure(failure),
     ),
-  );
+);
 
 /**
  * Build a PlannedJobStep for an install operation.
@@ -950,11 +950,11 @@ export interface MaterializeOperationArgs<
   readonly message?: string;
 }
 
-const runMaterializeOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
-  manager: SynchronizeMaterialization<TRef, TMaterialization, CallerStepFailure<F>, R>,
-  args: MaterializeOperationArgs<TRef, TMaterialization, F, R>,
-): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
-  Effect.gen(function* () {
+const runMaterializeOperation = Effect.fnUntraced(
+  function* <TRef extends ExtensionRef, TMaterialization, F, R>(
+    manager: SynchronizeMaterialization<TRef, TMaterialization, CallerStepFailure<F>, R>,
+    args: MaterializeOperationArgs<TRef, TMaterialization, F, R>,
+  ): Effect.fn.Return<JobStepResult, CallerStepFailure<F>, R | RecipeRequirements> {
     const target = targetFromRef(args.ref);
     const materialization = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
@@ -997,7 +997,9 @@ const runMaterializeOperation = <TRef extends ExtensionRef, TMaterialization, F,
       message: args.message ?? "Synced agent artifacts",
       ...(artifact === undefined ? {} : { artifact }),
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(args.toStepFailure));
+  },
+  (effect, _manager, args) => Effect.mapError(effect, args.toStepFailure),
+);
 
 export const buildMaterializeOperation = <
   TRef extends ExtensionRef,
@@ -1116,7 +1118,12 @@ const unreadablePackageWarning = (
 ): string =>
   `${toLabel(target)}: its package manifest ${retirement.reason === "missing" ? "is missing" : "cannot be read"} at ${retirement.manifestPath}, so AXM removed its configuration entry and accepted resolution and left its package content in place. Delete that content yourself once you no longer need it.`;
 
-const retireMaterialization = <TTarget extends ExtensionTarget, TMaterialization, F, R>(
+const retireMaterialization = Effect.fnUntraced(function* <
+  TTarget extends ExtensionTarget,
+  TMaterialization,
+  F,
+  R,
+>(
   manager: Pick<
     UninstallMaterialization<TTarget, TMaterialization, F, R>,
     "withdrawnResolutionKeys"
@@ -1125,12 +1132,11 @@ const retireMaterialization = <TTarget extends ExtensionTarget, TMaterialization
     readonly target: TTarget;
     readonly materialization: Option.Option<TMaterialization>;
   },
-) =>
-  Effect.gen(function* () {
-    const writer = yield* AcceptedResolutionWriter;
-    const keys = yield* manager.withdrawnResolutionKeys(args);
-    yield* writer.removeAcceptedEntries(keys.map((key) => ({ type: args.target.type, key })));
-  });
+): Effect.fn.Return<void, F | WorkspaceLockfileMutationFailure, R | AcceptedResolutionWriter> {
+  const writer = yield* AcceptedResolutionWriter;
+  const keys = yield* manager.withdrawnResolutionKeys(args);
+  yield* writer.removeAcceptedEntries(keys.map((key) => ({ type: args.target.type, key })));
+});
 
 /**
  * Execute the uninstall sequence with retention check.
@@ -1143,12 +1149,12 @@ const retireMaterialization = <TTarget extends ExtensionTarget, TMaterialization
  *   2. Remove lockfile entry
  *   3. Remove settings entry
  */
-const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization, F, R>(
-  manager: UninstallMaterialization<TTarget, TMaterialization, CallerStepFailure<F>, R>,
-  retentionPolicy: UninstallRetentionPolicy<F, R>,
-  args: UninstallOperationArgs<TTarget, TMaterialization, F, R>,
-): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
-  Effect.gen(function* () {
+const runUninstallOperation = Effect.fnUntraced(
+  function* <TTarget extends ExtensionTarget, TMaterialization, F, R>(
+    manager: UninstallMaterialization<TTarget, TMaterialization, CallerStepFailure<F>, R>,
+    retentionPolicy: UninstallRetentionPolicy<F, R>,
+    args: UninstallOperationArgs<TTarget, TMaterialization, F, R>,
+  ): Effect.fn.Return<JobStepResult, CallerStepFailure<F> | StepFailure, R | RecipeRequirements> {
     const priorAuthority =
       args.target.type === "hook" || args.target.type === "rule" || args.target.type === "knowledge"
         ? yield* captureAgentOutputAuthority()
@@ -1384,9 +1390,12 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
       ...(artifact === undefined ? {} : { artifact }),
       ...(warnings.length === 0 ? {} : { warnings }),
     } satisfies JobStepResult;
-  }).pipe(
-    Effect.mapError((cause) => (cause instanceof StepFailure ? cause : args.toStepFailure(cause))),
-  );
+  },
+  (effect, _manager, _retentionPolicy, args) =>
+    Effect.mapError(effect, (cause) =>
+      cause instanceof StepFailure ? cause : args.toStepFailure(cause),
+    ),
+);
 
 /**
  * Build a PlannedJobStep for an uninstall operation.

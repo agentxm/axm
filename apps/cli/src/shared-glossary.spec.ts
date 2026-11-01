@@ -34,8 +34,8 @@ describe("shared extension glossary", () => {
     const source = readFileSync(
       resolve(root, "knowledge/agent-extension-engineering/src/glossary.md"),
       "utf8",
-    );
-    const body = source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/u, "").trim();
+    ).replace(/\r\n/gu, "\n");
+    const body = source.replace(/^---\n[\s\S]*?\n---\n/u, "").trim();
     const skill = AXM_SKILL_SOURCE_FILES.find((file) => file.path === "references/glossary.md");
     expect(skill).toBeDefined();
     const reference = Buffer.from(skill?.base64 ?? "", "base64").toString("utf8");

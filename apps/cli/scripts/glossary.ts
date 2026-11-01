@@ -33,13 +33,14 @@ class GlossarySourceError extends Data.TaggedError("GlossarySourceError")<{
 /** Copies the complete concept body; no second authored vocabulary or term selector. */
 export const renderGlossary = (source: string, manifest: unknown) =>
   Effect.gen(function* () {
+    const canonicalSource = source.replace(/\r\n/gu, "\n");
     const identity = yield* Schema.decodeUnknownEffect(manifestSchema)(manifest);
-    const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/u.exec(source);
+    const frontmatter = /^---\n([\s\S]*?)\n---\n/u.exec(canonicalSource);
     if (frontmatter === null)
       return yield* new GlossarySourceError({ message: "Glossary requires OKF frontmatter" });
     const metadata: unknown = yield* Effect.try(() => parseYaml(frontmatter[1] ?? ""));
     const concept = yield* Schema.decodeUnknownEffect(conceptSchema)(metadata);
-    const body = source.slice(frontmatter[0].length).trim();
+    const body = canonicalSource.slice(frontmatter[0].length).trim();
     if (!body.startsWith(`# ${concept.title}\n`))
       return yield* new GlossarySourceError({ message: "Glossary title must match its heading" });
     // Copies travel independently: fragments and HTTPS links work in every destination.
@@ -52,7 +53,7 @@ export const renderGlossary = (source: string, manifest: unknown) =>
       return yield* new GlossarySourceError({
         message: `Non-portable glossary link: ${nonPortable[1]}`,
       });
-    const digest = createHash("sha256").update(source).digest("hex");
+    const digest = createHash("sha256").update(canonicalSource).digest("hex");
     const snapshot = `@agentxm/knowledge/${identity.name}@${identity.version}#glossary`;
     // An unused Markdown link definition retains provenance without rendering
     // metadata in website readers that escape HTML. Raw readers see it last.

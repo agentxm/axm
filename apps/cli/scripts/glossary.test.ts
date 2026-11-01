@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { renderGlossary } from "./glossary.js";
@@ -12,6 +13,16 @@ const concept =
   "---\ntype: Reference\ntitle: Agent Extension Glossary\ndescription: Shared terms.\n---\n\n# Agent Extension Glossary\n\n### Skill\n\nA capability. See [Pack](#pack).\n\n### Pack\n\nA composition.\n";
 
 describe("glossary generation", () => {
+  it.effect("preserves the same snapshot and digest across checkout line endings", () =>
+    Effect.gen(function* () {
+      const lf = yield* renderGlossary(concept, manifest);
+      const crlf = yield* renderGlossary(concept.replace(/\n/gu, "\r\n"), manifest);
+      expect(crlf).toBe(lf);
+      expect(crlf).not.toContain("\r");
+      expect(crlf).toContain(createHash("sha256").update(concept).digest("hex"));
+    }),
+  );
+
   it.effect("changes the snapshot digest when a definition changes", () =>
     Effect.gen(function* () {
       const before = yield* renderGlossary(concept, manifest);

@@ -17,18 +17,10 @@ import { registryRetryAfterSeconds } from "./retry-after.js";
 type ProblemDetails = NativeProblemDetails.ProblemDetails;
 const decodeProblem = Schema.decodeUnknownOption(NativeProblemDetails.Schema);
 
-const decodeExtensionLintFailedError = Schema.decodeUnknownSync(ExtensionLintFailedErrorEncoded);
-const decodeExtensionIdentityMismatchError = Schema.decodeUnknownSync(
+const decodeExtensionLintFailedError = Schema.decodeUnknownOption(ExtensionLintFailedErrorEncoded);
+const decodeExtensionIdentityMismatchError = Schema.decodeUnknownOption(
   ExtensionIdentityMismatchErrorEncoded,
 );
-
-const tryDecode = <A>(decode: (input: unknown) => A, input: unknown): A | undefined => {
-  try {
-    return decode(input);
-  } catch {
-    return undefined;
-  }
-};
 
 const getStringField = (value: unknown, field: string): string | undefined => {
   if (value === null || value === undefined || typeof value !== "object") {
@@ -208,7 +200,7 @@ const forbiddenSuggestedAction = (body: unknown): SuggestedAction | undefined =>
 };
 
 const lintFailedSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> => {
-  const decoded = tryDecode(decodeExtensionLintFailedError, body);
+  const decoded = Option.getOrUndefined(decodeExtensionLintFailedError(body));
   if (decoded === undefined) return [];
 
   const findingCount = decoded.findings.length;
@@ -233,7 +225,7 @@ const lintFailedSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> =>
 };
 
 const identityMismatchSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> => {
-  const decoded = tryDecode(decodeExtensionIdentityMismatchError, body);
+  const decoded = Option.getOrUndefined(decodeExtensionIdentityMismatchError(body));
   if (decoded === undefined) return [];
 
   const summary: SuggestedAction = {

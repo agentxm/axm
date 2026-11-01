@@ -7,18 +7,14 @@ import { PublishDetails } from "./__generated__/registry-client.js";
 
 // Retry advice lives in the problem's details whatever its code, so a code this
 // client does not know yet still yields the Registry's advice.
-const decodeRetryDetails = Schema.decodeUnknownSync(
+const decodeRetryDetails = Schema.decodeUnknownOption(
   Schema.Struct({ details: Schema.optionalKey(PublishDetails) }),
 );
 
 const retryAfterFromBody = (status: number, body: unknown): number | undefined => {
   if (status !== 429 && status !== 503) return undefined;
 
-  try {
-    return decodeRetryDetails(body).details?.retryAfterSeconds;
-  } catch {
-    return undefined;
-  }
+  return Option.getOrUndefined(decodeRetryDetails(body))?.details?.retryAfterSeconds;
 };
 
 const parseRetryAfterHeader = (

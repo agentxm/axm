@@ -1,7 +1,5 @@
 /** Dependency-free release identity grammar for pre-install CI and release scripts. */
 
-import { readFileSync } from "node:fs";
-
 import { capture } from "./release-command.js";
 
 const RELEASE_TAG_PREFIX = "cli-v";
@@ -93,9 +91,6 @@ export const readVersionFromJson = (content: string, source: string): string => 
   }
   return version;
 };
-
-export const readPackageVersion = (path: string): string =>
-  readVersionFromJson(readFileSync(path, "utf8"), path);
 
 export const readPackageVersionAtRef = (ref: string, path: string): string =>
   readVersionFromJson(capture("git", ["show", `${ref}:${path}`]), `${ref}:${path}`);

@@ -40,10 +40,6 @@ const printCommand = (command: string, args: readonly string[]) => {
   );
 };
 
-export const run = (command: string, args: readonly string[], env?: NodeJS.ProcessEnv) => {
-  runWithOptions(command, args, env === undefined ? {} : { env });
-};
-
 export const runIn = (
   cwd: string,
   command: string,

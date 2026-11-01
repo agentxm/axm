@@ -104,7 +104,7 @@ export interface DesiredMcpServerInspection {
   readonly conflict: Option.Option<string>;
 }
 
-export interface NativeAgentMcpServer {
+interface NativeAgentMcpServer {
   readonly ownership: "declared" | "unowned";
   readonly agentId: string;
   readonly serverName: string;

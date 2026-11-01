@@ -29,14 +29,13 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import {
-  decodeExtensionNameSync,
   toAuthor,
   ExtensionNameSchema,
   ExtensionTypeSchema,
   type ExtensionName,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { CompanionPackageSchema } from "@agentxm/extension-model/unstable/package-urls";
 import {
   PackageUrlSchema,
@@ -60,7 +59,7 @@ import {
   ResolutionMetadataResponseSchema,
   type ResolutionMetadataRequest,
 } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import { extensionLifecycleWarnings } from "./utils.js";
 import { collectBufferedArchive, MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import { collectResolutionMetadataPages } from "./resolution-metadata-pages.js";
@@ -171,10 +170,9 @@ import {
 // Type Mapping Helpers
 // -----------------------------------------------------------------------------
 
-const decodeExtensionType = Schema.decodeUnknownSync(ExtensionTypeSchema);
 const decodeExtensionName = Schema.decodeUnknownOption(ExtensionNameSchema);
-const decodeExtensionIndex = Schema.decodeUnknownSync(Schema.toType(ExtensionIndexSchema));
-const decodeCompanionPackages = Schema.decodeUnknownSync(Schema.Array(CompanionPackageSchema));
+const decodeExtensionIndex = Schema.decodeUnknownEffect(Schema.toType(ExtensionIndexSchema));
+const decodeCompanionPackages = Schema.decodeUnknownEffect(Schema.Array(CompanionPackageSchema));
 const encodePackageUrl = Schema.encodeSync(PackageUrlSchema);
 
 const normalizeRegistrySuggestedAction = (suggestion: {
@@ -188,14 +186,22 @@ const normalizeRegistrySuggestedAction = (suggestion: {
     ...(suggestion.url === undefined || suggestion.url === null ? {} : { url: suggestion.url }),
   });
 
-/**
- * Narrow a string to ExtensionType via Schema validation.
- * The generated client uses a wider union than our domain type;
- * this validates the value is within our supported subset.
- */
-const narrowExtensionType = (type: string): ExtensionType => decodeExtensionType(type);
-
-const decodePublicationSetResponse = Schema.decodeUnknownSync(PreviewPublicationSetResponseSchema);
+const extensionIdentity = Schema.Struct({
+  owner: HandleSchema,
+  type: ExtensionTypeSchema,
+  name: ExtensionNameSchema,
+});
+const decodeExtensionIdentity = Schema.decodeUnknownEffect(extensionIdentity);
+const decodeExactExtensionVersion = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    ...extensionIdentity.fields,
+    version: VersionSchema,
+    integrity: Schema.String,
+  }),
+);
+const decodePublicationSetResponse = Schema.decodeUnknownEffect(
+  PreviewPublicationSetResponseSchema,
+);
 const encodePublicationSetRequest = (args: PreviewExtensionPublishesArgs) => ({
   contract: args.contract,
   candidates: args.candidates.map((descriptor) => ({
@@ -256,11 +262,29 @@ const normalizeIndexDeprecation = (value: NonNullable<ExtensionsGet200["deprecat
   };
 };
 
-const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
-  decodeExtensionIndex({
+const mapToExtensionIndex = Effect.fnUntraced(function* (response: ExtensionsGet200) {
+  const versions = yield* Effect.forEach(response.versions, (version) =>
+    Effect.gen(function* () {
+      const packages =
+        version.packages === null || version.packages === undefined
+          ? undefined
+          : yield* decodeCompanionPackages(version.packages);
+      return {
+        version: version.version,
+        published: version.published,
+        integrity: version.integrity,
+        dependencies: version.dependencies === null ? undefined : version.dependencies,
+        packages,
+        yankedAt: version.yankedAt ?? undefined,
+        yankCategory: version.yankCategory ?? undefined,
+        yankMessage: version.yankMessage ?? undefined,
+      };
+    }),
+  );
+  return yield* decodeExtensionIndex({
     name: response.name,
     owner: response.owner,
-    type: narrowExtensionType(response.type),
+    type: response.type,
     publisherBindingId: response.publisherBindingId,
     description: response.description ?? undefined,
     repository: response.repository ?? undefined,
@@ -285,20 +309,9 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
           },
     deprecation:
       response.deprecation === null ? null : normalizeIndexDeprecation(response.deprecation),
-    versions: response.versions.map((v) => ({
-      version: v.version,
-      published: v.published,
-      integrity: v.integrity,
-      dependencies: v.dependencies === null ? undefined : v.dependencies,
-      packages:
-        v.packages === null || v.packages === undefined
-          ? undefined
-          : decodeCompanionPackages(v.packages),
-      yankedAt: v.yankedAt ?? undefined,
-      yankCategory: v.yankCategory ?? undefined,
-      yankMessage: v.yankMessage ?? undefined,
-    })),
+    versions,
   });
+});
 
 /**
  * Convert an ExtensionIndex + version constraint to a RegistryExtensionManifest.
@@ -546,10 +559,10 @@ export const createRemoteRegistryClient = (
             }),
           );
         }
-        return Effect.try({
-          try: () => Option.some(mapToExtensionIndex(responseValue)),
-          catch: (cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY"),
-        });
+        return mapToExtensionIndex(responseValue).pipe(
+          Effect.map(Option.some),
+          Effect.mapError((cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY")),
+        );
       }),
     );
 
@@ -576,17 +589,10 @@ export const createRemoteRegistryClient = (
                 }),
               );
             }
-            return Effect.try({
-              try: () =>
-                Option.some({
-                  owner: decodeHandleSync(response.owner),
-                  type: narrowExtensionType(response.type),
-                  name: decodeExtensionNameSync(response.name),
-                  version: decodeVersionSync(response.version),
-                  integrity: response.integrity,
-                } satisfies ExactExtensionVersion),
-              catch: (error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY"),
-            });
+            return decodeExactExtensionVersion(response).pipe(
+              Effect.map(Option.some),
+              Effect.mapError((error) => mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY")),
+            );
           }),
           Effect.catch((error) =>
             isRegistryClientError("ExtensionsGetVersion404")(error)
@@ -630,21 +636,23 @@ export const createRemoteRegistryClient = (
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const results = yield* collectResolutionMetadataPages(request, (pageRequest) =>
           executeRemoteRequest(
-            client
-              .ResolutionsPostMetadata({
-                payload: Schema.encodeSync(
-                  GeneratedRegistryClient.ResolutionsPostMetadataRequestJson,
-                )(
-                  Schema.decodeUnknownSync(
-                    GeneratedRegistryClient.ResolutionsPostMetadataRequestJson,
-                  )(pageRequest),
+            Effect.gen(function* () {
+              const payload = yield* Schema.decodeUnknownEffect(
+                GeneratedRegistryClient.ResolutionsPostMetadataRequestJson,
+              )(pageRequest).pipe(
+                Effect.flatMap(
+                  Schema.encodeEffect(GeneratedRegistryClient.ResolutionsPostMetadataRequestJson),
                 ),
+              );
+              const response = yield* client.ResolutionsPostMetadata({
+                payload,
                 config: undefined,
-              })
-              .pipe(
-                Effect.map(Schema.encodeSync(GeneratedRegistryClient.ResolutionsPostMetadata200)),
-                Effect.flatMap(Schema.decodeUnknownEffect(ResolutionMetadataResponseSchema)),
-              ),
+              });
+              const encoded = yield* Schema.encodeEffect(
+                GeneratedRegistryClient.ResolutionsPostMetadata200,
+              )(response);
+              return yield* Schema.decodeUnknownEffect(ResolutionMetadataResponseSchema)(encoded);
+            }),
             {
               operation: "read resolution metadata",
               method: "POST",
@@ -697,19 +705,10 @@ export const createRemoteRegistryClient = (
         const maybeEntries = yield* Effect.forEach(
           requests,
           ({ name, type }) =>
-            Effect.sync(() => {
-              try {
-                return decodeExtensionNameSync(name);
-              } catch {
-                return undefined;
-              }
-            }).pipe(
-              Effect.flatMap((decodedName) =>
-                decodedName === undefined
-                  ? Effect.succeed(Option.none<ExtensionIndex>())
-                  : getExtensionIndex({ owner, type, name: decodedName }),
-              ),
-            ),
+            Option.match(decodeExtensionName(name), {
+              onNone: () => Effect.succeedNone,
+              onSome: (decodedName) => getExtensionIndex({ owner, type, name: decodedName }),
+            }),
           { concurrency: REGISTRY_READ_CONCURRENCY },
         );
 
@@ -776,11 +775,10 @@ export const createRemoteRegistryClient = (
       const maybeEntries = yield* Effect.forEach(
         summaries,
         (summary) =>
-          getExtensionIndex({
-            owner: decodeHandleSync(summary.owner),
-            type: narrowExtensionType(summary.type),
-            name: decodeExtensionNameSync(summary.name),
-          }),
+          decodeExtensionIdentity(summary).pipe(
+            Effect.mapError((cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY")),
+            Effect.flatMap(getExtensionIndex),
+          ),
         { concurrency: REGISTRY_READ_CONCURRENCY },
       );
 
@@ -970,10 +968,9 @@ export const createRemoteRegistryClient = (
           });
         }
 
-        const index = yield* Effect.try({
-          try: () => mapToExtensionIndex(indexResult),
-          catch: (cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY"),
-        });
+        const index = yield* mapToExtensionIndex(indexResult).pipe(
+          Effect.mapError((cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY")),
+        );
         const entry = resolveVersionEntry(index.versions, args.version);
         if (Option.isNone(entry)) {
           return yield* new RegistryOperationFailed({
@@ -1178,24 +1175,24 @@ export const createRemoteRegistryClient = (
           },
         )
         .pipe(
-          Effect.map(
-            (response) =>
-              ({
-                published: true,
-                owner: decodeHandleSync(response.owner),
-                type: narrowExtensionType(response.type),
-                name: decodeExtensionNameSync(response.name),
-                version: decodeVersionSync(response.version),
-                integrity: response.integrity,
-                visibility: response.visibility,
-                links: response.links,
-                warnings: response.warnings.map((warning) => ({
-                  ruleId: warning.ruleId,
-                  severity: "warning" as const,
-                  message: warning.message,
-                  suggestions: warning.suggestions.map(normalizeRegistrySuggestedAction),
-                })),
-              }) satisfies PublishExtensionResponse,
+          Effect.flatMap((response) =>
+            decodeExactExtensionVersion(response).pipe(
+              Effect.map(
+                (identity) =>
+                  ({
+                    published: true,
+                    ...identity,
+                    visibility: response.visibility,
+                    links: response.links,
+                    warnings: response.warnings.map((warning) => ({
+                      ruleId: warning.ruleId,
+                      severity: "warning" as const,
+                      message: warning.message,
+                      suggestions: warning.suggestions.map(normalizeRegistrySuggestedAction),
+                    })),
+                  }) satisfies PublishExtensionResponse,
+              ),
+            ),
           ),
         ),
       {
@@ -1220,20 +1217,27 @@ export const createRemoteRegistryClient = (
         })
         .pipe(
           Effect.flatMap((response) =>
-            Effect.try({
-              try: () =>
-                validatePublicationSetResponse(
-                  validatePublicationDescriptors(args.candidates),
-                  decodePublicationSetResponse(response),
-                ),
-              catch: (cause) =>
-                new RegistryRequestFailed({
-                  reason: "response-decode",
-                  category: "internal",
-                  detail: "The registry returned an incompatible publication-set preview.",
-                  cause,
+            decodePublicationSetResponse(response).pipe(
+              Effect.flatMap((decoded) =>
+                Effect.try({
+                  try: () =>
+                    validatePublicationSetResponse(
+                      validatePublicationDescriptors(args.candidates),
+                      decoded,
+                    ),
+                  catch: (cause) => cause,
                 }),
-            }),
+              ),
+              Effect.mapError(
+                (cause) =>
+                  new RegistryRequestFailed({
+                    reason: "response-decode",
+                    category: "internal",
+                    detail: "The registry returned an incompatible publication-set preview.",
+                    cause,
+                  }),
+              ),
+            ),
           ),
         ),
       {

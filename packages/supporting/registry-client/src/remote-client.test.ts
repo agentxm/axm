@@ -606,6 +606,37 @@ describe("getExtensionsByScope", () => {
       offset: 0,
     });
 
+  it.effect("reports malformed listing identity as a typed failure", () =>
+    Effect.gen(function* () {
+      let requests = 0;
+      const client = createRemoteRegistryClient(
+        BASE_URL,
+        makeMockHttpClient(() => {
+          requests += 1;
+          return new Response(
+            JSON.stringify({
+              extensions: [{ ...summary("test-skill"), owner: "@bad-owner-" }],
+              cursor: null,
+              hasMore: false,
+            }),
+            { status: 200 },
+          );
+        }),
+      );
+      const failure = yield* Effect.flip(listAllSkills(client));
+      expect(failure).toMatchObject({
+        _tag: "RegistryRequestFailed",
+        reason: "response-decode",
+        category: "internal",
+      });
+      expect(failure.cause).toMatchObject({
+        _tag: "HttpClientError",
+        reason: { _tag: "DecodeError" },
+      });
+      expect(requests).toBe(1);
+    }),
+  );
+
   it.effect("follows an owner listing's cursor pages to the end", () =>
     Effect.gen(function* () {
       const listQueries: Array<Record<string, string>> = [];
@@ -1901,6 +1932,36 @@ const publishArgs = {
 };
 
 describe("publishExtension", () => {
+  it.effect("reports malformed publication identity as a typed failure", () =>
+    Effect.gen(function* () {
+      let requests = 0;
+      const client = createRemoteRegistryClient(
+        BASE_URL,
+        makeMockHttpClient(() => {
+          requests += 1;
+          return new Response(
+            JSON.stringify({
+              ...publishSuccessResponse,
+              version: "not-a-version",
+            }),
+            { status: 201 },
+          );
+        }),
+      );
+      const failure = yield* Effect.flip(client.publishExtension(publishArgs));
+      expect(failure).toMatchObject({
+        _tag: "RegistryRequestFailed",
+        reason: "response-decode",
+        category: "internal",
+      });
+      expect(failure.cause).toMatchObject({
+        _tag: "HttpClientError",
+        reason: { _tag: "DecodeError" },
+      });
+      expect(requests).toBe(1);
+    }),
+  );
+
   it.effect("does not retry a transient publish response without an idempotency key", () =>
     Effect.gen(function* () {
       let attempts = 0;

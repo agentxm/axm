@@ -121,7 +121,7 @@ export interface AxmSkillCompatibilityDeclaration {
   readonly cliVersionRange: string;
 }
 
-const readSkillCompatibilityFromContent = (
+export const readSkillCompatibilityFromContent = (
   content: string,
   source: string,
 ): AxmSkillCompatibilityDeclaration => {
@@ -283,18 +283,19 @@ const requireMatchingVersions = (
   versions: ReadonlyArray<readonly [path: string, version: string]>,
   source: string,
 ): string => {
-  const firstVersion = versions[0]?.[1] ?? fail(`No release packages configured for ${source}.`);
+  const firstVersion = versions[0]?.[1];
+  if (firstVersion === undefined) throw new Error(`No release packages configured for ${source}.`);
   const hasMismatch = versions.some(([, version]) => version !== firstVersion);
 
   if (hasMismatch) {
     const details = versions.map(([filePath, version]) => `${filePath}=${version}`).join(", ");
-    fail(`Version mismatch in ${source}: ${details}.`);
+    throw new Error(`Version mismatch in ${source}: ${details}.`);
   }
 
   return firstVersion;
 };
 
-const requireMatchingReleaseCompatibility = (
+export const requireMatchingReleaseCompatibility = (
   versions: ReadonlyArray<readonly [path: string, version: string]>,
   declaration: AxmSkillCompatibilityDeclaration,
   generated: GeneratedAxmSkillCompatibility,
@@ -361,7 +362,7 @@ export const currentHeadSha = (): string => git("rev-parse", "HEAD");
 export const parseGitHubRuns = (value: string): GitHubRun[] => {
   const parsed: unknown = JSON.parse(value);
   if (!Array.isArray(parsed)) {
-    return fail("Unexpected gh run list response.");
+    throw new Error("Unexpected gh run list response.");
   }
 
   return parsed.flatMap((item: unknown) => {

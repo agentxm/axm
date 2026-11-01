@@ -3,11 +3,18 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
+import * as FileSystem from "effect/FileSystem";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { RELEASE_PACKAGES } from "./release-shared.js";
 import { capture, captureIn } from "./release-command.js";
 import {
   RELEASE_COHORT_MANIFEST,
+  produceReleaseCohort,
   stampBootstrapCohortReferences,
   stampBootstrapManifest,
   stampBootstrapSkillDocument,
@@ -38,6 +45,27 @@ const manifest = () => ({
 });
 
 describe("release cohort artifact manifest", () => {
+  it.effect("removes staging when interrupted while a package command is pending", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const output = yield* fs.makeTempDirectoryScoped({ prefix: "axm-release-staging-" });
+      const started = yield* Deferred.make<void>();
+      const pendingCommand = ChildProcessSpawner.make(() =>
+        Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
+      );
+      const fiber = yield* produceReleaseCohort(version, commit, output).pipe(
+        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, pendingCommand),
+        Effect.forkChild,
+      );
+      yield* Deferred.await(started);
+      expect((yield* fs.readDirectory(output)).some((name) => name.startsWith(".pack-"))).toBe(
+        true,
+      );
+      yield* Fiber.interrupt(fiber);
+      expect(yield* fs.readDirectory(output)).toEqual([]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it("accepts the complete fixed cohort for the exact commit and version", () => {
     expect(validateReleaseCohortManifest(manifest(), version, commit).packages).toHaveLength(
       RELEASE_PACKAGES.length,
@@ -62,19 +90,22 @@ describe("release cohort artifact manifest", () => {
     expect(() => validateReleaseCohortManifest(renamed, version, commit)).toThrow(first.name);
   });
 
-  it("rejects a tarball whose bytes do not match the recorded integrity", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "axm-release-cohort-test-"));
-    temporaryDirectories.push(directory);
-    const candidate = manifest();
-    writeFileSync(join(directory, RELEASE_COHORT_MANIFEST), JSON.stringify(candidate));
-    const first = candidate.packages[0];
-    if (first === undefined) throw new Error("Expected release cohort package fixture.");
-    writeFileSync(join(directory, first.filename), "different bytes");
+  it.effect("rejects a tarball whose bytes do not match the recorded integrity", () =>
+    Effect.gen(function* () {
+      const directory = mkdtempSync(join(tmpdir(), "axm-release-cohort-test-"));
+      temporaryDirectories.push(directory);
+      const candidate = manifest();
+      writeFileSync(join(directory, RELEASE_COHORT_MANIFEST), JSON.stringify(candidate));
+      const first = candidate.packages[0];
+      if (first === undefined) throw new Error("Expected release cohort package fixture.");
+      writeFileSync(join(directory, first.filename), "different bytes");
 
-    await expect(validateReleaseCohort(directory, version, commit)).rejects.toThrow(
-      `Release cohort integrity mismatch: ${first.name}@${version}`,
-    );
-  });
+      const failure = yield* Effect.flip(validateReleaseCohort(directory, version, commit));
+      expect(failure.message).toContain(
+        `Release cohort integrity mismatch: ${first.name}@${version}`,
+      );
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 });
 
 describe("bootstrap cohort manifests", () => {
@@ -199,105 +230,117 @@ const packedFixture = (fields: Record<string, unknown> = {}) => {
 };
 
 describe("packed package contracts", () => {
-  it("accepts an executable and ESM declarations from the exact tarball", async () => {
-    await expect(
-      validatePack(
-        packedFixture({ bin: { fixture: "./dist/cli.js" } }),
-        "@fixture/package-contract",
-        version,
-      ),
-    ).resolves.toBeUndefined();
-  });
+  it.effect("accepts an executable and ESM declarations from the exact tarball", () =>
+    validatePack(
+      packedFixture({ bin: { fixture: "./dist/cli.js" } }),
+      "@fixture/package-contract",
+      version,
+    ).pipe(Effect.provide(NodeServices.layer)),
+  );
 
-  it.each([
+  for (const fields of [
     { exports: { ".": { types: "./dist/missing.d.ts", default: "./dist/index.js" } } },
     { exports: { ".": { default: "./dist/index.js", types: "./dist/index.d.ts" } } },
     { bin: { fixture: "./dist/missing.js" } },
     { bin: { fixture: "./dist/index.js" } },
-  ])("rejects a broken published entry or executable: %j", async (fields) => {
-    await expect(
-      validatePack(packedFixture(fields), "@fixture/package-contract", version),
-    ).rejects.toThrow("Invalid packed package @fixture/package-contract@1.2.3");
-  });
+  ]) {
+    it.effect(`rejects a broken published entry or executable: ${JSON.stringify(fields)}`, () =>
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(
+          validatePack(packedFixture(fields), "@fixture/package-contract", version),
+        );
+        expect(failure.message).toContain("Invalid packed package @fixture/package-contract@1.2.3");
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+  }
 
-  it("still requires the CLI to publish a compiled bin", async () => {
-    await expect(
-      validatePack(
-        packedFixture({ name: "axm.sh", bin: { axm: "./src/main.ts" } }),
-        "axm.sh",
-        version,
-      ),
-    ).rejects.toThrow("Packed CLI must expose its compiled bin");
-  });
-
-  it.each(["workspace:^", "file:../local", "link:../local"])(
-    "still rejects nonportable dependency references: %s",
-    async (reference) => {
-      await expect(
+  it.effect("still requires the CLI to publish a compiled bin", () =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(
         validatePack(
-          packedFixture({ dependencies: { local: reference } }),
-          "@fixture/package-contract",
+          packedFixture({ name: "axm.sh", bin: { axm: "./src/main.ts" } }),
+          "axm.sh",
           version,
         ),
-      ).rejects.toThrow("Nonportable packed dependency: local");
-    },
+      );
+      expect(failure.message).toContain("Packed CLI must expose its compiled bin");
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it("rejects a ranged dependency inside a bootstrap cohort", async () => {
-    const preview = "0.31.1-preview.123.abcdef012345";
-    await expect(
-      validatePack(
-        packedFixture({
-          version: preview,
-          dependencies: { "@agentxm/extension-model": `^${preview}` },
-        }),
-        "@fixture/package-contract",
-        preview,
-      ),
-    ).rejects.toThrow("bootstrap cohort dependency must be exact");
-  });
+  for (const reference of ["workspace:^", "file:../local", "link:../local"]) {
+    it.effect(`still rejects nonportable dependency references: ${reference}`, () =>
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(
+          validatePack(
+            packedFixture({ dependencies: { local: reference } }),
+            "@fixture/package-contract",
+            version,
+          ),
+        );
+        expect(failure.message).toContain("Nonportable packed dependency: local");
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+  }
 
-  it("preserves published condition precedence and excludes workspace source conditions", async () => {
-    const directory = dirname(
-      packedFixture({
-        exports: {
-          ".": {
-            types: "./dist/index.d.ts",
-            "axm-source": "./src/index.ts",
-            node: { types: "./dist/index.d.ts", default: "./dist/index.js" },
-            default: "./dist/index.js",
-          },
-        },
-        imports: {
-          "#local": {
-            "axm-source": "./src/index.ts",
-            node: "./dist/index.js",
-            default: "./dist/index.js",
-          },
-        },
-        files: ["dist"],
-      }),
-    );
-    const packageRoot = join(directory, "package");
-    const original = readFileSync(join(packageRoot, "package.json"), "utf8");
-    copyFileSync(
-      fileURLToPath(new URL("../.pnpmfile.cjs", import.meta.url)),
-      join(packageRoot, ".pnpmfile.cjs"),
-    );
-    captureIn(packageRoot, "pnpm", ["pack", "--pack-destination", directory]);
-    const tarball = join(directory, `fixture-package-contract-${version}.tgz`);
+  it.effect("rejects a ranged dependency inside a bootstrap cohort", () =>
+    Effect.gen(function* () {
+      const preview = "0.31.1-preview.123.abcdef012345";
+      const failure = yield* Effect.flip(
+        validatePack(
+          packedFixture({
+            version: preview,
+            dependencies: { "@agentxm/extension-model": `^${preview}` },
+          }),
+          "@fixture/package-contract",
+          preview,
+        ),
+      );
+      expect(failure.message).toContain("bootstrap cohort dependency must be exact");
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
-    await expect(
-      validatePack(tarball, "@fixture/package-contract", version),
-    ).resolves.toBeUndefined();
-    const published: unknown = JSON.parse(
-      capture("tar", ["-xOf", tarball, "package/package.json"]),
-    );
-    expect(published).toHaveProperty(["exports", ".", "node", "types"], "./dist/index.d.ts");
-    expect(published).not.toHaveProperty(["exports", ".", "axm-source"]);
-    expect(published).not.toHaveProperty(["imports", "#local", "axm-source"]);
-    expect(readFileSync(join(packageRoot, "package.json"), "utf8")).toBe(original);
-  });
+  it.effect(
+    "preserves published condition precedence and excludes workspace source conditions",
+    () =>
+      Effect.gen(function* () {
+        const directory = dirname(
+          packedFixture({
+            exports: {
+              ".": {
+                types: "./dist/index.d.ts",
+                "axm-source": "./src/index.ts",
+                node: { types: "./dist/index.d.ts", default: "./dist/index.js" },
+                default: "./dist/index.js",
+              },
+            },
+            imports: {
+              "#local": {
+                "axm-source": "./src/index.ts",
+                node: "./dist/index.js",
+                default: "./dist/index.js",
+              },
+            },
+            files: ["dist"],
+          }),
+        );
+        const packageRoot = join(directory, "package");
+        const original = readFileSync(join(packageRoot, "package.json"), "utf8");
+        copyFileSync(
+          fileURLToPath(new URL("../.pnpmfile.cjs", import.meta.url)),
+          join(packageRoot, ".pnpmfile.cjs"),
+        );
+        captureIn(packageRoot, "pnpm", ["pack", "--pack-destination", directory]);
+        const tarball = join(directory, `fixture-package-contract-${version}.tgz`);
+        yield* validatePack(tarball, "@fixture/package-contract", version);
+        const published: unknown = JSON.parse(
+          capture("tar", ["-xOf", tarball, "package/package.json"]),
+        );
+        expect(published).toHaveProperty(["exports", ".", "node", "types"], "./dist/index.d.ts");
+        expect(published).not.toHaveProperty(["exports", ".", "axm-source"]);
+        expect(published).not.toHaveProperty(["imports", "#local", "axm-source"]);
+        expect(readFileSync(join(packageRoot, "package.json"), "utf8")).toBe(original);
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
 });
 
 /**

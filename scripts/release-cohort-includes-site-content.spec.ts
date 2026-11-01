@@ -91,7 +91,7 @@ describe("Release site-content cohort", () => {
         join(repositoryRoot, "scripts/distribute-release.ts"),
         "utf8",
       );
-      expect(distributor).toContain("EXPECTED_RELEASE_ASSETS.map");
+      expect(distributor).toMatch(/Effect\.forEach\(\s*EXPECTED_RELEASE_ASSETS\s*,/u);
       expect(distributor).toContain("publishImmutableCohort");
     }),
   );

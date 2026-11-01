@@ -2,7 +2,9 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { captureIn, runIn } from "./release-command.js";
 import { foreignGitEnvironment, requireForeignGitRoot } from "./release-foreign-git.js";
 
@@ -29,53 +31,56 @@ afterEach(() => {
 });
 
 describe("foreign Git commands", () => {
-  it("removes repository-local inherited state and verifies the intended root", () => {
-    const outer = makeRepository("axm-release-outer");
-    const foreign = makeRepository("axm-release-foreign");
-    const outerHead = captureIn(outer, "git", ["rev-parse", "HEAD"]);
-    const hostile = {
-      ...process.env,
-      GIT_DIR: join(outer, ".git"),
-      GIT_WORK_TREE: outer,
-      GIT_INDEX_FILE: join(outer, ".git", "index"),
-    };
+  it.effect("removes repository-local inherited state and verifies the intended root", () =>
+    Effect.gen(function* () {
+      const outer = makeRepository("axm-release-outer");
+      const foreign = makeRepository("axm-release-foreign");
+      const outerHead = captureIn(outer, "git", ["rev-parse", "HEAD"]);
+      const hostile = {
+        ...process.env,
+        GIT_DIR: join(outer, ".git"),
+        GIT_WORK_TREE: outer,
+        GIT_INDEX_FILE: join(outer, ".git", "index"),
+      };
 
-    const isolated = foreignGitEnvironment(hostile);
-    expect(isolated["GIT_DIR"]).toBeUndefined();
-    expect(isolated["GIT_WORK_TREE"]).toBeUndefined();
-    requireForeignGitRoot(foreign, foreign, hostile);
-    runIn(foreign, "git", ["status", "--short"], isolated);
+      const isolated = foreignGitEnvironment(hostile);
+      expect(isolated["GIT_DIR"]).toBeUndefined();
+      expect(isolated["GIT_WORK_TREE"]).toBeUndefined();
+      yield* requireForeignGitRoot(foreign, foreign, hostile);
+      runIn(foreign, "git", ["status", "--short"], isolated);
 
-    expect(captureIn(outer, "git", ["rev-parse", "HEAD"])).toBe(outerHead);
-    // Git reports the canonical path, so compare canonical identity: the
-    // fixture root comes from `mkdtempSync`, which on macOS hands back a
-    // `/var/…` spelling of a `/private/var/…` directory.
-    expect(
-      realpathSync(captureIn(foreign, "git", ["rev-parse", "--show-toplevel"], isolated)),
-    ).toBe(realpathSync(foreign));
-  });
+      expect(captureIn(outer, "git", ["rev-parse", "HEAD"])).toBe(outerHead);
+      // Git reports the canonical path, so compare canonical identity: the
+      // fixture root comes from `mkdtempSync`, which on macOS hands back a
+      // `/var/…` spelling of a `/private/var/…` directory.
+      expect(
+        realpathSync(captureIn(foreign, "git", ["rev-parse", "--show-toplevel"], isolated)),
+      ).toBe(realpathSync(foreign));
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
-  it("accepts an intended root reached through a symbolic link", () => {
-    const foreign = makeRepository("axm-release-symlinked");
-    const linkRoot = mkdtempSync(join(tmpdir(), "axm-release-link-"));
-    directories.push(linkRoot);
-    const link = join(linkRoot, "checkout");
-    symlinkSync(foreign, link, "dir");
+  it.effect("accepts an intended root reached through a symbolic link", () =>
+    Effect.gen(function* () {
+      const foreign = makeRepository("axm-release-symlinked");
+      const linkRoot = mkdtempSync(join(tmpdir(), "axm-release-link-"));
+      directories.push(linkRoot);
+      const link = join(linkRoot, "checkout");
+      symlinkSync(foreign, link, "dir");
 
-    // The release flow builds this path itself (`join(temporary, "tap")` under
-    // a `mkdtempSync` root), so a symlinked temporary directory must not read
-    // as a foreign checkout and abort the publication.
-    expect(() => {
-      requireForeignGitRoot(link, link);
-    }).not.toThrow();
-  });
+      // The release flow builds this path itself (`join(temporary, "tap")` under
+      // a `mkdtempSync` root), so a symlinked temporary directory must not read
+      // as a foreign checkout and abort the publication.
+      yield* requireForeignGitRoot(link, link);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
-  it("rejects an intended root that is not the checkout Git resolves", () => {
-    const outer = makeRepository("axm-release-unrelated-outer");
-    const foreign = makeRepository("axm-release-unrelated-foreign");
+  it.effect("rejects an intended root that is not the checkout Git resolves", () =>
+    Effect.gen(function* () {
+      const outer = makeRepository("axm-release-unrelated-outer");
+      const foreign = makeRepository("axm-release-unrelated-foreign");
 
-    expect(() => {
-      requireForeignGitRoot(foreign, outer);
-    }).toThrow(/Foreign Git root mismatch/);
-  });
+      const failure = yield* Effect.flip(requireForeignGitRoot(foreign, outer));
+      expect(failure.message).toContain("Foreign Git root mismatch");
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 });

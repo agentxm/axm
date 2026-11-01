@@ -1,3 +1,4 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,14 +56,15 @@ const verification = Effect.gen(function* () {
       }),
   });
   // Failed packs are diagnostic artifacts; successful runs remove their output.
-  yield* Effect.tryPromise({
-    try: () => packReleaseCohort(version, directory),
-    catch: (cause) =>
-      new ArtifactVerificationFailure({
-        message: `Release pack verification failed; artifacts retained at ${directory}.`,
-        cause,
-      }),
-  });
+  yield* packReleaseCohort(version, directory).pipe(
+    Effect.mapError(
+      (cause) =>
+        new ArtifactVerificationFailure({
+          message: `Release pack verification failed; artifacts retained at ${directory}.`,
+          cause,
+        }),
+    ),
+  );
   yield* Effect.try({
     try: () => rmSync(directory, { recursive: true, force: true }),
     catch: (cause) =>
@@ -76,4 +78,4 @@ const verification = Effect.gen(function* () {
   );
 });
 
-await Effect.runPromise(verification);
+await Effect.runPromise(verification.pipe(Effect.provide(NodeServices.layer)));

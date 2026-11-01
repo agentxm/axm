@@ -1,9 +1,19 @@
 import { createHash } from "node:crypto";
-import { readdirSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
-import { setTimeout as sleepFor } from "node:timers/promises";
+import * as Clock from "effect/Clock";
+import * as Cause from "effect/Cause";
 import * as Data from "effect/Data";
+import * as Duration from "effect/Duration";
+import * as Random from "effect/Random";
+import * as Ref from "effect/Ref";
+import * as Result from "effect/Result";
+import * as Schedule from "effect/Schedule";
+import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientError from "effect/http/HttpClientError";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
+import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import { requireStableVersion } from "./release-identity.js";
@@ -27,7 +37,7 @@ export class ReleaseBoundaryFailed extends Data.TaggedError("ReleaseBoundaryFail
   }
 }
 
-/** Preserve supersession while classifying failures from foreign Promise callbacks. */
+/** Classify validation and foreign-boundary failures while preserving supersession. */
 export const releaseBoundaryError = (cause: unknown): SupersededRelease | ReleaseBoundaryFailed =>
   cause instanceof SupersededRelease ? cause : new ReleaseBoundaryFailed({ cause });
 
@@ -43,23 +53,30 @@ export const guardPublicationVersion = (
   if (semver.gt(observed, candidate)) throw new SupersededRelease(candidate, observed, owner);
 };
 
-export const releaseCohortTarballPath = (
+export const releaseCohortTarballPath = Effect.fn("Release.releaseCohortTarballPath")(function* (
   directory: string,
   prefix: string,
   version: string,
-): string => {
-  requireStableVersion(version);
+) {
+  yield* Effect.try({ try: () => requireStableVersion(version), catch: releaseBoundaryError });
+  const path = yield* Path.Path;
   const expectedFilename = `${prefix}${version}.tgz`;
-  if (basename(expectedFilename) !== expectedFilename)
-    throw new Error("Release tarball name must be a basename.");
-  const root = resolve(directory);
-  const entry = readdirSync(root, { withFileTypes: true }).find(
-    (candidate) => candidate.name === expectedFilename && candidate.isFile(),
+  if (path.basename(expectedFilename) !== expectedFilename)
+    return yield* new ReleaseBoundaryFailed({
+      cause: new Error("Release tarball name must be a basename."),
+    });
+  const fs = yield* FileSystem.FileSystem;
+  const root = path.resolve(directory);
+  const entries = yield* fs.readDirectoryEntries(root);
+  const entry = entries.find(
+    (candidate) => candidate.name === expectedFilename && candidate.type === "File",
   );
   if (entry === undefined)
-    throw new Error(`Release tarball is missing or not a regular file: ${expectedFilename}.`);
-  return join(root, entry.name);
-};
+    return yield* new ReleaseBoundaryFailed({
+      cause: new Error(`Release tarball is missing or not a regular file: ${expectedFilename}.`),
+    });
+  return path.join(root, entry.name);
+});
 
 export const contentIntegrity = (bytes: Uint8Array): string =>
   `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
@@ -88,13 +105,13 @@ const retryAfterMilliseconds = (value: string | null, now: number): number | und
 
 export const publicationHttpError = (
   owner: string,
-  response: Response,
-  now = Date.now(),
+  response: Pick<HttpClientResponse.HttpClientResponse, "status" | "headers">,
+  now: number,
 ): PublicationHttpError =>
   new PublicationHttpError(
     `${owner}: HTTP ${response.status}.`,
     response.status,
-    retryAfterMilliseconds(response.headers.get("retry-after"), now),
+    retryAfterMilliseconds(response.headers["retry-after"] ?? null, now),
   );
 
 const isDeadlineAbort = (error: unknown): boolean =>
@@ -103,16 +120,9 @@ const isDeadlineAbort = (error: unknown): boolean =>
 export const isTransientPublicationError = (error: unknown): boolean => {
   if (error instanceof PublicationHttpError) return error.retryable;
   if (error instanceof TypeError) return true;
+  if (HttpClientError.isHttpClientError(error)) return error.reason._tag === "TransportError";
+  if (Cause.isTimeoutError(error)) return true;
   return isDeadlineAbort(error);
-};
-
-const defaultSleep = async (delayMs: number, signal: AbortSignal): Promise<void> => {
-  await sleepFor(delayMs, undefined, { signal });
-};
-
-const observationSignal = (signal: AbortSignal | undefined, remainingMs: number): AbortSignal => {
-  const deadline = AbortSignal.timeout(Math.max(1, Math.ceil(remainingMs)));
-  return signal === undefined ? deadline : AbortSignal.any([signal, deadline]);
 };
 
 /** What the last completed attempt saw before the observation budget expired. */
@@ -164,102 +174,138 @@ export class PublicationReadbackTimeout extends Error {
   }
 }
 
-export const observePublication = async <Value>(input: {
+export class PublicationIntegrityConflict extends Data.TaggedError("PublicationIntegrityConflict")<{
+  readonly publication: string;
+}> {
+  override get message(): string {
+    return `Published content integrity conflict: ${this.publication}.`;
+  }
+}
+
+export class PublicationUnconfirmed extends Data.TaggedError("PublicationUnconfirmed")<{
+  readonly publication: string;
+  readonly submissionFailure: unknown;
+  readonly cause: unknown;
+}> {
+  override get message(): string {
+    return `Publication submission and bounded readback failed: ${this.publication}.`;
+  }
+}
+
+class PublicationPending extends Data.TaggedError("PublicationPending")<{
+  readonly retryAfterMs: number;
+}> {}
+
+export interface ImmutablePublicationObservation {
+  /** Budget for post-write readback, starting after the cohort's last submission. */
+  readonly timeoutMs?: number;
+  /** Independent budget for existence reads before any write. */
+  readonly preflightTimeoutMs?: number;
+  readonly initialDelayMs?: number;
+  readonly maxDelayMs?: number;
+}
+
+export const observePublication = Effect.fn("Release.observePublication")(function* <
+  Value,
+  E,
+  R,
+>(input: {
   readonly name: string;
-  readonly read: (signal: AbortSignal) => Promise<Value>;
+  readonly read: Effect.Effect<Value, E, R>;
   readonly matches: (value: Value) => boolean;
   readonly conflicts?: (value: Value) => boolean;
   readonly timeoutMs?: number;
-  /** Shared cohort deadline; `startedAt` is when that budget began. */
+  /** Shared cohort deadline; startedAt is when that budget began. */
   readonly deadlineAt?: number;
   readonly startedAt?: number;
   readonly initialDelayMs?: number;
   readonly maxDelayMs?: number;
-  readonly sleep?: (delayMs: number, signal: AbortSignal) => Promise<void>;
-  readonly now?: () => number;
-  readonly random?: () => number;
-  readonly retryError?: (error: unknown) => boolean;
-  readonly signal?: AbortSignal;
-}): Promise<Value> => {
-  const now = input.now ?? Date.now;
-  const sleep = input.sleep ?? defaultSleep;
-  const random = input.random ?? Math.random;
-  const retryError = input.retryError ?? (() => false);
-  const startedAt = input.startedAt ?? now();
+  readonly retryError?: (error: E) => boolean;
+}) {
+  const enteredAt = yield* Clock.currentTimeMillis;
+  const startedAt = input.startedAt ?? enteredAt;
   const deadlineAt = input.deadlineAt ?? startedAt + (input.timeoutMs ?? 90_000);
-  const initialDelayMs = input.initialDelayMs ?? 1_000;
-  const maxDelayMs = input.maxDelayMs ?? 5_000;
-  let lastFailure: unknown;
-  let lastObservation: PublicationObservation = { kind: "unobserved" };
-  let attempt = 0;
-  const waitForNextRead = async (delayMs: number): Promise<void> => {
-    if (delayMs <= 0) return;
-    try {
-      await sleep(delayMs, observationSignal(input.signal, deadlineAt - now()));
-    } catch (error) {
-      if (input.signal?.aborted === true) input.signal.throwIfAborted();
-      if (now() < deadlineAt || !isDeadlineAbort(error)) throw error;
-      // A deadline can cancel the final sleep before its timer completes.
-      // Report the owning readback timeout, retaining any preceding read failure.
-    }
-  };
-  while (now() < deadlineAt) {
-    attempt += 1;
-    if (input.signal?.aborted === true) input.signal.throwIfAborted();
-    let value: Value;
-    try {
-      value = await input.read(observationSignal(input.signal, deadlineAt - now()));
-    } catch (error) {
-      if (input.signal?.aborted === true) input.signal.throwIfAborted();
-      if (!retryError(error)) throw error;
-      lastFailure = error;
-      lastObservation = transientObservation(error);
-      if (now() >= deadlineAt) break;
-      const retryAfterMs = error instanceof PublicationHttpError ? error.retryAfterMs : undefined;
-      const backoff = Math.min(maxDelayMs, initialDelayMs * 2 ** Math.min(attempt - 1, 8));
-      const jittered = Math.round(backoff * (0.8 + random() * 0.4));
-      const delayMs = Math.min(deadlineAt - now(), Math.max(jittered, retryAfterMs ?? 0));
-      await waitForNextRead(delayMs);
-      continue;
-    }
-    if (input.matches(value)) return value;
-    if (input.conflicts?.(value) === true)
-      throw new Error(`Published content integrity conflict: ${input.name}.`);
-    lastObservation = value === null ? { kind: "absent" } : { kind: "mismatch" };
-    const backoff = Math.min(maxDelayMs, initialDelayMs * 2 ** Math.min(attempt - 1, 8));
-    const delayMs = Math.min(deadlineAt - now(), Math.round(backoff * (0.8 + random() * 0.4)));
-    await waitForNextRead(delayMs);
-  }
-  throw new PublicationReadbackTimeout({
-    publication: input.name,
-    phase: "readback",
-    attempts: attempt,
-    elapsedMs: now() - startedAt,
-    deadlineMs: deadlineAt - startedAt,
-    lastObservation,
-    cause: lastFailure,
+  const state = yield* Ref.make<{
+    readonly attempts: number;
+    readonly observation: PublicationObservation;
+    readonly failure?: E;
+  }>({ attempts: 0, observation: { kind: "unobserved" } });
+  const timeout = Effect.gen(function* () {
+    const last = yield* Ref.get(state);
+    const now = yield* Clock.currentTimeMillis;
+    return yield* Effect.fail(
+      new PublicationReadbackTimeout({
+        publication: input.name,
+        phase: "readback",
+        attempts: last.attempts,
+        elapsedMs: now - startedAt,
+        deadlineMs: deadlineAt - startedAt,
+        lastObservation: last.observation,
+        ...(last.failure === undefined ? {} : { cause: last.failure }),
+      }),
+    );
   });
-};
+  if (enteredAt >= deadlineAt) return yield* timeout;
 
-export const mapWithConcurrency = async <Input, Output>(
-  values: ReadonlyArray<Input>,
-  concurrency: number,
-  operation: (value: Input) => Promise<Output>,
-): Promise<Output[]> => {
-  if (!Number.isInteger(concurrency) || concurrency < 1)
-    throw new Error("Publication observation concurrency must be a positive integer.");
-  const outputs: Output[] = [];
-  for (let offset = 0; offset < values.length; offset += concurrency) {
-    outputs.push(...(await Promise.all(values.slice(offset, offset + concurrency).map(operation))));
-  }
-  return outputs;
-};
+  const attempt = Effect.gen(function* () {
+    if ((yield* Clock.currentTimeMillis) >= deadlineAt) return yield* timeout;
+    yield* Ref.update(state, (last) => ({ ...last, attempts: last.attempts + 1 }));
+    const observed = yield* Effect.result(input.read);
+    if (Result.isFailure(observed)) {
+      if (input.retryError?.(observed.failure) !== true)
+        return yield* Effect.fail(observed.failure);
+      yield* Ref.update(state, (last) => ({
+        ...last,
+        observation: transientObservation(observed.failure),
+        failure: observed.failure,
+      }));
+      return yield* new PublicationPending({
+        retryAfterMs:
+          observed.failure instanceof PublicationHttpError
+            ? (observed.failure.retryAfterMs ?? 0)
+            : 0,
+      });
+    }
+    if (input.matches(observed.success)) return observed.success;
+    if (input.conflicts?.(observed.success) === true)
+      return yield* new PublicationIntegrityConflict({ publication: input.name });
+    yield* Ref.update(state, (last) => ({
+      ...last,
+      observation: {
+        kind: observed.success === null ? ("absent" as const) : ("mismatch" as const),
+      },
+    }));
+    return yield* new PublicationPending({ retryAfterMs: 0 });
+  });
+  const schedule = Schedule.exponential(input.initialDelayMs ?? 1_000).pipe(
+    Schedule.modifyDelay(({ duration, input: failure }) =>
+      Random.next.pipe(
+        Effect.map((random) => {
+          const bounded = Math.min(input.maxDelayMs ?? 5_000, Duration.toMillis(duration));
+          const jittered = Math.round(bounded * (0.8 + random * 0.4));
+          return Math.max(
+            jittered,
+            failure instanceof PublicationPending ? failure.retryAfterMs : 0,
+          );
+        }),
+      ),
+    ),
+  );
+  return yield* attempt.pipe(
+    Effect.retry({ schedule, while: (error) => error instanceof PublicationPending }),
+    Effect.catchIf(
+      (error): error is PublicationPending => error instanceof PublicationPending,
+      () => timeout,
+    ),
+    Effect.timeoutOrElse({ duration: deadlineAt - enteredAt, orElse: () => timeout }),
+  );
+});
 
-export interface ImmutablePublication {
+export interface ImmutablePublication<E, R> {
   readonly name: string;
   readonly integrity: string;
-  readonly read: (signal: AbortSignal) => Promise<string | null>;
-  readonly publish: () => Promise<void>;
+  readonly read: Effect.Effect<string | null, E, R>;
+  readonly publish: Effect.Effect<void, E, R>;
 }
 
 export type ImmutablePublicationOutcome = {
@@ -267,197 +313,127 @@ export type ImmutablePublicationOutcome = {
   readonly outcome: "reused" | "published";
 };
 
-export interface ImmutablePublicationObservation {
-  /** Budget for the post-write readback, starting after the cohort's last submission. */
-  readonly timeoutMs?: number;
-  /** Independent budget for the existence reads before any write. */
-  readonly preflightTimeoutMs?: number;
-  readonly initialDelayMs?: number;
-  readonly maxDelayMs?: number;
-  readonly sleep?: (delayMs: number, signal: AbortSignal) => Promise<void>;
-  readonly now?: () => number;
-  readonly random?: () => number;
-  readonly signal?: AbortSignal;
-}
-
-/**
- * Preflight every coordinate within its own budget, submit each missing
- * immutable write once, then observe together within a budget that starts
- * after the last submission.
- */
-export const publishImmutableCohort = async (
-  publications: ReadonlyArray<ImmutablePublication>,
-  observation: ImmutablePublicationObservation & { readonly concurrency?: number } = {},
-): Promise<ImmutablePublicationOutcome[]> => {
-  const concurrency = observation.concurrency ?? 4;
-  const now = observation.now ?? Date.now;
-  const preflightStartedAt = now();
-  const preflightDeadlineMs = observation.preflightTimeoutMs ?? 90_000;
-  const preflightDeadlineAt = preflightStartedAt + preflightDeadlineMs;
-  const preflightTimeout = (
-    publication: ImmutablePublication,
-    attempts: number,
-    lastObservation: PublicationObservation,
-    cause?: unknown,
-  ) =>
-    new PublicationReadbackTimeout({
-      publication: publication.name,
-      phase: "preflight",
-      attempts,
-      elapsedMs: now() - preflightStartedAt,
-      deadlineMs: preflightDeadlineMs,
-      lastObservation,
-      cause,
-    });
-  const prepared = await mapWithConcurrency(publications, concurrency, async (publication) => {
-    if (now() >= preflightDeadlineAt)
-      throw preflightTimeout(publication, 0, { kind: "unobserved" });
-    try {
-      return {
-        publication,
-        existing: await publication.read(
-          observationSignal(observation.signal, preflightDeadlineAt - now()),
-        ),
-      };
-    } catch (error) {
-      if (observation.signal?.aborted === true) observation.signal.throwIfAborted();
-      if (now() < preflightDeadlineAt || !isDeadlineAbort(error)) throw error;
-      throw preflightTimeout(publication, 1, transientObservation(error), error);
-    }
-  });
+const preflightPublications = Effect.fn("Release.preflightPublications")(function* <E, R>(
+  publications: ReadonlyArray<ImmutablePublication<E, R>>,
+  observation: ImmutablePublicationObservation,
+  concurrency: number,
+) {
+  const startedAt = yield* Clock.currentTimeMillis;
+  const deadlineMs = observation.preflightTimeoutMs ?? 90_000;
+  const deadlineAt = startedAt + deadlineMs;
+  const prepared = yield* Effect.forEach(
+    publications,
+    (publication) =>
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis;
+        const timeout = (attempts: number) =>
+          Effect.gen(function* () {
+            const finishedAt = yield* Clock.currentTimeMillis;
+            return yield* Effect.fail(
+              new PublicationReadbackTimeout({
+                publication: publication.name,
+                phase: "preflight",
+                attempts,
+                elapsedMs: finishedAt - startedAt,
+                deadlineMs,
+                lastObservation: { kind: "unobserved" },
+              }),
+            );
+          });
+        if (now >= deadlineAt) return yield* timeout(0);
+        const existing = yield* publication.read.pipe(
+          Effect.timeoutOrElse({ duration: deadlineAt - now, orElse: () => timeout(1) }),
+        );
+        return { publication, existing };
+      }),
+    { concurrency },
+  );
   for (const { publication, existing } of prepared) {
     if (existing !== null && existing !== publication.integrity)
-      throw new Error(`Published content integrity conflict: ${publication.name}.`);
+      return yield* new PublicationIntegrityConflict({ publication: publication.name });
   }
+  return prepared;
+});
 
-  const pending: Array<{
-    readonly publication: ImmutablePublication;
-    readonly submissionFailure?: unknown;
-  }> = [];
-  const outcomes: ImmutablePublicationOutcome[] = [];
-  for (const { publication, existing } of prepared) {
-    if (existing === publication.integrity) {
-      outcomes.push({ name: publication.name, outcome: "reused" });
-      continue;
-    }
-    let submissionFailure: unknown;
-    try {
-      await publication.publish();
-    } catch (error) {
-      submissionFailure = error;
-    }
-    pending.push({
-      publication,
-      ...(submissionFailure === undefined ? {} : { submissionFailure }),
-    });
-  }
-
-  const observationStartedAt = now();
-  const deadlineAt = observationStartedAt + (observation.timeoutMs ?? 90_000);
-  const published = await mapWithConcurrency(pending, concurrency, async (candidate) => {
-    try {
-      await observePublication({
+/**
+ * Preflight all coordinates, submit each missing immutable write once, then
+ * observe together under a budget beginning after the last submission.
+ */
+export const publishImmutableCohort = Effect.fn("Release.publishImmutableCohort")(function* <E, R>(
+  publications: ReadonlyArray<ImmutablePublication<E, R>>,
+  observation: ImmutablePublicationObservation & { readonly concurrency?: number } = {},
+) {
+  const concurrency = observation.concurrency ?? 4;
+  const prepared = yield* preflightPublications(publications, observation, concurrency);
+  const outcomes: ImmutablePublicationOutcome[] = prepared
+    .filter(({ publication, existing }) => existing === publication.integrity)
+    .map(({ publication }) => ({ name: publication.name, outcome: "reused" }));
+  const pending = yield* Effect.forEach(prepared, ({ publication, existing }) =>
+    Effect.gen(function* () {
+      if (existing === publication.integrity) return undefined;
+      const submission = yield* Effect.result(publication.publish);
+      return { publication, submission };
+    }),
+  );
+  const startedAt = yield* Clock.currentTimeMillis;
+  const deadlineAt = startedAt + (observation.timeoutMs ?? 90_000);
+  const published = yield* Effect.forEach(
+    pending.filter((candidate) => candidate !== undefined),
+    (candidate) =>
+      observePublication({
+        ...observation,
         name: candidate.publication.name,
         read: candidate.publication.read,
         matches: (value) => value === candidate.publication.integrity,
         conflicts: (value) => value !== null && value !== candidate.publication.integrity,
-        startedAt: observationStartedAt,
-        deadlineAt,
         retryError: isTransientPublicationError,
-        now,
-        ...(observation.initialDelayMs === undefined
-          ? {}
-          : { initialDelayMs: observation.initialDelayMs }),
-        ...(observation.maxDelayMs === undefined ? {} : { maxDelayMs: observation.maxDelayMs }),
-        ...(observation.sleep === undefined ? {} : { sleep: observation.sleep }),
-        ...(observation.random === undefined ? {} : { random: observation.random }),
-        ...(observation.signal === undefined ? {} : { signal: observation.signal }),
-      });
-    } catch (readbackFailure) {
-      if (candidate.submissionFailure !== undefined)
-        throw new AggregateError(
-          [candidate.submissionFailure, readbackFailure],
-          `Publication submission and bounded readback failed: ${candidate.publication.name}.`,
-          { cause: readbackFailure },
-        );
-      throw readbackFailure;
-    }
-    return { name: candidate.publication.name, outcome: "published" } as const;
-  });
-  return [...outcomes, ...published];
-};
-
-/** Existence-read failures propagate; only an affirmative absence permits a write. */
-export const publishImmutable = async (input: {
-  readonly name: string;
-  readonly integrity: string;
-  readonly read: (signal: AbortSignal) => Promise<string | null>;
-  readonly publish: () => Promise<void>;
-  readonly observation?: ImmutablePublicationObservation;
-}): Promise<"reused" | "published"> => {
-  const outcomes = await publishImmutableCohort(
-    [{ name: input.name, integrity: input.integrity, read: input.read, publish: input.publish }],
-    { concurrency: 1, ...input.observation },
+        startedAt,
+        deadlineAt,
+      }).pipe(
+        Effect.mapError((cause) =>
+          Result.isFailure(candidate.submission)
+            ? new PublicationUnconfirmed({
+                publication: candidate.publication.name,
+                submissionFailure: candidate.submission.failure,
+                cause,
+              })
+            : cause,
+        ),
+        Effect.as({ name: candidate.publication.name, outcome: "published" } as const),
+      ),
+    { concurrency },
   );
+  return [...outcomes, ...published];
+});
+
+/** Existence-read failures propagate; only affirmative absence permits a write. */
+export const publishImmutable = Effect.fn("Release.publishImmutable")(function* <E, R>(
+  input: ImmutablePublication<E, R> & { readonly observation?: ImmutablePublicationObservation },
+) {
+  const outcomes = yield* publishImmutableCohort([input], { concurrency: 1, ...input.observation });
   const outcome = outcomes[0];
-  if (outcome === undefined) throw new Error(`Missing publication outcome: ${input.name}.`);
+  // A single input must produce exactly one outcome; absence is an implementation invariant.
+  if (outcome === undefined)
+    return yield* Effect.die(new Error(`Missing publication outcome: ${input.name}.`));
   return outcome.outcome;
-};
+});
 
-class ImmutablePublicationFailed extends Data.TaggedError("ImmutablePublicationFailed")<{
-  readonly name: string;
-  readonly phase: "preflight" | "publication";
-  readonly cause: unknown;
-}> {
-  override get message(): string {
-    return `Immutable ${this.phase} failed for ${this.name}.`;
-  }
-}
-
-/**
- * The caller supplies dependency-first order. Verify the complete cohort before
- * writes, then confirm each immutable dependency before publishing its consumers.
- */
-export const publishImmutableInDependencyOrder = (
-  publications: ReadonlyArray<ImmutablePublication>,
-  observation: Omit<ImmutablePublicationObservation, "signal"> = {},
-) =>
-  Effect.gen(function* () {
-    const prepared = yield* Effect.forEach(publications, (publication) =>
-      Effect.tryPromise({
-        try: (signal) => publication.read(signal),
-        catch: (cause) =>
-          cause instanceof SupersededRelease
-            ? cause
-            : new ImmutablePublicationFailed({ name: publication.name, phase: "preflight", cause }),
-      }).pipe(Effect.map((existing) => ({ publication, existing }))),
-    ).pipe(Effect.timeout(observation.preflightTimeoutMs ?? 90_000));
-    for (const { publication, existing } of prepared) {
-      if (existing !== null && existing !== publication.integrity) {
-        return yield* new ImmutablePublicationFailed({
-          name: publication.name,
-          phase: "preflight",
-          cause: new Error(`Published content integrity conflict: ${publication.name}.`),
-        });
-      }
-    }
-    return yield* Effect.forEach(prepared, ({ publication, existing }) =>
-      existing === publication.integrity
-        ? Effect.succeed({ name: publication.name, outcome: "reused" } as const)
-        : Effect.tryPromise({
-            try: (signal) =>
-              publishImmutable({ ...publication, observation: { ...observation, signal } }),
-            catch: (cause) =>
-              cause instanceof SupersededRelease
-                ? cause
-                : new ImmutablePublicationFailed({
-                    name: publication.name,
-                    phase: "publication",
-                    cause,
-                  }),
-          }).pipe(Effect.map((outcome) => ({ name: publication.name, outcome }))),
-    );
-  });
+/** Confirm each immutable dependency before publishing its consumers. */
+export const publishImmutableInDependencyOrder = Effect.fn(
+  "Release.publishImmutableInDependencyOrder",
+)(function* <E, R>(
+  publications: ReadonlyArray<ImmutablePublication<E, R>>,
+  observation: ImmutablePublicationObservation = {},
+) {
+  const prepared = yield* preflightPublications(publications, observation, 1);
+  return yield* Effect.forEach(prepared, ({ publication, existing }) =>
+    existing === publication.integrity
+      ? Effect.succeed({ name: publication.name, outcome: "reused" } as const)
+      : publishImmutable({ ...publication, observation }).pipe(
+          Effect.map((outcome) => ({ name: publication.name, outcome })),
+        ),
+  );
+});
 
 type PublicationBoundaryName = "artifacts" | "distribution" | "npm" | "tap";
 
@@ -471,44 +447,50 @@ export type PublicationStates = Record<
 >;
 
 /** Preflight all mutable owners before any publication; recheck each owner at its write boundary. */
-export const distributeRelease = <E, R>(
-  preflight: Effect.Effect<void, E, R>,
+export const distributeRelease = Effect.fn("Release.distributeRelease")(function* <
+  EPreflight,
+  RPreflight,
+  E,
+  R,
+  ERecord,
+  RRecord,
+>(
+  preflight: Effect.Effect<void, EPreflight, RPreflight>,
   boundaries: ReadonlyArray<PublicationBoundary<E, R>>,
-  record: (states: PublicationStates) => void,
-): Effect.Effect<"distributed" | "superseded", E, R> => {
-  return Effect.gen(function* () {
-    const states: PublicationStates = {
-      artifacts: "pending",
-      distribution: "pending",
-      npm: "pending",
-      tap: "pending",
-    };
-    let active: PublicationBoundaryName | undefined;
-    return yield* Effect.gen(function* () {
-      yield* preflight;
-      for (const boundary of boundaries) {
-        active = boundary.name;
-        yield* boundary.publish();
-        states[active] = "succeeded";
-        yield* Effect.sync(() => record({ ...states }));
-      }
-      return "distributed" as const;
-    }).pipe(
-      Effect.catch((error: E) =>
-        Effect.gen(function* () {
-          if (active !== undefined)
-            states[active] = error instanceof SupersededRelease ? "superseded" : "failed";
-          yield* Effect.sync(() => record({ ...states }));
-          if (error instanceof SupersededRelease) {
-            yield* Effect.sync(() => console.log(error.message));
-            return "superseded" as const;
-          }
-          return yield* Effect.fail(error);
-        }),
-      ),
-    );
-  });
-};
+  record: (states: PublicationStates) => Effect.Effect<void, ERecord, RRecord>,
+): Effect.fn.Return<
+  "distributed" | "superseded",
+  EPreflight | E | ERecord,
+  RPreflight | R | RRecord
+> {
+  const states: PublicationStates = {
+    artifacts: "pending",
+    distribution: "pending",
+    npm: "pending",
+    tap: "pending",
+  };
+  const settleFailure = (error: EPreflight | E) =>
+    error instanceof SupersededRelease
+      ? Effect.logInfo(error.message).pipe(Effect.as("superseded" as const))
+      : Effect.fail(error);
+  const prepared = yield* Effect.result(preflight);
+  if (Result.isFailure(prepared)) {
+    yield* record({ ...states });
+    return yield* settleFailure(prepared.failure);
+  }
+  for (const boundary of boundaries) {
+    const result = yield* Effect.result(boundary.publish());
+    states[boundary.name] = Result.isSuccess(result)
+      ? "succeeded"
+      : result.failure instanceof SupersededRelease
+        ? "superseded"
+        : "failed";
+    // Recording is an independent typed boundary; failure must not replay publication.
+    yield* record({ ...states });
+    if (Result.isFailure(result)) return yield* settleFailure(result.failure);
+  }
+  return "distributed";
+});
 
 const NpmMetadata = Schema.Struct({
   "dist-tags": Schema.Record(Schema.String, Schema.String),
@@ -523,54 +505,59 @@ const DownloadableVersion = Schema.Struct({
 // upload, and its tarball lagged metadata. Retain a bounded propagation window.
 export const npmPropagationTimeoutMs = 15 * 60_000;
 
-/** Download readiness is separate from existence: a tarball 404 never permits another write. */
-export const verifyNpmDownload = (
+/** Download readiness is separate from existence: tarball absence never permits another write. */
+export const verifyNpmDownload = Effect.fn("Release.verifyNpmDownload")(function* (
   input: { readonly name: string; readonly version: string; readonly integrity: string },
-  observation: Omit<ImmutablePublicationObservation, "signal"> = {},
-  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch,
-) =>
-  Effect.gen(function* () {
-    const coordinate = `${input.name}@${input.version}`;
-    yield* Effect.logInfo(`Waiting for checksum-verified npm download: ${coordinate}`);
-    yield* Effect.tryPromise({
-      try: (signal) =>
-        observePublication({
-          ...observation,
-          timeoutMs: observation.timeoutMs ?? npmPropagationTimeoutMs,
-          signal,
-          name: `${coordinate} tarball`,
-          retryError: isTransientPublicationError,
-          read: async (attemptSignal) => {
-            const metadata = await readNpmMetadata(input.name, fetchImplementation, attemptSignal);
-            const published = metadata?.versions[input.version];
-            if (published === undefined) return null;
-            const { dist } = Schema.decodeUnknownSync(DownloadableVersion)(published);
-            if (dist.integrity !== input.integrity)
-              throw new Error(`Published content integrity conflict: ${coordinate} metadata.`);
-            const url = new URL(dist.tarball);
-            if (url.origin !== "https://registry.npmjs.org" || url.username || url.password)
-              throw new Error(`Unexpected npm tarball host: ${coordinate}.`);
-            const response = await fetchImplementation(url, {
-              signal: AbortSignal.any([attemptSignal, AbortSignal.timeout(30_000)]),
-              redirect: "error",
-              cache: "no-store",
-              headers: { "cache-control": "no-cache" },
-            });
-            if (response.status === 404) {
-              console.log(`npm tarball not yet downloadable: ${coordinate}`);
-              return null;
-            }
-            if (response.status !== 200)
-              throw publicationHttpError(`npm tarball download failed for ${coordinate}`, response);
-            return contentIntegrity(new Uint8Array(await response.arrayBuffer()));
-          },
-          matches: (value) => value === input.integrity,
-          conflicts: (value) => value !== null && value !== input.integrity,
-        }),
-      catch: releaseBoundaryError,
-    });
-    yield* Effect.logInfo(`Verified npm download: ${coordinate}`);
+  observation: ImmutablePublicationObservation = {},
+) {
+  const coordinate = `${input.name}@${input.version}`;
+  yield* Effect.logInfo(`Waiting for checksum-verified npm download: ${coordinate}`);
+  yield* observePublication({
+    ...observation,
+    timeoutMs: observation.timeoutMs ?? npmPropagationTimeoutMs,
+    name: `${coordinate} tarball`,
+    retryError: isTransientPublicationError,
+    read: Effect.gen(function* () {
+      const metadata = yield* readNpmMetadata(input.name);
+      const published = metadata?.versions[input.version];
+      if (published === undefined) return null;
+      const { dist } = yield* Schema.decodeUnknownEffect(DownloadableVersion)(published);
+      if (dist.integrity !== input.integrity)
+        return yield* new PublicationIntegrityConflict({ publication: `${coordinate} metadata` });
+      const url = yield* Effect.try({
+        try: () => new URL(dist.tarball),
+        catch: (cause) => new ReleaseBoundaryFailed({ cause }),
+      });
+      if (url.origin !== "https://registry.npmjs.org" || url.username || url.password)
+        return yield* new ReleaseBoundaryFailed({
+          cause: new Error(`Unexpected npm tarball host: ${coordinate}.`),
+        });
+      return yield* Effect.gen(function* () {
+        const response = yield* HttpClient.execute(
+          HttpClientRequest.get(url.href).pipe(
+            HttpClientRequest.setHeader("cache-control", "no-cache"),
+          ),
+        );
+        if (response.status === 404) {
+          yield* Effect.logInfo(`npm tarball not yet downloadable: ${coordinate}`);
+          return null;
+        }
+        if (response.status !== 200)
+          return yield* Effect.fail(
+            publicationHttpError(
+              `npm tarball download failed for ${coordinate}`,
+              response,
+              yield* Clock.currentTimeMillis,
+            ),
+          );
+        return contentIntegrity(new Uint8Array(yield* response.arrayBuffer));
+      }).pipe(Effect.timeout(30_000));
+    }),
+    matches: (value) => value === input.integrity,
+    conflicts: (value) => value !== null && value !== input.integrity,
   });
+  yield* Effect.logInfo(`Verified npm download: ${coordinate}`);
+});
 
 export class NpmPackagesUninitialized extends Data.TaggedError("NpmPackagesUninitialized")<{
   readonly packages: ReadonlyArray<string>;
@@ -589,129 +576,101 @@ class NpmPackageQueryFailed extends Data.TaggedError("NpmPackageQueryFailed")<{
   }
 }
 
-const readNpmMetadata = async (
-  name: string,
-  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>,
-  signal?: AbortSignal,
-): Promise<typeof NpmMetadata.Type | null> => {
-  const requestSignal =
-    signal === undefined
-      ? AbortSignal.timeout(30_000)
-      : AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
+const readNpmMetadata = Effect.fn("Release.readNpmMetadata")(function* (name: string) {
   // npm's documented GET query revalidates registry caches before a write or readback.
   // https://github.com/npm/npm-registry-fetch#caching-and-writetrue-query-strings
-  const response = await fetchImplementation(
+  const request = HttpClientRequest.get(
     `https://registry.npmjs.org/${encodeURIComponent(name)}?write=true`,
-    {
-      cache: "no-store",
-      // Bun does not translate the cache option into an HTTP request directive.
-      headers: { "cache-control": "no-cache" },
-      signal: requestSignal,
-    },
-  );
-  if (response.status === 404) return null;
-  if (response.status !== 200)
-    throw publicationHttpError(`npm existence query failed for ${name}`, response);
-  return Schema.decodeUnknownSync(NpmMetadata)(await response.json());
-};
+  ).pipe(HttpClientRequest.setHeader("cache-control", "no-cache"));
+  return yield* Effect.gen(function* () {
+    const response = yield* HttpClient.execute(request);
+    if (response.status === 404) return null;
+    if (response.status !== 200)
+      return yield* Effect.fail(
+        publicationHttpError(
+          `npm existence query failed for ${name}`,
+          response,
+          yield* Clock.currentTimeMillis,
+        ),
+      );
+    return yield* Schema.decodeUnknownEffect(NpmMetadata)(yield* response.json);
+  }).pipe(Effect.timeout(30_000));
+});
 
 /** Public existence is necessary for OIDC setup; it does not prove publisher permissions. */
-export const requireInitializedNpmPackages = (
-  names: ReadonlyArray<string>,
-  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch,
-) =>
-  Effect.gen(function* () {
+export const requireInitializedNpmPackages = Effect.fn("Release.requireInitializedNpmPackages")(
+  function* (names: ReadonlyArray<string>) {
     // Keep these cheap public reads sequential; no release mutation has started.
     const missing = yield* Effect.filter(names, (packageName) =>
-      Effect.tryPromise({
-        try: (signal) => readNpmMetadata(packageName, fetchImplementation, signal),
-        catch: (cause) => new NpmPackageQueryFailed({ packageName, cause }),
-      }).pipe(Effect.map((metadata) => metadata === null)),
+      readNpmMetadata(packageName).pipe(
+        Effect.mapError((cause) => new NpmPackageQueryFailed({ packageName, cause })),
+        Effect.map((metadata) => metadata === null),
+      ),
     );
     if (missing.length > 0) return yield* new NpmPackagesUninitialized({ packages: missing });
-  });
+  },
+);
 
-export const readNpmPublication = async (
+export const readNpmPublication = Effect.fn("Release.readNpmPublication")(function* (
   name: string,
   version: string,
-  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch,
-  signal?: AbortSignal,
-): Promise<{
-  readonly packageExists: boolean;
-  readonly latest: string | null;
-  readonly integrity: string | null;
-}> => {
-  const metadata = await readNpmMetadata(name, fetchImplementation, signal);
+) {
+  const metadata = yield* readNpmMetadata(name);
   if (metadata === null) return { packageExists: false, latest: null, integrity: null };
   const published = metadata.versions[version];
-  return {
-    packageExists: true,
-    latest: metadata["dist-tags"]["latest"] ?? null,
-    integrity:
-      published === undefined
-        ? null
-        : Schema.decodeUnknownSync(PublishedVersion)(published).dist.integrity,
-  };
-};
+  const integrity =
+    published === undefined
+      ? null
+      : (yield* Schema.decodeUnknownEffect(PublishedVersion)(published)).dist.integrity;
+  return { packageExists: true, latest: metadata["dist-tags"]["latest"] ?? null, integrity };
+});
 
-export const readNpmDistTag = async (
+export const readNpmDistTag = Effect.fn("Release.readNpmDistTag")(function* (
   name: string,
   tag: string,
-  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch,
-  signal?: AbortSignal,
-): Promise<string | null> => {
-  const metadata = await readNpmMetadata(name, fetchImplementation, signal);
+) {
+  const metadata = yield* readNpmMetadata(name);
   return metadata?.["dist-tags"][tag] ?? null;
-};
+});
 
-export const reconcileNpmStableTag = async (input: {
+export const reconcileNpmStableTag = Effect.fn("Release.reconcileNpmStableTag")(function* <
+  E,
+  R,
+>(input: {
   readonly name: string;
   readonly version: string;
-  readonly read: (signal: AbortSignal) => Promise<string | null>;
-  readonly promote: () => Promise<void>;
-  readonly observation?: {
-    readonly timeoutMs?: number;
-    readonly initialDelayMs?: number;
-    readonly maxDelayMs?: number;
-    readonly sleep?: (delayMs: number, signal: AbortSignal) => Promise<void>;
-    readonly now?: () => number;
-    readonly random?: () => number;
-    readonly signal?: AbortSignal;
-  };
-}): Promise<"already-current" | "promoted"> => {
-  const initial = await input.read(AbortSignal.timeout(30_000));
-  guardPublicationVersion(input.version, initial, input.name);
-  if (initial === input.version) return "already-current";
-
-  let submissionFailure: unknown;
-  try {
-    await input.promote();
-  } catch (error) {
-    submissionFailure = error;
-  }
-
-  try {
-    await observePublication({
-      name: `npm latest ${input.name}@${input.version}`,
-      read: input.read,
-      matches: (latest) => latest === input.version,
-      conflicts: (latest) => {
-        guardPublicationVersion(input.version, latest, input.name);
-        return false;
-      },
-      retryError: isTransientPublicationError,
-      timeoutMs: 120_000,
-      ...input.observation,
-    });
-    return "promoted";
-  } catch (readbackFailure) {
-    if (submissionFailure !== undefined) {
-      throw new AggregateError(
-        [submissionFailure, readbackFailure],
-        `npm latest submission and bounded readback failed for ${input.name}.`,
-        { cause: readbackFailure },
-      );
-    }
-    throw readbackFailure;
-  }
-};
+  readonly read: Effect.Effect<string | null, E, R>;
+  readonly promote: Effect.Effect<void, E, R>;
+  readonly observation?: ImmutablePublicationObservation;
+}) {
+  const read = input.read.pipe(
+    Effect.tap((observed) =>
+      Effect.try({
+        try: () => guardPublicationVersion(input.version, observed, input.name),
+        catch: releaseBoundaryError,
+      }),
+    ),
+  );
+  const initial = yield* read.pipe(Effect.timeout(30_000));
+  if (initial === input.version) return "already-current" as const;
+  const submission = yield* Effect.result(input.promote);
+  yield* observePublication({
+    name: `npm latest ${input.name}@${input.version}`,
+    read,
+    matches: (latest) => latest === input.version,
+    retryError: isTransientPublicationError,
+    timeoutMs: 120_000,
+    ...input.observation,
+  }).pipe(
+    Effect.mapError((cause) =>
+      Result.isFailure(submission)
+        ? new PublicationUnconfirmed({
+            publication: `npm latest ${input.name}`,
+            submissionFailure: submission.failure,
+            cause,
+          })
+        : cause,
+    ),
+  );
+  return "promoted" as const;
+});

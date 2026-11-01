@@ -41,50 +41,50 @@ const activatedSettings = (
  * accepted resolutions, and every Pack document are the ones one collection
  * observed, so before and after differ only by the changes named here.
  */
-export const proposeDesiredState = (changes: ReadonlyArray<DesiredStateChange>) =>
-  Effect.gen(function* () {
-    const desiredState = yield* DesiredStateReader;
-    const base = yield* desiredState.evaluate();
-    const before = base.graph;
-    let settings = base.inputs.settings;
-    for (const change of changes) {
-      if (change.kind === "remove") {
-        settings = settingsEntries[change.type].remove(settings, change.name);
-        continue;
-      }
-      const node = before.nodes.find(
-        (entry) => entry.type === change.type && entry.name === change.name,
-      );
-      if (node === undefined) {
-        return yield* syncRefused({
-          category: "not_found",
-          detail: `Desired ${change.type} "${change.name}" was not found`,
-        });
-      }
-      settings = activatedSettings(settings, change);
+export const proposeDesiredState = Effect.fnUntraced(function* (
+  changes: ReadonlyArray<DesiredStateChange>,
+) {
+  const desiredState = yield* DesiredStateReader;
+  const base = yield* desiredState.evaluate();
+  const before = base.graph;
+  let settings = base.inputs.settings;
+  for (const change of changes) {
+    if (change.kind === "remove") {
+      settings = settingsEntries[change.type].remove(settings, change.name);
+      continue;
     }
-    const after = (yield* desiredState.propose(base, settings)).graph;
-    return { before, after, settings, changes };
-  });
+    const node = before.nodes.find(
+      (entry) => entry.type === change.type && entry.name === change.name,
+    );
+    if (node === undefined) {
+      return yield* syncRefused({
+        category: "not_found",
+        detail: `Desired ${change.type} "${change.name}" was not found`,
+      });
+    }
+    settings = activatedSettings(settings, change);
+  }
+  const after = (yield* desiredState.propose(base, settings)).graph;
+  return { before, after, settings, changes };
+});
 
 /** Publish only the entries the command explicitly changed. */
-export const publishDesiredState = (proposal: {
+export const publishDesiredState = Effect.fnUntraced(function* (proposal: {
   readonly settings: Settings;
   readonly changes: ReadonlyArray<DesiredStateChange>;
-}) =>
-  Effect.gen(function* () {
-    const writer = yield* SettingsWriter;
-    for (const change of proposal.changes) {
-      if (change.kind === "remove") {
-        yield* writer.removeEntry(change.type, change.name);
-      } else if (change.type === "mcp-server") {
-        const entry = settingsEntries["mcp-server"].entry(proposal.settings, change.name);
-        if (Option.isSome(entry)) yield* writer.setEntry("mcp-server", change.name, entry.value);
-      } else {
-        const entry = settingsEntries[change.type].entry(proposal.settings, change.name);
-        if (Option.isSome(entry)) yield* writer.setEntry(change.type, change.name, entry.value);
-      }
+}) {
+  const writer = yield* SettingsWriter;
+  for (const change of proposal.changes) {
+    if (change.kind === "remove") {
+      yield* writer.removeEntry(change.type, change.name);
+    } else if (change.type === "mcp-server") {
+      const entry = settingsEntries["mcp-server"].entry(proposal.settings, change.name);
+      if (Option.isSome(entry)) yield* writer.setEntry("mcp-server", change.name, entry.value);
+    } else {
+      const entry = settingsEntries[change.type].entry(proposal.settings, change.name);
+      if (Option.isSome(entry)) yield* writer.setEntry(change.type, change.name, entry.value);
     }
-  });
+  }
+});
 
 export type DesiredStateProposal = Effect.Success<ReturnType<typeof proposeDesiredState>>;

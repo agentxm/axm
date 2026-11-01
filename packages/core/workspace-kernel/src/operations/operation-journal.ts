@@ -68,21 +68,20 @@ export class OperationJournal extends ServiceMap.Service<
 >()("@agentxm/workspace-kernel/operations/operation-journal/OperationJournal") {}
 
 /** Record the operation's frozen facts. */
-export const recordOperationJournal = (
+export const recordOperationJournal = Effect.fnUntraced(function* (
   state: OperationJournalState,
-): Effect.Effect<void, never, OperationJournal> =>
-  Effect.gen(function* () {
-    const service = yield* OperationJournal;
-    const startedAtMillis = yield* Clock.currentTimeMillis;
-    yield* Ref.set(
-      service.ref,
-      Option.some({
-        ...state,
-        startedAtMillis,
-        transitions: [{ phase: state.phase, elapsedMs: 0 }],
-      }),
-    );
-  });
+): Effect.fn.Return<void, never, OperationJournal> {
+  const service = yield* OperationJournal;
+  const startedAtMillis = yield* Clock.currentTimeMillis;
+  yield* Ref.set(
+    service.ref,
+    Option.some({
+      ...state,
+      startedAtMillis,
+      transitions: [{ phase: state.phase, elapsedMs: 0 }],
+    }),
+  );
+});
 
 /** Merge updates onto the recorded state. No-op when nothing was recorded yet. */
 const updateOperationJournal = (
@@ -91,20 +90,19 @@ const updateOperationJournal = (
   Effect.flatMap(OperationJournal, (service) => Ref.update(service.ref, Option.map(update)));
 
 /** Record the lifecycle phase the invocation has entered. */
-export const recordJournalPhase = (
+export const recordJournalPhase = Effect.fnUntraced(function* (
   phase: OperationPhase,
-): Effect.Effect<void, never, OperationJournal> =>
-  Effect.gen(function* () {
-    const now = yield* Clock.currentTimeMillis;
-    yield* updateOperationJournal((state) => ({
-      ...state,
-      phase,
-      transitions: [
-        ...(state.transitions ?? []),
-        { phase, elapsedMs: Math.max(0, now - (state.startedAtMillis ?? now)) },
-      ].slice(-15),
-    }));
-  });
+): Effect.fn.Return<void, never, OperationJournal> {
+  const now = yield* Clock.currentTimeMillis;
+  yield* updateOperationJournal((state) => ({
+    ...state,
+    phase,
+    transitions: [
+      ...(state.transitions ?? []),
+      { phase, elapsedMs: Math.max(0, now - (state.startedAtMillis ?? now)) },
+    ].slice(-15),
+  }));
+});
 
 /** Record that a unit's run began. */
 export const appendStartedUnit = (unitId: string): Effect.Effect<void, never, OperationJournal> =>

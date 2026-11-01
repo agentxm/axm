@@ -10,9 +10,12 @@ import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 
 import {
+  isNotFound,
+  readFileStringIfPresent,
   resolveUserAxmHome,
   sweepStaleAtomicWriteTemps,
   writeFileAtomic,
@@ -70,18 +73,26 @@ export const PendingDeviceLoginStoreLive = Layer.effect(
 
     const ensureDirectory = Effect.gen(function* () {
       yield* fs
-        .makeDirectory(directory, { recursive: true })
+        .makeDirectory(directory, { recursive: true, mode: DIR_PERMISSIONS })
         .pipe(
           Effect.mapError((error) => storeError("Could not create pending login storage", error)),
         );
-      yield* fs.chmod(directory, DIR_PERMISSIONS).pipe(Effect.catch(() => Effect.void));
+      yield* fs
+        .chmod(directory, DIR_PERMISSIONS)
+        .pipe(
+          Effect.mapError((cause) =>
+            storeError("Could not restrict pending login storage permissions", cause),
+          ),
+        );
     });
 
     const save: PendingDeviceLoginStoreService["save"] = Effect.fn("PendingDeviceLoginStore.save")(
       function* (pending) {
         yield* ensureDirectory;
         const encoded = yield* Schema.encodeEffect(PendingDeviceLoginSchema)(pending).pipe(
-          Effect.mapError((error) => storeError("Could not encode pending login", error)),
+          Effect.mapError(() =>
+            storeError("Could not encode pending login", { _tag: "PendingDeviceLoginEncodeError" }),
+          ),
         );
         yield* sweepTemps;
         yield* writeFileAtomic(fs, {
@@ -90,67 +101,86 @@ export const PendingDeviceLoginStoreLive = Layer.effect(
           mode: FILE_PERMISSIONS,
           mapError: (failure) => storeError("Could not persist pending login", failure.cause),
         });
-        yield* fs.chmod(filePath, FILE_PERMISSIONS).pipe(Effect.catch(() => Effect.void));
+        yield* fs
+          .chmod(filePath, FILE_PERMISSIONS)
+          .pipe(
+            Effect.mapError((cause) =>
+              storeError("Could not restrict pending login file permissions", cause),
+            ),
+          );
       },
     );
 
     const load: PendingDeviceLoginStoreService["load"] = Effect.fn("PendingDeviceLoginStore.load")(
       function* () {
-        const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!exists) return Option.none<PendingDeviceLogin>();
-        const content = yield* fs
-          .readFileString(filePath)
-          .pipe(Effect.mapError((error) => storeError("Could not read pending login", error)));
+        const content = yield* readFileStringIfPresent(fs, filePath).pipe(
+          Effect.mapError((cause) => storeError("Could not read pending login", cause)),
+        );
+        if (Option.isNone(content)) return Option.none<PendingDeviceLogin>();
         return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PendingDeviceLoginSchema))(
-          content,
+          content.value,
         ).pipe(
           Effect.map(Option.some),
-          Effect.mapError(
-            (error) =>
-              new RegistryAccessFailed({
-                category: "auth",
-                detail:
-                  "Pending login storage was invalid and has been removed. Start a new sign-in.",
-                suggestions: [
+          Effect.catch(() =>
+            fs.remove(filePath).pipe(
+              Effect.catchIf(isNotFound, () => Effect.void),
+              Effect.mapError((cause) =>
+                storeError(
+                  "Pending login storage was invalid and could not be removed. Check storage permissions before starting a new sign-in.",
                   {
-                    description: "Start a new sign-in.",
-                    cmd: "axm login --device-code --json",
+                    _tag: "PendingDeviceLoginCleanupFailed",
+                    validation: { _tag: "PendingDeviceLoginDecodeError" },
+                    cleanup: cause,
                   },
-                ],
-                cause: error,
-              }),
+                ),
+              ),
+              Effect.andThen(
+                Effect.fail(
+                  new RegistryAccessFailed({
+                    category: "auth",
+                    detail:
+                      "Pending login storage was invalid and has been removed. Start a new sign-in.",
+                    suggestions: [
+                      {
+                        description: "Start a new sign-in.",
+                        cmd: "axm login --device-code --json",
+                      },
+                    ],
+                    // Schema errors include input containing the secret device code.
+                    cause: { _tag: "PendingDeviceLoginDecodeError" },
+                  }),
+                ),
+              ),
+            ),
           ),
-          Effect.tapError(() => fs.remove(filePath).pipe(Effect.catch(() => Effect.void))),
         );
       },
     );
 
     const clear: PendingDeviceLoginStoreService["clear"] = Effect.fn(
       "PendingDeviceLoginStore.clear",
-    )(function* () {
-      const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
-      if (exists) {
-        yield* fs
-          .remove(filePath)
-          .pipe(Effect.mapError((error) => storeError("Could not clear pending login", error)));
-      }
-    });
+    )(() =>
+      fs.remove(filePath).pipe(
+        Effect.catchIf(isNotFound, () => Effect.void),
+        Effect.mapError((cause) => storeError("Could not clear pending login", cause)),
+      ),
+    );
 
     return { save, load, clear } satisfies PendingDeviceLoginStoreService;
   }),
 );
 
-export const PendingDeviceLoginStoreTest = (initial?: PendingDeviceLogin) => {
-  let value = initial === undefined ? Option.none<PendingDeviceLogin>() : Option.some(initial);
-  return Layer.succeed(PendingDeviceLoginStore, {
-    save: (pending) =>
-      Effect.sync(() => {
-        value = Option.some(pending);
-      }),
-    load: () => Effect.sync(() => value),
-    clear: () =>
-      Effect.sync(() => {
-        value = Option.none();
-      }),
-  } satisfies PendingDeviceLoginStoreService);
-};
+export const PendingDeviceLoginStoreTest = (initial?: PendingDeviceLogin) =>
+  Layer.effect(
+    PendingDeviceLoginStore,
+    Effect.gen(function* () {
+      const value = yield* Ref.make(
+        initial === undefined ? Option.none<PendingDeviceLogin>() : Option.some(initial),
+      );
+      return {
+        save: (pending) => Ref.set(value, Option.some(pending)),
+        load: () => Ref.get(value),
+        clear: () => Ref.set(value, Option.none()),
+      } satisfies PendingDeviceLoginStoreService;
+    }),
+  );

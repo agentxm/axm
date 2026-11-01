@@ -1,49 +1,69 @@
 /** Workspace package directories, enumerated from the pnpm workspace globs. */
-
-import * as fs from "node:fs";
-import * as path from "node:path";
-
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import type * as PlatformError from "effect/PlatformError";
+import * as Schema from "effect/Schema";
 import { parse } from "yaml";
+import { releaseValidation, ReleaseValidationFailed } from "./release-process.js";
 
-const expandPattern = (base: string, segments: ReadonlyArray<string>): ReadonlyArray<string> => {
+const workspaceDeclaration = Schema.Struct({ packages: Schema.NonEmptyArray(Schema.String) });
+
+/** Literal segments and a single-directory `*` retain pnpm's declared traversal here. */
+const expandPattern = Effect.fnUntraced(function* (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  base: string,
+  segments: readonly string[],
+): Effect.fn.Return<readonly string[], PlatformError.PlatformError | ReleaseValidationFailed> {
   const [head, ...rest] = segments;
   if (head === undefined) return [base];
   if (head === "*") {
-    if (!fs.existsSync(base)) return [];
-    return fs
-      .readdirSync(base, { withFileTypes: true })
-      .filter(
+    const entries = yield* fs.readDirectoryEntries(base).pipe(
+      Effect.catchIf(
+        (error) => error.reason._tag === "NotFound",
+        () => Effect.succeed([]),
+      ),
+    );
+    const nested = yield* Effect.forEach(
+      entries.filter(
         (entry) =>
-          entry.isDirectory() && entry.name !== "node_modules" && !entry.name.startsWith("."),
-      )
-      .flatMap((entry) => expandPattern(path.join(base, entry.name), rest));
+          entry.type === "Directory" &&
+          entry.name !== "node_modules" &&
+          !entry.name.startsWith("."),
+      ),
+      (entry) => expandPattern(fs, path, path.join(base, entry.name), rest),
+    );
+    return nested.flat();
   }
-  if (head.includes("*")) {
-    throw new Error(`Unsupported pnpm workspace glob segment: ${head}`);
-  }
-  return expandPattern(path.join(base, head), rest);
-};
+  if (head.includes("*"))
+    return yield* new ReleaseValidationFailed({
+      operation: "Expand workspace packages",
+      cause: `Unsupported pnpm workspace glob segment: ${head}`,
+    });
+  return yield* expandPattern(fs, path, path.join(base, head), rest);
+});
 
-/**
- * Repository-relative directories of every workspace package the pnpm
- * workspace declares, in sorted order. A directory is a package only when it
- * holds a `package.json`, exactly as pnpm resolves the workspace.
- */
-export const readWorkspacePackageDirectories = (repoRoot: string): ReadonlyArray<string> => {
-  const parsed: unknown = parse(
-    fs.readFileSync(path.join(repoRoot, "pnpm-workspace.yaml"), "utf8"),
+/** Repository-relative package directories in declared-pattern and then lexical order. */
+export const readWorkspacePackageDirectories = Effect.fnUntraced(function* (repoRoot: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const source = yield* fs.readFileString(path.join(repoRoot, "pnpm-workspace.yaml"));
+  const parsed = yield* releaseValidation("Decode pnpm workspace", (): unknown => parse(source));
+  const { packages: patterns } = yield* Schema.decodeUnknownEffect(workspaceDeclaration)(parsed);
+  const directories = (yield* Effect.forEach(patterns, (pattern) =>
+    expandPattern(fs, path, repoRoot, pattern.split("/")),
+  )).flat();
+  const packages = yield* Effect.filter(directories, (directory) =>
+    fs.stat(path.join(directory, "package.json")).pipe(
+      Effect.as(true),
+      Effect.catchIf(
+        (error) => error.reason._tag === "NotFound",
+        () => Effect.succeed(false),
+      ),
+    ),
   );
-  const patterns =
-    typeof parsed === "object" && parsed !== null && "packages" in parsed
-      ? parsed.packages
-      : undefined;
-  if (!Array.isArray(patterns) || patterns.length === 0) {
-    throw new Error("pnpm-workspace.yaml must declare workspace package globs");
-  }
-  return patterns
-    .filter((pattern): pattern is string => typeof pattern === "string")
-    .flatMap((pattern) => expandPattern(repoRoot, pattern.split("/")))
-    .filter((directory) => fs.existsSync(path.join(directory, "package.json")))
+  return packages
     .map((directory) => path.relative(repoRoot, directory).split(path.sep).join("/"))
     .sort();
-};
+});

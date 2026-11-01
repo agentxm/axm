@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import * as Effect from "effect/Effect";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { makeReleaseSnapshot } from "./release-runtime.js";
+import { describe, expect, it } from "@effect/vitest";
 
-import { type CohortSnapshot, gitRefSnapshot, resolveReleaseCohort } from "./release-cohort.js";
+import { type CohortSnapshot, resolveReleaseCohort } from "./release-cohort.js";
 
 type FileTree = Readonly<Record<string, string>>;
 
@@ -115,12 +118,14 @@ describe("release cohort derivation", () => {
     ).toThrow("Duplicate release cohort package @scope/duplicate");
   });
 
-  it("resolves a cohort from a named ref through Git rather than the checkout", () => {
-    const atHead = resolveReleaseCohort(gitRefSnapshot("HEAD"));
+  it.effect("resolves a cohort from a named ref through Git rather than the checkout", () =>
+    Effect.gen(function* () {
+      const { packages: atHead } = yield* makeReleaseSnapshot("HEAD");
 
-    expect(atHead.length).toBeGreaterThan(0);
-    // The published CLI consumes the rest of the cohort, so it publishes last.
-    expect(atHead.at(-1)?.name).toBe("axm.sh");
-    expect(atHead.every(({ path }) => path.endsWith("/package.json"))).toBe(true);
-  });
+      expect(atHead.length).toBeGreaterThan(0);
+      // The published CLI consumes the rest of the cohort, so it publishes last.
+      expect(atHead.at(-1)?.name).toBe("axm.sh");
+      expect(atHead.every(({ path }) => path.endsWith("/package.json"))).toBe(true);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 });

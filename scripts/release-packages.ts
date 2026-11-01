@@ -5,7 +5,8 @@ import * as Path from "effect/Path";
 import * as semver from "semver";
 import { publint } from "publint";
 import { formatMessage } from "publint/utils";
-import { RELEASE_PACKAGES } from "./release-shared.js";
+import type { ReleasePackage } from "./release-cohort.js";
+import { ReleaseSnapshot } from "./release-runtime.js";
 import { requireFullSha } from "./release-identity.js";
 import {
   captureReleaseCommand,
@@ -32,25 +33,34 @@ const bundledEffectManifest = Schema.Struct({
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-export const stampBootstrapManifest = (original: string, path: string, version: string): string => {
+export const stampBootstrapManifest = (
+  original: string,
+  path: string,
+  version: string,
+  cohort: readonly ReleasePackage[],
+): string => {
   const decoded: unknown = JSON.parse(original);
   if (!isRecord(decoded) || typeof decoded["version"] !== "string") {
     throw new Error(`Could not stamp version field in ${path}.`);
   }
   decoded["version"] = version;
 
-  return stampBootstrapCohortReferences(JSON.stringify(decoded), version);
+  return stampBootstrapCohortReferences(JSON.stringify(decoded), version, cohort);
 };
 
 /** Pin bundled implementation packages' references to the preview cohort. */
-export const stampBootstrapCohortReferences = (original: string, version: string): string => {
+export const stampBootstrapCohortReferences = (
+  original: string,
+  version: string,
+  cohort: readonly ReleasePackage[],
+): string => {
   const decoded: unknown = JSON.parse(original);
   if (!isRecord(decoded)) throw new Error("Could not stamp cohort references in package manifest.");
 
   for (const section of ["dependencies", "optionalDependencies", "peerDependencies"]) {
     const dependencies = decoded[section];
     if (!isRecord(dependencies)) continue;
-    for (const pkg of RELEASE_PACKAGES) {
+    for (const pkg of cohort) {
       if (pkg.name in dependencies) dependencies[pkg.name] = version;
     }
   }
@@ -74,6 +84,7 @@ export const validatePack = Effect.fnUntraced(function* (
   name: string,
   version: string,
 ) {
+  const { packages: cohort } = yield* ReleaseSnapshot;
   const fs = yield* FileSystem.FileSystem;
   const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(packedManifest))(
     yield* captureReleaseCommand("tar", ["-xOf", tarball, "package/package.json"]),
@@ -116,7 +127,7 @@ export const validatePack = Effect.fnUntraced(function* (
         reference.startsWith("link:")
       )
         throw new Error(`Nonportable packed dependency: ${dependency}.`);
-      const isCohortDependency = RELEASE_PACKAGES.some((pkg) => pkg.name === dependency);
+      const isCohortDependency = cohort.some((pkg) => pkg.name === dependency);
       if (isCohortDependency && !semver.satisfies(version, reference))
         throw new Error(`Packed cohort dependency mismatch: ${dependency}@${reference}.`);
       if (isCohortDependency && semver.prerelease(version) !== null && reference !== version)
@@ -150,27 +161,26 @@ export const validatePack = Effect.fnUntraced(function* (
 export const packReleaseCohort = Effect.fnUntraced(function* (version: string, directory: string) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const { packages: cohort, root } = yield* ReleaseSnapshot;
   const first = path.join(directory, "first");
   const second = path.join(directory, "second");
   yield* fs.makeDirectory(first);
   yield* fs.makeDirectory(second);
-  const published = new Set(RELEASE_PACKAGES.map(({ name }) => name));
-  const internalPackages = yield* releaseValidation("Read internal production packages", () =>
-    readProductionPackages(process.cwd()).filter(({ name }) => !published.has(name)),
+  const published = new Set(cohort.map(({ name }) => name));
+  const internalPackages = (yield* readProductionPackages(root)).filter(
+    ({ name }) => !published.has(name),
   );
-  for (const pkg of RELEASE_PACKAGES) {
+  for (const pkg of cohort) {
     const filename = `${pkg.tarballPrefix}${version}.tgz`;
     for (const destination of [first, second]) {
       if (pkg.name === "axm.sh" && internalPackages.length > 0) {
-        yield* packCliPackage({ repository: process.cwd(), destination, internalPackages });
+        yield* packCliPackage({ repository: root, destination, internalPackages });
       } else {
-        yield* runReleaseCommand("pnpm", [
-          "--filter",
-          pkg.name,
-          "pack",
-          "--pack-destination",
-          destination,
-        ]);
+        yield* runReleaseCommand(
+          "pnpm",
+          ["--filter", pkg.name, "pack", "--pack-destination", destination],
+          { cwd: root },
+        );
       }
     }
     const tarball = path.join(first, filename);
@@ -217,7 +227,8 @@ export const produceReleaseCohort = Effect.fnUntraced(function* (
     prefix: ".pack-",
   });
   const packed = yield* packReleaseCohort(version, staging);
-  const packages = yield* Effect.forEach(RELEASE_PACKAGES, (pkg) =>
+  const { packages: cohort } = yield* ReleaseSnapshot;
+  const packages = yield* Effect.forEach(cohort, (pkg) =>
     Effect.gen(function* () {
       const filename = `${pkg.tarballPrefix}${version}.tgz`;
       const source = path.join(packed, filename);
@@ -244,13 +255,14 @@ export const validateReleaseCohort = Effect.fnUntraced(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+  const { packages: cohort } = yield* ReleaseSnapshot;
   const decoded = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
     yield* fs.readFileString(path.join(directory, RELEASE_COHORT_MANIFEST)),
   );
   const manifest = yield* releaseValidation("Validate release cohort manifest", () =>
-    validateReleaseCohortManifest(decoded, version, commit),
+    validateReleaseCohortManifest(decoded, version, commit, cohort),
   );
-  for (const pkg of RELEASE_PACKAGES) {
+  for (const pkg of cohort) {
     const expectedFilename = `${pkg.tarballPrefix}${version}.tgz`;
     const entry = manifest.packages.find((candidate) => candidate.name === pkg.name);
     if (entry === undefined)
@@ -273,14 +285,14 @@ export const validateReleaseCohortManifest = (
   value: unknown,
   version: string,
   commit: string,
+  cohort: readonly ReleasePackage[],
 ): ReleaseCohortManifest => {
   const manifest = Schema.decodeUnknownSync(releaseCohortManifest)(value);
   if (manifest.version !== version) throw new Error("Release cohort version does not match tag.");
   if (manifest.commit !== commit) throw new Error("Release cohort commit does not match tag.");
-  if (manifest.packages.length !== RELEASE_PACKAGES.length)
-    throw new Error("Release cohort is incomplete.");
+  if (manifest.packages.length !== cohort.length) throw new Error("Release cohort is incomplete.");
 
-  for (const pkg of RELEASE_PACKAGES) {
+  for (const pkg of cohort) {
     const expectedFilename = `${pkg.tarballPrefix}${version}.tgz`;
     const entries = manifest.packages.filter((entry) => entry.name === pkg.name);
     if (entries.length !== 1 || entries[0]?.filename !== expectedFilename)

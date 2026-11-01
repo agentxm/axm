@@ -2,10 +2,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import YAML from "yaml";
 
-import { resolveReleaseCohort, workingTreeSnapshot } from "./release-cohort.js";
+import * as Effect from "effect/Effect";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { makeReleaseSnapshot } from "./release-runtime.js";
 
 const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
@@ -53,24 +55,26 @@ describe("published Effect runtime cohort", () => {
   // dependency, and one that uses Effect names it as a peer whose floor is the
   // tested release. Lint's dependency checks require every imported package to
   // be declared, so a library that uses Effect cannot omit it here.
-  it.each(resolveReleaseCohort(workingTreeSnapshot()).filter(({ name }) => name !== "axm.sh"))(
-    "$name shares its consumer's Effect runtime",
-    ({ path }) => {
-      const effectVersion = readCatalog()["effect"];
-      if (typeof effectVersion !== "string") throw new Error("The catalog must pin effect.");
-      const manifest = readObject(resolve(repoRoot, path));
-      const field = (name: string): Record<string, unknown> => {
-        const value = manifest[name];
-        return isRecord(value) ? value : {};
-      };
+  it.effect("released libraries share their consumer's Effect runtime", () =>
+    Effect.gen(function* () {
+      const { packages } = yield* makeReleaseSnapshot();
+      for (const { path } of packages.filter(({ name }) => name !== "axm.sh")) {
+        const effectVersion = readCatalog()["effect"];
+        if (typeof effectVersion !== "string") throw new Error("The catalog must pin effect.");
+        const manifest = readObject(resolve(repoRoot, path));
+        const field = (name: string): Record<string, unknown> => {
+          const value = manifest[name];
+          return isRecord(value) ? value : {};
+        };
 
-      expect(field("dependencies")["effect"]).toBeUndefined();
-      const usesEffect =
-        field("peerDependencies")["effect"] !== undefined ||
-        field("devDependencies")["effect"] !== undefined;
-      if (!usesEffect) return;
-      expect(field("devDependencies")["effect"]).toBe("catalog:");
-      expect(field("peerDependencies")["effect"]).toBe(`^${effectVersion}`);
-    },
+        expect(field("dependencies")["effect"]).toBeUndefined();
+        const usesEffect =
+          field("peerDependencies")["effect"] !== undefined ||
+          field("devDependencies")["effect"] !== undefined;
+        if (!usesEffect) continue;
+        expect(field("devDependencies")["effect"]).toBe("catalog:");
+        expect(field("peerDependencies")["effect"]).toBe(`^${effectVersion}`);
+      }
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

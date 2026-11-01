@@ -30,7 +30,7 @@ export const releaseValidation = <A>(operation: string, validate: () => A) =>
     catch: (cause) => new ReleaseValidationFailed({ operation, cause }),
   });
 
-type Options = Pick<ChildProcess.CommandOptions, "cwd" | "env">;
+type Options = Pick<ChildProcess.CommandOptions, "cwd" | "env" | "extendEnv">;
 
 export const runReleaseCommand = Effect.fnUntraced(function* (
   command: string,
@@ -49,31 +49,39 @@ export const runReleaseCommand = Effect.fnUntraced(function* (
   if (exitCode !== 0) return yield* new ReleaseCommandFailed({ command, exitCode });
 });
 
+/** Bind the invocation's spawner once when constructing a longer-lived capability. */
+export const makeReleaseCommandCapture = (
+  spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+) =>
+  Effect.fnUntraced(function* (command: string, args: readonly string[], options: Options = {}) {
+    const child = yield* spawner.spawn(
+      ChildProcess.make(command, args, {
+        ...options,
+        stdout: "pipe",
+        stderr: "inherit",
+      }),
+    );
+    // Drain stdout while waiting for exit so a full pipe cannot deadlock the child.
+    const [output, exitCode] = yield* Effect.all(
+      [
+        Stream.runFold(
+          Stream.decodeText(child.stdout),
+          () => "",
+          (text, chunk) => text + chunk,
+        ),
+        child.exitCode,
+      ],
+      { concurrency: 2 },
+    );
+    if (exitCode !== 0) return yield* new ReleaseCommandFailed({ command, exitCode });
+    return output.trim();
+  }, Effect.scoped);
+
 export const captureReleaseCommand = Effect.fnUntraced(function* (
   command: string,
   args: readonly string[],
   options: Options = {},
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const child = yield* spawner.spawn(
-    ChildProcess.make(command, args, {
-      ...options,
-      stdout: "pipe",
-      stderr: "inherit",
-    }),
-  );
-  // Drain stdout while waiting for exit so a full pipe cannot deadlock the child.
-  const [output, exitCode] = yield* Effect.all(
-    [
-      Stream.runFold(
-        Stream.decodeText(child.stdout),
-        () => "",
-        (text, chunk) => text + chunk,
-      ),
-      child.exitCode,
-    ],
-    { concurrency: 2 },
-  );
-  if (exitCode !== 0) return yield* new ReleaseCommandFailed({ command, exitCode });
-  return output.trim();
-}, Effect.scoped);
+  return yield* makeReleaseCommandCapture(spawner)(command, args, options);
+});

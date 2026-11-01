@@ -1,3 +1,4 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -38,10 +39,12 @@ const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), ".."
  * hand would quietly stop covering packages added, renamed, or split after it
  * was written.
  */
-const workspaceManifestPaths = (): ReadonlyArray<string> => [
-  "package.json",
-  ...readWorkspacePackageDirectories(repoRoot).map((directory) => `${directory}/package.json`),
-];
+const workspaceManifestPaths = readWorkspacePackageDirectories(repoRoot).pipe(
+  Effect.map((directories) => [
+    "package.json",
+    ...directories.map((directory) => `${directory}/package.json`),
+  ]),
+);
 
 const DEPENDENCY_FIELDS = [
   "dependencies",
@@ -76,8 +79,8 @@ const trackedFiles = (paths: ReadonlyArray<string>): ReadonlySet<string> =>
 
 describe("Public and private boundary", () => {
   it.effect("no workspace package depends on private repository source or paths", () =>
-    Effect.sync(() => {
-      const manifestPaths = workspaceManifestPaths();
+    Effect.gen(function* () {
+      const manifestPaths = yield* workspaceManifestPaths;
       expect(manifestPaths.length).toBeGreaterThan(1);
       for (const manifestPath of manifestPaths) {
         const manifest: unknown = JSON.parse(
@@ -105,7 +108,7 @@ describe("Public and private boundary", () => {
           }
         }
       }
-    }),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect.each([...GENERATED_CLIENTS])(

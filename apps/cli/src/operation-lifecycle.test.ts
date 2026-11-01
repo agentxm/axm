@@ -109,7 +109,13 @@ describe("withOperationLifecycle", () => {
   it.effect("announces resolution before preparation finishes and settles once", () =>
     Effect.gen(function* () {
       const workspaceDir = nodePath.join(tempDir, ".axm");
-      const renderer = TestRenderer.make();
+      const resolutionObserved = yield* Deferred.make<void>();
+      const renderer = TestRenderer.make({
+        onEvent: (event) =>
+          event._tag === "PhaseStarted" && event.phase === "resolution"
+            ? Deferred.succeed(resolutionObserved, undefined).pipe(Effect.asVoid)
+            : Effect.void,
+      });
       const preparing = yield* Deferred.make<void>();
       const continuePreparation = yield* Deferred.make<void>();
       const fiber = yield* withOperationLifecycle(
@@ -128,13 +134,7 @@ describe("withOperationLifecycle", () => {
         Effect.forkChild,
       );
       yield* Deferred.await(preparing);
-      yield* Effect.promise(async () => {
-        for (let attempt = 0; attempt < 100; attempt += 1) {
-          if (renderer.state.events.length >= 2) return;
-          await new Promise((resolve) => setTimeout(resolve, 1));
-        }
-        throw new Error("Preparation events were not observed");
-      });
+      yield* Deferred.await(resolutionObserved);
       expect(renderer.state.events.map((event) => event._tag)).toEqual([
         "OperationStarted",
         "PhaseStarted",

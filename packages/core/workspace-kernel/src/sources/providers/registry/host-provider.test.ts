@@ -17,6 +17,10 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
+import * as Ref from "effect/Ref";
+import * as TestClock from "effect/testing/TestClock";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
@@ -620,34 +624,35 @@ const expectRegistrySubagentRef = (ref: ExtensionRef): RegistrySubagentRef => {
 describe("LocalRegistrySourceHostProvider.find", () => {
   it.effect("keeps nested local index reads within one registry IO allowance", () => {
     const registry = makeTestRegistry(["@first", "@second"]);
-    let active = 0;
-    let peak = 0;
-    const client = createMockClient({
-      getExtensionIndex: () =>
-        Effect.promise(
-          () =>
-            new Promise<Option.Option<ExtensionIndex>>((resolve) => {
-              active += 1;
-              peak = Math.max(peak, active);
-              setTimeout(() => {
-                active -= 1;
-                resolve(Option.none());
-              }, 5);
-            }),
-        ),
-    });
-    const provider = createLocalRegistrySourceHostProvider(client);
-
     return runEffect(
       Effect.gen(function* () {
-        const refs = yield* provider.find(registry.source, {
-          ...defaultFindOptions,
-          names: Array.from({ length: 40 }, (_, index) => `skill-${index}`),
-          versionRange: Option.some("*"),
+        const state = yield* Ref.make({ active: 0, peak: 0, calls: 0 });
+        const firstIndexStarted = yield* Deferred.make<void>();
+        const client = createMockClient({
+          getExtensionIndex: () =>
+            Effect.acquireUseRelease(
+              Ref.update(state, ({ active, peak, calls }) => ({
+                active: active + 1,
+                peak: Math.max(peak, active + 1),
+                calls: calls + 1,
+              })).pipe(Effect.andThen(Deferred.succeed(firstIndexStarted, undefined))),
+              () => Effect.sleep(Duration.millis(1)).pipe(Effect.as(Option.none<ExtensionIndex>())),
+              () => Ref.update(state, (current) => ({ ...current, active: current.active - 1 })),
+            ),
         });
+        const provider = createLocalRegistrySourceHostProvider(client);
+        const fiber = yield* provider
+          .find(registry.source, {
+            ...defaultFindOptions,
+            names: Array.from({ length: 40 }, (_, index) => `skill-${index}`),
+            versionRange: Option.some("*"),
+          })
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(firstIndexStarted);
+        yield* TestClock.adjust(Duration.millis(80));
+        const refs = yield* Fiber.join(fiber);
         expect(refs).toEqual([]);
-        expect(peak).toBe(20);
-        expect(active).toBe(0);
+        expect(yield* Ref.get(state)).toEqual({ active: 0, peak: 20, calls: 80 });
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });

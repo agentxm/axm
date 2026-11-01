@@ -83,7 +83,7 @@ const makeTokenResponse = (overrides?: {
   refresh_token: overrides?.refresh_token ?? "axm_ref_new",
   token_type: "Bearer",
   expires_in: overrides?.expires_in ?? 3600,
-  expires_at: overrides?.expires_at ?? new Date(Date.now() + 3600 * 1000).toISOString(),
+  expires_at: overrides?.expires_at ?? "2030-01-01T01:00:00.000Z",
 });
 
 /** Build a valid DeviceTokenOAuthError-compatible JSON error body. */
@@ -125,8 +125,8 @@ const makeMeResponse = (token?: Readonly<Record<string, unknown>>) => ({
     prefix: null,
     permissions: null,
     authority: "account",
-    expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
-    approvedAt: new Date(Date.now() - 60 * 1000).toISOString(),
+    expiresAt: "2030-01-01T01:00:00.000Z",
+    approvedAt: "2029-12-31T23:59:00.000Z",
     trustedPublisher: null,
     ...token,
   },
@@ -332,7 +332,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
 
 describe("pollOnce", () => {
   it.effect("returns Success on 200 with token", () => {
-    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+    const expiresAt = "2030-01-01T01:00:00.000Z";
     const httpClient = makeMockHttpClient(
       () =>
         new Response(
@@ -483,7 +483,7 @@ describe("pollOnce", () => {
 
 describe("AuthClient.pollDeviceToken", () => {
   it.effect("returns token on immediate success after first poll", () => {
-    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+    const expiresAt = "2030-01-01T01:00:00.000Z";
     const layer = makeTestLayer(
       () =>
         new Response(
@@ -503,7 +503,7 @@ describe("AuthClient.pollDeviceToken", () => {
 
   it.effect("continues polling on authorization_pending then succeeds", () => {
     let callCount = 0;
-    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+    const expiresAt = "2030-01-01T01:00:00.000Z";
 
     const layer = makeTestLayer(() => {
       callCount++;
@@ -531,7 +531,7 @@ describe("AuthClient.pollDeviceToken", () => {
 
   it.effect("retries transient poll failures before succeeding", () => {
     let callCount = 0;
-    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+    const expiresAt = "2030-01-01T01:00:00.000Z";
 
     const layer = makeTestLayer(() => {
       callCount++;
@@ -648,7 +648,7 @@ describe("AuthClient.pollDeviceToken", () => {
 
   it.effect("increases interval on slow_down then succeeds", () => {
     let callCount = 0;
-    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+    const expiresAt = "2030-01-01T01:00:00.000Z";
 
     const layer = makeTestLayer(() => {
       callCount++;

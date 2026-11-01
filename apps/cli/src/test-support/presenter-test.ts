@@ -256,6 +256,7 @@ const captureDoc = (
 const makeTestScreenService = (
   state: TestRendererState,
   resultReturnValue: boolean,
+  onEvent?: (event: OperationEvent) => Effect.Effect<void>,
 ): typeof Screen.Service => ({
   result: (doc) =>
     Effect.sync(() => {
@@ -297,7 +298,11 @@ const makeTestScreenService = (
       return resultReturnValue;
     }),
   observe: (lifecycle) =>
-    subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
+    subscribeLossless(lifecycle, (event) =>
+      Effect.sync(() => void state.events.push(event)).pipe(
+        Effect.andThen(() => onEvent?.(event) ?? Effect.void),
+      ),
+    ),
   log: (record) =>
     Effect.sync(() => {
       state.logs.push({
@@ -371,12 +376,14 @@ export const logsByTag = (state: TestRendererState) => ({
 // ---------------------------------------------------------------------------
 
 export const TestRenderer = {
-  make: (): {
+  make: (options?: {
+    readonly onEvent?: (event: OperationEvent) => Effect.Effect<void>;
+  }): {
     readonly layer: Layer.Layer<Screen>;
     readonly state: TestRendererState;
   } => {
     const state = makeEmptyState();
-    const layer = Layer.succeed(Screen, makeTestScreenService(state, false));
+    const layer = Layer.succeed(Screen, makeTestScreenService(state, false, options?.onEvent));
     return { layer, state };
   },
 };

@@ -12,6 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as TestClock from "effect/testing/TestClock";
 import { expect } from "vitest";
 
 import { AuthClientTest } from "../authentication/auth-client.js";
@@ -30,8 +31,9 @@ import {
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const ENDPOINT = decodeHttpRegistryEndpointSync(REGISTRY_URL);
-const futureExpiry = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
-const nearExpiry = () => new Date(Date.now() + 60 * 1000).toISOString();
+const fixtureNow = Date.parse("2030-01-01T00:00:00.000Z");
+const futureExpiry = "2030-01-01T01:00:00.000Z";
+const nearExpiry = "2030-01-01T00:01:00.000Z";
 
 const makeCredentialFile = (registries: Record<string, unknown>) =>
   Schema.decodeUnknownSync(CredentialFileSchema)({
@@ -116,7 +118,7 @@ describe("resolveRequestToken for the default Registry", () => {
             "@alice": {
               access_token: "axm_ses_stored",
               refresh_token: "axm_ref_stored",
-              expires_at: futureExpiry(),
+              expires_at: futureExpiry,
               active: true,
             },
           },
@@ -158,7 +160,7 @@ describe("resolveRequestToken for the default Registry", () => {
             "@alice": {
               access_token: "axm_ses_old",
               refresh_token: "axm_ref_old",
-              expires_at: nearExpiry(),
+              expires_at: nearExpiry,
               active: true,
             },
           },
@@ -167,6 +169,7 @@ describe("resolveRequestToken for the default Registry", () => {
     );
 
     return Effect.gen(function* () {
+      yield* TestClock.setTime(fixtureNow);
       const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
@@ -186,7 +189,7 @@ describe("resolveRequiredToken", () => {
             "@alice": {
               access_token: "axm_ses_stored",
               refresh_token: "axm_ref_stored",
-              expires_at: futureExpiry(),
+              expires_at: futureExpiry,
               active: true,
             },
           },
@@ -230,7 +233,7 @@ describe("resolveStoredToken", () => {
             "@alice": {
               access_token: "axm_ses_stored",
               refresh_token: "axm_ref_stored",
-              expires_at: futureExpiry(),
+              expires_at: futureExpiry,
               active: true,
             },
           },
@@ -277,7 +280,7 @@ describe("resolveStoredToken", () => {
             "@alice": {
               access_token: "axm_ses_stored",
               refresh_token: "axm_ref_stored",
-              expires_at: futureExpiry(),
+              expires_at: futureExpiry,
               active: true,
             },
           },
@@ -302,7 +305,7 @@ describe("resolveRequestToken", () => {
             "@alice": {
               access_token: "axm_ses_stored",
               refresh_token: "axm_ref_stored",
-              expires_at: futureExpiry(),
+              expires_at: futureExpiry,
               active: true,
             },
           },
@@ -346,7 +349,7 @@ describe("resolveRequestToken", () => {
             "@bob": {
               access_token: "axm_ses_other",
               refresh_token: "axm_ref_other",
-              expires_at: futureExpiry(),
+              expires_at: futureExpiry,
               active: true,
             },
           },
@@ -376,7 +379,7 @@ describe("resolveRequestToken", () => {
             "@bob": {
               access_token: "axm_ses_other",
               refresh_token: "axm_ref_other",
-              expires_at: futureExpiry(),
+              expires_at: futureExpiry,
               active: true,
             },
           },
@@ -404,7 +407,7 @@ describe("resolveRequestToken", () => {
             "@bob": {
               access_token: "axm_ses_near_expiry",
               refresh_token: "axm_ref_near_expiry",
-              expires_at: nearExpiry(),
+              expires_at: nearExpiry,
               active: true,
             },
           },
@@ -413,6 +416,7 @@ describe("resolveRequestToken", () => {
     );
 
     return Effect.gen(function* () {
+      yield* TestClock.setTime(fixtureNow);
       const result = yield* resolveRequestToken(
         decodeHttpRegistryEndpointSync(otherRegistryUrl),
         ENDPOINT,
@@ -437,7 +441,7 @@ describe("resolvePresentedToken", () => {
         "@alice": {
           access_token: "axm_ses_stored",
           refresh_token: "axm_ref_stored",
-          expires_at: futureExpiry(),
+          expires_at: futureExpiry,
           active: true,
         },
       },

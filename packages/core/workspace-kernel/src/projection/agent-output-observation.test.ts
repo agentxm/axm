@@ -365,3 +365,113 @@ describe("Subagent output ownership", () => {
     ),
   );
 });
+
+describe("incomplete Hook observations", () => {
+  for (const failure of ["read", "resolve", "syntax", "shape"] as const) {
+    it.effect(
+      `retains healthy Hook observations when another configuration has a ${failure} failure`,
+      () =>
+        provide(
+          Effect.gen(function* () {
+            const { args, fs, path, root, write } = yield* fixture();
+            const blocked = path.join(root, ".claude/settings.json");
+            const healthy = path.join(root, ".gemini/settings.json");
+            yield* write(
+              ".gemini/settings.json",
+              JSON.stringify({ hooks: { BeforeAgent: [{ command: "echo healthy" }] } }),
+            );
+            yield* write(
+              ".claude/settings.json",
+              failure === "syntax"
+                ? "{broken"
+                : failure === "shape"
+                  ? JSON.stringify({ hooks: [] })
+                  : "{}",
+            );
+            if (failure === "resolve") {
+              yield* fs.remove(blocked);
+              yield* fs.symlink("settings.json", blocked);
+            }
+            const denied = PlatformError.systemError({
+              _tag: "PermissionDenied",
+              module: "FileSystem",
+              method: "readFileString",
+              pathOrDescriptor: blocked,
+            });
+            const inventory = yield* observeAgentOutputs(args).pipe(
+              Effect.provideService(FileSystem.FileSystem, {
+                ...fs,
+                readFileString: (file, ...options) =>
+                  failure === "read" && file === blocked
+                    ? Effect.fail(denied)
+                    : fs.readFileString(file, ...options),
+              }),
+            );
+            const diagnostics = inventory.diagnostics.filter(
+              (diagnostic) =>
+                diagnostic.extensionType === "hook" && diagnostic.address.path === blocked,
+            );
+            expect(diagnostics).toHaveLength(1);
+            expect(diagnostics[0]).toMatchObject({
+              stage: failure === "syntax" || failure === "shape" ? "decode" : failure,
+            });
+            if (failure === "read") expect(diagnostics[0]?.cause).toBe(denied);
+            expect(
+              inventory.outputs.some(
+                (output) => output.extensionType === "hook" && output.containerPath === healthy,
+              ),
+            ).toBe(true);
+            expect(
+              inventory.outputs.some(
+                (output) => output.extensionType === "hook" && output.containerPath === blocked,
+              ),
+            ).toBe(false);
+            expect(
+              inventory.unownedFootprints.some((output) => output.containerPath === blocked),
+            ).toBe(false);
+          }),
+        ),
+    );
+  }
+
+  it.effect("groups failed Hook readers by physical file and preserves their aliases", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root, write } = yield* fixture();
+        const physical = path.join(root, ".claude/settings.json");
+        const alias = path.join(root, ".gemini/settings.json");
+        yield* write(
+          ".claude/settings.json",
+          JSON.stringify({ hooks: { BeforeAgent: "invalid" } }),
+        );
+        yield* fs.makeDirectory(path.dirname(alias), { recursive: true });
+        yield* fs.symlink("../.claude/settings.json", alias);
+        const inventory = yield* observeAgentOutputs(args);
+        const diagnostics = inventory.diagnostics.filter(
+          (diagnostic) => diagnostic.extensionType === "hook",
+        );
+        expect(diagnostics).toHaveLength(1);
+        expect(diagnostics[0]).toMatchObject({
+          address: { path: physical, keys: ["hooks"] },
+          stage: "decode",
+          aliases: [physical, alias],
+          claimantAgentIds: ["claude-code", "gemini-cli"],
+        });
+      }),
+    ),
+  );
+
+  it.effect("keeps absent and valid empty Hook configurations quiet", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, write } = yield* fixture();
+        yield* write(".claude/settings.json", "{}");
+        const inventory = yield* observeAgentOutputs(args);
+        expect(
+          inventory.diagnostics.filter((diagnostic) => diagnostic.extensionType === "hook"),
+        ).toEqual([]);
+        expect(inventory.outputs.filter((output) => output.extensionType === "hook")).toEqual([]);
+      }),
+    ),
+  );
+});

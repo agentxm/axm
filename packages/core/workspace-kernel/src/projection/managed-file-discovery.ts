@@ -7,9 +7,6 @@
  * @packageDocumentation
  */
 
-import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
-
 export interface WorkspaceOwnershipIssue {
   readonly kind: "managed-file-unowned";
   readonly path: string;
@@ -21,7 +18,3 @@ export const extensionNameFromFilename = (fileName: string): string => {
   const dotIndex = fileName.indexOf(".");
   return dotIndex === -1 ? fileName : fileName.slice(0, dotIndex);
 };
-
-/** Read a file as a string, treating an unreadable or missing file as empty. */
-export const safeReadFileString = (fs: FileSystem.FileSystem, filePath: string) =>
-  fs.readFileString(filePath).pipe(Effect.catch(() => Effect.succeed("")));

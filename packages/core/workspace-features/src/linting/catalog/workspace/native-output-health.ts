@@ -6,9 +6,12 @@ import type { WorkspaceRuleContext } from "../../workspace-context.js";
 
 const health = (context: WorkspaceRuleContext) =>
   Effect.gen(function* () {
-    const project = context.agentOutputs === undefined ? [] : (yield* context.agentOutputs).outputs;
-    const user = context.userScope === undefined ? [] : (yield* context.userScope).outputs;
-    return classifyNativeOutputHealth([...project, ...user]);
+    const project = context.agentOutputs === undefined ? undefined : yield* context.agentOutputs;
+    const user = context.userScope === undefined ? undefined : yield* context.userScope;
+    return classifyNativeOutputHealth(
+      [...(project?.outputs ?? []), ...(user?.outputs ?? [])],
+      [...(project?.diagnostics ?? []), ...(user?.diagnostics ?? [])],
+    );
   });
 
 export const nativeOutputLinksResolveRule: AdvisoryRule<WorkspaceRuleContext> = {
@@ -38,7 +41,7 @@ export const nativeOutputLinksResolveRule: AdvisoryRule<WorkspaceRuleContext> = 
 
 export const nativeOutputsReadableRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: "workspace/native-outputs-readable",
-  description: "Native skill and subagent output entries can be inspected.",
+  description: "Native output entries and Hook and MCP configuration can be inspected.",
   kind: "advisory",
   severity: "warning",
   check: (context) =>

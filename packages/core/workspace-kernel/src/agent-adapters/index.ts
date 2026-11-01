@@ -16,6 +16,10 @@
 
 // Detection (effectful)
 export { invalidNativeConfig, parseNativeConfigRoot } from "./native-config-syntax.js";
+export {
+  nativeConfigObservationReason,
+  type NativeConfigObservationDiagnostic,
+} from "./native-config-observation.js";
 export { preflightNativeConfigReaders } from "./native-config-readers.js";
 export {
   AgentExecutableResolver,
@@ -132,6 +136,7 @@ export {
   configuredMcpCapability,
   declaredMcpWriterTargets,
   resolveConfiguredMcpTargets,
+  observeNativeMcpTargets,
   isConfigurableAgentId,
   type McpTargetGroup,
 } from "./mcps/targeting.js";

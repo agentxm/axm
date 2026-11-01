@@ -24,6 +24,7 @@ const inventory = (ownedResidue: AgentOutputInventory["ownedResidue"]): AgentOut
   outputs: ownedResidue,
   ownedResidue,
   unownedFootprints: [],
+  diagnostics: [],
 });
 
 const check = (ownedResidue: AgentOutputInventory["ownedResidue"]) =>

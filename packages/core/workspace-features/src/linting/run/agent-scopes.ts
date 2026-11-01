@@ -27,6 +27,7 @@ import {
   observeAgentOutputs,
   deriveAgentOutputAuthority,
   type AgentOutputObservation,
+  type NativeConfigObservationDiagnostic,
 } from "@agentxm/workspace-kernel/projection";
 import * as Layer from "effect/Layer";
 import * as Result from "effect/Result";
@@ -45,6 +46,7 @@ export interface UserScopeObservation {
   readonly settingsPath: string;
   readonly settingsReadable: boolean;
   readonly outputs: ReadonlyArray<AgentOutputObservation>;
+  readonly diagnostics: ReadonlyArray<NativeConfigObservationDiagnostic>;
 }
 
 /** One agent-native file or directory in a project folder. */
@@ -135,6 +137,7 @@ export const observeUserScope = (
       settingsReadable:
         Result.isSuccess(observed.settings) && Option.isSome(observed.settings.success),
       outputs: inventory.outputs,
+      diagnostics: inventory.diagnostics,
     };
   });
 

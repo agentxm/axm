@@ -16,6 +16,7 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+import { readFileStringIfPresent } from "@agentxm/host-primitives";
 import {
   captureNativeLocationSet,
   resolveNativeEntry,
@@ -44,7 +45,6 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
 import {
   extensionNameFromFilename,
-  safeReadFileString,
   type WorkspaceOwnershipIssue,
 } from "./managed-file-discovery.js";
 import { collectNativeAgentMcpServers } from "./mcps/inspection.js";
@@ -53,6 +53,7 @@ import {
   invalidNativeConfig,
   parseNativeConfigRoot,
   type HookNativeDeclaration,
+  type NativeConfigObservationDiagnostic,
 } from "../agent-adapters/index.js";
 
 export type AgentOutputOwnershipProof =
@@ -78,6 +79,7 @@ export interface AgentOutputObservation {
 }
 
 export interface AgentOutputInventory {
+  readonly diagnostics: ReadonlyArray<NativeConfigObservationDiagnostic>;
   readonly outputs: ReadonlyArray<AgentOutputObservation>;
   readonly ownedResidue: ReadonlyArray<AgentOutputObservation>;
   readonly unownedFootprints: ReadonlyArray<AgentOutputObservation>;
@@ -215,6 +217,7 @@ export const observeAgentOutputs = (
     const agentRepo = yield* CodingAgentRepository;
     const agents = yield* agentRepo.all;
     const outputs: Array<AgentOutputObservation> = [];
+    const diagnostics: Array<NativeConfigObservationDiagnostic> = [];
     const expectedSkillSources: Array<{ packageName: string; source: string; nativeName: string }> =
       [];
     for (const [packageName, sources] of Object.entries(args.expectedSkillSources)) {
@@ -377,7 +380,8 @@ export const observeAgentOutputs = (
       scope: args.scope,
       agentIds: capabilityAgentIds,
       declaredMcpNames: args.declaredMcpNames,
-    }).pipe(Effect.catch(() => Effect.succeed([])));
+    });
+    diagnostics.push(...managedMcpServers.diagnostics);
     const mcpGroups = new Map<
       string,
       {
@@ -388,7 +392,7 @@ export const observeAgentOutputs = (
         readonly ownership: "owned" | "declared" | "unowned";
       }
     >();
-    for (const server of managedMcpServers) {
+    for (const server of managedMcpServers.servers) {
       const key = JSON.stringify([server.absolutePath, server.keyPath]);
       const group = mcpGroups.get(key) ?? {
         path: server.absolutePath,
@@ -421,7 +425,13 @@ export const observeAgentOutputs = (
 
     const hookContainers = new Map<
       string,
-      { readonly path: string; readonly settingsKey: string; readonly claimants: Set<string> }
+      {
+        readonly path: string;
+        readonly settingsKey: string;
+        readonly claimants: Set<string>;
+        readonly aliases: Set<string>;
+        readonly resolutionFailure?: NativeLocationError;
+      }
     >();
     const hookReaders = CAPABILITY_AGENTS.flatMap((agent) => {
       const native = agent.capabilities.hook.native;
@@ -450,38 +460,64 @@ export const observeAgentOutputs = (
       referents: hookReaders.map((reader) => reader.location.path),
     });
     for (const { agentId, settingsKey, location } of hookReaders) {
-      const resolved = yield* observedHooks.referent(location.path).pipe(Effect.option);
-      if (Option.isNone(resolved)) continue;
-      const configPath = resolved.value;
+      const resolved = yield* observedHooks.referent(location.path).pipe(Effect.result);
+      const configPath = Result.isSuccess(resolved) ? resolved.success : location.path;
       const key = `${configPath}\u0000${settingsKey}`;
       const group = hookContainers.get(key) ?? {
         path: configPath,
         settingsKey,
         claimants: new Set<string>(),
+        aliases: new Set<string>(),
+        ...(Result.isFailure(resolved) ? { resolutionFailure: resolved.failure } : {}),
       };
       group.claimants.add(agentId);
+      group.aliases.add(location.path);
       hookContainers.set(key, group);
     }
     for (const group of hookContainers.values()) {
-      const exists = yield* fs.exists(group.path).pipe(Effect.catch(() => Effect.succeed(false)));
-      if (!exists) continue;
-      const raw = yield* safeReadFileString(fs, group.path);
       const claimants = [...group.claimants].sort();
+      const diagnostic = {
+        extensionType: "hook" as const,
+        address: {
+          kind: "key-path" as const,
+          path: group.path,
+          keys: [group.settingsKey] as const,
+        },
+        aliases: [...group.aliases].sort(),
+        claimantAgentIds: claimants,
+      };
+      if (group.resolutionFailure !== undefined) {
+        diagnostics.push({ ...diagnostic, stage: "resolve", cause: group.resolutionFailure });
+        continue;
+      }
+      const content = yield* readFileStringIfPresent(fs, group.path).pipe(Effect.result);
+      if (Result.isFailure(content)) {
+        diagnostics.push({ ...diagnostic, stage: "read", cause: content.failure });
+        continue;
+      }
+      if (Option.isNone(content.success)) continue;
+      const raw = content.success.value;
       const units = yield* readDeclaredHookUnits(
         group.path,
         group.settingsKey,
         raw,
         args.expectedHooks,
-      ).pipe(Effect.catch(() => Effect.succeed([])));
-      if (units.length === 0) {
+      ).pipe(Effect.result);
+      if (Result.isFailure(units)) {
+        diagnostics.push({ ...diagnostic, stage: "decode", cause: units.failure });
+        continue;
+      }
+      if (units.success.length === 0) {
         const document = yield* parseNativeConfigRoot({
           format: "jsonc",
           raw,
           onFailure: invalidNativeConfig("jsonc", group.path),
-        }).pipe(Effect.option);
-        const registrations = Option.isSome(document)
-          ? document.value[group.settingsKey]
-          : undefined;
+        }).pipe(Effect.result);
+        if (Result.isFailure(document)) {
+          diagnostics.push({ ...diagnostic, stage: "decode", cause: document.failure });
+          continue;
+        }
+        const registrations = document.success[group.settingsKey];
         if (
           typeof registrations === "object" &&
           registrations !== null &&
@@ -498,7 +534,7 @@ export const observeAgentOutputs = (
             desired: false,
           });
       }
-      for (const unit of units) {
+      for (const unit of units.success) {
         const declaration = args.expectedHooks.find(({ name }) => name === unit.name);
         if (declaration === undefined) continue;
         outputs.push({
@@ -523,6 +559,7 @@ export const observeAgentOutputs = (
     }
 
     return {
+      diagnostics,
       outputs,
       ownedResidue: outputs.filter((output) => output.ownership === "owned" && !output.desired),
       unownedFootprints: outputs.filter((output) => output.ownership === "unowned"),

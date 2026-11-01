@@ -1,5 +1,9 @@
 import * as Result from "effect/Result";
 import type { AgentOutputObservation } from "./agent-output-observation.js";
+import {
+  nativeConfigObservationReason,
+  type NativeConfigObservationDiagnostic,
+} from "../agent-adapters/index.js";
 
 export type NativeOutputConcern =
   | { readonly kind: "broken-link"; readonly path: string; readonly target: string }
@@ -34,6 +38,7 @@ const usable = (output: AgentOutputObservation): boolean => {
 /** One physical link is one concern, regardless of how many agents read it. */
 export const classifyNativeOutputHealth = (
   outputs: ReadonlyArray<AgentOutputObservation>,
+  diagnostics: ReadonlyArray<NativeConfigObservationDiagnostic> = [],
 ): ReadonlyArray<NativeOutputConcern> => {
   const concerns = new Map<string, NativeOutputConcern>();
   for (const output of outputs) {
@@ -59,6 +64,14 @@ export const classifyNativeOutputHealth = (
         target: entry.linkTarget,
       });
     }
+  }
+  for (const diagnostic of diagnostics) {
+    const key = JSON.stringify([diagnostic.extensionType, diagnostic.address, diagnostic.stage]);
+    concerns.set(key, {
+      kind: "unreadable",
+      path: diagnostic.address.path,
+      reason: nativeConfigObservationReason(diagnostic),
+    });
   }
   return [...concerns.values()].sort((left, right) => left.path.localeCompare(right.path));
 };

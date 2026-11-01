@@ -12,6 +12,9 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as PlatformError from "effect/PlatformError";
 import type { McpServerEntry } from "../../workspace-state/index.js";
 import * as Layer from "effect/Layer";
 import { readYamlEntry, writeAgentMcpConfig } from "../../agent-adapters/index.js";
@@ -51,6 +54,101 @@ const inspectAgentMcpServer = (args: {
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(Layer.merge(NodeServices.layer, NativeWriteAuthorityPermissive)));
+
+describe("partial native MCP inventory", () => {
+  for (const failure of ["resolve", "read", "syntax", "shape"] as const) {
+    it.effect(`retains a healthy native file when another has a ${failure} failure`, () =>
+      withNode(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-mcp-partial-" });
+          const blocked = path.join(root, ".cursor/mcp.json");
+          yield* fs.writeFileString(
+            path.join(root, ".mcp.json"),
+            JSON.stringify({ mcpServers: { healthy: { command: "node" } } }),
+          );
+          yield* fs.makeDirectory(path.dirname(blocked), { recursive: true });
+          if (failure === "resolve") yield* fs.symlink("mcp.json", blocked);
+          else
+            yield* fs.writeFileString(
+              blocked,
+              failure === "syntax"
+                ? "{broken"
+                : failure === "shape"
+                  ? JSON.stringify({ mcpServers: [] })
+                  : "{}",
+            );
+          const denied = PlatformError.systemError({
+            _tag: "PermissionDenied",
+            module: "FileSystem",
+            method: "readFileString",
+            pathOrDescriptor: blocked,
+          });
+          const inventory = yield* collectNativeAgentMcpServers({
+            workspaceRoot: root,
+            scope: "project",
+            agentIds: ["claude-code", "cursor"],
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+            declaredMcpNames: new Set(["healthy"]),
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, {
+              ...fs,
+              readFileString: (file, ...options) =>
+                failure === "read" && file === blocked
+                  ? Effect.fail(denied)
+                  : fs.readFileString(file, ...options),
+            }),
+          );
+          expect(inventory.servers.map((server) => [server.agentId, server.serverName])).toEqual([
+            ["claude-code", "healthy"],
+          ]);
+          expect(inventory.diagnostics).toHaveLength(1);
+          expect(inventory.diagnostics[0]).toMatchObject({
+            extensionType: "mcp-server",
+            address: { path: blocked },
+            stage: failure === "syntax" || failure === "shape" ? "decode" : failure,
+            claimantAgentIds: ["cursor"],
+          });
+          if (failure === "read") expect(inventory.diagnostics[0]?.cause).toBe(denied);
+        }).pipe(Effect.scoped),
+      ),
+    );
+  }
+
+  it.effect("retains a healthy container beside a malformed aliased container", () =>
+    withNode(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-mcp-partial-containers-" });
+        const physical = path.join(root, ".mcp.json");
+        const alias = path.join(root, "crush.json");
+        yield* fs.writeFileString(
+          physical,
+          JSON.stringify({ mcpServers: { healthy: { command: "node" } }, mcp: [] }),
+        );
+        yield* fs.symlink(".mcp.json", alias);
+        const inventory = yield* collectNativeAgentMcpServers({
+          workspaceRoot: root,
+          scope: "project",
+          agentIds: ["claude-code", "crush"],
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          declaredMcpNames: new Set(["healthy"]),
+        });
+        expect(inventory.servers.map((server) => server.serverName)).toEqual(["healthy"]);
+        expect(inventory.diagnostics).toMatchObject([
+          {
+            address: { path: physical, keys: ["mcp"] },
+            aliases: [alias],
+            claimantAgentIds: ["crush"],
+            stage: "decode",
+          },
+        ]);
+      }).pipe(Effect.scoped),
+    ),
+  );
+});
 
 const withHome = <A, E, R>(home: string, effect: Effect.Effect<A, E, R>) =>
   Effect.acquireUseRelease(
@@ -158,11 +256,12 @@ describe("agent MCP config inspection", () => {
             declaredMcpNames: new Set(["context", "separate"]),
           });
           expect(
-            results.map((result) => [result.agentId, result.keyPath, result.ownership]),
+            results.servers.map((result) => [result.agentId, result.keyPath, result.ownership]),
           ).toEqual([
             ["claude-code", ["mcpServers", "context"], "declared"],
             ["crush", ["mcp", "separate"], "declared"],
           ]);
+          expect(results.diagnostics).toEqual([]);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -210,7 +309,7 @@ describe("agent MCP config inspection", () => {
           mkdirSync(hermesDir, { recursive: true });
           writeFileSync(nodePath.join(hermesDir, "config.yaml"), "mcp_servers:\n  context: [\n");
 
-          const error = yield* withHome(
+          const inventory = yield* withHome(
             workspaceRoot,
             collectNativeAgentMcpServers({
               nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
@@ -219,9 +318,17 @@ describe("agent MCP config inspection", () => {
               scope: "user",
               agentIds: ["hermes"],
             }),
-          ).pipe(Effect.flip);
+          );
 
-          expect(error._tag).toBe("McpConfigInvalid");
+          expect(inventory.servers).toEqual([]);
+          expect(inventory.diagnostics).toMatchObject([
+            {
+              extensionType: "mcp-server",
+              address: { path: nodePath.join(hermesDir, "config.yaml"), keys: ["mcp_servers"] },
+              stage: "decode",
+              cause: { _tag: "McpConfigInvalid" },
+            },
+          ]);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -558,7 +665,8 @@ describe("agent MCP config inspection", () => {
             }),
           ).pipe(
             Effect.map((result) => {
-              expect(result).toEqual([
+              expect(result.diagnostics).toEqual([]);
+              expect(result.servers).toEqual([
                 {
                   agentId: "hermes",
                   ownership: "unowned",

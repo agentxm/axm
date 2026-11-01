@@ -9,6 +9,7 @@ import {
   observeAgentOutputs,
   captureAgentOutputAuthority,
   nativePackageReferences,
+  nativeConfigObservationReason,
 } from "../projection/index.js";
 import {
   acceptedCanonicalObservation,
@@ -174,6 +175,14 @@ export const prepareUninstallArtifact = (
       ...(yield* captureAgentOutputAuthority()),
       authoredSkills: { layout, entries: yield* settings.entries("skill") },
     });
+    for (const diagnostic of inventory.diagnostics) {
+      if (diagnostic.extensionType !== target.type) continue;
+      references.push({
+        path: path.relative(location.baseDir, diagnostic.address.path),
+        state: "unknown",
+        reason: nativeConfigObservationReason(diagnostic),
+      });
+    }
     for (const output of inventory.outputs.filter(
       (output) =>
         output.extensionType === target.type &&

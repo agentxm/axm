@@ -21,6 +21,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Result from "effect/Result";
 import {
   resolveNativeReadLocation,
   captureNativeLocationSet,
@@ -28,6 +29,7 @@ import {
 } from "../../locations/index.js";
 import { resolveAgentMcpConfigTargetPath } from "./native-config.js";
 import { McpConfigInvalid } from "../errors.js";
+import type { NativeConfigObservationDiagnostic } from "../native-config-observation.js";
 
 import { readCompetingMcpEntries, type CompetingMcpEntry } from "./competing-entries.js";
 
@@ -116,6 +118,88 @@ const groupMembers = (
   }
   return [...groups.entries()].map(([key, group]) => ({ key, ...group, unverifiedReaders: [] }));
 };
+
+/**
+ * Read each applicable native location independently. Mutation planning keeps
+ * its strict resolver below, including competing-entry and shared-writer checks.
+ */
+export const observeNativeMcpTargets = Effect.fnUntraced(function* (args: {
+  readonly agentIds: ReadonlyArray<string>;
+  readonly scope: "project" | "user";
+  readonly workspaceRoot: string;
+  readonly nativeDirectoryInputs: NativeDirectoryInputs;
+}) {
+  const path = yield* Path.Path;
+  const readers = args.agentIds.flatMap((agentId) => {
+    const capability = readableMcpCapability(agentId);
+    if (capability === undefined) return [];
+    return capability.native.locations.flatMap((location) => {
+      const resolved = resolveNativeReadLocation(
+        path,
+        agentId,
+        location,
+        args,
+        args.nativeDirectoryInputs,
+      );
+      if (resolved === undefined || !Schema.is(McpServersPathSchema)(location.keyPath)) return [];
+      const target: McpConfigTarget = {
+        scope: location.scope,
+        nativeRoot: resolved.nativeRoot,
+        path: resolved.path,
+        format: location.format,
+        attribution: location.attribution ?? "agent",
+      };
+      return [
+        {
+          agentId,
+          locationId: location.id,
+          configured: true,
+          config: { ...capability.native.entryDialect, serversPath: location.keyPath },
+          target,
+          declaredTarget: target,
+        } satisfies SharedMcpTargetMember,
+      ];
+    });
+  });
+  const observations = yield* captureNativeLocationSet({
+    referents: readers.map((reader) => reader.target.path),
+  });
+  const members: Array<SharedMcpTargetMember> = [];
+  const diagnostics = new Map<string, NativeConfigObservationDiagnostic>();
+  for (const reader of readers) {
+    const resolved = yield* Effect.gen(function* () {
+      const captured = yield* observations.referent(reader.target.path);
+      const current = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, reader.target);
+      if (current !== captured)
+        return yield* new McpConfigInvalid({
+          detail: `MCP location changed during observation: ${reader.target.path}`,
+        });
+      return captured;
+    }).pipe(Effect.result);
+    if (Result.isFailure(resolved)) {
+      const address = {
+        kind: "key-path" as const,
+        path: reader.target.path,
+        keys: reader.config.serversPath,
+      };
+      const key = JSON.stringify(address);
+      const previous = diagnostics.get(key);
+      diagnostics.set(key, {
+        extensionType: "mcp-server",
+        address,
+        aliases: [...new Set([...(previous?.aliases ?? []), reader.target.path])].sort(),
+        claimantAgentIds: [
+          ...new Set([...(previous?.claimantAgentIds ?? []), reader.agentId]),
+        ].sort(),
+        stage: "resolve",
+        cause: resolved.failure,
+      });
+      continue;
+    }
+    members.push({ ...reader, target: { ...reader.target, path: resolved.success } });
+  }
+  return { groups: groupMembers(members), diagnostics: [...diagnostics.values()] };
+});
 
 /** Catalog-only grouping; execution resolves captured roots and physical aliases below. */
 export const groupConfiguredMcpTargets = (args: {

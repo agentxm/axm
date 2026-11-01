@@ -34,6 +34,7 @@ import {
   type AgentOutputAuthority,
   type AgentOutputInventory,
   type AgentOutputObservation,
+  nativeConfigObservationReason,
 } from "../projection/index.js";
 import { NativeWriteAuthority } from "../agent-adapters/index.js";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
@@ -250,6 +251,32 @@ export const reconcileAgentOutputs = (
     const warnings = [...decisions.values()].flatMap((decision) =>
       decision._tag === "retain" ? [decision.reason] : [],
     );
+    const diagnostics = before.diagnostics.filter(
+      (diagnostic) =>
+        args.subjects === undefined ||
+        args.subjects.some((subject) => subject.type === diagnostic.extensionType),
+    );
+    const unverifiedLocations = diagnostics.map((diagnostic): NativeLocationOutcome => {
+      const reason = nativeConfigObservationReason(diagnostic);
+      warnings.push(`Preserved ${diagnostic.address.path}: ${reason}.`);
+      return {
+        scope: location.scope,
+        address: diagnostic.address,
+        aliases: diagnostic.aliases,
+        configuredConsumers: diagnostic.claimantAgentIds.filter((agentId) =>
+          args.desiredAgentIds.has(agentId),
+        ),
+        potentialReaders: diagnostic.claimantAgentIds.filter(
+          (agentId) => !args.desiredAgentIds.has(agentId),
+        ),
+        policyReasons: [],
+        ownership: "unverified",
+        state: "unverified",
+        mechanism: "structured-entry",
+        availability: [],
+        reason,
+      };
+    });
     const retainedReason = (output: AgentOutputObservation | undefined): string | undefined => {
       if (output === undefined) return undefined;
       const decision = decisions.get(output);
@@ -293,11 +320,12 @@ export const reconcileAgentOutputs = (
     );
     const guardedRetentions = residue.filter((output) => !candidates.includes(output));
     const preservedPaths = [
-      ...new Set(
-        [...before.unownedFootprints, ...retainedNative, ...guardedRetentions].map(
+      ...new Set([
+        ...[...before.unownedFootprints, ...retainedNative, ...guardedRetentions].map(
           ({ path }) => path,
         ),
-      ),
+        ...diagnostics.map((diagnostic) => diagnostic.address.path),
+      ]),
     ].sort();
     const agents = yield* (yield* CodingAgentRepository).all;
     const observedArtifacts = yield* Effect.forEach(
@@ -352,6 +380,7 @@ export const reconcileAgentOutputs = (
       ),
     );
     const retainedLocations = [
+      ...unverifiedLocations,
       ...nativeRetentions,
       ...observedArtifacts.flat().filter((unit) => unit.state === "retained"),
     ];
@@ -360,6 +389,7 @@ export const reconcileAgentOutputs = (
         removedPaths: [...new Set(candidates.map(({ path }) => path))].sort(),
         preservedPaths,
         nativeLocations: combineNativeLocationOutcomes([
+          ...unverifiedLocations,
           ...nativeRetentions,
           ...observedArtifacts.flat(),
         ]),

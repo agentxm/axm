@@ -109,6 +109,10 @@ export {
 
 // Agent-native output discovery and ownership observation
 export {
+  nativeConfigObservationReason,
+  type NativeConfigObservationDiagnostic,
+} from "../agent-adapters/index.js";
+export {
   extensionNameFromFilename,
   type WorkspaceOwnershipIssue,
 } from "./managed-file-discovery.js";

@@ -6,6 +6,35 @@ import * as Path from "effect/Path";
 import { nativePackageReferences } from "./native-package-references.js";
 
 describe("retained executable references", () => {
+  for (const relative of [".mcp.json", ".claude/settings.json"]) {
+    it.effect(`refuses package-deletion evidence when ${relative} cannot be decoded`, () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const workspaceRoot = yield* fs.makeTempDirectoryScoped();
+        const packageRoot = path.join(workspaceRoot, "agent_extensions/acme/server");
+        const source = path.join(packageRoot, "server.js");
+        yield* fs.makeDirectory(packageRoot, { recursive: true });
+        yield* fs.writeFileString(source, "source remains intact");
+        const file = path.join(workspaceRoot, relative);
+        yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+        yield* fs.writeFileString(file, "{invalid");
+        const error = yield* nativePackageReferences({
+          workspaceRoot,
+          packageRoot,
+          scope: "project",
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+        }).pipe(Effect.flip);
+        expect(error).toMatchObject({
+          _tag: "ProjectionIoFailed",
+          path: packageRoot,
+          step: "inspect",
+        });
+        expect(yield* fs.readFileString(source)).toBe("source remains intact");
+        expect(yield* fs.readFileString(file)).toBe("{invalid");
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    );
+  }
   it.effect("keeps unconfigured readers and foreign keys in the package-deletion guard", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

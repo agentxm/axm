@@ -10,6 +10,7 @@ import {
   CodingAgentRepository,
   projectionOutputDigest,
   ProjectionOutputPosture,
+  WorkspaceInvariantFacts,
   type CodingAgentRepositoryService,
   type AgentOutputAuthority,
 } from "@agentxm/workspace-kernel/projection";
@@ -20,7 +21,10 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 import { codingAgentForId } from "@agentxm/workspace-kernel/agent-adapters";
 import { WorkspaceReadTest } from "@agentxm/workspace-kernel/workspace-state/testing";
-import { reconcileAgentOutputs } from "@agentxm/workspace-kernel/reconciliation";
+import {
+  reconcileAgentOutputs,
+  prepareUninstallArtifact,
+} from "@agentxm/workspace-kernel/reconciliation";
 import { applySync, previewSync, makeSyncFixture } from "../testing/sync-fixture.js";
 
 /** Old inline marker text: ordinary content that grants no ownership. */
@@ -447,6 +451,70 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
       Layer.succeed(CodingAgentRepository, agentRepo),
     );
   };
+
+  for (const row of [
+    { type: "hook", relative: ".claude/settings.json", invalid: { hooks: [] } },
+    { type: "mcp-server", relative: ".mcp.json", invalid: { mcpServers: [] } },
+  ] as const) {
+    it.effect(`preserves unreadable ${row.type} ownership in cleanup and uninstall evidence`, () =>
+      Effect.gen(function* () {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-incomplete-native-cleanup-"));
+        try {
+          const file = path.join(tempDir, row.relative);
+          const secret = "opaque-value-under-an-unfamiliar-native-env-key";
+          const content = JSON.stringify({
+            ...row.invalid,
+            env: { UNFAMILIAR_NATIVE_SETTING: secret },
+          });
+          fs.mkdirSync(path.dirname(file), { recursive: true });
+          fs.writeFileSync(file, content);
+          const layer = makeClaudeCodeLayer(tempDir);
+          for (const dryRun of [true, false]) {
+            const result = yield* reconcileAgentOutputs({
+              desiredAgentIds: new Set(["claude-code"]),
+              expectedNames: expectedNames(),
+              subjects: [{ type: row.type, name: "unknown-until-decoded" }],
+              authority: outputAuthority({}),
+              dryRun,
+            }).pipe(Effect.provide(layer));
+            expect(result.removedPaths).toEqual([]);
+            expect(result.preservedPaths).toContain(file);
+            expect(result.nativeLocations).toContainEqual(
+              expect.objectContaining({
+                address: expect.objectContaining({ path: file }),
+                state: "unverified",
+                ownership: "unverified",
+              }),
+            );
+            expect(
+              result.warnings.some(
+                (warning) => warning.includes(file) && warning.includes("decode"),
+              ),
+            ).toBe(true);
+            expect(JSON.stringify(result)).not.toContain(secret);
+            expect(fs.readFileSync(file, "utf8")).toBe(content);
+          }
+          const artifact = yield* prepareUninstallArtifact({
+            type: row.type,
+            name: "unknown-until-decoded",
+          }).pipe(
+            Effect.provide(layer),
+            Effect.provideService(WorkspaceInvariantFacts, {
+              projectionFacts: Effect.succeed([]),
+              projectionFactsForGraph: () => Effect.succeed([]),
+            }),
+          );
+          expect(artifact.references).toContainEqual(
+            expect.objectContaining({ path: row.relative, state: "unknown" }),
+          );
+          expect(JSON.stringify(artifact)).not.toContain(secret);
+          expect(fs.readFileSync(file, "utf8")).toBe(content);
+        } finally {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        }
+      }),
+    );
+  }
 
   it.effect("scope selection does not authorize implicit native MCP cleanup", () =>
     Effect.gen(function* () {

@@ -16,6 +16,8 @@ import * as Effect from "effect/Effect";
 import * as Context from "effect/Context";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
+import { readFileStringIfPresent } from "@agentxm/host-primitives";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { McpInspectionError } from "./errors.js";
 import type { ConfiguredAgentOutcome } from "../../operations/index.js";
@@ -24,6 +26,7 @@ import {
   decodeMcpServerManifestAt,
   readPluginMcpDefinition,
   resolveConfiguredMcpTargets,
+  observeNativeMcpTargets,
   readNativeMcpValues,
   McpDefinitionInvalid,
   planMcpServerTargets,
@@ -34,6 +37,8 @@ import {
   type ExpectedAgentEntry,
   type McpAgentTargetPlan,
   type McpServerDeclaration,
+  type NativeConfigObservationDiagnostic,
+  type McpTargetGroup,
 } from "../../agent-adapters/index.js";
 import {
   combineNativeLocationOutcomes,
@@ -115,6 +120,11 @@ export interface CollectNativeAgentMcpServersArgs {
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: "project" | "user";
   readonly agentIds: ReadonlyArray<string>;
+}
+
+export interface NativeAgentMcpInventory {
+  readonly servers: ReadonlyArray<NativeAgentMcpServer>;
+  readonly diagnostics: ReadonlyArray<NativeConfigObservationDiagnostic>;
 }
 
 type McpInspectionExpectation = ExpectedAgentEntry;
@@ -587,71 +597,106 @@ const inspectDesiredMcpServerUncached = (
 /** Every native entry, classified against effective declarations, by agent. */
 export const collectNativeAgentMcpServers = (
   args: CollectNativeAgentMcpServersArgs,
-): Effect.Effect<
-  ReadonlyArray<NativeAgentMcpServer>,
-  McpInspectionError,
-  FileSystem.FileSystem | Path.Path
-> =>
+): Effect.Effect<NativeAgentMcpInventory, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const groups = yield* resolveConfiguredMcpTargets(args);
+    const fs = yield* FileSystem.FileSystem;
+    const targets = yield* observeNativeMcpTargets(args);
     const perGroup = yield* Effect.forEach(
-      groups,
+      targets.groups,
       (group) =>
         Effect.gen(function* () {
           const absolutePath = group.path;
-          const raw = yield* readNativeMcpConfig(absolutePath);
-          if (Option.isNone(raw)) return [];
-          const containers = new Map<
-            string,
-            {
-              readonly names: ReadonlyArray<string>;
-              readonly values: Readonly<Record<string, unknown>>;
-            }
-          >();
+          const diagnostics: Array<NativeConfigObservationDiagnostic> = [];
+          const members = group.members.filter((member) => member.configured);
+          const context = {
+            extensionType: "mcp-server" as const,
+            aliases: [
+              ...new Set(
+                members.map((member) => member.declaredTarget?.path ?? member.target.path),
+              ),
+            ].sort(),
+            claimantAgentIds: [...new Set(members.map((member) => member.agentId))].sort(),
+          };
+          const read = yield* readFileStringIfPresent(fs, absolutePath).pipe(Effect.result);
+          if (Result.isFailure(read))
+            return {
+              servers: [],
+              diagnostics: [
+                {
+                  ...context,
+                  address: { kind: "file", path: absolutePath },
+                  stage: "read",
+                  cause: read.failure,
+                },
+              ],
+            } satisfies NativeAgentMcpInventory;
+          const raw = read.success;
+          if (Option.isNone(raw)) return { servers: [], diagnostics };
+          const containers = new Map<string, Array<McpTargetGroup["members"][number]>>();
           const results: Array<NativeAgentMcpServer> = [];
-          for (const member of group.members.filter((candidate) => candidate.configured)) {
+          for (const member of members) {
             const key = JSON.stringify([member.target.format, member.config.serversPath]);
-            let container = containers.get(key);
-            if (container === undefined) {
-              const read = {
-                format: member.target.format,
-                configPath: absolutePath,
-                raw: raw.value,
-                serversPath: member.config.serversPath,
-              };
-              const values = yield* readNativeMcpValues(read);
-              container = { names: Object.keys(values), values };
-              containers.set(key, container);
-            }
-            for (const serverName of container.names) {
-              if (
-                results.some(
-                  (result) =>
-                    result.agentId === member.agentId &&
-                    result.serverName === serverName &&
-                    JSON.stringify(result.keyPath) ===
-                      JSON.stringify([...member.config.serversPath, serverName]) &&
-                    result.target.format === member.target.format &&
-                    result.target.path === member.target.path,
-                )
-              )
-                continue;
-              results.push({
-                ownership: args.declaredMcpNames.has(serverName) ? "declared" : "unowned",
-                agentId: member.agentId,
-                serverName,
-                keyPath: [...member.config.serversPath, serverName],
-                path: member.target.path,
-                absolutePath,
-                target: member.target,
-              });
-            }
+            const container = containers.get(key) ?? [];
+            container.push(member);
+            containers.set(key, container);
           }
-          return results;
+          for (const container of containers.values()) {
+            const first = container[0];
+            if (first === undefined) continue;
+            const values = yield* readNativeMcpValues({
+              format: first.target.format,
+              configPath: absolutePath,
+              raw: raw.value,
+              serversPath: first.config.serversPath,
+            }).pipe(Effect.result);
+            if (Result.isFailure(values)) {
+              diagnostics.push({
+                extensionType: "mcp-server",
+                address: { kind: "key-path", path: absolutePath, keys: first.config.serversPath },
+                aliases: [
+                  ...new Set(
+                    container.map((member) => member.declaredTarget?.path ?? member.target.path),
+                  ),
+                ].sort(),
+                claimantAgentIds: [...new Set(container.map((member) => member.agentId))].sort(),
+                stage: "decode",
+                cause: values.failure,
+              });
+              continue;
+            }
+            for (const member of container)
+              for (const serverName of Object.keys(values.success)) {
+                if (
+                  results.some(
+                    (result) =>
+                      result.agentId === member.agentId &&
+                      result.serverName === serverName &&
+                      JSON.stringify(result.keyPath) ===
+                        JSON.stringify([...member.config.serversPath, serverName]) &&
+                      result.target.format === member.target.format &&
+                      result.target.path === member.target.path,
+                  )
+                )
+                  continue;
+                results.push({
+                  ownership: args.declaredMcpNames.has(serverName) ? "declared" : "unowned",
+                  agentId: member.agentId,
+                  serverName,
+                  keyPath: [...member.config.serversPath, serverName],
+                  path: member.target.path,
+                  absolutePath,
+                  target: member.target,
+                });
+              }
+          }
+          return { servers: results, diagnostics };
         }),
       { concurrency: 16 },
     );
-    return perGroup.flat();
+    return {
+      servers: perGroup.flatMap((group) => group.servers),
+      diagnostics: [...targets.diagnostics, ...perGroup.flatMap((group) => group.diagnostics)],
+    };
   });
 
 class McpInspectionReadView extends Context.Service<

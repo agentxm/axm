@@ -4,6 +4,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { resolveNativeEntry } from "../locations/index.js";
 import type { AgentOutputObservation } from "./agent-output-observation.js";
+import { HookConfigInvalid, McpConfigInvalid } from "../agent-adapters/index.js";
+import type { NativeConfigObservationDiagnostic } from "../agent-adapters/index.js";
 import {
   classifyNativeOutputHealth,
   classifyNativeOutputCollisions,
@@ -20,6 +22,42 @@ const output = (path: string): AgentOutputObservation => ({
 });
 
 describe("native output concerns", () => {
+  it("projects configuration diagnostics without exposing parser input or messages", () => {
+    const secret = "opaque-native-setting-that-is-not-a-known-token-shape";
+    const rawCause = { issue: { input: { env: { UNFAMILIAR_NATIVE_SETTING: secret } } } };
+    const diagnostics: ReadonlyArray<NativeConfigObservationDiagnostic> = [
+      {
+        extensionType: "hook",
+        address: { kind: "key-path", path: "/workspace/hooks.json", keys: ["hooks"] },
+        aliases: ["/workspace/hooks.json"],
+        claimantAgentIds: ["claude-code"],
+        stage: "decode",
+        cause: new HookConfigInvalid({ detail: secret, cause: rawCause }),
+      },
+      {
+        extensionType: "mcp-server",
+        address: { kind: "key-path", path: "/workspace/mcp.json", keys: ["mcpServers"] },
+        aliases: ["/workspace/mcp.json"],
+        claimantAgentIds: ["cursor"],
+        stage: "decode",
+        cause: new McpConfigInvalid({ detail: secret, cause: rawCause }),
+      },
+    ];
+    const concerns = classifyNativeOutputHealth([], diagnostics);
+    expect(concerns).toHaveLength(2);
+    expect(
+      concerns.every(
+        (concern) => concern.kind === "unreadable" && concern.reason.includes("decode"),
+      ),
+    ).toBe(true);
+    expect(concerns.map((concern) => concern.path)).toEqual([
+      "/workspace/hooks.json",
+      "/workspace/mcp.json",
+    ]);
+    expect(JSON.stringify(diagnostics)).toContain(secret);
+    expect(JSON.stringify(concerns)).not.toContain(secret);
+    expect(JSON.stringify(concerns)).not.toContain("cause");
+  });
   it.effect("counts two dangling links once each and never treats them as collisions", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

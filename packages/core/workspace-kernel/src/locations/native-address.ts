@@ -81,7 +81,7 @@ const existingNativeSpelling = (target: string) =>
       }
       const supplied = path.join(current, name);
       const info = yield* fs.stat(supplied);
-      const inode = yield* nativeInode(info);
+      const inode = nativeInode(info);
       if (Option.isNone(inode))
         return yield* new NativeLocationError({ target, reason: "unreadable" });
       const folded = entries.filter((entry) => entry.toLowerCase() === name.toLowerCase());
@@ -92,7 +92,7 @@ const existingNativeSpelling = (target: string) =>
         Effect.gen(function* () {
           const candidate = path.join(current, entry);
           const observed = yield* fs.stat(candidate);
-          const observedInode = yield* nativeInode(observed);
+          const observedInode = nativeInode(observed);
           return Option.isSome(observedInode) &&
             observed.dev === info.dev &&
             observedInode.value === inode.value &&
@@ -182,7 +182,7 @@ export const resolveNativeEntry = (
         const referentPath = yield* resolveNativeReferent(lexicalPath);
         // Aliases must still admit reads through their physical spelling.
         if (referentPath === lexicalPath) {
-          const inode = yield* nativeInode(info.value);
+          const inode = nativeInode(info.value);
           return {
             lexicalPath,
             entryPath: referentPath,
@@ -244,7 +244,7 @@ export const resolveNativeEntry = (
       : Option.isSome(link)
         ? undefined
         : entryPath;
-    const inode = Option.isSome(info) ? yield* nativeInode(info.value) : Option.none<string>();
+    const inode = Option.isSome(info) ? nativeInode(info.value) : Option.none<string>();
     return {
       lexicalPath,
       // Referent resolution supplies observed spelling for existing non-links, including case aliases.

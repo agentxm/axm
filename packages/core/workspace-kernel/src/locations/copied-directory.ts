@@ -47,18 +47,15 @@ const sameIdentity = (left: typeof Identity.Type, right: typeof Identity.Type) =
   left.mode === right.mode;
 
 const identityOf = (info: FileSystem.File.Info) =>
-  Effect.gen(function* () {
-    const inode = yield* nativeInode(info);
-    return Option.all({ inode, birthtime: info.birthtime }).pipe(
-      Option.filter(({ birthtime }) => birthtime.getTime() > 0),
-      Option.map(({ inode, birthtime }) => ({
-        device: info.dev.toString(),
-        inode,
-        birthtime: birthtime.getTime(),
-        mode: info.mode,
-      })),
-    );
-  });
+  Option.all({ inode: nativeInode(info), birthtime: info.birthtime }).pipe(
+    Option.filter(({ birthtime }) => birthtime.getTime() > 0),
+    Option.map(({ inode, birthtime }) => ({
+      device: info.dev.toString(),
+      inode,
+      birthtime: birthtime.getTime(),
+      mode: info.mode,
+    })),
+  );
 
 /** Record exactly the files created by a copy. The root identity expires on replacement. */
 export const captureCopiedDirectory = (directory: string, source: string) =>
@@ -68,7 +65,7 @@ export const captureCopiedDirectory = (directory: string, source: string) =>
     const receiptPath = yield* copiedDirectoryReceiptPath(directory);
     if ((yield* resolveNativeEntry(receiptPath)).kind !== "absent")
       return yield* new NativeLocationError({ target: receiptPath, reason: "workspace-conflict" });
-    const identity = yield* identityOf(yield* fs.stat(directory));
+    const identity = identityOf(yield* fs.stat(directory));
     if (Option.isNone(identity)) return Option.none<CopiedDirectoryReceipt>();
     const files: Array<{ path: string; integrity: string; identity: typeof Identity.Type }> = [];
     const links: Array<CopiedDirectoryReceipt["links"][number]> = [];
@@ -88,7 +85,7 @@ export const captureCopiedDirectory = (directory: string, source: string) =>
           links.push({ path: child, target: address.linkTarget, identity: linkIdentity.value });
           continue;
         }
-        const childIdentity = yield* identityOf(yield* fs.stat(absolute));
+        const childIdentity = identityOf(yield* fs.stat(absolute));
         if (Option.isNone(childIdentity)) return Option.none<CopiedDirectoryReceipt>();
         if (address.kind === "directory") {
           directories.push({ path: child, identity: childIdentity.value });
@@ -131,7 +128,7 @@ export const readCopiedDirectory = (directory: string) =>
         Effect.option,
       );
     if (Option.isNone(receipt)) return receipt;
-    const current = yield* identityOf(yield* fs.stat(directory));
+    const current = identityOf(yield* fs.stat(directory));
     if (Option.isNone(current)) return Option.none<CopiedDirectoryReceipt>();
     const expected = receipt.value.identity;
     if (!sameIdentity(current.value, expected)) return Option.none<CopiedDirectoryReceipt>();
@@ -164,7 +161,7 @@ const unchangedCopiedFiles = (directory: string, receipt: CopiedDirectoryReceipt
         const absolute = path.join(directory, file.path);
         const address = yield* resolveNativeEntry(absolute);
         if (address.kind !== "file" || address.entryPath !== absolute) return false;
-        const identity = yield* identityOf(yield* fs.stat(absolute));
+        const identity = identityOf(yield* fs.stat(absolute));
         if (Option.isNone(identity) || !sameIdentity(identity.value, file.identity)) return false;
         return sha512Integrity(yield* fs.readFile(absolute)) === file.integrity;
       }).pipe(Effect.catch(() => Effect.succeed(false))),
@@ -224,7 +221,7 @@ export const copiedDirectoryCanReplace = (directory: string) =>
         if (expectedDirectory === undefined) continue;
         const absolute = path.join(directory, child);
         const address = yield* resolveNativeEntry(absolute);
-        const identity = yield* identityOf(yield* fs.stat(absolute));
+        const identity = identityOf(yield* fs.stat(absolute));
         if (
           address.kind !== "directory" ||
           address.entryPath !== absolute ||
@@ -262,7 +259,7 @@ export const retireCopiedDirectory = <E = never, R = never>(
       const child = path.join(directory, entry.path);
       const address = yield* resolveNativeEntry(child);
       if (address.kind !== "directory" || address.entryPath !== child) continue;
-      const identity = yield* identityOf(yield* fs.stat(child));
+      const identity = identityOf(yield* fs.stat(child));
       if (
         Option.isSome(identity) &&
         sameIdentity(identity.value, entry.identity) &&
@@ -290,7 +287,7 @@ export const copiedDirectoryIsCurrent = (directory: string, source: string) =>
       const absolute = path.join(directory, entry.path);
       const address = yield* resolveNativeEntry(absolute);
       if (address.kind !== "directory" || address.entryPath !== absolute) return false;
-      const identity = yield* identityOf(yield* fs.stat(absolute));
+      const identity = identityOf(yield* fs.stat(absolute));
       if (Option.isNone(identity) || !sameIdentity(identity.value, entry.identity)) return false;
     }
     const currentFiles = yield* unchangedCopiedFiles(directory, receipt.value);

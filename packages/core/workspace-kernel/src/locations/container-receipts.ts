@@ -91,7 +91,7 @@ export interface ContainerIdentityContext {
 
 const identityOf = (target: string, info: FileSystem.File.Info) =>
   Effect.gen(function* () {
-    const inode = yield* nativeInode(info);
+    const inode = nativeInode(info);
     if (
       Option.isNone(inode) ||
       Option.isNone(info.birthtime) ||

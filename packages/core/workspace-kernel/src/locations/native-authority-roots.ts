@@ -40,7 +40,7 @@ const directoryIdentity = (target: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const info = yield* fs.stat(target);
-    const inode = yield* nativeInode(info);
+    const inode = nativeInode(info);
     if (info.type !== "Directory" || Option.isNone(inode) || Option.isNone(info.birthtime)) {
       return yield* new NativeLocationError({
         target,

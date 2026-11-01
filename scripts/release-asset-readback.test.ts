@@ -3,7 +3,7 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import type { GitHubReleaseAssetView } from "./release-github-release-api.js";
-import { makeReleaseAssetReader } from "./release-asset-readback.js";
+import { ReleaseAssetTargetConflict, makeReleaseAssetReader } from "./release-asset-readback.js";
 import { contentIntegrity, publishImmutableCohort } from "./release-publication.js";
 
 const releaseCommit = "a".repeat(40);
@@ -69,7 +69,9 @@ describe("GitHub Release asset readback", () => {
   it.effect("rejects a release whose target is not the release commit", () =>
     Effect.gen(function* () {
       const { read } = yield* reader([], "b".repeat(40));
-      expect(yield* Effect.flip(read({ name: "axm", size: bytes.byteLength }))).toMatchObject({
+      const failure = yield* Effect.flip(read({ name: "axm", size: bytes.byteLength }));
+      expect(failure).toBeInstanceOf(ReleaseAssetTargetConflict);
+      expect(failure).toMatchObject({
         _tag: "ReleaseAssetTargetConflict",
         expected: releaseCommit,
         observed: "b".repeat(40),

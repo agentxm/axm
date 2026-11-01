@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 
 import { parseSkillMd } from "@agentxm/extension-content";
 
-import { capture, run } from "./release-command.js";
+import { capture } from "./release-command.js";
 import {
   readPackageVersion,
   readPackageVersionAtRef,
@@ -76,9 +76,6 @@ export const fail = (message: string): never => {
   process.exit(1);
   throw new Error("Unreachable");
 };
-
-export const runNx = (...args: readonly string[]) =>
-  run("pnpm", ["exec", "nx", ...args, "--outputStyle=static"], RELEASE_PROCESS_ENV);
 
 export interface GeneratedAxmSkillCompatibility extends AxmSkillCompatibilityDeclaration {
   readonly version: string;
@@ -268,17 +265,6 @@ export const stampSkillCompatibility = (
 
 export const git = (...args: readonly string[]): string => capture("git", args);
 
-export const fetchOriginMain = () => {
-  run("git", ["fetch", "origin", "main"]);
-};
-
-export const requireCleanWorkingTree = () => {
-  const status = git("status", "--porcelain");
-  if (status.length > 0) {
-    fail("Working tree is not clean. Commit or stash changes first.");
-  }
-};
-
 const requireMatchingVersions = (
   versions: ReadonlyArray<readonly [path: string, version: string]>,
   source: string,
@@ -356,8 +342,6 @@ export const requireMatchingReleasePackageVersionsAtRef = (ref: string): string 
       ref,
     ),
   );
-
-export const currentHeadSha = (): string => git("rev-parse", "HEAD");
 
 export const parseGitHubRuns = (value: string): GitHubRun[] => {
   const parsed: unknown = JSON.parse(value);

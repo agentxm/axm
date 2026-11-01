@@ -1,7 +1,3 @@
-import { git } from "./release-shared.js";
-
-const CHANGELOG_PATH = "CHANGELOG.md";
-
 const releaseHeading = (version: string) => `## ${version} (`;
 
 export const extractReleaseNotesForVersion = (changelog: string, version: string): string => {
@@ -24,6 +20,3 @@ export const extractReleaseNotesForVersion = (changelog: string, version: string
 
   return releaseNotes;
 };
-
-export const releaseNotesAtRef = (ref: string, version: string): string =>
-  extractReleaseNotesForVersion(git("show", `${ref}:${CHANGELOG_PATH}`), version);

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { composeBundledPackageManifest, composeCliManifest } from "./cli-package.js";
+import {
+  CliPackageError,
+  composeBundledPackageManifest,
+  composeCliManifest,
+} from "./cli-package.js";
 
 const cli = {
   name: "axm.sh",
@@ -150,6 +154,7 @@ describe("compiled CLI package composition", () => {
           },
         ]),
       );
+      expect(error).toBeInstanceOf(CliPackageError);
       expect(error.message).toContain("conflicting references");
     }),
   );

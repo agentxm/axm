@@ -4,7 +4,11 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
-import { captureReleaseCommand, runReleaseCommand } from "./release-process.js";
+import {
+  ReleaseCommandFailed,
+  captureReleaseCommand,
+  runReleaseCommand,
+} from "./release-process.js";
 
 describe("installed release process boundary", () => {
   it.effect(
@@ -23,6 +27,7 @@ describe("installed release process boundary", () => {
             "process.stdout.write('partial'); process.exitCode = 7",
           ]),
         );
+        expect(failure).toBeInstanceOf(ReleaseCommandFailed);
         expect(failure).toMatchObject({ _tag: "ReleaseCommandFailed", exitCode: 7 });
         expect(
           yield* Effect.flip(runReleaseCommand(process.execPath, ["-e", "process.exitCode = 9"])),

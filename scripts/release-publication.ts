@@ -308,7 +308,7 @@ export interface ImmutablePublication<E, R> {
   readonly publish: Effect.Effect<void, E, R>;
 }
 
-export type ImmutablePublicationOutcome = {
+type ImmutablePublicationOutcome = {
   readonly name: string;
   readonly outcome: "reused" | "published";
 };

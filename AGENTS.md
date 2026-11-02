@@ -72,7 +72,9 @@ procedures; [DevOps](devops/index.md) owns environments and operations.
 Shared extension terminology belongs to the
 [Agent Extension Glossary](knowledge/agent-extension-engineering/src/glossary.md).
 The AgentXM Knowledge bundle below owns deeper platform explanations and naming
-conventions. Change definitions at their canonical owner, then regenerate consumers.
+conventions. Keep the glossary authoritative across repositories; change definitions
+at their canonical owner and keep other documentation consistent with it. Do not
+generate glossary copies in help, skills, or website docs.
 
 <!-- prettier-ignore-start -->
 <!-- axm:knowledge -->

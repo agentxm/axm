@@ -14,7 +14,8 @@ AXM manages skills, MCP servers, subagents, rules, hook extensions, knowledge bu
 - Discover and distribute agent extensions for your platform package ecosystems, including JavaScript, Python, Rust, Java, .NET, Ruby, Go, and more
 
 For shared definitions of extensions, their types, and the AXM and AgentXM
-product surfaces, use `axm help glossary`.
+product surfaces, see the
+[Agent Extension Glossary](https://github.com/agentxm/axm/blob/main/knowledge/agent-extension-engineering/src/glossary.md).
 
 ## How to use AXM
 

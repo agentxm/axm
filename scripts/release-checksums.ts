@@ -18,7 +18,6 @@ export const EXPECTED_CONTENT_ASSETS = [
   "install.md",
   "agent-catalog.json",
   "cli-reference.json",
-  "agent-extension-glossary.md",
   "agent-extensions.schema.json",
   "axm-lock.schema.json",
   "hook.schema.json",

@@ -46,16 +46,14 @@ Its reference authority is distinct from the collection’s opinionated engineer
 guidance. The AgentXM Knowledge bundle owns deeper product explanations and naming
 conventions; schemas and external standards retain their own contract authority.
 
-`cli:generate:glossary` derives one portable Markdown snapshot for CLI help, the
-AXM skill’s local reference, and the released website asset. Help and skill
-bundling depend on that step. Copies retain source identity, version, digest, and
-attribution; both websites consume the released asset. Core use is offline and
-does not require installing the engineering pack. Each CLI release and its
-bundled skill share a snapshot; engineering releases remain independently versioned.
+The knowledge concept is the authoritative product glossary across repositories.
+Keep definitions there rather than generating copies in CLI help, skills, or
+website docs. Those surfaces link to the canonical glossary and use its terms
+consistently. Ordinary CLI and skill use does not require the engineering pack.
 
-Change definitions once, regenerate derivatives, and review affected surrounding
-prose and discovery routes. Generated-output checks establish synchronization;
-consumer checks establish availability. Neither alone proves correct term use.
+Change definitions at their canonical owner, then review affected documentation
+and product copy for consistency. Links establish discovery; reviewing term use
+establishes semantic consistency.
 
 ## Application
 

@@ -58,8 +58,7 @@ const workspaceSourcePrefixes: readonly string[] = [
   "skills/",
   "specifications/",
 ];
-const sharedGlossaryPath = "knowledge/agent-extension-engineering/src/glossary.md";
-const workspaceSourceFiles: readonly string[] = ["README.md", sharedGlossaryPath];
+const workspaceSourceFiles: readonly string[] = ["README.md"];
 const isWorkspaceSourcePath = (path: string) =>
   workspaceSourcePrefixes.some((prefix) => path.startsWith(prefix)) ||
   workspaceSourceFiles.includes(path);
@@ -79,7 +78,6 @@ const isCiExecutionPath = (path: string) =>
   path === "scripts/classify-ci-changes.test.ts" ||
   path === "scripts/release-identity.ts";
 const isCliRuntimePath = (path: string) =>
-  path === sharedGlossaryPath ||
   path.startsWith("apps/cli/") ||
   path.startsWith("apps/cli-e2e/") ||
   path.startsWith("packages/") ||

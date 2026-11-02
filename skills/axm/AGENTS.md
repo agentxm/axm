@@ -10,5 +10,5 @@ from publication; shipped agent instructions belong in `src/SKILL.md` and its
 selected references.
 
 Use the [Agent Extension Glossary](../../knowledge/agent-extension-engineering/src/glossary.md)
-for shared meanings. The CLI help and AXM skill reference are generated copies;
-change the canonical concept and regenerate with `cli:generate`.
+for shared meanings. Keep skill terminology consistent with the canonical
+knowledge concept and link to it rather than bundling a glossary copy.

@@ -447,5 +447,10 @@
     "disposition": "superseded-by",
     "successor": "cli/help/projection-guidance-names-fork-or-source",
     "basis": "Projected Subagent files no longer carry an ownership banner, so the authoring guidance moved from each file into bundled help; the successor checks that help names the editable source for authored extensions and axm fork for acquired ones."
+  },
+  {
+    "requirement": "cli/help/shared-extension-glossary",
+    "disposition": "retired",
+    "basis": "Maintainer decision keeps the engineering knowledge concept authoritative and removes generated glossary copies from CLI help, the AXM skill, and website release assets. Consumers link to the canonical glossary and maintain terminology consistency."
   }
 ]

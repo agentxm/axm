@@ -52,7 +52,7 @@
     "@agentxm/host-primitives": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
-    "@napi-rs/keyring": "^2.1.1",
+    "@napi-rs/keyring": "^2.1.2",
     "effect": "catalog:",
     "proper-lockfile": "^4.1.2"
   },

@@ -25,24 +25,24 @@ catalog:
   "@effect/tsgo": ^0.53.3
   "@effect/vitest": 4.1.1
   "@eslint/js": ^10.0.0
-  "@nx/devkit": 24.0.1
-  "@nx/eslint": 24.0.1
-  "@nx/eslint-plugin": 24.0.1
-  "@nx/js": 24.0.1
-  "@nx/vitest": 24.0.1
+  "@nx/devkit": 24.0.3
+  "@nx/eslint": 24.0.3
+  "@nx/eslint-plugin": 24.0.3
+  "@nx/js": 24.0.3
+  "@nx/vitest": 24.0.3
   "@swc-node/register": ^1.12.1
-  "@swc/core": ^1.16.18
+  "@swc/core": ^1.16.21
   "@types/bun": ^1.4.4
   "@types/node": 24.19.2
   "@types/semver": ^7.8.0
-  "@typescript-eslint/parser": ^8.71.2
+  "@typescript-eslint/parser": ^8.72.1
   "@typescript/native": npm:typescript@^7.0.2
-  allure: ^3.21.0
-  allure-js-commons: ^3.13.0
-  allure-vitest: ^3.13.0
+  allure: ^3.22.1
+  allure-js-commons: ^3.14.0
+  allure-vitest: ^3.14.0
   effect: 4.1.1
-  eslint: ^10.13.0
-  execa: ^10.1.1
+  eslint: ^10.14.0
+  execa: ^10.2.1
   "@fast-check/vitest": ^0.5.0
   fflate: ^0.8.3
   tar-stream: ^3.2.2
@@ -51,20 +51,20 @@ catalog:
   jsonc-parser: ^3.3.1
   smol-toml: ^1.9.1
   lint-staged: ^17.5.1
-  nx: 24.0.1
+  nx: 24.0.3
   packageurl-js: ^2.0.1
   prettier: ^3.9.10
   semver: ^7.8.5
   simple-git: ^4.0.1
   typescript: npm:@typescript/typescript6@^6.0.2
-  typescript-eslint: ^8.71.2
-  vite: ^8.3.4
+  typescript-eslint: ^8.72.1
+  vite: ^8.3.5
   vitest: ^5.0.5
   yaml: ^2.9.1
-  eslint-plugin-boundaries: 7.2.0
-  dependency-cruiser: 18.6.0
+  eslint-plugin-boundaries: 7.4.0
+  dependency-cruiser: 18.7.1
   eslint-import-resolver-typescript: 4.4.5
-  "@boundaries/elements": 3.1.1
+  "@boundaries/elements": 3.3.0
 
 allowBuilds:
   # Platform bindings are supplied by optional packages; no fallback download.

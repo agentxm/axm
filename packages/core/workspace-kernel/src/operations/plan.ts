@@ -20,7 +20,7 @@ import type * as Effect from "effect/Effect";
 import type { NativeLocationOutcome } from "../locations/index.js";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { ErrorCodeSchema, type StepFailure } from "./errors.js";
+import { ErrorCodeSchema, type StepFailure, type FailureSuggestedAction } from "./errors.js";
 import {
   EXTENSION_TYPE_TABLE,
   type ExtensionType,
@@ -35,7 +35,7 @@ import type {
   ReleaseAgeOperationEvidence,
   SourceBindingProposal,
 } from "./evidence.js";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+
 import type { HookConfigurationValues } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 
 type ExecutionPreferences =
@@ -494,7 +494,7 @@ export interface Plan<Requirements = never, Output = never> {
   /** Semantic conditions evaluated by the shared execution-policy boundary. */
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
   /** Recovery specific to an operation that cannot currently be applied. */
-  readonly failureSuggestions?: ReadonlyArray<SuggestedAction>;
+  readonly failureSuggestions?: ReadonlyArray<FailureSuggestedAction>;
   /** Persisted inputs outside workspace state that materially determine this plan. */
   readonly materialPaths?: ReadonlyArray<string>;
   /** Local plans roll back candidate-wide; remote effects report truthful partial outcomes. */

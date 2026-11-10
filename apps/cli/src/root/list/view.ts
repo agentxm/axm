@@ -149,7 +149,12 @@ export const emptyInventoryDoc = (state: EmptyInventory): Doc => {
     case "no-workspace":
       return [
         ...paragraphDoc("No AXM workspace in this project."),
-        ...suggestionsDoc([{ description: "Set up AXM in this project", cmd: "axm setup" }]),
+        ...suggestionsDoc([
+          {
+            description: "Set up AXM in this project",
+            invocation: { command: ["setup"], arguments: [] },
+          },
+        ]),
       ];
     case "empty-project":
       return [

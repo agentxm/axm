@@ -1,3 +1,11 @@
+import {
+  recoveryOption,
+  recoverySwitch,
+  publicRecoveryValue,
+  type CommandInvocationArgument,
+  type FailureSuggestedAction,
+} from "@agentxm/workspace-kernel/operations";
+
 import { withParameterDescription } from "../cli-parameters.js";
 import {
   SetupOutcomeSchema,
@@ -7,7 +15,7 @@ import {
 import { agentFlag, jsonFlag, replaceUnrecordedFlag, Verbosity } from "../cli-flags/index.js";
 import { emitResult, Screen, errorDoc } from "../screen/index.js";
 import { processOutcome, withArgvTracking } from "../cli-runtime/index.js";
-import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+
 import type { TelemetryMode } from "../telemetry/index.js";
 import { setupTelemetryMode, setupTelemetryNotice } from "./setup/telemetry-notice.js";
 import { ExitCode } from "../app-error/index.js";
@@ -60,21 +68,25 @@ const SetupDocumentFields = {
 } satisfies Schema.Struct.Fields;
 export const SetupDocumentSchema = Schema.Struct(SetupDocumentFields);
 
-const setupCandidateFlags = (args: {
+const setupCandidateArguments = (args: {
   readonly scope: WorkspaceScope;
   readonly agentIds: ReadonlyArray<string>;
   readonly instructions: HandleSetupArgs["instructions"];
   readonly replaceUnrecorded: boolean;
-}): string => {
+}): ReadonlyArray<CommandInvocationArgument> => {
   const source = args.instructions === false ? "off" : (args.instructions?.fileName ?? "AGENTS.md");
   const operand =
     args.instructions !== false && (source === "off" || source.startsWith("-"))
       ? `./${source}`
       : source;
-  const quoted = /^[A-Za-z0-9_./-]+$/u.test(operand)
-    ? operand
-    : `'${operand.replaceAll("'", process.platform === "win32" ? "''" : "'\\''")}'`;
-  return `--scope ${args.scope}${args.agentIds.map((id) => ` --agent ${id}`).join("")}${args.scope === "project" ? ` --instructions ${quoted}` : ""}${args.replaceUnrecorded ? " --replace-unrecorded" : ""}`;
+  return [
+    recoveryOption("--scope", publicRecoveryValue(args.scope)),
+    ...args.agentIds.map((id) => recoveryOption("--agent", publicRecoveryValue(id))),
+    ...(args.scope === "project"
+      ? [recoveryOption("--instructions", publicRecoveryValue(operand))]
+      : []),
+    recoverySwitch("--replace-unrecorded", args.replaceUnrecorded),
+  ];
 };
 
 const setupSuggestions = (args: {
@@ -91,8 +103,8 @@ const setupSuggestions = (args: {
   readonly completed: boolean;
   /** The workspace exists and has never settled its instruction choice. */
   readonly instructionChoiceOpen: boolean;
-}): ReadonlyArray<SuggestedAction> => {
-  const flags = setupCandidateFlags({
+}): ReadonlyArray<FailureSuggestedAction> => {
+  const arguments_ = setupCandidateArguments({
     scope: args.scope,
     agentIds: args.agentIds,
     instructions:
@@ -106,35 +118,47 @@ const setupSuggestions = (args: {
   if (args.status === "preview" && args.blocked)
     return [{ description: "Resolve the blocked targets and preview again" }];
   if (args.status === "preview" && args.agentCount === 0) {
-    return [{ description: "Choose coding agents", cmd: `axm setup ${flags}` }];
+    return [
+      {
+        description: "Choose coding agents",
+        invocation: { command: ["setup"], arguments: arguments_ },
+      },
+    ];
   }
   if (args.status === "preview") {
     return [
       {
         description: "Apply setup",
-        cmd: `axm setup --yes --non-interactive ${flags}`,
+        invocation: {
+          command: ["setup"],
+          arguments: [
+            recoverySwitch("--yes", true),
+            recoverySwitch("--non-interactive", true),
+            ...arguments_,
+          ],
+        },
       },
     ];
   }
 
   if (args.status === "cancelled") return [];
 
-  const suggestions: Array<SuggestedAction> = [
+  const suggestions: Array<FailureSuggestedAction> = [
     {
       description: "Inspect configured agents",
-      cmd: "axm agents list",
+      invocation: { command: ["agents", "list"], arguments: [] },
     },
     {
       description: "Preview workspace reconciliation",
-      cmd: "axm sync --preview",
+      invocation: { command: ["sync"], arguments: [recoverySwitch("--preview", true)] },
     },
     {
       description: "Lint workspace state",
-      cmd: "axm lint",
+      invocation: { command: ["lint"], arguments: [] },
     },
     {
       description: "List installed extensions",
-      cmd: "axm list",
+      invocation: { command: ["list"], arguments: [] },
     },
   ];
 
@@ -148,7 +172,7 @@ const setupSuggestions = (args: {
   if (args.completed) {
     suggestions.unshift({
       description: "Bring installed Rules and Knowledge into the instruction files",
-      cmd: "axm sync",
+      invocation: { command: ["sync"], arguments: [] },
     });
   }
 
@@ -156,14 +180,21 @@ const setupSuggestions = (args: {
     suggestions.unshift({
       description:
         "Instruction files are not set up, so agents do not see installed Rules or Knowledge; settle that choice",
-      cmd: `axm setup --preview --non-interactive ${flags}`,
+      invocation: {
+        command: ["setup"],
+        arguments: [
+          recoverySwitch("--preview", true),
+          recoverySwitch("--non-interactive", true),
+          ...arguments_,
+        ],
+      },
     });
   }
 
   if (args.agentCount === 0) {
     suggestions.unshift({
       description: "Detect and configure active coding agents",
-      cmd: "axm agents add --detected",
+      invocation: { command: ["agents", "add"], arguments: [recoverySwitch("--detected", true)] },
     });
   } else if (args.scope === "project") {
     suggestions.push({ description: "Discover recommended extensions", cmd: "axm discover" });
@@ -219,7 +250,19 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
     const suggestions = [
       {
         description: "Preview the setup candidate",
-        cmd: `axm setup --preview --non-interactive ${setupCandidateFlags({ scope: args.scope, agentIds: args.agents ?? [], instructions: args.instructions, replaceUnrecorded: (yield* ProjectionOutputPosture).replaceUnrecorded === true })}`,
+        invocation: {
+          command: ["setup"],
+          arguments: [
+            recoverySwitch("--preview", true),
+            recoverySwitch("--non-interactive", true),
+            ...setupCandidateArguments({
+              scope: args.scope,
+              agentIds: args.agents ?? [],
+              instructions: args.instructions,
+              replaceUnrecorded: (yield* ProjectionOutputPosture).replaceUnrecorded === true,
+            }),
+          ],
+        },
       },
     ];
     yield* emitResult(

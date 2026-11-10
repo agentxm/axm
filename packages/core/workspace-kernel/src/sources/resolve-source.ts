@@ -265,7 +265,7 @@ const routeNameInput = (
       suggestions: [
         {
           description: `Inspect configured ${extensionTypeSentenceLabels[expectedType]} entries.`,
-          cmd: `axm ${toExtensionTypePlural(expectedType)} list`,
+          invocation: { command: [toExtensionTypePlural(expectedType), "list"], arguments: [] },
         },
       ],
     });

@@ -1,13 +1,14 @@
+import {
+  recoveryPositional,
+  publicRecoveryValue,
+  recoveryOption,
+  type OperationResolution,
+} from "@agentxm/workspace-kernel/operations";
 import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import { Command, Flag } from "effect/cli";
 
 import { AdoptMcpServers } from "@agentxm/workspace-features/configuration";
-import {
-  publicRecoveryValue,
-  recoveryOption,
-  type OperationResolution,
-} from "@agentxm/workspace-kernel/operations";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -61,7 +62,17 @@ const handleMcpsAdoptBody = Effect.fn("Mcps.adopt")(function* (args: McpsAdoptAr
   const suggestions = [
     extensionTypePresentation("mcp-server").inspect,
     ...(appliedCount === 1
-      ? [{ description: "Undo", cmd: `axm mcps uninstall ${preflight.candidates[0]?.name ?? ""}` }]
+      ? [
+          {
+            description: "Undo",
+            invocation: {
+              command: ["mcps", "uninstall"],
+              arguments: [
+                recoveryPositional(publicRecoveryValue(preflight.candidates[0]?.name ?? "")),
+              ],
+            },
+          },
+        ]
       : []),
   ];
   yield* emitOperationResolution(resolution, {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { renderSuggestedAction } from "@agentxm/workspace-kernel/operations";
 
 import { makeSpecWorkspace } from "../../test-support/install-harness.js";
 import {
@@ -75,7 +76,7 @@ describe("Sync checks require preview", () => {
       const error = getAppError(failure);
       expect(error.code).toBe("usage");
       expect(error.detail).toBe("--fail-on-change requires --preview");
-      expect(error.suggestions).toEqual([
+      expect(error.suggestions?.map(renderSuggestedAction)).toEqual([
         {
           description: "Run the read-only convergence assertion",
           cmd: "axm sync --preview --fail-on-change",

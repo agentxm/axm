@@ -40,7 +40,7 @@ export interface InterruptedInvocation {
   readonly declaredAtomicity?: AtomicityClass;
   readonly presentation?: OperationPresentation;
   /** The command an operator re-runs to continue; the surface renders it. */
-  readonly replayCommand: string;
+  readonly replayCommand: string | undefined;
 }
 
 /** One durable path the footprint recorder observed before the signal landed. */
@@ -171,7 +171,7 @@ export const resolveInterruption = (
           actions: [
             {
               description: "Re-run the command to continue the remaining units.",
-              cmd: invocation.replayCommand,
+              ...(invocation.replayCommand === undefined ? {} : { cmd: invocation.replayCommand }),
             },
           ],
         }

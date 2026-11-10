@@ -1,3 +1,4 @@
+import { recoverySwitch } from "@agentxm/workspace-kernel/operations";
 import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
@@ -158,7 +159,13 @@ export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(functio
       code: "validation",
       detail: `Unknown agent ID: ${agentId}`,
       suggestions: [
-        { description: "Inspect supported agent IDs.", cmd: "axm agents list --available" },
+        {
+          description: "Inspect supported agent IDs.",
+          invocation: {
+            command: ["agents", "list"],
+            arguments: [recoverySwitch("--available", true)],
+          },
+        },
       ],
     });
   }

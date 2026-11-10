@@ -12,11 +12,11 @@
 import {
   type PlanPolicyId,
   applyPlanExecution,
-  type ConfirmationRecovery,
+  type CommandInvocation,
   type PlanExecution,
 } from "../../operations/index.js";
 
-const emptyRecovery: ConfirmationRecovery = { command: [], arguments: [] };
+const emptyRecovery: CommandInvocation = { command: [], arguments: [] };
 
 /** An apply whose preapprovable confirmations are already approved. */
 export const preapprovedPlanExecution: PlanExecution = applyPlanExecution({
@@ -26,7 +26,7 @@ export const preapprovedPlanExecution: PlanExecution = applyPlanExecution({
 
 /** An apply from a route that offers preapproval but received none. */
 export const promptablePlanExecution = (
-  recovery: ConfirmationRecovery,
+  recovery: CommandInvocation,
   acceptedPolicies?: ReadonlySet<PlanPolicyId>,
 ): PlanExecution =>
   applyPlanExecution({
@@ -37,7 +37,7 @@ export const promptablePlanExecution = (
 
 /** An apply from a route with no preapprovable confirmation. */
 export const interactiveOnlyPlanExecution = (
-  recovery: ConfirmationRecovery,
+  recovery: CommandInvocation,
   acceptedPolicies?: ReadonlySet<PlanPolicyId>,
 ): PlanExecution =>
   applyPlanExecution({

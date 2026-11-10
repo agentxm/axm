@@ -12,6 +12,20 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  recoverySwitch,
+  CandidateFingerprintFailed,
+  STALE_CANDIDATE_DETAIL,
+  StaleExecutionCandidate,
+  StepFailure,
+  defineFailureFamily,
+  makeStepFailure,
+  renderCarriedFailure,
+  type FailureRendering,
+} from "../operations/index.js";
+
 import * as Cause from "effect/Cause";
 import { ConfigError } from "effect/Config";
 import * as Option from "effect/Option";
@@ -69,16 +83,6 @@ import {
   WorkspaceTransitionCompromised,
   type WorkspaceTransactionFailure,
 } from "../settlement/index.js";
-import {
-  CandidateFingerprintFailed,
-  STALE_CANDIDATE_DETAIL,
-  StaleExecutionCandidate,
-  StepFailure,
-  defineFailureFamily,
-  makeStepFailure,
-  renderCarriedFailure,
-  type FailureRendering,
-} from "../operations/index.js";
 
 /** AXM's own configuration could not be loaded or did not validate. */
 export const configErrorToStepFailure = (error: ConfigError): StepFailure =>
@@ -196,12 +200,12 @@ export const workspaceStateReadFailureToStepFailure = (
                 },
                 {
                   description: "Preview a new lockfile in the supported format.",
-                  cmd: "axm sync --preview",
+                  invocation: { command: ["sync"], arguments: [recoverySwitch("--preview", true)] },
                   commandScope: "workspace",
                 },
                 {
                   description: "Apply the previewed workspace changes.",
-                  cmd: "axm sync",
+                  invocation: { command: ["sync"], arguments: [] },
                   commandScope: "workspace",
                 },
                 {
@@ -393,14 +397,25 @@ const workspaceStateFailureToStepFailure = (error: WorkspaceStateFailure): StepF
       return makeStepFailure({
         category: "usage",
         detail: `Workspace settings not found: ${error.settingsPath}`,
-        suggestions: [{ description: "Create the workspace.", cmd: "axm setup" }],
+        suggestions: [
+          {
+            description: "Create the workspace.",
+            invocation: { command: ["setup"], arguments: [] },
+          },
+        ],
       });
     case "LockedSkillMissing":
       return makeStepFailure({
         category: "conflict",
         detail: `Skill "${error.name}" has no entry in axm.lock`,
         suggestions: [
-          { description: "Install the skill first.", cmd: "axm skills install <source>" },
+          {
+            description: "Install the skill first.",
+            invocation: {
+              command: ["skills", "install"],
+              arguments: [recoveryPositional(publicRecoveryValue("<source>"))],
+            },
+          },
         ],
       });
     case "SettingsEntryMissing":
@@ -416,7 +431,13 @@ const workspaceStateFailureToStepFailure = (error: WorkspaceStateFailure): StepF
         category: "validation",
         detail: `Unknown agent ID: ${error.agentId}`,
         suggestions: [
-          { description: "Inspect supported agent IDs.", cmd: "axm agents list --available" },
+          {
+            description: "Inspect supported agent IDs.",
+            invocation: {
+              command: ["agents", "list"],
+              arguments: [recoverySwitch("--available", true)],
+            },
+          },
         ],
         cause: error.cause,
       });

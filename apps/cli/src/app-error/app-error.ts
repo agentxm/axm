@@ -1,8 +1,6 @@
-import type { FailureDiagnostic } from "@agentxm/workspace-kernel/operations";
-import * as Data from "effect/Data";
-
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
+  type CommandInvocation,
+  type FailureDiagnostic,
   defaultFailureDetail,
   type FailureAction,
   type FailureInput,
@@ -12,6 +10,10 @@ import {
   OPERATION_ERROR_CATEGORIES,
   type ErrorCode,
 } from "@agentxm/workspace-kernel/operations";
+
+import * as Data from "effect/Data";
+
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 /**
  * Named exit codes for the CLI. `Success` is the only exit code without an
@@ -276,7 +278,7 @@ export const errorClassForAppErrorCode = (code: ErrorCode): AppErrorClass =>
  * Used by both human (`renderAppError`) and JSON (`makeJsonErrorEnvelope`)
  * output so the two surfaces stay consistent.
  */
-export const effectiveSuggestionsFor = (error: AppError): ReadonlyArray<SuggestedAction> =>
+export const effectiveSuggestionsFor = (error: AppError): ReadonlyArray<FailureSuggestedAction> =>
   error.suggestions !== undefined && error.suggestions.length > 0
     ? error.suggestions
     : defaultSuggestionsFor(error.code);
@@ -313,6 +315,7 @@ export const makeAppError = (args: {
   readonly inputs?: ReadonlyArray<FailureInput>;
   readonly recover?: string;
   readonly cmd?: string;
+  readonly invocation?: CommandInvocation;
   readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
   readonly cause?: unknown;
 }): AppError => {
@@ -323,6 +326,7 @@ export const makeAppError = (args: {
           {
             description: args.recover,
             ...(args.cmd !== undefined ? { cmd: args.cmd } : {}),
+            ...(args.invocation === undefined ? {} : { invocation: args.invocation }),
           },
         ];
   const suggestions = [...recover, ...(args.suggestions ?? [])];

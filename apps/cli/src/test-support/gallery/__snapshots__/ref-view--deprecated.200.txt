@@ -10,4 +10,4 @@
      Replacement                   @acme/skills/release-notes
 
 Next
-     axm migrate @legacy/skills/changelog --preview   Preview migration
+     axm migrate --preview @legacy/skills/changelog   Preview migration

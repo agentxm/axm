@@ -1,4 +1,4 @@
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
 
 import type { Doc, SummaryPart, Text, Tone } from "./doc.js";
 import type { SuggestionOptions, SuccessOptions } from "./output.js";
@@ -15,7 +15,7 @@ export const headlineDoc = (tone: Tone, message: string): Doc => [
 ];
 
 export const suggestionsDoc = (
-  suggestions: ReadonlyArray<SuggestedAction> | undefined,
+  suggestions: ReadonlyArray<FailureSuggestedAction> | undefined,
   options?: SuggestionOptions,
 ): Doc => {
   const visible = normalizeSuggestions(suggestions, options);

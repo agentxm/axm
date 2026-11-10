@@ -1,3 +1,8 @@
+import {
+  renderCommandInvocation,
+  recoverySwitch,
+  type CommandInvocation,
+} from "./command-invocation.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { PlanPolicyId } from "./plan.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
@@ -6,21 +11,6 @@ export interface ConfiguredAgentOperation {
   readonly extensionType: ExtensionType;
   readonly name: string;
   readonly plannedState: "enabled" | "disabled" | "absent";
-}
-
-export type ConfirmationRecoveryValue =
-  | { readonly _tag: "Public"; readonly value: string }
-  | { readonly _tag: "Protected" }
-  | { readonly _tag: "Unclassified" };
-
-export type ConfirmationRecoveryArgument =
-  | { readonly _tag: "Option"; readonly flag: string; readonly value: ConfirmationRecoveryValue }
-  | { readonly _tag: "Positional"; readonly value: ConfirmationRecoveryValue }
-  | { readonly _tag: "Switch"; readonly flag: string; readonly enabled: boolean };
-
-export interface ConfirmationRecovery {
-  readonly command: ReadonlyArray<string>;
-  readonly arguments: ReadonlyArray<ConfirmationRecoveryArgument>;
 }
 
 /**
@@ -79,7 +69,7 @@ export type PlanExecution =
   | { readonly request: { readonly mode: "preview" } }
   | {
       readonly request: Extract<PlanExecutionRequest, { readonly mode: "apply" }>;
-      readonly approvalRecovery: ConfirmationRecovery;
+      readonly approvalRecovery: CommandInvocation;
     };
 
 export const previewPlanExecution: PlanExecution = { request: { mode: "preview" } };
@@ -108,7 +98,7 @@ export interface RequestedPlanIntent {
  */
 export const requestedPlanExecution = (options: {
   readonly intent: RequestedPlanIntent;
-  readonly recovery: ConfirmationRecovery;
+  readonly recovery: CommandInvocation;
   readonly acceptedPolicies?: ReadonlySet<PlanPolicyId>;
 }): PlanExecution =>
   options.intent.preview
@@ -126,7 +116,7 @@ export const requestedPlanExecution = (options: {
 export const applyPlanExecution = (options: {
   readonly approval: ConfirmableRiskApproval;
   readonly acceptedPolicies?: ReadonlySet<PlanPolicyId>;
-  readonly recovery: ConfirmationRecovery;
+  readonly recovery: CommandInvocation;
 }): PlanExecution => ({
   request: {
     mode: "apply",
@@ -135,58 +125,6 @@ export const applyPlanExecution = (options: {
   },
   approvalRecovery: options.recovery,
 });
-
-export const publicRecoveryValue = (value: string): ConfirmationRecoveryValue => ({
-  _tag: "Public",
-  value,
-});
-
-export const protectedRecoveryValue = (): ConfirmationRecoveryValue => ({ _tag: "Protected" });
-
-export const unclassifiedRecoveryValue = (): ConfirmationRecoveryValue => ({
-  _tag: "Unclassified",
-});
-
-export const credentialFreeLocatorRecoveryValue = (value: string): ConfirmationRecoveryValue => {
-  try {
-    const parsed = new URL(value);
-    const hasSensitiveQuery = [...parsed.searchParams.keys()].some((key) =>
-      /(?:auth|key|password|secret|signature|token)/i.test(key),
-    );
-    return parsed.username.length === 0 && parsed.password.length === 0 && !hasSensitiveQuery
-      ? publicRecoveryValue(value)
-      : protectedRecoveryValue();
-  } catch {
-    return publicRecoveryValue(value);
-  }
-};
-
-export const recoveryOption = (
-  flag: string,
-  value: ConfirmationRecoveryValue,
-): ConfirmationRecoveryArgument => ({ _tag: "Option", flag, value });
-
-export const recoveryPositional = (
-  value: ConfirmationRecoveryValue,
-): ConfirmationRecoveryArgument => ({ _tag: "Positional", value });
-
-export const recoverySwitch = (flag: string, enabled: boolean): ConfirmationRecoveryArgument => ({
-  _tag: "Switch",
-  flag,
-  enabled,
-});
-
-const safeShellToken = /^[A-Za-z0-9_@%+=:,./^-]+$/;
-
-const quoteShellToken = (value: string): string =>
-  value.length > 0 && safeShellToken.test(value) ? value : `'${value.replaceAll("'", `'"'"'`)}'`;
-
-const isReplayable = (argument: ConfirmationRecoveryArgument): boolean =>
-  argument._tag === "Switch" ||
-  (argument.value._tag === "Public" && !/[()]/.test(argument.value.value));
-
-const renderValue = (value: ConfirmationRecoveryValue): string | undefined =>
-  value._tag === "Public" && !/[()]/.test(value.value) ? quoteShellToken(value.value) : undefined;
 
 /**
  * How a rendered recovery command obtains approval.
@@ -203,56 +141,38 @@ const PREAPPROVAL_FLAG = "--yes";
 const PROMPT_PROHIBITING_FLAGS = new Set(["--json", "--non-interactive"]);
 const NON_REPLAYED_FLAGS = new Set(["--preview", PREAPPROVAL_FLAG]);
 
-export const renderConfirmationRecoveryCommand = (
-  recovery: ConfirmationRecovery,
+const confirmationRecoveryInvocation = (
+  recovery: CommandInvocation,
   options: {
     readonly approval: RecoveryApproval;
     readonly additionalSwitches?: ReadonlyArray<string>;
   },
-): string | undefined => {
-  if (recovery.command.length === 0 || !recovery.arguments.every(isReplayable)) return undefined;
-  const dropped = (flag: string): boolean =>
-    NON_REPLAYED_FLAGS.has(flag) ||
-    (options.approval === "interactive" && PROMPT_PROHIBITING_FLAGS.has(flag));
+): CommandInvocation => ({
+  ...recovery,
+  arguments: [
+    ...recovery.arguments.filter(
+      (argument) =>
+        argument._tag === "Positional" ||
+        !(
+          NON_REPLAYED_FLAGS.has(argument.flag) ||
+          (options.approval === "interactive" && PROMPT_PROHIBITING_FLAGS.has(argument.flag))
+        ),
+    ),
+    ...(options.approval === "preapprovable" ? [recoverySwitch(PREAPPROVAL_FLAG, true)] : []),
+    ...(options.additionalSwitches ?? []).map((flag) => recoverySwitch(flag, true)),
+  ],
+});
 
-  const optionTokens = recovery.arguments.flatMap((argument): ReadonlyArray<string> => {
-    switch (argument._tag) {
-      case "Switch":
-        return argument.enabled && !dropped(argument.flag) ? [argument.flag] : [];
-      case "Option": {
-        if (dropped(argument.flag)) return [];
-        const value = renderValue(argument.value);
-        return value === undefined ? [] : [argument.flag, value];
-      }
-      case "Positional":
-        return [];
-    }
-  });
-  const positionalValues = recovery.arguments.flatMap((argument): ReadonlyArray<string> => {
-    if (argument._tag !== "Positional") return [];
-    const value = renderValue(argument.value);
-    return value === undefined ? [] : [value];
-  });
-  const needsOptionTerminator = recovery.arguments.some(
-    (argument) =>
-      argument._tag === "Positional" &&
-      argument.value._tag === "Public" &&
-      argument.value.value.startsWith("-"),
-  );
-  const tokens = [
-    "axm",
-    ...recovery.command,
-    ...optionTokens,
-    ...(options.approval === "preapprovable" ? [PREAPPROVAL_FLAG] : []),
-    ...(options.additionalSwitches ?? []),
-    ...(needsOptionTerminator ? ["--"] : []),
-    ...positionalValues,
-  ];
-  return tokens.join(" ");
-};
+export const renderConfirmationRecoveryCommand = (
+  recovery: CommandInvocation,
+  options: {
+    readonly approval: RecoveryApproval;
+    readonly additionalSwitches?: ReadonlyArray<string>;
+  },
+): string | undefined => renderCommandInvocation(confirmationRecoveryInvocation(recovery, options));
 
 export const namedPolicyRecoverySuggestions = (
-  recovery: ConfirmationRecovery,
+  recovery: CommandInvocation,
   requiredFlags: ReadonlyArray<string>,
 ): ReadonlyArray<SuggestedAction> => {
   const command = renderConfirmationRecoveryCommand(recovery, {
@@ -277,7 +197,7 @@ const INTERACTIVE_APPROVAL_DESCRIPTION =
  * names the need for a prompt and the mode changes that let one open.
  */
 export const confirmationRecoverySuggestions = (
-  recovery: ConfirmationRecovery,
+  recovery: CommandInvocation,
   approval: Exclude<RecoveryApproval, "none">,
 ): ReadonlyArray<SuggestedAction> => {
   const command = renderConfirmationRecoveryCommand(recovery, { approval });

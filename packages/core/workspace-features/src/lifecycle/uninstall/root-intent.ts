@@ -1,7 +1,12 @@
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  installRefused,
+  type OperationRefused,
+} from "@agentxm/workspace-kernel/operations";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { installRefused, type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { splitExtensionReference } from "@agentxm/extension-model/unstable/extensions";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
@@ -77,7 +82,13 @@ export const resolveRootUninstallIntent: (
       detail: "Uninstall requires an unversioned extension FQN",
       recover: `Use ${rootUninstallFqnGrammar}; uninstall removes the configured extension`,
       suggestions: [
-        { description: "Remove the configured extension", cmd: `axm uninstall ${reference.name}` },
+        {
+          description: "Remove the configured extension",
+          invocation: {
+            command: ["uninstall"],
+            arguments: [recoveryPositional(publicRecoveryValue(reference.name))],
+          },
+        },
       ],
     });
   }

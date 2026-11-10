@@ -25,7 +25,7 @@ import {
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
-  renderConfirmationRecoveryCommand,
+  renderCommandInvocation,
 } from "@agentxm/workspace-kernel/operations";
 
 export class ShareFailed extends Schema.TaggedError<ShareFailed>()("ShareFailed", {
@@ -325,18 +325,15 @@ export const ShareWorkspace = {
     }
 
     const locator = sourceLocator(origin, repositoryRoot, location.baseDir, path);
-    const installCommand = renderConfirmationRecoveryCommand(
-      {
-        command: ["install"],
-        arguments: [
-          ...extensions.map((extension) =>
-            recoveryOption(selectorFlag[extension.type], publicRecoveryValue(extension.selector)),
-          ),
-          recoveryPositional(credentialFreeLocatorRecoveryValue(locator)),
-        ],
-      },
-      { approval: "none" },
-    );
+    const installCommand = renderCommandInvocation({
+      command: ["install"],
+      arguments: [
+        ...extensions.map((extension) =>
+          recoveryOption(selectorFlag[extension.type], publicRecoveryValue(extension.selector)),
+        ),
+        recoveryPositional(credentialFreeLocatorRecoveryValue(locator)),
+      ],
+    });
     if (installCommand === undefined) {
       return yield* new ShareFailed({
         category: "validation",

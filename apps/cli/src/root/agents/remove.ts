@@ -81,7 +81,12 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
 
   yield* emitOperationResolution(resolution, {
     recovery,
-    suggestions: [{ description: "Inspect configured agents", cmd: "axm agents list" }],
+    suggestions: [
+      {
+        description: "Inspect configured agents",
+        invocation: { command: ["agents", "list"], arguments: [] },
+      },
+    ],
   });
 });
 

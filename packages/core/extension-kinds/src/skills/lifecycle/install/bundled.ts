@@ -301,7 +301,7 @@ export const installBundledAxmSkill = Effect.gen(function* () {
       category: "conflict",
       detail: readiness.errorMessage,
       recover: "Preserve the conflicting artifact and inspect workspace ownership",
-      cmd: "axm lint",
+      invocation: { command: ["lint"], arguments: [] },
     });
   }
   const configuredAgents = yield* agentRepo.getConfiguredAgents().pipe(

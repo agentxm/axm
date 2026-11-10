@@ -10,21 +10,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Effect from "effect/Effect";
-import * as Equal from "effect/Equal";
-import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
-
 import {
-  NativeWriteAuthority,
-  syncInlineMcpServerToAgents,
-  validateInlineMcpServerTargets,
-  type McpServerSyncTarget,
-} from "@agentxm/workspace-kernel/agent-adapters";
-import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import {
+  publicRecoveryValue,
+  recoveryPositional,
   OperationJournal,
   ResolvePlanInteraction,
   operationPresentation,
@@ -37,6 +25,24 @@ import {
   type ReadyJobStep,
   type OperationRefused,
 } from "@agentxm/workspace-kernel/operations";
+
+import * as Effect from "effect/Effect";
+import * as Equal from "effect/Equal";
+import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
+
+import {
+  NativeWriteAuthority,
+  syncInlineMcpServerToAgents,
+  validateInlineMcpServerTargets,
+  type McpServerSyncTarget,
+  type McpConnection,
+  type McpAuth,
+} from "@agentxm/workspace-kernel/agent-adapters";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
@@ -57,7 +63,7 @@ import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace
 
 import { workspaceChangeFailedToStepFailure, configurationRefused } from "../errors.js";
 import { kernelFailureToStepFailure } from "@agentxm/workspace-kernel/reconciliation";
-import type { McpConnection, McpAuth } from "@agentxm/workspace-kernel/agent-adapters";
+
 import {
   makeInlineMcpDefinition,
   matchesInlineMcpEntry,
@@ -148,7 +154,10 @@ const prepareAddInlineMcpServer = (
         suggestions: [
           {
             description: "Install the MCP server package",
-            cmd: `axm mcps install ${request.name}`,
+            invocation: {
+              command: ["mcps", "install"],
+              arguments: [recoveryPositional(publicRecoveryValue(request.name))],
+            },
           },
         ],
       });

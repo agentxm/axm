@@ -9,6 +9,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  CommandInvocationSchema,
+  renderCommandInvocation,
+  type CommandInvocation,
+} from "./command-invocation.js";
+
 import * as Schema from "effect/Schema";
 import { FailureDiagnosticSchema, type FailureDiagnostic } from "./failure-diagnostic.js";
 
@@ -68,17 +74,17 @@ export const defaultFailureDetail = (category: ErrorCode): string =>
   DefaultDetailByCategory[category];
 
 /**
- * The `SuggestedAction` contract shape, without the safe-command runtime
- * filter, plus where its command runs: a step failure carries whatever
- * suggestion its producer chose, and the application boundary sanitizes
- * suggested commands and applies `commandScope` before rendering them. A
- * `global` command is never narrowed to the current workspace scope.
+ * Internal next actions retain a classified invocation until the output
+ * boundary can apply workspace scope and render it. Opaque commands received
+ * from external producers remain strings; they are never parsed to modify
+ * their arguments. A `global` command is never narrowed to workspace scope.
  *
  * Every producer that carries suggestions on a typed failure carries them in
  * this shape, so a suggestion states where its command runs once, at the
  * site that knows.
  */
 export const FailureSuggestedActionSchema = Schema.Struct({
+  invocation: Schema.optional(CommandInvocationSchema),
   description: Schema.String,
   cmd: Schema.optional(Schema.String),
   url: Schema.optional(Schema.String),
@@ -87,13 +93,12 @@ export const FailureSuggestedActionSchema = Schema.Struct({
 
 export type FailureSuggestedAction = typeof FailureSuggestedActionSchema.Type;
 
-// Every contract suggestion is a carried suggestion, and a carried suggestion
-// without its scope is a contract suggestion.
-const _suggestedActionParity = (
-  value: SuggestedAction,
-  carried: Omit<FailureSuggestedAction, "commandScope">,
-): readonly [FailureSuggestedAction, SuggestedAction] => [value, carried];
-void _suggestedActionParity;
+/** Project an internal recovery to the existing public command-string contract. */
+export const renderSuggestedAction = (suggestion: FailureSuggestedAction): SuggestedAction => {
+  const { invocation, commandScope: _scope, cmd, ...fields } = suggestion;
+  const rendered = invocation === undefined ? cmd : renderCommandInvocation(invocation);
+  return { ...fields, ...(rendered === undefined ? {} : { cmd: rendered }) };
+};
 
 const LockfileVersionNumberSchema = Schema.Int.pipe(
   Schema.check(
@@ -317,13 +322,20 @@ export const makeStepFailure = (args: {
   readonly inputs?: ReadonlyArray<FailureInput> | undefined;
   readonly recover?: string | undefined;
   readonly cmd?: string | undefined;
+  readonly invocation?: CommandInvocation | undefined;
   readonly suggestions?: ReadonlyArray<FailureSuggestedAction> | undefined;
   readonly cause?: unknown;
 }): StepFailure => {
   const suggestions = [
     ...(args.recover === undefined
       ? []
-      : [{ description: args.recover, ...(args.cmd === undefined ? {} : { cmd: args.cmd }) }]),
+      : [
+          {
+            description: args.recover,
+            ...(args.cmd === undefined ? {} : { cmd: args.cmd }),
+            ...(args.invocation === undefined ? {} : { invocation: args.invocation }),
+          },
+        ]),
     ...(args.suggestions ?? []),
   ];
   return new StepFailure({

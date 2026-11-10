@@ -12,7 +12,6 @@ export {
 } from "./policy.js";
 export {
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
-  AXM_SKILL_BUNDLED_APPLY_COMMAND,
   formatAxmSkillCompatibilityTarget,
   AxmSkillCompatibilityReportSchema,
   renderAxmSkillRecovery,

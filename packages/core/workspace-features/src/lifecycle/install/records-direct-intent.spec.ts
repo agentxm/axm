@@ -1,3 +1,7 @@
+import {
+  renderSuggestedAction,
+  deriveOperationOutcome,
+} from "@agentxm/workspace-kernel/operations";
 import { applySync } from "../../testing/sync-fixture.js";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -7,7 +11,6 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
-import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { applyUpdate, targetedUpdateRequest } from "../update/test-helpers.js";
 import {
   SHARED_MEMBER,
@@ -200,7 +203,7 @@ describe("Install records direct workspace intent", () => {
                 acceptedVersion: "1.2.0",
               }),
             );
-            expect(refused.suggestions).toContainEqual({
+            expect(refused.suggestions?.map(renderSuggestedAction)).toContainEqual({
               description: "Explicitly update the extension to accept a satisfying resolution.",
               cmd: `axm update ${SHARED_MEMBER.fqn}`,
             });

@@ -1,20 +1,22 @@
-import { describe, expect, it } from "@effect/vitest";
-
 import {
-  confirmationRecoverySuggestions,
   credentialFreeLocatorRecoveryValue,
-  namedPolicyRecoverySuggestions,
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-  renderConfirmationRecoveryCommand,
   unclassifiedRecoveryValue,
-  type ConfirmationRecovery,
+  type CommandInvocation,
+} from "./command-invocation.js";
+import { describe, expect, it } from "@effect/vitest";
+
+import {
+  confirmationRecoverySuggestions,
+  namedPolicyRecoverySuggestions,
+  renderConfirmationRecoveryCommand,
 } from "./plan-execution.js";
 
-const recovery = (arguments_: ConfirmationRecovery["arguments"]): ConfirmationRecovery => ({
+const recovery = (arguments_: CommandInvocation["arguments"]): CommandInvocation => ({
   command: ["install"],
   arguments: arguments_,
 });

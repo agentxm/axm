@@ -10,6 +10,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type { CommandInvocation } from "./command-invocation.js";
+
 import {
   makeStepFailure,
   type ErrorCode,
@@ -92,6 +94,7 @@ interface CarriedFailure {
   readonly retryable?: boolean | undefined;
   readonly recover?: string | undefined;
   readonly cmd?: string | undefined;
+  readonly invocation?: CommandInvocation | undefined;
   readonly suggestions?: ReadonlyArray<FailureSuggestedAction> | undefined;
   readonly cause?: unknown;
 }
@@ -108,6 +111,7 @@ export const renderCarriedFailure = (failure: CarriedFailure): StepFailure =>
     retryable: failure.retryable,
     recover: failure.recover,
     cmd: failure.cmd,
+    invocation: failure.invocation,
     suggestions: failure.suggestions,
     cause: failure.cause,
   });

@@ -11,6 +11,16 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  defineFailureFamily,
+  makeStepFailure,
+  renderCarriedFailure,
+  type FailureSuggestedAction,
+  type StepFailure,
+} from "../operations/index.js";
+
 import * as Option from "effect/Option";
 import {
   RegistryOperationFailed,
@@ -44,13 +54,6 @@ import {
   WorkspaceCatalogUnavailable,
   sourceResolutionFailureCategory,
 } from "../sources/index.js";
-import {
-  defineFailureFamily,
-  makeStepFailure,
-  renderCarriedFailure,
-  type FailureSuggestedAction,
-  type StepFailure,
-} from "../operations/index.js";
 
 /** An operation the Registry's transport does not implement, with its stable problem. */
 const registryOperationUnsupportedStepFailure = (
@@ -190,7 +193,10 @@ const packConstraintShadowedFailure = (error: PackConstraintShadowed): StepFailu
           {
             description:
               "Update the pack if its owner has published a constraint that includes the workspace version",
-            cmd: `axm update ${error.packFqn}`,
+            invocation: {
+              command: ["update"],
+              arguments: [recoveryPositional(publicRecoveryValue(error.packFqn))],
+            },
           },
           {
             description: `Otherwise stop workspace authority from shadowing ${error.memberFqn}`,

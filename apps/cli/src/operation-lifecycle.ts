@@ -19,7 +19,11 @@ import {
   MAX_OPERATION_SCRATCH_BYTES,
   makeOperationScratchBudget,
 } from "@agentxm/workspace-kernel/acquisition";
-import { OperationRequestBudget, makeOperationRequestBudget } from "@agentxm/host-primitives";
+import {
+  OperationRequestBudget,
+  makeOperationRequestBudget,
+  isRelativeWithin,
+} from "@agentxm/host-primitives";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -54,11 +58,16 @@ import {
   type OperationMode,
   type OperationPresentation,
   type SettledOutcome,
+  renderCommandInvocation,
+  type CommandInvocation,
 } from "@agentxm/workspace-kernel/operations";
-import { CommandRoute } from "./cli-runtime/command-route.js";
+import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
+
+import { OperationInvocation } from "./cli-runtime/operation-invocation.js";
 import { CurrentScreenOperationId, Screen } from "./screen/index.js";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
-import { isRelativeWithin } from "@agentxm/host-primitives";
+
 import {
   FootprintRecorder,
   makeFootprintRecorder,
@@ -173,6 +182,7 @@ export const withOperationLifecycle = <A, E, R>(
     Effect.uninterruptibleMask((restore) =>
       Effect.gen(function* () {
         const journal = yield* makeOperationJournal;
+        const invocation = yield* Ref.make(Option.none<CommandInvocation>());
         const footprint = yield* makeFootprintRecorder;
         const path = yield* Path.Path;
         return yield* restore(
@@ -187,6 +197,7 @@ export const withOperationLifecycle = <A, E, R>(
             publishPhaseStarted("resolution").pipe(
               Effect.andThen(body),
               Effect.provideService(OperationJournal, journal),
+              Effect.provideService(OperationInvocation, invocation),
               Effect.provideService(FootprintRecorder, footprint),
             ),
           ),
@@ -235,7 +246,11 @@ export const withOperationLifecycle = <A, E, R>(
                       ...(args.presentation === undefined
                         ? {}
                         : { presentation: args.presentation }),
-                      replayCommand: ["axm", ...(yield* CommandRoute)].join(" "),
+                      replayCommand: Option.getOrUndefined(
+                        Option.flatMap(yield* Ref.get(invocation), (value) =>
+                          Option.fromUndefinedOr(renderCommandInvocation(value)),
+                        ),
+                      ),
                     },
                     state,
                     signal,

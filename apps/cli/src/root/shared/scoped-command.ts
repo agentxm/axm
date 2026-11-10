@@ -14,7 +14,13 @@ import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import type * as CliCommand from "effect/cli/Command";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
+import {
+  renderSuggestedAction,
+  publicRecoveryValue,
+  withInvocationOption,
+  type CommandInvocation,
+  type FailureSuggestedAction,
+} from "@agentxm/workspace-kernel/operations";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import { isWorkspaceFailure } from "../../app-error/failure-catalog.js";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -49,49 +55,32 @@ export const ScopedRoutesLive = (root: CliCommand.Command.Any): Layer.Layer<Scop
 /** No route takes `--scope`: the answer where no command tree is in context. */
 export const NO_SCOPED_ROUTES: ReadonlySet<string> = new Set();
 
-const ROUTE_WORD = /^[a-z][a-z0-9-]*$/u;
-
-/**
- * The registered scope-taking route a suggested command invokes: the longest
- * leading run of route-shaped words after `axm` that names one.
- */
-const scopedRouteOf = (command: string, routes: ReadonlySet<string>): string | undefined => {
-  const [executable, ...rest] = command.trim().split(/\s+/u);
-  if (executable !== "axm") return undefined;
-  const words: Array<string> = [];
-  for (const word of rest) {
-    if (!ROUTE_WORD.test(word)) break;
-    words.push(word);
-  }
-  for (let length = words.length; length > 0; length -= 1) {
-    const route = words.slice(0, length).join(" ");
-    if (routes.has(route)) return route;
-  }
-  return undefined;
-};
-
-const carriesScope = (command: string): boolean => /(?:^|\s)--scope(?:\s|=|$)/u.test(command);
-
+/** Scope is an option on a known route, never a substring in a shell command. */
 export const commandForScope = (
-  command: string,
+  invocation: CommandInvocation,
   scope: WorkspaceScope,
   routes: ReadonlySet<string>,
-): string =>
-  scope === "user" && !carriesScope(command) && scopedRouteOf(command, routes) !== undefined
-    ? `${command} --scope user`
-    : command;
+): CommandInvocation =>
+  scope === "user" &&
+  routes.has(invocation.command.join(" ")) &&
+  !invocation.arguments.some(
+    (argument) => argument._tag !== "Positional" && argument.flag === "--scope",
+  )
+    ? withInvocationOption(invocation, "--scope", publicRecoveryValue("user"))
+    : invocation;
 
 export const suggestionsForScope = (
   suggestions: ReadonlyArray<FailureSuggestedAction>,
   scope: WorkspaceScope,
   routes: ReadonlySet<string>,
 ): ReadonlyArray<SuggestedAction> =>
-  suggestions.map((suggestion) => {
-    const { commandScope, ...publicSuggestion } = suggestion;
-    return publicSuggestion.cmd === undefined || commandScope === "global"
-      ? publicSuggestion
-      : { ...publicSuggestion, cmd: commandForScope(publicSuggestion.cmd, scope, routes) };
-  });
+  suggestions.map((suggestion) =>
+    renderSuggestedAction(
+      suggestion.invocation === undefined || suggestion.commandScope === "global"
+        ? suggestion
+        : { ...suggestion, invocation: commandForScope(suggestion.invocation, scope, routes) },
+    ),
+  );
 
 export interface WorkspaceScoping {
   readonly scope: WorkspaceScope;

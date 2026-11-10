@@ -1,3 +1,16 @@
+import {
+  recoverySwitch,
+  OperationJournal,
+  observeUnit,
+  ResolvePlanInteraction,
+  type JobStepArtifact,
+  type JobStepResult,
+  type OperationResolution,
+  type Plan,
+  type PlanExecution,
+  type PlannedJobStep,
+  type OperationRefused,
+} from "@agentxm/workspace-kernel/operations";
 import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 /**
  * Configured-agent membership: which coding agents this workspace configures,
@@ -38,18 +51,7 @@ import {
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import {
-  OperationJournal,
-  observeUnit,
-  ResolvePlanInteraction,
-  type JobStepArtifact,
-  type JobStepResult,
-  type OperationResolution,
-  type Plan,
-  type PlanExecution,
-  type PlannedJobStep,
-  type OperationRefused,
-} from "@agentxm/workspace-kernel/operations";
+
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
@@ -188,8 +190,20 @@ const prepareAddConfiguredAgents = (
         category: "usage",
         detail: "Provide one or more agent IDs, or pass --detected.",
         suggestions: [
-          { description: "List supported IDs.", cmd: "axm agents list --available" },
-          { description: "Configure detected agents.", cmd: "axm agents add --detected" },
+          {
+            description: "List supported IDs.",
+            invocation: {
+              command: ["agents", "list"],
+              arguments: [recoverySwitch("--available", true)],
+            },
+          },
+          {
+            description: "Configure detected agents.",
+            invocation: {
+              command: ["agents", "add"],
+              arguments: [recoverySwitch("--detected", true)],
+            },
+          },
         ],
       });
     }
@@ -499,7 +513,12 @@ const prepareRemoveConfiguredAgents = (
       return yield* configurationRefused({
         category: "validation",
         detail: `Agent is not configured: ${missing.join(", ")}`,
-        suggestions: [{ description: "Inspect configured agents.", cmd: "axm agents list" }],
+        suggestions: [
+          {
+            description: "Inspect configured agents.",
+            invocation: { command: ["agents", "list"], arguments: [] },
+          },
+        ],
       });
     }
 
@@ -511,7 +530,12 @@ const prepareRemoveConfiguredAgents = (
       return yield* configurationRefused({
         category: "validation",
         detail: `Cannot safely clean agent projections while a configured Pack's routes are unresolved: ${unresolvedPackRoutesText(unresolved)}`,
-        suggestions: [{ description: "Inspect workspace facts.", cmd: "axm lint" }],
+        suggestions: [
+          {
+            description: "Inspect workspace facts.",
+            invocation: { command: ["lint"], arguments: [] },
+          },
+        ],
       });
     }
 

@@ -114,6 +114,11 @@ export const refuseUndesiredInstalledTarget = Effect.fn(
     category: "conflict",
     title: "Extension is not configured",
     detail: `${subject.type} ${identity} is installed but not configured; axm sync removes installed packages that are not configured.`,
-    cmd: "axm sync",
+    suggestions: [
+      {
+        description: "Reconcile installed packages with configured intent",
+        invocation: { command: ["sync"], arguments: [] },
+      },
+    ],
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { OperationRefused, renderSuggestedAction } from "@agentxm/workspace-kernel/operations";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -49,6 +50,8 @@ describe("Sync selector diagnostics", () => {
             const failure = yield* Effect.flip(
               previewSync(syncRequest({ target: Option.some(target) })),
             );
+            if (!(failure instanceof OperationRefused))
+              throw new Error(`Expected an operation refusal: ${String(failure)}`);
             expect(failure).toMatchObject({
               _tag: "OperationRefused",
               category: target === "@acme/skills/absent" ? "not_found" : "validation",
@@ -56,8 +59,10 @@ describe("Sync selector diagnostics", () => {
             if (target !== "@acme/skills/absent") {
               expect(failure).toMatchObject({
                 detail: expect.stringContaining("@owner/type/name"),
-                suggestions: [{ cmd: "axm list", description: expect.any(String) }],
               });
+              expect(failure.suggestions?.map(renderSuggestedAction)).toEqual([
+                { cmd: "axm list", description: expect.any(String) },
+              ]);
             }
             expect(workspace.snapshot()).toEqual(before);
           }),

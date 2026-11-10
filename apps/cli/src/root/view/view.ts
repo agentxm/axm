@@ -1,13 +1,20 @@
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  recoverySwitch,
+  type FailureSuggestedAction,
+} from "@agentxm/workspace-kernel/operations";
 import * as DateTime from "effect/DateTime";
 
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+
 import type { ViewDocument } from "@agentxm/workspace-features/inspection";
 
 import {
   ABSENT,
   factParts,
+  suggestionsDoc,
   type Doc,
   type Field,
   type Span,
@@ -75,14 +82,23 @@ const versionsText = (data: ViewDocument): Text => {
 };
 
 /** The next action must be viable for the current deprecation reason. */
-const nextAction = (data: ViewDocument): SuggestedAction => {
+const nextAction = (data: ViewDocument): FailureSuggestedAction => {
   const deprecation = data.deprecation;
   if (deprecation === null) return { description: "Install this extension", cmd: data.install };
   if (
     deprecation.reason === "obsolete" ||
     (deprecation.reason === "superseded" && deprecation.replacement.status === "available")
   ) {
-    return { description: "Preview migration", cmd: `axm migrate ${data.fqn} --preview` };
+    return {
+      description: "Preview migration",
+      invocation: {
+        command: ["migrate"],
+        arguments: [
+          recoveryPositional(publicRecoveryValue(data.fqn)),
+          recoverySwitch("--preview", true),
+        ],
+      },
+    };
   }
   return deprecation.reason === "superseded"
     ? { description: "The replacement is unavailable; axm migrate cannot proceed yet" }
@@ -164,6 +180,6 @@ export const viewPageDoc = (data: ViewDocument): Doc => {
           } as const,
         ]),
     { _tag: "fields", fields },
-    { _tag: "next", actions: [nextAction(data)] },
+    ...suggestionsDoc([nextAction(data)]),
   ];
 };

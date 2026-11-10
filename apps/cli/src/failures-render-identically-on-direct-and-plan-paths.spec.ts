@@ -347,7 +347,13 @@ const representatives: Representatives = {
     new StepFailure({
       category: "conflict",
       detail: "A step already rendered its failure.",
-      suggestions: [{ description: "Resolve it.", cmd: "axm sync", commandScope: "workspace" }],
+      suggestions: [
+        {
+          description: "Resolve it.",
+          invocation: { command: ["sync"], arguments: [] },
+          commandScope: "workspace",
+        },
+      ],
     }),
   ],
   ConfigError: [new ConfigError(new SourceError({ message: "Configuration source unavailable" }))],

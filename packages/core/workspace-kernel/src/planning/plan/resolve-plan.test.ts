@@ -1,4 +1,8 @@
-import type { NativeEntryRemoval } from "../../locations/index.js";
+import {
+  type NativeEntryRemoval,
+  nativeUnitReference,
+  type NativeLocationOutcome,
+} from "../../locations/index.js";
 import { NativePlatformTest } from "../../locations/testing.js";
 import {
   MAX_OPERATION_SCRATCH_BYTES,
@@ -25,7 +29,7 @@ import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extens
 import {
   applyPlanExecution,
   previewPlanExecution,
-  type ConfirmationRecovery,
+  type CommandInvocation,
   type ApplyConfirmation,
   OperationJournal,
   makeOperationJournal,
@@ -67,7 +71,7 @@ import {
   WorkspaceRecords,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
-import { nativeUnitReference, type NativeLocationOutcome } from "../../locations/index.js";
+
 import {
   type ExecutionCandidate,
   isExecutionCandidateFresh,
@@ -81,7 +85,7 @@ import {
   SourceNotResolvable,
 } from "../../sources/index.js";
 
-const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
+const testRecovery: CommandInvocation = { command: ["install"], arguments: [] };
 
 /**
  * Prepare and resolve in one call.

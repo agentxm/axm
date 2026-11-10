@@ -1,3 +1,8 @@
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  type FailureSuggestedAction,
+} from "@agentxm/workspace-kernel/operations";
 import { withParameterDescription } from "../cli-parameters.js";
 /**
  * The shared enable/disable command factory and handler for every installable
@@ -27,7 +32,6 @@ import {
 import type { PlanResolutionFailure } from "@agentxm/workspace-kernel/planning";
 import { ExtensionFqnSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { AppError, makeAppError } from "../app-error/index.js";
 import { failureToAppError } from "../app-error/conversions.js";
@@ -68,7 +72,7 @@ interface ActivationCommandPresentation {
   readonly planName: string;
   readonly recoveryTarget?: string;
   /** What a settled change offers after the type's inspection command. */
-  readonly suggestions: ReadonlyArray<SuggestedAction>;
+  readonly suggestions: ReadonlyArray<FailureSuggestedAction>;
 }
 
 type ActivationPreparer<R> = (
@@ -104,7 +108,10 @@ const typedPresentation = (
     suggestions: [
       {
         description: "Undo",
-        cmd: `axm ${route} ${enabled ? "disable" : "enable"} ${request.name}`,
+        invocation: {
+          command: [route, enabled ? "disable" : "enable"],
+          arguments: [recoveryPositional(publicRecoveryValue(request.name))],
+        },
       },
     ],
   };
@@ -240,7 +247,13 @@ const makeRootActivationCommand = (enabled: boolean) => {
             recoveryTarget: fqn,
             planName: `${title} ${extensionTypePresentation(type).noun.singular}`,
             suggestions: [
-              { description: "Undo", cmd: `axm ${enabled ? "disable" : "enable"} ${fqn}` },
+              {
+                description: "Undo",
+                invocation: {
+                  command: [enabled ? "disable" : "enable"],
+                  arguments: [recoveryPositional(publicRecoveryValue(fqn))],
+                },
+              },
             ],
           },
           prepare,
@@ -303,7 +316,7 @@ export const rootDisableCommand = makeRootActivationCommand(false);
  * offered; every other field of the refusal stands as the feature rendered
  * it, and so does every other refusal.
  */
-const withInspection = (error: AppError, inspect: SuggestedAction): AppError =>
+const withInspection = (error: AppError, inspect: FailureSuggestedAction): AppError =>
   error.code === "not_found"
     ? makeAppError({
         ...error,

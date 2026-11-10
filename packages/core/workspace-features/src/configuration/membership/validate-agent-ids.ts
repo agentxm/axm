@@ -9,6 +9,13 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  recoverySwitch,
+  type OperationRefused,
+} from "@agentxm/workspace-kernel/operations";
+
 import * as Effect from "effect/Effect";
 import {
   HOSTED_AGENTS_BY_ID,
@@ -16,7 +23,7 @@ import {
   type HostedAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
-import type { OperationRefused } from "@agentxm/workspace-kernel/operations";
+
 import { configurationRefused } from "../errors.js";
 
 const configurableAgentIds = new Set<string>(CONFIGURABLE_AGENT_IDS);
@@ -88,10 +95,19 @@ export const validateAgentIds = (
           detail: `Unknown agent ID: ${id}`,
           suggestions: [
             nearest === undefined
-              ? { description: "Inspect supported agent IDs.", cmd: "axm agents list --available" }
+              ? {
+                  description: "Inspect supported agent IDs.",
+                  invocation: {
+                    command: ["agents", "list"],
+                    arguments: [recoverySwitch("--available", true)],
+                  },
+                }
               : {
                   description: `Did you mean "${nearest}"?`,
-                  cmd: `axm agents add ${nearest}`,
+                  invocation: {
+                    command: ["agents", "add"],
+                    arguments: [recoveryPositional(publicRecoveryValue(nearest))],
+                  },
                 },
           ],
         });

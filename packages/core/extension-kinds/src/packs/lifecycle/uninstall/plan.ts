@@ -1,4 +1,13 @@
 import {
+  publicRecoveryValue,
+  recoveryPositional,
+  operationPresentation,
+  type Plan,
+  type PlannedJobStep,
+  installRefused,
+  type OperationRefused,
+} from "@agentxm/workspace-kernel/operations";
+import {
   buildReconciliationClosure,
   buildUninstallOperation,
   prepareUninstallArtifact,
@@ -68,13 +77,6 @@ import {
   type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import {
-  operationPresentation,
-  type Plan,
-  type PlannedJobStep,
-  installRefused,
-  type OperationRefused,
-} from "@agentxm/workspace-kernel/operations";
 
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
@@ -139,7 +141,10 @@ export const validateResolvedPackUninstallTargets = (
           category: "conflict",
           detail: `Pack ${formatDesiredIdentity(expected.desiredIdentity)} changed or was removed before uninstall`,
           recover: "Inspect the current pack state, then retry the uninstall.",
-          cmd: `axm packs show ${expected.name}`,
+          invocation: {
+            command: ["packs", "show"],
+            arguments: [recoveryPositional(publicRecoveryValue(expected.name))],
+          },
         });
       }
 
@@ -158,7 +163,10 @@ export const validateResolvedPackUninstallTargets = (
           category: "conflict",
           detail: `Pack ${formatDesiredIdentity(expected.desiredIdentity)} changed or was removed before uninstall`,
           recover: "Inspect the current pack state, then retry the uninstall.",
-          cmd: `axm packs show ${expected.name}`,
+          invocation: {
+            command: ["packs", "show"],
+            arguments: [recoveryPositional(publicRecoveryValue(expected.name))],
+          },
         });
       }
     }
@@ -230,7 +238,7 @@ export const validatePackRetirementFacts = (args: {
           ? "The pack graph changed before uninstall"
           : `Pack package readability for ${packs.join(", ")} changed before uninstall`,
       recover: "Inspect the current pack state, then retry the uninstall.",
-      cmd: "axm packs list",
+      invocation: { command: ["packs", "list"], arguments: [] },
     }),
   );
 };

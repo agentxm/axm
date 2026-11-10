@@ -12,7 +12,6 @@ import { TestRenderer } from "../../test-support/presenter-test.js";
 import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";
 import { lifecycleCell } from "./lifecycle-cell.js";
 import { handleAgentsList } from "./list.js";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
@@ -96,7 +95,9 @@ describe("agents list.handler", () => {
           _tag: "paragraph",
           text: "No coding agents configured or detected.",
         });
-        expect(rendererState.suggestions).toEqual([SET_UP_AXM_WORKSPACE]);
+        expect(rendererState.suggestions).toEqual([
+          { description: "Set up AXM in this workspace", cmd: "axm setup" },
+        ]);
       }),
     );
   });

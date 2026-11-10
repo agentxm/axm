@@ -5,6 +5,8 @@
  * view.
  */
 
+import { type FailureSuggestedAction, settleOperation } from "@agentxm/workspace-kernel/operations";
+
 import {
   UpgradeFailed,
   UpgradeWorkingDirectory,
@@ -21,7 +23,6 @@ import {
   UpgradeAssessmentResultSchema,
   type UpgradeAssessmentResult,
 } from "@agentxm/cli-maintenance/self-update/adapters/cli";
-import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
@@ -33,7 +34,7 @@ import {
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { operationExitCode } from "../../operation-exit-code.js";
 import { emitResult } from "../../screen/index.js";
-import { settleOperation } from "@agentxm/workspace-kernel/operations";
+
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { loadVersion } from "../../version.js";
 import { upgradeView } from "./view.js";
@@ -62,7 +63,9 @@ export interface UpgradeHandlerArgs {
   readonly localVersion?: string | null;
 }
 
-const upgradeSuggestions = (result: UpgradeAssessmentResult): ReadonlyArray<SuggestedAction> => {
+const upgradeSuggestions = (
+  result: UpgradeAssessmentResult,
+): ReadonlyArray<FailureSuggestedAction> => {
   if (result.disposition === "previewed") {
     return [{ description: "Perform the upgrade this preview resolved", cmd: "axm upgrade" }];
   }
@@ -115,7 +118,12 @@ const upgradeSuggestions = (result: UpgradeAssessmentResult): ReadonlyArray<Sugg
     result.disposition === "reinstalled" ||
     result.disposition === "already-current"
   ) {
-    return [{ description: "Verify CLI and official-skill compatibility", cmd: "axm lint" }];
+    return [
+      {
+        description: "Verify CLI and official-skill compatibility",
+        invocation: { command: ["lint"], arguments: [] },
+      },
+    ];
   }
   return [{ description: "Verify installed version", cmd: "axm --version" }];
 };

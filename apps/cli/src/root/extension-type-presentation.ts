@@ -9,6 +9,8 @@
  * its id. Only the article and the example name belong to the command line.
  */
 
+import { type FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
+
 import {
   extensionTypePluralSentenceLabels,
   extensionTypeSentenceLabels,
@@ -16,7 +18,6 @@ import {
   type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 interface ExtensionTypePresentation {
   /** What a report calls one of, and several of, this type's extensions. */
@@ -32,7 +33,7 @@ interface ExtensionTypePresentation {
   /** A representative extension name for command examples. */
   readonly exampleName: string;
   /** The command that inspects what is installed of this type. */
-  readonly inspect: SuggestedAction;
+  readonly inspect: FailureSuggestedAction;
 }
 
 /**
@@ -63,6 +64,9 @@ export const extensionTypePresentation = (
     route,
     selectorFlag: type,
     exampleName,
-    inspect: { description: `Inspect installed ${plural}`, cmd: `axm ${route} list` },
+    inspect: {
+      description: `Inspect installed ${plural}`,
+      invocation: { command: [route, "list"], arguments: [] },
+    },
   };
 };

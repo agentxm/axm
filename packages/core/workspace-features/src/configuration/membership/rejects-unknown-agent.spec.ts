@@ -1,3 +1,4 @@
+import { renderSuggestedAction } from "@agentxm/workspace-kernel/operations";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -31,7 +32,7 @@ describe("Unsupported coding-agent identifiers", () => {
 
       expect(failure.category).toBe("validation");
       expect(failure.detail).toContain("claude-cod");
-      expect(failure.suggestions).toEqual([
+      expect(failure.suggestions?.map(renderSuggestedAction)).toEqual([
         expect.objectContaining({
           description: expect.stringContaining("claude-code"),
           cmd: "axm agents add claude-code",
@@ -45,7 +46,7 @@ describe("Unsupported coding-agent identifiers", () => {
       const failure = yield* validateAgentIds(["zzzzzzzzzzzzzzzzzzzzzzzzzzzzz"]).pipe(Effect.flip);
 
       expect(failure.category).toBe("validation");
-      expect(failure.suggestions).toEqual([
+      expect(failure.suggestions?.map(renderSuggestedAction)).toEqual([
         expect.objectContaining({ cmd: "axm agents list --available" }),
       ]);
     }),

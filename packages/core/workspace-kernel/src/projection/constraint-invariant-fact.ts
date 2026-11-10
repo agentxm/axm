@@ -4,6 +4,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { publicRecoveryValue, recoveryPositional } from "../operations/index.js";
+
 import {
   parseExtensionFqnParts,
   type ExtensionType,
@@ -18,15 +20,13 @@ import type {
   PackDependencyAuthority,
   PackDependencyReachability,
 } from "./packs/dependency-reachability.js";
-import type {
-  CanonicalConstraintContributor,
-  CanonicalConstraintMismatchObservation,
-} from "../workspace-state/index.js";
 import {
+  type CanonicalConstraintContributor,
+  type CanonicalConstraintMismatchObservation,
   formatConstraintContributors,
   type DesiredExtensionNode,
+  desiredPackageKey,
 } from "../workspace-state/index.js";
-import { desiredPackageKey } from "../workspace-state/index.js";
 
 const EXTENSION_CONSTRAINT_INVARIANT_PREDICATE =
   "workspace/extension-constraints-satisfied" as const;
@@ -251,5 +251,5 @@ export const acceptedResolutionIncompatibleText = (
  */
 export const acceptedResolutionIncompatibleRecovery = (fqn: string) => ({
   description: "Explicitly update the extension to accept a satisfying resolution.",
-  cmd: `axm update ${fqn}`,
+  invocation: { command: ["update"], arguments: [recoveryPositional(publicRecoveryValue(fqn))] },
 });

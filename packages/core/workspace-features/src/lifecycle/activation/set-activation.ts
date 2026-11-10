@@ -1,4 +1,7 @@
-import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
+import {
+  type NativeEntryRemoval,
+  combineNativeLocationOutcomes,
+} from "@agentxm/workspace-kernel/locations";
 /**
  * Activation: turning one installed extension on or off without changing
  * what the workspace acquired.
@@ -125,8 +128,6 @@ import {
   runWorkspaceTransaction,
   WorkspaceTransactionScope,
 } from "@agentxm/workspace-kernel/settlement";
-
-import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
 
 // -----------------------------------------------------------------------------
 // Request and settled candidate
@@ -338,7 +339,9 @@ const requireDecidableProposal = (
       ...(routes.length === 0 ? [] : [unresolvedPackRoutesText(routes)]),
       ...(problems.length === 0 ? [] : [desiredStateProblemsText(problems)]),
     ].join("; ")}`,
-    suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
+    suggestions: [
+      { description: "Inspect workspace facts", invocation: { command: ["lint"], arguments: [] } },
+    ],
   });
 };
 
@@ -543,7 +546,7 @@ const settleLeaf = <R>(
                 : [
                     {
                       description: `Restore the accepted ${request.type} content before enabling it.`,
-                      cmd: "axm sync",
+                      invocation: { command: ["sync"], arguments: [] },
                     },
                   ],
             }),
@@ -663,7 +666,12 @@ const settlePack = <R>(
       return yield* installRefused({
         category: "conflict",
         detail: `Cannot ${request.enabled ? "enable" : "disable"} the pack while desired state is unresolved: ${unresolvedPackRoutesText(unresolved)}`,
-        suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
+        suggestions: [
+          {
+            description: "Inspect workspace facts",
+            invocation: { command: ["lint"], arguments: [] },
+          },
+        ],
       });
     }
     const packNode = findNode(proposal.before, "pack", request.name);

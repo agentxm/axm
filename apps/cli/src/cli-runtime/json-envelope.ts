@@ -1,15 +1,16 @@
-import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
-import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/human-handoff";
-import * as Schema from "effect/Schema";
-import * as Predicate from "effect/Predicate";
-
 import {
+  type FailureSuggestedAction,
   FailureMetadataSchema,
   FailureProblemSchema,
   type FailureMetadata,
   ErrorCodeSchema,
   type ErrorCode,
 } from "@agentxm/workspace-kernel/operations";
+import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
+import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/human-handoff";
+import * as Schema from "effect/Schema";
+import * as Predicate from "effect/Predicate";
+
 import {
   type AppError,
   effectiveSuggestionsFor,
@@ -23,10 +24,7 @@ import {
   serializeErrorCauseChain,
   type SerializedErrorCause,
 } from "../app-error/cause-chain.js";
-import {
-  SuggestedActionSchema,
-  type SuggestedAction,
-} from "@agentxm/registry-protocol/unstable/suggested-action";
+import { SuggestedActionSchema } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const JsonErrorEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
@@ -113,7 +111,7 @@ export const makeJsonSuccessEnvelope = (args?: {
   readonly ok?: boolean;
   readonly diagnosticId?: string;
   readonly summary?: string;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
 }): JsonSuccessEnvelope | JsonOperationFailureEnvelope => ({
   ok: args?.ok === false ? false : true,
   result: normalizeResult(args?.payload),
@@ -138,7 +136,7 @@ export const makeJsonErrorEnvelope = (args: {
   readonly blockedOn?: "human";
   readonly action?: AppError["action"];
   readonly problem?: AppError["problem"];
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
 }): JsonErrorEnvelope => {
   const secrets = collectSensitiveStrings(args.metadata);
   return {

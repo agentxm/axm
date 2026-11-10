@@ -4,6 +4,9 @@ import * as Schema from "effect/Schema";
 
 import {
   StepFailure,
+  publicRecoveryValue,
+  protectedRecoveryValue,
+  recoveryPositional,
   makeOperationResolution,
   type JobStepArtifact,
   type OperationResolution,
@@ -139,6 +142,45 @@ describe("toPlanResolutionResult", () => {
       expect(result.units[0]?.artifact?.nativeLocations?.[0]?.state).toBe("unverified");
     },
   );
+
+  it("renders nested recovery and escape actions without exposing internal invocation data", () => {
+    const invocation = {
+      command: ["install"],
+      arguments: [recoveryPositional(publicRecoveryValue("review notes"))],
+    };
+    const protectedAction = {
+      description: "Retry with protected input",
+      invocation: { ...invocation, arguments: [recoveryPositional(protectedRecoveryValue())] },
+    };
+    const blocking = {
+      class: "approval-required",
+      subject: "install",
+      phase: "confirmation",
+      detail: "Approve the selected package",
+      escape: protectedAction,
+    } as const;
+    const result = toPlanResolutionResult(
+      resolution({
+        blocking,
+        units: [unit("review", "blocked", { blocking })],
+        recovery: {
+          retained: [],
+          entries: [],
+          actions: [{ description: "Retry", invocation }, protectedAction],
+        },
+      }),
+    );
+    expect(result.recovery?.actions).toEqual([
+      { description: "Retry", cmd: "axm install 'review notes'" },
+      { description: "Retry with protected input" },
+    ]);
+    expect(result.blocking?.escape).toEqual({ description: "Retry with protected input" });
+    expect(result.units[0]?.blocking?.escape).toEqual({
+      description: "Retry with protected input",
+    });
+    expect(JSON.stringify(result)).not.toContain('"invocation"');
+    expect(() => Schema.decodeUnknownSync(PlanResolutionResultSchema)(result)).not.toThrow();
+  });
 
   it("keeps precise preserved-original recovery addresses", () => {
     const entries = [

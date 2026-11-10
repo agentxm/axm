@@ -60,7 +60,13 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
       suggestions: [
         {
           description: "Run the read-only convergence assertion",
-          cmd: "axm sync --preview --fail-on-change",
+          invocation: {
+            command: ["sync"],
+            arguments: [
+              recoverySwitch("--preview", true),
+              recoverySwitch("--fail-on-change", true),
+            ],
+          },
         },
       ],
     });

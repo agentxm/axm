@@ -19,6 +19,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { LEGACY_LOCK_FILENAME, LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
+import { renderSuggestedAction } from "@agentxm/workspace-kernel/operations";
 import { getAppError } from "../test-support/test-helpers.js";
 import { handleUpdate } from "./update/handler.js";
 import { handleInstall } from "./install/handler.js";
@@ -57,9 +58,9 @@ const replaceFile = (target: string, write: (target: string) => void): string =>
 };
 
 const suggestedCommands = (error: GateError): ReadonlyArray<string> | undefined =>
-  error.suggestions?.flatMap((suggestion) =>
-    suggestion.cmd === undefined ? [] : [suggestion.cmd],
-  );
+  error.suggestions
+    ?.map(renderSuggestedAction)
+    .flatMap((suggestion) => (suggestion.cmd === undefined ? [] : [suggestion.cmd]));
 
 /**
  * One row per invalid workspace state: how the fault is arranged and what the

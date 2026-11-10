@@ -17,9 +17,9 @@ import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { WorkspaceRecoveryEntry } from "../settlement/index.js";
 
-import type { ErrorCode, StepFailure } from "./errors.js";
+import { type ErrorCode, type StepFailure, type FailureSuggestedAction } from "./errors.js";
 import type { ReleaseAgeOperationEvidence } from "./evidence.js";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+
 import type {
   BlockingClass,
   ExecutedPlan,
@@ -146,7 +146,7 @@ export interface OperationBlock {
   readonly causeCode?: ErrorCode;
   /** Machine-readable reference to what blocked the subject. */
   readonly reference?: string;
-  readonly escape?: SuggestedAction;
+  readonly escape?: FailureSuggestedAction;
 }
 
 // -----------------------------------------------------------------------------
@@ -205,7 +205,7 @@ export interface OperationRecovery {
   readonly entries: ReadonlyArray<WorkspaceRecoveryEntry>;
   /** OS-temporary directory preserving pre-change snapshots, when it survives. */
   readonly snapshotDir?: string;
-  readonly actions: ReadonlyArray<SuggestedAction>;
+  readonly actions: ReadonlyArray<FailureSuggestedAction>;
 }
 
 // -----------------------------------------------------------------------------
@@ -247,7 +247,7 @@ export interface OperationResolution<Output = never> {
   readonly releaseAge?: ReleaseAgeOperationEvidence;
   readonly preconditions?: ReadonlyArray<OperationPrecondition>;
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition>;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
 }
 
 // -----------------------------------------------------------------------------
@@ -519,7 +519,7 @@ export interface MakeOperationResolutionArgs<Output> {
   readonly releaseAge?: ReleaseAgeOperationEvidence | undefined;
   readonly preconditions?: ReadonlyArray<OperationPrecondition> | undefined;
   readonly riskConditions?: ReadonlyArray<PlanRiskCondition> | undefined;
-  readonly suggestions?: ReadonlyArray<SuggestedAction> | undefined;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction> | undefined;
 }
 
 export const makeOperationResolution = <Output = never>(

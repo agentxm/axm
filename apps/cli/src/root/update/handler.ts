@@ -1,4 +1,18 @@
-import { recordSkillInstalls } from "../../cli-runtime/index.js";
+import {
+  publicRecoveryValue,
+  type FailureSuggestedAction,
+  credentialFreeLocatorRecoveryValue,
+  operationPresentation,
+  recoveryPositional,
+  recoverySwitch,
+  type OperationResolution,
+} from "@agentxm/workspace-kernel/operations";
+
+import {
+  recordSkillInstalls,
+  setCommandSemanticProperties,
+  summarizeCommandOutcome,
+} from "../../cli-runtime/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -8,22 +22,13 @@ import {
   type UpdateCandidate,
   type UpdateSubjectType,
 } from "@agentxm/workspace-features/lifecycle";
-import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/domain";
+import { AXM_SKILL_FQN } from "@agentxm/cli-maintenance/official-skill/domain";
 import {
   ReleaseAgePosture,
   type TargetedUpdatePublicContext,
 } from "@agentxm/workspace-kernel/resolution";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
-import {
-  credentialFreeLocatorRecoveryValue,
-  operationPresentation,
-  recoveryPositional,
-  recoverySwitch,
-  type OperationResolution,
-} from "@agentxm/workspace-kernel/operations";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import {
   emitNoOpOutcome,
   emitOperationResolution,
@@ -58,7 +63,7 @@ export interface RootUpdateHandlerArgs extends RootUpdateFlags {
  */
 export const blockerSuggestions = (
   context: TargetedUpdatePublicContext | undefined,
-): ReadonlyArray<SuggestedAction> => {
+): ReadonlyArray<FailureSuggestedAction> => {
   // An unclassified context carries no blocker to recover from; the switch
   // below answers only the classified ones, so a ninth blocker is a compile
   // error here rather than a silently empty suggestion list.
@@ -68,25 +73,39 @@ export const blockerSuggestions = (
       return [
         {
           description: "Install the extension to create direct workspace intent",
-          cmd: `axm install ${context.target.fqn}`,
+          invocation: {
+            command: ["install"],
+            arguments: [recoveryPositional(publicRecoveryValue(context.target.fqn))],
+          },
         },
       ];
     case "disabled":
       return [
         {
           description: "Enable the desired extension before updating it",
-          cmd: `axm ${toExtensionTypePlural(context.target.type)} enable ${context.target.name}`,
+          invocation: {
+            command: [toExtensionTypePlural(context.target.type), "enable"],
+            arguments: [recoveryPositional(publicRecoveryValue(context.target.name))],
+          },
         },
       ];
     case "pack-owned-constraint":
       return [
         {
           description: "Rerun without a version range to preserve pack ownership",
-          cmd: `axm update ${context.target.fqn}`,
+          invocation: {
+            command: ["update"],
+            arguments: [recoveryPositional(publicRecoveryValue(context.target.fqn))],
+          },
         },
       ];
     case "incomplete-graph":
-      return [{ description: "Preview workspace reconciliation", cmd: "axm sync --preview" }];
+      return [
+        {
+          description: "Preview workspace reconciliation",
+          invocation: { command: ["sync"], arguments: [recoverySwitch("--preview", true)] },
+        },
+      ];
     case "constraint-conflict":
       return context.packs.map((pack) =>
         pack.source === "workspace"
@@ -96,28 +115,46 @@ export const blockerSuggestions = (
             }
           : {
               description: `Update ${pack.fqn} if its owner published a compatible constraint`,
-              cmd: `axm update ${pack.fqn}`,
+              invocation: {
+                command: ["update"],
+                arguments: [recoveryPositional(publicRecoveryValue(pack.fqn))],
+              },
             },
       );
     case "bundled-source":
       return [
         {
           description: "Reinstall the compatible skill embedded in this AXM executable",
-          cmd: AXM_SKILL_BUNDLED_APPLY_COMMAND,
+          invocation: {
+            command: ["skills", "install"],
+            arguments: [
+              recoverySwitch("--bundled", true),
+              recoveryPositional(publicRecoveryValue(AXM_SKILL_FQN)),
+            ],
+          },
         },
       ];
     case "source-authority":
       return [
         {
           description: "Update the workspace-authored source, then reconcile it",
-          cmd: `axm sync ${context.target.fqn} --preview`,
+          invocation: {
+            command: ["sync"],
+            arguments: [
+              recoveryPositional(publicRecoveryValue(context.target.fqn)),
+              recoverySwitch("--preview", true),
+            ],
+          },
         },
       ];
     case "stale-plan":
       return [
         {
           description: "Rerun the command to classify a fresh ownership context",
-          cmd: `axm update ${context.target.fqn}`,
+          invocation: {
+            command: ["update"],
+            arguments: [recoveryPositional(publicRecoveryValue(context.target.fqn))],
+          },
         },
       ];
   }

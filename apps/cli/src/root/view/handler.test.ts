@@ -104,6 +104,29 @@ describe("view handler", () => {
     );
   });
 
+  it.effect("renders a runnable migration preview for an available replacement", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext();
+    writeIndex(registryRoot, {
+      deprecatedAt: "2026-03-01T00:00:00.000Z",
+      reason: "superseded",
+      replacement: { status: "available", fqn: "@test/skills/review" },
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleView({
+          handle: "@test/skills/code-review",
+          field: Option.none(),
+          registry: Option.some("test-registry"),
+        });
+
+        expect(painted(rendererState).join("\n")).toContain(
+          "axm migrate --preview @test/skills/code-review",
+        );
+      }),
+    );
+  });
+
   it.effect("renders unavailable replacement guidance without inventing a target", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext();
     writeIndex(registryRoot, {
@@ -127,7 +150,7 @@ describe("view handler", () => {
           true,
         );
         expect(page.some((line) => line.includes("axm migrate cannot proceed yet"))).toBe(true);
-        expect(page.join("\n")).not.toContain("axm migrate @test/skills/code-review");
+        expect(page.join("\n")).not.toContain("axm migrate --preview");
       }),
     );
   });

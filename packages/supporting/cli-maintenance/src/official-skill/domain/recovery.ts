@@ -9,7 +9,7 @@ import {
 
 export const AXM_SKILL_BUNDLED_PREVIEW_COMMAND =
   "axm skills install @agentxm/skills/axm --bundled --preview";
-export const AXM_SKILL_BUNDLED_APPLY_COMMAND = "axm skills install @agentxm/skills/axm --bundled";
+const AXM_SKILL_BUNDLED_APPLY_COMMAND = "axm skills install @agentxm/skills/axm --bundled";
 const AXM_SKILL_REGISTRY_PREVIEW_COMMAND = "axm skills update axm --preview";
 const AXM_SKILL_REGISTRY_APPLY_COMMAND = "axm skills update axm";
 

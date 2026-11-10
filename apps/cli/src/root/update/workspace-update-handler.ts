@@ -1,4 +1,16 @@
-import { recordSkillInstalls } from "../../cli-runtime/index.js";
+import {
+  type FailureSuggestedAction,
+  operationPresentation,
+  publicRecoveryValue,
+  recoveryPositional,
+  recoverySwitch,
+  type CommandInvocation,
+} from "@agentxm/workspace-kernel/operations";
+import {
+  recordSkillInstalls,
+  setCommandSemanticProperties,
+  summarizeCommandOutcome,
+} from "../../cli-runtime/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -10,17 +22,7 @@ import {
 } from "@agentxm/workspace-features/lifecycle";
 import { PACK_CONSTRAINT_CONFLICT_BLOCKER_ID } from "@agentxm/extension-kinds/packs";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
-import {
-  operationPresentation,
-  publicRecoveryValue,
-  recoveryPositional,
-  recoverySwitch,
-  type ConfirmationRecovery,
-} from "@agentxm/workspace-kernel/operations";
 
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-
-import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import {
   emitNoOpOutcome,
   emitOperationResolution,
@@ -56,16 +58,19 @@ interface WorkspaceUpdateFlags {
 export const updateSuggestions =
   (args: {
     readonly type: Option.Option<WorkspaceUpdatableType>;
-    readonly recovery: ConfirmationRecovery;
+    readonly recovery: CommandInvocation;
     readonly constraintRefused: boolean;
   }) =>
-  ({ unsettled }: OperationRecoveryContext): ReadonlyArray<SuggestedAction> => {
+  ({ unsettled }: OperationRecoveryContext): ReadonlyArray<FailureSuggestedAction> => {
     if (args.constraintRefused) {
       return [
         {
           description:
             "Review the declarations that disagree, then widen or remove the declared range, or hold the Pack at a compatible version",
-          cmd: "axm packs show <pack>",
+          invocation: {
+            command: ["packs", "show"],
+            arguments: [recoveryPositional(publicRecoveryValue("<pack>"))],
+          },
         },
         INSPECT_INSTALLED,
       ];

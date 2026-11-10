@@ -1,4 +1,17 @@
 import {
+  recoverySwitch,
+  publicRecoveryValue,
+  recoveryPositional,
+  operationPresentation,
+  type JobStepArtifactTarget,
+  type JobStepResult,
+  type Plan,
+  type PlanExecution,
+  type PlannedJobStep,
+  installRefused,
+} from "@agentxm/workspace-kernel/operations";
+
+import {
   buildReconciliationClosure,
   buildUninstallOperation,
   type UninstallRetentionPolicy,
@@ -50,15 +63,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { PackManager } from "@agentxm/workspace-kernel/materialization";
-import {
-  operationPresentation,
-  type JobStepArtifactTarget,
-  type JobStepResult,
-  type Plan,
-  type PlanExecution,
-  type PlannedJobStep,
-  installRefused,
-} from "@agentxm/workspace-kernel/operations";
+
 import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
@@ -125,7 +130,13 @@ const neverRetain: UninstallRetentionPolicy = {
 
 const reconcileSuggestion = (packIdentity: string) => ({
   description: "Preview workspace reconciliation before unpacking.",
-  cmd: `axm sync ${packIdentity} --preview`,
+  invocation: {
+    command: ["sync"],
+    arguments: [
+      recoveryPositional(publicRecoveryValue(packIdentity)),
+      recoverySwitch("--preview", true),
+    ],
+  },
 });
 
 /**
@@ -247,7 +258,15 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
     return yield* installRefused({
       category: "not_found",
       detail: `Pack "${request.name}" is not configured`,
-      suggestions: [{ description: "Install the pack first.", cmd: "axm packs install <source>" }],
+      suggestions: [
+        {
+          description: "Install the pack first.",
+          invocation: {
+            command: ["packs", "install"],
+            arguments: [recoveryPositional(publicRecoveryValue("<source>"))],
+          },
+        },
+      ],
     });
   }
 

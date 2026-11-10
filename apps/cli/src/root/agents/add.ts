@@ -1,3 +1,9 @@
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  deriveOperationOutcome,
+  observeUnit,
+} from "@agentxm/workspace-kernel/operations";
 import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import { Argument, Command, Flag } from "effect/cli";
 import * as Effect from "effect/Effect";
@@ -10,7 +16,7 @@ import {
 } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
-import { deriveOperationOutcome, observeUnit } from "@agentxm/workspace-kernel/operations";
+
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import {
   withProjectionOutputPosture,
@@ -65,7 +71,10 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
         : {
             suggestions: candidate.retiredDetected.map(({ agentId }) => ({
               description: `Explicitly configure retired agent ${agentId}.`,
-              cmd: `axm agents add ${agentId}`,
+              invocation: {
+                command: ["agents", "add"],
+                arguments: [recoveryPositional(publicRecoveryValue(agentId))],
+              },
             })),
           }),
     });

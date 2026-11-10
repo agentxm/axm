@@ -1,3 +1,4 @@
+import { renderSuggestedAction } from "@agentxm/workspace-kernel/operations";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -29,7 +30,7 @@ describe("Root uninstall identity", () => {
           expect(failure.category).toBe("usage");
           expect(failure.detail).toContain("unversioned");
           expect(failure.recover).toContain("@<handle>/<plural-type>/<name>");
-          expect(failure.suggestions).toEqual([
+          expect(failure.suggestions?.map(renderSuggestedAction)).toEqual([
             { description: "Remove the configured extension", cmd: `axm uninstall ${fqn}` },
           ]);
         }),

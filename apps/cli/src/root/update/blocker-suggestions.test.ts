@@ -8,9 +8,11 @@
  * asserted here beside the table that renders them.
  */
 
+import { renderSuggestedAction } from "@agentxm/workspace-kernel/operations";
+
 import { describe, expect, it } from "@effect/vitest";
 
-import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/domain";
+import { suggestionsForScope } from "../shared/scoped-command.js";
 import {
   type TargetedUpdateBlocker,
   type TargetedUpdatePublicContext,
@@ -43,15 +45,18 @@ const contextFor = (
 
 describe("targeted update blocker suggestions", () => {
   it("offers the bundled reinstall for a source embedded in the executable", () => {
-    expect(blockerSuggestions(contextFor("bundled-source"))).toEqual([
+    expect(
+      suggestionsForScope(
+        blockerSuggestions(contextFor("bundled-source")),
+        "user",
+        new Set(["skills install"]),
+      ),
+    ).toEqual([
       {
         description: "Reinstall the compatible skill embedded in this AXM executable",
-        cmd: AXM_SKILL_BUNDLED_APPLY_COMMAND,
+        cmd: "axm skills install --bundled --scope user @agentxm/skills/axm",
       },
     ]);
-    expect(AXM_SKILL_BUNDLED_APPLY_COMMAND).toBe(
-      "axm skills install @agentxm/skills/axm --bundled",
-    );
   });
 
   it.each([
@@ -59,10 +64,12 @@ describe("targeted update blocker suggestions", () => {
     { blocker: "disabled", cmd: "axm skills enable axm" },
     { blocker: "pack-owned-constraint", cmd: "axm update @agentxm/skills/axm" },
     { blocker: "incomplete-graph", cmd: "axm sync --preview" },
-    { blocker: "source-authority", cmd: "axm sync @agentxm/skills/axm --preview" },
+    { blocker: "source-authority", cmd: "axm sync --preview @agentxm/skills/axm" },
     { blocker: "stale-plan", cmd: "axm update @agentxm/skills/axm" },
   ] as const)("offers `$cmd` for the $blocker blocker", ({ blocker, cmd }) => {
-    expect(blockerSuggestions(contextFor(blocker)).map((action) => action.cmd)).toEqual([cmd]);
+    expect(
+      blockerSuggestions(contextFor(blocker)).map((action) => renderSuggestedAction(action).cmd),
+    ).toEqual([cmd]);
   });
 
   it("offers nothing when the refusal carries no classified blocker", () => {

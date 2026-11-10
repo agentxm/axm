@@ -680,7 +680,7 @@ export const collectMaterializeSteps = (args: {
         suggestions: [
           {
             description: "Inspect workspace facts",
-            cmd: "axm lint",
+            invocation: { command: ["lint"], arguments: [] },
           },
         ],
       });
@@ -968,7 +968,12 @@ export const collectMaterializeSteps = (args: {
         return yield* syncRefused({
           category: "conflict",
           detail: `Cannot reconcile ${blocked.node.type} ${blocked.node.name}: ${desiredStateProblemsText(blocked.problems)}`,
-          suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
+          suggestions: [
+            {
+              description: "Inspect workspace facts",
+              invocation: { command: ["lint"], arguments: [] },
+            },
+          ],
         });
       }
       if (failures[0] !== undefined) return yield* Effect.fail(failures[0].failure);

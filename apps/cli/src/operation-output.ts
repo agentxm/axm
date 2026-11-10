@@ -1,36 +1,5 @@
-import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
-import type { CommandSettlementFailure } from "./cli-runtime/telemetry.js";
-import { prepareTerminalFailure } from "./cli-runtime/terminal-diagnostics.js";
-import { errorClassForAppErrorCode } from "./app-error/index.js";
-/**
- * Plan<StepRequirements>-family machine document (`plan-result-v4`) and the emit boundary.
- *
- * `emitOperationResolution` is the one place a plan-family command terminates:
- * it derives the outcome and exit code from the resolution with the shared
- * pure derivations, records completion semantics for telemetry, emits the
- * machine document, and projects the human render. No channel re-derives its
- * own account of what happened.
- */
-
-import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-
-import { Verbosity } from "./cli-flags/index.js";
 import {
-  SuggestedActionSchema,
-  type SuggestedAction,
-} from "@agentxm/registry-protocol/unstable/suggested-action";
-import {
-  setCommandSemanticProperties,
-  getCommandSemanticProperties,
-  setOperationSettlement,
-  summarizeCommandOutcome,
-  type CommandOutcomeSummary,
-  type SourceKind,
-  type SubjectType,
-} from "./cli-runtime/index.js";
-import {
+  renderSuggestedAction,
   ArtifactMechanismSchema,
   PackMembershipDeltaSchema,
   AtomicityClassSchema,
@@ -52,7 +21,7 @@ import {
   renderConfirmationRecoveryCommand,
   settleOperation,
   unitsByStableIdentity,
-  type ConfirmationRecovery,
+  type CommandInvocation,
   type FailureSuggestedAction,
   type JobStepArtifact,
   type OperationOutcome,
@@ -66,13 +35,45 @@ import {
   settledUnitNativeLocations,
   ErrorCodeSchema,
 } from "@agentxm/workspace-kernel/operations";
-import { operationExitCode, operationOk } from "./operation-exit-code.js";
+import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
+import type { CommandSettlementFailure } from "./cli-runtime/telemetry.js";
+import { prepareTerminalFailure } from "./cli-runtime/terminal-diagnostics.js";
 import {
+  errorClassForAppErrorCode,
   ExitCode,
   appErrorCodeForExit,
   defaultTitleFor,
   redactAppErrorMetadata,
+  redactSuggestedAction,
 } from "./app-error/index.js";
+/**
+ * Plan<StepRequirements>-family machine document (`plan-result-v4`) and the emit boundary.
+ *
+ * `emitOperationResolution` is the one place a plan-family command terminates:
+ * it derives the outcome and exit code from the resolution with the shared
+ * pure derivations, records completion semantics for telemetry, emits the
+ * machine document, and projects the human render. No channel re-derives its
+ * own account of what happened.
+ */
+
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+
+import { Verbosity } from "./cli-flags/index.js";
+import { SuggestedActionSchema } from "@agentxm/registry-protocol/unstable/suggested-action";
+import {
+  setCommandSemanticProperties,
+  getCommandSemanticProperties,
+  setOperationSettlement,
+  summarizeCommandOutcome,
+  type CommandOutcomeSummary,
+  type SourceKind,
+  type SubjectType,
+} from "./cli-runtime/index.js";
+
+import { operationExitCode, operationOk } from "./operation-exit-code.js";
+
 import { SerializedErrorCauseSchema, serializeErrorCauseChain } from "./app-error/cause-chain.js";
 import {
   formatMinimumReleaseAgeSeconds,
@@ -673,6 +674,9 @@ const unitForJson = (
           blocking: {
             ...unit.blocking,
             detail: redactCredentialText(unit.blocking.detail, { secrets }),
+            ...(unit.blocking.escape === undefined
+              ? {}
+              : { escape: redactSuggestedAction(unit.blocking.escape, secrets) }),
           },
         }),
     ...(unit.message === undefined || unit.message.length === 0
@@ -743,6 +747,9 @@ export const toPlanResolutionResult = (
           blocking: {
             ...resolution.blocking,
             detail: redactCredentialText(resolution.blocking.detail),
+            ...(resolution.blocking.escape === undefined
+              ? {}
+              : { escape: redactSuggestedAction(resolution.blocking.escape) }),
           },
         }),
     ...(resolution.failure === undefined
@@ -797,6 +804,7 @@ export const toPlanResolutionResult = (
       : {
           recovery: {
             ...resolution.recovery,
+            actions: resolution.recovery.actions.map((action) => redactSuggestedAction(action)),
             retained: resolution.recovery.retained.map((path) => redactCredentialText(path)),
             entries: resolution.recovery.entries.map((entry) => ({
               ...entry,
@@ -885,7 +893,7 @@ const RELEASE_AGE_OVERRIDE = "--ignore-release-age";
  * cannot be echoed safely is described without a command. An operation with
  * no invocation to replay names the override alone.
  */
-const releaseAgeOverride = (recovery: ConfirmationRecovery | undefined): string => {
+const releaseAgeOverride = (recovery: CommandInvocation | undefined): string => {
   const command =
     recovery === undefined
       ? undefined
@@ -899,7 +907,7 @@ const releaseAgeOverride = (recovery: ConfirmationRecovery | undefined): string 
 };
 
 const releaseAgeRecoveryText = (
-  recovery: ConfirmationRecovery | undefined,
+  recovery: CommandInvocation | undefined,
   holdbacks: ReadonlyArray<ReleaseAgeRecordView>,
 ): string => {
   const targets = Array.from(
@@ -926,7 +934,7 @@ export const retryCanHelp = (units: ReadonlyArray<ResolvedUnit<unknown>>): boole
 const targetName = (value: string): string => value.split("/").at(-1) ?? value;
 
 export const releaseAgeDoc = (
-  recovery: ConfirmationRecovery | undefined,
+  recovery: CommandInvocation | undefined,
   result: Pick<PlanResolutionResult, "holdbacks" | "releaseAgeBypasses">,
   settled?: { readonly unsettled: ReadonlySet<string> },
 ): Doc => {
@@ -1003,8 +1011,8 @@ export interface OperationRecoveryContext {
  * not.
  */
 export type OperationSuggestions =
-  | ReadonlyArray<SuggestedAction>
-  | ((context: OperationRecoveryContext) => ReadonlyArray<SuggestedAction>);
+  | ReadonlyArray<FailureSuggestedAction>
+  | ((context: OperationRecoveryContext) => ReadonlyArray<FailureSuggestedAction>);
 
 export interface EmitOperationResolutionOptions {
   /**
@@ -1013,7 +1021,7 @@ export interface EmitOperationResolutionOptions {
    * value; an operation with no invocation to replay, such as an interrupted
    * one, leaves it out.
    */
-  readonly recovery?: ConfirmationRecovery;
+  readonly recovery?: CommandInvocation;
   readonly suggestions?: OperationSuggestions;
   /** Overrides the derived human headline and is carried in the document. */
   readonly message?: string;
@@ -1032,8 +1040,8 @@ export interface EmitOperationResolutionOptions {
  */
 export interface SettledRecoveries {
   readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
-  readonly recovery?: ReadonlyArray<SuggestedAction>;
-  readonly escape?: SuggestedAction;
+  readonly recovery?: ReadonlyArray<FailureSuggestedAction>;
+  readonly escape?: FailureSuggestedAction;
   readonly failures: ReadonlyArray<{
     readonly suggestions?: ReadonlyArray<FailureSuggestedAction> | undefined;
   }>;
@@ -1052,7 +1060,9 @@ export const resolutionRecoveries = (
 });
 
 const sameAction = (left: FailureSuggestedAction, right: FailureSuggestedAction): boolean =>
-  left.description === right.description && left.cmd === right.cmd && left.url === right.url;
+  left.description === right.description &&
+  renderSuggestedAction(left).cmd === renderSuggestedAction(right).cmd &&
+  left.url === right.url;
 
 /**
  * The one `Next` list of a settled operation, for the machine envelope and the
@@ -1063,7 +1073,7 @@ const sameAction = (left: FailureSuggestedAction, right: FailureSuggestedAction)
  */
 export const operationNextActions = (
   settled: SettledRecoveries,
-  offered: ReadonlyArray<SuggestedAction>,
+  offered: ReadonlyArray<FailureSuggestedAction>,
 ): ReadonlyArray<FailureSuggestedAction> => {
   const combined = [
     ...offered,
@@ -1201,7 +1211,7 @@ export const emitNoOpOutcome = (args: {
   readonly planName: string;
   readonly planDescription?: string;
   readonly message: string;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
 }) =>
   Effect.gen(function* () {
     const { mode } = yield* OperationLifecycle;

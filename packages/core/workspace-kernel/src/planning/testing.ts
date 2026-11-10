@@ -19,7 +19,7 @@ import {
   ResolvePlanInteraction,
   makeOperationJournal,
   type ApplyConfirmation,
-  type ConfirmationRecovery,
+  type CommandInvocation,
   type Plan,
   type PlanInteractionFailed,
   type ResolvePlanInteractionService,
@@ -59,7 +59,7 @@ export const PlanInvocationTest: Layer.Layer<
 );
 
 export interface ResolvePlanInteractionTestState {
-  readonly confirmApplyChangesCalls: Array<ConfirmationRecovery>;
+  readonly confirmApplyChangesCalls: Array<CommandInvocation>;
   readonly presentPlanCalls: Array<{
     readonly planName: string;
     readonly mode: "preview" | "apply";
@@ -74,7 +74,7 @@ export interface ResolvePlanInteractionTestState {
 export const ResolvePlanInteractionTest = (overrides?: {
   readonly isConfirmationAvailable?: boolean;
   readonly confirmApplyChanges?: (
-    recovery: ConfirmationRecovery,
+    recovery: CommandInvocation,
   ) => Effect.Effect<ApplyConfirmation, PlanInteractionFailed>;
   readonly presentPlan?: (
     plan: Plan<unknown, unknown>,

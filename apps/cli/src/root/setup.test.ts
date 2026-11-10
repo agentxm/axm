@@ -1,4 +1,5 @@
-import { RegistryContextTest } from "@agentxm/registry-client/testing";
+import { renderSuggestedAction } from "@agentxm/workspace-kernel/operations";
+import { RegistryContextTest, RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 import { makeArtifactHttpClientLayer } from "../runtime.js";
 import {
   WorkspaceFileWriteLocksLive,
@@ -23,7 +24,7 @@ import { ScopedRoutesLive } from "./shared/scoped-command.js";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
-import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
+
 import { afterEach, beforeEach } from "vitest";
 import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
 import { TestMachineRenderer, TestRenderer } from "../test-support/presenter-test.js";
@@ -434,7 +435,7 @@ describe("setup.handler", () => {
           if (result._tag === "error") {
             expect(result.error.code).toBe("validation");
             expect(result.error.detail).toContain("not-an-agent");
-            expect(result.error.suggestions).toEqual([
+            expect(result.error.suggestions?.map(renderSuggestedAction)).toEqual([
               { description: "Show available setup agents.", cmd: "axm setup --help" },
             ]);
           }
@@ -712,7 +713,7 @@ describe("setup.handler", () => {
             instructions: { fileName: "team's rules.md" },
           });
           const source =
-            process.platform === "win32" ? "'team''s rules.md'" : "'team'\\''s rules.md'";
+            process.platform === "win32" ? "'team''s rules.md'" : "'team'\"'\"'s rules.md'";
           expect(rendererState.suggestions).toContainEqual({
             description: "Apply setup",
             cmd: `axm setup --yes --non-interactive --scope project --agent claude-code --instructions ${source}`,

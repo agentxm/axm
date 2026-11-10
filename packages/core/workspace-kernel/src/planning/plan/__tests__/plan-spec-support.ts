@@ -24,7 +24,7 @@ import {
   type PlanInteractionFailed,
   OperationJournal,
   makeOperationJournal,
-  type ConfirmationRecovery,
+  type CommandInvocation,
   type ApplyConfirmation,
 } from "../../../operations/index.js";
 import { ResolvePlanInteractionTest } from "../../testing.js";
@@ -64,7 +64,7 @@ export const makeSpecContext = (
   workspaceDir: string,
   options?: {
     readonly confirmApplyChanges?: (
-      recovery: ConfirmationRecovery,
+      recovery: CommandInvocation,
     ) => Effect.Effect<ApplyConfirmation, PlanInteractionFailed>;
     readonly confirmationAvailable?: boolean;
   },

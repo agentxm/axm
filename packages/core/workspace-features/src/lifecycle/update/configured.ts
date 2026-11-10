@@ -62,6 +62,9 @@ import {
   type JobStepResult,
   OperationRefused,
   installRefused,
+  recoverySwitch,
+  recoveryPositional,
+  publicRecoveryValue,
 } from "@agentxm/workspace-kernel/operations";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
@@ -152,10 +155,7 @@ import {
   WORKSPACE_UPDATE_HELD_RELEASE_POLICY,
 } from "./atomicity.js";
 import { assessGitSelector } from "./git-selector.js";
-import {
-  AXM_SKILL_BUNDLED_APPLY_COMMAND,
-  AXM_SKILL_FQN,
-} from "@agentxm/cli-maintenance/official-skill/domain";
+import { AXM_SKILL_FQN } from "@agentxm/cli-maintenance/official-skill/domain";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;
 
@@ -416,7 +416,18 @@ const selectorHeldPlan = (label: string, message: string): Plan<InstallStepRequi
  */
 const configuredNotFoundSuggestions = (target: string) =>
   target === AXM_SKILL_FQN
-    ? [{ description: "Recover with the bundled AXM skill", cmd: AXM_SKILL_BUNDLED_APPLY_COMMAND }]
+    ? [
+        {
+          description: "Recover with the bundled AXM skill",
+          invocation: {
+            command: ["skills", "install"],
+            arguments: [
+              recoverySwitch("--bundled", true),
+              recoveryPositional(publicRecoveryValue(AXM_SKILL_FQN)),
+            ],
+          },
+        },
+      ]
     : [{ description: "Verify the configured source or update axm.json." }];
 
 type GitSourceRef = Extract<ExtensionRef, { readonly refType: "git-hosted" }>["source"];

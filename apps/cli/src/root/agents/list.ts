@@ -7,7 +7,14 @@ import {
   ConfiguredAgentInventorySchema,
   type ConfiguredAgentInventory,
 } from "@agentxm/workspace-features/configuration";
-import { emitResult, count, inventoryDoc, ABSENT, type ViewColumn } from "../../screen/index.js";
+import {
+  emitResult,
+  count,
+  inventoryDoc,
+  suggestionsDoc,
+  ABSENT,
+  type ViewColumn,
+} from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
@@ -70,7 +77,7 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
         summary: count(inventory.items.length, "coding agent"),
         empty: "No coding agents configured or detected.",
       }),
-      ...(suggestions.length === 0 ? [] : [{ _tag: "next", actions: suggestions } as const]),
+      ...suggestionsDoc(suggestions),
     ],
     { suggestions },
   );

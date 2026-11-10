@@ -194,7 +194,7 @@ const installedCandidates = (
         suggestions: [
           {
             description: "Repair or reinstall the configured packs, then retry.",
-            cmd: "axm sync",
+            invocation: { command: ["sync"], arguments: [] },
           },
         ],
       });

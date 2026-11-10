@@ -1,9 +1,11 @@
+import { recordOperationInvocation } from "../../cli-runtime/operation-invocation.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
   acceptExecutionChangesFlag,
   debugFlag,
+  directoryFlag,
   jsonFlag,
   nonInteractiveFlag,
   quietFlag,
@@ -17,8 +19,8 @@ import {
   recoverySwitch,
   renderConfirmationRecoveryCommand,
   requestedPlanExecution,
-  type ConfirmationRecovery,
-  type ConfirmationRecoveryArgument,
+  type CommandInvocation,
+  type CommandInvocationArgument,
   type PlanExecution,
   type RequestedPlanIntent,
   type ResolvedUnit,
@@ -47,8 +49,8 @@ import { extensionTypePresentation } from "../extension-type-presentation.js";
  * own place in it.
  */
 export const makeConfirmationRecovery = (
-  arguments_: ReadonlyArray<ConfirmationRecoveryArgument>,
-): Effect.Effect<ConfirmationRecovery> =>
+  arguments_: ReadonlyArray<CommandInvocationArgument>,
+): Effect.Effect<CommandInvocation> =>
   Effect.gen(function* () {
     return { command: yield* CommandRoute, arguments: arguments_ };
   });
@@ -66,16 +68,20 @@ const explicitGlobalArguments = Effect.gen(function* () {
     yield* Effect.serviceOption(acceptExecutionChangesFlag),
     () => false,
   );
+  const directory = Option.flatten(yield* Effect.serviceOption(directoryFlag));
   const location = yield* Effect.serviceOption(WorkspaceLocation);
   const userScope = Option.exists(location, ({ scope }) => scope === "user");
   return [
+    ...Option.toArray(
+      Option.map(directory, (value) => recoveryOption("--directory", publicRecoveryValue(value))),
+    ),
     ...(userScope
       ? [
           {
             _tag: "Option",
             flag: "--scope",
             value: { _tag: "Public", value: "user" },
-          } satisfies ConfirmationRecoveryArgument,
+          } satisfies CommandInvocationArgument,
         ]
       : []),
     recoverySwitch("--json", json),
@@ -97,7 +103,7 @@ const explicitGlobalArguments = Effect.gen(function* () {
  */
 export interface PlanInvocation {
   readonly execution: PlanExecution;
-  readonly recovery: ConfirmationRecovery;
+  readonly recovery: CommandInvocation;
 }
 
 /**
@@ -109,7 +115,7 @@ export interface PlanInvocation {
  */
 export const makePlanInvocation = (
   intent: RequestedPlanIntent,
-  recovery: ConfirmationRecovery,
+  recovery: CommandInvocation,
   acceptedPolicies: ReadonlyArray<PlanPolicyId> = [],
 ): Effect.Effect<PlanInvocation> =>
   Effect.gen(function* () {
@@ -118,7 +124,16 @@ export const makePlanInvocation = (
       yield* Effect.serviceOption(acceptExecutionChangesFlag),
       () => false,
     );
-    const replayed = { ...recovery, arguments: [...recovery.arguments, ...globalArguments] };
+    const replayed = {
+      ...recovery,
+      arguments: [
+        ...recovery.arguments,
+        ...globalArguments,
+        recoverySwitch("--preview", intent.preview),
+        recoverySwitch("--yes", intent.yes === true),
+      ],
+    };
+    yield* recordOperationInvocation(replayed);
     return {
       execution: requestedPlanExecution({
         intent,
@@ -147,7 +162,7 @@ export const makePublicPositionalPlanInvocation = (
 export const makeInstallPlanInvocation = (
   intent: RequestedPlanIntent,
   locators: ReadonlyArray<string>,
-  arguments_: ReadonlyArray<ConfirmationRecoveryArgument> = [],
+  arguments_: ReadonlyArray<CommandInvocationArgument> = [],
 ): Effect.Effect<PlanInvocation> =>
   Effect.flatMap(
     makeConfirmationRecovery([
@@ -164,7 +179,7 @@ export const makeInstallPlanInvocation = (
  */
 export const retrySuggestion = (
   description: string,
-  recovery: ConfirmationRecovery,
+  recovery: CommandInvocation,
 ): SuggestedAction => {
   const cmd = renderConfirmationRecoveryCommand(recovery, { approval: "none" });
   return cmd === undefined ? { description } : { description, cmd };
@@ -178,7 +193,7 @@ const INSTALL_SELECTION_FLAGS = new Set([
   ...installableExtensionTypes.map((type) => `--${extensionTypePresentation(type).selectorFlag}`),
 ]);
 
-const isInstallSelection = (argument: ConfirmationRecoveryArgument): boolean =>
+const isInstallSelection = (argument: CommandInvocationArgument): boolean =>
   argument._tag !== "Positional" &&
   INSTALL_SELECTION_FLAGS.has(argument.flag) &&
   (argument._tag === "Option" || argument.enabled);
@@ -191,9 +206,9 @@ const isInstallSelection = (argument: ConfirmationRecoveryArgument): boolean =>
  * the units it already settled converge as no-ops.
  */
 export const narrowInstallSelection = (
-  recovery: ConfirmationRecovery,
+  recovery: CommandInvocation,
   unsettled: ReadonlyArray<ResolvedUnit<unknown>>,
-): ConfirmationRecovery => {
+): CommandInvocation => {
   const units = unsettled.map(typedUnit);
   if (
     unsettled.length === 0 ||
@@ -226,9 +241,9 @@ export const narrowInstallSelection = (
  * waiting units are not extensions a name can select is replayed as typed.
  */
 export const narrowUpdateNames = (
-  recovery: ConfirmationRecovery,
+  recovery: CommandInvocation,
   unsettled: ReadonlyArray<ResolvedUnit<unknown>>,
-): ConfirmationRecovery => {
+): CommandInvocation => {
   const units = unsettled.map(typedUnit);
   if (unsettled.length === 0 || !units.every((unit) => unit !== undefined)) return recovery;
   return {
@@ -247,7 +262,7 @@ export const narrowUpdateNames = (
  * raised while the plan ran already carries that recovery from the kernel.
  */
 export const withUnrecordedOutputRecovery =
-  (recovery: ConfirmationRecovery) =>
+  (recovery: CommandInvocation) =>
   <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.catchIf(
       effect,

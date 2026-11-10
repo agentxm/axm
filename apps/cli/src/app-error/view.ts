@@ -3,8 +3,8 @@ import {
   redactCredentialText,
   redactCredentialValue,
 } from "@agentxm/host-primitives";
-import { type ErrorCode } from "@agentxm/workspace-kernel/operations";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { type ErrorCode, type FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
+
 import {
   exitPhrase,
   paintText,
@@ -72,7 +72,7 @@ const formatResponseBody = (
 };
 
 const suggestionsNode = (
-  suggestions: ReadonlyArray<SuggestedAction>,
+  suggestions: ReadonlyArray<FailureSuggestedAction>,
   secrets: ReadonlyArray<string>,
 ): DocNode | undefined =>
   suggestions.length === 0

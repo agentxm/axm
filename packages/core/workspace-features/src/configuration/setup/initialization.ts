@@ -1,5 +1,13 @@
+import { recoverySwitch } from "@agentxm/workspace-kernel/operations";
 import { observeSetupOutputConcerns } from "./output-concerns.js";
-import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
+import {
+  type NativeOutputConcern,
+  resolveInstructionTarget,
+  observeInstructionProjection,
+  syncInstructions,
+  ProjectionOutputPosture,
+  type InstructionMechanism,
+} from "@agentxm/workspace-kernel/projection";
 /**
  * Workspace initialization logic.
  *
@@ -13,6 +21,7 @@ import {
   assertNativeMutationWithin,
   resolveNativeEntry,
   resolveNativeReferent,
+  isGitManaged,
 } from "@agentxm/workspace-kernel/locations";
 import { setupSkillTargets, setupSkillPlanRows } from "./skill-targets.js";
 import * as FileSystem from "effect/FileSystem";
@@ -35,7 +44,7 @@ import {
   type MaterializationTargetId,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agents/types";
-import { isGitManaged } from "@agentxm/workspace-kernel/locations";
+
 import {
   LOCKFILE_NAME,
   SETTINGS_FILENAME,
@@ -69,13 +78,7 @@ import {
   type WorkspaceInitializationInteractionService,
 } from "./initialization-interaction.js";
 import { protectWorkspacePath, recordFootprint } from "@agentxm/workspace-kernel/settlement";
-import {
-  resolveInstructionTarget,
-  observeInstructionProjection,
-  syncInstructions,
-  ProjectionOutputPosture,
-  type InstructionMechanism,
-} from "@agentxm/workspace-kernel/projection";
+
 import { configurationRefused } from "../errors.js";
 
 const SELECT_AGENTS_PROMPT_MISSING = configurationRefused({
@@ -509,7 +512,12 @@ const selectSetupAgents = (args: {
         return yield* configurationRefused({
           category: "validation",
           detail: `Unrecognized setup ${label}: ${unrecognized.join(", ")}`,
-          suggestions: [{ description: "Show available setup agents.", cmd: "axm setup --help" }],
+          suggestions: [
+            {
+              description: "Show available setup agents.",
+              invocation: { command: ["setup"], arguments: [recoverySwitch("--help", true)] },
+            },
+          ],
         });
       }
     }

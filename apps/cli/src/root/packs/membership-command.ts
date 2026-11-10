@@ -42,7 +42,13 @@ const membershipFailureToAppError =
           detail: `Pack selector '${failure.selector}' matches multiple configured packs`,
           suggestions: failure.configuredNames.map((name) => ({
             description: `Use configured pack name ${name}`,
-            cmd: `axm packs ${request.change} ${name} ${request.selector}`,
+            invocation: {
+              command: ["packs", request.change],
+              arguments: [
+                recoveryPositional(publicRecoveryValue(name)),
+                recoveryPositional(publicRecoveryValue(request.selector)),
+              ],
+            },
           })),
         })
       : toAppError(failure);

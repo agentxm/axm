@@ -1,20 +1,26 @@
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { recoverySwitch, type FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
+
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { FindingCounts } from "@agentxm/workspace-features/linting";
 import type { LintHumanFinding } from "./human-findings.js";
 
 import type { VerbosityLevel } from "../../cli-flags/index.js";
-import type {
-  Doc,
-  DocNode,
-  LedgerColumn,
-  LedgerRow,
-  Mark,
-  Span,
-  Text,
-  Tone,
+import {
+  type Doc,
+  type DocNode,
+  type LedgerColumn,
+  type LedgerRow,
+  type Mark,
+  type Span,
+  type Text,
+  type Tone,
+  count,
+  exitPhrase,
+  factParts,
+  ledgerViewPolicy,
+  scopePhrase,
+  suggestionsDoc,
 } from "../../screen/index.js";
-import { count, exitPhrase, factParts, ledgerViewPolicy, scopePhrase } from "../../screen/index.js";
 
 /**
  * A rule reported at this many locations folds into one row with a location
@@ -182,9 +188,9 @@ const verdictTone = (counts: FindingCounts): Tone =>
 const exitPart = (exitCode: number): string | undefined =>
   exitCode === 0 ? undefined : exitPhrase(exitCode);
 
-const fixSuggestion = (fixable: number): SuggestedAction => ({
+const fixSuggestion = (fixable: number): FailureSuggestedAction => ({
   description: `Apply ${fixable === 1 ? "the available automatic fix" : `${String(fixable)} available automatic fixes`}`,
-  cmd: "axm lint --fix",
+  invocation: { command: ["lint"], arguments: [recoverySwitch("--fix", true)] },
 });
 
 /**
@@ -295,8 +301,6 @@ export const lintDoc = (input: LintViewInput): Doc => {
     { _tag: "ledger", columns, rows },
     verdict,
     ...(remaining.folded ? [{ _tag: "paragraph", tone: "dim", text: FOLD_HINT } as const] : []),
-    ...(fixable === 0 || input.fix
-      ? []
-      : [{ _tag: "next", actions: [fixSuggestion(fixable)] } as const]),
+    ...(fixable === 0 || input.fix ? [] : suggestionsDoc([fixSuggestion(fixable)])),
   ];
 };

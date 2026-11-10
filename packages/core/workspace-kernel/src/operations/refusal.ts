@@ -8,6 +8,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { CommandInvocationSchema } from "./command-invocation.js";
+
 import * as Schema from "effect/Schema";
 import { FailureMetadataSchema, FailureSuggestedActionSchema, ErrorCodeSchema } from "./errors.js";
 import { FailureDiagnosticSchema, type FailureDiagnostic } from "./failure-diagnostic.js";
@@ -29,6 +31,7 @@ export class OperationRefused extends Schema.TaggedError<OperationRefused>()("Op
   retryable: Schema.optional(Schema.Boolean),
   recover: Schema.optional(Schema.String),
   cmd: Schema.optional(Schema.String),
+  invocation: Schema.optional(CommandInvocationSchema),
   suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
   cause: Schema.optional(Schema.Unknown),
 }) {}

@@ -1,9 +1,5 @@
-import { redactCredentialText } from "@agentxm/host-primitives";
-import * as Option from "effect/Option";
-import * as Effect from "effect/Effect";
-
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
+  renderCommandInvocation,
   countUnitStates,
   operationNativeLocations,
   defaultOperationPresentation,
@@ -19,6 +15,12 @@ import {
   type ResolvedUnit,
   type UnitState,
 } from "@agentxm/workspace-kernel/operations";
+import { redactCredentialText } from "@agentxm/host-primitives";
+import * as Option from "effect/Option";
+import * as Effect from "effect/Effect";
+
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+
 import {
   combineNativeLocationOutcomes,
   type NativeLocationOutcome,
@@ -999,7 +1001,7 @@ export const operationDoc = (
             children: [
               {
                 _tag: "paragraph",
-                text: `Run \`${commandForScope("axm agents add --detected", coverage.scope, options.scopedRoutes ?? NO_SCOPED_ROUTES)}\`, then retry.`,
+                text: `Run \`${renderCommandInvocation(commandForScope({ command: ["agents", "add"], arguments: [{ _tag: "Switch", flag: "--detected", enabled: true }] }, coverage.scope, options.scopedRoutes ?? NO_SCOPED_ROUTES))}\`, then retry.`,
               },
             ],
           } as const,

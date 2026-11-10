@@ -3,6 +3,8 @@ import * as Option from "effect/Option";
 
 import {
   StepFailure,
+  recoverySwitch,
+  type FailureSuggestedAction,
   makeOperationResolution,
   operationPresentation,
   stepFailureRetryCanHelp,
@@ -31,7 +33,7 @@ export const specification = defineSpecification({
   requirement: "cli/non-success-results-name-a-fitting-recovery",
   title: "A result that did not succeed names a recovery that fits it",
   statement:
-    "When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated, for every unit that failed — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry; and in a user-scope workspace each recovery command shall appear once, addressed with `--scope user` exactly when its route accepts that flag. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.",
+    "When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated, for every unit that failed — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry; and in a user-scope workspace each classified recovery invocation shall appear once, addressed with `--scope user` exactly when its route accepts that flag. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "extension-adoption"],
@@ -39,7 +41,10 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The recovery is derived from the settled resolution and the adapter's own route spelling, both in memory. Which blocker a command's own refusal admits is the emitting feature's and is not decided here.",
   methods: ["example", "decision-table"],
-  derivedFrom: ["cli/unsettled-units-state-their-reason"],
+  derivedFrom: [
+    "cli/unsettled-units-state-their-reason",
+    "cli/recovery-commands-preserve-classified-arguments",
+  ],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -69,7 +74,7 @@ const artifact = (previousVersion: string): JobStepArtifact => ({
 const failedUnit = (
   id: string,
   category: ErrorCode,
-  suggestions?: ReadonlyArray<{ readonly description: string; readonly cmd?: string }>,
+  suggestions?: ReadonlyArray<FailureSuggestedAction>,
 ): ResolvedUnit<unknown> => ({
   id,
   label: `skills/${id}`,
@@ -120,7 +125,7 @@ const scopedRoutes = scopedRoutesOf(rootCommand);
  */
 const nextLines = (
   resolution: OperationResolution<unknown>,
-  offered: ReadonlyArray<{ readonly description: string; readonly cmd?: string }>,
+  offered: ReadonlyArray<FailureSuggestedAction>,
   scope: WorkspaceScope = "project",
 ): ReadonlyArray<string> => {
   const suggestions = suggestionsForScope(
@@ -223,7 +228,13 @@ describe("A non-success result names a fitting recovery", () => {
   it("prints one scoped copy of a producer recovery in a user workspace, never a duplicate", () => {
     const resolution = resolutionOf([
       failedUnit("research", "validation", [
-        { description: "Inspect supported agent IDs.", cmd: "axm agents list --available" },
+        {
+          description: "Inspect supported agent IDs.",
+          invocation: {
+            command: ["agents", "list"],
+            arguments: [recoverySwitch("--available", true)],
+          },
+        },
       ]),
     ]);
     const painted = nextLines(resolution, [], "user").join("\n");

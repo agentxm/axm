@@ -1,10 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import * as Result from "effect/Result";
+import { renderSuggestedAction } from "@agentxm/workspace-kernel/operations";
 import { handleExtensionShow } from "./extension-show.js";
 import { authoringTypes } from "../../test-support/authoring-fixtures.js";
 import { makeReadSpecWorkspace } from "../../test-support/read-harness.js";
+import { getAppError } from "../../test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/type-shows-report-missing-entries",
@@ -35,13 +36,13 @@ describe("Unknown local extension", () => {
       const workspace = makeReadSpecWorkspace();
       return workspace.provide(
         Effect.gen(function* () {
-          const result = yield* Effect.result(handleExtensionShow({ type, name: "absent" }));
-          expect(Result.isFailure(result) && result.failure).toMatchObject({
-            code: "not_found",
-            suggestions: expect.arrayContaining([
-              expect.objectContaining({ cmd: `axm ${row.plural} list` }),
-            ]),
-          });
+          const error = getAppError(
+            yield* Effect.flip(handleExtensionShow({ type, name: "absent" })),
+          );
+          expect(error.code).toBe("not_found");
+          expect(error.suggestions?.map(renderSuggestedAction)).toEqual(
+            expect.arrayContaining([expect.objectContaining({ cmd: `axm ${row.plural} list` })]),
+          );
           expect(workspace.rendererState.results).toEqual([]);
         }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
       );

@@ -7,6 +7,14 @@
  * asks for, and render the outcome with the next step a person takes.
  */
 
+import {
+  type FailureSuggestedAction,
+  InstallSelectionCancelled,
+  deriveOperationOutcome,
+  operationPresentation,
+  type CommandInvocationArgument,
+} from "@agentxm/workspace-kernel/operations";
+
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -17,18 +25,13 @@ import {
   type InstallExtensionsSelection,
 } from "@agentxm/workspace-features/lifecycle";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import {
-  InstallSelectionCancelled,
-  deriveOperationOutcome,
-  operationPresentation,
-  type ConfirmationRecoveryArgument,
-} from "@agentxm/workspace-kernel/operations";
 
 import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
   type SubjectType,
+  recordSkillInstalls,
+  type ExpectedCliError,
 } from "../../cli-runtime/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
@@ -45,10 +48,10 @@ import {
   narrowInstallSelection,
   retrySuggestion,
 } from "./confirmation-recovery.js";
-import { recordSkillInstalls } from "../../cli-runtime/index.js";
+
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { withWorkspace } from "../../runtime.js";
-import type { ExpectedCliError } from "../../cli-runtime/index.js";
+
 import { firstUseWorkspace, type FirstUse } from "./first-use.js";
 
 export interface InstallCommandArgs<R = never> {
@@ -57,8 +60,8 @@ export interface InstallCommandArgs<R = never> {
   /** The positional locators that line reproduces. */
   readonly recoveryLocators: ReadonlyArray<string>;
   /** Extra flags that line reproduces, such as `--all` or `--ignore-release-age`. */
-  readonly recoveryArguments?: ReadonlyArray<ConfirmationRecoveryArgument>;
-  readonly suggestions: ReadonlyArray<SuggestedAction>;
+  readonly recoveryArguments?: ReadonlyArray<CommandInvocationArgument>;
+  readonly suggestions: ReadonlyArray<FailureSuggestedAction>;
   /**
    * What to say when the request matched nothing to install. A route that
    * leaves this out reports the empty operation itself instead.
@@ -153,13 +156,13 @@ const complete = <R>(args: InstallCommandArgs<R>, selection: InstallExtensionsSe
 
     // An applied install whose extensions wait on instruction files nobody set
     // up says what settles them rather than look finished.
-    const suggestions: ReadonlyArray<SuggestedAction> =
+    const suggestions: ReadonlyArray<FailureSuggestedAction> =
       !args.preview && instructionFilesPending
         ? [
             {
               description:
                 "Instruction files are not set up, so agents do not see installed Rules or Knowledge yet; set them up",
-              cmd: "axm setup",
+              invocation: { command: ["setup"], arguments: [] },
             },
             ...args.suggestions,
           ]

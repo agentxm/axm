@@ -1,4 +1,9 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import {
+  renderSuggestedAction,
+  type FailureSuggestedAction,
+} from "@agentxm/workspace-kernel/operations";
+
 import type { SuggestionOptions } from "./output.js";
 import type { LedgerColumn, Span } from "./doc.js";
 
@@ -42,9 +47,9 @@ export const ledgerViewPolicy = (
 });
 
 export const normalizeSuggestions = (
-  suggestions: ReadonlyArray<SuggestedAction> | undefined,
+  suggestions: ReadonlyArray<FailureSuggestedAction> | undefined,
   options?: SuggestionOptions,
 ): ReadonlyArray<SuggestedAction> =>
   options?.withoutSuggestions === true || suggestions === undefined || suggestions.length === 0
     ? []
-    : suggestions;
+    : suggestions.map(renderSuggestedAction);

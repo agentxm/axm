@@ -15,9 +15,9 @@
 
 import * as Data from "effect/Data";
 import { ConfigError } from "effect/Config";
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { type FailureSuggestedAction, type ErrorCode } from "../operations/index.js";
 import { isRegistryClientFailure, type RegistryClientFailure } from "@agentxm/registry-client";
-import type { ErrorCode } from "../operations/index.js";
+
 import { AxmSkillGateUnavailable } from "./axm-skill-gate.js";
 import { WorkspaceCatalogUnavailable } from "./workspace-catalog.js";
 
@@ -31,7 +31,7 @@ export type SourceErrorCategory = "conflict" | "internal" | "network" | "not_fou
  */
 export class SourceSyntaxInvalid extends Data.TaggedError("SourceSyntaxInvalid")<{
   readonly detail: string;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
   readonly cause?: unknown;
 }> {}
 
@@ -42,7 +42,7 @@ export class SourceSyntaxInvalid extends Data.TaggedError("SourceSyntaxInvalid")
  */
 export class SourceHostNotConfigured extends Data.TaggedError("SourceHostNotConfigured")<{
   readonly detail: string;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
   readonly cause?: unknown;
 }> {}
 
@@ -58,7 +58,7 @@ export class SourceNotResolvable extends Data.TaggedError("SourceNotResolvable")
   readonly detail: string;
   readonly recover?: string;
   readonly cmd?: string;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
   readonly cause?: unknown;
 }> {}
 

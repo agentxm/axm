@@ -15,5 +15,5 @@
                     release-notes
 
 Next
-     axm migrate @legacy/skills/changelog --preview
+     axm migrate --preview @legacy/skills/changelog
      Preview migration

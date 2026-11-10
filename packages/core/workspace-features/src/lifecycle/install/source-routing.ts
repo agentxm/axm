@@ -1,5 +1,12 @@
 /** Route a skill or subagent locator to its source. */
 
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  installRefused,
+  type OperationRefused,
+} from "@agentxm/workspace-kernel/operations";
+
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
@@ -12,7 +19,7 @@ import {
   routeUrlInput,
   type SourceResolutionFailure,
 } from "@agentxm/workspace-kernel/sources";
-import { installRefused, type OperationRefused } from "@agentxm/workspace-kernel/operations";
+
 import {
   resolveConfiguredRegistrySource,
   resolveDefaultRegistrySourceByName,
@@ -87,10 +94,16 @@ export const resolveInstallSource: (
           category: "conflict",
           detail: `Workspace source "${parseResult.originalInput}" is locally authoritative and cannot be installed over`,
           suggestions: [
-            { description: "Sync the workspace package", cmd: "axm sync" },
+            {
+              description: "Sync the workspace package",
+              invocation: { command: ["sync"], arguments: [] },
+            },
             {
               description: `Enable the workspace ${type}`,
-              cmd: `axm ${extensionTypeToPlural[type]} enable <name>`,
+              invocation: {
+                command: [extensionTypeToPlural[type], "enable"],
+                arguments: [recoveryPositional(publicRecoveryValue("<name>"))],
+              },
             },
           ],
         });

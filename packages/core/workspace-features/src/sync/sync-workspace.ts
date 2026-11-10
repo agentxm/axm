@@ -259,7 +259,10 @@ const prepareSyncWorkspace = (
         category: "validation",
         detail: `Invalid sync target ${request.target.value}; expected @owner/type/name.`,
         suggestions: [
-          { description: "Find the extension's fully qualified name", cmd: "axm list" },
+          {
+            description: "Find the extension's fully qualified name",
+            invocation: { command: ["list"], arguments: [] },
+          },
         ],
       });
     }

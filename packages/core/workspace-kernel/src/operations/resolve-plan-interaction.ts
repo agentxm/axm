@@ -14,7 +14,7 @@
 import type * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
 import type { PlanInteractionFailed } from "./errors.js";
-import type { ConfirmationRecovery } from "./plan-execution.js";
+import type { CommandInvocation } from "./command-invocation.js";
 import type { Plan } from "./plan.js";
 
 /**
@@ -28,7 +28,7 @@ export interface ResolvePlanInteractionService {
   /** Whether an interactive confirmation can be obtained. */
   readonly isConfirmationAvailable: Effect.Effect<boolean, PlanInteractionFailed>;
   readonly confirmApplyChanges: (
-    recovery: ConfirmationRecovery,
+    recovery: CommandInvocation,
   ) => Effect.Effect<ApplyConfirmation, PlanInteractionFailed>;
   /**
    * Present the immutable candidate. The implementation owns the

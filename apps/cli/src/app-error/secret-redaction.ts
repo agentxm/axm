@@ -9,7 +9,11 @@ import {
   redactCredentialText,
   redactCredentialValue,
 } from "@agentxm/host-primitives";
-import type { FailureMetadata } from "@agentxm/workspace-kernel/operations";
+import {
+  renderSuggestedAction,
+  type FailureSuggestedAction,
+  type FailureMetadata,
+} from "@agentxm/workspace-kernel/operations";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 export const redactAppErrorMetadata = (
@@ -47,14 +51,15 @@ export const redactAppErrorMetadata = (
 });
 
 export const redactSuggestedAction = (
-  suggestion: SuggestedAction,
+  suggestion: FailureSuggestedAction,
   secrets: ReadonlyArray<string> = [],
-): SuggestedAction => ({
-  description: redactCredentialText(suggestion.description, { secrets }),
-  ...(suggestion.cmd === undefined
-    ? {}
-    : { cmd: redactCredentialText(suggestion.cmd, { secrets }) }),
-  ...(suggestion.url === undefined
-    ? {}
-    : { url: redactCredentialText(suggestion.url, { secrets }) }),
-});
+): SuggestedAction => {
+  const rendered = renderSuggestedAction(suggestion);
+  return {
+    description: redactCredentialText(suggestion.description, { secrets }),
+    ...(rendered.cmd === undefined ? {} : { cmd: redactCredentialText(rendered.cmd, { secrets }) }),
+    ...(suggestion.url === undefined
+      ? {}
+      : { url: redactCredentialText(suggestion.url, { secrets }) }),
+  };
+};

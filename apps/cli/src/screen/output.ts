@@ -1,4 +1,4 @@
-import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
 
 export type LogMessage =
   | { readonly _tag: "message"; readonly message: string }
@@ -17,7 +17,7 @@ export interface BoxOptions {
 }
 
 export interface SuggestionOptions {
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
   readonly withoutSuggestions?: boolean;
 }
 

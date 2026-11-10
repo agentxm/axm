@@ -7,6 +7,13 @@
  * `@agentxm/workspace-features/lifecycle/testing` can compose a workspace fixture.
  */
 
+import {
+  renderSuggestedAction,
+  StepFailure,
+  recoverySwitch,
+  type ResolvedUnit,
+} from "@agentxm/workspace-kernel/operations";
+
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -16,11 +23,6 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import { PACK_CONSTRAINT_CONFLICT_BLOCKER_ID } from "@agentxm/extension-kinds/packs";
-import {
-  StepFailure,
-  recoverySwitch,
-  type ResolvedUnit,
-} from "@agentxm/workspace-kernel/operations";
 
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
@@ -229,7 +231,7 @@ describe("workspace update suggestions", () => {
       },
       constraintRefused: false,
       ...over,
-    })({ outcome: "failed", unsettled });
+    })({ outcome: "failed", unsettled }).map(renderSuggestedAction);
 
   it("points a constraint refusal at the declarations that disagree", () => {
     const blocked = unit({
@@ -247,7 +249,6 @@ describe("workspace update suggestions", () => {
       {
         description:
           "Review the declarations that disagree, then widen or remove the declared range, or hold the Pack at a compatible version",
-        cmd: "axm packs show <pack>",
       },
       { description: "Inspect installed extensions", cmd: "axm list" },
     ]);

@@ -70,8 +70,14 @@ const validateGrammar = (args: InstallHandlerArgs) =>
         detail: "An install source is required",
         recover: "Supply a source, synchronize configured state, or acquire it again",
         suggestions: [
-          { description: "Realize configured state", cmd: "axm sync" },
-          { description: "Acquire configured extensions again", cmd: "axm update --reinstall" },
+          {
+            description: "Realize configured state",
+            invocation: { command: ["sync"], arguments: [] },
+          },
+          {
+            description: "Acquire configured extensions again",
+            invocation: { command: ["update"], arguments: [recoverySwitch("--reinstall", true)] },
+          },
         ],
       });
     }
@@ -195,7 +201,12 @@ export const handleInstall = <R = never>(
           : [recoveryOption("--distribution", publicRecoveryValue(args.distributionId))]),
         recoverySwitch("--native-oauth", args.nativeOauth === true),
       ],
-      suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
+      suggestions: [
+        {
+          description: "Inspect workspace facts",
+          invocation: { command: ["lint"], arguments: [] },
+        },
+      ],
       noOpMessage: "No extensions installed.",
       ...(firstInstall === undefined ? {} : { firstInstall }),
     });

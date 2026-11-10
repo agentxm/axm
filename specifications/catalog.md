@@ -534,14 +534,14 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/non-success-results-name-a-fitting-recovery`
 - Owner: `cli`
-- Statement: When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated, for every unit that failed — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry; and in a user-scope workspace each recovery command shall appear once, addressed with `--scope user` exactly when its route accepts that flag. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.
+- Statement: When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated, for every unit that failed — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry; and in a user-scope workspace each classified recovery invocation shall appear once, addressed with `--scope user` exactly when its route accepts that flag. Whether a retry can help is the kernel's one decision per failure: the producer's stated retryability, or else its category.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `extension-adoption`
 - Boundary: memory; selection: per-change
 - Boundary rationale: The recovery is derived from the settled resolution and the adapter's own route spelling, both in memory. Which blocker a command's own refusal admits is the emitting feature's and is not decided here.
 - Methods: example, decision-table
-- Derived from: `cli/unsettled-units-state-their-reason`
+- Derived from: `cli/unsettled-units-state-their-reason`, `cli/recovery-commands-preserve-classified-arguments`
 - Limitation: Examples drive the shared operation document and the retry policy. That each adapter spells its own route correctly is witnessed by that adapter's tests. Retires when: Bind adapter evidence here when a route's spelling becomes an accepted obligation of its own.
 - Source: [`apps/cli/src/non-success-results-name-a-fitting-recovery.spec.ts`](../apps/cli/src/non-success-results-name-a-fitting-recovery.spec.ts)
 
@@ -2319,6 +2319,19 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Methods: contract, example
 - Source: [`apps/cli/src/root/shared/groups-show-help-without-executing.spec.ts`](../apps/cli/src/root/shared/groups-show-help-without-executing.spec.ts)
 
+##### Interruption recovery preserves the classified invocation
+
+- Requirement: `cli/interruption-recovery-preserves-invocation`
+- Owner: `cli`
+- Statement: When an interrupted operation offers continuation, AXM shall preserve the classified invocation's arguments and scope and omit the command when any argument cannot be safely rendered.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The production lifecycle and plan-invocation helpers run under interruption with a recorded journal and screen; the journal models already-started work, not actual package installation.
+- Methods: example
+- Source: [`apps/cli/src/interruption-recovery-preserves-invocation.spec.ts`](../apps/cli/src/interruption-recovery-preserves-invocation.spec.ts)
+
 ##### Device sign-in can start and finish in one bounded invocation
 
 - Requirement: `cli/login/device-sign-in-waits-in-one-invocation`
@@ -2481,6 +2494,19 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/authentication/logout.ts`, `cli/credentials-stay-with-their-registry`
 - Source: [`packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts`](../packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts)
+
+##### Recovery commands preserve classified arguments when applying workspace scope
+
+- Requirement: `cli/recovery-commands-preserve-classified-arguments`
+- Owner: `cli`
+- Statement: AXM shall apply workspace scope to classified recovery invocations without reinterpreting positional text, preserve an explicit scope, omit commands containing protected or unclassified values, and leave opaque external commands unchanged.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The production scope projection reads the registered CLI tree and renders classified invocation data without executing a subprocess.
+- Methods: example
+- Source: [`apps/cli/src/root/shared/scoped-command.spec.ts`](../apps/cli/src/root/shared/scoped-command.spec.ts)
 
 ##### A creation the Registry did not refuse is reported as possibly issued
 

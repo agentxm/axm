@@ -12,6 +12,9 @@
  */
 
 import {
+  recoverySwitch,
+  publicRecoveryValue,
+  recoveryPositional,
   type OperationRefused,
   type ScaffoldedExtensionUnresolved,
   defineFailureFamily,
@@ -19,6 +22,7 @@ import {
   makeStepFailure,
   type StepFailure,
 } from "@agentxm/workspace-kernel/operations";
+
 import type { ExtensionManagerFailure } from "@agentxm/workspace-kernel/materialization";
 import type { NativeLocationError } from "@agentxm/workspace-kernel/locations";
 import {
@@ -230,7 +234,7 @@ const renderAuthoringFailureDetails = (error: AuthoringFamilyFailure): StepFailu
         suggestions: [
           {
             description: `Set \`owner\` in \`${error.settingsPath}\` before modifying this pack.`,
-            cmd: "axm setup",
+            invocation: { command: ["setup"], arguments: [] },
           },
         ],
       });
@@ -244,7 +248,13 @@ const renderAuthoringFailureDetails = (error: AuthoringFamilyFailure): StepFailu
         suggestions: [
           {
             description: "Preview workspace reconciliation",
-            cmd: `axm sync ${error.packFqn} --preview`,
+            invocation: {
+              command: ["sync"],
+              arguments: [
+                recoveryPositional(publicRecoveryValue(error.packFqn)),
+                recoverySwitch("--preview", true),
+              ],
+            },
           },
         ],
       });
@@ -273,13 +283,24 @@ const renderAuthoringFailureDetails = (error: AuthoringFamilyFailure): StepFailu
         ? makeStepFailure({
             category: "not_found",
             detail: `No managed, versioned extensions match '${error.selector}'`,
-            suggestions: [{ description: "Inspect installed extensions", cmd: "axm packs list" }],
+            suggestions: [
+              {
+                description: "Inspect installed extensions",
+                invocation: { command: ["packs", "list"], arguments: [] },
+              },
+            ],
           })
         : makeStepFailure({
             category: "not_found",
             detail: `Extension '${error.selector}' not found in workspace`,
             suggestions: [
-              { description: "Install the extension first", cmd: "axm install <source>" },
+              {
+                description: "Install the extension first",
+                invocation: {
+                  command: ["install"],
+                  arguments: [recoveryPositional(publicRecoveryValue("<source>"))],
+                },
+              },
             ],
           });
     case "PackMemberNotDeclared":

@@ -15,7 +15,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome, OperationRefused } from "@agentxm/workspace-kernel/operations";
+import {
+  deriveOperationOutcome,
+  OperationRefused,
+  renderSuggestedAction,
+} from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   SHARED_MEMBER,
@@ -198,6 +202,8 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             const before = workspace.snapshot();
 
             const failure = yield* applySync().pipe(Effect.flip);
+            if (!(failure instanceof OperationRefused))
+              throw new Error(`Expected an operation refusal: ${String(failure)}`);
 
             expect(failure).toMatchObject({
               _tag: "OperationRefused",
@@ -206,14 +212,14 @@ describe("Sync preserves configuration and accepted resolutions", () => {
                 pin: SHARED_MEMBER_PIN.inside,
                 acceptedVersion: "1.2.0",
               }),
-              // The explicit resolution transition, named as install names it.
-              suggestions: [
-                {
-                  description: "Explicitly update the extension to accept a satisfying resolution.",
-                  cmd: `axm update ${SHARED_MEMBER.fqn}`,
-                },
-              ],
             });
+            // The explicit resolution transition, named as install names it.
+            expect(failure.suggestions?.map(renderSuggestedAction)).toEqual([
+              {
+                description: "Explicitly update the extension to accept a satisfying resolution.",
+                cmd: `axm update ${SHARED_MEMBER.fqn}`,
+              },
+            ]);
             expect(workspace.snapshot()).toEqual(before);
           }),
         )

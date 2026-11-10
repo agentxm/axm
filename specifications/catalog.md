@@ -5535,6 +5535,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Additional evidence: platform via [`apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts`](../apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts) — Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.
 - Source: [`packages/core/workspace-kernel/src/projection/subagents/native-subagent-locations.spec.ts`](../packages/core/workspace-kernel/src/projection/subagents/native-subagent-locations.spec.ts)
 
+##### Subagent resources bind to their owning package and participate in currency
+
+- Requirement: `workspace/subagents/package-resources-retain-their-base`
+- Owner: `workspace-kernel`
+- Statement: AXM shall bind Codex instruction-file and OpenCode prompt-file references within the selected Subagent package, interpret native relative references from their definition directory and customized references from the package root, preserve their effective host meaning when projected, include selected resource contents in projection generation, and refuse missing, non-file, or package-escaping references without changing native files.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production binding reads native files and symlinks from temporary packages and renders host definitions; these examples do not execute the native agents.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/projection/subagents/package-resources.spec.ts`](../packages/core/workspace-kernel/src/projection/subagents/package-resources.spec.ts)
+
 #### Constraints
 
 ##### A sync check requires preview mode

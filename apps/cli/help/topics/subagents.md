@@ -55,10 +55,16 @@ universal defaults. Consult the selected runtime's native contract.
 
 All declared files must be contained regular files within the package, including
 references for unconfigured runtimes. Publish also validates the filtered
-archive. AXM does not relocate resource trees or resolve package-relative native
-runtime references. Recognized references whose original resource base would
-be lost make that target unsupported. External prerequisites remain the author's
-responsibility.
+archive. Supporting resources remain in the retained package. Codex
+`model_instructions_file` references bind to a contained file there. An OpenCode
+native definition can name `{file:...}` references in its `prompt` field; AXM
+resolves their contents into the projected Markdown body that OpenCode reads.
+Native paths resolve relative to the definition file; customized paths resolve
+relative to the package root. Missing files and package escapes refuse package
+projection before changing existing native output. Selected resource changes
+invalidate its projection. Other
+recognized runtime references whose base cannot be preserved remain unsupported;
+external prerequisites remain the author's responsibility.
 
 ## Inspect before applying
 

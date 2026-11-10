@@ -25,7 +25,8 @@ explicitly and never projected as Skills.
 AXM does not schedule delegation, choose when a parent agent delegates, define
 an industry subagent standard, or promise equivalent model, tool, permission,
 or security behavior across runtimes. Native configuration keeps its host's
-semantics. AXM does not relocate supporting native resource trees.
+semantics. AXM retains supporting resources in their owning package rather than
+copying resource trees into native agent directories.
 
 ## State and realization
 
@@ -47,6 +48,18 @@ Preview, apply, lint, render inspection, and currency use the same selection and
 compiler. Read-only render inspection can select a catalog runtime independently
 of workspace membership. Generation depends on the selected implementation;
 an unused variant does not invalidate another runtime's output.
+
+Native adapters identify resource references and select their host representation;
+package binding owns containment and reading. Native references resolve from the
+definition's directory, and customized references resolve from the package root.
+Codex instruction-file references point to retained package files. OpenCode
+prompt-file references become the native Markdown body, because its Markdown
+loader takes the prompt from that body. Selected resource contents participate
+in generation. A staged preview reads candidate resources while binding paths
+to their eventual retained location. Unsupported reference semantics remain
+explicit rather than rewriting arbitrary strings that resemble paths.
+Invalid bound resources refuse package projection before writing or retiring
+native files, even when another configured runtime can render the package.
 
 ## Ownership and coexistence
 

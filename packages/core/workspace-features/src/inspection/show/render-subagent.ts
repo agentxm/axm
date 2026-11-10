@@ -10,7 +10,7 @@ import {
 } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   CodingAgentRepository,
-  compileSubagentImplementation,
+  prepareSubagentImplementation,
 } from "@agentxm/workspace-kernel/projection";
 import {
   acceptedCanonicalObservation,
@@ -71,7 +71,12 @@ export const RenderSubagent = {
     const fqn = `${pkg.manifest.owner}/subagents/${pkg.manifest.name}`;
     // The rendered bytes are exactly what the projection writes: a projected
     // Subagent file carries no ownership text.
-    const compiled = compileSubagentImplementation({ package: pkg, agentId: request.agentId });
+    const compiled = yield* prepareSubagentImplementation({
+      package: pkg,
+      agentId: request.agentId,
+      sourceRoot: packageRoot,
+      retainedRoot: packageRoot,
+    });
     const common = {
       type: "subagent" as const,
       version: pkg.manifest.version,

@@ -93,6 +93,7 @@ export {
 export { reconcilePatternList } from "./managed-regions-pattern-list.js";
 
 // Subagent rendering and native publication
+export { bindSubagentResources } from "./subagents/resources.js";
 export { renderSubagent } from "./subagents/rendering/index.js";
 export {
   type SubagentRenderInput,

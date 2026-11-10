@@ -225,38 +225,40 @@ describe("Native Subagent location contracts", () => {
       }),
   );
 
-  it.effect("qualifies known runtime references and leaves unrelated native fields opaque", () =>
-    Effect.gen(function* () {
-      const pkg = yield* readSubagentPackage({
-        manifest: {
-          owner: "@acme",
-          type: "subagent",
-          name: "review",
-          version: "1.0.0",
-          description: "Review",
-          core: { instructions: "prompts/core.md" },
-          implementations: {
-            codex: {
-              kind: "customized",
-              configuration: { model_instructions_file: "./instructions.md" },
-            },
-            cursor: {
-              kind: "customized",
-              configuration: { custom_field: "./label", model: "inherit" },
+  it.effect(
+    "requires a resource base for known references and leaves unrelated native fields opaque",
+    () =>
+      Effect.gen(function* () {
+        const pkg = yield* readSubagentPackage({
+          manifest: {
+            owner: "@acme",
+            type: "subagent",
+            name: "review",
+            version: "1.0.0",
+            description: "Review",
+            core: { instructions: "prompts/core.md" },
+            implementations: {
+              codex: {
+                kind: "customized",
+                configuration: { model_instructions_file: "./instructions.md" },
+              },
+              cursor: {
+                kind: "customized",
+                configuration: { custom_field: "./label", model: "inherit" },
+              },
             },
           },
-        },
-        readFile: () => Effect.succeed("Review."),
-      });
-      expect(compileSubagentImplementation({ package: pkg, agentId: "codex" })).toMatchObject({
-        _tag: "Unsupported",
-        reasonCode: "subagent-runtime-reference-unresolved",
-      });
-      const cursor = compileSubagentImplementation({ package: pkg, agentId: "cursor" });
-      expect(cursor._tag).toBe("Compiled");
-      if (cursor._tag !== "Compiled") return;
-      expect(cursor.outputs[0]?.content).toContain("custom_field: ./label");
-    }),
+          readFile: () => Effect.succeed("Review."),
+        });
+        expect(compileSubagentImplementation({ package: pkg, agentId: "codex" })).toMatchObject({
+          _tag: "Unsupported",
+          reasonCode: "subagent-runtime-reference-unresolved",
+        });
+        const cursor = compileSubagentImplementation({ package: pkg, agentId: "cursor" });
+        expect(cursor._tag).toBe("Compiled");
+        if (cursor._tag !== "Compiled") return;
+        expect(cursor.outputs[0]?.content).toContain("custom_field: ./label");
+      }),
   );
 
   it.effect("refuses bare and Windows-relative native runtime paths", () =>

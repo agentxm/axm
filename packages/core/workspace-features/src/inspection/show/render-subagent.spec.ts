@@ -30,6 +30,56 @@ export const specification = defineSpecification({
 });
 
 describe("Subagent render inspection", () => {
+  for (const agentId of ["codex", "opencode"] as const)
+    it.effect(`binds ${agentId} package resources without writing the inspected package`, () => {
+      const source = agentId === "codex" ? "native/review.toml" : "native/review.md";
+      const fixture = makeInspectionFixture({
+        settings: {
+          owner: "@acme",
+          agents: [],
+          subagents: { reviewer: { source: "workspace", enabled: false } },
+        },
+        files: {
+          "subagents/reviewer/subagent.json": JSON.stringify({
+            owner: "@acme",
+            type: "subagent",
+            name: "reviewer",
+            version: "1.0.0",
+            description: "Review",
+            core: { instructions: "core.md" },
+            implementations: { [agentId]: { kind: "native", source } },
+          }),
+          "subagents/reviewer/core.md": "Unused portable instructions.",
+          "subagents/reviewer/prompts/review.md": "Read the project conventions.",
+          [`subagents/reviewer/${source}`]:
+            agentId === "codex"
+              ? 'name = "reviewer"\ndescription = "Review"\ndeveloper_instructions = "Review."\nmodel_instructions_file = "../prompts/review.md"\n'
+              : '---\ndescription: Review\nprompt: "{file:../prompts/review.md}"\n---\n',
+        },
+      });
+      const before = fixture.snapshot();
+      return fixture
+        .provide(
+          Effect.gen(function* () {
+            const result = yield* RenderSubagent.query({ name: "reviewer", agentId });
+            expect(result.status).toBe("rendered");
+            if (result.status !== "rendered") return;
+            expect(result.sourceDependencies).toContain("prompts/review.md");
+            const content = result.artifacts[0]?.content;
+            if (agentId === "codex") {
+              expect(content).toContain("/subagents/reviewer/prompts/review.md");
+              expect(content).not.toContain('"../prompts/review.md"');
+            } else {
+              expect(content).toContain("---\nRead the project conventions.");
+              expect(content).not.toContain("{file:");
+            }
+            expect(fixture.snapshot()).toEqual(before);
+            expect(fixture.requests).toEqual([]);
+          }),
+        )
+        .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
+    });
+
   for (const agentId of ["claude-code", "cursor", "windsurf", "chatgpt"] as const)
     it.effect(`renders or explicitly refuses unconfigured ${agentId}`, () => {
       const fixture = makeInspectionFixture({

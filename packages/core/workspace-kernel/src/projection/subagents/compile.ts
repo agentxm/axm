@@ -2,15 +2,20 @@ import {
   selectSubagentImplementation,
   type DecodedSubagentPackage,
 } from "@agentxm/extension-content";
+import * as Effect from "effect/Effect";
+import * as Path from "effect/Path";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   renderSubagent,
+  bindSubagentResources,
   type SubagentRenderInput,
   type SubagentRenderOutput,
 } from "../../agent-adapters/index.js";
 
 import type { ConfiguredAgentReasonCode } from "../../operations/index.js";
+import type { PackageResourceInvalid } from "../../locations/index.js";
+import { computeSourceHash } from "../../workspace-state/index.js";
 
 type SubagentImplementationMode = "portable" | "customized" | "native";
 
@@ -30,6 +35,8 @@ export type CompiledSubagentImplementation =
       readonly reasonCode: ConfiguredAgentReasonCode;
       readonly reason: string;
       readonly sourceDependencies: ReadonlyArray<string>;
+      /** Invalid bound resources prevent package mutation. */
+      readonly resourceFailure?: PackageResourceInvalid;
     };
 
 /** Native configuration retains external prerequisites, but package-relative
@@ -91,6 +98,7 @@ const unresolvedRuntimeReference = (
 export const compileSubagentImplementation = (args: {
   readonly package: DecodedSubagentPackage;
   readonly agentId: string;
+  readonly resources?: Effect.Success<ReturnType<typeof bindSubagentResources>>;
 }): CompiledSubagentImplementation => {
   const selected = selectSubagentImplementation(args.package, args.agentId);
   if (selected.kind === "unsupported")
@@ -136,7 +144,8 @@ export const compileSubagentImplementation = (args: {
       "Mistral Vibe requires a complete native definition; portable inline instructions are not supported",
     );
   const configuration =
-    selected.kind === "native" ? selected.native.configuration : selected.configuration;
+    args.resources?.configuration ??
+    (selected.kind === "native" ? selected.native.configuration : selected.configuration);
   const unresolved = unresolvedRuntimeReference(args.agentId, configuration);
   if (unresolved !== undefined)
     return unsupported(
@@ -150,26 +159,43 @@ export const compileSubagentImplementation = (args: {
     );
   }
   const nativeName = selected.kind === "native" ? selected.native.name : selected.name;
+  const sourceDependencies = [
+    ...new Set([
+      ...selected.sourceDependencies,
+      ...(args.resources?.resources.map((resource) => resource.path) ?? []),
+    ]),
+  ];
+  const resourceInputs = args.resources?.resources.map((resource) => ({
+    path: resource.path,
+    digest: computeSourceHash(resource.content),
+  }));
+  const common = {
+    agentId: args.agentId,
+    name: nativeName,
+    sourceDependencies,
+    ...(resourceInputs === undefined || resourceInputs.length === 0 ? {} : { resourceInputs }),
+  };
   const input: SubagentRenderInput =
     selected.kind === "native" && selected.native.format !== "json"
       ? {
-          agentId: args.agentId,
-          name: nativeName,
-          sourceDependencies: selected.sourceDependencies,
-          body: selected.native.instructions,
-          frontmatter: selected.native.configuration,
-          native: { format: selected.native.format, content: selected.native.content },
+          ...common,
+          body: args.resources?.body ?? selected.native.instructions,
+          frontmatter: configuration,
+          native: args.resources?.native ?? {
+            format: selected.native.format,
+            content: selected.native.content,
+          },
         }
       : {
-          agentId: args.agentId,
-          name: nativeName,
-          sourceDependencies: selected.sourceDependencies,
-          body: selected.kind === "native" ? selected.native.instructions : selected.instructions,
+          ...common,
+          body:
+            args.resources?.body ??
+            (selected.kind === "native" ? selected.native.instructions : selected.instructions),
           frontmatter:
             selected.kind === "native"
-              ? selected.native.configuration
+              ? configuration
               : {
-                  ...selected.configuration,
+                  ...configuration,
                   name: nativeName,
                   description: selected.description,
                 },
@@ -184,7 +210,7 @@ export const compileSubagentImplementation = (args: {
     _tag: "Compiled",
     mode,
     nativeName,
-    sourceDependencies: selected.sourceDependencies,
+    sourceDependencies,
     input,
     outputs: rendered.outputs,
     qualifications:
@@ -195,3 +221,45 @@ export const compileSubagentImplementation = (args: {
           ],
   };
 };
+
+/** Bind selected runtime inputs while the candidate source tree is still alive. */
+export const prepareSubagentImplementation = Effect.fn("prepareSubagentImplementation")(
+  function* (args: {
+    readonly package: DecodedSubagentPackage;
+    readonly agentId: string;
+    readonly sourceRoot: string;
+    readonly retainedRoot: string;
+  }) {
+    const selected = selectSubagentImplementation(args.package, args.agentId);
+    if (
+      selected.kind === "unsupported" ||
+      (selected.kind === "native" && selected.native.format === "json")
+    )
+      return compileSubagentImplementation(args);
+    const path = yield* Path.Path;
+    return yield* bindSubagentResources({
+      agentId: args.agentId,
+      configuration:
+        selected.kind === "native" ? selected.native.configuration : selected.configuration,
+      body: selected.kind === "native" ? selected.native.instructions : selected.instructions,
+      ...(selected.kind === "native" && selected.native.format !== "json"
+        ? { native: { format: selected.native.format, content: selected.native.content } }
+        : {}),
+      base: selected.kind === "native" ? path.dirname(selected.source) : ".",
+      sourceRoot: args.sourceRoot,
+      retainedRoot: args.retainedRoot,
+    }).pipe(
+      Effect.map((resources) => compileSubagentImplementation({ ...args, resources })),
+      Effect.catchTag("PackageResourceInvalid", (error) =>
+        Effect.succeed({
+          _tag: "Unsupported",
+          mode: selected.kind === "core" ? "portable" : selected.kind,
+          reasonCode: "subagent-runtime-reference-unresolved",
+          reason: `${error.detail} (${error.reference})`,
+          sourceDependencies: selected.sourceDependencies,
+          resourceFailure: error,
+        } satisfies CompiledSubagentImplementation),
+      ),
+    );
+  },
+);

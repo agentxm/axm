@@ -49,6 +49,7 @@ import { SourceHostProvidersTest } from "@agentxm/workspace-kernel/sources/testi
 import { SubagentManagerLive } from "./manager.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { parseNativeSubagent } from "@agentxm/extension-content";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -455,6 +456,65 @@ describe("SubagentManager", () => {
         expect(nodeFs.readFileSync(native, "utf8")).toBe("Repository-formatted planner\n");
       }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [actual] })));
     });
+
+    it.effect(
+      "binds staged resources to retained content and observes changes after acquisition ends",
+      () => {
+        const sourceDir = nodePath.join(tmpDir, "source", "planner");
+        writeSubagentPackage(sourceDir, "planner", "Plans work");
+        nodeFs.writeFileSync(
+          nodePath.join(sourceDir, "subagent.json"),
+          JSON.stringify({
+            owner: "@acme",
+            type: "subagent",
+            name: "planner",
+            version: "1.0.0",
+            description: "Plans work",
+            core: { instructions: "src/planner.md" },
+            implementations: {
+              codex: {
+                kind: "customized",
+                configuration: { model_instructions_file: "instructions.md" },
+              },
+            },
+          }),
+        );
+        nodeFs.writeFileSync(
+          nodePath.join(sourceDir, "instructions.md"),
+          "Review the complete plan.",
+        );
+        const projectDir = nodePath.join(tmpDir, "project");
+        const axmDir = nodePath.join(projectDir, ".axm");
+        nodeFs.mkdirSync(axmDir, { recursive: true });
+        const actual = codingAgentForId("codex");
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const ref = makeLocalSubagentRef("planner", sourceDir);
+          yield* manager.materializeInstall({ ref });
+          const placement = yield* actual.resolveEffectiveSubagentsDir({
+            workspaceRoot: projectDir,
+            scope: "project",
+          });
+          expect(placement._tag).toBe("supported");
+          if (placement._tag !== "supported") return;
+          const native = nodePath.join(placement.dir, "planner.toml");
+          const definition = yield* parseNativeSubagent({
+            agentId: "codex",
+            source: "planner.toml",
+            content: nodeFs.readFileSync(native, "utf8"),
+          });
+          const resource = definition.configuration["model_instructions_file"];
+          expect(typeof resource).toBe("string");
+          if (typeof resource !== "string") return;
+          expect(resource).toContain(nodePath.join(projectDir, "agent_extensions"));
+          nodeFs.rmSync(sourceDir, { recursive: true });
+          expect(nodeFs.readFileSync(resource, "utf8")).toBe("Review the complete plan.");
+          expect((yield* manager.projectionObservation(ref)).current).toBe(true);
+          nodeFs.writeFileSync(resource, "Review the updated plan.");
+          expect((yield* manager.projectionObservation(ref)).current).toBe(false);
+        }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [actual] })));
+      },
+    );
 
     it.effect("keys written files physically when the workspace root is an alias", () => {
       const sourceDir = nodePath.join(tmpDir, "source", "planner");

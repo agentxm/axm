@@ -31,6 +31,8 @@ export interface SubagentRenderInput {
   readonly frontmatter: Readonly<Record<string, unknown>>;
   /** Selected compile-time inputs that participate in projection currency. */
   readonly sourceDependencies?: ReadonlyArray<string>;
+  /** Selected runtime resources participate in generation even when native paths do not change. */
+  readonly resourceInputs?: ReadonlyArray<{ readonly path: string; readonly digest: string }>;
   /** Complete native definition; it replaces portable serialization. */
   readonly native?: {
     readonly format: "markdown" | "toml";

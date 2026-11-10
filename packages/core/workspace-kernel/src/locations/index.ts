@@ -1,4 +1,5 @@
 /** Physical native addresses. Identity is an observation, never ownership authority. */
+export { bindPackageResource, PackageResourceInvalid } from "./package-resource.js";
 export { observationViewLayer, type NativeObservationView } from "./observation-view.js";
 export { nativeInode } from "./native-inode.js";
 export { NativeEntryRemoval } from "./native-entry-removal.js";

@@ -223,7 +223,10 @@ export { diffAgentEntry } from "./mcps/drift.js";
 
 // Subagent managed output
 export { subagentProvenance, type SubagentProvenance } from "./subagents/managed-file.js";
-export { compileSubagentImplementation } from "./subagents/compile.js";
+export {
+  compileSubagentImplementation,
+  prepareSubagentImplementation,
+} from "./subagents/compile.js";
 export {
   subagentProjectionGeneration,
   type SubagentGenerationArgs,

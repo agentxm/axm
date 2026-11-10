@@ -6,7 +6,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { fromFileLocation } from "@agentxm/host-primitives";
-import { loadSubagentPackage, type DecodedSubagentPackage } from "@agentxm/extension-content";
+import { loadSubagentPackage, selectSubagentImplementation } from "@agentxm/extension-content";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
@@ -44,7 +44,7 @@ import {
 import {
   CodingAgentRepository,
   captureAgentOutputAuthority,
-  compileSubagentImplementation,
+  prepareSubagentImplementation,
   decideOutputDeletion,
   ProjectionOutputPosture,
   REPLACE_UNRECORDED_FLAG,
@@ -113,6 +113,7 @@ export const SubagentManagerLive = Layer.effect(
       );
     const readPackage = (root: string) =>
       loadSubagentPackage(root).pipe(
+        Effect.map((pkg) => ({ package: pkg, sourceRoot: root })),
         Effect.mapError(
           (cause) =>
             new SubagentDefinitionInvalid({
@@ -121,6 +122,7 @@ export const SubagentManagerLive = Layer.effect(
             }),
         ),
       );
+    type PreparedPackage = Effect.Success<ReturnType<typeof readPackage>>;
     // The source path feeds a generation recorded in a shared lockfile, so it
     // is POSIX on every platform.
     const provenance = (ref: SubagentExtensionRef) =>
@@ -139,7 +141,7 @@ export const SubagentManagerLive = Layer.effect(
     const subagentRows = accepted.projectionRows("subagents");
     const preparedTargets = (
       ref: SubagentExtensionRef,
-      pkg: DecodedSubagentPackage,
+      pkg: PreparedPackage,
       configuredAgents?: ReadonlyArray<string>,
     ) =>
       Effect.gen(function* () {
@@ -154,7 +156,16 @@ export const SubagentManagerLive = Layer.effect(
             );
         return yield* Effect.forEach(agents, (agent) =>
           Effect.gen(function* () {
-            const compiled = compileSubagentImplementation({ package: pkg, agentId: agent.id });
+            const compiled = yield* prepareSubagentImplementation({
+              ...pkg,
+              agentId: agent.id,
+              retainedRoot: getCanonicalPaths(ref).canonicalPath,
+            });
+            if (compiled._tag === "Unsupported" && compiled.resourceFailure !== undefined)
+              return yield* new SubagentDefinitionInvalid({
+                detail: `Cannot bind ${agent.id} Subagent resources: ${compiled.reason}`,
+                cause: compiled.resourceFailure,
+              });
             const directory = yield* agent.resolveEffectiveSubagentsDir({
               workspaceRoot: baseDir,
               scope: location.scope,
@@ -332,14 +343,12 @@ export const SubagentManagerLive = Layer.effect(
         )
           return yield* readPackage(canonical);
         if (ref.refType === "registry" || ref.refType === "http")
-          return yield* Effect.scoped(
-            Effect.gen(function* () {
-              const { directory } = yield* ref.refType === "http"
-                ? sources.acquireForTransition(ref)
-                : sources.fetch(ref);
-              return yield* readPackage(directory);
-            }),
-          );
+          return yield* Effect.gen(function* () {
+            const { directory } = yield* ref.refType === "http"
+              ? sources.acquireForTransition(ref)
+              : sources.fetch(ref);
+            return yield* readPackage(directory);
+          });
         return yield* readPackage(fromFileLocation(ref.location));
       }).pipe(
         Effect.mapError((cause) =>
@@ -353,14 +362,16 @@ export const SubagentManagerLive = Layer.effect(
       state,
       options,
     ) =>
-      Effect.gen(function* () {
-        const pkg = yield* readPackageForRef(ref, state, options);
-        if (options?.validateDestinations === true)
-          yield* preflight(ref, pkg, options.configuredAgents);
-        return (yield* preparedTargets(ref, pkg, options?.configuredAgents)).map((target) =>
-          outcomeForTarget(ref, target, state),
-        );
-      });
+      Effect.scoped(
+        Effect.gen(function* () {
+          const pkg = yield* readPackageForRef(ref, state, options);
+          if (options?.validateDestinations === true)
+            yield* preflight(ref, pkg, options.configuredAgents);
+          return (yield* preparedTargets(ref, pkg, options?.configuredAgents)).map((target) =>
+            outcomeForTarget(ref, target, state),
+          );
+        }),
+      );
     /** Native files of these names in every Subagent container, declared or not. */
     const observeNamed = (names: ReadonlySet<string>, authority: AgentOutputAuthority) =>
       observeAgentOutputs({
@@ -397,7 +408,7 @@ export const SubagentManagerLive = Layer.effect(
         ),
       ]);
     /**
-     * An accepted Subagent's own name and every native name it renders, or
+     * An accepted Subagent's own name and every selected native name, or
      * `None` when its accepted package cannot be read.
      */
     const acceptedNames = (name: string) =>
@@ -416,11 +427,12 @@ export const SubagentManagerLive = Layer.effect(
           new Set([
             name,
             ...agents.flatMap((agent) => {
-              const compiled = compileSubagentImplementation({
-                package: pkg.value,
-                agentId: agent.id,
-              });
-              return compiled._tag === "Compiled" ? [compiled.nativeName] : [];
+              // A missing resource does not release a declared native name to
+              // another package's orphan cleanup.
+              const selected = selectSubagentImplementation(pkg.value.package, agent.id);
+              return selected.kind === "unsupported"
+                ? []
+                : [selected.kind === "native" ? selected.native.name : selected.name];
             }),
           ]),
         );
@@ -569,7 +581,7 @@ export const SubagentManagerLive = Layer.effect(
      */
     const preflight = (
       ref: SubagentExtensionRef,
-      pkg: DecodedSubagentPackage,
+      pkg: PreparedPackage,
       configuredAgents?: ReadonlyArray<string>,
       unrecorded: "refuse" | "report" = "refuse",
     ) =>

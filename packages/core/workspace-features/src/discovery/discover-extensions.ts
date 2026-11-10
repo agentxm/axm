@@ -23,6 +23,16 @@ export interface DiscoverExtensionsRequest {
   readonly projectDir: string;
 }
 
+/** A local dependency observation failed before recommendations could be established. */
+export class DependencyDiscoveryFailed extends Schema.TaggedError<DependencyDiscoveryFailed>()(
+  "DependencyDiscoveryFailed",
+  {
+    category: Schema.Literal("internal"),
+    detail: Schema.String,
+    cause: Schema.Unknown,
+  },
+) {}
+
 const DiscoveredExtensionSchema = Schema.Struct({
   ref: Schema.String,
   source: Schema.Union([
@@ -150,7 +160,17 @@ export const detectedPackageName = (pkg: DiscoverPackageResult): string => {
 export const DiscoverExtensions = {
   query: Effect.fn("DiscoverExtensions.query")(function* (request: DiscoverExtensionsRequest) {
     const factory = yield* RegistryClientFactory;
-    const result = yield* discover(request.projectDir, factory);
+    const result = yield* discover(request.projectDir, factory).pipe(
+      Effect.catchTag("PlatformError", (cause) =>
+        Effect.fail(
+          new DependencyDiscoveryFailed({
+            category: "internal",
+            detail: "Cannot inspect local dependency locations",
+            cause,
+          }),
+        ),
+      ),
+    );
     return {
       document: toDocument(result),
       packages: result.packages,

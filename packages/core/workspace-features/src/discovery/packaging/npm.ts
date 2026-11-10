@@ -6,6 +6,8 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import { valid } from "semver";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
@@ -22,17 +24,6 @@ const AgentExtensionsContainerSchema = Schema.Struct({
   agentExtensions: Schema.optional(Schema.Unknown),
 });
 const decodeAgentExtensionsContainer = Schema.decodeUnknownResult(AgentExtensionsContainerSchema);
-
-/** Prefixes that indicate non-registry specifiers to skip. */
-const SKIP_PREFIXES = ["file:", "link:", "workspace:", "git+", "git:", "github:"] as const;
-
-/** Returns true if the specifier should be skipped (non-registry). */
-const isSkippedSpecifier = (specifier: string): boolean => {
-  if (SKIP_PREFIXES.some((prefix) => specifier.startsWith(prefix))) return true;
-  // URL-based specifiers
-  if (specifier.startsWith("http://") || specifier.startsWith("https://")) return true;
-  return false;
-};
 
 /**
  * Returns true if the specifier is an exact semver version (no range operators).
@@ -82,15 +73,13 @@ const parsePackageName = (
 };
 
 /**
- * Convert a single dependency entry to a DetectedPackage, or undefined if skipped.
+ * Describe dependency intent before local resolution supplies authoritative package facts.
  */
 const depToPurl = (
   depName: string,
   specifier: string,
   source: string,
 ): DetectedPackage | undefined => {
-  if (isSkippedSpecifier(specifier)) return undefined;
-
   // Resolve npm aliases to real package name
   const alias = parseNpmAlias(specifier);
   const resolvedName = alias ? alias.name : depName;
@@ -119,40 +108,132 @@ const DependencySectionsSchema = Schema.Struct({
   dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   devDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   peerDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  optionalDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
 
 const decodeDependencySections = Schema.decodeUnknownResult(DependencySectionsSchema);
 
-/**
- * Extract dependencies from a parsed package.json value.
- */
-const extractDeps = (manifest: unknown, source: string): ReadonlyArray<DetectedPackage> => {
+const InstalledPackageSchema = Schema.Struct({
+  name: Schema.String,
+  version: Schema.String,
+});
+const decodeInstalledPackage = Schema.decodeUnknownResult(InstalledPackageSchema);
+
+// A dependency key is a package name, never an arbitrary filesystem path.
+const isPackageName = (name: string): boolean =>
+  /^(?:@[a-z0-9._~-]+\/)?[a-z0-9_~][a-z0-9._~-]*$/iu.test(name);
+
+const localDirectory = (specifier: string): string | undefined => {
+  for (const prefix of ["file:", "link:", "workspace:"]) {
+    if (!specifier.startsWith(prefix)) continue;
+    const relative = specifier.slice(prefix.length);
+    if (prefix !== "workspace:" || relative.startsWith(".")) return relative;
+  }
+  return undefined;
+};
+
+/** Resolve the declared installation key, including aliases and hoisted dependencies. */
+const resolveMetadataPath = Effect.fn("discover.npm.resolveMetadataPath")(function* (
+  projectDir: string,
+  name: string,
+  specifier: string,
+) {
+  const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
+  let directory = path.resolve(projectDir);
+  while (true) {
+    if (path.basename(directory) !== "node_modules") {
+      const candidate = path.join(directory, "node_modules", name, "package.json");
+      if (yield* fs.exists(candidate)) return Option.some(candidate);
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  const local = localDirectory(specifier);
+  if (local !== undefined) {
+    const candidate = path.resolve(projectDir, local, "package.json");
+    if (yield* fs.exists(candidate)) return Option.some(candidate);
+  }
+  return Option.none<string>();
+});
+
+const resolveDependency = Effect.fn("discover.npm.resolveDependency")(function* (
+  declaration: { readonly name: string; readonly specifier: string },
+  source: string,
+) {
+  const path = yield* Path.Path;
+  const fallback = depToPurl(declaration.name, declaration.specifier, source);
+  const unresolved =
+    fallback === undefined
+      ? undefined
+      : {
+          ...fallback,
+          declaration,
+          resolution: { state: "unavailable" as const },
+        };
+  if (!isPackageName(declaration.name)) return undefined;
+  const metadataPath = yield* resolveMetadataPath(
+    path.dirname(source),
+    declaration.name,
+    declaration.specifier,
+  );
+  if (Option.isNone(metadataPath)) return unresolved;
+  const content = yield* readFileOptional(metadataPath.value);
+  if (Option.isNone(content)) return unresolved;
+  const parsed = yield* parseJsonOptional(content.value, metadataPath.value);
+  if (Option.isNone(parsed)) return unresolved;
+  const decoded = decodeInstalledPackage(parsed.value);
+  if (
+    Result.isFailure(decoded) ||
+    !isPackageName(decoded.success.name) ||
+    valid(decoded.success.version) === null
+  ) {
+    yield* Effect.logWarning(
+      `Invalid installed package identity in ${metadataPath.value}, skipping`,
+    );
+    return unresolved;
+  }
+  const detected = makeDetectedPackage({
+    type: npmType,
+    ...parsePackageName(decoded.success.name),
+    version: decoded.success.version,
+    source,
+  });
+  return Option.isNone(detected)
+    ? unresolved
+    : {
+        ...detected.value,
+        declaration,
+        resolution: { state: "resolved" as const, metadataPath: metadataPath.value },
+      };
+});
+
+/** Keep declaration provenance until the adapter has observed the actual package. */
+const extractDeps = Effect.fn("discover.npm.extractDeps")(function* (
+  manifest: unknown,
+  source: string,
+) {
   const decoded = decodeDependencySections(manifest);
   if (Result.isFailure(decoded)) return [];
-
-  const sections = [
-    decoded.success.dependencies,
-    decoded.success.devDependencies,
-    decoded.success.peerDependencies,
-  ] as const;
-  const results: Array<DetectedPackage> = [];
-
-  for (const deps of sections) {
-    if (deps === undefined) continue;
-    for (const [name, specifier] of Object.entries(deps)) {
-      const detected = depToPurl(name, specifier, source);
-      if (detected !== undefined) results.push(detected);
-    }
-  }
-
-  return results;
-};
+  // Optional dependencies override the same key in dependencies, as npm specifies.
+  const dependencies = {
+    ...decoded.success.peerDependencies,
+    ...decoded.success.devDependencies,
+    ...decoded.success.dependencies,
+    ...decoded.success.optionalDependencies,
+  };
+  const results = yield* Effect.forEach(Object.entries(dependencies), ([name, specifier]) =>
+    resolveDependency({ name, specifier }, source),
+  );
+  return results.filter((result) => result !== undefined);
+});
 
 /**
  * npm package detector.
  *
  * Scans `package.json` in the project directory and extracts dependencies
- * from `dependencies`, `devDependencies`, and `peerDependencies`.
+ * from dependency sections, then resolves installed or explicitly local metadata.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -169,7 +250,7 @@ export const npmDetector: PackageDetector = {
       const parsed = yield* parseJsonOptional(content.value, "package.json");
       if (Option.isNone(parsed)) return [];
 
-      return extractDeps(parsed.value, manifestPath);
+      return yield* extractDeps(parsed.value, manifestPath);
     },
     Effect.annotateLogs({ detector: "npm" }),
     Effect.withSpan("detect.npm"),
@@ -179,8 +260,8 @@ export const npmDetector: PackageDetector = {
 /**
  * npm package reader.
  *
- * Reads `node_modules/<name>/package.json` for each detected npm package
- * and extracts the top-level `"agentExtensions"` array.
+ * Reads the resolved metadata location and extracts the portable recommendations.
+ * Identity must still match the detector observation.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -188,21 +269,23 @@ export const npmReader: PackageReader = {
   type: npmType,
   read: Effect.fn("read.npm")(
     function* (pkg: DetectedPackage) {
-      const path = yield* Path.Path;
-
-      // Derive project directory from the source manifest path
-      const projectDir = path.dirname(pkg.source);
-
-      // Reconstruct the package name from purl parts
-      const pkgName = pkg.purl.namespace ? `${pkg.purl.namespace}/${pkg.purl.name}` : pkg.purl.name;
-
-      const pkgJsonPath = path.join(projectDir, "node_modules", pkgName, "package.json");
-
-      const content = yield* readFileOptional(pkgJsonPath);
+      if (pkg.resolution?.state !== "resolved") return Option.none();
+      const content = yield* readFileOptional(pkg.resolution.metadataPath);
       if (Option.isNone(content)) return Option.none();
-
-      const parsed = yield* parseJsonOptional(content.value, pkgName);
+      const parsed = yield* parseJsonOptional(content.value, pkg.resolution.metadataPath);
       if (Option.isNone(parsed)) return Option.none();
+      const identity = decodeInstalledPackage(parsed.value);
+      const pkgName = pkg.purl.namespace ? `${pkg.purl.namespace}/${pkg.purl.name}` : pkg.purl.name;
+      if (
+        Result.isFailure(identity) ||
+        identity.success.name !== pkgName ||
+        identity.success.version !== pkg.purl.version
+      ) {
+        yield* Effect.logWarning(
+          `Package identity changed in ${pkg.resolution.metadataPath}, skipping`,
+        );
+        return Option.none();
+      }
 
       const containerResult = decodeAgentExtensionsContainer(parsed.value);
       if (Result.isFailure(containerResult)) {

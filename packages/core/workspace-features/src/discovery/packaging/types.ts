@@ -10,6 +10,7 @@ import type * as Config from "effect/Config";
 import type * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
+import type * as PlatformError from "effect/PlatformError";
 import type { AgentExtensionRecommendation } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import type { PackageType } from "@agentxm/extension-model/unstable/packaging/package-type";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
@@ -24,6 +25,12 @@ export interface DetectedPackage {
   readonly type: PackageType;
   /** File that produced this purl (for diagnostics). */
   readonly source: string;
+  /** Dependency intent, distinct from the identity and version observed on disk. */
+  readonly declaration?: { readonly name: string; readonly specifier: string };
+  /** Adapters that resolve local packages carry their exact metadata location to readers. */
+  readonly resolution?:
+    | { readonly state: "resolved"; readonly metadataPath: string }
+    | { readonly state: "unavailable" };
 }
 
 /**
@@ -35,7 +42,11 @@ export interface PackageDetector {
   readonly type: PackageType;
   readonly detect: (
     projectDir: string,
-  ) => Effect.Effect<ReadonlyArray<DetectedPackage>, never, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<
+    ReadonlyArray<DetectedPackage>,
+    PlatformError.PlatformError,
+    FileSystem.FileSystem | Path.Path
+  >;
 }
 
 /**

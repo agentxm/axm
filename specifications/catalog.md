@@ -1415,7 +1415,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/discover/reports-companions-for-detected-dependencies`
 - Owner: `workspace-features`
-- Statement: When discovering companion extensions, AXM shall report Registry recommendations only for dependencies detected in the selected project, including their observed package versions and the Registry-provided attestation information.
+- Statement: When discovering companion extensions, AXM shall report Registry recommendations only for dependencies detected in the selected project, using observed installed identity, version, and metadata location for npm dependencies including ranges, aliases, linked workspace packages, local packages, and hoisted installations, preserving declaration provenance and the Registry-provided attestation information.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`

@@ -2,6 +2,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as nodePath from "node:path";
+import * as fs from "node:fs";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { discover } from "../discover.js";
@@ -16,7 +17,7 @@ export const specification = defineSpecification({
   requirement: "cli/discover/reports-companions-for-detected-dependencies",
   title: "Discover reports companions for actual project dependencies",
   statement:
-    "When discovering companion extensions, AXM shall report Registry recommendations only for dependencies detected in the selected project, including their observed package versions and the Registry-provided attestation information.",
+    "When discovering companion extensions, AXM shall report Registry recommendations only for dependencies detected in the selected project, using observed installed identity, version, and metadata location for npm dependencies including ranges, aliases, linked workspace packages, local packages, and hoisted installations, preserving declaration provenance and the Registry-provided attestation information.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "machine-automation", "actionable-diagnostics"],
@@ -215,4 +216,105 @@ describe("Dependency-backed companion discovery", () => {
       expect(snapshotTree(project.root)).toEqual(before);
     }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(project.cleanup)));
   });
+  it.effect("uses installed versions and alias locations in a hoisted project", () => {
+    const project = makeTemporaryProject();
+    project.writeJson("packages/app/package.json", {
+      dependencies: {
+        modern: "npm:react@^18.0.0",
+        legacy: "npm:react@^17.0.0",
+        mirror: "npm:react@^18.0.0",
+        absent: "^1.0.0",
+      },
+    });
+    for (const [alias, version] of [
+      ["modern", "18.3.1"],
+      ["legacy", "17.0.2"],
+      ["mirror", "18.3.1"],
+    ]) {
+      project.writeJson(`node_modules/${alias}/package.json`, {
+        name: "react",
+        version,
+        agentExtensions: [{ ref: companion.ref, source: companion.source }],
+      });
+    }
+    const before = snapshotTree(project.root);
+    const registry = makeRecordedRegistryPort(() => ({
+      body: {
+        results: [
+          {
+            purl: "pkg:npm/react",
+            version: "17.0.2",
+            status: "resolved",
+            extensions: [{ ...companion, official: false }],
+          },
+          { purl: "pkg:npm/react", version: "18.3.1", status: "resolved", extensions: [companion] },
+        ],
+      },
+    }));
+    return Effect.gen(function* () {
+      const client = yield* registry.client;
+      const result = yield* discover(
+        nodePath.join(project.root, "packages/app"),
+        registryFactoryForClient(client),
+      );
+      expect(result.totalDetected).toBe(4);
+      expect(result.packages).toMatchObject([
+        { detectedPackage: { name: "react", version: "18.3.1" }, extensions: [{ official: true }] },
+        {
+          detectedPackage: { name: "react", version: "17.0.2" },
+          extensions: [{ official: false }],
+        },
+        { detectedPackage: { name: "react", version: "18.3.1" }, extensions: [{ official: true }] },
+      ]);
+      expect(registry.requests).toHaveLength(1);
+      expect(registry.requests[0]?.body).toMatchObject({
+        packages: [
+          { purl: "pkg:npm/react", version: "18.3.1" },
+          { purl: "pkg:npm/react", version: "17.0.2" },
+        ],
+      });
+      expect(snapshotTree(project.root)).toEqual(before);
+    }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(project.cleanup)));
+  });
+
+  it.effect(
+    "reads linked workspace and explicit local packages from their observed locations",
+    () => {
+      const project = makeTemporaryProject();
+      project.writeJson("package.json", {
+        dependencies: {
+          workspace: "workspace:*",
+          file: "file:./packages/file",
+          link: "link:./packages/link",
+        },
+      });
+      for (const name of ["workspace", "file", "link"]) {
+        project.writeJson(`packages/${name}/package.json`, {
+          name: `@acme/${name}`,
+          version: "2.1.0",
+          agentExtensions: [{ ref: companion.ref, source: companion.source }],
+        });
+      }
+      fs.mkdirSync(nodePath.join(project.root, "node_modules"));
+      fs.symlinkSync(
+        "../packages/workspace",
+        nodePath.join(project.root, "node_modules/workspace"),
+        "dir",
+      );
+      const before = snapshotTree(project.root);
+      const registry = makeRecordedRegistryPort(() => ({ body: { results: [] } }));
+      return Effect.gen(function* () {
+        const client = yield* registry.client;
+        const result = yield* discover(project.root, registryFactoryForClient(client));
+        expect(result.packages.map((pkg) => pkg.detectedPackage)).toEqual([
+          { type: "npm", namespace: "@acme", name: "workspace", version: "2.1.0" },
+          { type: "npm", namespace: "@acme", name: "file", version: "2.1.0" },
+          { type: "npm", namespace: "@acme", name: "link", version: "2.1.0" },
+        ]);
+        expect(result.packages.every((pkg) => pkg.extensions[0]?.ref === companion.ref)).toBe(true);
+        expect(registry.requests).toHaveLength(1);
+        expect(snapshotTree(project.root)).toEqual(before);
+      }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(project.cleanup)));
+    },
+  );
 });

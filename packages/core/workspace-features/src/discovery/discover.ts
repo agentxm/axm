@@ -36,6 +36,7 @@ import {
 import { readLocalRecommendations } from "./packaging/read.js";
 import {
   AGENTXM_REGISTRY_URL,
+  AgentExtensionRecommendationSchema,
   type AgentExtensionRecommendation,
   type AgentExtensionSource,
 } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
@@ -64,6 +65,7 @@ export interface DiscoverResult {
 }
 
 const encodePurl = Schema.encodeSync(PackageUrlSchema);
+const sameRecommendation = Schema.toEquivalence(AgentExtensionRecommendationSchema);
 
 const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
   type: parts.type,
@@ -183,8 +185,7 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
           return [];
         }
 
-        const purl = encodePurl(pkg.purl);
-        const declarations = Option.match(HashMap.get(localExtensions, purl), {
+        const declarations = Option.match(HashMap.get(localExtensions, pkg), {
           onNone: (): ReadonlyArray<AgentExtensionRecommendation> => [],
           onSome: (value) => value,
         });
@@ -234,7 +235,15 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
         (endpoint) =>
           Effect.gen(function* () {
             const client = yield* registryFactory.forEndpoint(endpoint);
-            const packages = declaredPackages.flatMap((pkg) => {
+            const packagesByIdentity = new Map<
+              string,
+              {
+                purl: PackageUrlParts;
+                version: string;
+                declaredExtensions: AgentExtensionRecommendation[];
+              }
+            >();
+            for (const pkg of declaredPackages) {
               const declaredExtensions = pkg.recommendations
                 .filter((entry) =>
                   Option.exists(recommendationEndpoint(entry), (declared) =>
@@ -242,11 +251,30 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
                   ),
                 )
                 .map((entry) => entry.declaration);
-              return declaredExtensions.length === 0
-                ? []
-                : [{ purl: pkg.identity, version: pkg.version, declaredExtensions }];
-            });
-            const result = yield* Effect.result(client.discoverPackages({ packages }));
+              if (declaredExtensions.length === 0) continue;
+              const key = JSON.stringify([pkg.identityPurl, pkg.version]);
+              const existing = packagesByIdentity.get(key);
+              if (existing === undefined) {
+                packagesByIdentity.set(key, {
+                  purl: pkg.identity,
+                  version: pkg.version,
+                  declaredExtensions,
+                });
+              } else {
+                for (const declaration of declaredExtensions) {
+                  if (
+                    !existing.declaredExtensions.some((entry) =>
+                      sameRecommendation(entry, declaration),
+                    )
+                  ) {
+                    existing.declaredExtensions.push(declaration);
+                  }
+                }
+              }
+            }
+            const result = yield* Effect.result(
+              client.discoverPackages({ packages: [...packagesByIdentity.values()] }),
+            );
             if (Result.isFailure(result)) {
               yield* Effect.logWarning(
                 "Registry source is unreachable; recommendations remain unresolved",
@@ -272,7 +300,7 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
           return unresolvedEntry(recommendation);
         }
         const packageResult = query.result.success.results.find(
-          (candidate) => candidate.purl === pkg.identityPurl,
+          (candidate) => candidate.purl === pkg.identityPurl && candidate.version === pkg.version,
         );
         const extension = packageResult?.extensions.find(
           (candidate) => candidate.ref === recommendation.ref,

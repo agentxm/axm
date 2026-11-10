@@ -8,6 +8,7 @@
 
 export {
   detectedPackageName,
+  DependencyDiscoveryFailed,
   DiscoverExtensions,
   DiscoverOutputSchema,
   type DiscoverExtensionsResult,

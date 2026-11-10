@@ -1,6 +1,6 @@
 /**
  * Read orchestrator: matches detected packages to readers and collects
- * recommended extension refs into a HashMap keyed by encoded purl.
+ * recommended extension refs keyed by their detected package observation.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -10,11 +10,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
-import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
 import type { DetectedPackage, PackageReader } from "./types.js";
-
-const encodePurl = Schema.encodeSync(PackageUrlSchema);
 
 /**
  * Read local recommendations for each detected package using matching readers.
@@ -32,11 +28,7 @@ export const readLocalRecommendations = Effect.fn("discover.readLocal")(function
       if (!reader) return Effect.succeed(Option.none());
       return reader
         .read(pkg)
-        .pipe(
-          Effect.map((result) =>
-            Option.map(result, (refs) => [encodePurl(pkg.purl), refs] as const),
-          ),
-        );
+        .pipe(Effect.map((result) => Option.map(result, (refs) => [pkg, refs] as const)));
     },
     { concurrency: 16 },
   );

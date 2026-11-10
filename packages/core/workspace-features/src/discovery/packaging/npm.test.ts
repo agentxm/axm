@@ -170,29 +170,33 @@ describe("npmDetector", () => {
   });
 
   describe("skipped specifiers", () => {
-    it.effect("file: specifier is skipped", () =>
+    it.effect("file: specifier without local metadata remains unavailable", () =>
       withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { "my-lib": "file:../my-lib" } }),
           );
-          expect(result).toEqual([]);
+          expect(result).toMatchObject([
+            { purl: { name: "my-lib" }, resolution: { state: "unavailable" } },
+          ]);
         }),
       ),
     );
 
-    it.effect("workspace: specifier is skipped", () =>
+    it.effect("workspace: specifier without local metadata remains unavailable", () =>
       withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { "my-lib": "workspace:*" } }),
           );
-          expect(result).toEqual([]);
+          expect(result).toMatchObject([
+            { purl: { name: "my-lib" }, resolution: { state: "unavailable" } },
+          ]);
         }),
       ),
     );
 
-    it.effect("git: specifier is skipped", () =>
+    it.effect("git: specifier without local metadata remains unavailable", () =>
       withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
@@ -202,12 +206,14 @@ describe("npmDetector", () => {
               },
             }),
           );
-          expect(result).toEqual([]);
+          expect(result).toMatchObject([
+            { purl: { name: "my-lib" }, resolution: { state: "unavailable" } },
+          ]);
         }),
       ),
     );
 
-    it.effect("URL specifier is skipped", () =>
+    it.effect("URL specifier without local metadata remains unavailable", () =>
       withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
@@ -217,18 +223,22 @@ describe("npmDetector", () => {
               },
             }),
           );
-          expect(result).toEqual([]);
+          expect(result).toMatchObject([
+            { purl: { name: "my-lib" }, resolution: { state: "unavailable" } },
+          ]);
         }),
       ),
     );
 
-    it.effect("link: specifier is skipped", () =>
+    it.effect("link: specifier without local metadata remains unavailable", () =>
       withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { "my-lib": "link:../my-lib" } }),
           );
-          expect(result).toEqual([]);
+          expect(result).toMatchObject([
+            { purl: { name: "my-lib" }, resolution: { state: "unavailable" } },
+          ]);
         }),
       ),
     );
@@ -327,13 +337,30 @@ const readInTempDir = (
       const pkgName = pkgPurl.namespace ? `${pkgPurl.namespace}/${pkgPurl.name}` : pkgPurl.name;
       const pkgDir = path.join(tmpDir, "node_modules", pkgName);
       yield* fs.makeDirectory(pkgDir, { recursive: true });
-      yield* fs.writeFileString(path.join(pkgDir, "package.json"), nodeModulesPackageJson);
+      const manifest: unknown = JSON.parse(nodeModulesPackageJson);
+      const object = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
+        manifest,
+      );
+      yield* fs.writeFileString(
+        path.join(pkgDir, "package.json"),
+        JSON.stringify({ version: "1.0.0", ...object }),
+      );
     }
 
     const detected = {
-      purl: pkgPurl,
+      purl: { ...pkgPurl, version: "1.0.0" },
       type: npmType,
       source: path.join(tmpDir, "package.json"),
+      resolution: {
+        state: "resolved" as const,
+        metadataPath: path.join(
+          tmpDir,
+          "node_modules",
+          pkgPurl.namespace ?? "",
+          pkgPurl.name,
+          "package.json",
+        ),
+      },
     };
     return yield* npmReader.read(detected);
   }).pipe(Effect.scoped);
@@ -513,4 +540,41 @@ describe("npmReader", () => {
       ),
     );
   });
+  it.effect("refuses metadata that changed identity after dependency resolution", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const metadataPath = path.join(root, "node_modules/react/package.json");
+        yield* fs.makeDirectory(path.dirname(metadataPath), { recursive: true });
+        yield* fs.writeFileString(
+          path.join(root, "package.json"),
+          JSON.stringify({ dependencies: { react: "^18" } }),
+        );
+        yield* fs.writeFileString(
+          metadataPath,
+          JSON.stringify({ name: "react", version: "18.3.1" }),
+        );
+        const detected = yield* npmDetector.detect(root);
+        const observed = detected[0];
+        expect(observed).toMatchObject({
+          purl: { name: "react", version: "18.3.1" },
+          declaration: { name: "react", specifier: "^18" },
+          source: path.join(root, "package.json"),
+          resolution: { state: "resolved", metadataPath },
+        });
+        if (observed === undefined) throw new Error("Expected an observed dependency");
+        yield* fs.writeFileString(
+          metadataPath,
+          JSON.stringify({
+            name: "react",
+            version: "19.0.0",
+            agentExtensions: [{ ref: "@acme/skills/unrelated" }],
+          }),
+        );
+        expect(Option.isNone(yield* npmReader.read(observed))).toBe(true);
+      }).pipe(Effect.scoped),
+    ),
+  );
 });

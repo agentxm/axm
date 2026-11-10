@@ -27,5 +27,13 @@ export const detectPackages = Effect.fn("discover.detect")(function* (
     concurrency: 16,
   });
   const allDetected = Array.flatten(results);
-  return Array.dedupeWith(allDetected, (a, b) => purlEquivalence(a.purl, b.purl));
+  return Array.dedupeWith(
+    allDetected,
+    (a, b) =>
+      purlEquivalence(a.purl, b.purl) &&
+      a.resolution?.state === b.resolution?.state &&
+      (a.resolution?.state !== "resolved" ||
+        (b.resolution?.state === "resolved" &&
+          a.resolution.metadataPath === b.resolution.metadataPath)),
+  );
 });

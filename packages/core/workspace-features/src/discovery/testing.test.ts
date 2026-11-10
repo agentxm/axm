@@ -3,12 +3,45 @@ import { it } from "@effect/vitest";
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as FileSystem from "effect/FileSystem";
+import * as PlatformError from "effect/PlatformError";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 
 import { DiscoverExtensions } from "./discover-extensions.js";
 import { DiscoveryRegistryTest, makeDiscoveryProject } from "./testing.js";
 
 describe("./testing.js", () => {
+  it.effect(
+    "retains a dependency location read failure instead of reporting an empty project",
+    () => {
+      const project = makeDiscoveryProject();
+      project.writeJson("package.json", { dependencies: { react: "^18" } });
+      const registry = DiscoveryRegistryTest();
+      const failure = PlatformError.systemError({
+        _tag: "PermissionDenied",
+        module: "FileSystem",
+        method: "exists",
+        pathOrDescriptor: "node_modules/react/package.json",
+      });
+      return Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const result = yield* DiscoverExtensions.query({ projectDir: project.root }).pipe(
+          Effect.provideService(FileSystem.FileSystem, {
+            ...fs,
+            exists: (path) =>
+              path.includes("node_modules") ? Effect.fail(failure) : fs.exists(path),
+          }),
+          Effect.flip,
+        );
+        expect(result).toMatchObject({ _tag: "DependencyDiscoveryFailed", cause: failure });
+        expect(registry.requests).toEqual([]);
+      }).pipe(
+        Effect.provide(registry.layer.pipe(Layer.provideMerge(NodeServices.layer))),
+        Effect.ensuring(Effect.sync(project.cleanup)),
+      );
+    },
+  );
+
   it.effect("discovers a project's declared extension over the recorded Registry", () => {
     const project = makeDiscoveryProject();
     project.writeJson("package.json", {

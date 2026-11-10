@@ -6,10 +6,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { AgentExtensionRecommendationSchema } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import {
-  PackageUrlPartsSchema,
-  PackageUrlSchema,
-} from "@agentxm/extension-model/unstable/packaging/package-url";
+import { PackageUrlPartsSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { readLocalRecommendations } from "./read.js";
 import type { DetectedPackage, PackageReader } from "./types.js";
 
@@ -17,7 +14,6 @@ const npmType = Schema.decodeUnknownSync(PackageTypeSchema)("npm");
 const pypiType = Schema.decodeUnknownSync(PackageTypeSchema)("pypi");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
 const makeDeclaration = Schema.decodeUnknownSync(AgentExtensionRecommendationSchema);
-const encodePurl = Schema.encodeSync(PackageUrlSchema);
 
 describe("readLocalRecommendations", () => {
   it.effect("returns empty HashMap when no readers provided", () =>
@@ -73,7 +69,7 @@ describe("readLocalRecommendations", () => {
         };
 
         const result = yield* readLocalRecommendations([pkg], [reader]);
-        const key = encodePurl(purl);
+        const key = pkg;
 
         expect(HashMap.size(result)).toBe(1);
         expect(HashMap.has(result, key)).toBe(true);
@@ -121,8 +117,8 @@ describe("readLocalRecommendations", () => {
 
         expect(HashMap.size(result)).toBe(2);
 
-        const npmKey = encodePurl(npmPurl);
-        const pypiKey = encodePurl(pypiPurl);
+        const npmKey = npmPkg;
+        const pypiKey = pypiPkg;
 
         expect(HashMap.has(result, npmKey)).toBe(true);
         expect(HashMap.has(result, pypiKey)).toBe(true);
@@ -147,6 +143,24 @@ describe("readLocalRecommendations", () => {
 
         const result = yield* readLocalRecommendations([pkg], [npmReader]);
         expect(HashMap.size(result)).toBe(0);
+      }),
+    ),
+  );
+  it.effect("keeps recommendations attached to distinct observations of the same identity", () =>
+    withPackagingContext(
+      Effect.gen(function* () {
+        const purl = makePurl({ type: "npm", name: "same", version: "1.0.0" });
+        const first: DetectedPackage = { purl, type: npmType, source: "one/package.json" };
+        const second: DetectedPackage = { purl, type: npmType, source: "two/package.json" };
+        const firstRefs = [makeDeclaration({ ref: "@acme/skills/first" })];
+        const secondRefs = [makeDeclaration({ ref: "@acme/skills/second" })];
+        const reader: PackageReader = {
+          type: npmType,
+          read: (pkg) => Effect.succeed(Option.some(pkg === first ? firstRefs : secondRefs)),
+        };
+        const result = yield* readLocalRecommendations([first, second], [reader]);
+        expect(Option.getOrUndefined(HashMap.get(result, first))).toEqual(firstRefs);
+        expect(Option.getOrUndefined(HashMap.get(result, second))).toEqual(secondRefs);
       }),
     ),
   );

@@ -1,5 +1,5 @@
 import { ArtifactHttpClient } from "./http-download.js";
-import { createHttpSourceHostProvider } from "./providers/http.js";
+import { createHttpSourceHostProvider, findHttpSource } from "./providers/http.js";
 /**
  * Environment-backed Live layers for `SourceHostProviders` and the workspace
  * catalog port.
@@ -152,17 +152,44 @@ export const SourceHostProvidersLive: Layer.Layer<
         : Effect.succeed(normalized);
     };
 
-    const findImpl = (source: Source, options: FindOptions) => {
+    const findImpl = (
+      source: Source,
+      options: FindOptions,
+      accepted?: Extract<ExtensionRef, { readonly refType: "http" | "git-hosted" }>,
+    ) => {
+      if (
+        accepted !== undefined &&
+        (source.type !== accepted.source.type ||
+          !("url" in source) ||
+          source.url.href !== accepted.source.url.href)
+      )
+        return Effect.fail(
+          new SourceNotResolvable({
+            category: "conflict",
+            detail: "Accepted source view does not match the requested source",
+          }),
+        );
       switch (source.type) {
         case "http":
-          return httpProvider.find(source, options).pipe(Effect.provide(depLayer));
+          return findHttpSource(
+            source,
+            options,
+            accepted?.refType === "http" ? accepted.snapshot : undefined,
+          ).pipe(Effect.provide(depLayer));
         case "local":
           return localProvider.find(localSourceForWorkspace(source), options).pipe(
             Effect.provide(depLayer),
             Effect.flatMap((refs) => Effect.forEach(refs, normalizeLocalRefSourcePath)),
           );
         case "git":
-          return gitProvider.find(source, options).pipe(Effect.provide(depLayer));
+          return gitProvider
+            .find(
+              accepted?.refType === "git-hosted"
+                ? { ...source, ref: Option.some(accepted.gitCommitSha) }
+                : source,
+              options,
+            )
+            .pipe(Effect.provide(depLayer));
         case "registry":
           return registryMetaProvider.find(source, options).pipe(Effect.provide(depLayer));
         case "workspace":
@@ -215,8 +242,8 @@ export const SourceHostProvidersLive: Layer.Layer<
           );
 
     const service: SourceHostProvidersService = {
-      find: (source, options) =>
-        findImpl(source, options).pipe(
+      find: (source, options, accepted) =>
+        findImpl(source, options, accepted).pipe(
           Effect.flatMap((refs) => Effect.forEach(refs, validatePlacement)),
           Effect.withSpan("SourceHostProviders.find"),
         ),
@@ -266,7 +293,7 @@ export const SourceHostProvidersLive: Layer.Layer<
                   path.join,
                   layout,
                   ref,
-                  "skills",
+                  toExtensionTypePlural(ref.type),
                   ref.name,
                 ).canonicalPath;
                 const componentPath = ref.distribution?.componentPath ?? ".";

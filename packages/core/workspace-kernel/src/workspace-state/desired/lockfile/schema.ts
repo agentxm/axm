@@ -128,11 +128,28 @@ const PathAcceptedResolutionSchema = Schema.Struct({
  *
  * Used to produce lock-entry schemas with feature-specific shared fields.
  */
+const HttpSourceLocatorSchema = Schema.Struct({
+  type: Schema.Literal("http"),
+  url: ArtifactUrlSchema,
+  kind: Schema.Literals(["skill-md", "archive", "index"]),
+  entry: Schema.optional(Schema.NonEmptyString),
+  path: SourceSubPathSchema,
+  portable: Schema.Boolean,
+  distribution: Schema.optional(DistributionDescriptorSchema),
+});
+
 const makeSourceLockUnion = <TOwner extends Schema.Top, F extends Schema.Struct.Fields>(
   owner: TOwner,
   extraFields: F,
 ) =>
   Schema.Union([
+    Schema.Struct({
+      source: HttpSourceLocatorSchema,
+      identity: makeExtensionIdentitySchema(owner),
+      resolved: HttpArtifactSnapshotSchema,
+      treeIntegrity: TreeIntegritySchema,
+      ...extraFields,
+    }),
     Schema.Struct({
       source: GitSourceLocatorSchema,
       identity: makeExtensionIdentitySchema(owner),
@@ -171,24 +188,7 @@ const makeSourceLockUnion = <TOwner extends Schema.Top, F extends Schema.Struct.
  *
  * @experimental This API is unstable and may change without notice.
  */
-const HttpSkillLockEntrySchema = Schema.Struct({
-  source: Schema.Struct({
-    type: Schema.Literal("http"),
-    url: ArtifactUrlSchema,
-    kind: Schema.Literals(["skill-md", "archive", "index"]),
-    entry: Schema.optional(Schema.NonEmptyString),
-    path: SourceSubPathSchema,
-    portable: Schema.Boolean,
-    distribution: Schema.optional(DistributionDescriptorSchema),
-  }),
-  identity: makeExtensionIdentitySchema(Schema.optional(HandleSchema)),
-  resolved: HttpArtifactSnapshotSchema,
-  treeIntegrity: TreeIntegritySchema,
-});
-export const SkillLockEntrySchema = Schema.Union([
-  makeSourceLockUnion(Schema.optional(HandleSchema), {}),
-  HttpSkillLockEntrySchema,
-]);
+export const SkillLockEntrySchema = makeSourceLockUnion(Schema.optional(HandleSchema), {});
 
 /**
  * Inferred type for SkillLockEntry schema.
@@ -385,7 +385,8 @@ const consistentPackDeclaration = Schema.makeFilter(
     readonly manifestVersion: string;
     readonly manifestContentIdentity: string;
     readonly dependencies: Schema.Schema.Type<typeof PackMemberConstraintMapSchema>;
-    readonly resolved: { readonly version: string } | { readonly tree: string };
+    readonly resolved:
+      { readonly version: string } | { readonly tree: string } | { readonly format: string };
   }) => {
     if ("version" in entry.resolved && entry.resolved.version !== entry.manifestVersion) {
       return "Pack manifestVersion must match the accepted Registry version";
@@ -413,6 +414,13 @@ const consistentPackDeclaration = Schema.makeFilter(
  * source authority is derived from it.
  */
 export const PackLockEntrySchema = Schema.Union([
+  Schema.Struct({
+    source: HttpSourceLocatorSchema,
+    identity: makeExtensionIdentitySchema(HandleSchema),
+    resolved: HttpArtifactSnapshotSchema,
+    treeIntegrity: TreeIntegritySchema,
+    ...packLockFields,
+  }),
   Schema.Struct({
     source: GitSourceLocatorSchema,
     identity: makeExtensionIdentitySchema(HandleSchema),
@@ -659,6 +667,7 @@ const StoredHttpPackageSchema = Schema.Struct({
   source: StoredHttpSourceSchema,
   artifact: HttpArtifactSnapshotSchema,
   tree: TreeIntegritySchema,
+  ...storedPackDeclarationFields,
 });
 
 const StoredPathPackageSchema = Schema.Struct({
@@ -1145,8 +1154,7 @@ const expandBinding = (
     const pack =
       table.view !== "packs"
         ? {}
-        : "artifact" in record ||
-            record["manifest-version"] === undefined ||
+        : record["manifest-version"] === undefined ||
             record["manifest-identity"] === undefined ||
             record.dependencies === undefined
           ? undefined
@@ -1188,10 +1196,8 @@ const expandBinding = (
         : "git" in source
           ? { type: "git" as const, url: source.git }
           : "http" in source
-            ? undefined
+            ? { type: "http" as const, url: source.http, path: selectedPath }
             : { type: "path" as const, path: selectedPath };
-    if (row === undefined)
-      return yield* Effect.fail(invalidStoredLock("An MCP binding cannot select an HTTP package"));
     return { entry, mcpKey: McpSourceKey.fromLockEntry({ source: row, identity }) };
   });
 

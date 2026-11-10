@@ -611,7 +611,9 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
     if (
       unresolved.type === "mcp-server" &&
       unresolved.authority === "sourced" &&
-      (unresolved.identity.authority === "path" || unresolved.identity.authority === "git")
+      (unresolved.identity.authority === "path" ||
+        unresolved.identity.authority === "git" ||
+        unresolved.identity.authority === "http")
     ) {
       const identity = unresolved.identity;
       const matches = Object.entries(inputs.acceptedResolutions.mcpServers ?? {}).filter(

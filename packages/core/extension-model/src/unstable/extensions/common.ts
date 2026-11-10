@@ -249,7 +249,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: "runtime-protocol",
     installInputs: true,
-    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: true },
     workspaceCapability: null,
   },
   subagent: {
@@ -264,7 +264,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: null,
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: true },
     workspaceCapability: null,
   },
   rule: {
@@ -279,7 +279,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "workspace",
     governs: "host-file",
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: true },
     workspaceCapability: "instructions",
   },
   hook: {
@@ -294,7 +294,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: null,
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: true },
     workspaceCapability: null,
   },
   knowledge: {
@@ -309,7 +309,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "workspace",
     governs: "package-body",
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: true },
     workspaceCapability: null,
   },
   pack: {
@@ -324,7 +324,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "container",
     governs: null,
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: true },
     workspaceCapability: null,
   },
 } as const satisfies { readonly [key: string]: ExtensionTypeRow };

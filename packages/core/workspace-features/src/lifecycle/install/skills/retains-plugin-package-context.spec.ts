@@ -413,7 +413,10 @@ describe("HTTP plugin package context", () => {
             }),
           ),
         );
-        expect(additional.units.map((unit) => unit.state)).toEqual(["committed"]);
+        expect(
+          additional.units.map((unit) => unit.state),
+          JSON.stringify(additional),
+        ).toEqual(["committed"]);
         expect(workspace.readFile(".claude/skills/other/SKILL.md")).toBe("# Other\n");
         yield* workspace.provide(
           Effect.gen(function* () {

@@ -230,7 +230,15 @@ connections.
 Registry snapshots pin `version`, `archive` integrity, and `publisher` binding.
 Git snapshots pin `commit` and `git-tree`. Local snapshots pin a tree at
 project-relative or absolute source coordinates. HTTP snapshots preserve the
-logical source and the accepted `artifact` manifest for exact replay.
+logical source and the accepted `artifact` manifest for exact replay. Direct
+HTTPS ZIP, tar, and gzip tar archives support manifest-backed packages of every
+extension kind, including Knowledge and Packs. Select a package by name or
+source-relative path, for example `axm knowledge install
+https://example.com/extensions.zip --name handbook`. An archive URL can also
+select `#extension=knowledge%2Fhandbook`; the existing `#skill=` selector remains
+accepted. Standalone HTTPS `SKILL.md` documents and well-known skill indexes
+remain skill-specific. Restore and reinstall verify the accepted archive digest;
+explicit update is required to accept changed upstream bytes.
 Workspace-authored, bundled, inline, and command-history state do not belong in
 the lockfile; for projections it holds only the digests described above, in the
 `[projections.<kind>]` tables after the bindings.

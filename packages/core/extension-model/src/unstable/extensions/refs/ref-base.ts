@@ -22,6 +22,7 @@ import type { WorkspaceScope } from "../../workspace-scope.js";
 import type { SourceHash } from "../../sources/source-hash.js";
 import type { DeprecationView } from "../deprecation.js";
 import type { ArchivalView } from "../archival.js";
+import type { HttpArtifactSnapshot } from "../../sources/http-artifact.js";
 
 /** Source-format metadata is kept outside the untouched package payload. */
 const DistributionPathSchema = Schema.String.pipe(
@@ -68,6 +69,18 @@ export interface GitHostedRefDetails {
   /** Immutable commit checked out while resolving this ref. */
   readonly gitCommitSha: string;
   /** The source acquired this package from another publisher and does not offer it as its own. */
+  readonly heldBySource?: true;
+}
+
+/** Accepted HTTP artifact coordinates shared by manifest-backed packages. */
+export interface HttpRefDetails {
+  readonly owner: Handle;
+  readonly name: ExtensionName;
+  readonly location: string;
+  readonly sourcePath: string;
+  readonly distribution?: DistributionDescriptor;
+  readonly snapshot: HttpArtifactSnapshot;
+  readonly portable: boolean;
   readonly heldBySource?: true;
 }
 

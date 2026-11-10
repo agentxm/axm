@@ -102,7 +102,9 @@ const describeWithdrawal = Effect.fn("describeExecutionWithdrawal")(function* (
       ? `${ref.value.source.location.href} ${ref.value.owner}/${ref.value.name}@${ref.value.version}`
       : ref.value.refType === "git-hosted"
         ? `Git ${destination(ref.value.source.url.href)}@${ref.value.gitCommitSha}`
-        : "local external package";
+        : ref.value.refType === "http"
+          ? `HTTPS ${destination(ref.value.source.url.href)}`
+          : "local external package";
   const declaration = yield* Effect.gen(function* () {
     if (
       Option.isNone(canonical) ||

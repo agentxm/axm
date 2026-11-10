@@ -663,7 +663,9 @@ export const KnowledgeManagerLive = Layer.effect(
                 const source =
                   ref.refType === "registry"
                     ? (yield* sources.fetch(ref)).directory
-                    : fromFileLocation(ref.location);
+                    : ref.refType === "http"
+                      ? (yield* sources.acquireForTransition(ref)).directory
+                      : fromFileLocation(ref.location);
                 yield* assertNoPhysicalOverlap(source, instructionsTarget.path).pipe(
                   Effect.mapError(
                     (cause) =>

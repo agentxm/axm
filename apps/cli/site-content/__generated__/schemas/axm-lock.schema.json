@@ -311,7 +311,42 @@
                       }
                     ]
                   },
-                  "tree": { "$ref": "#/definitions/TreeIntegrity" }
+                  "tree": { "$ref": "#/definitions/TreeIntegrity" },
+                  "manifest-version": { "$ref": "#/definitions/Version" },
+                  "manifest-identity": {
+                    "type": "string",
+                    "description": "Semantic consistency digest over the accepted Pack identity, manifest version, and dependency declarations. It is not an authenticity signature."
+                  },
+                  "dependencies": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": { "$ref": "#/definitions/NonPackExtensionFqn" },
+                            "range": { "$ref": "#/definitions/VersionRange" },
+                            "registry": {
+                              "type": "string",
+                              "description": "Registry location: an http(s) origin or a file URL, without credentials, query, or fragment; a trailing slash is not significant.",
+                              "examples": ["https://registry.agentxm.ai", "file:///srv/registry"]
+                            }
+                          },
+                          "required": ["name", "range", "registry"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": { "$ref": "#/definitions/NonPackExtensionFqn" },
+                            "range": { "$ref": "#/definitions/VersionRange" }
+                          },
+                          "required": ["name", "range"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  }
                 },
                 "required": ["id", "source", "artifact", "tree"],
                 "additionalProperties": false

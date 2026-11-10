@@ -107,13 +107,14 @@ export const makeLocatorSourceView = (
         timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
       },
     );
-    return {
+    const view: SourceHostProvidersService = {
       ...sources,
-      find: (source, options) =>
-        source.type === "git"
+      find: (source, options, accepted) =>
+        source.type === "git" && accepted === undefined
           ? Cache.get(cache, gitDiscoveryKey(source)).pipe(
               Effect.map((refs) => matchingGitRefs(refs, options)),
             )
-          : sources.find(source, options),
-    } satisfies SourceHostProvidersService;
+          : sources.find(source, options, accepted),
+    };
+    return view;
   });

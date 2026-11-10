@@ -331,10 +331,12 @@ export const SubagentManagerLive = Layer.effect(
           (yield* fs.exists(path.join(canonical, manifestFilenameForType("subagent"))))
         )
           return yield* readPackage(canonical);
-        if (ref.refType === "registry")
+        if (ref.refType === "registry" || ref.refType === "http")
           return yield* Effect.scoped(
             Effect.gen(function* () {
-              const { directory } = yield* sources.fetch(ref);
+              const { directory } = yield* ref.refType === "http"
+                ? sources.acquireForTransition(ref)
+                : sources.fetch(ref);
               return yield* readPackage(directory);
             }),
           );

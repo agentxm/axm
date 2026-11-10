@@ -30,7 +30,11 @@ import {
   retainedPackageBindings,
   retainedPackageKeyForRef,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { SourceHostProviders, pluginMcpPackageName } from "@agentxm/workspace-kernel/sources";
+import {
+  SourceHostProviders,
+  pluginMcpPackageName,
+  bindHttpPackageRef,
+} from "@agentxm/workspace-kernel/sources";
 import { installRefused } from "@agentxm/workspace-kernel/operations";
 import { sourceResolutionRefused } from "@agentxm/workspace-kernel/reconciliation";
 
@@ -275,19 +279,20 @@ export const findRetainedSourceComponents = (source: Source, type: ExtensionType
                 .join("/") || ".",
             ...(distribution === undefined ? {} : { distribution }),
           });
-        else if (ref.type === "skill" && entry.source.type === "http" && "format" in entry.resolved)
-          refs.push({
-            ...ref,
-            refType: "http",
-            source: {
-              ...source,
-              ...(entry.source.entry === undefined ? {} : { entry: entry.source.entry }),
-            },
-            sourcePath,
-            portable: entry.source.portable,
-            snapshot: entry.resolved,
-            ...(distribution === undefined ? {} : { distribution }),
-          });
+        else if (entry.source.type === "http" && "format" in entry.resolved) {
+          if (ref.type === "mcp-server" && ref.owner === undefined) continue;
+          const acceptedSource = {
+            ...source,
+            ...(entry.source.entry === undefined ? {} : { entry: entry.source.entry }),
+          };
+          const retained = {
+            ...bindHttpPackageRef(ref, acceptedSource, entry.resolved, packageRoot),
+            // Sibling selection changes the component path, not the accepted package identity.
+            source: acceptedSource,
+          };
+          // One retained package does not enumerate sibling packages in the accepted archive.
+          refs.push(retained.type === "pack" ? { ...retained, sourceMembers: [] } : retained);
+        }
       }
     }
     return refs;

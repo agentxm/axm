@@ -68,8 +68,9 @@ of the source locator or accepted package identity.
 ## Input and acquisition
 
 `axm install <source>` accepts Registry FQNs, bare GitHub coordinates, hosted
-Git shorthand, full Git clone URLs, paths, and HTTPS skill artifacts or supported
-well-known indexes. Repository discovery selects
+Git shorthand, full Git clone URLs, paths, HTTPS archives containing native
+extension packages, standalone HTTPS skill documents, and supported skill
+discovery indexes. Repository and archive discovery select
 manifests by their declared identity; an omitted selector prompts interactively
 and requires explicit selectors or `--all` in non-interactive use.
 

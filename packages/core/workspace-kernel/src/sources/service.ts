@@ -48,6 +48,7 @@ export interface SourceHostProvidersService {
   readonly find: (
     source: Source,
     options: FindOptions,
+    accepted?: Extract<ExtensionRef, { readonly refType: "http" | "git-hosted" }>,
   ) => Effect.Effect<ReadonlyArray<ExtensionRef>, SourceResolutionFailure, Scope.Scope>;
   /** Resolve one explicit Registry target with a typed selection outcome. */
   readonly resolveNamedRegistry: (

@@ -321,6 +321,7 @@ export const discoverConventionRefs = (
   source: ExternalSource,
   basePath: string,
   options: FindOptions,
+  discoveryOptions: { readonly rootName?: string } = {},
 ): Effect.Effect<ReadonlyArray<ExtensionRef>, SourceError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const root = yield* searchRootFor(source, basePath);
@@ -342,7 +343,7 @@ export const discoverConventionRefs = (
                 .at(-1)
                 ?.replace(/\.git$/u, "") ?? "skill",
           }
-        : {},
+        : discoveryOptions,
     );
     const refs = yield* Effect.forEach(
       candidates,
@@ -358,7 +359,14 @@ export const discoverConventionRefs = (
     return complete.filter(
       (ref) =>
         (options.type === "*" || ref.type === "pack") &&
-        (options.names.length === 0 || options.names.includes(ref.name)) &&
+        (options.names.length === 0 ||
+          options.names.includes(ref.name) ||
+          (ref.refType === "local" &&
+            ref.sourceRelativePath !== undefined &&
+            options.names.includes(ref.sourceRelativePath)) ||
+          (ref.refType === "git-hosted" &&
+            ref.sourcePath !== undefined &&
+            options.names.includes(ref.sourcePath))) &&
         (Option.isNone(options.owner) || options.owner.value === ref.owner),
     );
   });

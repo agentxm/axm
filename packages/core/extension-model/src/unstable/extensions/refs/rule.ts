@@ -1,3 +1,5 @@
+import type { HttpSource } from "../../sources/types.js";
+import type { HttpRefDetails } from "./ref-base.js";
 /**
  * Concrete rule ref types.
  *
@@ -22,8 +24,8 @@ import type { ExtensionName } from "../common.js";
 
 type RuleExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "rule",
-  Extract<TRefType, "git-hosted" | "registry" | "local" | "workspace">,
-  Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource>
+  Extract<TRefType, "git-hosted" | "registry" | "local" | "workspace" | "http">,
+  Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource | HttpSource>
 > & {
   readonly rule: {
     readonly name: ExtensionName;
@@ -44,4 +46,7 @@ export type WorkspaceRuleRef = RuleExtensionRefBase<"workspace", WorkspaceSource
   WorkspaceRefDetails;
 
 /** @experimental */
-export type RuleExtensionRef = GitHostedRuleRef | RegistryRuleRef | LocalRuleRef | WorkspaceRuleRef;
+export type HttpRuleRef = RuleExtensionRefBase<"http", HttpSource> & HttpRefDetails;
+
+export type RuleExtensionRef =
+  HttpRuleRef | GitHostedRuleRef | RegistryRuleRef | LocalRuleRef | WorkspaceRuleRef;

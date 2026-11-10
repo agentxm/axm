@@ -1,25 +1,13 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { MAX_ARCHIVE_ENTRIES } from "@agentxm/registry-client";
-import {
-  ArtifactDigestSchema,
-  type ArtifactDigest,
-} from "@agentxm/extension-model/unstable/sources/http-artifact";
+import { ArtifactDigestSchema } from "@agentxm/extension-model/unstable/sources/http-artifact";
 import { SourceNotResolvable } from "./errors.js";
 import { validateArtifactUrl } from "./http-download.js";
 
 export const WELL_KNOWN_SCHEMA = "https://schemas.agentskills.io/discovery/0.2.0/schema.json";
 
-export interface SkillArtifactOffer {
-  readonly name: string;
-  readonly description?: string;
-  readonly format: "skill-md" | "archive" | "files";
-  readonly artifacts: ReadonlyArray<{
-    readonly url: URL;
-    readonly path?: string;
-    readonly digest?: ArtifactDigest;
-  }>;
-}
+import type { HttpPackageOffer } from "./http-package.js";
 
 const Index = Schema.Struct({
   $schema: Schema.optional(Schema.String),
@@ -49,7 +37,7 @@ export const parseWellKnownIndex = (bytes: Uint8Array, indexUrl: URL) =>
       return yield* refused("Unsupported well-known discovery schema");
     if (index.skills.length > MAX_ARCHIVE_ENTRIES)
       return yield* refused("Well-known index exceeds the supported entry count");
-    const offers: SkillArtifactOffer[] = [];
+    const offers: HttpPackageOffer[] = [];
     const names = new Set<string>();
     let artifactCount = 0;
     for (const entry of index.skills) {

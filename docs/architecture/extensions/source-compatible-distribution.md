@@ -45,8 +45,11 @@ affected selection rather than silently hiding it from discovery.
 ## Source and package model
 
 The existing source lifecycle remains responsible for Git, local directories,
-and Registry artifacts. HTTP artifacts add acquisition of direct skill files,
-ZIP and tar archives; well-known indexes resolve into those artifact sources.
+and Registry artifacts. Direct HTTPS ZIP and tar archives use the same package
+discovery and native manifest semantics for every extension kind. Standalone
+HTTPS skill files and well-known skill indexes keep their skill-specific
+contracts; an archive offer inside a skill index does not broaden that index
+into a general extension catalog.
 Source resolution keeps the user's locator, accepted immutable revision or
 digest, and selected relative path distinct.
 

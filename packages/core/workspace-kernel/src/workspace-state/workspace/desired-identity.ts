@@ -97,6 +97,7 @@ export interface DesiredPackIdentity {
  * members and documents the canonical spelling of each variant.
  */
 export type DesiredSourceAuthority =
+  | { readonly authority: "http"; readonly url: URL }
   | { readonly authority: "workspace"; readonly fqn: string }
   | { readonly authority: "registry"; readonly endpoint: RegistryEndpoint }
   | {
@@ -197,6 +198,8 @@ export const sameSourceIdentity = (
 /** Terminal text for one source authority. */
 export const formatDesiredSourceAuthority = (authority: DesiredSourceAuthority): string => {
   switch (authority.authority) {
+    case "http":
+      return `http:${authority.url.href}`;
     case "workspace":
       return `workspace:${authority.fqn}`;
     case "registry":
@@ -217,6 +220,8 @@ export const sameSourceAuthority = (
   right: DesiredSourceAuthority,
 ): boolean => {
   switch (left.authority) {
+    case "http":
+      return right.authority === "http" && left.url.href === right.url.href;
     case "workspace":
       return right.authority === "workspace" && right.fqn === left.fqn;
     case "registry":
@@ -385,8 +390,8 @@ export const desiredMcpSource = (
       }));
     case "git":
     case "path":
-      return Option.fromUndefinedOr(identity.acceptedSource);
     case "http":
+      return Option.fromUndefinedOr(identity.acceptedSource);
     case "bundled":
     case "inline":
       return Option.none();

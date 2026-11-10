@@ -4,13 +4,24 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import {
   ArtifactPathSchema,
+  type ArtifactDigest,
   type HttpArtifactSnapshot,
 } from "@agentxm/extension-model/unstable/sources/http-artifact";
 import { MAX_ARCHIVE_ENTRIES, MAX_BUFFERED_ARCHIVE_BYTES } from "@agentxm/registry-client";
 import { extractExternalArchive } from "../acquisition/index.js";
 import { downloadHttpArtifact } from "./http-download.js";
 import { SourceNetworkFailure, SourceNotResolvable } from "./errors.js";
-import type { SkillArtifactOffer } from "./well-known-index.js";
+/** A package offered directly or by a skill discovery index. */
+export interface HttpPackageOffer {
+  readonly name: string;
+  readonly description?: string;
+  readonly format: "skill-md" | "archive" | "files";
+  readonly artifacts: ReadonlyArray<{
+    readonly url: URL;
+    readonly path?: string;
+    readonly digest?: ArtifactDigest;
+  }>;
+}
 
 const invalid = (detail: string) => new SourceNotResolvable({ category: "validation", detail });
 
@@ -89,7 +100,7 @@ const scratchDirectory = Effect.gen(function* () {
 
 /** Acquire one offer into a scoped tree, retaining a replayable digest for every input. */
 export const acquireHttpOffer = (
-  offer: SkillArtifactOffer,
+  offer: HttpPackageOffer,
   options: { readonly maxEntries?: number } = {},
 ) =>
   Effect.gen(function* () {
@@ -120,7 +131,7 @@ export const acquireHttpOffer = (
     }
     const artifact = offer.artifacts[0];
     if (artifact === undefined || offer.artifacts.length !== 1)
-      return yield* invalid("Single-artifact skill requires exactly one download");
+      return yield* invalid("Single-artifact package requires exactly one download");
     const downloaded = yield* downloadHttpArtifact(artifact.url, {
       ...(artifact.digest === undefined ? {} : { digest: artifact.digest }),
     });

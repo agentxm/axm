@@ -1543,6 +1543,20 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/retains-all-native-kinds-from-git.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/retains-all-native-kinds-from-git.spec.ts)
 
+##### Every native extension kind retains its HTTPS archive package at the source address
+
+- Requirement: `cli/install/retains-all-native-kinds-from-http-archives`
+- Owner: `workspace-features`
+- Statement: HTTPS ZIP and tar installs shall retain complete packages for all seven native kinds, share a package root across co-located selections in project and user scopes until its final consumer is removed, replay only the accepted artifact bytes, and advance those bytes only on explicit update.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production HTTPS acquisition, package files, desired state, accepted lock state, and native outputs exercise every extension kind through the lifecycle boundary.
+- Methods: example, decision-table
+- Derived from: `extension-installability/source-family-policy-is-total`
+- Source: [`packages/core/workspace-features/src/lifecycle/install/retains-all-native-kinds-from-http-archives.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/retains-all-native-kinds-from-http-archives.spec.ts)
+
 ##### Installation selects the requested extensions from what a source offers
 
 - Requirement: `cli/install/selects-requested-source-extensions`
@@ -5918,7 +5932,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `extension-installability/source-family-policy-is-total`
 - Owner: `extension-model`
-- Statement: Installability by source family shall be a total policy over every extension type, and every extension type shall be installable from Git, registry, path, and workspace sources; HTTPS artifact and discovery sources shall install skills only.
+- Statement: Installability by source family shall be a total policy over every extension type, and every extension type shall be installable from Git, registry, path, workspace, and HTTPS archive sources; skill documents and discovery indexes shall remain skill-specific.
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`

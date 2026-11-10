@@ -294,6 +294,27 @@ const acceptedGitFields = (
   gitCommitSha: entry.resolved.commit,
 });
 
+const acceptedHttpFields = (
+  deps: LockEntryToRefDeps,
+  entry: Extract<LockEntry, { readonly source: { readonly type: "http" } }>,
+  type: InstallableExtensionType,
+  name: ExtensionName,
+) => ({
+  refType: "http" as const,
+  name: entry.identity.name,
+  source: lockEntrySource(entry),
+  sourcePath: entry.source.path,
+  portable: entry.source.portable,
+  snapshot: entry.resolved,
+  location: fileHref(
+    deps.path.join(
+      fromFileLocation(lockEntryLocation(deps, entry, type, name)),
+      entry.source.distribution?.componentPath ?? ".",
+    ),
+  ),
+  ...(entry.source.distribution === undefined ? {} : { distribution: entry.source.distribution }),
+});
+
 const skillLockEntryToRef = (
   name: string,
   entry: SkillLockEntry,
@@ -305,24 +326,10 @@ const skillLockEntryToRef = (
       const skill = { name: extensionName, description: Option.none(), metadata: Option.none() };
       if (isHttpLockEntry(entry))
         return Effect.succeed({
+          ...acceptedHttpFields(deps, entry, "skill", extensionName),
           type: "skill",
-          refType: "http",
-          name: entry.identity.name,
           skill,
-          source: lockEntrySource(entry),
-          sourcePath: entry.source.path,
-          portable: entry.source.portable,
-          snapshot: entry.resolved,
-          location: fileHref(
-            deps.path.join(
-              fromFileLocation(lockEntryLocation(deps, entry, "skill", extensionName)),
-              entry.source.distribution?.componentPath ?? ".",
-            ),
-          ),
           ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
-          ...(entry.source.distribution === undefined
-            ? {}
-            : { distribution: entry.source.distribution }),
         });
       if (isRegistryLockEntry(entry))
         return Effect.map(acceptedRegistryFields(entry, deps), (fields) => ({
@@ -359,6 +366,13 @@ const mcpServerLockEntryToRef = (
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<McpServerExtensionRef, LockEntryToRefError> => {
       const server = { name: extensionName };
+      if (isHttpLockEntry(entry))
+        return Effect.succeed({
+          ...acceptedHttpFields(deps, entry, "mcp-server", extensionName),
+          type: "mcp-server",
+          ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
+          server,
+        });
       if (isRegistryLockEntry(entry))
         return Effect.map(acceptedRegistryFields(entry, deps), (fields) => ({
           ...fields,
@@ -392,6 +406,13 @@ const subagentLockEntryToRef = (
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<SubagentExtensionRef, LockEntryToRefError> => {
       const subagent = { name: extensionName, description: Option.none() };
+      if (isHttpLockEntry(entry))
+        return Effect.succeed({
+          ...acceptedHttpFields(deps, entry, "subagent", extensionName),
+          type: "subagent",
+          owner: entry.identity.owner,
+          subagent,
+        });
       if (isRegistryLockEntry(entry))
         return Effect.map(acceptedRegistryFields(entry, deps), (fields) => ({
           ...fields,
@@ -425,6 +446,13 @@ const ruleLockEntryToRef = (
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<RuleExtensionRef, LockEntryToRefError> => {
       const rule = { name: extensionName };
+      if (isHttpLockEntry(entry))
+        return Effect.succeed({
+          ...acceptedHttpFields(deps, entry, "rule", extensionName),
+          type: "rule",
+          owner: entry.identity.owner,
+          rule,
+        });
       if (isRegistryLockEntry(entry))
         return Effect.map(acceptedRegistryFields(entry, deps), (fields) => ({
           ...fields,
@@ -458,6 +486,13 @@ const hookLockEntryToRef = (
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<HookExtensionRef, LockEntryToRefError> => {
       const hook = { name: extensionName };
+      if (isHttpLockEntry(entry))
+        return Effect.succeed({
+          ...acceptedHttpFields(deps, entry, "hook", extensionName),
+          type: "hook",
+          owner: entry.identity.owner,
+          hook,
+        });
       if (isRegistryLockEntry(entry))
         return Effect.map(acceptedRegistryFields(entry, deps), (fields) => ({
           ...fields,
@@ -491,6 +526,13 @@ const knowledgeLockEntryToRef = (
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<KnowledgeExtensionRef, LockEntryToRefError> => {
       const knowledge = { name: extensionName };
+      if (isHttpLockEntry(entry))
+        return Effect.succeed({
+          ...acceptedHttpFields(deps, entry, "knowledge", extensionName),
+          type: "knowledge",
+          owner: entry.identity.owner,
+          knowledge,
+        });
       if (isRegistryLockEntry(entry))
         return Effect.map(acceptedRegistryFields(entry, deps), (fields) => ({
           ...fields,
@@ -524,6 +566,15 @@ const packLockEntryToRef = (
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<PackRef, LockEntryToRefError> => {
       const pack = { name: extensionName, dependencies: entry.dependencies };
+      if (isHttpLockEntry(entry))
+        return Effect.succeed({
+          ...acceptedHttpFields(deps, entry, "pack", extensionName),
+          type: "pack",
+          owner: entry.identity.owner,
+          pack,
+          version: entry.manifestVersion,
+          sourceMembers: [],
+        });
       if (isRegistryLockEntry(entry))
         return Effect.map(acceptedRegistryFields(entry, deps), (fields) => ({
           ...fields,

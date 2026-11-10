@@ -407,7 +407,9 @@ export const executionExposureRisks = Effect.fn("executionExposureRisks")(functi
                 ? `${ref.source.location.href} ${ref.owner}/${ref.name}@${ref.version}`
                 : ref.refType === "git-hosted"
                   ? `Git ${destination(ref.source.url.href)}@${ref.gitCommitSha}`
-                  : "local external package",
+                  : ref.refType === "http"
+                    ? `HTTPS ${destination(ref.source.url.href)}`
+                    : "local external package",
             contentIdentity: `${tree}; configuration-sha256:${configurationIdentity}`,
             targets,
             registrations,

@@ -1,3 +1,5 @@
+import type { HttpSource } from "../../sources/types.js";
+import type { HttpRefDetails } from "./ref-base.js";
 /**
  * Concrete hook ref types.
  *
@@ -22,8 +24,8 @@ import type {
 
 type HookExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "hook",
-  Extract<TRefType, "git-hosted" | "registry" | "local" | "workspace">,
-  Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource>
+  Extract<TRefType, "git-hosted" | "registry" | "local" | "workspace" | "http">,
+  Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource | HttpSource>
 > & {
   readonly hook: {
     readonly name: ExtensionName;
@@ -46,4 +48,7 @@ export type WorkspaceHookRef = HookExtensionRefBase<"workspace", WorkspaceSource
   WorkspaceRefDetails;
 
 /** @experimental */
-export type HookExtensionRef = GitHostedHookRef | RegistryHookRef | LocalHookRef | WorkspaceHookRef;
+export type HttpHookRef = HookExtensionRefBase<"http", HttpSource> & HttpRefDetails;
+
+export type HookExtensionRef =
+  HttpHookRef | GitHostedHookRef | RegistryHookRef | LocalHookRef | WorkspaceHookRef;

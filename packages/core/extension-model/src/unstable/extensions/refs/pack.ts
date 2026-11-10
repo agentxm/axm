@@ -1,3 +1,5 @@
+import type { HttpSource } from "../../sources/types.js";
+import type { HttpRefDetails } from "./ref-base.js";
 /**
  * Pack ref types.
  *
@@ -81,4 +83,9 @@ export type LocalPackRef = PackRefBase<"local", LocalSource> &
 export type WorkspacePackRef = PackRefBase<"workspace", WorkspaceSource> & WorkspaceRefDetails;
 
 /** @experimental */
-export type PackRef = RegistryPackRef | GitHostedPackRef | LocalPackRef | WorkspacePackRef;
+export type HttpPackRef = PackRefBase<"http", HttpSource> &
+  HttpRefDetails &
+  SourceInheritedPackMembers;
+
+export type PackRef =
+  HttpPackRef | RegistryPackRef | GitHostedPackRef | LocalPackRef | WorkspacePackRef;

@@ -11,6 +11,7 @@ import {
   toExtensionTypePlural,
   manifestFilenameForType,
 } from "@agentxm/extension-model/unstable/extensions/common";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   acceptedCanonicalObservation,
@@ -80,7 +81,11 @@ const publicUrl = (value: URL): string => {
 const sourceLocator = (ref: ExtensionRef, path: Path.Path, baseDir: string): string => {
   switch (ref.refType) {
     case "http":
-      return `${publicUrl(ref.source.url)}#skill=${encodeURIComponent(ref.source.entry ?? ref.sourcePath)}`;
+      return printSourceParams({
+        ...ref.source,
+        url: new URL(publicUrl(ref.source.url)),
+        entry: ref.source.entry ?? ref.sourcePath,
+      });
     case "registry":
       return ref.source.location.href;
     case "git-hosted": {

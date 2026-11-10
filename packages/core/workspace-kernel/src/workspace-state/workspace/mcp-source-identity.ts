@@ -33,6 +33,13 @@ export type McpSourceIdentity =
       readonly name: string;
     }
   | {
+      readonly kind: "http";
+      readonly url: URL;
+      readonly path: string;
+      readonly owner: string | undefined;
+      readonly name: string;
+    }
+  | {
       readonly kind: "path";
       /** The workspace-relative source path, as the accepted row records it. */
       readonly path: string;
@@ -74,6 +81,10 @@ const encode = (identity: McpSourceIdentity): McpSourceKey => {
       return brandKey(
         `git:${encodeURIComponent(withoutTrailingSlash(identity.url.href))}:${packagePart(identity.owner, identity.name)}`,
       );
+    case "http":
+      return brandKey(
+        `http:${encodeURIComponent(identity.url.href)}:${encodeURIComponent(identity.path)}:${packagePart(identity.owner, identity.name)}`,
+      );
     case "path":
       return brandKey(
         `path:${encodeURIComponent(identity.path)}:${packagePart(identity.owner, identity.name)}`,
@@ -88,6 +99,7 @@ interface McpSourceRow {
   readonly source:
     | { readonly type: "registry"; readonly url: RegistryEndpoint }
     | { readonly type: "git"; readonly url: URL }
+    | { readonly type: "http"; readonly url: URL; readonly path: string }
     | { readonly type: "path"; readonly path: string };
   readonly identity: { readonly owner?: string | undefined; readonly name: string };
 }
@@ -106,6 +118,14 @@ const identityOfLockEntry = (entry: McpSourceRow): McpSourceIdentity => {
       return {
         kind: "git",
         url: entry.source.url,
+        owner: entry.identity.owner,
+        name: entry.identity.name,
+      };
+    case "http":
+      return {
+        kind: "http",
+        url: entry.source.url,
+        path: entry.source.path,
         owner: entry.identity.owner,
         name: entry.identity.name,
       };
@@ -132,6 +152,7 @@ const sameIdentity = (left: McpSourceIdentity, right: McpSourceIdentity): boolea
     case "workspace":
       return right.kind === "workspace" && left.owner === right.owner && left.name === right.name;
     case "git":
+    case "http":
     case "path":
       return encode(left) === encode(right);
   }

@@ -1,3 +1,5 @@
+import type { HttpSource } from "../../sources/types.js";
+import type { HttpRefDetails } from "./ref-base.js";
 import type { ExtensionName } from "../common.js";
 import type {
   ExtensionRefBase,
@@ -15,8 +17,8 @@ import type {
 
 type KnowledgeExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   "knowledge",
-  Extract<TRefType, "git-hosted" | "registry" | "local" | "workspace">,
-  Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource>
+  Extract<TRefType, "git-hosted" | "registry" | "local" | "workspace" | "http">,
+  Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource | HttpSource>
 > & {
   readonly knowledge: {
     readonly name: ExtensionName;
@@ -32,5 +34,11 @@ export type RegistryKnowledgeRef = KnowledgeExtensionRefBase<"registry", Registr
 export type LocalKnowledgeRef = KnowledgeExtensionRefBase<"local", LocalSource> & LocalRefDetails;
 export type WorkspaceKnowledgeRef = KnowledgeExtensionRefBase<"workspace", WorkspaceSource> &
   WorkspaceRefDetails;
+export type HttpKnowledgeRef = KnowledgeExtensionRefBase<"http", HttpSource> & HttpRefDetails;
+
 export type KnowledgeExtensionRef =
-  GitHostedKnowledgeRef | RegistryKnowledgeRef | LocalKnowledgeRef | WorkspaceKnowledgeRef;
+  | HttpKnowledgeRef
+  | GitHostedKnowledgeRef
+  | RegistryKnowledgeRef
+  | LocalKnowledgeRef
+  | WorkspaceKnowledgeRef;

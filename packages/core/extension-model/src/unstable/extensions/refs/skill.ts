@@ -1,6 +1,3 @@
-import type { HttpArtifactSnapshot } from "../../sources/http-artifact.js";
-import type { DistributionDescriptor } from "./ref-base.js";
-import type { ExtensionName } from "../common.js";
 /**
  * Skill extension ref types.
  *
@@ -13,6 +10,7 @@ import type { ExtensionName } from "../common.js";
 
 import type {
   SkillExtensionRefBase,
+  HttpRefDetails,
   GitHostedRefDetails,
   RegistryRefDetails,
   LocalRefDetails,
@@ -53,15 +51,8 @@ export type WorkspaceSkillRef = SkillExtensionRefBase<"workspace", WorkspaceSour
   WorkspaceRefDetails;
 
 /** @experimental */
-export type HttpSkillRef = SkillExtensionRefBase<"http", HttpSource> & {
-  readonly name: ExtensionName;
-  readonly owner?: Handle;
-  readonly portable: boolean;
-  readonly location: string;
-  readonly sourcePath: string;
-  readonly distribution?: DistributionDescriptor;
-  readonly snapshot: HttpArtifactSnapshot;
-};
+export type HttpSkillRef = SkillExtensionRefBase<"http", HttpSource> &
+  Omit<HttpRefDetails, "owner"> & { readonly owner?: Handle };
 
 export type SkillExtensionRef =
   HttpSkillRef | GitHostedSkillRef | RegistrySkillRef | LocalSkillRef | WorkspaceSkillRef;

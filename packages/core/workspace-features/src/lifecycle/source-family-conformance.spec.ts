@@ -116,7 +116,7 @@ const makeFamilyFixtures = (): Record<ExtensionSourceFamily, FamilyFixture> => {
       root: http,
       kind: "http",
       locked: true,
-      hasType: (type) => type === "skill" && fs.existsSync(fixtureEntry(http, type)),
+      hasType: (type) => fs.existsSync(fixtureEntry(http, type)),
     },
     registry: {
       family: "registry",
@@ -188,12 +188,6 @@ const executeCell = (
   cell: SourceFamilyLifecycleCell,
 ): SourceFamilyLifecycleOutcome => {
   const fixture = fixtures[cell.family];
-  if (cell.family === "http" && cell.type !== "skill") {
-    return {
-      outcome: "unsupported-by-design",
-      decision: "HTTPS artifact and discovery sources distribute skills only.",
-    };
-  }
   if (!fs.statSync(fixture.root).isDirectory()) {
     return { outcome: "blocked", reason: `${fixture.kind} fixture is unavailable` };
   }

@@ -145,19 +145,28 @@ export const routeUrlInput = (url: URL, _input: string) =>
     if (kind !== undefined) {
       yield* validateArtifactUrl(url);
       const fragment = url.hash.slice(1);
-      if (fragment !== "" && !fragment.startsWith("skill="))
+      if (
+        fragment !== "" &&
+        !fragment.startsWith("skill=") &&
+        !(kind === "archive" && fragment.startsWith("extension="))
+      )
         return yield* new SourceSyntaxInvalid({
-          detail: "HTTP source fragments must select skill=<name>",
+          detail:
+            kind === "archive"
+              ? "HTTP archive fragments must select extension=<name-or-path>"
+              : "HTTP source fragments must select skill=<name>",
         });
       const entry =
         fragment === ""
           ? undefined
           : yield* Effect.try({
-              try: () => decodeURIComponent(fragment.slice(6)),
-              catch: () => new SourceSyntaxInvalid({ detail: "Invalid HTTP skill selector" }),
+              try: () => decodeURIComponent(fragment.slice(fragment.indexOf("=") + 1)),
+              catch: () => new SourceSyntaxInvalid({ detail: "Invalid HTTP extension selector" }),
             });
       if (entry === "")
-        return yield* new SourceSyntaxInvalid({ detail: "HTTP skill selector cannot be empty" });
+        return yield* new SourceSyntaxInvalid({
+          detail: "HTTP extension selector cannot be empty",
+        });
       return {
         type: "http" as const,
         url: stripUrlHash(url),

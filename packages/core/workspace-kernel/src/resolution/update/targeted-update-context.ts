@@ -209,6 +209,8 @@ const canonicalIdentity = (identity: DesiredNodeIdentity) => {
 /** The fields one source authority is compared by. */
 const canonicalSourceAuthority = (authority: DesiredSourceAuthority) => {
   switch (authority.authority) {
+    case "http":
+      return { authority: authority.authority, url: authority.url.href };
     case "workspace":
       return { authority: authority.authority, fqn: authority.fqn };
     case "registry":

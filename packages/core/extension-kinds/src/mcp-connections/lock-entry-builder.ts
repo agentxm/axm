@@ -16,6 +16,13 @@ export const buildExternalMcpServerLockEntry = (args: {
   readonly localPath: Option.Option<string>;
 }): McpServerLockEntry => {
   const { ref } = args;
+  if (ref.refType === "http")
+    return {
+      source: { ...ref.source, path: ref.sourcePath, portable: false },
+      identity: { name: ref.name, ...(ref.owner === undefined ? {} : { owner: ref.owner }) },
+      resolved: ref.snapshot,
+      treeIntegrity: args.treeIntegrity,
+    };
   const sourcePath = Option.fromUndefinedOr(ref.sourcePath).pipe(
     Option.filter((value) => value !== "" && value !== "."),
   );

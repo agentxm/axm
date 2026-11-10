@@ -32,7 +32,7 @@ import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensi
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { PackLockEntry } from "../desired/lockfile/schema.js";
-import { isGitLockEntry, isPathLockEntry } from "./lock-entry.js";
+import { isGitLockEntry, isHttpLockEntry, isPathLockEntry } from "./lock-entry.js";
 import type { DesiredSourceAuthority } from "./desired-identity.js";
 
 /** The ref no Git locator named: the repository's default branch head. */
@@ -43,7 +43,7 @@ export type PackMemberSourceView =
   | { readonly kind: "accepted"; readonly entry: PackLockEntry }
   | {
       readonly kind: "resolved";
-      readonly source: Exclude<Source, { readonly type: "http" }>;
+      readonly source: Source;
       readonly path: Path.Path;
       /** The workspace root a local view root is spelled relative to. */
       readonly baseDir: string;
@@ -61,11 +61,14 @@ export const packMemberSourceAuthority = (view: PackMemberSourceView): DesiredSo
         root: Option.fromUndefinedOr(entry.sourceRoot),
       };
     }
+    if (isHttpLockEntry(entry)) return { authority: "http", url: entry.source.url };
     if (isPathLockEntry(entry)) return { authority: "path", root: entry.sourceRoot };
     return { authority: "registry", endpoint: entry.source.url };
   }
   const { source } = view;
   switch (source.type) {
+    case "http":
+      return { authority: "http", url: source.url };
     case "registry":
       return { authority: "registry", endpoint: source.location };
     case "git":

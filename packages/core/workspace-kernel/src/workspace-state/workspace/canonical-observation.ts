@@ -1,3 +1,4 @@
+import type { HttpArtifactSnapshot } from "@agentxm/extension-model/unstable/sources/http-artifact";
 import { isHttpLockEntry } from "./lock-entry.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -206,7 +207,13 @@ export type RequestedCanonicalRef =
       readonly publisherBindingId: string;
     }
   | {
-      readonly refType: "git-hosted" | "local" | "http";
+      readonly refType: "http";
+      readonly owner?: string | undefined;
+      readonly name: string;
+      readonly snapshot: HttpArtifactSnapshot;
+    }
+  | {
+      readonly refType: "git-hosted" | "local";
       readonly owner?: string | undefined;
       readonly name: string;
     };
@@ -241,6 +248,12 @@ export const observeAcceptedCanonicalReuse = (args: {
     ) {
       return Option.none();
     }
+    if (
+      args.requested.refType === "http" &&
+      (accepted.source.type !== "http" ||
+        JSON.stringify(accepted.resolved) !== JSON.stringify(args.requested.snapshot))
+    )
+      return Option.none();
     return (yield* observedTreeMatchesAccepted(args.canonicalPath, accepted))
       ? Option.some(accepted.treeIntegrity)
       : Option.none();
@@ -263,6 +276,8 @@ const acceptedOriginMatches = (
       return false;
     return inheritedAuthorities.every((authority) => {
       switch (authority.authority) {
+        case "http":
+          return accepted.source.type === "http" && accepted.source.url.href === authority.url.href;
         case "workspace":
           // An authored Pack supplies the member declaration, while its
           // Registry binding supplies the acquisition authority.

@@ -1,3 +1,5 @@
+import type { HttpSource } from "../../sources/types.js";
+import type { HttpRefDetails } from "./ref-base.js";
 /**
  * Concrete subagent extension ref types.
  *
@@ -36,5 +38,11 @@ export type WorkspaceSubagentRef = SubagentExtensionRefBase<"workspace", Workspa
   WorkspaceRefDetails;
 
 /** @experimental */
+export type HttpSubagentRef = SubagentExtensionRefBase<"http", HttpSource> & HttpRefDetails;
+
 export type SubagentExtensionRef =
-  GitHostedSubagentRef | RegistrySubagentRef | LocalSubagentRef | WorkspaceSubagentRef;
+  | HttpSubagentRef
+  | GitHostedSubagentRef
+  | RegistrySubagentRef
+  | LocalSubagentRef
+  | WorkspaceSubagentRef;

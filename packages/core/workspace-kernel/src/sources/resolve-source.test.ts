@@ -98,3 +98,33 @@ describe("resolveSource", () => {
     }),
   );
 });
+
+describe("HTTPS archive selectors", () => {
+  it.effect.each(["extension", "skill"])(
+    "accepts #%s and prints the generic archive selector",
+    (key) =>
+      Effect.gen(function* () {
+        const source = yield* resolve(
+          `https://example.test/extensions.zip#${key}=knowledge%2Fhandbook`,
+        );
+        expect(source).toMatchObject({
+          type: "http",
+          kind: "archive",
+          entry: "knowledge/handbook",
+        });
+        expect(printSourceParams(source)).toBe(
+          "https://example.test/extensions.zip#extension=knowledge%2Fhandbook",
+        );
+      }),
+  );
+  it.effect.each(["extension=", "extension=%XX", "path=handbook"])(
+    "refuses malformed archive selector %s",
+    (fragment) =>
+      Effect.gen(function* () {
+        const result = yield* resolve(`https://example.test/extensions.zip#${fragment}`).pipe(
+          Effect.result,
+        );
+        expect(result).toMatchObject({ _tag: "Failure", failure: { _tag: "SourceSyntaxInvalid" } });
+      }),
+  );
+});

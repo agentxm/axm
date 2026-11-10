@@ -91,9 +91,12 @@ const matchesFilter = (
     readonly name: ExtensionName;
   },
   filter: ExtensionPackageFilter,
+  sourcePath: string,
 ): boolean =>
   (filter.type === "*" || filter.type === identity.type) &&
-  (filter.names.length === 0 || filter.names.includes(identity.name)) &&
+  (filter.names.length === 0 ||
+    filter.names.includes(identity.name) ||
+    filter.names.includes(sourcePath)) &&
   (Option.isNone(filter.owner) || filter.owner.value === identity.owner);
 
 const matchesPortableSkillFilter = (
@@ -612,7 +615,11 @@ export const discoverExtensionPackages = (
     const sorted = candidates
       .filter((candidate) =>
         candidate.kind === "manifest"
-          ? matchesFilter(candidate.identity, filter)
+          ? matchesFilter(
+              candidate.identity,
+              filter,
+              path.relative(resolvedRoot, candidate.directory).split(path.sep).join("/") || ".",
+            )
           : candidate.kind === "portable-skill"
             ? matchesPortableSkillFilter(candidate, filter)
             : (filter.type === "*" || filter.type === "mcp-server") &&

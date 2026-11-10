@@ -132,6 +132,46 @@ const assertParity = (input: unknown, accepts: boolean) => {
 };
 
 describe("published lockfile schema against an independent validator", () => {
+  it.each(["skills", "subagents", "rules", "hooks", "knowledge", "mcps", "packs"])(
+    "accepts an HTTPS archive %s binding",
+    (kind) => {
+      const id = "example.com/extensions.zip/packages/tools";
+      const record = {
+        id,
+        source: {
+          http: "https://example.com/extensions.zip",
+          kind: "archive",
+          entry: "packages/tools",
+          path: "packages/tools",
+          portable: false,
+          format: "native",
+        },
+        artifact: {
+          format: "zip",
+          url: "https://example.com/extensions.zip",
+          digest: artifactFile.digest,
+        },
+        tree,
+        ...(kind === "packs"
+          ? {
+              "manifest-version": "1.0.0",
+              "manifest-identity": packRecord["manifest-identity"],
+              dependencies: [dependency],
+            }
+          : {}),
+      };
+      const binding = { package: id, name: `@acme/${kind}/tools` };
+      assertParity(
+        {
+          version: 1,
+          package: [record],
+          ...(kind === "mcps" ? { mcp: [binding] } : { [kind]: { tools: binding } }),
+        },
+        true,
+      );
+    },
+  );
+
   it.each([
     { name: "empty", document: { version: 1 } },
     { name: "Registry", document: registry },

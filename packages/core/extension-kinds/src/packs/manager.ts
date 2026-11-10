@@ -104,6 +104,18 @@ const buildExternalSetPackArgs = (args: {
     }),
     dependencies: args.ref.pack.dependencies,
   };
+  if (args.ref.refType === "http")
+    return {
+      name: args.ref.pack.name,
+      lockEntry: {
+        source: { ...args.ref.source, path: args.ref.sourcePath, portable: false },
+        identity: { owner: args.ref.owner, name: args.ref.name },
+        resolved: args.ref.snapshot,
+        treeIntegrity: args.treeIntegrity,
+        ...shared,
+      },
+      versionRange: args.versionRange,
+    };
   if (args.ref.refType === "local") {
     const localSourcePath = args.ref.source.path;
     return {

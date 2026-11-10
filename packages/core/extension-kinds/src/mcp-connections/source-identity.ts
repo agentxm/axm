@@ -29,6 +29,7 @@ const formatMcpSourceIdentity = (identity: McpSourceIdentity): string => {
   switch (identity.kind) {
     case "registry":
       return `${pkg} from ${identity.endpoint.href}`;
+    case "http":
     case "git":
       return `${pkg} from ${identity.url.href}`;
     case "path":
@@ -85,6 +86,14 @@ export const requestedMcpSourceIdentity = (
           name: ref.name,
         };
       }
+      case "http":
+        return {
+          kind: "http",
+          url: ref.source.url,
+          path: ref.sourcePath,
+          owner: ref.owner,
+          name: ref.name,
+        };
       case "git-hosted":
         return { kind: "git", url: ref.source.url, owner: ref.owner, name: ref.name };
     }

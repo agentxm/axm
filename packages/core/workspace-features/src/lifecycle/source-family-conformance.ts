@@ -121,7 +121,7 @@ export const SOURCE_FAMILY_LIFECYCLE_CELLS: ReadonlyArray<SourceFamilyLifecycleC
           ? SOURCE_FAMILY_LIFECYCLE_OUTCOMES[family][operation]
           : {
               outcome: "unsupported-by-design",
-              decision: "HTTPS artifact and discovery sources distribute skills only.",
+              decision: "This extension type is not supported by the source-family policy.",
             },
       })),
     ),

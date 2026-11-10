@@ -165,7 +165,14 @@ export const acquireCanonicalForRef = <E = never>(
                 version: ref.version,
                 publisherBindingId: ref.publisherBindingId,
               }
-            : { refType: ref.refType, name: extensionRefName(ref) },
+            : ref.refType === "http"
+              ? {
+                  refType: "http",
+                  name: extensionRefName(ref),
+                  owner: ref.owner,
+                  snapshot: ref.snapshot,
+                }
+              : { refType: ref.refType, name: extensionRefName(ref) },
         accepted: args.accepted,
         force: args.force,
       });

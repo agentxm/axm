@@ -1,3 +1,5 @@
+import type { HttpSource } from "../../sources/types.js";
+import type { HttpRefDetails } from "./ref-base.js";
 /**
  * Concrete MCP server extension ref types.
  *
@@ -62,5 +64,12 @@ export type WorkspaceMcpServerRef = McpServerExtensionRefBase<"workspace", Works
   WorkspaceRefDetails;
 
 /** @experimental */
+export type HttpMcpServerRef = McpServerExtensionRefBase<"http", HttpSource> &
+  Omit<HttpRefDetails, "owner"> & { readonly owner?: Handle };
+
 export type McpServerExtensionRef =
-  GitHostedMcpServerRef | RegistryMcpServerRef | LocalMcpServerRef | WorkspaceMcpServerRef;
+  | HttpMcpServerRef
+  | GitHostedMcpServerRef
+  | RegistryMcpServerRef
+  | LocalMcpServerRef
+  | WorkspaceMcpServerRef;

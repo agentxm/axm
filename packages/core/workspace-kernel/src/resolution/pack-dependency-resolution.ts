@@ -220,7 +220,11 @@ const sourceForDependency = (
   }
 
   return Effect.succeed(
-    source.type === "registry" ? { ...source, owner: Option.some(owner) } : source,
+    source.type === "registry"
+      ? { ...source, owner: Option.some(owner) }
+      : source.type === "http"
+        ? { type: "http", kind: source.kind, url: source.url }
+        : source,
   );
 };
 
@@ -356,7 +360,7 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
 
     if (
       sourceOverride === undefined &&
-      (pack.refType === "git-hosted" || pack.refType === "local") &&
+      (pack.refType === "git-hosted" || pack.refType === "local" || pack.refType === "http") &&
       pack.sourceMembers.length > 0
     ) {
       const matches = sourceInheritedMembersNamed(pack, {
@@ -385,12 +389,18 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
         : inheritedSource;
     if (source.type !== "registry") {
       const matches = yield* Effect.scoped(
-        sources.find(source, {
-          names: [parsed.name],
-          type: expectedType,
-          owner: Option.some(parsed.owner),
-          versionRange: Option.none<string>(),
-        }),
+        sources.find(
+          source,
+          {
+            names: [parsed.name],
+            type: expectedType,
+            owner: Option.some(parsed.owner),
+            versionRange: Option.none<string>(),
+          },
+          sourceOverride === undefined && (pack.refType === "http" || pack.refType === "git-hosted")
+            ? pack
+            : undefined,
+        ),
       );
       const matchingRefs = matches.filter(
         (candidate): candidate is PackDependencyRef =>

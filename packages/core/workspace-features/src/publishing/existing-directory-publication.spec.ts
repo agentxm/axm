@@ -243,13 +243,9 @@ describe("Existing-directory publication", () => {
             }),
           );
           const envelope: unknown = JSON.parse(new TextDecoder().decode(contents["skill.json"]));
-          if (explicit)
-            expect(envelope).toMatchObject({
-              publish: {
-                include: ["/src/**/**"],
-                exclude: ["/src/metadata.json", "/src/.gitignore"],
-              },
-            });
+          expect(envelope).not.toHaveProperty("publish.include");
+          expect(envelope).not.toHaveProperty("publish.exclude");
+          expect(contents["src/.gitignore"]).toBeUndefined();
           expect(fs.readFileSync(path.join(directory, "metadata.json"), "utf8")).toBe(
             '{"upstream":true}\r\n',
           );

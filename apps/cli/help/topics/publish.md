@@ -154,17 +154,33 @@ axm publish @acme/skills/review --path ./review --package-version 1.0.0 \
 
 The flags are available only with `--path`. Ignore rules are evaluated before
 the `src/` envelope mapping; previews retain source and archive paths, and the
-generated manifest records envelope-relative explicit policy. The generated
+generated manifest omits explicit selection policy. The generated
 envelope is mandatory; an upstream manifest follows ordinary source selection.
 Selection affects only publication, leaving acquisition, import, fork, and projection intact.
 
 `axm publish --preview --json` reports the complete effective archive:
 included paths and sizes, excluded paths and their matching patterns,
-per-pattern match counts, unmatched-pattern warnings, counts, source bytes,
+per-pattern match counts, unmatched-pattern warnings, counts, uncompressed archive bytes,
 ZIP bytes, and final integrity. Text output stays compact; add `--verbose` for
 paths. Unmatched explicit manifest patterns warn without changing archive bytes. Likely
 development roots without an explicit decision prompt a review but are never
 automatically excluded.
+
+The distributed type manifest omits `publish.include` and `publish.exclude`;
+an emptied `publish` object is removed. Other metadata, including
+`publish.visibility` and custom metadata, is preserved. The source manifest is
+unchanged. The distribution manifest must be a regular file.
+
+Every `.gitignore` entry is omitted from the archive, including nested entries
+and case variants such as `.GITIGNORE`.
+Explicit inclusion cannot override this boundary; local diagnostics explain
+omissions and inclusion conflicts. No original-manifest backup is generated.
+Preview sizes and integrity describe the sanitized archive, while detailed
+selection rules and excluded paths remain in local diagnostics rather than
+Registry request metadata. Publishing an installed copy uses its present files
+and current configuration; the original selection rules are not recoverable.
+This boundary does not scrub arbitrary content references, public source
+repositories, or externally shared logs.
 
 ## Git source review
 

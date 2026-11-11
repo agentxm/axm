@@ -14,6 +14,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
+import { sha512Integrity } from "@agentxm/host-primitives";
 import { validateArchive } from "@agentxm/extension-content";
 import { validateContainedLink } from "@agentxm/workspace-kernel/locations";
 import { zipSync, type Zippable } from "fflate";
@@ -34,6 +36,36 @@ import { publishRefused } from "./errors.js";
 // eslint-disable-next-line no-restricted-syntax -- ZIP's driver API requires Date; this fixed value never reads the ambient clock.
 const DETERMINISTIC_MTIME = new Date(2020, 0, 1, 0, 0, 0, 0);
 const READ_CONCURRENCY = 16;
+
+/** Preserve arbitrary public metadata; publication selection belongs only to the author. */
+const distributionManifest = (bytes: Uint8Array) =>
+  Effect.gen(function* () {
+    const object = Schema.Record(Schema.String, Schema.Unknown);
+    const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(object))(
+      new TextDecoder().decode(bytes),
+    );
+    const publish = manifest["publish"];
+    if (!Schema.is(object)(publish)) return { bytes, removed: [] };
+    const removed = ["include", "exclude"].filter((field) => Object.hasOwn(publish, field));
+    if (removed.length === 0) return { bytes, removed };
+    const publication = { ...publish };
+    for (const field of removed) delete publication[field];
+    const distributed = { ...manifest };
+    if (Object.keys(publication).length === 0) delete distributed["publish"];
+    else distributed["publish"] = publication;
+    return {
+      bytes: new TextEncoder().encode(`${JSON.stringify(distributed, null, 2)}\n`),
+      removed,
+    };
+  }).pipe(
+    Effect.mapError((cause) =>
+      publishRefused({
+        category: "validation",
+        detail: "Cannot prepare the distribution manifest.",
+        cause,
+      }),
+    ),
+  );
 
 /** @experimental This API is unstable and may change without notice. */
 export interface BuildZipArchiveOptions extends PublishFileSelectionOptions {
@@ -93,6 +125,19 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
         : undefined,
     );
 
+    const manifestName = options?.manifest ?? manifestFilenameForType("skill");
+    const warnings: Array<string> = [];
+    let manifestFingerprint: string | undefined;
+    const prepareManifest = (bytes: Uint8Array) =>
+      Effect.gen(function* () {
+        manifestFingerprint = sha512Integrity(bytes);
+        const prepared = yield* distributionManifest(bytes);
+        if (prepared.removed.length > 0)
+          warnings.push(
+            `Distribution manifest omits ${prepared.removed.map((field) => `publish.${field}`).join(", ")}; source configuration is unchanged.`,
+          );
+        return prepared.bytes;
+      });
     const files = yield* Effect.gen(function* () {
       const candidates: Array<{
         readonly rel: string;
@@ -104,10 +149,11 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
         readonly payload?: Uint8Array;
       }> = [];
       if (options?.skillEnvelope !== undefined) {
+        const envelope = yield* prepareManifest(options.skillEnvelope);
         candidates.push({
           rel: manifestFilenameForType("skill"),
           abs: "",
-          size: options.skillEnvelope.byteLength,
+          size: envelope.byteLength,
           mode: 0o100644,
           decision: {
             included: true,
@@ -119,7 +165,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
               origin: { kind: "builtin", rule: "required-manifest" },
             },
           },
-          payload: options.skillEnvelope,
+          payload: envelope,
         });
       }
       const pending = [""];
@@ -132,7 +178,8 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
           const abs = path.join(dir, relative);
           const relativePath = relative.split(path.sep).join("/");
           const rel = options?.skillEnvelope === undefined ? relativePath : `src/${relativePath}`;
-          if (name === ".git") {
+          const publicationControl = name.toLowerCase() === ".gitignore";
+          if (name === ".git" || publicationControl) {
             const link = yield* fs.readLink(abs).pipe(Effect.option);
             const info = Option.isSome(link) ? undefined : yield* fs.stat(abs);
             const kind = Option.isSome(link)
@@ -140,6 +187,12 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
               : info?.type === "Directory"
                 ? "directory"
                 : "file";
+            const selected = resolved.selection.evaluate({ path: relativePath, kind });
+            if (publicationControl) {
+              warnings.push(
+                `Omitted publication control file "${rel}"${selected.matchedRules.some((rule) => rule.origin.kind === "manifest" && (rule.origin.field === "include" ? !rule.pattern.startsWith("!") : rule.pattern.startsWith("!"))) ? "; explicit inclusion cannot override this exclusion" : ""}.`,
+              );
+            }
             candidates.push({
               rel: kind === "directory" ? `${rel}/` : rel,
               abs,
@@ -151,12 +204,18 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
                   : 0,
               mode: 0,
               payload: new Uint8Array(),
-              decision: resolved.selection.evaluate({ path: relativePath, kind }),
+              decision: selected,
             });
             continue;
           }
           const target = yield* fs.readLink(abs).pipe(Effect.option);
           if (Option.isSome(target)) {
+            if (options?.skillEnvelope === undefined && relativePath === manifestName) {
+              return yield* publishRefused({
+                category: "validation",
+                detail: "The distribution manifest must be a regular file, not a symbolic link.",
+              });
+            }
             yield* validateContainedLink(dir, abs, target.value);
             const payload = new TextEncoder().encode(target.value);
             candidates.push({
@@ -185,10 +244,15 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
               });
             } else pending.push(relative);
           } else if (info.type === "File") {
+            const payload =
+              options?.skillEnvelope === undefined && relativePath === manifestName
+                ? yield* prepareManifest(yield* fs.readFile(abs))
+                : undefined;
             candidates.push({
               rel,
               abs,
-              size: Number(info.size),
+              size: payload?.byteLength ?? Number(info.size),
+              ...(payload === undefined ? {} : { payload }),
               mode: 0o100000 | (info.mode & 0o777),
               sourcePath: relativePath,
               decision: resolved.selection.evaluate({ path: relativePath, kind: "file" }),
@@ -299,16 +363,23 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
     return {
       archive,
       ...resolved,
+      policyFingerprint: JSON.stringify({
+        selection: resolved.policyFingerprint,
+        manifest: manifestFingerprint,
+      }),
       plan: {
         included,
         excluded,
         patterns: patternPlans,
-        warnings: patternPlans
-          .filter(({ matchCount, origin }) => matchCount === 0 && origin.kind === "manifest")
-          .map(
-            ({ pattern, origin }) =>
-              `publish.${origin.kind === "manifest" ? origin.field : "exclude"} pattern "${pattern}" matched no files.`,
-          ),
+        warnings: [
+          ...warnings,
+          ...patternPlans
+            .filter(({ matchCount, origin }) => matchCount === 0 && origin.kind === "manifest")
+            .map(
+              ({ pattern, origin }) =>
+                `publish.${origin.kind === "manifest" ? origin.field : "exclude"} pattern "${pattern}" matched no files.`,
+            ),
+        ],
         includedCount: included.length,
         excludedCount: excluded.length,
         uncompressedBytes: included.reduce((total, file) => total + file.size, 0),

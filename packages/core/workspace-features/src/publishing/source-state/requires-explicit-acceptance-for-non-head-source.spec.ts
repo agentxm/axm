@@ -122,6 +122,23 @@ describe("Publishing archive content not represented by Git HEAD", () => {
       }),
   );
 
+  it.effect("omitted publication controls do not require source warning acceptance", () =>
+    Effect.gen(function* () {
+      const world = setup(
+        gitComparison([
+          { path: ".gitignore", change: "modified", workingKind: "file" },
+          { path: "src/.gitignore", change: "deleted", headKind: "file" },
+        ]),
+      );
+      const result = yield* world.provide(runPublish(requestFor(world, { preview: false })));
+      expect(publishDocument(result).counts.published).toBe(1);
+      expect(publishDocument(result).execution.outcomes[0]?.sourceState).toMatchObject({
+        status: "matches-head",
+        differences: [],
+      });
+    }),
+  );
+
   it.effect("classifies deleted paths by their HEAD entry kinds", () =>
     Effect.gen(function* () {
       const world = setup(

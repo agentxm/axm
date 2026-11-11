@@ -3544,7 +3544,11 @@
                               "kind": { "type": "string", "enum": ["builtin"] },
                               "rule": {
                                 "type": "string",
-                                "enum": ["git-administration", "required-manifest"]
+                                "enum": [
+                                  "git-administration",
+                                  "required-manifest",
+                                  "publication-control"
+                                ]
                               }
                             },
                             "required": ["kind", "rule"],
@@ -3610,7 +3614,11 @@
                               "kind": { "type": "string", "enum": ["builtin"] },
                               "rule": {
                                 "type": "string",
-                                "enum": ["git-administration", "required-manifest"]
+                                "enum": [
+                                  "git-administration",
+                                  "required-manifest",
+                                  "publication-control"
+                                ]
                               }
                             },
                             "required": ["kind", "rule"],
@@ -3674,7 +3682,11 @@
                               "kind": { "type": "string", "enum": ["builtin"] },
                               "rule": {
                                 "type": "string",
-                                "enum": ["git-administration", "required-manifest"]
+                                "enum": [
+                                  "git-administration",
+                                  "required-manifest",
+                                  "publication-control"
+                                ]
                               }
                             },
                             "required": ["kind", "rule"],

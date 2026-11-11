@@ -33,6 +33,7 @@ export const specification = defineSpecification({
 describe("prepared distribution freshness", () => {
   for (const change of [
     "bytes",
+    "manifest-policy",
     "new-ancestor",
     "edited-ancestor",
     "removed-ancestor",
@@ -59,6 +60,14 @@ describe("prepared distribution freshness", () => {
           expect(ready._tag).toBe("Ready");
           if (ready._tag !== "Ready") throw new Error("Expected a prepared candidate");
           switch (change) {
+            case "manifest-policy": {
+              const file = nodePath.join(packageRoot, "skill.json");
+              fs.writeFileSync(
+                file,
+                fs.readFileSync(file, "utf8").replace("notes.txt", "other.txt"),
+              );
+              break;
+            }
             case "bytes":
               fs.appendFileSync(nodePath.join(packageRoot, "src", "SKILL.md"), "\nchanged\n");
               break;

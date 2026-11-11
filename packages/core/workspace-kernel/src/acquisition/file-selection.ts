@@ -9,7 +9,10 @@ export interface SelectionPath {
 export type SelectionRuleOrigin =
   | { readonly kind: "gitignore"; readonly file: string; readonly line: number }
   | { readonly kind: "manifest"; readonly field: "include" | "exclude"; readonly index: number }
-  | { readonly kind: "builtin"; readonly rule: "git-administration" | "required-manifest" };
+  | {
+      readonly kind: "builtin";
+      readonly rule: "git-administration" | "required-manifest" | "publication-control";
+    };
 
 export interface SelectionRule {
   readonly pattern: string;

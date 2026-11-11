@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/archive-inventory-matches-published-bytes",
   title: "The publication archive matches its complete reported inventory",
   statement:
-    "Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) as selected by the resolved Git-ignore or explicit include/exclude policy and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.",
+    "Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) as selected by the resolved Git-ignore or explicit include/exclude policy, with publication controls omitted and the distribution manifest sanitized, and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total uncompressed archive and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.",
   class: "functional",
   role: "interface",
   goals: ["trustworthy-distribution", "machine-automation"],
@@ -93,7 +93,7 @@ describe("Published archive inventory", () => {
               ...(file === "skill.json"
                 ? { ruleOrigin: { kind: "builtin", rule: "required-manifest" } }
                 : {}),
-              size: fs.statSync(nodePath.join(packageRoot, file)).size,
+              size: contents[file]?.length,
               matchedPatterns: [],
             })),
           );
@@ -134,12 +134,18 @@ describe("Published archive inventory", () => {
           expect(planned.warnings).toEqual(
             ignore === undefined
               ? [developmentRootWarning]
-              : ignore.length === 0
-                ? []
-                : ['publish.exclude pattern "missing-*" matched no files.'],
+              : [
+                  "Distribution manifest omits publish.exclude; source configuration is unchanged.",
+                  ...(ignore.length === 0
+                    ? []
+                    : ['publish.exclude pattern "missing-*" matched no files.']),
+                ],
           );
-          for (const [file, bytes] of Object.entries(contents))
-            expect(bytes).toEqual(fs.readFileSync(nodePath.join(packageRoot, file)));
+          for (const [file, bytes] of Object.entries(contents)) {
+            if (file === "skill.json")
+              expect(JSON.parse(new TextDecoder().decode(bytes))).not.toHaveProperty("publish");
+            else expect(bytes).toEqual(fs.readFileSync(nodePath.join(packageRoot, file)));
+          }
         }),
     );
   }

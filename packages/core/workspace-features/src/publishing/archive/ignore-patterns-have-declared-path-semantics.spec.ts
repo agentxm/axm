@@ -98,7 +98,10 @@ describe("Publication file selection", () => {
           "src/keep.log",
           "src/other.log",
         ])
-          yield* fs.writeFileString(path.join(packageRoot, file), "package content");
+          yield* fs.writeFileString(
+            path.join(packageRoot, file),
+            file === "skill.json" ? "{}" : "package content",
+          );
         yield* fs.writeFileString(
           path.join(packageRoot, "src", ".git"),
           "gitdir: ../administration",

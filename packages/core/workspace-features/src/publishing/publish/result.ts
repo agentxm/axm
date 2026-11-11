@@ -140,7 +140,7 @@ const SelectionRuleOriginSchema = Schema.Union([
   }),
   Schema.Struct({
     kind: Schema.Literal("builtin"),
-    rule: Schema.Literals(["git-administration", "required-manifest"]),
+    rule: Schema.Literals(["git-administration", "required-manifest", "publication-control"]),
   }),
 ]);
 

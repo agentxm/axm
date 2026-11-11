@@ -3907,6 +3907,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
 - Source: [`packages/core/workspace-features/src/publishing/visibility/preserves-established-visibility.spec.ts`](../packages/core/workspace-features/src/publishing/visibility/preserves-established-visibility.spec.ts)
 
+##### Publication consumes selection controls without distributing them
+
+- Requirement: `cli/publish/publication-controls-remain-private`
+- Owner: `workspace-features`
+- Statement: Every publication route shall require a regular-file distribution manifest, omit publish.include and publish.exclude from it, remove an emptied publish object, preserve other metadata and source files, omit every .gitignore entry including case variants despite explicit inclusion with local omission diagnostics, and keep selection rules out of Registry request metadata while reporting sizes and integrity of the resulting archive.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Actual filesystem sources and uploaded ZIP bytes establish the distribution boundary; recorded HTTP requests establish outgoing metadata but do not prove remote Registry storage behavior.
+- Methods: example, decision-table
+- Assumptions: Arbitrary content references and public source repositories are outside this selection-control boundary.
+- Source: [`packages/core/workspace-features/src/publishing/archive/publication-controls-remain-private.spec.ts`](../packages/core/workspace-features/src/publishing/archive/publication-controls-remain-private.spec.ts)
+
 ##### The publication gate is fixed and ignores locally relaxed lint rules
 
 - Requirement: `cli/publish/publication-gate-is-fixed`
@@ -6889,7 +6903,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/publish/archive-inventory-matches-published-bytes`
 - Owner: `workspace-features`
-- Statement: Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) as selected by the resolved Git-ignore or explicit include/exclude policy and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.
+- Statement: Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) as selected by the resolved Git-ignore or explicit include/exclude policy, with publication controls omitted and the distribution manifest sanitized, and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total uncompressed archive and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.
 - Class: functional
 - Role: interface
 - Product goals: `trustworthy-distribution`, `machine-automation`

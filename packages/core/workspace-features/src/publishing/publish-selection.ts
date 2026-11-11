@@ -1,5 +1,8 @@
 import * as Effect from "effect/Effect";
-import { resolveFileSelection } from "@agentxm/workspace-kernel/acquisition";
+import {
+  type ResolvedFileSelection,
+  resolveFileSelection,
+} from "@agentxm/workspace-kernel/acquisition";
 import { observeGitIgnoreInputs } from "@agentxm/workspace-kernel/sources";
 import type {
   ExtensionType,
@@ -41,13 +44,31 @@ export const resolvePublishSelection = (
             ),
           )
         : { packageDirectory: "", rules: [], fingerprint: "explicit" };
-    const selection = resolveFileSelection({
+    const authoredSelection = resolveFileSelection({
       packageDirectory: snapshot.packageDirectory,
       gitignore: snapshot.rules,
       ...(options.include === undefined ? {} : { include: options.include }),
       ...(options.exclude === undefined ? {} : { exclude: options.exclude }),
       ...(requiredManifest === undefined ? {} : { manifest: requiredManifest }),
     });
+    const selection: ResolvedFileSelection = {
+      rules: authoredSelection.rules,
+      evaluate: (entry) => {
+        const decision = authoredSelection.evaluate(entry);
+        if (!entry.path.split("/").some((part) => part.toLowerCase() === ".gitignore"))
+          return decision;
+        return {
+          included: false,
+          reason: "rule",
+          matchedRules: decision.matchedRules,
+          decidingRule: {
+            pattern: ".gitignore",
+            baseDirectory: "",
+            origin: { kind: "builtin", rule: "publication-control" },
+          },
+        };
+      },
+    };
     if (requiredManifest !== undefined) {
       const mandatory = selection.evaluate({ path: requiredManifest, kind: "file" });
       if (!mandatory.included)

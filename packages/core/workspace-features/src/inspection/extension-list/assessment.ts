@@ -19,11 +19,11 @@ import {
   type LockEntry,
   type ExtensionInventoryLifecycle,
   type ExtensionInventoryRow,
+  type ExtensionInventory,
   DesiredStateReader,
   desiredStateProblemText,
   effectiveDesiredConstraint,
   LockfileReader,
-  WorkspaceRecords,
   type DesiredStateGraph,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
@@ -62,7 +62,7 @@ export interface AssessedExtensionListItem {
   readonly type: InstallableExtensionType;
   readonly name: string;
   readonly management: ExtensionInventoryLifecycle;
-  readonly installed: boolean;
+  readonly installed: boolean | null;
   readonly enabled: boolean | null;
   readonly version?: string;
   readonly source?: string;
@@ -86,10 +86,8 @@ const isGitAcceptedEntry = (entry: AcceptedEntry): entry is GitAcceptedEntry =>
   entry.source.type === "git";
 
 export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionListItems")(
-  function* (types: ReadonlyArray<InstallableExtensionType> = []) {
+  function* (inventory: ExtensionInventory) {
     const lockfile = yield* LockfileReader;
-    const records = yield* WorkspaceRecords;
-    const inventory = yield* records.getInventory({ types });
     const acceptedByRow = yield* Effect.forEach(inventory.items, (row) =>
       lockfile.acceptedEntry(row.type, row.name).pipe(Effect.map(Option.getOrUndefined)),
     );
@@ -264,6 +262,11 @@ const assessItem = (
   graph: DesiredStateGraph,
 ) =>
   Effect.gen(function* () {
+    if (item.installed === null)
+      return {
+        state: "unknown",
+        reason: "Installation presence could not be observed.",
+      } satisfies ExtensionAssessment;
     if (!item.installed) return { state: "not-applicable" } satisfies ExtensionAssessment;
     // Desired state does not reach these packages, so no accepted source applies.
     if (item.management === "leftover") {

@@ -413,6 +413,12 @@ export {
   hookReceiptFilename,
   readHookEvidence,
 } from "./observed/hooks/evidence.js";
-export { WorkspaceReadViews, withWorkspaceReadView } from "./workspace/read-view.js";
+export {
+  WorkspaceReadViews,
+  withWorkspaceReadView,
+  withWorkspaceObservationReadView,
+} from "./workspace/read-view.js";
 
 export { ensureWorkspaceTransientIgnores } from "./workspace/runtime-ignores.js";
+
+export { inspectExtensionInventory } from "./workspace/inventory-inspection.js";

@@ -1,9 +1,8 @@
-import { withParameterDescription } from "../../cli-parameters.js";
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 /** Shared list command shell; each type supplies its own rows and document. */
 
 import * as Effect from "effect/Effect";
-import type * as Schema from "effect/Schema";
-import { Command } from "effect/cli";
+import { Command, Flag } from "effect/cli";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -19,56 +18,104 @@ import { withLiveOperation } from "../../operation-lifecycle.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { extensionTypePresentation } from "../extension-type-presentation.js";
-import { inventorySummary } from "../inventory-view.js";
+import { inventorySummary, inventoryDiagnosticsDoc } from "../inventory-view.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "./command-capabilities.js";
 
-interface ListDefinition<Row, S extends Schema.Top, E extends ExpectedCliError, R> {
+const detailColumnHeaders = [
+  "Native locations",
+  "Discovery",
+  "Agent outcomes",
+  "Concepts",
+  "Diagnostics",
+];
+
+interface InventoryListRow {
+  readonly installed: boolean | null;
+  readonly configuredAgents?: ReadonlyArray<string>;
+  readonly observedAgents?: ReadonlyArray<string>;
+  readonly inspectionState?: string;
+}
+interface ListDefinition<Row extends InventoryListRow, E extends ExpectedCliError, R> {
   readonly type: InstallableExtensionType;
   readonly query: (
     agents: ReadonlyArray<string>,
+    details: boolean,
   ) => Effect.Effect<
-    { readonly document: Schema.Schema.Type<S>; readonly rows: ReadonlyArray<Row> },
+    { readonly document: ExtensionInventoryDocument; readonly rows: ReadonlyArray<Row> },
     E,
     R
   >;
-  readonly schema: S;
+  readonly schema: typeof ExtensionInventoryDocumentSchema;
   readonly columns: ReadonlyArray<ViewColumn<Row>>;
-  readonly summary: (document: Schema.Schema.Type<S>, rows: ReadonlyArray<Row>) => string;
+  readonly summary: (document: ExtensionInventoryDocument, rows: ReadonlyArray<Row>) => string;
 }
 
 export const inventoryList = <Row, E, R>(
   type: InstallableExtensionType,
-  list: (agents: ReadonlyArray<string>) => Effect.Effect<TypeListResult<Row>, E, R>,
+  list: (
+    agents: ReadonlyArray<string>,
+    details: boolean,
+  ) => Effect.Effect<TypeListResult<Row>, E, R>,
 ) => ({
-  query: (agents: ReadonlyArray<string>) =>
-    Effect.map(list(agents), ({ document, rows }) => ({ document, rows })),
+  query: (agents: ReadonlyArray<string>, details: boolean) =>
+    Effect.map(list(agents, details), ({ document, rows }) => ({ document, rows })),
   schema: ExtensionInventoryDocumentSchema,
   summary: (inventory: ExtensionInventoryDocument) =>
     inventorySummary(inventory, extensionTypePresentation(type).noun.singular),
 });
 
-export const makePerTypeListCommand = <Row, S extends Schema.Top, E extends ExpectedCliError, R>(
-  definition: ListDefinition<Row, S, E, R>,
+export const makePerTypeListCommand = <Row extends InventoryListRow, E extends ExpectedCliError, R>(
+  definition: ListDefinition<Row, E, R>,
 ) => {
   const { route, noun } = extensionTypePresentation(definition.type);
   const handler = Effect.fn(`${route}.list`)(function* (
-    args: { readonly agents: ReadonlyArray<string> } = { agents: [] },
+    args: { readonly agents: ReadonlyArray<string>; readonly details?: boolean } = { agents: [] },
   ) {
     const { document, rows } = yield* withLiveOperation(
       { name: `Inspect ${noun.plural}`, mode: "query" },
-      definition.query(args.agents),
+      definition.query(args.agents, args.details ?? false),
     );
-    yield* emitResult(document, definition.schema, () =>
-      inventoryDoc({
+    const common: ReadonlyArray<ViewColumn<Row>> = [
+      {
+        header: "Installed",
+        value: (row) => (row.installed === null ? "unknown" : row.installed ? "yes" : "missing"),
+      },
+      {
+        header: "Configured agents",
+        priority: "optional",
+        value: (row) => row.configuredAgents?.join(", ") || "none",
+      },
+      {
+        header: "Observed agents",
+        priority: "optional",
+        value: (row) => row.observedAgents?.join(", ") || "none",
+      },
+      ...(args.details === true
+        ? [{ header: "Inspection", value: (row: Row) => row.inspectionState ?? "not-requested" }]
+        : []),
+    ];
+    yield* emitResult(document, definition.schema, () => [
+      ...inventoryDoc({
         rows,
-        columns: definition.columns,
+        columns: [
+          ...definition.columns,
+          ...common.filter(
+            (column) => !definition.columns.some((existing) => existing.header === column.header),
+          ),
+        ].filter(
+          (column) =>
+            args.details === true ||
+            typeof column.header !== "string" ||
+            !detailColumnHeaders.includes(column.header),
+        ),
         summary: definition.summary(document, rows),
         empty:
           args.agents.length > 0
             ? `No ${noun.plural} matched the selected agent filter.`
             : `No ${noun.plural} found`,
       }),
-    );
+      ...inventoryDiagnosticsDoc(document),
+    ]);
   });
   const scope = scopeFlag;
   const description = `List detected ${noun.plural} and how AXM manages them`;
@@ -79,14 +126,18 @@ export const makePerTypeListCommand = <Row, S extends Schema.Top, E extends Expe
 
   const config = {
     scope,
+    details: Flag.Boolean("details").pipe(
+      withParameterDescription("Inspect native locations and extension contents"),
+      withParameterDefault(false),
+    ),
     agent: agentFlag.pipe(
       withParameterDescription(
         `Show only ${noun.plural} observed by or configured for any of these coding agents`,
       ),
     ),
   } as const;
-  const command = Command.make("list", config, ({ scope, agent }) =>
-    handler({ agents: agent }).pipe(
+  const command = Command.make("list", config, ({ scope, agent, details }) =>
+    handler({ agents: agent, details }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
       withRuntime(),
     ),

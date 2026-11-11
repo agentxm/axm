@@ -164,6 +164,9 @@ export const compile = Effect.gen(function* () {
         [
           "build",
           "--compile",
+          // Parse the bundled program at build time so short CLI queries avoid that startup cost.
+          "--bytecode",
+          "--format=esm",
           "--sourcemap",
           "--conditions=axm-source",
           `--target=${target}`,

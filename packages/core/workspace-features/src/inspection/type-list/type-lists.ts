@@ -1,3 +1,4 @@
+import { inspectInventory } from "../inventory-inspection.js";
 import { withInspectionReadView } from "../read-view.js";
 /**
  * What one extension type's inventory means.
@@ -94,26 +95,41 @@ const augment = (
 
 const baseRow = (row: ExtensionInventoryRow): TypeListRow => ({
   name: row.name,
+  installed: row.installed,
+  ...(row.inspectionState === undefined ? {} : { inspectionState: row.inspectionState }),
   lifecycle: row.classification.lifecycle,
   enabled: row.enabled,
   agents: row.agents,
+  configuredAgents: row.configuredAgents ?? [],
+  observedAgents: row.observedAgents ?? [],
   agentOutcomes: row.agentOutcomes,
   ...(row.nativeLocations === undefined
     ? {}
     : { nativeLocations: row.nativeLocations, duplicateDiscoveries: row.duplicateDiscoveries }),
 });
 
-const inventoryFor = (type: InstallableExtensionType, agents: ReadonlyArray<string>) =>
+const inventoryFor = (
+  type: InstallableExtensionType,
+  agents: ReadonlyArray<string>,
+  details = false,
+) =>
   Effect.flatMap(WorkspaceRecords, (records) =>
-    records.getExtensionInventory(type, agents.length === 0 ? {} : { agents }),
+    records
+      .getExtensionInventory(type, agents.length === 0 ? {} : { agents })
+      .pipe(
+        Effect.flatMap((inventory) =>
+          details ? inspectInventory(inventory) : Effect.succeed(inventory),
+        ),
+      ),
   );
 
 /** Skills: the accepted source kind is the row's type; unlocked skills are detected. */
 export const listSkills = Effect.fn("Inspection.listSkills")(function* (request: {
   readonly agents?: ReadonlyArray<string>;
+  readonly details?: boolean;
 }) {
   const lockfile = yield* LockfileReader;
-  const inventory = yield* inventoryFor("skill", request.agents ?? []);
+  const inventory = yield* inventoryFor("skill", request.agents ?? [], request.details);
   const locked = yield* lockfile.entries("skill");
   const rows = inventory.items.map((row): SkillListRow => ({
     ...baseRow(row),
@@ -130,8 +146,9 @@ export const listSkills = Effect.fn("Inspection.listSkills")(function* (request:
 /** Subagents: an empty agent list means every configured agent receives it. */
 export const listSubagents = Effect.fn("Inspection.listSubagents")(function* (request: {
   readonly agents?: ReadonlyArray<string>;
+  readonly details?: boolean;
 }) {
-  const inventory = yield* inventoryFor("subagent", request.agents ?? []);
+  const inventory = yield* inventoryFor("subagent", request.agents ?? [], request.details);
   return yield* withListDocument({ inventory, rows: inventory.items.map(baseRow) });
 }, withInspectionReadView);
 
@@ -160,10 +177,11 @@ const sourcedRows = (
 
 export const listRules = Effect.fn("Inspection.listRules")(function* (request: {
   readonly agents?: ReadonlyArray<string>;
+  readonly details?: boolean;
 }) {
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
-  const inventory = yield* inventoryFor("rule", request.agents ?? []);
+  const inventory = yield* inventoryFor("rule", request.agents ?? [], request.details);
   const configured = yield* settings.entries("rule");
   const locked = yield* lockfile.entries("rule");
   return yield* withListDocument(sourcedRows(inventory, configured, locked));
@@ -172,10 +190,11 @@ export const listRules = Effect.fn("Inspection.listRules")(function* (request: {
 /** Hooks consume the resolved per-agent outcomes carried by inventory rows. */
 export const listHooks = Effect.fn("Inspection.listHooks")(function* (request: {
   readonly agents?: ReadonlyArray<string>;
+  readonly details?: boolean;
 }) {
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
-  const inventory = yield* inventoryFor("hook", request.agents ?? []);
+  const inventory = yield* inventoryFor("hook", request.agents ?? [], request.details);
   const configured = yield* settings.entries("hook");
   const locked = yield* lockfile.entries("hook");
   return yield* withListDocument(sourcedRows(inventory, configured, locked));
@@ -187,10 +206,11 @@ export const listHooks = Effect.fn("Inspection.listHooks")(function* (request: {
  */
 export const listPacks = Effect.fn("Inspection.listPacks")(function* (request: {
   readonly agents?: ReadonlyArray<string>;
+  readonly details?: boolean;
 }) {
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
-  const inventory = yield* inventoryFor("pack", request.agents ?? []);
+  const inventory = yield* inventoryFor("pack", request.agents ?? [], request.details);
   const configured = yield* settings.entries("pack");
   const packs = yield* lockfile.entries("pack");
   const rows = inventory.items.map((row): PackListRow => {
@@ -228,6 +248,7 @@ export const listPacks = Effect.fn("Inspection.listPacks")(function* (request: {
 // depends on rather than expanding into the vocabulary it aggregates.
 export const listMcpServers: (request: {
   readonly agents?: ReadonlyArray<string>;
+  readonly details?: boolean;
 }) => Effect.Effect<
   TypeListResult<McpServerListRow, McpServerListQueryResult>,
   WorkspaceStateReadFailure | McpInspectionError,
@@ -240,12 +261,13 @@ export const listMcpServers: (request: {
   | WorkspaceLocation
 > = Effect.fn("Inspection.listMcpServers")(function* (request: {
   readonly agents?: ReadonlyArray<string>;
+  readonly details?: boolean;
 }) {
   const location = yield* WorkspaceLocation;
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
   const desiredState = yield* DesiredStateReader;
-  const inventory = yield* inventoryFor("mcp-server", request.agents ?? []);
+  const inventory = yield* inventoryFor("mcp-server", request.agents ?? [], request.details);
   const configured = yield* settings.entries("mcp-server");
   const configuredAgents = yield* settings.configuredAgents;
   const graph = yield* desiredState.graph();
@@ -261,7 +283,10 @@ export const listMcpServers: (request: {
         // Every desired connection is inspected the same way, whether the
         // workspace declared it or a Pack supplied it.
         const inspection =
-          row.enabled !== false && desiredNode !== undefined && desiredNode.enabled
+          request.details === true &&
+          row.enabled !== false &&
+          desiredNode !== undefined &&
+          desiredNode.enabled
             ? yield* inspectDesiredMcpServer({
                 nativeDirectoryInputs: location.nativeDirectoryInputs,
                 workspaceRoot: location.baseDir,

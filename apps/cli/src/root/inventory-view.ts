@@ -2,6 +2,7 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 
 import {
   ABSENT,
+  paragraphDoc,
   agentOutcome,
   count,
   type Text,
@@ -88,7 +89,7 @@ type InventoryCounts = Pick<
   ExtensionInventoryDocument,
   "count" | "managementCounts" | "nativeLocationCounts"
 > & {
-  readonly items: ReadonlyArray<{ readonly installed: boolean }>;
+  readonly items: ReadonlyArray<{ readonly installed: boolean | null }>;
 };
 
 export const inventorySummary = (inventory: InventoryCounts, label: string): string => {
@@ -126,3 +127,22 @@ export const inventorySummary = (inventory: InventoryCounts, label: string): str
   const headline = count(inventory.count, label);
   return parts.length === 0 ? headline : `${headline}: ${parts.join(", ")}`;
 };
+
+/** Preserve incomplete observations in human output as well as the machine document. */
+export const inventoryDiagnosticsDoc = (
+  inventory: Pick<ExtensionInventoryDocument, "observationDiagnostics" | "items">,
+) =>
+  [
+    ...new Set([
+      ...(inventory.observationDiagnostics ?? [])
+        .filter((warning) => warning.code !== "scanner-config")
+        .map((warning) =>
+          warning.path === undefined ? warning.message : `${warning.path}: ${warning.message}`,
+        ),
+      ...inventory.items.flatMap((item) =>
+        "diagnostics" in item.inspection
+          ? item.inspection.diagnostics.map((message) => `${item.name}: ${message}`)
+          : [],
+      ),
+    ]),
+  ].flatMap((message) => paragraphDoc(message));

@@ -1,8 +1,8 @@
+import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type {
   ExtensionListDocument,
   ExtensionListFilter,
-  AssessedExtensionListItem,
 } from "@agentxm/workspace-features/inspection";
 import { formatDeprecationWarning } from "@agentxm/registry-client";
 
@@ -18,16 +18,25 @@ import {
 } from "../../screen/index.js";
 import { extensionTypeText, inventoryLifecycle } from "../inventory-view.js";
 
+type ListItem = ExtensionListDocument["items"][number];
+
+const itemRef = (item: ListItem) => item.fqn ?? `${extensionTypeToPlural[item.type]}/${item.name}`;
+const nativeInspection = (item: ListItem) =>
+  "agentOutcomes" in item.inspection ? item.inspection : undefined;
+
 interface ListTableRow {
   readonly extension: string;
   readonly type: InstallableExtensionType;
-  readonly management: AssessedExtensionListItem["management"];
-  readonly installed: boolean;
+  readonly management: ListItem["management"];
+  readonly installed: boolean | null;
   readonly enabled: boolean;
   readonly version: string;
   readonly source: string;
-  readonly state: AssessedExtensionListItem["assessment"]["state"];
+  readonly state: ListItem["assessment"]["state"];
   readonly guidance: string;
+  readonly configuredAgents: string;
+  readonly observedAgents: string;
+  readonly inspectionState: string;
   readonly nativeLocations: string;
   readonly configuredConsumers: string;
   readonly discovery: string;
@@ -53,8 +62,23 @@ const ExtensionListColumns = [
   },
   {
     header: "Installed",
-    value: (row: ListTableRow) => attention(row.installed ? "yes" : "missing", !row.installed),
+    value: (row: ListTableRow) =>
+      attention(
+        row.installed === null ? "unknown" : row.installed ? "yes" : "missing",
+        !row.installed,
+      ),
   },
+  {
+    header: "Configured agents",
+    priority: "optional",
+    value: (row: ListTableRow) => row.configuredAgents,
+  },
+  {
+    header: "Observed agents",
+    priority: "optional",
+    value: (row: ListTableRow) => row.observedAgents,
+  },
+  { header: "Inspection", value: (row: ListTableRow) => row.inspectionState },
   { header: "Native locations", value: (row: ListTableRow) => row.nativeLocations },
   { header: "Configured consumers", value: (row: ListTableRow) => row.configuredConsumers },
   { header: "Discovery", value: (row: ListTableRow) => row.discovery },
@@ -79,36 +103,41 @@ const ExtensionListColumns = [
   { header: "Guidance", priority: "optional", value: (row: ListTableRow) => row.guidance },
 ] satisfies ReadonlyArray<ViewColumn<ListTableRow>>;
 
-const guidanceFor = (item: AssessedExtensionListItem): string => {
+const guidanceFor = (item: ListItem): string => {
   const deprecation = item.assessment.deprecation;
   if (deprecation === undefined) return "-";
-  return formatDeprecationWarning(item.ref, deprecation);
+  return formatDeprecationWarning(itemRef(item), deprecation);
 };
 
-const toRow = (item: AssessedExtensionListItem): ListTableRow => ({
-  extension: item.ref,
+const toRow = (item: ListItem): ListTableRow => ({
+  extension: itemRef(item),
   type: item.type,
   management: item.management,
   installed: item.installed,
   enabled: item.enabled === true,
   version: item.version ?? ABSENT,
-  source: item.source ?? ABSENT,
+  source: "locator" in item.source ? (item.source.locator ?? item.source.kind) : item.source.kind,
   state: item.assessment.state,
   guidance: guidanceFor(item),
+  configuredAgents: item.agents.configured.join(", ") || ABSENT,
+  observedAgents: item.agents.observed.join(", ") || ABSENT,
+  inspectionState: item.inspection.state,
   nativeLocations:
-    item.nativeLocations
-      ?.map(
+    nativeInspection(item)
+      ?.nativeLocations?.map(
         (unit) =>
           `${unit.address.path}: ${unit.state}${unit.policyReasons.length === 0 ? "" : ` (${unit.policyReasons.join(", ")})`}`,
       )
       .join("; ") || ABSENT,
   configuredConsumers:
-    [...new Set(item.nativeLocations?.flatMap((unit) => unit.configuredConsumers) ?? [])].join(
-      ", ",
-    ) || ABSENT,
+    [
+      ...new Set(
+        nativeInspection(item)?.nativeLocations?.flatMap((unit) => unit.configuredConsumers) ?? [],
+      ),
+    ].join(", ") || ABSENT,
   discovery:
-    item.duplicateDiscoveries
-      ?.map(
+    nativeInspection(item)
+      ?.duplicateDiscoveries?.map(
         (duplicate) =>
           `${duplicate.agentId}: ${String(duplicate.nativeUnits.length)} locations; runtime selection unverified`,
       )
@@ -180,8 +209,9 @@ const emptyFilteredInventoryDoc = (
  * mark and a toned cell, and the summary sentence after it.
  */
 export const listDoc = (options: {
-  readonly items: ReadonlyArray<AssessedExtensionListItem>;
+  readonly items: ReadonlyArray<ListItem>;
   readonly filter: ExtensionListFilter;
+  readonly details?: boolean;
   /** How much of the inventory a filtered listing could assess. */
   readonly coverage?: ExtensionListDocument["coverage"];
   readonly emptyState?: EmptyInventory;
@@ -194,12 +224,18 @@ export const listDoc = (options: {
       : emptyFilteredInventoryDoc(options.filter, coverage);
   return inventoryDoc({
     rows,
-    columns:
-      options.filter === "all"
-        ? ExtensionListColumns.filter(
-            (column) => column.header !== "Assessment" && column.header !== "Guidance",
-          )
-        : ExtensionListColumns,
+    columns: (options.filter === "all"
+      ? ExtensionListColumns.filter(
+          (column) => column.header !== "Assessment" && column.header !== "Guidance",
+        )
+      : ExtensionListColumns
+    ).filter(
+      (column) =>
+        options.details === true ||
+        !["Inspection", "Native locations", "Configured consumers", "Discovery"].includes(
+          column.header,
+        ),
+    ),
     summary:
       coverage === undefined
         ? inventorySentence(rows)

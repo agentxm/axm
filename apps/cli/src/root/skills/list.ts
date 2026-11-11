@@ -13,15 +13,14 @@ const SkillListColumns = [
   { header: "Activation", value: (row: SkillListRow) => inventoryActivation(row) },
   { header: "Type", priority: "optional", value: (row: SkillListRow) => row.sourceType },
   {
-    header: "Potential readers",
+    header: "Observed agents",
     priority: "optional",
-    value: (row: SkillListRow) => (row.agents.length === 0 ? "none" : row.agents.join(", ")),
+    value: (row: SkillListRow) => (row.observedAgents ?? []).join(", ") || "none",
   },
   {
     header: "Configured agents",
     priority: "required",
-    value: (row: SkillListRow) =>
-      row.agentOutcomes.map((outcome) => outcome.agentId).join(", ") || "none",
+    value: (row: SkillListRow) => (row.configuredAgents ?? []).join(", ") || "none",
   },
   {
     header: "Native locations",
@@ -54,7 +53,7 @@ const SkillListColumns = [
 
 const { handler, command } = makePerTypeListCommand({
   type: "skill",
-  ...inventoryList("skill", (agents) => listSkills({ agents })),
+  ...inventoryList("skill", (agents, details) => listSkills({ agents, details })),
   columns: SkillListColumns,
 });
 

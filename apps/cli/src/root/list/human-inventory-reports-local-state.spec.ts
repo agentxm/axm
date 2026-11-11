@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/list/human-inventory-reports-local-state",
   title: "Human inventories report local state without assessment columns",
   statement:
-    "When an ordinary inventory is rendered for a person, AXM shall omit remote Assessment and Guidance columns while retaining local missing or leftover diagnostics.",
+    "When an ordinary inventory is rendered for a person, AXM shall omit unrequested native-inspection columns and remote Assessment and Guidance columns while retaining local missing or leftover diagnostics.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -111,6 +111,8 @@ describe("Local human inventories", () => {
         yield* handleList({ types: [], outdated: false, deprecated: false });
         const rendered = JSON.stringify(rendererState.docs);
         expect(rendered).toContain("review");
+        expect(rendered).not.toContain("Native locations");
+        expect(rendered).not.toContain("Discovery");
         expect(rendered).not.toContain("Assessment");
         expect(rendered).not.toContain("Guidance");
         expect(rendered).not.toContain("deprecated");

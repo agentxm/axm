@@ -38,6 +38,20 @@ describe("projectExtensionInventory", () => {
     });
   });
 
+  it("filters configured agents without inventing observed native presence", () => {
+    const inventory = projectExtensionInventory(
+      [
+        { ...row("missing", "configured"), installed: false, configuredAgents: ["codex"] },
+        row("other", "unmanaged", ["claude-code"]),
+      ],
+      { agents: ["codex"], outcomes: () => [] },
+    );
+    expect(inventory.items).toMatchObject([
+      { name: "missing", installed: false, agents: [], configuredAgents: ["codex"] },
+    ]);
+    expect(inventory.count).toBe(1);
+  });
+
   it("filters by observed agents and outcome agents", () => {
     const rows = [row("claude", "configured", ["claude-code"]), row("codex", "implicit")];
     const inventory = projectExtensionInventory(rows, {

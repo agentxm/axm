@@ -17,6 +17,8 @@ export { ExtensionInventoryLifecycleSchema, type ExtensionInventoryLifecycle } f
 export const ExtensionInventoryRowSchema = Schema.Struct({
   ...WorkspaceRecordRowSchema.fields,
   agentOutcomes: Schema.Array(ConfiguredAgentOutcomeSchema),
+  inspectionDiagnostics: Schema.optionalKey(Schema.Array(Schema.String)),
+  inspectionState: Schema.optionalKey(Schema.Literals(["complete", "partial", "not-applicable"])),
   nativeLocations: Schema.optionalKey(Schema.Array(NativeLocationOutcomeSchema)),
   duplicateDiscoveries: Schema.optionalKey(
     Schema.Array(
@@ -39,6 +41,7 @@ export type ExtensionInventoryRow = typeof ExtensionInventoryRowSchema.Type;
 export const ExtensionInventorySchema = Schema.Struct({
   items: Schema.Array(ExtensionInventoryRowSchema),
   count: Schema.Number,
+  observationDiagnostics: WorkspaceRecordRowSchema.fields.observationDiagnostics,
   configuredCount: Schema.Number,
   implicitCount: Schema.Number,
   installedCount: Schema.Number,
@@ -141,6 +144,7 @@ export const projectExtensionInventory = (
           filter.some(
             (agent) =>
               row.agents.includes(agent) ||
+              row.configuredAgents?.includes(agent) ||
               row.agentOutcomes.some((outcome) => outcome.agentId === agent),
           ),
       ),

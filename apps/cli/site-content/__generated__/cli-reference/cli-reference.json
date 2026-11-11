@@ -619,6 +619,14 @@
                 "default": "project"
               },
               {
+                "name": "details",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect native locations and extension contents",
+                "default": false
+              },
+              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -1611,6 +1619,14 @@
                 "description": "Workspace scope",
                 "choices": [{ "value": "project" }, { "value": "user" }],
                 "default": "project"
+              },
+              {
+                "name": "details",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect native locations and extension contents",
+                "default": false
               },
               {
                 "name": "agent",
@@ -2622,6 +2638,14 @@
                 "default": "project"
               },
               {
+                "name": "details",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect native locations and extension contents",
+                "default": false
+              },
+              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -3601,6 +3625,14 @@
                 "default": "project"
               },
               {
+                "name": "details",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect native locations and extension contents",
+                "default": false
+              },
+              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -4385,6 +4417,14 @@
                 "description": "Workspace scope",
                 "choices": [{ "value": "project" }, { "value": "user" }],
                 "default": "project"
+              },
+              {
+                "name": "details",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect native locations and extension contents",
+                "default": false
               },
               {
                 "name": "agent",
@@ -5440,6 +5480,14 @@
                 "description": "Workspace scope",
                 "choices": [{ "value": "project" }, { "value": "user" }],
                 "default": "project"
+              },
+              {
+                "name": "details",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect native locations and extension contents",
+                "default": false
               },
               {
                 "name": "agent",
@@ -6602,6 +6650,14 @@
                 "default": "project"
               },
               {
+                "name": "details",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect native locations and extension contents",
+                "default": false
+              },
+              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -7712,6 +7768,14 @@
         "description": "List extensions across all types",
         "arguments": [],
         "options": [
+          {
+            "name": "details",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Inspect native locations and extension contents",
+            "default": false
+          },
           {
             "name": "scope",
             "aliases": [],

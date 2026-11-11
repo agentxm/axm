@@ -96,6 +96,7 @@ export const observeMaterializationCurrency = <E>({
 > =>
   (inventory === undefined
     ? records.getExtensionInventory(node.type, {
+        details: true,
         ...(configuredAgents.length > 0 &&
         (node.type === "skill" || node.type === "mcp-server" || node.type === "subagent")
           ? { agents: configuredAgents }
@@ -212,7 +213,7 @@ export const observeMaterializationCurrency = <E>({
           rows: [
             {
               name: node.name,
-              installed: observed.installed,
+              installed: observed.installed === true,
               targetState: node.enabled ? "enabled" : "disabled",
               paths: observed.paths,
             },

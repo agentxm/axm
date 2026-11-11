@@ -512,7 +512,7 @@ and Knowledge discovery are absent.
 
 ## Configured-agent outcomes
 
-Lifecycle previews, applied results, and extension inventory use the same
+Lifecycle previews, applied results, and detailed extension inventory use the same
 configured-agent outcome vocabulary:
 
 - `projected` — preview expects a supported agent projection.
@@ -530,6 +530,17 @@ Each machine-readable row includes the extension type and name, agent ID,
 outcome, stable `reasonCode`, and explanatory reason. Feature-specific fields
 such as hook mechanism and projection path remain additional evidence rather
 than replacing the common outcome.
+
+Ordinary inventory reports `agents.configured` and `agents.observed` separately
+from native outcomes. Its `inspection.state` is `not-requested`. With
+`--details`, `inspection` contains the native outcomes and reports `complete`,
+`partial`, or `not-applicable`. A complete inspection can still find missing or
+modified output. Knowledge counts appear in `inspection.knowledge` after
+content inspection. Remote `assessment` is independent.
+
+Presence comes from current observations: the lockfile alone does not prove an
+installation exists. An unreadable observation can report `installed: null`
+and `observationDiagnostics`; healthy entries remain in the result.
 
 ## Where to go next
 

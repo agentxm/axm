@@ -89,7 +89,8 @@ describe("Published route result schemas", () => {
       installed: false,
       enabled: true,
       source: { kind: "registry", locator: "@acme/skills/review", identity: "@acme/skills/review" },
-      agentOutcomes: [],
+      agents: { configured: [], observed: [] },
+      inspection: { state: "not-requested" },
     };
     const result = {
       filter: "all",

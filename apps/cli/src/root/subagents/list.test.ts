@@ -297,9 +297,8 @@ describe("subagents list.handler", () => {
               name: "subagent-one",
               enabled: true,
               management: "configured",
-              agentOutcomes: expect.arrayContaining([
-                expect.objectContaining({ agentId: "claude-code" }),
-              ]),
+              agents: { configured: ["claude-code"] },
+              inspection: { state: "not-requested" },
             },
           ],
         });

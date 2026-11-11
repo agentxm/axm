@@ -21,6 +21,7 @@ import {
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
+import { inventoryDiagnosticsDoc } from "../inventory-view.js";
 import { listDoc } from "./view.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -29,6 +30,7 @@ export interface ListHandlerArgs {
   readonly types: ReadonlyArray<InstallableExtensionType>;
   readonly outdated: boolean;
   readonly deprecated: boolean;
+  readonly details?: boolean;
 }
 
 /** Where an empty unfiltered inventory stands: no workspace, or one with nothing installed. */
@@ -65,6 +67,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
       ListExtensions.query({
         types: args.types,
         filter,
+        details: args.details ?? false,
       }).pipe(Effect.mapError(inspectionFailureToAppError)),
     ),
   );
@@ -73,17 +76,23 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
   const coverage = document.coverage;
   const emptyState =
     result.items.length === 0 && filter === "all" ? yield* emptyInventory() : undefined;
-  yield* screen.result(
-    listDoc({
+  yield* screen.result([
+    ...listDoc({
+      details: args.details ?? false,
       items: result.items,
       filter,
       ...(coverage === undefined ? {} : { coverage }),
       ...(emptyState === undefined ? {} : { emptyState }),
     }),
-  );
+    ...inventoryDiagnosticsDoc(document),
+  ]);
 });
 
 const listConfig = {
+  details: Flag.Boolean("details").pipe(
+    withParameterDescription("Inspect native locations and extension contents"),
+    withParameterDefault(false),
+  ),
   scope: scopeFlag,
   type: Flag.Literals("type", [...installableExtensionTypes]).pipe(
     withParameterDescription("Restrict to this extension type"),
@@ -102,8 +111,8 @@ const listConfig = {
 export const listCommand = Command.make(
   "list",
   listConfig,
-  ({ scope, type, outdated, deprecated }) =>
-    handleList({ types: type, outdated, deprecated }).pipe(
+  ({ scope, type, outdated, deprecated, details }) =>
+    handleList({ types: type, outdated, deprecated, details }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
       withRuntime(),
     ),

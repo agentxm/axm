@@ -115,7 +115,13 @@ version below the highest published SemVer. `axm version` only changes
 workspace-sourced manifests. Run `axm help publish` for the full selection and
 archive boundary.
 
-Use `axm list` for the fast, local inventory across all extension types. Content
+Use `axm list` for the fast, local inventory across all extension types. It combines
+accepted identity and version from the lockfile with current presence and agent
+associations. Add `--details` to any extension list for native ownership and
+currency findings and Knowledge document counts. `--verbose` changes presentation;
+it does not request inspection. A type's `show <name>` command inspects that item.
+
+Content
 desired state does not explain is `leftover` (installed but not configured;
 `axm sync` removes it), `undeclared` (authored but not declared; `axm adopt`
 declares it), or `unmanaged` (native agent content).

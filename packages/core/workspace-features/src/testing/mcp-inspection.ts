@@ -10,7 +10,7 @@ import { listMcpServers, ShowExtension } from "../inspection/index.js";
 
 /** The row `mcps list` reports for one MCP server, if it lists one. */
 export const listedMcpServer = (name: string) =>
-  listMcpServers({}).pipe(
+  listMcpServers({ details: true }).pipe(
     Effect.map((listed) => listed.rows.find((candidate) => candidate.name === name)),
   );
 

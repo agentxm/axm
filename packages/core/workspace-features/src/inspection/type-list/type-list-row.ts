@@ -6,10 +6,14 @@ import type { ConfiguredAgentOutcome } from "@agentxm/workspace-kernel/operation
 /** Facts every per-type list row carries. */
 export interface TypeListRow {
   readonly name: string;
+  readonly installed: boolean | null;
+  readonly inspectionState?: NonNullable<ExtensionInventoryRow["inspectionState"]>;
   readonly nativeLocations?: ExtensionInventoryRow["nativeLocations"];
   readonly duplicateDiscoveries?: ExtensionInventoryRow["duplicateDiscoveries"];
   readonly lifecycle: ExtensionInventoryRow["classification"]["lifecycle"];
   readonly enabled: boolean | null;
+  readonly configuredAgents?: ReadonlyArray<string>;
+  readonly observedAgents?: ReadonlyArray<string>;
   readonly agents: ReadonlyArray<string>;
   readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
 }

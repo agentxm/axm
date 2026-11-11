@@ -1512,20 +1512,22 @@ describe("root sync handler", () => {
         ].join("\n"),
       );
 
-      yield* provide(handleListMcpServers());
+      yield* provide(handleListMcpServers({ agents: [], details: true }));
       expect(rendererState.results[0]?.data).toMatchObject({
         items: [
           {
             name: "context",
             status: "drift",
-            agentOutcomes: [
-              {
-                agentId: "codex",
-                outcome: "failed",
-                reasonCode: "stale-projection",
-                path: configPath,
-              },
-            ],
+            inspection: {
+              agentOutcomes: [
+                {
+                  agentId: "codex",
+                  outcome: "failed",
+                  reasonCode: "stale-projection",
+                  path: configPath,
+                },
+              ],
+            },
           },
         ],
       });

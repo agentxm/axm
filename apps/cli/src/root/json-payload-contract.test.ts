@@ -36,7 +36,15 @@ const COLLECTION_PAYLOADS = [
   [
     "axm knowledge list",
     KnowledgeListQueryResultSchema.fields,
-    ["filter", "count", "totalCount", "managementCounts", "nativeLocationCounts", "items"],
+    [
+      "filter",
+      "count",
+      "totalCount",
+      "observationDiagnostics",
+      "managementCounts",
+      "nativeLocationCounts",
+      "items",
+    ],
   ],
   [
     "axm knowledge concepts query",
@@ -50,6 +58,7 @@ const COLLECTION_PAYLOADS = [
       "filter",
       "count",
       "totalCount",
+      "observationDiagnostics",
       "managementCounts",
       "nativeLocationCounts",
       "items",
@@ -76,6 +85,7 @@ const COLLECTION_PAYLOADS = [
     [
       "items",
       "count",
+      "observationDiagnostics",
       "configuredCount",
       "implicitCount",
       "installedCount",

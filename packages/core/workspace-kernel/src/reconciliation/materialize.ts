@@ -748,7 +748,7 @@ export const collectMaterializeSteps = (args: {
       yield* Effect.forEach([...new Set(selected.map((node) => node.type))], (type) =>
         Effect.gen(function* () {
           const read = yield* Effect.cached(
-            records.getExtensionInventory(type, inventoryOptions(type)),
+            records.getExtensionInventory(type, { ...inventoryOptions(type), details: true }),
           );
           return [type, read] as const;
         }),

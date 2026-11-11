@@ -1,3 +1,4 @@
+import { inspectInventory } from "../inventory-inspection.js";
 import { withInspectionReadView } from "../read-view.js";
 /**
  * The cross-type extension inventory behind `axm list`.
@@ -79,6 +80,7 @@ export interface ListExtensionsRequest {
   readonly types?: ReadonlyArray<InstallableExtensionType>;
   /** Which extensions the answer keeps. Exactly one filter is in force. */
   readonly filter: ExtensionListFilter;
+  readonly details?: boolean;
 }
 
 /**
@@ -110,19 +112,25 @@ const coverageFor = (items: ReadonlyArray<AssessedExtensionListItem>) => ({
 interface ListExtensionsResult {
   readonly document: ExtensionListDocument;
   /** The kept items with their full assessments, for rendering. */
-  readonly items: ReadonlyArray<AssessedExtensionListItem>;
+  readonly items: ExtensionListDocument["items"];
 }
 
 export const ListExtensions = {
   query: Effect.fn("ListExtensions.query")(function* (request: ListExtensionsRequest) {
-    const collected = yield* collectExtensionListItems(request.types);
+    const raw = yield* (yield* WorkspaceRecords).getInventory({ types: request.types ?? [] });
+    const collected = yield* collectExtensionListItems(raw);
     const assessed =
       request.filter === "all"
         ? collected
         : yield* Effect.scoped(assessExtensionListItems(collected, request.filter));
     const items = assessed.filter((item) => matchesFilter(item, request.filter));
-    const raw = yield* (yield* WorkspaceRecords).getInventory({ types: request.types ?? [] });
-    const core = yield* buildInventoryDocument(raw);
+    const selectedKeys = new Set(items.map((item) => `${item.type}:${item.name}`));
+    const selected = {
+      ...raw,
+      items: raw.items.filter((row) => selectedKeys.has(`${row.type}:${row.name}`)),
+    };
+    const inspected = request.details === true ? yield* inspectInventory(selected) : selected;
+    const core = yield* buildInventoryDocument(inspected);
     const documentItems = items.map((item) => {
       const observed = core.items.find(
         (candidate) => candidate.type === item.type && candidate.name === item.name,
@@ -133,10 +141,15 @@ export const ListExtensions = {
     });
     return {
       document: {
-        ...inventoryEnvelope(documentItems, collected.length, request.filter),
+        ...inventoryEnvelope(
+          documentItems,
+          collected.length,
+          request.filter,
+          core.observationDiagnostics,
+        ),
         ...(request.filter === "all" ? {} : { coverage: coverageFor(assessed) }),
       },
-      items,
+      items: documentItems,
     } satisfies ListExtensionsResult;
   }, withInspectionReadView),
 };

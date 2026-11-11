@@ -234,8 +234,8 @@ authoritative, and reconciles the table without advancing versions. Use
 
 ## Discovery
 
-- `axm knowledge list` — installed bundles with concept and diagnostic
-  counts.
+- `axm knowledge list` — local bundles, their management state, and instruction-entry policy.
+- `axm knowledge list --details` — inspect native output and current bundle documents for concept and diagnostic counts. Counts are omitted when inspection was not requested.
 - `axm knowledge concepts resolve <input>` — resolve an exact compact or HTTPS
   reference; add `--fuzzy` to request bounded ID and title candidates.
 - `axm knowledge concepts query [expression]` — combine text, field, metadata,

@@ -22,6 +22,7 @@ import { spawnSync } from "node:child_process";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { specificationTarget } from "./specification-targets.js";
 import { checkSpecificationBudget } from "./check-spec-budget-lib.js";
 import { formatIssue, type CatalogSpecification } from "./specification-catalog-lib.js";
 import { discoverSpecifications, readWorkspace } from "./workspace-discovery.js";
@@ -121,22 +122,11 @@ if (selectedClass !== undefined || selectedCharacteristic !== undefined) {
   selected = chosen;
 }
 
-/**
- * The target that runs an owner's specifications. Production projects and the
- * repository root run them in `test`; an end-to-end project runs its own
- * suite, whose entry point is the vitest-backed `e2e-main` rather than the
- * `e2e` fan-in.
- */
-const specificationTarget = (targets: ReadonlyArray<string>): string => {
-  for (const candidate of ["test", "e2e-main", "e2e"]) {
-    if (targets.includes(candidate)) return candidate;
-  }
-  return "test";
-};
-
-/** Owner project name → project-relative specification files, in stable order. */
-const filesByOwner = new Map<string, string[]>();
-const targetByOwner = new Map<string, string>();
+/** Batch by execution target so isolated performance cases keep their own runner. */
+const batches = new Map<
+  string,
+  { readonly owner: string; readonly target: string; readonly files: string[] }
+>();
 for (const specification of selected) {
   const owner = workspace.projects.find((project) => project.name === specification.owner);
   if (owner === undefined) {
@@ -145,10 +135,14 @@ for (const specification of selected) {
   }
   const relative =
     owner.root === "" ? specification.source : specification.source.slice(owner.root.length + 1);
-  const files = filesByOwner.get(owner.name) ?? [];
-  files.push(relative);
-  filesByOwner.set(owner.name, files);
-  targetByOwner.set(owner.name, specificationTarget(Object.keys(owner.targets)));
+  const target = specificationTarget(
+    Object.keys(owner.targets),
+    specification.metadata.characteristic,
+  );
+  const key = `${owner.name}:${target}`;
+  const batch = batches.get(key) ?? { owner: owner.name, target, files: [] };
+  batch.files.push(relative);
+  batches.set(key, batch);
 }
 
 const commonArguments = [
@@ -168,29 +162,30 @@ const runNx = (nxArguments: readonly string[]): void => {
   }
 };
 
-const owners = [...filesByOwner.keys()].sort();
+const owners = [...new Set([...batches.values()].map((batch) => batch.owner))].sort();
 if (hasSelection) {
-  for (const owner of owners) {
+  for (const [key, batch] of [...batches].sort(([left], [right]) => left.localeCompare(right))) {
+    runNx(["run", key, `--args=${batch.files.join(" ")}`, ...commonArguments]);
+  }
+} else {
+  // Each target retains its dependency graph and runner configuration. Separate
+  // invocations prevent the isolated performance runner competing with other suites.
+  for (const target of [...new Set([...batches.values()].map((batch) => batch.target))].sort()) {
     runNx([
-      "run",
-      `${owner}:${targetByOwner.get(owner) ?? "test"}`,
-      `--args=${(filesByOwner.get(owner) ?? []).join(" ")}`,
+      "run-many",
+      "-t",
+      target,
+      "--projects",
+      [...batches.values()]
+        .filter((batch) => batch.target === target)
+        .map((batch) => batch.owner)
+        .sort()
+        .join(","),
+      "--args=.spec.ts",
+      "--nxBail",
       ...commonArguments,
     ]);
   }
-} else {
-  // Every owner runs its specifications in one dependency-aware graph; the
-  // filter selects specification files inside each owner's test target.
-  runNx([
-    "run-many",
-    "-t",
-    [...new Set(owners.map((owner) => targetByOwner.get(owner) ?? "test"))].join(","),
-    "--projects",
-    owners.join(","),
-    "--args=.spec.ts",
-    "--nxBail",
-    ...commonArguments,
-  ]);
 }
 
 // The budget binds the complete fast suite; a selected subset always fits.

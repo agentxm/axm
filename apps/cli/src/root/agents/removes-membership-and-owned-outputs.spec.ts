@@ -259,14 +259,12 @@ describe("Removing a coding agent", () => {
         );
         const inventory = yield* fixture.provide(
           Effect.flatMap(WorkspaceRecords, (records) =>
-            records.getExtensionInventory("subagent", {}),
+            records.getExtensionInventory("subagent", { details: true }),
           ),
         );
-        expect(
-          inventory.items
-            .find((item) => item.name === "planner")
-            ?.agentOutcomes.every((outcome) => outcome.outcome === "current"),
-        ).toBe(true);
+        const planner = inventory.items.find((item) => item.name === "planner");
+        expect(planner?.agentOutcomes).toHaveLength(2);
+        expect(planner?.agentOutcomes.every((outcome) => outcome.outcome === "current")).toBe(true);
         const settingsBefore = fixture.readFile("axm.json");
         const departingBefore = fixture.readFile(".opencode/agents/planner.md");
         const retainedBefore = fixture.readFile(retainedPath);
@@ -569,7 +567,7 @@ describe("Removing a coding agent", () => {
       expect(removed.result.nativeLocationCounts.changed).toBe(0);
       const inventory = yield* fixture.provide(
         Effect.flatMap(WorkspaceRecords, (records) =>
-          records.getExtensionInventory("mcp-server", {}),
+          records.getExtensionInventory("mcp-server", { details: true }),
         ),
       );
       const current = inventory.items.find((item) => item.name === "api");

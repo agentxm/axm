@@ -1155,7 +1155,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
             { id: `agent-readback:${type}`, label: `current ${type} agent state` },
             Effect.gen(function* () {
               const inventory = yield* records
-                .getExtensionInventory(type, {})
+                .getExtensionInventory(type, { details: true })
                 .pipe(Effect.mapError(workspaceStateReadFailureToStepFailure));
               const byName = new Map(
                 inventory.items.map((item) => [item.name, item.agentOutcomes] as const),

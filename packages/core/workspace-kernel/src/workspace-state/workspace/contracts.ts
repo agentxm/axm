@@ -144,6 +144,7 @@ export interface WorkspaceReadModelRecords {
     type: InstallableExtensionType,
     options: {
       readonly agents?: ReadonlyArray<string>;
+      readonly details?: boolean;
     },
   ) => Effect.Effect<ExtensionInventory, WorkspaceStateReadFailure>;
   /**

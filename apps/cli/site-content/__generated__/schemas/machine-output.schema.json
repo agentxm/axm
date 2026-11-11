@@ -6053,6 +6053,19 @@
             { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
           ]
         },
+        "observationDiagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "message": { "type": "string" },
+              "path": { "type": "string" },
+              "code": { "type": "string" }
+            },
+            "required": ["message"],
+            "additionalProperties": false
+          }
+        },
         "managementCounts": {
           "type": "object",
           "properties": {
@@ -6134,7 +6147,7 @@
                 "type": "string",
                 "enum": ["configured", "implicit", "leftover", "undeclared", "unmanaged"]
               },
-              "installed": { "type": "boolean" },
+              "installed": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
               "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
               "version": { "type": "string" },
               "source": {
@@ -6184,28 +6197,111 @@
                   }
                 ]
               },
-              "agentOutcomes": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/ConfiguredAgentOutcome" }
+              "agents": {
+                "type": "object",
+                "properties": {
+                  "configured": { "type": "array", "items": { "type": "string" } },
+                  "observed": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["configured", "observed"],
+                "additionalProperties": false
               },
-              "nativeLocations": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+              "inspection": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["not-requested", "not-applicable"] }
+                    },
+                    "required": ["state"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["complete", "partial"] },
+                      "agentOutcomes": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/ConfiguredAgentOutcome" }
+                      },
+                      "nativeLocations": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+                      },
+                      "duplicateDiscoveries": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "agentId": { "type": "string" },
+                            "nativeUnits": {
+                              "type": "array",
+                              "items": { "$ref": "#/$defs/NativeUnitReference" }
+                            }
+                          },
+                          "required": ["agentId", "nativeUnits"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "diagnostics": { "type": "array", "items": { "type": "string" } },
+                      "knowledge": {
+                        "type": "object",
+                        "properties": {
+                          "concepts": {
+                            "anyOf": [
+                              { "type": "number" },
+                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                            ]
+                          },
+                          "diagnostics": {
+                            "anyOf": [
+                              { "type": "number" },
+                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                            ]
+                          }
+                        },
+                        "required": ["concepts", "diagnostics"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["state", "agentOutcomes", "diagnostics"],
+                    "additionalProperties": false
+                  }
+                ]
               },
-              "duplicateDiscoveries": {
+              "observationDiagnostics": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "properties": {
-                    "agentId": { "type": "string" },
-                    "nativeUnits": {
-                      "type": "array",
-                      "items": { "$ref": "#/$defs/NativeUnitReference" }
-                    }
+                    "message": { "type": "string" },
+                    "path": { "type": "string" },
+                    "code": { "type": "string" }
                   },
-                  "required": ["agentId", "nativeUnits"],
+                  "required": ["message"],
                   "additionalProperties": false
                 }
+              },
+              "sourceRoot": { "type": "string" },
+              "instructionEntry": {
+                "type": "object",
+                "properties": {
+                  "included": { "type": "boolean" },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "bundle-disabled",
+                      "instruction-files-not-configured",
+                      "instruction-files-disabled",
+                      "knowledge-instructions-disabled",
+                      "workspace-excluded",
+                      "manifest-excluded",
+                      "included"
+                    ]
+                  }
+                },
+                "required": ["included", "reason"],
+                "additionalProperties": false
               },
               "locked": { "type": "boolean" },
               "owner": { "type": "string" }
@@ -6218,7 +6314,8 @@
               "installed",
               "enabled",
               "source",
-              "agentOutcomes"
+              "agents",
+              "inspection"
             ],
             "additionalProperties": false
           }
@@ -7260,6 +7357,19 @@
             { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
           ]
         },
+        "observationDiagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "message": { "type": "string" },
+              "path": { "type": "string" },
+              "code": { "type": "string" }
+            },
+            "required": ["message"],
+            "additionalProperties": false
+          }
+        },
         "managementCounts": {
           "type": "object",
           "properties": {
@@ -7341,7 +7451,7 @@
                 "type": "string",
                 "enum": ["configured", "implicit", "leftover", "undeclared", "unmanaged"]
               },
-              "installed": { "type": "boolean" },
+              "installed": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
               "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
               "version": { "type": "string" },
               "source": {
@@ -7391,44 +7501,92 @@
                   }
                 ]
               },
-              "agentOutcomes": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/ConfiguredAgentOutcome" }
+              "agents": {
+                "type": "object",
+                "properties": {
+                  "configured": { "type": "array", "items": { "type": "string" } },
+                  "observed": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["configured", "observed"],
+                "additionalProperties": false
               },
-              "nativeLocations": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+              "inspection": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["not-requested", "not-applicable"] }
+                    },
+                    "required": ["state"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["complete", "partial"] },
+                      "agentOutcomes": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/ConfiguredAgentOutcome" }
+                      },
+                      "nativeLocations": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+                      },
+                      "duplicateDiscoveries": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "agentId": { "type": "string" },
+                            "nativeUnits": {
+                              "type": "array",
+                              "items": { "$ref": "#/$defs/NativeUnitReference" }
+                            }
+                          },
+                          "required": ["agentId", "nativeUnits"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "diagnostics": { "type": "array", "items": { "type": "string" } },
+                      "knowledge": {
+                        "type": "object",
+                        "properties": {
+                          "concepts": {
+                            "anyOf": [
+                              { "type": "number" },
+                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                            ]
+                          },
+                          "diagnostics": {
+                            "anyOf": [
+                              { "type": "number" },
+                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                            ]
+                          }
+                        },
+                        "required": ["concepts", "diagnostics"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["state", "agentOutcomes", "diagnostics"],
+                    "additionalProperties": false
+                  }
+                ]
               },
-              "duplicateDiscoveries": {
+              "observationDiagnostics": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "properties": {
-                    "agentId": { "type": "string" },
-                    "nativeUnits": {
-                      "type": "array",
-                      "items": { "$ref": "#/$defs/NativeUnitReference" }
-                    }
+                    "message": { "type": "string" },
+                    "path": { "type": "string" },
+                    "code": { "type": "string" }
                   },
-                  "required": ["agentId", "nativeUnits"],
+                  "required": ["message"],
                   "additionalProperties": false
                 }
               },
-              "locked": { "type": "boolean" },
-              "owner": { "type": "string" },
               "sourceRoot": { "type": "string" },
-              "concepts": {
-                "anyOf": [
-                  { "type": "number" },
-                  { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                ]
-              },
-              "diagnostics": {
-                "anyOf": [
-                  { "type": "number" },
-                  { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
-                ]
-              },
               "instructionEntry": {
                 "type": "object",
                 "properties": {
@@ -7448,7 +7606,9 @@
                 },
                 "required": ["included", "reason"],
                 "additionalProperties": false
-              }
+              },
+              "locked": { "type": "boolean" },
+              "owner": { "type": "string" }
             },
             "required": [
               "type",
@@ -7458,10 +7618,8 @@
               "installed",
               "enabled",
               "source",
-              "agentOutcomes",
-              "sourceRoot",
-              "concepts",
-              "diagnostics"
+              "agents",
+              "inspection"
             ],
             "additionalProperties": false
           }
@@ -7486,6 +7644,19 @@
             { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
           ]
         },
+        "observationDiagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "message": { "type": "string" },
+              "path": { "type": "string" },
+              "code": { "type": "string" }
+            },
+            "required": ["message"],
+            "additionalProperties": false
+          }
+        },
         "managementCounts": {
           "type": "object",
           "properties": {
@@ -7567,7 +7738,7 @@
                 "type": "string",
                 "enum": ["configured", "implicit", "leftover", "undeclared", "unmanaged"]
               },
-              "installed": { "type": "boolean" },
+              "installed": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
               "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
               "version": { "type": "string" },
               "source": {
@@ -7617,28 +7788,111 @@
                   }
                 ]
               },
-              "agentOutcomes": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/ConfiguredAgentOutcome" }
+              "agents": {
+                "type": "object",
+                "properties": {
+                  "configured": { "type": "array", "items": { "type": "string" } },
+                  "observed": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["configured", "observed"],
+                "additionalProperties": false
               },
-              "nativeLocations": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+              "inspection": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["not-requested", "not-applicable"] }
+                    },
+                    "required": ["state"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["complete", "partial"] },
+                      "agentOutcomes": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/ConfiguredAgentOutcome" }
+                      },
+                      "nativeLocations": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+                      },
+                      "duplicateDiscoveries": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "agentId": { "type": "string" },
+                            "nativeUnits": {
+                              "type": "array",
+                              "items": { "$ref": "#/$defs/NativeUnitReference" }
+                            }
+                          },
+                          "required": ["agentId", "nativeUnits"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "diagnostics": { "type": "array", "items": { "type": "string" } },
+                      "knowledge": {
+                        "type": "object",
+                        "properties": {
+                          "concepts": {
+                            "anyOf": [
+                              { "type": "number" },
+                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                            ]
+                          },
+                          "diagnostics": {
+                            "anyOf": [
+                              { "type": "number" },
+                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                            ]
+                          }
+                        },
+                        "required": ["concepts", "diagnostics"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["state", "agentOutcomes", "diagnostics"],
+                    "additionalProperties": false
+                  }
+                ]
               },
-              "duplicateDiscoveries": {
+              "observationDiagnostics": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "properties": {
-                    "agentId": { "type": "string" },
-                    "nativeUnits": {
-                      "type": "array",
-                      "items": { "$ref": "#/$defs/NativeUnitReference" }
-                    }
+                    "message": { "type": "string" },
+                    "path": { "type": "string" },
+                    "code": { "type": "string" }
                   },
-                  "required": ["agentId", "nativeUnits"],
+                  "required": ["message"],
                   "additionalProperties": false
                 }
+              },
+              "sourceRoot": { "type": "string" },
+              "instructionEntry": {
+                "type": "object",
+                "properties": {
+                  "included": { "type": "boolean" },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "bundle-disabled",
+                      "instruction-files-not-configured",
+                      "instruction-files-disabled",
+                      "knowledge-instructions-disabled",
+                      "workspace-excluded",
+                      "manifest-excluded",
+                      "included"
+                    ]
+                  }
+                },
+                "required": ["included", "reason"],
+                "additionalProperties": false
               },
               "locked": { "type": "boolean" },
               "owner": { "type": "string" },
@@ -7669,7 +7923,8 @@
               "installed",
               "enabled",
               "source",
-              "agentOutcomes",
+              "agents",
+              "inspection",
               "localName",
               "resolution",
               "transport",
@@ -8158,6 +8413,19 @@
             { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
           ]
         },
+        "observationDiagnostics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "message": { "type": "string" },
+              "path": { "type": "string" },
+              "code": { "type": "string" }
+            },
+            "required": ["message"],
+            "additionalProperties": false
+          }
+        },
         "managementCounts": {
           "type": "object",
           "properties": {
@@ -8239,7 +8507,7 @@
                 "type": "string",
                 "enum": ["configured", "implicit", "leftover", "undeclared", "unmanaged"]
               },
-              "installed": { "type": "boolean" },
+              "installed": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
               "enabled": { "anyOf": [{ "type": "boolean" }, { "type": "null" }] },
               "version": { "type": "string" },
               "source": {
@@ -8289,28 +8557,111 @@
                   }
                 ]
               },
-              "agentOutcomes": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/ConfiguredAgentOutcome" }
+              "agents": {
+                "type": "object",
+                "properties": {
+                  "configured": { "type": "array", "items": { "type": "string" } },
+                  "observed": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["configured", "observed"],
+                "additionalProperties": false
               },
-              "nativeLocations": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+              "inspection": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["not-requested", "not-applicable"] }
+                    },
+                    "required": ["state"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "state": { "type": "string", "enum": ["complete", "partial"] },
+                      "agentOutcomes": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/ConfiguredAgentOutcome" }
+                      },
+                      "nativeLocations": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/NativeLocationOutcome" }
+                      },
+                      "duplicateDiscoveries": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "agentId": { "type": "string" },
+                            "nativeUnits": {
+                              "type": "array",
+                              "items": { "$ref": "#/$defs/NativeUnitReference" }
+                            }
+                          },
+                          "required": ["agentId", "nativeUnits"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "diagnostics": { "type": "array", "items": { "type": "string" } },
+                      "knowledge": {
+                        "type": "object",
+                        "properties": {
+                          "concepts": {
+                            "anyOf": [
+                              { "type": "number" },
+                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                            ]
+                          },
+                          "diagnostics": {
+                            "anyOf": [
+                              { "type": "number" },
+                              { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                            ]
+                          }
+                        },
+                        "required": ["concepts", "diagnostics"],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": ["state", "agentOutcomes", "diagnostics"],
+                    "additionalProperties": false
+                  }
+                ]
               },
-              "duplicateDiscoveries": {
+              "observationDiagnostics": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "properties": {
-                    "agentId": { "type": "string" },
-                    "nativeUnits": {
-                      "type": "array",
-                      "items": { "$ref": "#/$defs/NativeUnitReference" }
-                    }
+                    "message": { "type": "string" },
+                    "path": { "type": "string" },
+                    "code": { "type": "string" }
                   },
-                  "required": ["agentId", "nativeUnits"],
+                  "required": ["message"],
                   "additionalProperties": false
                 }
+              },
+              "sourceRoot": { "type": "string" },
+              "instructionEntry": {
+                "type": "object",
+                "properties": {
+                  "included": { "type": "boolean" },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "bundle-disabled",
+                      "instruction-files-not-configured",
+                      "instruction-files-disabled",
+                      "knowledge-instructions-disabled",
+                      "workspace-excluded",
+                      "manifest-excluded",
+                      "included"
+                    ]
+                  }
+                },
+                "required": ["included", "reason"],
+                "additionalProperties": false
               },
               "locked": { "type": "boolean" },
               "owner": { "type": "string" },
@@ -8353,7 +8704,8 @@
               "installed",
               "enabled",
               "source",
-              "agentOutcomes",
+              "agents",
+              "inspection",
               "assessment"
             ],
             "additionalProperties": false

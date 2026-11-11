@@ -1,16 +1,16 @@
-     Extension          Type         Management         Installed   Native locations   Configured consumers   Discovery
-     @acme/skills/      skill        managed by this    yes         -                  -                      -
-     code-review                     workspace
-     @acme/skills/      skill        managed by this    yes         -                  -                      -
-     triage                          workspace
-     @acme/subagents/   subagent     managed by this    yes         -                  -                      -
-     reviewer                        workspace
-     @acme/packs/       pack         managed by this    yes         -                  -                      -
-     review-kit                      workspace
-     github             mcp-server   managed by this    yes         -                  -                      -
-                                     workspace
- ▲   @legacy/skills/    skill        installed but no   yes         -                  -                      -
-     changelog                       longer selected
-     Not shown at this width: Version, Source
+     Extension             Type         Management            Installed   Configured agents   Observed agents   Version
+     @acme/skills/         skill        managed by this       yes         -                   -                 1.4.0
+     code-review                        workspace
+     @acme/skills/triage   skill        managed by this       yes         -                   -                 2.0.1
+                                        workspace
+     @acme/subagents/      subagent     managed by this       yes         -                   -                 0.9.0
+     reviewer                           workspace
+     @acme/packs/          pack         managed by this       yes         -                   -                 2.1.0
+     review-kit                         workspace
+     github                mcp-server   managed by this       yes         -                   -                 1.0.0
+                                        workspace
+ ▲   @legacy/skills/       skill        installed but no      yes         -                   -                 0.3.0
+     changelog                          longer selected
+     Not shown at this width: Source
 
 6 extensions · 3 enabled · 1 needs attention · axm lint explains

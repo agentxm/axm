@@ -9,9 +9,9 @@
  ▲   @legacy/skills/          skill
      changelog
      Not shown at this width:
-     Management, Installed, Native
-     locations, Configured consumers,
-     Discovery, Version, Source
+     Management, Installed, Configured
+     agents, Observed agents, Version,
+     Source
 
 6 extensions · 3 enabled · 1 needs
 attention · axm lint explains

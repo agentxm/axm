@@ -50,6 +50,11 @@ const observeNativeOutputs = (
     for (const type of new Set(nodes.map((node) => node.type))) {
       const rows = yield* records.rows(type);
       const names = new Set(nodes.filter((node) => node.type === type).map((node) => node.name));
+      if (rows.some((row) => names.has(row.name) && row.installed === null))
+        return yield* syncRefused({
+          category: "conflict",
+          detail: `Cannot verify installation presence for ${type}`,
+        });
       const observations = yield* resolveConfiguredExtensionObservations(provider, {
         ...(desiredGraph === undefined ? {} : { desiredGraph }),
         type,
@@ -61,7 +66,7 @@ const observeNativeOutputs = (
           .map((row) => ({
             name: row.name,
             targetState: "enabled",
-            installed: row.installed,
+            installed: row.installed === true,
             paths: row.paths,
             observedAgentIds: row.agents,
           })),

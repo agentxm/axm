@@ -13,10 +13,7 @@ export {
   WorkspaceInspectionFailed,
 } from "./errors.js";
 
-export {
-  type ExtensionListFilter,
-  type AssessedExtensionListItem,
-} from "./extension-list/assessment.js";
+export type { ExtensionListFilter } from "./extension-list/assessment.js";
 
 // Read-only application APIs.
 export {

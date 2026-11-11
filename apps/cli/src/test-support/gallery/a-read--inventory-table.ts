@@ -1,21 +1,26 @@
-import type { AssessedExtensionListItem } from "@agentxm/workspace-features/inspection";
+import type { ExtensionListDocument } from "@agentxm/workspace-features/inspection";
 
 import type { Doc } from "../../screen/doc.js";
 import { listDoc } from "../../root/list/view.js";
 
-const item = (
-  ref: string,
-  type: AssessedExtensionListItem["type"],
-  facts: Partial<AssessedExtensionListItem> = {},
-): AssessedExtensionListItem => ({
-  ref,
+type ListItem = ExtensionListDocument["items"][number];
+
+const item = (ref: string, type: ListItem["type"], facts: Partial<ListItem> = {}): ListItem => ({
+  fqn: ref,
+  scope: "project",
+  inspection: { state: "not-requested" },
+  agents: { configured: [], observed: [] },
   type,
   name: ref.split("/").at(-1) ?? ref,
   management: "configured",
   installed: true,
   enabled: true,
   version: "1.0.0",
-  source: "agentxm:@acme/skills/example@1.0.0",
+  source: {
+    kind: "registry",
+    locator: "agentxm:@acme/skills/example@1.0.0",
+    identity: "@acme/skills/example",
+  },
   assessment: { state: "not-checked" },
   ...facts,
 });
@@ -35,7 +40,7 @@ export const aReadInventoryTable: Doc = listDoc({
     item("@acme/skills/triage", "skill", { version: "2.0.1" }),
     item("@acme/subagents/reviewer", "subagent", { version: "0.9.0" }),
     item("@acme/packs/review-kit", "pack", { version: "2.1.0", enabled: null }),
-    item("github", "mcp-server", { enabled: false, source: "./github" }),
+    item("github", "mcp-server", { enabled: false, source: { kind: "path", locator: "./github" } }),
     item("@legacy/skills/changelog", "skill", {
       version: "0.3.0",
       management: "leftover",

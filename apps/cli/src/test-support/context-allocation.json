@@ -75,7 +75,7 @@
     "inventory-materialization": {
       "path": "packages/core/workspace-kernel/src/workspace-state/observed/extensions/inventory.ts",
       "symbol": "ExtensionInventoryRowSchema",
-      "projection": "installed: boolean"
+      "projection": "installed: boolean | null"
     },
     "configured-agent-outcome": {
       "path": "packages/core/workspace-kernel/src/operations/configured-agent-outcome.ts",
@@ -538,6 +538,11 @@
         "cli/login/retains-issued-session-when-identity-unavailable"
       ],
       "when": "Device authorization, wait deadline and identity lookup availability are separate state dimensions. Issued credentials survive temporary identity lookup failure."
+    },
+    "unreadable-materialization": {
+      "requirements": ["cli/list/ordinary-inventory-is-local"],
+      "when": "Unreadable observation leaves presence unknown and reports a path diagnostic.",
+      "interface": "inventory-materialization"
     }
   },
   "dimensions": {
@@ -858,6 +863,10 @@
         {
           "members": [true, false],
           "bindings": ["materialization"]
+        },
+        {
+          "members": [null],
+          "bindings": ["unreadable-materialization"]
         }
       ],
       "population": "inventory-materialization"

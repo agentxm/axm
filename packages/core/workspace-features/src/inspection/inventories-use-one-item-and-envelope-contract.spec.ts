@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "cli/inventories/use-one-item-and-envelope-contract",
   title: "Extension inventories share item identity, source, and management fields",
   statement:
-    "Root and typed extension inventories shall share a schema-backed item core identifying type, local name, scope, optional fully qualified identity and version, flat management, installation, activation, structured source, and agent outcomes, and an envelope with filter, selected and total counts, and management counts, while retaining type-specific facts and omitting superseded identity, classification, source-type, and internal-origin fields.",
+    "Root and typed extension inventories shall share a schema-backed item core identifying type, local name, scope, optional fully qualified identity and version, flat management, installation, activation, structured source, separate configured and observed agent associations, and explicit inspection state with detailed findings only when requested, and an envelope with filter, selected and total counts, and management counts, while retaining type-specific facts and omitting superseded identity, classification, source-type, and internal-origin fields.",
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "machine-automation"],
@@ -95,6 +95,8 @@ describe("Shared inventory contract", () => {
                   installed: true,
                   enabled: true,
                   source: { kind: "workspace" },
+                  agents: { configured: ["claude-code"], observed: [] },
+                  inspection: { state: "not-requested" },
                 });
                 for (const oldKey of ["sourceType", "ref", "classification", "origins"])
                   expect(item).not.toHaveProperty(oldKey);

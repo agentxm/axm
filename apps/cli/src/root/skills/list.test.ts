@@ -17,6 +17,7 @@ import { afterEach, beforeEach } from "vitest";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import {
+  ConfiguredAgentOutcomesProvider,
   WorkspaceRecords,
   WorkspaceReadViews,
   countExtensionInventory,
@@ -161,6 +162,8 @@ describe("list.handler", () => {
         classification: { kind: "lifecycle", lifecycle: "configured" },
         enabled: true,
         installed: true,
+        configuredAgents: ["cursor"],
+        observedAgents: CLAUDE_SKILL_READERS,
         agents: [...CLAUDE_SKILL_READERS, "amp", "codex", "kimi-cli", "gemini-cli", "windsurf"],
         origins: ["agent-skill-dir"],
         paths: [".claude/skills/review", ".cursor/skills/review"],
@@ -199,17 +202,34 @@ describe("list.handler", () => {
     return provide(
       Effect.gen(function* () {
         const views = yield* WorkspaceReadViews;
-        yield* handleList({ agents: [] }).pipe(
+        yield* handleList({ agents: [], details: true }).pipe(
+          Effect.provideService(ConfiguredAgentOutcomesProvider, {
+            byExtensionType: {
+              skill: () =>
+                Effect.succeed(
+                  new Map(
+                    inventory.items.map((row) => [
+                      row.name,
+                      {
+                        agentOutcomes: row.agentOutcomes,
+                        nativeLocations: row.nativeLocations ?? [],
+                      },
+                    ]),
+                  ),
+                ),
+            },
+          }),
           Effect.provideService(WorkspaceReadViews, {
-            capture: views.capture.pipe(
-              Effect.map((readers) =>
-                Context.add(readers, WorkspaceRecords, {
-                  getInventory: () => Effect.succeed(inventory),
-                  getExtensionInventory: () => Effect.succeed(inventory),
-                  rows: () => Effect.succeed(inventory.items),
-                }),
+            capture: (options) =>
+              views.capture(options).pipe(
+                Effect.map((readers) =>
+                  Context.add(readers, WorkspaceRecords, {
+                    getInventory: () => Effect.succeed(inventory),
+                    getExtensionInventory: () => Effect.succeed(inventory),
+                    rows: () => Effect.succeed(inventory.items),
+                  }),
+                ),
               ),
-            ),
           }),
         );
         const output = rendererState.docs
@@ -282,7 +302,7 @@ describe("list.handler", () => {
               name: "skill-claude",
               installed: true,
               management: "unmanaged",
-              agentOutcomes: [],
+              inspection: { state: "not-requested" },
             }),
           ],
         });

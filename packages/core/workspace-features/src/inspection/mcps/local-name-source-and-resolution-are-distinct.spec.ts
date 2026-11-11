@@ -58,7 +58,7 @@ describe("List locally named MCP connections as a machine document", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const { document } = yield* listMcpServers({});
+          const { document } = yield* listMcpServers({ details: true });
           expect(document.count).toBe(2);
           expect(document.items.map((item) => item.localName).sort()).toEqual([
             "personal-context",
@@ -130,10 +130,13 @@ describe("Report every configured agent's outcome for a connection", () => {
       return fixture
         .provide(
           Effect.gen(function* () {
-            const { document } = yield* listMcpServers({});
+            const { document } = yield* listMcpServers({ details: true });
             const item = document.items.find((candidate) => candidate.localName === "demo");
             expect(item).toBeDefined();
-            const outcomes = item?.agentOutcomes ?? [];
+            const outcomes =
+              item !== undefined && "agentOutcomes" in item.inspection
+                ? item.inspection.agentOutcomes
+                : [];
 
             expect(outcomes.map((outcome) => outcome.agentId).sort()).toEqual(
               agentOutcomeRows.map((entry) => entry.agentId).sort(),

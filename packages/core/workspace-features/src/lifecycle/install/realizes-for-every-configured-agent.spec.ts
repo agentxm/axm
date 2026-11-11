@@ -233,7 +233,9 @@ describe("Install realizes the extension for configured agents", () => {
             const accepted = workspace.readFile("axm.lock");
             fs.unlinkSync(path.join(workspace.root, "CLAUDE.md"));
             const before = workspace.snapshot();
-            const inventory = yield* (yield* WorkspaceRecords).getExtensionInventory(row.type, {});
+            const inventory = yield* (yield* WorkspaceRecords).getExtensionInventory(row.type, {
+              details: true,
+            });
             const observed = inventory.items.find((item) => item.name === name);
             expect(observed?.agentOutcomes).toContainEqual(
               expect.objectContaining({

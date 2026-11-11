@@ -24,11 +24,16 @@ const BundleColumns = [
     header: "Management",
     value: (row: KnowledgeListRow) => inventoryLifecycle({ lifecycle: row.management }),
   },
-  { header: "Concepts", align: "right", value: (row: KnowledgeListRow) => String(row.concepts) },
+  {
+    header: "Concepts",
+    align: "right",
+    value: (row: KnowledgeListRow) => (row.concepts === undefined ? ABSENT : String(row.concepts)),
+  },
   {
     header: "Diagnostics",
     align: "right",
-    value: (row: KnowledgeListRow) => String(row.diagnostics),
+    value: (row: KnowledgeListRow) =>
+      row.diagnostics === undefined ? ABSENT : String(row.diagnostics),
   },
   { header: "Source", priority: "optional", value: (row: KnowledgeListRow) => row.sourceRoot },
   {
@@ -45,8 +50,8 @@ const BundleColumns = [
 
 const { handler, command } = makePerTypeListCommand({
   type: "knowledge",
-  query: (agents) =>
-    ListKnowledge.query({ agents }).pipe(Effect.mapError(inspectionFailureToAppError)),
+  query: (agents, details) =>
+    ListKnowledge.query({ agents, details }).pipe(Effect.mapError(inspectionFailureToAppError)),
   schema: KnowledgeListQueryResultSchema,
   columns: BundleColumns,
   summary: (_document, rows) => count(rows.length, "knowledge bundle"),

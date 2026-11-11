@@ -165,7 +165,8 @@ export const observeContextPopulations = () => {
   // These two domains have primitive schemas, not Schema.Literals declarations.
   // The exact primitive shape supplies the finite Boolean/null population.
   if (
-    inventoryRow.installed.ast._tag !== "Boolean" ||
+    inventoryRow.installed.members[0].ast._tag !== "Boolean" ||
+    inventoryRow.installed.members[1].ast._tag !== "Null" ||
     inventoryRow.enabled.members[0].ast._tag !== "Boolean" ||
     inventoryRow.enabled.members[1].ast._tag !== "Null"
   )
@@ -193,7 +194,7 @@ export const observeContextPopulations = () => {
     "agent-mcp-transport": McpTransportSchema.literals,
     "inventory-lifecycle": inventoryRow.classification.fields.lifecycle.literals,
     "inventory-activation": [true, false, null],
-    "inventory-materialization": [true, false],
+    "inventory-materialization": [true, false, null],
     "configured-agent-outcome": unit.agentOutcomes.schema.members[0].value.fields.outcome.literals,
     "unit-state": unit.state.literals,
     "operation-outcome": plan.outcome.literals,

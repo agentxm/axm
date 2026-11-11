@@ -107,6 +107,16 @@ using the uncached target, with reports under `test-results/policy-quality/`.
 Surviving or equivalent mutants require review; runner failures do not prove a
 mutant was detected. These checks emit no specification receipts.
 
+The compiled listing latency requirement runs through `cli-e2e:test:performance`,
+which builds the host executable before measuring fresh processes. Run it alone
+on the Linux reference host: it checks 20 samples per output format after three
+warmups, reports the first invocation separately, and records the host and binary
+SHA-256. The full `cli-e2e:e2e` graph includes this uncached, serialized target.
+Specification selection routes performance cases to an owner’s `test:performance`
+target when present, including `pnpm test:performance` and selection by requirement.
+The latency case is excluded from the concurrently executed general process suite because
+competing CLI processes invalidate its reference-host timing assumption.
+
 ## Commands
 
 Use the root instructions' Nx environment settings. Select only the targets

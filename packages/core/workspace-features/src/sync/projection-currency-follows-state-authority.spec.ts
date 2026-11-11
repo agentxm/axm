@@ -196,9 +196,9 @@ describe("Generated document projection currency", () => {
               const initial = expectResolved(yield* applySync());
               expect(deriveOperationOutcome(initial)).toBe("applied");
               const records = yield* WorkspaceRecords;
-              const before = (yield* records.getExtensionInventory(row.type, {})).items.find(
-                (item) => item.name === "review",
-              );
+              const before = (yield* records.getExtensionInventory(row.type, {
+                details: true,
+              })).items.find((item) => item.name === "review");
               expect(before?.agentOutcomes).toContainEqual(
                 expect.objectContaining({
                   agentId: "claude-code",
@@ -223,9 +223,9 @@ describe("Generated document projection currency", () => {
 
               row.write(workspace.root, "review", "Revised authoritative guidance.");
               const afterSourceEdit = workspace.snapshot();
-              const stale = (yield* records.getExtensionInventory(row.type, {})).items.find(
-                (item) => item.name === "review",
-              );
+              const stale = (yield* records.getExtensionInventory(row.type, {
+                details: true,
+              })).items.find((item) => item.name === "review");
               expect(stale?.agentOutcomes).toContainEqual(
                 expect.objectContaining({
                   agentId: "claude-code",
@@ -278,9 +278,9 @@ describe("Generated document projection currency", () => {
               expect(deriveOperationOutcome(recovered)).toBe("applied");
               expect(workspace.readFile("AGENTS.md")).toContain("Revised authoritative guidance.");
               expect(workspace.readFile("CLAUDE.md")).toContain(workspace.readFile("AGENTS.md"));
-              const current = (yield* records.getExtensionInventory(row.type, {})).items.find(
-                (item) => item.name === "review",
-              );
+              const current = (yield* records.getExtensionInventory(row.type, {
+                details: true,
+              })).items.find((item) => item.name === "review");
               expect(current?.agentOutcomes).toContainEqual(
                 expect.objectContaining({
                   agentId: "claude-code",

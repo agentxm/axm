@@ -28,7 +28,18 @@ export const WorkspaceRecordRowSchema = Schema.Struct({
   name: Schema.String,
   classification: ExtensionInventoryClassificationSchema,
   enabled: Schema.NullOr(Schema.Boolean),
-  installed: Schema.Boolean,
+  installed: Schema.NullOr(Schema.Boolean),
+  configuredAgents: Schema.optionalKey(Schema.Array(Schema.String)),
+  observedAgents: Schema.optionalKey(Schema.Array(Schema.String)),
+  observationDiagnostics: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        message: Schema.String,
+        path: Schema.optionalKey(Schema.String),
+        code: Schema.optionalKey(Schema.String),
+      }),
+    ),
+  ),
   agents: Schema.Array(Schema.String),
   origins: Schema.Array(Schema.String),
   paths: Schema.Array(Schema.String),
@@ -104,13 +115,30 @@ export const aggregateWorkspaceRecords = (
       });
       continue;
     }
-    const installed = existing.row.installed || candidate.installed;
+    const installed =
+      existing.row.installed === true || candidate.installed === true
+        ? true
+        : existing.row.installed === null || candidate.installed === null
+          ? null
+          : false;
     if (
       priority[candidate.classification.lifecycle] < priority[existing.row.classification.lifecycle]
     ) {
       existing.row = candidate;
     }
-    existing.row = { ...existing.row, installed };
+    existing.row = {
+      ...existing.row,
+      installed,
+      configuredAgents: [
+        ...new Set([
+          ...(existing.row.configuredAgents ?? []),
+          ...(candidate.configuredAgents ?? []),
+        ]),
+      ],
+      observedAgents: [
+        ...new Set([...(existing.row.observedAgents ?? []), ...(candidate.observedAgents ?? [])]),
+      ],
+    };
     for (const agent of candidate.agents) existing.agents.add(agent);
     for (const origin of candidate.origins) existing.origins.add(origin);
     for (const path of candidate.paths) existing.paths.add(path);

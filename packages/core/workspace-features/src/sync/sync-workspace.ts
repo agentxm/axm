@@ -156,7 +156,10 @@ const inventoriesStillCurrent = (observed: CollectedMaterializeSteps["inventoryO
   Effect.gen(function* () {
     const records = yield* WorkspaceRecords;
     for (const item of observed) {
-      const current = yield* records.getExtensionInventory(item.type, item.options);
+      const current = yield* records.getExtensionInventory(item.type, {
+        ...item.options,
+        details: true,
+      });
       if (JSON.stringify(current) !== JSON.stringify(item.inventory)) return false;
     }
     return true;

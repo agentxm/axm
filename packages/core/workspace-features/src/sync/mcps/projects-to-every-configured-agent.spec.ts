@@ -435,7 +435,7 @@ describe("MCP servers project to every configured agent", () => {
             const records = yield* WorkspaceRecords;
             yield* applySync();
 
-            const inventory = yield* records.getExtensionInventory("mcp-server", {});
+            const inventory = yield* records.getExtensionInventory("mcp-server", { details: true });
             const item = inventory.items.find((entry) => entry.name === "demo");
             expect(item).toBeDefined();
             const outcomes = item?.agentOutcomes ?? [];

@@ -1504,6 +1504,14 @@
           }
         },
         {
+          "name": "details",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "agent",
           "rawHelp": {
             "aliases": [],
@@ -1533,6 +1541,15 @@
             "cli/agent-selection-is-membership-or-filter",
             "cli/type-list-agent-filters-match-any-selected-agent"
           ]
+        },
+        {
+          "parameters": ["flag:details"],
+          "requirements": [
+            "cli/list/ordinary-inventory-is-local",
+            "cli/type-lists-report-local-state",
+            "cli/inventories/use-one-item-and-envelope-contract"
+          ],
+          "when": "Explicit details request local native inspection and content findings; absent details leaves inspection not requested."
         }
       ]
     },
@@ -3327,6 +3344,14 @@
           }
         },
         {
+          "name": "details",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "agent",
           "rawHelp": {
             "aliases": [],
@@ -3357,6 +3382,16 @@
             "cli/agent-selection-is-membership-or-filter",
             "cli/type-list-agent-filters-match-any-selected-agent"
           ]
+        },
+        {
+          "parameters": ["flag:details"],
+          "requirements": [
+            "cli/list/ordinary-inventory-is-local",
+            "cli/type-lists-report-local-state",
+            "cli/inventories/use-one-item-and-envelope-contract",
+            "cli/knowledge/list/reports-bundle-inspection"
+          ],
+          "when": "Explicit details request local native inspection and content findings; absent details leaves inspection not requested."
         }
       ]
     },
@@ -3934,6 +3969,14 @@
     "list": {
       "flags": [
         {
+          "name": "details",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -4011,6 +4054,16 @@
           "parameters": ["flag:outdated", "flag:deprecated"],
           "requirements": ["cli/list/rejects-incompatible-filters"],
           "when": "Both --outdated and --deprecated are true."
+        },
+        {
+          "parameters": ["flag:details"],
+          "requirements": [
+            "cli/list/ordinary-inventory-is-local",
+            "cli/type-lists-report-local-state",
+            "cli/inventories/use-one-item-and-envelope-contract",
+            "cli/knowledge/list/reports-bundle-inspection"
+          ],
+          "when": "Explicit details request local native inspection and content findings; absent details leaves inspection not requested."
         }
       ]
     },
@@ -4759,6 +4812,14 @@
           }
         },
         {
+          "name": "details",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "agent",
           "rawHelp": {
             "aliases": [],
@@ -4789,6 +4850,15 @@
             "cli/agent-selection-is-membership-or-filter",
             "cli/type-list-agent-filters-match-any-selected-agent"
           ]
+        },
+        {
+          "parameters": ["flag:details"],
+          "requirements": [
+            "cli/list/ordinary-inventory-is-local",
+            "cli/type-lists-report-local-state",
+            "cli/inventories/use-one-item-and-envelope-contract"
+          ],
+          "when": "Explicit details request local native inspection and content findings; absent details leaves inspection not requested."
         }
       ]
     },
@@ -5683,6 +5753,14 @@
           }
         },
         {
+          "name": "details",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "agent",
           "rawHelp": {
             "aliases": [],
@@ -5712,6 +5790,15 @@
             "cli/agent-selection-is-membership-or-filter",
             "cli/type-list-agent-filters-match-any-selected-agent"
           ]
+        },
+        {
+          "parameters": ["flag:details"],
+          "requirements": [
+            "cli/list/ordinary-inventory-is-local",
+            "cli/type-lists-report-local-state",
+            "cli/inventories/use-one-item-and-envelope-contract"
+          ],
+          "when": "Explicit details request local native inspection and content findings; absent details leaves inspection not requested."
         }
       ]
     },
@@ -6824,6 +6911,14 @@
           }
         },
         {
+          "name": "details",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "agent",
           "rawHelp": {
             "aliases": [],
@@ -6853,6 +6948,15 @@
             "cli/agent-selection-is-membership-or-filter",
             "cli/type-list-agent-filters-match-any-selected-agent"
           ]
+        },
+        {
+          "parameters": ["flag:details"],
+          "requirements": [
+            "cli/list/ordinary-inventory-is-local",
+            "cli/type-lists-report-local-state",
+            "cli/inventories/use-one-item-and-envelope-contract"
+          ],
+          "when": "Explicit details request local native inspection and content findings; absent details leaves inspection not requested."
         }
       ]
     },
@@ -7875,6 +7979,14 @@
           }
         },
         {
+          "name": "details",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "agent",
           "rawHelp": {
             "aliases": [],
@@ -7907,6 +8019,15 @@
           "details": [
             "An agent listing filter is distinct from workspace membership and from occurrence presence."
           ]
+        },
+        {
+          "parameters": ["flag:details"],
+          "requirements": [
+            "cli/list/ordinary-inventory-is-local",
+            "cli/type-lists-report-local-state",
+            "cli/inventories/use-one-item-and-envelope-contract"
+          ],
+          "when": "Explicit details request local native inspection and content findings; absent details leaves inspection not requested."
         }
       ]
     },
@@ -8779,6 +8900,14 @@
           }
         },
         {
+          "name": "details",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "agent",
           "rawHelp": {
             "aliases": [],
@@ -8811,6 +8940,15 @@
           "details": [
             "An agent listing filter is distinct from workspace membership and from occurrence presence."
           ]
+        },
+        {
+          "parameters": ["flag:details"],
+          "requirements": [
+            "cli/list/ordinary-inventory-is-local",
+            "cli/type-lists-report-local-state",
+            "cli/inventories/use-one-item-and-envelope-contract"
+          ],
+          "when": "Explicit details request local native inspection and content findings; absent details leaves inspection not requested."
         }
       ]
     },

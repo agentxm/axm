@@ -152,20 +152,16 @@ const writeSymbolicMcpPackage = (workspace: string, withDefault = false): void =
   });
 };
 
-const inventoryOutcome = (
+const inventoryItem = (
   stdout: string,
   name: string,
-  agentId: string,
 ): Readonly<Record<string, unknown>> | undefined => {
   const document: unknown = JSON.parse(stdout);
   if (!isRecord(document) || !isRecord(document["result"])) return undefined;
   const items = document["result"]["items"];
   if (!Array.isArray(items)) return undefined;
   const item = items.find((candidate) => isRecord(candidate) && candidate["name"] === name);
-  if (!isRecord(item) || !Array.isArray(item["agentOutcomes"])) return undefined;
-  return item["agentOutcomes"].find(
-    (outcome) => isRecord(outcome) && outcome["agentId"] === agentId,
-  );
+  return isRecord(item) ? item : undefined;
 };
 
 const expectInventoryOutcome = async (
@@ -174,9 +170,20 @@ const expectInventoryOutcome = async (
   name: string,
   expected: "current" | "not-applicable",
 ): Promise<void> => {
-  const listed = await runCli([plural, "list", "--json"], { cwd: workspace });
+  const listed = await runCli([plural, "list", "--details", "--json"], { cwd: workspace });
   expect(listed.exitCode, listed.stdout + listed.stderr).toBe(0);
-  expect(inventoryOutcome(listed.stdout, name, "claude-code")).toMatchObject({
+  const item = inventoryItem(listed.stdout, name);
+  if (plural === "packs") {
+    expect(item).toMatchObject({ type: "pack", inspection: { state: "not-applicable" } });
+    return;
+  }
+  const inspection = item?.["inspection"];
+  const outcomes = isRecord(inspection) ? inspection["agentOutcomes"] : undefined;
+  expect(
+    Array.isArray(outcomes)
+      ? outcomes.find((outcome) => isRecord(outcome) && outcome["agentId"] === "claude-code")
+      : undefined,
+  ).toMatchObject({
     extensionType: expect.any(String),
     name,
     agentId: "claude-code",

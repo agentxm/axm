@@ -1,3 +1,4 @@
+import { inspectInventory } from "../inventory-inspection.js";
 import {
   mcpDistributionCandidates,
   mcpDistributionDestination,
@@ -174,7 +175,13 @@ export const ShowExtension = {
         // MCP connection that is its source's shared row, not a row under
         // the local name.
         lockfile.acceptedEntry(request.type, request.name),
-        records.getExtensionInventory(request.type, {}),
+        records.getExtensionInventory(request.type, {}).pipe(
+          Effect.map((inventory) => ({
+            ...inventory,
+            items: inventory.items.filter((row) => row.name === request.name),
+          })),
+          Effect.flatMap(inspectInventory),
+        ),
       ],
       // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed two-way join of accepted lock entry and inventory
       { concurrency: "unbounded" },

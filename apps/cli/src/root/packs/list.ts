@@ -18,7 +18,7 @@ const PackListColumns = [
 
 const { handler, command } = makePerTypeListCommand({
   type: "pack",
-  ...inventoryList("pack", (agents) => listPacks({ agents })),
+  ...inventoryList("pack", (agents, details) => listPacks({ agents, details })),
   columns: PackListColumns,
 });
 

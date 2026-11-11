@@ -145,7 +145,7 @@ describe("list command empty output", () => {
     writeRegistryMcpWorkspace();
     return context.provide(
       Effect.gen(function* () {
-        yield* handleListMcpServers();
+        yield* handleListMcpServers({ agents: [], details: true });
         const stdout = streams.lines("stdout").join("\n");
         for (const fact of ["Local name", "context", "2.3.4", "missing"])
           expect(stdout).toContain(fact);
@@ -161,7 +161,7 @@ describe("list command empty output", () => {
     return context.provide(
       Effect.gen(function* () {
         yield* handleListHook();
-        yield* handleListMcpServers();
+        yield* handleListMcpServers({ agents: [], details: true });
         const stdout = streams.lines("stdout").join("\n");
         expect(stdout).toContain("No hook extensions found");
         expect(stdout).toContain("No MCP servers found");
@@ -217,13 +217,14 @@ describe("list command empty output", () => {
     );
   });
 
+  // This handler fixture provides per-agent inspection but no native location provider.
   it.effect("emits MCP server rows in machine mode without a plan envelope", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeRegistryMcpWorkspace(["claude-code"]);
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListMcpServers();
+        yield* handleListMcpServers({ agents: [], details: true });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 1,
@@ -233,14 +234,17 @@ describe("list command empty output", () => {
               enabled: true,
               version: "2.3.4",
               status: "missing",
-              agentOutcomes: [
-                {
-                  agentId: "claude-code",
-                  outcome: "failed",
-                  reasonCode: "projection-missing",
-                  path: path.join(tempDir, ".mcp.json"),
-                },
-              ],
+              inspection: {
+                state: "partial",
+                agentOutcomes: [
+                  {
+                    agentId: "claude-code",
+                    outcome: "failed",
+                    reasonCode: "projection-missing",
+                    path: path.join(tempDir, ".mcp.json"),
+                  },
+                ],
+              },
               management: "configured",
             },
           ],
@@ -262,20 +266,23 @@ describe("list command empty output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListMcpServers();
+        yield* handleListMcpServers({ agents: [], details: true });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           items: [
             {
               name: "context",
               status: "enabled",
-              agentOutcomes: [
-                {
-                  agentId: "codex",
-                  outcome: "current",
-                  path: path.join(tempDir, ".codex/config.toml"),
-                },
-              ],
+              inspection: {
+                state: "partial",
+                agentOutcomes: [
+                  {
+                    agentId: "codex",
+                    outcome: "current",
+                    path: path.join(tempDir, ".codex/config.toml"),
+                  },
+                ],
+              },
             },
           ],
         });
@@ -301,21 +308,24 @@ describe("list command empty output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListMcpServers();
+        yield* handleListMcpServers({ agents: [], details: true });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           items: [
             {
               name: "context",
               status: "drift",
-              agentOutcomes: [
-                {
-                  agentId: "codex",
-                  outcome: "failed",
-                  reasonCode: "stale-projection",
-                  path: path.join(tempDir, ".codex/config.toml"),
-                },
-              ],
+              inspection: {
+                state: "partial",
+                agentOutcomes: [
+                  {
+                    agentId: "codex",
+                    outcome: "failed",
+                    reasonCode: "stale-projection",
+                    path: path.join(tempDir, ".codex/config.toml"),
+                  },
+                ],
+              },
             },
           ],
         });
@@ -334,21 +344,24 @@ describe("list command empty output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListMcpServers();
+        yield* handleListMcpServers({ agents: [], details: true });
 
         expect(rendererState.results[0]?.data).toMatchObject({
           items: [
             {
               name: "context",
               status: "drift",
-              agentOutcomes: [
-                {
-                  agentId: "codex",
-                  outcome: "failed",
-                  reasonCode: "stale-projection",
-                  path: path.join(tempDir, ".codex/config.toml"),
-                },
-              ],
+              inspection: {
+                state: "partial",
+                agentOutcomes: [
+                  {
+                    agentId: "codex",
+                    outcome: "failed",
+                    reasonCode: "stale-projection",
+                    path: path.join(tempDir, ".codex/config.toml"),
+                  },
+                ],
+              },
             },
           ],
         });

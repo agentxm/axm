@@ -133,6 +133,7 @@ export const projectWorkspaceRecords = (
   type: InstallableExtensionType,
   deps: {
     readonly bindings: ReadonlyArray<PackMemberBinding>;
+    readonly expectedPaths?: ReadonlyMap<string, string>;
     readonly installRoot: InstallRootInventory;
     readonly configuredAgents: ReadonlyArray<string>;
     readonly relative: (absolute: string) => string;
@@ -157,10 +158,9 @@ export const projectWorkspaceRecords = (
         classification: { kind: "lifecycle", lifecycle: directOrigin ? "configured" : "implicit" },
         enabled: row.activation === "enabled",
         installed: row.actual.length > 0,
-        agents:
-          type === "mcp-server" || observed.agents.length === 0
-            ? deps.configuredAgents
-            : observed.agents,
+        agents: observed.agents,
+        configuredAgents: deps.configuredAgents,
+        observedAgents: observed.agents,
         origins: observed.origins,
         paths: observed.paths,
         ...(source === undefined ? {} : { source }),
@@ -185,7 +185,30 @@ export const projectWorkspaceRecords = (
         enabled: null,
         installed: true,
         ...observed,
+        configuredAgents: [],
+        observedAgents: observed.agents,
       });
     }
-    return aggregateWorkspaceRecords(candidates);
+    const diagnostics = yield* scoped.diagnostics;
+    return aggregateWorkspaceRecords(candidates).map((row) => {
+      const expected = deps.expectedPaths?.get(`${type}:${row.name}`);
+      const warnings = diagnostics.filter(
+        (warning) =>
+          (warning.code === "scanner-io" || warning.code === "scanner-parse") &&
+          (warning.path === undefined ||
+            (expected !== undefined &&
+              (deps.isWithin(expected, warning.path) || deps.isWithin(warning.path, expected)))),
+      );
+      return warnings.length === 0
+        ? row
+        : {
+            ...row,
+            installed: row.installed === true ? true : null,
+            observationDiagnostics: warnings.map(({ message, path, code }) => ({
+              message,
+              ...(path === undefined ? {} : { path }),
+              ...(code === undefined ? {} : { code }),
+            })),
+          };
+    });
   });

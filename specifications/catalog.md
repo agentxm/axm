@@ -2244,7 +2244,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 
 - Requirement: `cli/knowledge/list/reports-bundle-inspection`
 - Owner: `workspace-features`
-- Statement: When listing Knowledge bundles, AXM shall count every inspected document in the bundle, including its reserved index, and shall re-inspect current source on each listing so concept and diagnostic counts follow repairs.
+- Statement: When listing Knowledge bundles with details requested, AXM shall count every inspected document in the bundle, including its reserved index, and shall re-inspect current source on each detailed listing so concept and diagnostic counts follow repairs.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
@@ -4623,7 +4623,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/list/human-inventory-reports-local-state`
 - Owner: `cli`
-- Statement: When an ordinary inventory is rendered for a person, AXM shall omit remote Assessment and Guidance columns while retaining local missing or leftover diagnostics.
+- Statement: When an ordinary inventory is rendered for a person, AXM shall omit unrequested native-inspection columns and remote Assessment and Guidance columns while retaining local missing or leftover diagnostics.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
@@ -4638,7 +4638,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/list/ordinary-inventory-is-local`
 - Owner: `workspace-features`
-- Statement: When an ordinary inventory is requested, AXM shall report the local inventory without consulting remote sources, with assessment not checked and without remote coverage or deprecation detail.
+- Statement: When an ordinary inventory is requested, AXM shall report the local inventory without consulting remote sources, verifying native currency, or inspecting Knowledge document contents, with explicit not-requested inspection and not-checked remote assessment; current presence and configured or observed agent associations shall remain visible.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
@@ -5561,6 +5561,23 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary rationale: Production binding reads native files and symlinks from temporary packages and renders host definitions; these examples do not execute the native agents.
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/projection/subagents/package-resources.spec.ts`](../packages/core/workspace-kernel/src/projection/subagents/package-resources.spec.ts)
+
+#### Quality
+
+##### Thirty locked extensions list within half a second
+
+- Requirement: `cli/list/ordinary-inventory-latency`
+- Owner: `cli-e2e`
+- Statement: On the recorded Linux reference host with a warm filesystem and an existing lockfile, ordinary listing of 30 installed extensions without details shall complete in less than 500 milliseconds at the 95th percentile, including process startup, inventory observation, output, and exit.
+- Class: quality (performance)
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: binary; selection: platform-matrix
+- Boundary rationale: Runs fresh processes of the compiled CLI against a workspace installed through sync; wall time includes startup and complete output collection.
+- Methods: benchmark
+- Derived from: `cli/list/ordinary-inventory-is-local`
+- Assumptions: A Linux reference host is measured without concurrent build or test workloads; filesystem caches are warmed by three unmeasured invocations.
+- Source: [`apps/cli-e2e/src/ordinary-inventory-latency.spec.ts`](../apps/cli-e2e/src/ordinary-inventory-latency.spec.ts)
 
 #### Constraints
 
@@ -7119,7 +7136,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/inventories/use-one-item-and-envelope-contract`
 - Owner: `workspace-features`
-- Statement: Root and typed extension inventories shall share a schema-backed item core identifying type, local name, scope, optional fully qualified identity and version, flat management, installation, activation, structured source, and agent outcomes, and an envelope with filter, selected and total counts, and management counts, while retaining type-specific facts and omitting superseded identity, classification, source-type, and internal-origin fields.
+- Statement: Root and typed extension inventories shall share a schema-backed item core identifying type, local name, scope, optional fully qualified identity and version, flat management, installation, activation, structured source, separate configured and observed agent associations, and explicit inspection state with detailed findings only when requested, and an envelope with filter, selected and total counts, and management counts, while retaining type-specific facts and omitting superseded identity, classification, source-type, and internal-origin fields.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
@@ -7264,7 +7281,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/type-lists-report-local-state`
 - Owner: `workspace-features`
-- Statement: When listing skills, subagents, rules, hooks, or packs, AXM shall report the selected type’s current local entries with their management classification, installation state, and source observation, including configured entries that are disabled or absent. Native observations shall distinguish configured consumers from potential readers and report currency only when the native unit has verified ownership and matches the desired content; identical bytes at an unrelated symlink target shall not establish currency.
+- Statement: When listing skills, subagents, rules, hooks, or packs, AXM shall report the selected type’s current local entries with their management classification, installation state, and source observation, including configured entries that are disabled or absent. When details are requested, native observations shall distinguish configured consumers from potential readers and report currency only when the native unit has verified ownership and matches the desired content; identical bytes at an unrelated symlink target shall not establish currency.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`

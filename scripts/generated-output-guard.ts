@@ -1,22 +1,18 @@
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  cpSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  readlinkSync,
-  rmSync,
-  symlinkSync,
-  type Stats,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { symlink } from "node:fs/promises";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
+import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Cause from "effect/Cause";
+import * as Console from "effect/Console";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import type * as PlatformError from "effect/PlatformError";
+import * as Schedule from "effect/Schedule";
+import * as ChildProcess from "effect/process/ChildProcess";
 import {
   createProjectGraphAsync,
   getOutputsForTargetAndConfiguration,
@@ -24,44 +20,17 @@ import {
   type ProjectGraphProjectNode,
   type TargetConfiguration,
 } from "@nx/devkit";
+import { runVerificationCommand, VerificationFailed } from "./verification-process.js";
 
 const GENERATE_TARGET = "generate";
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const gitEnvironment = (): Record<string, string | undefined> =>
+  Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
 
-const runText = (
-  command: string,
-  args: ReadonlyArray<string>,
-  cwd: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string => {
-  const result = spawnSync(command, args, { cwd, encoding: "utf8", env });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(
-      [`Command failed (${command} ${args.join(" ")}).`, result.stdout.trim(), result.stderr.trim()]
-        .filter((line) => line.length > 0)
-        .join("\n"),
-    );
-  }
-  return result.stdout;
-};
-
-const runInherited = (
-  command: string,
-  args: ReadonlyArray<string>,
-  cwd: string,
-  env: NodeJS.ProcessEnv = process.env,
-): void => {
-  const result = spawnSync(command, args, { cwd, stdio: "inherit", env });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(
-      `Command failed (${command} ${args.join(" ")}) with exit ${result.status ?? 1}.`,
-    );
-  }
-};
+const runText = (command: string, args: ReadonlyArray<string>, cwd: string) =>
+  runVerificationCommand(
+    ChildProcess.make(command, args, { cwd, env: gitEnvironment(), extendEnv: false }),
+  ).pipe(Effect.map(({ stdout }) => stdout));
 
 /**
  * Nx interpolates all of a target's declared outputs together, drops any template whose
@@ -126,118 +95,143 @@ export const collectGeneratedOutputs = (
   return [...outputs].sort();
 };
 
-export const findGeneratedOutputDrift = (
-  workspaceRoot: string,
-  outputs: ReadonlyArray<string>,
-): string =>
+export const findGeneratedOutputDrift = (workspaceRoot: string, outputs: ReadonlyArray<string>) =>
   runText(
     "git",
     ["status", "--short", "--untracked-files=all", "--", ...outputs],
     workspaceRoot,
-    gitEnvironment(),
-  ).trim();
+  ).pipe(Effect.map((output) => output.trim()));
 
-const gitEnvironment = (): NodeJS.ProcessEnv =>
-  Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")));
+/** A deleted working-tree path is absent from the snapshot; other failures remain errors. */
+const lstatIfPresent = (fs: FileSystem.FileSystem, path: string) =>
+  fs.lstat(path).pipe(
+    Effect.map(Option.some),
+    Effect.catchIf(
+      (error) => error.reason._tag === "NotFound",
+      () => Effect.succeedNone,
+    ),
+  );
 
-/** `undefined` when the path no longer exists, so a path removed from the working tree is not fatal. */
-const lstatIfPresent = (path: string): Stats | undefined => {
-  try {
-    return lstatSync(path);
-  } catch (error) {
-    if (isRecord(error) && error["code"] === "ENOENT") return undefined;
-    throw error;
-  }
-};
-
-export const mirrorNodeModules = (source: string, destination: string, root = true): void => {
-  mkdirSync(destination, { recursive: true });
-  for (const entry of readdirSync(source, { withFileTypes: true })) {
-    const sourcePath = join(source, entry.name);
-    const destinationPath = join(destination, entry.name);
-    if (root && entry.name === ".pnpm") {
-      symlinkSync(sourcePath, destinationPath, process.platform === "win32" ? "junction" : "dir");
-    } else if (entry.isSymbolicLink()) {
-      symlinkSync(readlinkSync(sourcePath), destinationPath);
-    } else if (entry.isDirectory()) {
-      mirrorNodeModules(sourcePath, destinationPath, false);
-    } else {
-      cpSync(sourcePath, destinationPath, { preserveTimestamps: true });
+export const mirrorNodeModules = (
+  source: string,
+  destination: string,
+  root = true,
+): Effect.Effect<
+  void,
+  PlatformError.PlatformError | VerificationFailed,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    yield* fs.makeDirectory(destination, { recursive: true }).pipe(Effect.uninterruptible);
+    for (const entry of yield* fs.readDirectoryEntries(source)) {
+      const sourcePath = path.join(source, entry.name);
+      const destinationPath = path.join(destination, entry.name);
+      if (root && entry.name === ".pnpm") {
+        if (process.platform === "win32") {
+          // FileSystem.symlink has no junction option. Await this uncancellable
+          // host call before interruption can release the snapshot directory.
+          yield* Effect.tryPromise({
+            try: () => symlink(sourcePath, destinationPath, "junction"),
+            catch: (cause) =>
+              new VerificationFailed({
+                detail: "Could not share the package store with the snapshot.",
+                cause,
+              }),
+          }).pipe(Effect.uninterruptible);
+        } else yield* fs.symlink(sourcePath, destinationPath).pipe(Effect.uninterruptible);
+      } else {
+        const info = yield* fs.lstat(sourcePath);
+        if (info.type === "SymbolicLink")
+          yield* fs
+            .symlink(yield* fs.readLink(sourcePath), destinationPath)
+            .pipe(Effect.uninterruptible);
+        else if (info.type === "Directory")
+          yield* mirrorNodeModules(sourcePath, destinationPath, false);
+        else
+          yield* fs
+            .copy(sourcePath, destinationPath, { preserveTimestamps: true })
+            .pipe(Effect.uninterruptible);
+      }
     }
-  }
-};
+  });
 
-const copyWorkspaceSnapshot = (workspaceRoot: string, snapshotRoot: string): void => {
-  const files = runText("git", ["ls-files", "-co", "--exclude-standard", "-z"], workspaceRoot)
+const copyWorkspaceSnapshot = Effect.fnUntraced(function* (
+  workspaceRoot: string,
+  snapshotRoot: string,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const files = (yield* runText(
+    "git",
+    ["ls-files", "-co", "--exclude-standard", "-z"],
+    workspaceRoot,
+  ))
     .split("\0")
-    .filter((path) => path.length > 0);
-  for (const path of files) {
-    const source = join(workspaceRoot, path);
-    // `git ls-files -c` reports index entries, which still name tracked files the developer
-    // has deleted from the working tree. The snapshot mirrors the working-tree view, so a
-    // deleted path is simply absent from it and regeneration reports it as drift.
-    const stat = lstatIfPresent(source);
-    if (stat === undefined) continue;
-    const destination = join(snapshotRoot, path);
-    mkdirSync(dirname(destination), { recursive: true });
-    if (stat.isSymbolicLink()) symlinkSync(readlinkSync(source), destination);
+    .filter((file) => file.length > 0);
+  for (const file of files) {
+    const source = path.join(workspaceRoot, file);
+    // The index can still name a file deleted from the working-tree view.
+    const info = yield* lstatIfPresent(fs, source);
+    if (Option.isNone(info)) continue;
+    const destination = path.join(snapshotRoot, file);
+    yield* fs
+      .makeDirectory(path.dirname(destination), { recursive: true })
+      .pipe(Effect.uninterruptible);
+    if (info.value.type === "SymbolicLink")
+      yield* fs.symlink(yield* fs.readLink(source), destination).pipe(Effect.uninterruptible);
     else
-      cpSync(source, destination, {
-        dereference: false,
-        preserveTimestamps: true,
-        recursive: stat.isDirectory(),
-      });
+      yield* fs
+        .copy(source, destination, { preserveTimestamps: true })
+        .pipe(Effect.uninterruptible);
   }
-  // Untracked manifests count: a workspace package added but not yet committed still
-  // has an installed `node_modules` the snapshot's builds resolve through, and the
-  // snapshot mirrors the working-tree view, not the index.
-  const packageManifests = runText(
+  // New untracked package manifests participate in the same working-tree view.
+  const manifests = (yield* runText(
     "git",
     ["ls-files", "-co", "--exclude-standard", "-z", "**/package.json"],
     workspaceRoot,
-  )
+  ))
     .split("\0")
-    .filter((path) => path.length > 0);
-  for (const path of ["package.json", ...packageManifests]) {
-    const modules = join(dirname(path), "node_modules");
-    const source = resolve(workspaceRoot, modules);
-    const destination = join(snapshotRoot, modules);
-    if (!existsSync(source) || existsSync(destination)) continue;
-    mirrorNodeModules(source, destination);
+    .filter((file) => file.length > 0);
+  for (const file of ["package.json", ...manifests]) {
+    const modules = path.join(path.dirname(file), "node_modules");
+    const source = path.resolve(workspaceRoot, modules);
+    const destination = path.join(snapshotRoot, modules);
+    if (!(yield* fs.exists(source)) || (yield* fs.exists(destination))) continue;
+    yield* mirrorNodeModules(source, destination);
   }
-  const initialize = spawnSync("git", ["init", "--quiet"], {
-    cwd: snapshotRoot,
-    encoding: "utf8",
-    env: gitEnvironment(),
-  });
-  if (initialize.error) throw initialize.error;
-  if (initialize.status !== 0) throw new Error(initialize.stderr);
-};
+  yield* runText("git", ["init", "--quiet"], snapshotRoot);
+});
 
-const describeTree = (
+const describeTree = Effect.fnUntraced(function* (
   workspaceRoot: string,
   outputs: ReadonlyArray<string>,
-): Map<string, string> => {
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
   const entries = new Map<string, string>();
-  const visit = (path: string): void => {
-    const absolute = join(workspaceRoot, path);
-    const stat = lstatIfPresent(absolute);
-    if (stat === undefined) return;
-    const normalized = path.replaceAll("\\", "/");
-    if (stat.isSymbolicLink()) {
-      entries.set(normalized, `link:${readlinkSync(absolute)}`);
-      return;
-    }
-    if (stat.isDirectory()) {
-      for (const child of readdirSync(absolute)) visit(join(path, child));
-      return;
-    }
-    const digest = createHash("sha256").update(readFileSync(absolute)).digest("hex");
-    entries.set(normalized, `file:${stat.mode & 0o111}:${digest}`);
-  };
-  for (const output of outputs) visit(output);
+  const visit = (relative: string): Effect.Effect<void, PlatformError.PlatformError> =>
+    Effect.gen(function* () {
+      const absolute = path.join(workspaceRoot, relative);
+      const info = yield* lstatIfPresent(fs, absolute);
+      if (Option.isNone(info)) return;
+      const normalized = relative.replaceAll("\\", "/");
+      if (info.value.type === "SymbolicLink") {
+        entries.set(normalized, `link:${yield* fs.readLink(absolute)}`);
+      } else if (info.value.type === "Directory") {
+        for (const child of yield* fs.readDirectory(absolute))
+          yield* visit(path.join(relative, child));
+      } else {
+        const digest = createHash("sha256")
+          .update(yield* fs.readFile(absolute))
+          .digest("hex");
+        entries.set(normalized, `file:${info.value.mode & 0o111}:${digest}`);
+      }
+    });
+  for (const output of outputs) yield* visit(output);
   return entries;
-};
+});
 
 export const compareGeneratedOutputTrees = (
   expected: ReadonlyMap<string, string>,
@@ -254,57 +248,96 @@ export const compareGeneratedOutputTrees = (
     .join("\n");
 };
 
-/** Regenerate in a disposable snapshot so staged, unstaged, and untracked user state is immutable. */
-export const findGeneratedOutputDriftWithoutMutation = (
+const generateSnapshot = (snapshotRoot: string) => {
+  const words = ["pnpm.cmd", "exec", "nx", "run-many", "-t", GENERATE_TARGET, "--skip-nx-cache"];
+  // The Windows script contains only fixed command words, never workspace paths.
+  const command =
+    process.platform === "win32"
+      ? ChildProcess.make(words.join(" "), {
+          shell: true,
+          cwd: snapshotRoot,
+          env: { ...gitEnvironment(), NX_DAEMON: "false" },
+          extendEnv: false,
+          stdin: "inherit",
+          stdout: "inherit",
+          stderr: "inherit",
+        })
+      : ChildProcess.make("pnpm", words.slice(1), {
+          cwd: snapshotRoot,
+          env: { ...gitEnvironment(), NX_DAEMON: "false" },
+          extendEnv: false,
+          stdin: "inherit",
+          stdout: "inherit",
+          stderr: "inherit",
+        });
+  return runVerificationCommand(command);
+};
+
+/** Regenerate in a scoped snapshot without changing staged, unstaged, or untracked user state. */
+export const findGeneratedOutputDriftWithoutMutation = <A, E, R>(
   workspaceRoot: string,
   outputs: ReadonlyArray<string>,
-  generate: (snapshotRoot: string) => void = (snapshotRoot) => {
-    const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-    runInherited(
-      pnpm,
-      ["exec", "nx", "run-many", "-t", GENERATE_TARGET, "--skip-nx-cache"],
-      snapshotRoot,
-      { ...gitEnvironment(), NX_DAEMON: "false" },
+  generate: (snapshotRoot: string) => Effect.Effect<A, E, R>,
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    return yield* Effect.acquireUseRelease(
+      fs.makeTempDirectory({ prefix: "axm-generated-output-snapshot-" }),
+      (snapshotRoot) =>
+        Effect.gen(function* () {
+          const expected = yield* describeTree(workspaceRoot, outputs);
+          yield* copyWorkspaceSnapshot(workspaceRoot, snapshotRoot);
+          yield* generate(snapshotRoot);
+          return compareGeneratedOutputTrees(expected, yield* describeTree(snapshotRoot, outputs));
+        }),
+      (directory) =>
+        fs
+          .remove(directory, { recursive: true, force: true })
+          .pipe(Effect.retry(Schedule.spaced("100 millis").pipe(Schedule.upTo({ times: 5 })))),
     );
-  },
-): string => {
-  const snapshotRoot = mkdtempSync(join(tmpdir(), "axm-generated-output-snapshot-"));
-  try {
-    const expected = describeTree(workspaceRoot, outputs);
-    copyWorkspaceSnapshot(workspaceRoot, snapshotRoot);
-    generate(snapshotRoot);
-    return compareGeneratedOutputTrees(expected, describeTree(snapshotRoot, outputs));
-  } finally {
-    rmSync(snapshotRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-  }
-};
+  });
 
-const readOwnedOutputs = async (): Promise<ReadonlyArray<string>> => {
-  const graph = await createProjectGraphAsync({ exitOnError: false });
-  const outputs = new Set<string>();
-  for (const project of Object.values(graph.nodes)) {
-    if (project.data.targets?.[GENERATE_TARGET] === undefined) continue;
-    for (const output of collectGeneratedOutputs(project)) outputs.add(output);
-  }
-  if (outputs.size === 0) {
-    throw new Error("No generated outputs are declared by the resolved Nx generate targets.");
-  }
-  return [...outputs].sort();
-};
+const readOwnedOutputs = Effect.gen(function* () {
+  const graph = yield* Effect.tryPromise({
+    try: () => createProjectGraphAsync({ exitOnError: false }),
+    catch: (cause) =>
+      new VerificationFailed({ detail: "Could not resolve the Nx project graph.", cause }),
+  });
+  return yield* Effect.try({
+    try: () => {
+      const outputs = new Set<string>();
+      for (const project of Object.values(graph.nodes)) {
+        if (project.data.targets?.[GENERATE_TARGET] === undefined) continue;
+        for (const output of collectGeneratedOutputs(project)) outputs.add(output);
+      }
+      if (outputs.size === 0)
+        throw new Error("No generated outputs are declared by the resolved Nx generate targets.");
+      return [...outputs].sort();
+    },
+    catch: (cause) =>
+      new VerificationFailed({ detail: "Could not resolve generated output ownership.", cause }),
+  });
+});
 
-const main = async (): Promise<void> => {
-  const outputs = await readOwnedOutputs();
-  const drift = findGeneratedOutputDriftWithoutMutation(nxWorkspaceRoot, outputs);
-  if (drift.length === 0) return;
-  console.error("Generated output drift detected in Nx-owned outputs:\n");
-  console.error(drift);
-  console.error("\nRun `pnpm generate` and commit the listed generated outputs.");
-  process.exit(1);
-};
+const main = Effect.gen(function* () {
+  const outputs = yield* readOwnedOutputs;
+  const drift = yield* findGeneratedOutputDriftWithoutMutation(
+    nxWorkspaceRoot,
+    outputs,
+    generateSnapshot,
+  );
+  if (drift.length > 0)
+    return yield* new VerificationFailed({
+      detail: `Generated output drift detected in Nx-owned outputs:\n\n${drift}\n\nRun \`pnpm generate\` and commit the listed generated outputs.`,
+    });
+});
 
 const invokedPath = process.argv[1];
 if (invokedPath !== undefined && fileURLToPath(import.meta.url) === resolve(invokedPath))
-  main().catch((error: unknown) => {
-    console.error(error);
-    process.exit(1);
-  });
+  NodeRuntime.runMain(
+    main.pipe(
+      Effect.provide(NodeServices.layer),
+      Effect.tapCause((cause) => Console.error(Cause.pretty(cause))),
+    ),
+    { disableErrorReporting: true },
+  );

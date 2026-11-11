@@ -4,7 +4,6 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
-import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Predicate from "effect/Predicate";
 import { FrontmatterParseFailure, parseFrontmatterEffect } from "../content/frontmatter.js";
@@ -157,7 +156,11 @@ export interface KnowledgeBundleEntry {
 const bundleEntries = (
   root: string,
   current: string,
-): Effect.Effect<ReadonlyArray<KnowledgeBundleEntry>, PlatformError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  ReadonlyArray<KnowledgeBundleEntry>,
+  PlatformError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -165,12 +168,8 @@ const bundleEntries = (
     const files: KnowledgeBundleEntry[] = [];
     for (const entry of entries) {
       const absolute = path.join(current, entry);
-      // fs.stat follows symlinks, so detect them first (readLink succeeds only
-      // for a symlink) and record them without following. Otherwise a directory
-      // symlink would be recursed into (escaping the bundle or cycling) and the
-      // symbolic-link safety check would never fire.
-      const link = yield* fs.readLink(absolute).pipe(Effect.option);
-      if (Option.isSome(link)) {
+      const stat = yield* fs.lstat(absolute);
+      if (stat.type === "SymbolicLink") {
         files.push({
           relativePath: path.relative(root, absolute).replace(/\\/g, "/"),
           type: "SymbolicLink",
@@ -178,7 +177,6 @@ const bundleEntries = (
         });
         continue;
       }
-      const stat = yield* fs.stat(absolute);
       if (stat.type === "Directory") {
         files.push(...(yield* bundleEntries(root, absolute)));
       } else {
@@ -195,8 +193,11 @@ const bundleEntries = (
 /** Collect a bundle's normalized entry inventory without following symbolic links. */
 export const collectKnowledgeBundleEntries = (
   sourceRoot: string,
-): Effect.Effect<ReadonlyArray<KnowledgeBundleEntry>, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  bundleEntries(sourceRoot, sourceRoot);
+): Effect.Effect<
+  ReadonlyArray<KnowledgeBundleEntry>,
+  PlatformError,
+  FileSystem.FileSystem | Path.Path
+> => bundleEntries(sourceRoot, sourceRoot);
 
 const firstHeading = (body: string): string | undefined => {
   for (const line of body.split(/\r?\n/)) {

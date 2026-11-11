@@ -3,9 +3,11 @@ import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as PlatformError from "effect/PlatformError";
 import { FrontmatterParseFailure } from "../content/frontmatter.js";
 import { parseKnowledgeSearchQuery } from "./knowledge-search.js";
 import {
+  collectKnowledgeBundleEntries,
   frontmatterParseDiagnostic,
   inspectKnowledgeBundle,
   inspectKnowledgeEntries,
@@ -21,6 +23,58 @@ const search = (concepts: Parameters<typeof searchKnowledgeConcepts>[0], query: 
 };
 
 layer(NodeServices.layer, { excludeTestServices: true })("Open Knowledge Format bundles", (it) => {
+  it.effect("inventories links without traversing their targets or reading link text", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      yield* fs.makeDirectory(path.join(root, "nested"));
+      yield* fs.writeFileString(path.join(root, "nested", "guide.md"), "# Guide\n");
+      yield* fs.symlink("nested", path.join(root, "directory-link"));
+      yield* fs.symlink("absent.md", path.join(root, "dangling-link"));
+      const entries = yield* collectKnowledgeBundleEntries(root).pipe(
+        Effect.provideService(FileSystem.FileSystem, {
+          ...fs,
+          readLink: (target) =>
+            Effect.fail(
+              PlatformError.systemError({
+                _tag: "PermissionDenied",
+                module: "FileSystem",
+                method: "readLink",
+                pathOrDescriptor: target,
+              }),
+            ),
+        }),
+      );
+      expect(entries).toEqual([
+        { relativePath: "dangling-link", type: "SymbolicLink", size: 0n },
+        { relativePath: "directory-link", type: "SymbolicLink", size: 0n },
+        { relativePath: "nested/guide.md", type: "File", size: 8n },
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("propagates an entry classification failure", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "index.md");
+      yield* fs.writeFileString(source, "# Knowledge\n");
+      const failure = PlatformError.systemError({
+        _tag: "PermissionDenied",
+        module: "FileSystem",
+        method: "lstat",
+        pathOrDescriptor: source,
+      });
+      const observed = yield* collectKnowledgeBundleEntries(root).pipe(
+        Effect.provideService(FileSystem.FileSystem, { ...fs, lstat: () => Effect.fail(failure) }),
+        Effect.flip,
+      );
+      expect(observed).toBe(failure);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect("discovers typed concepts and preserves reserved index semantics", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

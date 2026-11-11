@@ -1,6 +1,5 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { WorkspaceLayoutError } from "./errors.js";
@@ -140,19 +139,18 @@ const validateExistingAuthoredRoot = (
       );
     if (!exists) return;
 
-    const link = yield* fs.readLink(root).pipe(Effect.option);
-    if (Option.isSome(link)) {
-      return yield* layoutError(
-        `Invalid ${type} authored root ${root}: authored roots cannot be symlinks`,
-      );
-    }
     const info = yield* fs
-      .stat(root)
+      .lstat(root)
       .pipe(
         Effect.mapError((cause) =>
           layoutError(`Failed to inspect ${type} authored root ${root}`, cause),
         ),
       );
+    if (info.type === "SymbolicLink") {
+      return yield* layoutError(
+        `Invalid ${type} authored root ${root}: authored roots cannot be symlinks`,
+      );
+    }
     if (info.type !== "Directory") {
       return yield* layoutError(`Invalid ${type} authored root ${root}: expected a directory`);
     }
@@ -182,8 +180,14 @@ const validateExistingAuthoredRoot = (
       );
     for (const child of children) {
       const childPath = path.join(root, child);
-      const childLink = yield* fs.readLink(childPath).pipe(Effect.option);
-      if (Option.isSome(childLink)) {
+      const childInfo = yield* fs
+        .lstat(childPath)
+        .pipe(
+          Effect.mapError((cause) =>
+            layoutError(`Failed to inspect ${type} authored package ${childPath}`, cause),
+          ),
+        );
+      if (childInfo.type === "SymbolicLink") {
         return yield* layoutError(
           `Invalid ${type} authored package ${childPath}: direct package directories cannot be symlinks`,
         );

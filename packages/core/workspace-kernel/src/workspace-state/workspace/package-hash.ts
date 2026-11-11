@@ -8,7 +8,6 @@ import * as crypto from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Option from "effect/Option";
 import type { PlatformError } from "effect/PlatformError";
 import { PackageContentHashFailed } from "./errors.js";
 import { computeSourceHash } from "./rendered-files.js";
@@ -48,12 +47,12 @@ export const computePackageContentHash = (
         for (const entry of entries) {
           const absolute = path.join(directory, entry);
           const relative = prefix === "" ? entry : `${prefix}/${entry}`;
-          const link = yield* fs.readLink(absolute).pipe(Effect.option);
-          if (Option.isSome(link)) {
-            frame("symlink", relative, new TextEncoder().encode(link.value));
+          const info = yield* fs.lstat(absolute);
+          if (info.type === "SymbolicLink") {
+            const target = yield* fs.readLink(absolute);
+            frame("symlink", relative, new TextEncoder().encode(target));
             continue;
           }
-          const info = yield* fs.stat(absolute);
           if (info.type === "Directory") {
             frame("directory", relative, new Uint8Array());
             yield* walk(absolute, relative);

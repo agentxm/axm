@@ -3,7 +3,6 @@ import * as crypto from "node:crypto";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
@@ -111,20 +110,26 @@ export const computeMaterializedTreeIntegrity = (
           caseFoldedPaths.set(folded, relativePath);
 
           const absolutePath = path.join(directory, entry);
-          const link = yield* fs.readLink(absolutePath).pipe(Effect.option);
-          if (Option.isSome(link)) {
-            yield* validateContainedLink(root, absolutePath, link.value).pipe(
-              Effect.mapError((cause) => treeError(root, `unsafe symlink: ${relativePath}`, cause)),
-            );
-            if (options.includeFile?.(relativePath) !== false)
-              files.push({ kind: "symlink", relativePath, target: link.value });
-            continue;
-          }
           const info = yield* fs
-            .stat(absolutePath)
+            .lstat(absolutePath)
             .pipe(
               Effect.mapError((cause) => treeError(root, `cannot inspect ${relativePath}`, cause)),
             );
+          if (info.type === "SymbolicLink") {
+            const target = yield* fs
+              .readLink(absolutePath)
+              .pipe(
+                Effect.mapError((cause) =>
+                  treeError(root, `cannot read symlink: ${relativePath}`, cause),
+                ),
+              );
+            yield* validateContainedLink(root, absolutePath, target).pipe(
+              Effect.mapError((cause) => treeError(root, `unsafe symlink: ${relativePath}`, cause)),
+            );
+            if (options.includeFile?.(relativePath) !== false)
+              files.push({ kind: "symlink", relativePath, target });
+            continue;
+          }
           if (info.type === "Directory") {
             files.push({ kind: "directory", relativePath });
             yield* walk(absolutePath, relativePath);

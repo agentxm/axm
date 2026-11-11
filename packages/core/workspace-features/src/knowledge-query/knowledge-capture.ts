@@ -1,8 +1,8 @@
-// @effect-diagnostics anyUnknownInErrorContext:off — corpus readers deliberately preserve caller-owned foreign read errors
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import type { PlatformError } from "effect/PlatformError";
 import type { KnowledgeBundleFqn } from "@agentxm/extension-model/unstable/knowledge/concept-ref";
 import type { KnowledgeIndexBundleInput } from "./knowledge-index.js";
 import {
@@ -46,7 +46,7 @@ export const captureKnowledgeIndexBundles = (
   options?: { readonly maxAttempts?: number },
 ): Effect.Effect<
   ReadonlyArray<KnowledgeIndexBundleInput>,
-  unknown | KnowledgeCorpusChangingError | KnowledgeCapturedSourceMissingError,
+  PlatformError | KnowledgeCorpusChangingError | KnowledgeCapturedSourceMissingError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
@@ -66,7 +66,9 @@ export const captureKnowledgeIndexBundles = (
         .filter((entry) => entry.type === "File")
         .map((entry) => ({ bundle: descriptor.bundle, relativePath: entry.relativePath })),
     );
-    const readSource = (source: KnowledgeCorpusSource): Effect.Effect<Uint8Array, unknown> => {
+    const readSource = (
+      source: KnowledgeCorpusSource,
+    ): Effect.Effect<Uint8Array, PlatformError | KnowledgeCapturedSourceMissingError> => {
       const root = roots.get(source.bundle);
       return root === undefined
         ? Effect.fail(

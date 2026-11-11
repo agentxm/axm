@@ -44,12 +44,6 @@ type InstalledKnowledgeCorpus =
     }
   | { readonly outcome: "corpus-changing" };
 
-const isCorpusChanging = (cause: unknown): boolean =>
-  typeof cause === "object" &&
-  cause !== null &&
-  "_tag" in cause &&
-  cause._tag === "KnowledgeCorpusChangingError";
-
 /**
  * Capture the enabled installed corpus and build one live, source-backed
  * index snapshot. A corpus that kept changing under the double read is a
@@ -101,7 +95,7 @@ export const captureInstalledKnowledgeCorpus = Effect.fn("Knowledge.captureInsta
     );
     const capturedResult = yield* Effect.result(captureKnowledgeIndexBundles(prepared));
     if (Result.isFailure(capturedResult)) {
-      if (isCorpusChanging(capturedResult.failure)) {
+      if (capturedResult.failure._tag === "KnowledgeCorpusChangingError") {
         return { outcome: "corpus-changing" } satisfies InstalledKnowledgeCorpus;
       }
       return yield* new KnowledgeCorpusUnavailable({

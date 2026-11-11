@@ -1,9 +1,9 @@
-// @effect-diagnostics anyUnknownInErrorContext:off — OKF inspection accepts opaque accessor errors and converts them to diagnostics
 /** Open Knowledge Format discovery and AgentXM-profile validation (v0.2). */
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import type { PlatformError } from "effect/PlatformError";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Predicate from "effect/Predicate";
@@ -157,7 +157,7 @@ export interface KnowledgeBundleEntry {
 const bundleEntries = (
   root: string,
   current: string,
-): Effect.Effect<ReadonlyArray<KnowledgeBundleEntry>, unknown, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<ReadonlyArray<KnowledgeBundleEntry>, PlatformError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -195,7 +195,7 @@ const bundleEntries = (
 /** Collect a bundle's normalized entry inventory without following symbolic links. */
 export const collectKnowledgeBundleEntries = (
   sourceRoot: string,
-): Effect.Effect<ReadonlyArray<KnowledgeBundleEntry>, unknown, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<ReadonlyArray<KnowledgeBundleEntry>, PlatformError, FileSystem.FileSystem | Path.Path> =>
   bundleEntries(sourceRoot, sourceRoot);
 
 const firstHeading = (body: string): string | undefined => {
@@ -1326,7 +1326,7 @@ export const inspectKnowledgeEntries = <E>(
 
 export const inspectKnowledgeBundle = (
   sourceRoot: string,
-): Effect.Effect<KnowledgeInspection, unknown, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<KnowledgeInspection, PlatformError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;

@@ -1,4 +1,3 @@
-// @effect-diagnostics anyUnknownInErrorContext:off — package accessors preserve caller-owned foreign read errors until diagnostic translation
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 

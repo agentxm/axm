@@ -20,7 +20,7 @@ import { handleList } from "./command.js";
 const painted = (state: TestRendererState): ReadonlyArray<string> =>
   state.docs.flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }));
 
-const listAll = { types: [], outdated: false, deprecated: false } as const;
+const listAll = { types: [], outdated: false, deprecated: false, archived: false } as const;
 
 describe("root list", () => {
   let tempDir: string;
@@ -46,7 +46,7 @@ describe("root list", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ types: [], outdated: false, deprecated: false });
+        yield* handleList({ types: [], outdated: false, deprecated: false, archived: false });
         expect(rendererState.results[0]?.data).toMatchObject({
           filter: "all",
           count: 2,
@@ -199,7 +199,7 @@ describe("root list", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ types: [], outdated: false, deprecated: false });
+        yield* handleList({ types: [], outdated: false, deprecated: false, archived: false });
         const result = rendererState.results[0]?.data;
         expect(result).toMatchObject({
           filter: "all",
@@ -215,6 +215,40 @@ describe("root list", () => {
             assessment: { state: "not-checked" },
           }),
         ]);
+      }),
+    );
+  });
+
+  it.effect("shows both lifecycle states and their guidance in human output", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({});
+    writeInstalledRegistrySkill({
+      archival: { archivedAt: "2026-03-02T00:00:00.000Z", message: "Publication is closed." },
+      deprecation: {
+        deprecatedAt: "2026-03-01T00:00:00.000Z",
+        reason: "superseded",
+        message: "Use the replacement skill.",
+        replacement: { status: "available", fqn: "@acme/skills/replacement" },
+      },
+    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList({ ...listAll, deprecated: true, archived: true });
+        const text = painted(rendererState).join("\n");
+        expect(text).toContain("deprecated, archived");
+        expect(text).toContain("Publication is closed.");
+        expect(text).toContain("@acme/skills/replacement");
+        expect(text).toContain("1 deprecated or archived extension");
+      }),
+    );
+  });
+
+  it.effect("names the combined lifecycle filter in an empty inventory", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({});
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), {});
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList({ ...listAll, deprecated: true, archived: true });
+        expect(painted(rendererState)).toContain("No deprecated or archived extensions found");
       }),
     );
   });

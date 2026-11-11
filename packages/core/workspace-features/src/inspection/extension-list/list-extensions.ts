@@ -4,10 +4,9 @@ import { withInspectionReadView } from "../read-view.js";
  * The cross-type extension inventory behind `axm list`.
  *
  * One request names the filter — the whole inventory, only what has an update,
- * or only what its registry deprecated — and the answer is a typed document:
+ * or a Registry lifecycle selection — and the answer is a typed document:
  * the matching items, how many of the installed extensions could actually be
- * assessed, and, for a lifecycle view, the deprecation detail that explains
- * each row.
+ * assessed, and separate archival and deprecation details for a lifecycle view.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -16,6 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
 import {
   buildInventoryDocument,
   ExtensionListItemSchema,
@@ -39,6 +39,7 @@ const AssessmentStateSchema = Schema.Literals([
   "changed",
   "active",
   "deprecated",
+  "archived",
   "unknown",
   "not-applicable",
 ] as const);
@@ -53,6 +54,7 @@ const ExtensionAssessmentSchema = Schema.Struct({
   installedRevision: Schema.optional(Schema.String),
   currentRevision: Schema.optional(Schema.String),
   deprecation: Schema.optional(DeprecationViewSchema),
+  archival: Schema.optional(ArchivalViewSchema),
 });
 
 const AssessedExtensionListItemSchema = Schema.Struct({
@@ -78,7 +80,7 @@ export type ExtensionListDocument = typeof ExtensionListDocumentSchema.Type;
 export interface ListExtensionsRequest {
   /** Restrict the inventory to these extension types, combined as a union. */
   readonly types?: ReadonlyArray<InstallableExtensionType>;
-  /** Which extensions the answer keeps. Exactly one filter is in force. */
+  /** Which extensions the answer keeps; lifecycle is the union of deprecated and archived. */
   readonly filter: ExtensionListFilter;
   readonly details?: boolean;
 }
@@ -87,11 +89,20 @@ export interface ListExtensionsRequest {
  * An update is available when the assessment found a newer matching release
  * (`available`) or a moved source revision (`changed`).
  */
-const matchesFilter = (item: AssessedExtensionListItem, filter: ExtensionListFilter): boolean =>
-  filter === "all" ||
-  (filter === "outdated"
-    ? item.assessment.state === "available" || item.assessment.state === "changed"
-    : item.assessment.state === "deprecated");
+const matchesFilter = (item: AssessedExtensionListItem, filter: ExtensionListFilter): boolean => {
+  switch (filter) {
+    case "all":
+      return true;
+    case "outdated":
+      return item.assessment.state === "available" || item.assessment.state === "changed";
+    case "deprecated":
+      return item.assessment.deprecation !== undefined;
+    case "archived":
+      return item.assessment.archival !== undefined;
+    case "lifecycle":
+      return item.assessment.deprecation !== undefined || item.assessment.archival !== undefined;
+  }
+};
 
 /** An installed extension counts as checked once its assessment reached a verdict. */
 const checkedStates: ReadonlyArray<AssessedExtensionListItem["assessment"]["state"]> = [
@@ -100,6 +111,7 @@ const checkedStates: ReadonlyArray<AssessedExtensionListItem["assessment"]["stat
   "changed",
   "active",
   "deprecated",
+  "archived",
 ];
 
 const coverageFor = (items: ReadonlyArray<AssessedExtensionListItem>) => ({

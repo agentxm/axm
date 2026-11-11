@@ -31,7 +31,7 @@ export const specification = defineSpecification({
 });
 
 describe("Failed Registry assessment", () => {
-  for (const filter of ["outdated", "deprecated"] as const)
+  for (const filter of ["outdated", "deprecated", "archived", "lifecycle"] as const)
     it.effect(filter, () => {
       const fixture = makeInstalledSkillFixture({
         respond: () => ({

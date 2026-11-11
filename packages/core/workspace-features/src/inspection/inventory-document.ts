@@ -99,7 +99,7 @@ export const ExtensionListItemSchema = Schema.Struct({
 export type ExtensionListItem = typeof ExtensionListItemSchema.Type;
 
 export const ExtensionInventoryDocumentFields = {
-  filter: Schema.Literals(["all", "outdated", "deprecated"]),
+  filter: Schema.Literals(["all", "outdated", "deprecated", "archived", "lifecycle"]),
   count: Schema.Number,
   totalCount: Schema.Number,
   observationDiagnostics: ExtensionInventorySchema.fields.observationDiagnostics,

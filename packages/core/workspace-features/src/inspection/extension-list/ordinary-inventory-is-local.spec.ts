@@ -47,10 +47,11 @@ export const specification = defineSpecification({
 });
 
 describe("Local ordinary inventories", () => {
-  it.effect("reports local state without assessing a deprecated installation", () => {
+  it.effect("reports local state without assessing deprecated and archived metadata", () => {
     const fixture = makeInstalledSkillFixture({
       index: {
         versions: [{ version: "1.0.0", published: "2026-01-01T00:00:00.000Z" }],
+        archival: { archivedAt: "2026-03-02T00:00:00.000Z", message: "Publication is closed." },
         deprecation: {
           deprecatedAt: "2026-03-01T00:00:00.000Z",
           reason: "other",
@@ -66,7 +67,7 @@ describe("Local ordinary inventories", () => {
             filter: "all",
             items: [{ name: "review", assessment: { state: "not-checked" } }],
           });
-          expect(result.document.items[0]?.assessment.deprecation).toBeUndefined();
+          expect(result.document.items[0]?.assessment).toEqual({ state: "not-checked" });
           expect(result.document.coverage).toBeUndefined();
           expect(fixture.requests).toEqual([]);
           const typed = yield* ListExtensions.query({ filter: "all", types: ["skill"] });

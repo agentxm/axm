@@ -4007,6 +4007,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "archived",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [],
@@ -4034,26 +4042,27 @@
             "cli/list/reports-incomplete-assessment",
             "cli/list/fails-when-registry-assessment-fails"
           ],
-          "when": "--outdated is true and --deprecated is false",
+          "when": "--outdated is true and both lifecycle flags are false.",
           "openTopics": ["git-update-assessment"]
         },
         {
-          "parameters": ["flag:deprecated"],
+          "parameters": ["flag:deprecated", "flag:archived"],
           "requirements": [
+            "cli/list/filters-registry-lifecycle",
             "cli/list/reports-deprecation-guidance",
             "cli/list/ordinary-inventory-is-local",
             "cli/list/reports-incomplete-assessment",
             "cli/list/fails-when-registry-assessment-fails"
           ],
-          "when": "--deprecated selects filtered inventory; both assessment flags absent select ordinary inventory.",
+          "when": "Either lifecycle flag selects its metadata; together they select the union. All assessment flags absent select ordinary inventory.",
           "details": [
             "Lifecycle assessment and deprecated filtering are distinct; replacement availability does not imply installability."
           ]
         },
         {
-          "parameters": ["flag:outdated", "flag:deprecated"],
+          "parameters": ["flag:outdated", "flag:deprecated", "flag:archived"],
           "requirements": ["cli/list/rejects-incompatible-filters"],
-          "when": "Both --outdated and --deprecated are true."
+          "when": "--outdated is combined with either lifecycle flag."
         },
         {
           "parameters": ["flag:details"],

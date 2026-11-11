@@ -9,7 +9,7 @@ export const specification = defineSpecification({
   requirement: "cli/list/rejects-incompatible-filters",
   title: "List rejects incompatible remote filters",
   statement:
-    "When both outdated and deprecated filters are requested, AXM shall reject the list invocation as a usage failure before querying Registry state.",
+    "When the outdated filter is combined with deprecated or archived lifecycle filters, AXM shall reject the list invocation as a usage failure before querying Registry state.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -21,12 +21,16 @@ export const specification = defineSpecification({
 });
 
 describe("List filter validation", () => {
-  it.effect("does not perform remote assessment for conflicting filters", () => {
+  it.effect.each([
+    { deprecated: true, archived: false },
+    { deprecated: false, archived: true },
+    { deprecated: true, archived: true },
+  ])("does not perform remote assessment for conflicting filters: %j", (lifecycle) => {
     const workspace = makeReadSpecWorkspace();
     return workspace.withRegistry(
       Effect.gen(function* () {
         const result = yield* Effect.result(
-          handleList({ types: [], outdated: true, deprecated: true }),
+          handleList({ types: [], outdated: true, ...lifecycle }),
         );
         expect(Result.isFailure(result) && result.failure).toMatchObject({ code: "usage" });
         expect(workspace.requests).toEqual([]);

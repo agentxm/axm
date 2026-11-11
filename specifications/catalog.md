@@ -4634,6 +4634,21 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/fails-when-registry-assessment-fails.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/fails-when-registry-assessment-fails.spec.ts)
 
+##### Lifecycle listings distinguish archival and deprecation and combine them as a union
+
+- Requirement: `cli/list/filters-registry-lifecycle`
+- Owner: `workspace-features`
+- Statement: An explicitly requested archived or deprecated listing shall select installations carrying the corresponding Registry metadata, the combined lifecycle listing shall return each installation matching either status once, and every matching row shall preserve separate archival and deprecation metadata including available replacement guidance, without mutating the workspace.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inventory and Registry decoding inspect a temporary workspace through a recorded Registry port; a decision table covers independent and overlapping lifecycle states and verifies the workspace remains unchanged.
+- Methods: decision-table
+- Derived from: `cli/list/reports-deprecation-guidance`, `cli/list/ordinary-inventory-is-local`
+- Additional evidence: process via [`apps/cli-e2e/src/list-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/list-lifecycle.e2e.test.ts) — The built CLI publishes and installs fixture packages in a file Registry, then observes independent and combined lifecycle flags, separate JSON metadata, type filtering, invalid combinations, workspace purity, and ordinary listing after the Registry is removed.
+- Source: [`packages/core/workspace-features/src/inspection/extension-list/filters-registry-lifecycle.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/filters-registry-lifecycle.spec.ts)
+
 ##### Human inventories report local state without assessment columns
 
 - Requirement: `cli/list/human-inventory-reports-local-state`
@@ -4662,19 +4677,21 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
 - Supersedes: `cli/list/ordinary-inventory-identifies-deprecation`
+- Additional evidence: process via [`apps/cli-e2e/src/list-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/list-lifecycle.e2e.test.ts) — The built CLI publishes and installs fixture packages in a file Registry, then observes independent and combined lifecycle flags, separate JSON metadata, type filtering, invalid combinations, workspace purity, and ordinary listing after the Registry is removed.
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/ordinary-inventory-is-local.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/ordinary-inventory-is-local.spec.ts)
 
 ##### List rejects incompatible remote filters
 
 - Requirement: `cli/list/rejects-incompatible-filters`
 - Owner: `cli`
-- Statement: When both outdated and deprecated filters are requested, AXM shall reject the list invocation as a usage failure before querying Registry state.
+- Statement: When the outdated filter is combined with deprecated or archived lifecycle filters, AXM shall reject the list invocation as a usage failure before querying Registry state.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `apps/cli/src/root/list/command.ts`
+- Additional evidence: process via [`apps/cli-e2e/src/list-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/list-lifecycle.e2e.test.ts) — The built CLI publishes and installs fixture packages in a file Registry, then observes independent and combined lifecycle flags, separate JSON metadata, type filtering, invalid combinations, workspace purity, and ordinary listing after the Registry is removed.
 - Source: [`apps/cli/src/root/list/rejects-incompatible-filters.spec.ts`](../apps/cli/src/root/list/rejects-incompatible-filters.spec.ts)
 
 ##### Deprecation listings report available replacement guidance

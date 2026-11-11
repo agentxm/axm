@@ -30,6 +30,7 @@ export interface ListHandlerArgs {
   readonly types: ReadonlyArray<InstallableExtensionType>;
   readonly outdated: boolean;
   readonly deprecated: boolean;
+  readonly archived: boolean;
   readonly details?: boolean;
 }
 
@@ -46,14 +47,22 @@ const emptyInventory = Effect.fn("List.emptyInventory")(function* () {
 });
 
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
-  if (args.outdated && args.deprecated) {
+  if (args.outdated && (args.deprecated || args.archived)) {
     return yield* makeAppError({
       code: "usage",
-      detail: "--outdated and --deprecated cannot be combined",
+      detail: "--outdated cannot be combined with --deprecated or --archived",
     });
   }
   const screen = yield* Screen;
-  const filter = args.outdated ? "outdated" : args.deprecated ? "deprecated" : "all";
+  const filter = args.outdated
+    ? "outdated"
+    : args.deprecated && args.archived
+      ? "lifecycle"
+      : args.deprecated
+        ? "deprecated"
+        : args.archived
+          ? "archived"
+          : "all";
   const result = yield* withLiveOperation(
     { name: "List extensions", mode: "query" },
     observeUnit(
@@ -62,7 +71,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
         label:
           filter === "all"
             ? "inventory"
-            : `${filter === "outdated" ? "update" : "deprecation"} status`,
+            : `${filter === "outdated" ? "update" : "lifecycle"} status`,
       },
       ListExtensions.query({
         types: args.types,
@@ -103,7 +112,11 @@ const listConfig = {
     withParameterDefault(false),
   ),
   deprecated: Flag.Boolean("deprecated").pipe(
-    withParameterDescription("Only list installed extensions deprecated by their registry"),
+    withParameterDescription("List deprecated installations; combines with --archived as a union"),
+    withParameterDefault(false),
+  ),
+  archived: Flag.Boolean("archived").pipe(
+    withParameterDescription("List archived installations; combines with --deprecated as a union"),
     withParameterDefault(false),
   ),
 } as const;
@@ -111,8 +124,8 @@ const listConfig = {
 export const listCommand = Command.make(
   "list",
   listConfig,
-  ({ scope, type, outdated, deprecated, details }) =>
-    handleList({ types: type, outdated, deprecated, details }).pipe(
+  ({ scope, type, outdated, deprecated, archived, details }) =>
+    handleList({ types: type, outdated, deprecated, archived, details }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
       withRuntime(),
     ),
@@ -126,6 +139,11 @@ export const listCommand = Command.make(
     { command: "axm list --type skill", description: "List only skills" },
     { command: "axm list --outdated", description: "Check installed extensions for updates" },
     { command: "axm list --deprecated", description: "Check for deprecated extensions" },
+    { command: "axm list --archived", description: "Check for archived extensions" },
+    {
+      command: "axm list --deprecated --archived",
+      description: "Find deprecated or archived extensions",
+    },
     { command: "axm list --scope user", description: "List user-level extensions" },
   ]),
 );

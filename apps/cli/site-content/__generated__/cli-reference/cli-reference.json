@@ -7815,7 +7815,15 @@
             "aliases": [],
             "type": "boolean",
             "required": false,
-            "description": "Only list installed extensions deprecated by their registry",
+            "description": "List deprecated installations; combines with --archived as a union",
+            "default": false
+          },
+          {
+            "name": "archived",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "List archived installations; combines with --deprecated as a union",
             "default": false
           }
         ],
@@ -7828,6 +7836,11 @@
             "description": "Check installed extensions for updates"
           },
           { "command": "axm list --deprecated", "description": "Check for deprecated extensions" },
+          { "command": "axm list --archived", "description": "Check for archived extensions" },
+          {
+            "command": "axm list --deprecated --archived",
+            "description": "Find deprecated or archived extensions"
+          },
           { "command": "axm list --scope user", "description": "List user-level extensions" }
         ],
         "subcommands": []

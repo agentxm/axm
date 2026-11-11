@@ -221,10 +221,12 @@ const invokeOperation = (
 ): Effect.Effect<unknown, unknown> => {
   switch (family) {
     case "read":
-      return workspace.provide(handleList({ types: [], outdated: false, deprecated: false })).pipe(
-        Effect.flip,
-        Effect.map((error): unknown => error),
-      );
+      return workspace
+        .provide(handleList({ types: [], outdated: false, deprecated: false, archived: false }))
+        .pipe(
+          Effect.flip,
+          Effect.map((error): unknown => error),
+        );
     case "diagnose":
       return workspace
         .provide(

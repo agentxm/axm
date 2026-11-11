@@ -5,6 +5,7 @@ import type {
   ExtensionListFilter,
 } from "@agentxm/workspace-features/inspection";
 import { formatDeprecationWarning } from "@agentxm/registry-client";
+import * as DateTime from "effect/DateTime";
 
 import {
   ABSENT,
@@ -33,6 +34,7 @@ interface ListTableRow {
   readonly version: string;
   readonly source: string;
   readonly state: ListItem["assessment"]["state"];
+  readonly lifecycle: string;
   readonly guidance: string;
   readonly configuredAgents: string;
   readonly observedAgents: string;
@@ -47,7 +49,7 @@ const lintExplains = (row: ListTableRow): boolean =>
   row.management === "leftover" || !row.installed;
 
 const needsAttention = (row: ListTableRow): boolean =>
-  lintExplains(row) || row.state === "deprecated";
+  lintExplains(row) || row.state === "deprecated" || row.state === "archived";
 
 const attention = (value: string, flagged: boolean): Text =>
   flagged ? [{ text: value, tone: "warn" }] : value;
@@ -96,8 +98,8 @@ const ExtensionListColumns = [
               ? "update available"
               : row.state === "changed"
                 ? "source changed"
-                : row.state,
-        row.state === "deprecated",
+                : row.lifecycle || row.state,
+        row.state === "deprecated" || row.state === "archived",
       ),
   },
   { header: "Guidance", priority: "optional", value: (row: ListTableRow) => row.guidance },
@@ -105,8 +107,17 @@ const ExtensionListColumns = [
 
 const guidanceFor = (item: ListItem): string => {
   const deprecation = item.assessment.deprecation;
-  if (deprecation === undefined) return "-";
-  return formatDeprecationWarning(itemRef(item), deprecation);
+  const archival = item.assessment.archival;
+  return (
+    [
+      ...(archival === undefined
+        ? []
+        : [
+            `Archived on ${DateTime.formatIso(archival.archivedAt)}${archival.message === undefined ? "" : `: ${archival.message}`}`,
+          ]),
+      ...(deprecation === undefined ? [] : [formatDeprecationWarning(itemRef(item), deprecation)]),
+    ].join("; ") || ABSENT
+  );
 };
 
 const toRow = (item: ListItem): ListTableRow => ({
@@ -118,6 +129,10 @@ const toRow = (item: ListItem): ListTableRow => ({
   version: item.version ?? ABSENT,
   source: "locator" in item.source ? (item.source.locator ?? item.source.kind) : item.source.kind,
   state: item.assessment.state,
+  lifecycle: [
+    ...(item.assessment.deprecation === undefined ? [] : ["deprecated"]),
+    ...(item.assessment.archival === undefined ? [] : ["archived"]),
+  ].join(", "),
   guidance: guidanceFor(item),
   configuredAgents: item.agents.configured.join(", ") || ABSENT,
   observedAgents: item.agents.observed.join(", ") || ABSENT,
@@ -201,7 +216,7 @@ const emptyFilteredInventoryDoc = (
   coverage: ExtensionListDocument["coverage"] | undefined,
 ): Doc =>
   paragraphDoc(
-    `No ${filter} extensions found${coverage !== undefined && coverage.unknown > 0 ? `; ${String(coverage.unknown)} could not be assessed` : ""}`,
+    `No ${filter === "lifecycle" ? "deprecated or archived" : filter} extensions found${coverage !== undefined && coverage.unknown > 0 ? `; ${String(coverage.unknown)} could not be assessed` : ""}`,
   );
 
 /**
@@ -240,7 +255,10 @@ export const listDoc = (options: {
       coverage === undefined
         ? inventorySentence(rows)
         : [
-            count(rows.length, `${options.filter} extension`),
+            count(
+              rows.length,
+              `${options.filter === "lifecycle" ? "deprecated or archived" : options.filter} extension`,
+            ),
             `checked ${String(coverage.checked)}/${String(coverage.eligible)}`,
             `${String(coverage.unknown)} unknown`,
           ],

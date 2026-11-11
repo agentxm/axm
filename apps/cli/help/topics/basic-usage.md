@@ -125,8 +125,12 @@ Content
 desired state does not explain is `leftover` (installed but not configured;
 `axm sync` removes it), `undeclared` (authored but not declared; `axm adopt`
 declares it), or `unmanaged` (native agent content).
-`axm list --outdated` and `axm list --deprecated` perform remote checks against
+`axm list --outdated`, `axm list --deprecated`, and `axm list --archived` check
 each installed extension's recorded source and report incomplete coverage.
+Combine `--deprecated --archived` to find either lifecycle status, with each
+installation listed once. Lifecycle listings preserve separate `assessment.archival`
+and `assessment.deprecation` metadata in JSON, including replacement guidance
+when available. `--outdated` cannot be combined with either lifecycle flag.
 
 ### Project and user scope
 

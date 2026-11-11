@@ -28,7 +28,7 @@ export const specification = defineSpecification({
 });
 
 describe("Incomplete Registry assessment", () => {
-  for (const filter of ["outdated", "deprecated"] as const)
+  for (const filter of ["outdated", "deprecated", "archived", "lifecycle"] as const)
     for (const missing of ["index", "source"] as const)
       it.effect(`${filter}: missing ${missing}`, () => {
         const fixture = makeInstalledSkillFixture({

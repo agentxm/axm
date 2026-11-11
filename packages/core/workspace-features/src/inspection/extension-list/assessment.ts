@@ -12,6 +12,7 @@ import {
 import { type InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 import { resolveSource, SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
@@ -32,7 +33,7 @@ import { checkCurrency } from "../version-currency/check-currency.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
 import { kernelFailureToStepFailure } from "@agentxm/workspace-kernel/reconciliation";
 
-export type ExtensionListFilter = "all" | "outdated" | "deprecated";
+export type ExtensionListFilter = "all" | "outdated" | "deprecated" | "archived" | "lifecycle";
 
 type ExtensionAssessmentState =
   | "not-checked"
@@ -41,6 +42,7 @@ type ExtensionAssessmentState =
   | "changed"
   | "active"
   | "deprecated"
+  | "archived"
   | "unknown"
   | "not-applicable";
 
@@ -55,6 +57,7 @@ export interface ExtensionAssessment {
   readonly installedRevision?: string;
   readonly currentRevision?: string;
   readonly deprecation?: DeprecationView;
+  readonly archival?: ArchivalView;
 }
 
 export interface AssessedExtensionListItem {
@@ -168,13 +171,13 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
       reason: "Extension index was not found",
     } satisfies ExtensionAssessment;
   }
-  if (filter === "deprecated") {
-    return index.value.deprecation === null
-      ? ({ state: "active" } satisfies ExtensionAssessment)
-      : ({
-          state: "deprecated",
-          deprecation: index.value.deprecation,
-        } satisfies ExtensionAssessment);
+  if (filter !== "outdated") {
+    const { archival, deprecation } = index.value;
+    return {
+      state: archival !== null ? "archived" : deprecation !== null ? "deprecated" : "active",
+      ...(archival === null ? {} : { archival }),
+      ...(deprecation === null ? {} : { deprecation }),
+    } satisfies ExtensionAssessment;
   }
   const installedVersion = yield* decodeInstalledVersion(record.resolved.version, item.ref);
   // Currency is judged within the range the desired-state graph owns for the

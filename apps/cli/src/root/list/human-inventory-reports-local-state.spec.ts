@@ -108,7 +108,7 @@ describe("Local human inventories", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ types: [], outdated: false, deprecated: false });
+        yield* handleList({ types: [], outdated: false, deprecated: false, archived: false });
         const rendered = JSON.stringify(rendererState.docs);
         expect(rendered).toContain("review");
         expect(rendered).not.toContain("Native locations");

@@ -1881,6 +1881,18 @@
       ],
       "description": "Canonical authorization-safe identity deprecation guidance."
     },
+    "ArchivalView": {
+      "type": "object",
+      "properties": {
+        "archivedAt": { "$ref": "#/$defs/IsoDateTimeString" },
+        "message": {
+          "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 500 }, { "type": "null" }]
+        }
+      },
+      "required": ["archivedAt"],
+      "additionalProperties": false,
+      "description": "Canonical authorization-safe extension archival state."
+    },
     "OperationOutcome": {
       "type": "string",
       "enum": [
@@ -2255,18 +2267,6 @@
       "additionalProperties": false,
       "title": "Plan Step Managed Region",
       "description": "One managed-region ownership unit and its owning projection unit from the desired graph."
-    },
-    "ArchivalView": {
-      "type": "object",
-      "properties": {
-        "archivedAt": { "$ref": "#/$defs/IsoDateTimeString" },
-        "message": {
-          "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 500 }, { "type": "null" }]
-        }
-      },
-      "required": ["archivedAt"],
-      "additionalProperties": false,
-      "description": "Canonical authorization-safe extension archival state."
     },
     "StepArtifact": {
       "type": "object",
@@ -6040,7 +6040,10 @@
     "ExtensionInventoryDocumentSchema": {
       "type": "object",
       "properties": {
-        "filter": { "type": "string", "enum": ["all", "outdated", "deprecated"] },
+        "filter": {
+          "type": "string",
+          "enum": ["all", "outdated", "deprecated", "archived", "lifecycle"]
+        },
         "count": {
           "anyOf": [
             { "type": "number" },
@@ -7344,7 +7347,10 @@
     "KnowledgeListQueryResultSchema": {
       "type": "object",
       "properties": {
-        "filter": { "type": "string", "enum": ["all", "outdated", "deprecated"] },
+        "filter": {
+          "type": "string",
+          "enum": ["all", "outdated", "deprecated", "archived", "lifecycle"]
+        },
         "count": {
           "anyOf": [
             { "type": "number" },
@@ -7631,7 +7637,10 @@
     "McpServerListQueryResultSchema": {
       "type": "object",
       "properties": {
-        "filter": { "type": "string", "enum": ["all", "outdated", "deprecated"] },
+        "filter": {
+          "type": "string",
+          "enum": ["all", "outdated", "deprecated", "archived", "lifecycle"]
+        },
         "count": {
           "anyOf": [
             { "type": "number" },
@@ -8400,7 +8409,10 @@
     "ExtensionListDocumentSchema": {
       "type": "object",
       "properties": {
-        "filter": { "type": "string", "enum": ["all", "outdated", "deprecated"] },
+        "filter": {
+          "type": "string",
+          "enum": ["all", "outdated", "deprecated", "archived", "lifecycle"]
+        },
         "count": {
           "anyOf": [
             { "type": "number" },
@@ -8677,6 +8689,7 @@
                       "changed",
                       "active",
                       "deprecated",
+                      "archived",
                       "unknown",
                       "not-applicable"
                     ]
@@ -8690,7 +8703,8 @@
                   "currentRevision": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
                   "deprecation": {
                     "anyOf": [{ "$ref": "#/$defs/DeprecationView" }, { "type": "null" }]
-                  }
+                  },
+                  "archival": { "anyOf": [{ "$ref": "#/$defs/ArchivalView" }, { "type": "null" }] }
                 },
                 "required": ["state"],
                 "additionalProperties": false

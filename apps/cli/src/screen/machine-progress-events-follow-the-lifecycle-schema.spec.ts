@@ -190,9 +190,12 @@ describe("Machine progress event contract", () => {
         const workspace = makeSpecWorkspace({ screen: { kind: "machine" }, flags: { json: true } });
         cleanups.push(workspace.cleanup);
         if (route === "root list") {
-          yield* handleRootList({ types: [], outdated: false, deprecated: false }).pipe(
-            Effect.provide(workspace.layer),
-          );
+          yield* handleRootList({
+            types: [],
+            outdated: false,
+            deprecated: false,
+            archived: false,
+          }).pipe(Effect.provide(workspace.layer));
         } else {
           yield* handleSkillsList().pipe(Effect.provide(workspace.layer));
         }

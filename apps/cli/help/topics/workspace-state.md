@@ -557,10 +557,14 @@ projection findings. Select `--scope user` only for the user workspace. Inspect
 for convergence; a preview changes nothing. Use each finding's rule ID and
 suggested recovery instead of deleting files by guessed ownership.
 
-When currency is relevant, `axm list --outdated --json` and `axm list
---deprecated --json` inspect configured sources. `axm upgrade --preview --json`
-checks the executable separately. These checks may need network access; skipped
-or unavailable checks do not establish currency.
+When currency is relevant, `axm list --outdated --json` checks for updates.
+Use `axm list --deprecated --archived --json` to find installations that are
+deprecated, archived, or both, preserving both metadata objects and replacement
+guidance. Either lifecycle flag can also be used alone; neither combines with
+`--outdated`. These explicit assessments consult recorded sources; ordinary
+`axm list` stays local. `axm upgrade --preview --json` checks the executable
+separately. These checks may need network access; skipped or unavailable checks
+do not establish currency or lifecycle status.
 
 For a directly selected deprecated Registry extension, inspect its structured
 reason and replacement with `axm view <fqn> --json`. `axm migrate <fqn> --preview`

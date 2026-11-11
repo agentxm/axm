@@ -253,7 +253,7 @@ describe("Machine error envelope", () => {
       fs.writeFileSync(lockPath, row.contents);
 
       const failure = yield* workspace
-        .provide(handleList({ types: [], outdated: false, deprecated: false }))
+        .provide(handleList({ types: [], outdated: false, deprecated: false, archived: false }))
         .pipe(Effect.flip);
       const classified = classifyError(failure, "json");
 

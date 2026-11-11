@@ -14,9 +14,7 @@ sources:
   - id: diataxis-start
     resource: https://diataxis.fr/start-here/
     title: Diátaxis — Start here
-generated:
-  by: codex/gpt-5.6
-  at: 2026-08-15T17:08:26Z
+generated: { by: codex/gpt-6, at: 2026-11-11T19:52:17Z }
 ---
 
 # Documentation quality
@@ -133,8 +131,6 @@ When reviewing, ask both:
 
 ## Related
 
-- [Documentation audits](documentation-audits.md) · [Auditing documentation](../guides/auditing-documentation.md)
+- [Documentation audits](documentation-audits.md) · [Documentation audit report contract](../guides/auditing-documentation.md)
 - [Documentation craft](documentation-craft.md)
-- [Documentation craft guide](../guides/documentation-craft.md)
 - [Documentation workflow](documentation-workflow.md)
-- [Documentation workflow guide](../guides/documentation-workflow.md)

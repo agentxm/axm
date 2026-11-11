@@ -18,16 +18,13 @@
     "agent-extension-engineering": "workspace"
   },
   "knowledge": {
-    "agentxm": "agentxm:@agentxm/knowledge/agentxm@1.4.0",
-    "product-engineering": "agentxm:@craigsmitham/knowledge/product-engineering",
+    "agentxm": "agentxm:@agentxm/knowledge/agentxm@1.5.0",
     "agent-extension-engineering": "workspace"
   },
   "packs": {
     "docs": "agentxm:@craigsmitham/packs/docs",
-    "work-management": "agentxm:@craigsmitham/packs/work-management",
     "effect": "agentxm:@craigsmitham/packs/effect@^4.0.0",
-    "agent-extension-engineering": "workspace",
-    "codebase-renewal": "agentxm:@craigsmitham/packs/codebase-renewal@0.0.1"
+    "agent-extension-engineering": "workspace"
   },
   "subagents": {
     "researcher": {

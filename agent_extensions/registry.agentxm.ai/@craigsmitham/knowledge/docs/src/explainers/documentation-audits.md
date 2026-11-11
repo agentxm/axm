@@ -12,11 +12,9 @@ sources:
     resource: documentation-organization-and-discovery.md
     title: Documentation organization and discovery
   - id: documentation-workflow
-    resource: ../guides/documentation-workflow.md
+    resource: https://github.com/craigsmitham/agent-extensions/blob/333fc2fe7f67b0520f456efdb107e0730d04e069/knowledge/docs/src/guides/documentation-workflow.md
     title: Documentation workflow guide
-generated:
-  by: codex/gpt-5.6
-  at: 2026-08-15T17:08:26Z
+generated: { by: codex/gpt-6, at: 2026-11-11T19:52:17Z }
 ---
 
 # Documentation audits
@@ -128,11 +126,11 @@ traceable to evidence, then use the smallest appropriate authoring workflow.
 
 ## Related
 
-- [Auditing documentation](../guides/auditing-documentation.md)
+- [Documentation audit report contract](../guides/auditing-documentation.md)
 - [Documentation quality](documentation-quality.md)
 - [Documentation organization and discovery](documentation-organization-and-discovery.md)
 - [Documentation craft](documentation-craft.md)
-- [Documentation workflow guide](../guides/documentation-workflow.md)
+- [Documentation workflow](documentation-workflow.md)
 
 [^documentation-quality]: Documentation quality distinguishes objective,
     independently checkable functional qualities from interdependent qualities

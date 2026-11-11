@@ -87,15 +87,14 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 | Bundle | Description |
 | --- | --- |
 | [agent-extension-engineering](knowledge/agent-extension-engineering/src/index.md) | Design, author, review, and maintain agent extensions: skills, instructions, knowledge, agent definitions, hooks, MCP connections, and packs |
-| [agentxm](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm/src/index.md) | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing |
+| [agentxm](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm/src/index.md) | Public AgentXM product relationships, naming conventions, ecosystem foundations, and durable knowledge about identity, discovery, and publishing |
 
 ### @craigsmitham
 
 | Bundle | Description |
 | --- | --- |
-| [docs](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/docs/src/index.md) | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
+| [docs](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/docs/src/index.md) | Documentation craft and patterns for authoring, reviewing, organizing, and maintaining documents, reusable checklists, and pattern collections across domains |
 | [effect](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect/src/index.md) | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript |
-| [product-engineering](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations |
 <!-- /axm:knowledge -->
 <!-- axm:rules -->
 ## Use Effect

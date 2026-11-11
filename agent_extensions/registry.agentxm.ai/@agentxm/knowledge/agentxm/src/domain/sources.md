@@ -64,8 +64,8 @@ intrinsic source family rather than an external locator.
 ## Accepted resolution
 
 An **accepted resolution** is the exact external content a workspace agreed to
-use from a locator. AXM records it in `axm-lock.yaml` so reconciliation can
-reacquire that content without silently resolving a new target:
+use from a locator. AXM records it in `axm.lock` so reconciliation can reacquire
+that content without silently resolving a new target:
 
 - Git records the commit and package tree selected from the repository;
 - registry records the version, archive integrity, and publisher binding; and

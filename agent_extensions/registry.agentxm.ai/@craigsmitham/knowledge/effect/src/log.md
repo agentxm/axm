@@ -1,5 +1,42 @@
 # Directory Update Log
 
+## 2026-11-11
+
+* **Baseline (4.1.1)**: Reviewed the release delta from Effect `4.1.0` through
+  `4.1.4`, pinned to upstream commit
+  `289a53f7b1fc40049219c6e69022db2fb859c356`. Raised the knowledge and pack
+  companion ranges to `>=4.1.4 <5.0.0`; all twenty recommended companion npm
+  packages have 4.1.4 releases with core `^4.1.4` peers. Knowledge and pack are
+  version `4.1.1`, and the pack requires knowledge `>=4.1.1 <5.0.0`. The
+  unchanged `use-effect` rule remains `4.0.0`.
+* **HTTP API**: Added contract-owned query/header span redaction with
+  `HttpApi.RedactedNames`, including composed APIs, nested query keys, and
+  unfiltered error-message/user-agent attributes. Extended request-size checks
+  to buffered bodies and their deployed adapters. Combined contract definition
+  and client/OpenAPI derivation in one item to retain ten checks.
+* **HTTP client**: Distinguished response acquisition from body-read deadlines
+  and per-attempt from whole-retry budgets. Checked cancellation before headers
+  and scope-owned cleanup after headers against the released `withScope` and
+  `timeout` contracts.
+* **SQL**: Made driver-specific service requirements and transaction-owned
+  fiber lifetimes explicit. Linked service type tests and regression tests for
+  statements and nested transactions after a transaction or savepoint ends.
+* **Testing and telemetry**: Added a sleeping-finalizer case under interruption
+  and first-use `TestClock`. Refreshed telemetry migration references for
+  default Unset span status, unspecified metric units, and SQL transaction
+  child spans under the existing dashboard-verification check.
+* **References and limits**: Re-inspected relevant upstream source, regression
+  tests, and type tests. Re-read opencode's HTTP recorder and Bun Effect test
+  harness at `432d870b02683d2e40e895ddc70d437189b25276`, confirming its declared
+  Effect 4.0.1 catalog; these are applied examples, not evidence for 4.1.4
+  behavior. Unchanged official and applied references retain their earlier
+  pins. This was a release-delta source and checklist review: no upstream test
+  suites, application builds, benchmarks, or checklist field trials were run.
+* **Scope**: Retained all twenty-four topics and their five-to-ten-item form.
+  Existing schema, concurrency, cache, stream, and time checks cover many of
+  the intervening fixes. New AI, MCP, CLI, JOSE, Rational, and Cloudflare Cluster
+  APIs do not by themselves establish an uncovered checklist need.
+
 ## 2026-10-29
 
 * **Scope (4.1.0)**: Consolidated the topic-admission policy in the root index's

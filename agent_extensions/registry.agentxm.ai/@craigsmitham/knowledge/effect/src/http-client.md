@@ -15,15 +15,18 @@ sources:
     resource: https://github.com/anomalyco/opencode/blob/432d870b02683d2e40e895ddc70d437189b25276/packages/http-recorder/src/http/recorder.ts
     title: opencode HTTP recorder service decoration, Effect 4.0.1, at 432d870
   - id: effect-http-client-source
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http/HttpClient.ts
-    title: Effect 4.1.0 HTTP retry and redirect contracts
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/src/http/HttpClient.ts
+    title: Effect 4.1.4 HTTP timeout, retry, redirect, and scope contracts
+  - id: effect-http-timeout-tests
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/test/http/HttpClient.test.ts
+    title: Effect 4.1.4 timeout and request cancellation tests
   - id: effect-url-params
     resource: https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http/UrlParams.ts
     title: Effect 4.1.0 query redaction contract
   - id: effect-fetch-streams
     resource: https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/test/http/FetchHttpClient.test.ts
     title: Effect 4.1.0 streaming upload fallback tests
-generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
+generated: { by: codex/gpt-6, at: 2026-11-11T18:26:43Z }
 ---
 
 # HTTP client
@@ -49,8 +52,12 @@ generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
   `FetchHttpClient` streaming fails with `EncodeError`; opt into
   `FetchHttpClient.StreamBodyFallback` set to `"buffer"` only with a bounded
   body and an acceptable memory budget.[^effect-fetch-streams]
-- [ ] Apply a timeout suitable for the operation and verify interruption reaches
-  the underlying client implementation.
+- [ ] Give response acquisition and body consumption explicit time budgets.
+  With `HttpClient.timeout`, choose a per-attempt or whole-retry budget by
+  composition order; body reads after the timed client returns need a separate
+  limit. Verify interruption aborts transport before headers; with `withScope`,
+  post-header timeouts leave transport cleanup to scope
+  closure.[^effect-http-client-source][^effect-http-timeout-tests]
 - [ ] Redact authorization, cookies, sensitive query values, and payload fields
   from errors, logs, spans, and recorded fixtures; a custom
   `UrlParams.CurrentRedactedNames` list replaces the defaults. Safe error
@@ -62,11 +69,15 @@ generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
 
 ## Resources
 
+- [Client timeout, retry ordering, and body-read limits](https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/src/http/HttpClient.ts)
+- [Timeout and request cancellation tests](https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/test/http/HttpClient.test.ts)
 - [HttpClient basics](https://github.com/Effect-TS/effect/blob/effect%404.1.0/ai-docs/src/50_http-client/10_basics.ts)
 - [HttpClientError source](https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http/HttpClientError.ts)
 - [Applied client decoration in opencode HTTP recorder (Effect 4.0.1)](https://github.com/anomalyco/opencode/blob/432d870b02683d2e40e895ddc70d437189b25276/packages/http-recorder/src/http/recorder.ts)
 
-[^effect-http-client-source]: [Effect HTTP retry and redirect contracts](https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http/HttpClient.ts).
+[^effect-http-client-source]: Effect HTTP timeout, retry, redirect, and scope contracts.
+
+[^effect-http-timeout-tests]: Effect timeout and request cancellation tests.
 
 [^effect-url-params]: [Effect query redaction contract](https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http/UrlParams.ts).
 

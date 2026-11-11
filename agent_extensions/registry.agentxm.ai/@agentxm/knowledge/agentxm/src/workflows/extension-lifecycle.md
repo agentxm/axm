@@ -44,7 +44,7 @@ sources:
    afterward on the extension — see
    [Visibility and discovery](../domain/visibility-and-discovery.md).
 5. **Archive or restore** — `axm archive <ref> [--reason <text>]` marks a
-   published extension finished and freezes publisher changes without breaking
+   published extension finished and freezes owner changes without breaking
    consumers. `axm unarchive <ref>` restores active publishing. Both commands
    condition their write on the lifecycle revision they observed.
 
@@ -53,28 +53,9 @@ not.
 
 ### Publishing from CI
 
-A GitHub Actions workflow can publish new versions without storing a token:
-
-1. Publish the extension's first version yourself with `axm publish`, so the
-   extension exists under your handle.
-2. In AgentXM user settings, create a **trusted publisher** for the public
-   repository and the workflow file that publishes, optionally a deployment
-   environment, and optionally the extensions it may publish. Creating one asks
-   for a second factor.
-3. Give the publishing job `permissions: id-token: write` and run `axm publish`.
-   AXM detects GitHub Actions, asks GitHub for an identity token whose audience
-   is the registry, and exchanges it for a workload token that lives at most an
-   hour.
-
-A trusted publisher publishes versions of existing extensions under its owner's
-handle only; creating an extension, yanking, and changing settings stay with a
-person. `axm whoami` in the job names the trusted publisher. Disabling or
-deleting it in settings revokes its live tokens at once.
-
-Where trusted publishing does not fit yet — a private repository, a CI other
-than GitHub Actions, or an organization's handle — use a `publish` personal
-access token that names the owner. It defaults to seven days and lives at most
-90, or less when an organization it names sets a lower limit.
+A CI workflow publishes with a `publish` personal access token that names the
+owner. It defaults to seven days and lives at most 90, or less when an
+organization it names sets a lower limit.
 
 ## Consuming
 
@@ -86,7 +67,7 @@ access token that names the owner. It defaults to seven days and lives at most
    acquired package under `agent_extensions/`. AXM records desired state in
    `axm.json` and each exact external
    [accepted resolution](../domain/sources.md#accepted-resolution) with tree
-   integrity in `axm-lock.yaml`.
+   integrity in `axm.lock`.
 3. **Reconcile** — `axm sync` brings AXM-managed local content in line with the
    workspace configuration and exact accepted resolutions; a clean workspace
    syncs as a no-op rather than selecting a newer target.
@@ -103,9 +84,9 @@ access token that names the owner. It defaults to seven days and lives at most
 6. **Retire** — `axm uninstall` removes an entry; pack-driven removal is
    orphan-aware per [Pack semantics](../domain/pack-semantics.md).
 
-A platform hold is different from publisher archival. It temporarily removes an
+A platform hold is different from owner archival. It temporarily removes an
 extension from discovery and refuses new resolution and archive fetches, while
-leaving already installed copies and the publisher's underlying lifecycle state
+leaving already installed copies and the owner's underlying lifecycle state
 unchanged. See
 [Visibility and discovery](../domain/visibility-and-discovery.md).
 

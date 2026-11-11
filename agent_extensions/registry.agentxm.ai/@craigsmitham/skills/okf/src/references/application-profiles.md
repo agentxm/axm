@@ -122,13 +122,16 @@ applicable profile or domain decision.
 
 ## Status and sources
 
-This guidance is provisional. The OKF community has discussed opt-in profiles, but OKF v0.2 does
+Checked against canonical upstream commit `ad30107` on 2026-10-30. This guidance is
+provisional. The OKF community has discussed opt-in profiles, but OKF v0.2 does
 not currently standardize profile declarations, descriptors, registries, or validation behavior.
 Reconcile this guidance with a later OKF specification before adopting conflicting conventions.
 
 The terminology and recommendations are grounded in:
 
-- the [Open Knowledge Format v0.2 specification](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md);
-- the open [OKF application-profile proposal](https://github.com/GoogleCloudPlatform/knowledge-catalog/issues/212);
+- the [Open Knowledge Format v0.2 specification](SPEC.md), vendored from
+  [the canonical repository](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/ad30107c31c06aec8a7d5636e0d1058118604e6f/SPEC.md);
+- the open [OKF application-profile proposal](https://github.com/GoogleCloudPlatform/knowledge-catalog/issues/212)
+  in the former repository (a proposal, not an adopted specification rule);
 - the [Dublin Core definition of an application profile](https://www.dublincore.org/resources/glossary/application_profile/); and
 - the [W3C Profiles Vocabulary](https://www.w3.org/TR/dx-prof/).

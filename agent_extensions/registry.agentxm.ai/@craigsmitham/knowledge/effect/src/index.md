@@ -11,15 +11,17 @@ judgeable checks plus links to the primary sources used to author it.
 The `effect` bundle starts its renamed release line at `4.0.0`. Its major
 version tracks the supported Effect major; bundle minor and patch versions
 advance independently from upstream releases. Companion package metadata is
-bounded to `>=4.1.0 <5.0.0` and covers official packages relevant to these
+bounded to `>=4.1.4 <5.0.0` and covers official packages relevant to these
 topics. Select adapters for the application's runtime and database; these
 recommendations do not install npm dependencies.
 
-This bundle requires **Effect 4.1.0 or newer within major version 4** and was
-last reviewed against **4.1.0**. The baseline includes the 4.1 filesystem adapter
-contract, scoped semaphore acquisition, and cron overlap policy. Keep official companion packages aligned
-with core Effect. The metadata does not establish every adapter's runtime
-suitability or validate future releases.
+This bundle requires **Effect 4.1.4 or newer within major version 4** and was
+last reviewed against **4.1.4**. The baseline includes API span redaction,
+HTTP timeout boundaries, SQL transaction lifetime checks, and corrected
+`TestClock` finalization. Keep official companion packages aligned with core
+Effect. The metadata does not establish every adapter's runtime suitability or
+validate future releases. Unchanged guidance retains its earlier source pins;
+the [update log](log.md) records each release review's scope.
 
 Use the checklists as a design baseline and consult the linked sources when an
 API has changed or is tagged `@stability unstable`, which permits breaking changes in minor

@@ -12,8 +12,11 @@ sources:
     resource: https://github.com/Effect-TS/effect/blob/effect%404.1.0/ai-docs/src/09_testing/20_layer-tests.ts
     title: Effect 4.1.0 layer tests
   - id: effect-testclock
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/testing/TestClock.ts
-    title: Effect 4.1.0 TestClock source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/src/testing/TestClock.ts
+    title: Effect 4.1.4 TestClock source
+  - id: effect-testclock-finalizers
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/test/TestClock.test.ts
+    title: Effect 4.1.4 interruption masking during finalizer sleep
   - id: effect-arbitrary
     resource: https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/ARBITRARY.md
     title: Effect 4.1.0 native Arbitrary guide
@@ -26,7 +29,7 @@ sources:
   - id: applied-opencode-coordination
     resource: https://github.com/anomalyco/opencode/blob/432d870b02683d2e40e895ddc70d437189b25276/packages/core/test/effect/keyed-mutex.test.ts
     title: opencode keyed mutex synchronization tests at 432d870 (Effect 4.0.1)
-generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
+generated: { by: codex/gpt-6, at: 2026-11-11T18:26:43Z }
 ---
 
 # Testing
@@ -49,7 +52,10 @@ generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
   captured seeds and replay tokens; retain important failing inputs as explicit
   regression cases across generator upgrades.[^effect-arbitrary-migration]
 - [ ] Exercise resource acquisition and finalization under success, expected
-  failure, defect, and interruption.
+  failure, defect, and interruption. Include cleanup that sleeps on its first
+  use of `TestClock`: request interruption without awaiting it, advance the
+  clock, then await the worker's exit and assert that cleanup
+  completed.[^effect-testclock-finalizers]
 - [ ] Keep mutable test state scoped to one test or test layer and prevent
   background fibers from leaking across cases.
 - [ ] Assert public domain results, observable calls, and lifetime guarantees
@@ -65,7 +71,8 @@ generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
 
 - [Effect tests](https://github.com/Effect-TS/effect/blob/effect%404.1.0/ai-docs/src/09_testing/10_effect-tests.ts)
 - [Layer tests](https://github.com/Effect-TS/effect/blob/effect%404.1.0/ai-docs/src/09_testing/20_layer-tests.ts)
-- [TestClock source](https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/testing/TestClock.ts)
+- [TestClock source](https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/src/testing/TestClock.ts)
+- [Interrupted-worker cleanup with a sleeping finalizer](https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/test/TestClock.test.ts)
 - [Native property testing](https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/ARBITRARY.md)
 - [Migration from the fast-check bridge](https://github.com/Effect-TS/effect/blob/effect%404.1.0/migration/schema.md#migrating-from-the-fast-check-bridge-to-native-arbitrary)
 - [Schema test helpers](https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/testing/TestSchema.ts)
@@ -73,6 +80,7 @@ generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
 [^effect-arbitrary-migration]: Effect native Arbitrary migration.
 [^effect-arbitrary]: Effect native property testing guide.
 [^effect-tests]: Effect-aware tests and test services.
+[^effect-testclock-finalizers]: Effect interruption masking during finalizer sleep.
 
 [^applied-opencode-harness]: [opencode Bun test harness at 432d870 (Effect 4.0.1)](https://github.com/anomalyco/opencode/blob/432d870b02683d2e40e895ddc70d437189b25276/packages/core/test/lib/effect.ts).
 

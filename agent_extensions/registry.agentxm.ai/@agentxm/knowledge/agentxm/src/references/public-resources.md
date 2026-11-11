@@ -58,4 +58,4 @@ generated:
 - LinkedIn:
   [linkedin.com/company/agentxm](https://www.linkedin.com/company/agentxm)
 - X: [x.com/agentxm_ai](https://x.com/agentxm_ai)
-- Email: hello@agentxm.ai
+- Help: [agentxm.ai/support](https://agentxm.ai/support)

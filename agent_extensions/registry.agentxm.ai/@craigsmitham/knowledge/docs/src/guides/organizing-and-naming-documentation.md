@@ -9,11 +9,9 @@ sources:
     resource: ../explainers/documentation-organization-and-discovery.md
     title: Documentation organization and discovery
   - id: documentation-craft-guide
-    resource: documentation-craft.md
+    resource: https://github.com/craigsmitham/agent-extensions/blob/333fc2fe7f67b0520f456efdb107e0730d04e069/knowledge/docs/src/guides/documentation-craft.md
     title: Documentation craft guide
-generated:
-  by: codex/gpt-5.6
-  at: 2026-08-26T14:02:36Z
+generated: { by: codex/gpt-6, at: 2026-11-11T19:52:17Z }
 ---
 
 # Organizing and naming documentation
@@ -38,8 +36,7 @@ path and title understandable when directory context is absent.
 - Authority to add or rename the affected paths
 
 If restructuring an existing corpus, keep the first change small enough to
-validate independently. Use the [Documentation workflow
-guide](documentation-workflow.md) rather than waiting for a complete site-wide
+validate independently. Use the [Documentation workflow](../explainers/documentation-workflow.md) rather than waiting for a complete site-wide
 redesign.
 
 ## 1. Name the scope and reader entry point
@@ -50,8 +47,7 @@ repository when the actual problem concerns one section.
 List the questions that bring readers into that scope. Classify the dominant
 entry as:
 
-- **form-first** — “I need a guide,” “Help me understand,” or “Which reusable
-  pattern applies?”; or
+- **form-first** — “I need a guide,” “Help me understand,” or “Which procedure applies?”; or
 - **subject-first** — “What governs payments?” or “How does deployment work?”
 
 Do not infer the answer solely from the current folders. Use search terms,
@@ -89,7 +85,7 @@ axes unpredictably among siblings at the same scope.
 
 When several adjacent concepts are repeatedly confused, do not expand their
 index entries into a substantive comparison or make every concept repeat the
-same matrix. Apply [Concept boundaries](../patterns/concept-boundaries.md): keep
+same matrix. Apply [Comparing concepts](comparing-concepts.md): keep
 each positive definition canonical, give the comparative relationship one
 explicit document, and use the index only to route readers to both.
 
@@ -111,15 +107,15 @@ its form.
 
 | Document job | Filename shape | Example |
 | --- | --- | --- |
-| Explain a concept | Distinctive subject-oriented noun phrase | `patterns-as-reusable-guidance.md` |
-| Guide an action | Verb or outcome phrase | `documenting-patterns.md` |
+| Explain a concept | Distinctive subject-oriented noun phrase | `transaction-isolation.md` |
+| Guide an action | Verb or outcome phrase | `writing-release-notes.md` |
 | State reference facts | Named interface, object, or fact set | `payment-status-fields.md` |
-| Record a named pattern | Stable pattern name | `runbook.md` |
+| Document an operational procedure | Task-specific name | `rotate-service-credentials.md` |
 
 Avoid generic leaf names such as `overview.md`, `guide.md`, or `concept.md`
 unless their enclosing scope is guaranteed to remain present in every URL,
 search result, tab, export, and citation. Avoid mechanical names such as
-`pattern-guide.md` when `documenting-patterns.md` reveals the actual task.
+`writing-guide.md` when `writing-release-notes.md` reveals the actual task.
 
 Use stable domain language. Exclude temporary project phases, current team
 names, and implementation details unless they define the document's enduring
@@ -129,8 +125,8 @@ scope.
 
 The title should remain clear in a flattened search result or backlink.
 
-- Give explainers a subject or distinction: “Patterns as reusable guidance.”
-- Give guides an action or outcome: “Documenting patterns.”
+- Give explainers a subject or distinction: “Transaction isolation.”
+- Give guides an action or outcome: “Writing release notes.”
 - Avoid identical display titles for paired documents unless their interface
   always supplies reliable context.
 - Align title and filename closely enough that a reader can predict one from
@@ -206,14 +202,14 @@ match their targets.
 ## Related
 
 - [Documentation organization and discovery](../explainers/documentation-organization-and-discovery.md)
-- [Documentation craft](../explainers/documentation-craft.md) · [Documentation craft guide](documentation-craft.md)
-- [Documentation workflow](../explainers/documentation-workflow.md) · [Documentation workflow guide](documentation-workflow.md)
+- [Documentation craft](../explainers/documentation-craft.md)
+- [Documentation workflow](../explainers/documentation-workflow.md)
 - [Documentation quality](../explainers/documentation-quality.md)
-- [Concept boundaries](../patterns/concept-boundaries.md)
+- [Comparing concepts](comparing-concepts.md)
 
 [^organization]: Documentation organization and discovery defines form-first
     and subject-first grouping and treats semantic adjacency as the deciding
     relationship.
-[^documentation-craft-guide]: Documentation craft guide begins with the reader
+[^documentation-craft-guide]: Documentation craft begins with the reader
     need and applies host paths, metadata, and validators after the document's
     job is clear.

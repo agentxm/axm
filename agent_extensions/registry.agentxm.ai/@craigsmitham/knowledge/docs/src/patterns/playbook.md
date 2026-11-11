@@ -2,22 +2,33 @@
 type: Pattern
 title: Playbook
 description: For a recurring class of situations requiring assessment and judgment, guide practitioners in choosing, combining, and adapting responses with explicit coordination and escalation.
-tags: [docs, playbook, pattern, operations, coordination, decision-making, diagnosis]
+tags:
+- docs
+- playbook
+- operations
+- coordination
+- decision-making
+- diagnosis
+- documentation-pattern
+- pattern
+- authoring
 status: stable
 sources:
-  - id: aws-playbooks
-    resource: https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/ops_ready_to_support_use_playbooks.html
-    title: AWS — Use playbooks to investigate issues
-  - id: atlassian-team-playbook
-    resource: https://www.atlassian.com/team-playbook
-    title: Atlassian — Team Playbook
-  - id: ise-playbook
-    resource: https://microsoft.github.io/code-with-engineering-playbook/
-    title: Microsoft ISE — Engineering Fundamentals Playbook
-  - id: redhat-ansible-playbook
-    resource: https://www.redhat.com/en/topics/automation/what-is-an-ansible-playbook
-    title: Red Hat — What is an Ansible playbook
-generated: { by: "codex/gpt-6", at: 2026-09-11T00:08:06Z }
+- id: aws-playbooks
+  resource: https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/ops_ready_to_support_use_playbooks.html
+  title: AWS — Use playbooks to investigate issues
+- id: atlassian-team-playbook
+  resource: https://www.atlassian.com/team-playbook
+  title: Atlassian — Team Playbook
+- id: ise-playbook
+  resource: https://microsoft.github.io/code-with-engineering-playbook/
+  title: Microsoft ISE — Engineering Fundamentals Playbook
+- id: redhat-ansible-playbook
+  resource: https://www.redhat.com/en/topics/automation/what-is-an-ansible-playbook
+  title: Red Hat — What is an Ansible playbook
+generated:
+  by: codex/gpt-6
+  at: '2026-11-11T17:40:43Z'
 ---
 
 # Playbook
@@ -26,7 +37,10 @@ For a recurring class of situations requiring assessment and judgment,
 **guide practitioners in choosing, combining, and adapting responses with
 explicit coordination and escalation**.
 
-## Context
+This pattern describes the reusable document design. A local playbook realizes
+it for a particular situation family, with its own evidence and ownership.
+
+## Purpose
 
 A team repeatedly encounters a recognizable family of situations. Established
 approaches exist, but the appropriate action depends on evidence, constraints,
@@ -34,7 +48,7 @@ and priorities that become clearer during the work. Several roles may need to
 coordinate. The practitioner needs help deciding how to proceed and when to
 reconsider that decision.
 
-## Problem
+## What it helps readers do
 
 How can practitioners apply shared experience consistently while adapting to
 the situation in front of them?
@@ -44,7 +58,7 @@ An exhaustive procedure can bury decision criteria beneath details and imply
 that every situation has a predetermined answer. Readers need an approach that
 makes relevant evidence, response choices, and limits explicit.
 
-## Forces
+## Design tradeoffs
 
 - **Consistency versus judgment** — shared approaches must leave room for
   evidence that changes the response.
@@ -57,7 +71,7 @@ makes relevant evidence, response choices, and limits explicit.
 - **Coverage versus usability** — detailed guidance must remain usable without
   claiming to anticipate every case.
 
-## Solution
+## How to write it
 
 Create a **playbook** that:
 
@@ -78,7 +92,7 @@ Create a **playbook** that:
 A collection of selectable **plays** is one useful structure. A play is a
 coherent approach or activity with its own purpose, applicability, and expected
 result; it may include investigation or facilitated judgment. A diagnostic
-flow or coordinated response workflow can also realize this pattern. Choose a
+flow or coordinated response workflow can also serve this purpose. Choose a
 structure that exposes the decisions readers actually face.
 
 Keep reusable activities independently understandable and testable. Allow
@@ -93,7 +107,7 @@ assessment or response steps where useful; document the remaining decisions,
 automation boundaries, and escalation behavior. Automation can cover part or
 all of a supported scenario.[^aws-playbooks]
 
-## Consequences
+## Benefits and maintenance costs
 
 - Assessment and coordination become reviewable shared knowledge.
 - Practitioners can reuse responses while adjusting to new evidence.
@@ -105,7 +119,7 @@ all of a supported scenario.[^aws-playbooks]
 
 ## When to use
 
-Use this pattern when:
+Use a playbook when:
 
 - a recognizable situation family recurs;
 - assessment, response choice, adaptation, or coordination requires judgment;
@@ -121,7 +135,7 @@ Use this pattern when:
 - The material is unrelated advice with no coherent situation or reader job.
 - The reader needs to learn foundational skills — provide a tutorial separately.
 
-## Pattern boundaries
+## Terminology
 
 This bundle uses *playbook* for guidance on how to approach a situation. A
 runbook specifies how to complete a bounded operational task. A playbook may
@@ -150,7 +164,7 @@ the team reassesses customer impact; continued errors return it to
 investigation or escalation. This is a synthetic example of the relationship,
 not a production procedure or evidence of successful use.
 
-## Evidence and known uses
+## Sources and examples
 
 - **AWS operational playbooks** guide incident investigation, impact assessment,
   communication, and escalation, with links to runbooks for known mitigations.
@@ -168,15 +182,15 @@ These uses support several structures. The assessment-and-response formulation
 above is this bundle's synthesis; their existence does not establish the
 comparative effectiveness of a particular outline.
 
-## Related patterns
+## Related
 
 - [Runbook](runbook.md) — supplies verified execution for bounded operational
   tasks that a playbook may invoke.
-- [Pattern library](pattern-library.md) — maintains related patterns and their
-  evidence and lifecycle.
-- [How-to guide](../guides/how-to.md) — supplies action-oriented authoring craft
+- [How-to guide](how-to.md) — supplies action-oriented authoring craft
   for activities within a playbook.
-- [Explanation explainer](../explainers/explanation.md) — supports separate
+- [Checklist](checklist.md) — supports known conditions, communications, or
+  branch-local checks while the playbook owns broader assessment and response.
+- [Explanation](explanation.md) — supports separate
   treatment of rationale that would interrupt use of the playbook.
 
 [^aws-playbooks]: AWS — Use playbooks to investigate issues.

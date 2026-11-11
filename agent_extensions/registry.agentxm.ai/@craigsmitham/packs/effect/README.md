@@ -19,8 +19,8 @@ This pack installs two members:
 For checklists without the adoption rule, install the standalone bundle with
 `axm knowledge install @craigsmitham/knowledge/effect` instead of the pack.
 
-The checklists require **Effect 4.1.0 or newer within major version 4** and were
-last reviewed against **4.1.0**. Pack `4.1.0` requires knowledge bundle `4.1.0`
+The checklists require **Effect 4.1.4 or newer within major version 4** and were
+last reviewed against **4.1.4**. Pack `4.1.1` requires knowledge bundle `4.1.1`
 or newer; the unchanged adoption rule remains compatible with Effect 4.0.0.
 See the [bundle index](https://github.com/craigsmitham/agent-extensions/blob/main/knowledge/effect/src/index.md)
 for the complete topic list and the major-version policy.
@@ -46,11 +46,11 @@ the twenty-four checklists.
 ## Companion packages
 
 The pack and knowledge manifests recommend these official packages with the
-compatibility range `>=4.1.0 <5.0.0`, using AXM's `packages` metadata. These
+compatibility range `>=4.1.4 <5.0.0`, using AXM's `packages` metadata. These
 recommendations do not install npm dependencies. Choose only the adapters and
 tools needed by the application, and keep their versions aligned with core
-Effect as described in the [official package list](https://github.com/Effect-TS/effect/blob/effect%404.1.0/README.md#packages).
-The common minimum reflects the reviewed 4.1.0 release family and the APIs
+Effect as described in the [official package list](https://github.com/Effect-TS/effect/blob/effect%404.1.4/README.md#packages).
+The common minimum reflects the reviewed 4.1.4 release family and the APIs
 used by the checklists. It is not a claim that
 every adapter runs on every platform or that future releases have been tested.
 
@@ -80,8 +80,11 @@ small excerpts with relevant tests; verify the specific behavior before moving
 a source pin. The reference selection reviewed on 2026-10-27 is:
 
 - [Effect](https://github.com/Effect-TS/effect) — released API contracts,
-  regression tests, and idiomatic examples; release baseline refreshed to 4.1.0
-  on 2026-10-29. Applied snapshots below retain their 2026-10-27 review dates.
+  regression tests, and idiomatic examples; release baseline refreshed to 4.1.4
+  on 2026-11-11. The focused review covered HTTP, SQL, testing, and telemetry
+  changes; unchanged guidance retains its earlier source pins. The opencode
+  recorder and test harness below were re-inspected at their existing commit;
+  other applied snapshots retain their 2026-10-27 review dates.
 - [opencode](https://github.com/anomalyco/opencode) — application services,
   Bun test harness, and concurrency tests; catalog 4.0.1. Its
   [HTTP recorder](https://github.com/anomalyco/opencode/tree/432d870b02683d2e40e895ddc70d437189b25276/packages/http-recorder)

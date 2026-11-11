@@ -1,40 +1,23 @@
 ---
 # REQUIRED. Reuse a type already present in the bundle when one fits.
 type: "{{Type Name}}"
-# Recommended.
+# Recommended. Make the preview distinguish this concept from nearby alternatives.
 title: "{{Human-readable display name}}"
-description: "{{One sentence distinguishing this concept from its neighbors.}}"
-# Canonical URI of the underlying asset. Delete for abstract concepts.
-resource: "{{https://...}}"
-tags: ["{{tag}}", "{{tag}}"]
-# Lifecycle. Absent status means `stable`. Delete either line if not applicable.
+description: "{{Applicable situation or scope, and the knowledge or outcome provided.}}"
+# A new unfinished concept is a draft. Set deliberately when completing it.
 status: draft
-stale_after: 2027-01-01
-# Trust. `by` is an actor: <producer>/<version>, human:<id>, or process:<id>.
-generated: { by: "{{producer}}/{{version}}", at: 2026-01-01T00:00:00Z }
-# Add only on a real verification event. Append; never overwrite. Delete if unverified.
-verified:
-  - { by: "human:{{id}}", at: 2026-01-01T00:00:00Z }
-# Provenance. `resource` is required per entry; give an `id` when the body cites it.
-sources:
-  - id: "{{stable-key}}"
-    resource: "{{https://... | /bundle/relative/path.md | scope descriptor}}"
-    title: "{{Human-readable label}}"
-    author: "team:{{id}}"
-    usage_count: 0
-    last_modified: 2026-01-01
-usage_window: { from: 2026-01-01, to: 2026-01-31 }
+# Add optional metadata from references/frontmatter.md only when supported.
+# In particular, do not copy example verification, usage counts, or timestamps.
 ---
 
 # {{Human-readable display name; match `title` above}}
 
-{{Prefer structural markdown — tables, lists, fenced blocks — over prose paragraphs.}}
+{{State the scope and context needed when this concept is retrieved on its own.}}
 
-{{A claim drawn from a source.}}[^{{stable-key}}]
+{{Provide the promised knowledge, using headings, tables, lists, or code where useful.}}
 
-Related: [{{other concept}}](/{{path/to/concept}}.md).
-
-[^{{stable-key}}]: {{Short source title; author if needed}}
-
-<!-- Use a compact linked title when rendered-Markdown readers need source access.
-     Retain useful locators and qualifications; omit synopses that repeat the body. -->
+<!-- When using sources, add their actual resource and stable id in frontmatter,
+then attribute claims with matching footnotes. Keep definitions to a compact title,
+plus a link or qualification when useful. Do not invent sources to fill a template.
+When linking concepts, state the relationship and choose file-relative or
+bundle-relative paths for the intended consumer. -->

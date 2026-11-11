@@ -1,28 +1,29 @@
 ---
 type: Explainer
 title: Documentation workflow
-description: Why documentation craft improves best through small iterative remediation — guide not plan, inside-out structure, and complete-not-finished organic growth.
+description: Explains useful incremental documentation improvement and structure that follows reader needs without prescribing delivery units.
 tags: [docs, craft, workflow, remediation, diataxis, explanation]
 status: stable
+generated: { by: codex/gpt-6, at: 2026-11-11T19:48:50Z }
 sources:
-  - id: diataxis-workflow
-    resource: https://diataxis.fr/how-to-use-diataxis/
-    title: Diátaxis — Diátaxis as a guide to work
-  - id: diataxis-workflow-src
-    resource: https://github.com/evildmp/diataxis-documentation-framework/blob/main/source/how-to-use-diataxis.rst
-    title: Diátaxis source — how-to-use-diataxis.rst
-  - id: diataxis-start
-    resource: https://diataxis.fr/start-here/
-    title: Diátaxis — Start here
-  - id: diataxis-start-src
-    resource: https://github.com/evildmp/diataxis-documentation-framework/blob/main/source/start-here.rst
-    title: Diátaxis source — start-here.rst
-  - id: diataxis-application
-    resource: https://diataxis.fr/application/
-    title: Diátaxis — Applying Diátaxis
-generated:
-  by: codex/gpt-5.6
-  at: 2026-08-15T15:48:17Z
+- id: diataxis-workflow
+  resource: https://diataxis.fr/how-to-use-diataxis/
+  title: "Di\xE1taxis \u2014 Di\xE1taxis as a guide to work"
+- id: diataxis-workflow-src
+  resource: https://github.com/evildmp/diataxis-documentation-framework/blob/main/source/how-to-use-diataxis.rst
+  title: "Di\xE1taxis source \u2014 how-to-use-diataxis.rst"
+- id: diataxis-start
+  resource: https://diataxis.fr/start-here/
+  title: "Di\xE1taxis \u2014 Start here"
+- id: diataxis-start-src
+  resource: https://github.com/evildmp/diataxis-documentation-framework/blob/main/source/start-here.rst
+  title: "Di\xE1taxis source \u2014 start-here.rst"
+- id: diataxis-application
+  resource: https://diataxis.fr/application/
+  title: "Di\xE1taxis \u2014 Applying Di\xE1taxis"
+- id: prior-documentation-workflow
+  resource: https://github.com/craigsmitham/agent-extensions/blob/333fc2fe7f67b0520f456efdb107e0730d04e069/knowledge/docs/src/guides/documentation-workflow.md
+  title: Documentation workflow guide
 ---
 
 # Documentation workflow
@@ -31,10 +32,10 @@ Portable **understanding** of how to *apply* documentation craft over time —
 especially when remediating or growing an existing body of docs — without
 imposing a top-down information-architecture project.
 
-The four reader-need forms, compass, and quality principles live in
-[Documentation craft](documentation-craft.md). How to run one remediation step is
-in [Documentation workflow guide](../guides/documentation-workflow.md). How to write a single
-document is in [Documentation craft guide](../guides/documentation-craft.md).
+The reader-need forms and quality principles live in
+[Documentation craft](documentation-craft.md). Selected patterns supply the
+appropriate document design; [organization guidance](../guides/organizing-and-naming-documentation.md)
+addresses collection structure.
 
 ## Guide, not plan
 
@@ -58,30 +59,13 @@ Instead, improve pages according to reader-need principles until the material
 *demands* clearer grouping. Top-level shape forms **from the inside**: many
 small, form-correct edits make structure obvious later — not the reverse.
 
-## Iterate; publish the next step
+## Bounded, useful improvements
 
-Documentation is usually continuous work alongside a product that changes.
-Even a messy corpus can improve **one step at a time**.
-
-Resist large unpublished rewrites “so there is something substantial to show.”
-Every step in the right direction is worth committing or publishing as soon as
-it stands alone. Big-picture theory informs judgment; it does not require
-big-picture delivery units.
-
-## Choose → assess → one action → complete
-
-A practical remediation loop:
-
-1. **Choose something** already in front of you (a page, a paragraph, even a
-   sentence) — not a hunt for the worst problem in the estate.
-2. **Assess** it against craft: which user need does it serve? How well? What
-   language or form is wrong for that mode?
-3. **Decide one next action** that produces an immediate improvement.
-4. **Do it and treat it as complete** — commit or publish; do not hold the
-   change hostage to a larger redesign.
-
-Then repeat. The loop reduces the paralysis of “what should I fix?” and keeps
-work flowing toward better docs without a master plan.
+Documentation changes alongside the product. A small improvement can be useful
+without waiting for a complete redesign. The reader need and requested scope
+determine the unit of work: a correction, coordinated set of pages, or structural
+change can each be appropriate. Craft does not require an arbitrary starting
+page, exactly one action, or a separate commit or publication for each unit.
 
 ## Complete, not finished
 
@@ -108,7 +92,5 @@ portable layout scheme in the name of workflow.
 
 ## Related
 
-- [Documentation workflow guide](../guides/documentation-workflow.md)
 - [Documentation craft](documentation-craft.md)
-- [Documentation craft guide](../guides/documentation-craft.md)
 - [Documentation quality](documentation-quality.md)

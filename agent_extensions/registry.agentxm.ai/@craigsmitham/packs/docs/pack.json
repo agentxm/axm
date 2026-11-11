@@ -1,8 +1,8 @@
 {
   "$schema": "https://axm.sh/schemas/pack.schema.json",
   "owner": "@craigsmitham",
-  "version": "0.7.0",
-  "description": "Portable craft for understanding, authoring, organizing, auditing, and improving documentation",
+  "version": "0.9.0",
+  "description": "Documentation and checklist patterns, pattern authoring, organization, and audit guidance",
   "keywords": [
     "docs",
     "documentation",
@@ -14,7 +14,16 @@
     "organization",
     "remediation",
     "principles",
-    "patterns"
+    "documentation-patterns",
+    "pattern-collection",
+    "pattern-description",
+    "pattern-mining",
+    "pattern-review",
+    "pattern-language",
+    "checklist",
+    "checklist-design",
+    "readiness",
+    "learning-scaffold"
   ],
   "repository": {
     "type": "git",
@@ -26,7 +35,7 @@
   "type": "pack",
   "name": "docs",
   "dependencies": {
-    "@craigsmitham/knowledge/docs": ">=0.11.0",
-    "@craigsmitham/skills/docs": "^0.4.0"
+    "@craigsmitham/knowledge/docs": ">=0.15.0",
+    "@craigsmitham/skills/docs": ">=0.6.0"
   }
 }

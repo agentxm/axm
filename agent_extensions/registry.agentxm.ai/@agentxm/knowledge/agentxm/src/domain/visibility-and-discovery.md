@@ -46,29 +46,29 @@ state.
 
 ## Whole-extension lifecycle
 
-A publisher can **archive** an extension to declare it finished. Archive is a
+An owner can **archive** an extension to declare it finished. Archive is a
 reversible write-freeze, not a withdrawal: the extension remains visible under
 its existing access perimeter, and consumers can still discover, resolve,
 install, and update to its published versions. The archived state and optional
-publisher reason are visible to consumers. While archived, the publisher cannot
+owner's reason are visible to consumers. While archived, the owner cannot
 publish another version, change visibility, or unyank a version; deprecation,
 yank, access removal, deletion, and reads remain available.
 
-A publisher can **delete** a whole extension only before anyone could have come
-to depend on it: while nothing is published, or within 24 hours of its first
+An owner can **delete** a whole extension only before anyone could have come to
+depend on it: while nothing is published, or within 24 hours of its first
 published version while no other extension depends on it. The rule is the same
 for public and private extensions, on the web and from the CLI. Deletion is
 immediate and cannot be undone: every published version is permanently retired,
 the name is held for 24 hours before anyone can reuse it, and the owner — for an
-Organization, every administrator — is notified. Past that point a publisher
+Organization, every administrator — is notified. Past that point an owner
 deprecates or archives the extension instead, or asks AgentXM support to remove
 it.
 
 A platform **hold** is reversible containment of one extension. A held extension
-leaves discovery and resolution, new archive fetches are refused, and publisher
-changes are frozen. A hold does not change the publisher identity, erase
+leaves discovery and resolution, new archive fetches are refused, and owner
+changes are frozen. A hold does not change the extension's owner, erase
 published history, or alter copies already installed. Releasing it reveals the
-publisher's archive and deprecation state exactly as they remained underneath.
+owner's archive and deprecation state exactly as they remained underneath.
 Public responses disclose only the held state and any public-safe notice, never
 private investigation details.
 
@@ -110,20 +110,20 @@ nor redirects.
 Deprecation belongs to an extension identity rather than to any one published
 version. Every deprecation has a reason:
 
-| Reason         | Replacement                  | Publisher notes | Consumer action                |
-| -------------- | ---------------------------- | --------------- | ------------------------------ |
-| `superseded`   | Required; any extension type | Optional        | Migrate to the named extension |
-| `obsolete`     | None                         | Required        | Remove the extension           |
-| `unmaintained` | Optional                     | Optional        | Choose a successor manually    |
-| `other`        | Optional                     | Required        | Read the notes and choose      |
+| Reason         | Replacement                  | Owner notes | Consumer action                |
+| -------------- | ---------------------------- | ----------- | ------------------------------ |
+| `superseded`   | Required; any extension type | Optional    | Migrate to the named extension |
+| `obsolete`     | None                         | Required    | Remove the extension           |
+| `unmaintained` | Optional                     | Optional    | Choose a successor manually    |
+| `other`        | Optional                     | Required    | Read the notes and choose      |
 
 The replacement is another exact extension identity in the same Registry; it is
 guidance, not an identity rename, redirect, or dependency. A directly installed
-consumer can preview `axm migrate <fqn> --dry-run`, then apply
+consumer can preview `axm migrate <fqn> --preview`, then apply
 `axm migrate <fqn>` for `superseded` or `obsolete`. Migration installs the
 replacement at the source's workspace scope and agent targets before removing
 the source as one plan, or just removes an obsolete source. It refuses a Pack
-member; the Pack publisher must update its dependency. It also refuses
+member; the Pack's owner must update its dependency. It also refuses
 `unmaintained` and `other`, which require a human choice, and a `superseded`
 extension whose replacement is unavailable or concealed.
 
@@ -145,12 +145,12 @@ the new extension.
 | Mechanism         | Granularity                                        | Effect                                                                                                                                             |
 | ----------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Visibility        | Whole extension or Library                         | Who can see and fetch it at all                                                                                                                    |
-| Extension archive | Whole extension identity                           | Publisher-declared write-freeze; published versions remain discoverable and available with an archived notice                                      |
+| Extension archive | Whole extension identity                           | Owner-declared write-freeze; published versions remain discoverable and available with an archived notice                                          |
 | Platform hold     | Whole extension identity                           | Reversible containment; removes discovery and refuses new resolution and fetches while preserving identity and history                             |
 | Yank              | Exact version (or an atomic all-versions snapshot) | "Stop using this" — yanked versions stop resolving for new installs; exact yanked references remain fetchable by authorized readers with a warning |
 | Deprecation       | Whole extension identity                           | Warning-only guidance to move on; nothing stops resolving                                                                                          |
 | Library archival  | One Library                                        | Marks curation as ended and freezes curator changes without changing visibility, access, or current membership                                     |
 
 These states stay independent. Archive does not imply deprecation, hold does not
-overwrite publisher intent, yank remains version-level withdrawal, and
-visibility is never used to simulate a lifecycle state.
+overwrite owner intent, yank remains version-level withdrawal, and visibility is
+never used to simulate a lifecycle state.

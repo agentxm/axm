@@ -9,8 +9,14 @@ sources:
     resource: https://github.com/Effect-TS/effect/blob/effect%404.1.0/ai-docs/src/51_http-server/10_basics.ts
     title: Effect 4.1.0 HttpApi basics
   - id: effect-httpapi-source
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http-api/HttpApi.ts
-    title: Effect 4.1.0 HttpApi source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/src/http-api/HttpApi.ts
+    title: Effect 4.1.4 HttpApi annotation contracts
+  - id: effect-httpapi-redaction-tests
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/test/httpapi/HttpApiClient.test.ts
+    title: Effect 4.1.4 API span redaction tests
+  - id: effect-http-body-limit-tests
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/test/http/HttpServerRequest.body.test.ts
+    title: Effect 4.1.4 buffered request body limit tests
   - id: effect-httpapi-parse-options
     resource: https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http-api/HttpApi.ts
     title: Effect 4.1.0 HttpApi parse options
@@ -32,13 +38,14 @@ sources:
   - id: effect-httpapi-client
     resource: https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http-api/HttpApiClient.ts
     title: Effect 4.1.0 upgrade response contracts
-generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
+generated: { by: codex/gpt-6, at: 2026-11-11T18:26:43Z }
 ---
 
 # HTTP API
 
 - [ ] Define one shareable `HttpApi` contract separately from server
-  implementations and platform wiring.
+  implementations and platform wiring; derive OpenAPI and typed clients from
+  that definition so changes remain checked end to end.
 - [ ] Give path, query, headers, request bodies, successful responses, and
   expected error responses explicit schemas.
 - [ ] Set codec parse options such as excess-property policy once with
@@ -52,12 +59,15 @@ generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
   untrusted peers and spoofed chains.[^effect-http-middleware]
 - [ ] Translate domain failures to declared HTTP errors deliberately; do not
   leak internal defects, schema internals, or platform errors to clients.
-- [ ] Declare streaming request and response schemas with bounded consumption
-  and cancellation; for NDJSON uploads set total and per-element byte limits
-  and distinguish malformed input (400) from oversized input
-  (413).[^effect-httpapi-streams][^effect-httpapi-stream-tests]
-- [ ] Derive OpenAPI and typed clients from the same API definition so endpoint
-  changes remain checked end to end.
+- [ ] Declare streaming schemas, bound body reads, and verify cancellation. Test
+  `HttpIncomingMessage.MaxBodySize` on buffered request reads in the deployed
+  adapter; for NDJSON uploads set total and per-element byte limits and
+  distinguish malformed input (400) from oversized input
+  (413).[^effect-http-body-limit-tests][^effect-httpapi-streams][^effect-httpapi-stream-tests]
+- [ ] Declare sensitive wire query/header names with `HttpApi.RedactedNames`
+  and test client and server span redaction, including composed APIs and nested
+  query keys. Protect error messages and `user_agent.original` separately;
+  this annotation only filters URL/header span attributes.[^effect-httpapi-source][^effect-httpapi-redaction-tests]
 - [ ] Isolate platform server layers and `effect/http-api` wiring, which is
   tagged `@stability unstable`, at the application edge; provide services that
   sibling layers share outside `HttpRouter.serve`, which builds its app
@@ -71,6 +81,8 @@ generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
 
 ## Resources
 
+- [API span redaction, annotation composition, and disclosure limits](https://github.com/Effect-TS/effect/blob/effect%404.1.4/packages/effect/src/http-api/HttpApi.ts)
+- [Buffered body limits in Bun, Deno, and client-request adapters](https://github.com/Effect-TS/effect/commit/088510fc334364ffc46c6c7b21bc950b31b73cd1)
 - [Optional Problem Details middleware and disclosure settings](https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http-api/HttpApiMiddleware.ts)
 
 - [Optional Problem Details error contracts (application chooses the representation)](https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http-api/HttpApiError.ts)
@@ -82,6 +94,9 @@ generated: { by: codex/gpt-6, at: 2026-10-29T19:51:52Z }
 - [Bodyless Web response tests](https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/test/http/HttpServerResponse.test.ts)
 - [HttpRouter.serve layer isolation](https://github.com/Effect-TS/effect/blob/effect%404.1.0/packages/effect/src/http/HttpRouter.ts)
 
+[^effect-httpapi-source]: Effect HttpApi annotation contracts.
+[^effect-httpapi-redaction-tests]: Effect API span redaction tests.
+[^effect-http-body-limit-tests]: Effect buffered request body limit tests.
 [^effect-httpapi-parse-options]: Effect HttpApi parse options.
 [^effect-bodyless-tests]: Effect bodyless Web response tests.
 [^effect-httprouter-serve]: Effect HttpRouter.serve layer isolation.

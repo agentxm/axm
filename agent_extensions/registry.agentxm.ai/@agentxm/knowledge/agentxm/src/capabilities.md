@@ -122,15 +122,14 @@ and restoration, and deleted-name reuse holds. See
 #### Publish extensions
 
 Make extensions available through the registry under their owners' identities.
-Supporting features include publisher profiles, publishing workflows, and
-automated publishing, including trusted publishing from CI without a stored
-secret.
+Supporting features include owner profiles, publishing workflows, and automated
+publishing.
 
 #### Manage extension releases
 
 Maintain the published lifecycle of an extension. Supporting features include
-versions, release history, publisher archive and restoration, deprecation,
-version yank and restoration, and withdrawal. See
+versions, release history, owner archive and restoration, deprecation, version
+yank and restoration, and withdrawal. See
 [Visibility and discovery](domain/visibility-and-discovery.md).
 
 #### Distribute private extensions
@@ -156,15 +155,17 @@ meaning follows [the product model](domain/extension-model.md).
 
 #### Manage single sign-on
 
-Control how people authenticate through an organization's identity provider.
-Supporting features include identity-provider connections and SSO enforcement.
+Control how people authenticate through an organization's identity provider. An
+organization connects one identity provider. Supporting features include the
+identity-provider connection and SSO enforcement.
 
 #### Synchronize directories
 
-Keep organizational identities and memberships aligned with an external
-directory. Supporting features include SCIM provisioning, group synchronization,
-and deprovisioning. Directory synchronization manages the identity lifecycle;
-[Manage single sign-on](#manage-single-sign-on) manages authentication.
+Keep organizational identities and memberships aligned with one external
+directory per organization. Supporting features include SCIM provisioning, group
+synchronization, and deprovisioning. Directory synchronization manages the
+identity lifecycle; [Manage single sign-on](#manage-single-sign-on) manages
+authentication.
 
 #### Control resource access
 
@@ -187,7 +188,7 @@ enforcement is distinct from producing those findings.
 
 Handle content or participation that violates platform rules. Supporting
 features include reports, investigations, reversible extension holds, content
-removal, and publisher restrictions. Moderation addresses abuse such as spam or
+removal, and owner restrictions. Moderation addresses abuse such as spam or
 misleading listings; [Respond to security threats](#respond-to-security-threats)
 addresses compromise and security risk, including incidents involving otherwise
 legitimate content.
@@ -201,7 +202,7 @@ include audit events, search, export, and integration with security tools.
 
 Administer spending on AgentXM offerings. Supporting features include billing,
 subscriptions, seats, and budgets. This capability does not establish an
-extension resale or publisher-payout model.
+extension resale or owner-payout model.
 
 #### Assess extension security
 
@@ -213,9 +214,9 @@ not a guarantee that an extension is safe.
 #### Verify extension provenance
 
 Establish the authenticated origin and integrity of published extension content.
-Supporting features include publisher verification, signatures, and
-attestations. Provenance establishes where content came from and whether it
-matches the claimed release; it does not establish that the content is safe.
+Supporting features include owner verification, signatures, and attestations.
+Provenance establishes where content came from and whether it matches the
+claimed release; it does not establish that the content is safe.
 
 #### Respond to security threats
 

@@ -33,7 +33,7 @@ STATUS_VALUES = {"draft", "stable", "deprecated"}
 
 RE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 RE_DATETIME = re.compile(
-    r"^\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?\s*([Zz]|[+-]\d{2}:?\d{2})?$"
+    r"^\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?\s*([Zz]|[+-](?:[01]\d|2[0-3]):?[0-5]\d)$"
 )
 RE_ACTOR_HUMAN = re.compile(r"^human:\S+$")
 RE_ACTOR_PROCESS = re.compile(r"^process:\S+$")
@@ -52,6 +52,19 @@ RE_INDEX_ENTRY = re.compile(
     r"(?:\s+[\"'][^\"']*[\"'])?\s*\)(?:\s+(?:-|–|—)\s*(.*?))?\s*$"
 )
 RE_HEADING = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$")
+
+
+class FrontmatterLoader(yaml.SafeLoader):
+    """Keep timestamp scalars intact for field-level validation.
+
+    PyYAML otherwise constructs dates eagerly and raises ValueError on invalid
+    calendar dates or offsets, before we can report an optional-field warning.
+    """
+
+
+FrontmatterLoader.add_constructor(
+    "tag:yaml.org,2002:timestamp", FrontmatterLoader.construct_scalar
+)
 
 
 class Findings:
@@ -104,8 +117,8 @@ def has_frontmatter_opener(text: str) -> bool:
     return bool(text.split("\n", 1)) and text.split("\n", 1)[0] == "---"
 
 
-def strip_code(text: str) -> str:
-    """Blank out fenced blocks and inline code so link scanning sees only prose."""
+def strip_code(text: str, *, inline: bool = True) -> str:
+    """Blank fenced blocks and, by default, inline code for prose scanning."""
     out, fence = [], None
     for line in text.split("\n"):
         m = RE_FENCE.match(line)
@@ -118,7 +131,7 @@ def strip_code(text: str) -> str:
                 fence = None
             out.append("")
             continue
-        out.append(re.sub(r"`[^`]*`", "", line))
+        out.append(re.sub(r"`[^`]*`", "", line) if inline else line)
     return "\n".join(out)
 
 
@@ -126,23 +139,24 @@ def line_of(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
-def is_date(v) -> bool:
-    return as_date(v) is not None
-
-
 def is_datetime(v) -> bool:
+    return as_datetime(v) is not None
+
+
+def as_datetime(v):
+    """Parse an offset-aware timestamp; never infer an offset or time of day."""
     if isinstance(v, dt.datetime):
-        return True
+        return v if v.utcoffset() is not None else None
     if not isinstance(v, str) or not RE_DATETIME.match(v.strip()):
-        return False
+        return None
     normalized = v.strip()
     if normalized[-1:] in ("Z", "z"):
         normalized = normalized[:-1] + "+00:00"
     try:
-        dt.datetime.fromisoformat(normalized)
+        parsed = dt.datetime.fromisoformat(normalized)
     except ValueError:
-        return False
-    return True
+        return None
+    return parsed if parsed.utcoffset() is not None else None
 
 
 def as_date(v):
@@ -223,7 +237,7 @@ def parse_mapping_frontmatter(text: str):
     if fm_text is None:
         return None
     try:
-        value = yaml.safe_load(fm_text)
+        value = yaml.load(fm_text, Loader=FrontmatterLoader)
     except yaml.YAMLError:
         return None
     return value if isinstance(value, dict) else None
@@ -326,6 +340,7 @@ def check_verified(f, rel, fm) -> str:
         return "unverified"
 
     valid_kinds = []
+    valid_times = []
     for i, entry in enumerate(entries):
         where = f"verified[{i}]"
         if not isinstance(entry, dict):
@@ -340,14 +355,25 @@ def check_verified(f, rel, fm) -> str:
         if "at" not in entry:
             f.warn("verified-at-missing", rel, f"{where} has no `at` timestamp")
         elif not is_datetime(entry["at"]):
-            f.warn("datetime-format", rel, f"{where}.at is not an ISO 8601 datetime: {entry['at']!r}")
+            f.warn("datetime-format", rel, f"{where}.at must be an ISO 8601 datetime with an explicit UTC offset: {entry['at']!r}")
         else:
             valid_at = True
         if kind in ("human", "process", "agent") and valid_at:
             valid_kinds.append(kind)
+            valid_times.append(as_datetime(entry["at"]))
     if not valid_kinds:
         f.warn("verified-no-valid-events", rel, "`verified` contains no complete, valid verification event")
         return "unverified"
+    generated = fm.get("generated")
+    changed_at = as_datetime(generated.get("at")) if isinstance(generated, dict) else None
+    latest_verified = max(valid_times)
+    if changed_at is not None and changed_at > latest_verified:
+        f.info(
+            "verification-predates-content",
+            rel,
+            f"content changed at {changed_at.isoformat()} after the latest valid recorded "
+            f"verification at {latest_verified.isoformat()}; historical trust tier is unchanged",
+        )
     return "human-reviewed" if "human" in valid_kinds else "machine-confirmed"
 
 
@@ -361,8 +387,8 @@ def check_usage_window(f, rel, where, window) -> bool:
         if key not in window:
             f.warn("usage-window-incomplete", rel, f"`{where}` has no `{key}`")
             valid = False
-        elif not is_date(window[key]):
-            f.warn("date-format", rel, f"{field} is not a valid YYYY-MM-DD date: {window[key]!r}")
+        elif not is_datetime(window[key]):
+            f.warn("datetime-format", rel, f"{field} must be an ISO 8601 datetime with an explicit UTC offset: {window[key]!r}")
             valid = False
     return valid
 
@@ -370,6 +396,9 @@ def check_usage_window(f, rel, where, window) -> bool:
 def check_sources(f, rel, fm) -> set[str]:
     """Validate `sources` / `usage_window`; return the set of declared source ids."""
     ids: set[str] = set()
+    window = fm.get("usage_window")
+    if "usage_window" in fm:
+        check_usage_window(f, rel, "usage_window", window)
     if "sources" not in fm:
         return ids
     sources = fm["sources"]
@@ -393,8 +422,8 @@ def check_sources(f, rel, fm) -> set[str]:
             ids.add(str(sid))
         if "author" in src:
             check_actor(f, rel, f"{where}.author", src["author"], allow_prefixed=True)
-        if "last_modified" in src and not is_date(src["last_modified"]):
-            f.warn("date-format", rel, f"{where}.last_modified is not YYYY-MM-DD: {src['last_modified']!r}")
+        if "last_modified" in src and not is_datetime(src["last_modified"]):
+            f.warn("datetime-format", rel, f"{where}.last_modified must be an ISO 8601 datetime with an explicit UTC offset: {src['last_modified']!r}")
         if "usage_count" in src:
             has_usage_count = True
             if not isinstance(src["usage_count"], int) or isinstance(src["usage_count"], bool):
@@ -408,11 +437,8 @@ def check_sources(f, rel, fm) -> set[str]:
             if "usage_count" not in src:
                 f.info("usage-window-unused", rel, f"{where}.usage_window is present without `usage_count`")
 
-    window = fm.get("usage_window")
-    if window is not None:
-        check_usage_window(f, rel, "usage_window", window)
-        if not has_usage_count:
-            f.info("usage-window-unused", rel, "`usage_window` present but no source declares `usage_count`")
+    if "usage_window" in fm and not has_usage_count:
+        f.info("usage-window-unused", rel, "`usage_window` present but no source declares `usage_count`")
     return ids
 
 
@@ -595,7 +621,7 @@ def check_index(f, rel, path, root, text, is_root):
             )
         else:
             try:
-                fm = yaml.safe_load(fm_text)
+                fm = yaml.load(fm_text, Loader=FrontmatterLoader)
             except yaml.YAMLError as e:
                 f.error("frontmatter-parse", rel, f"unparseable YAML frontmatter: {first_line(e)}")
                 fm = ...
@@ -646,29 +672,52 @@ def check_index(f, rel, path, root, text, is_root):
     elif is_root:
         f.info("okf-version-missing", rel, "root index.md declares no `okf_version: \"0.2\"`")
 
+    # §11 makes §8's headed link groups structural requirements. Ignore examples
+    # and comments, and accept Markdown heading/link forms beyond our inline-only
+    # discovery extractor so valid presentation choices do not become errors.
+    prose = strip_code(body, inline=False)
+    prose = re.sub(r"<!--.*?(?:-->|$)", lambda m: "\n" * m.group().count("\n"), prose, flags=re.S)
+    reference_labels = {
+        normalize_space(m.group(1)).casefold()
+        for m in re.finditer(r"^\s{0,3}\[([^\]^][^\]]*)\]:\s*\S", prose, re.MULTILINE)
+    }
     seen_heading = False
     has_entry = False
-    for n, line in enumerate(body.split("\n"), start=1):
-        if re.match(r"^\s{0,3}#{1,6}\s+\S", line):
+    previous_line = ""
+    for n, line in enumerate(prose.split("\n"), start=1):
+        is_setext = (
+            re.fullmatch(r"\s{0,3}(?:=+|-+)\s*", line)
+            and previous_line.strip()
+            and not RE_BULLET.match(previous_line)
+        )
+        previous_line = line
+        if RE_HEADING.match(line) or is_setext:
             seen_heading = True
             continue
         if RE_BULLET.match(line):
             has_entry = True
             if not seen_heading:
-                f.warn(
+                f.error(
                     "index-structure",
                     rel,
-                    "entry appears before any section heading (§8)",
+                    "entry appears before any section heading (§8, §11)",
                     line=body_start + n - 1,
                 )
-            if not RE_BULLET_LINK.match(line):
-                f.warn(
+            reference = re.match(r"^\s{0,3}[-*+]\s+\[([^\]]+)\](?:\[([^\]]*)\])?", line)
+            reference_link = False
+            if reference:
+                label = reference.group(2) or reference.group(1)
+                reference_link = normalize_space(label).casefold() in reference_labels
+            if not RE_BULLET_LINK.match(line) and not reference_link:
+                f.error(
                     "index-entry",
                     rel,
-                    "entry is not a `* [Title](url)` link",
+                    "entry is not a Markdown link (§8, §11)",
                     line=body_start + n - 1,
                 )
-    if not has_entry and body.strip():
+    if not seen_heading and not has_entry:
+        f.error("index-structure", rel, "index.md needs at least one section heading (§8, §11)")
+    if not has_entry:
         f.warn("index-empty", rel, "index.md lists no entries")
     return declared_version
 
@@ -821,7 +870,7 @@ def first_line(exc) -> str:
 # --------------------------------------------------------------------------- concept
 
 
-def check_concept(f, rel, path, root, text, today, stats):
+def check_concept(f, rel, path, root, text, now, stats):
     fm_text, body, body_start = split_frontmatter(text)
     if fm_text is None:
         if has_frontmatter_opener(text):
@@ -834,7 +883,7 @@ def check_concept(f, rel, path, root, text, today, stats):
             f.error("frontmatter-missing", rel, "no YAML frontmatter block at the start of the file (§4.1)")
         return
     try:
-        fm = yaml.safe_load(fm_text)
+        fm = yaml.load(fm_text, Loader=FrontmatterLoader)
     except yaml.YAMLError as e:
         f.error("frontmatter-parse", rel, f"unparseable YAML frontmatter: {first_line(e)}")
         return
@@ -866,13 +915,12 @@ def check_concept(f, rel, path, root, text, today, stats):
     stats["status"][status_key] = stats["status"].get(status_key, 0) + 1
 
     if "stale_after" in fm:
-        if not is_date(fm["stale_after"]):
-            f.warn("date-format", rel, f"`stale_after` must be YYYY-MM-DD, got {fm['stale_after']!r}")
-        else:
-            when = as_date(fm["stale_after"])
-            if when and today >= when:
-                stats["stale"] += 1
-                f.warn("stale", rel, f"content is stale: today >= stale_after ({when.isoformat()})")
+        when = as_datetime(fm["stale_after"])
+        if when is None:
+            f.warn("datetime-format", rel, f"`stale_after` must be an ISO 8601 datetime with an explicit UTC offset: {fm['stale_after']!r}")
+        elif now >= when:
+            stats["stale"] += 1
+            f.warn("stale", rel, f"content is stale: now >= stale_after ({when.isoformat()})")
 
     generated = fm.get("generated")
     if generated is not None:
@@ -886,7 +934,7 @@ def check_concept(f, rel, path, root, text, today, stats):
             if "at" not in generated:
                 f.info("generated-at-missing", rel, "`generated` has no `at` timestamp")
             elif not is_datetime(generated["at"]):
-                f.warn("datetime-format", rel, f"generated.at is not an ISO 8601 datetime: {generated['at']!r}")
+                f.warn("datetime-format", rel, f"generated.at must be an ISO 8601 datetime with an explicit UTC offset: {generated['at']!r}")
 
     if "timestamp" in fm and generated is None:
         f.warn("legacy-timestamp", rel, "legacy v0.1 `timestamp`; migrate to `generated: { by, at }` (§13.1)")
@@ -909,7 +957,9 @@ def check_concept(f, rel, path, root, text, today, stats):
 # --------------------------------------------------------------------------- driver
 
 
-def validate(root: Path, today: dt.date):
+def validate(root: Path, now: dt.datetime):
+    if not isinstance(now, dt.datetime) or not is_datetime(now):
+        raise ValueError("now must be an offset-aware datetime")
     root = root.resolve()
     f = Findings()
     stats = {
@@ -944,7 +994,7 @@ def validate(root: Path, today: dt.date):
             continue
 
         stats["concepts"] += 1
-        check_concept(f, rel, path, root, text, today, stats)
+        check_concept(f, rel, path, root, text, now, stats)
 
     audit_discovery(f, root, documents)
 
@@ -1020,7 +1070,9 @@ def main() -> int:
     ap.add_argument("--info", action="store_true", help="include info-level findings")
     ap.add_argument("--summary", action="store_true", help="print type inventory, trust tiers, staleness")
     ap.add_argument("--strict", action="store_true", help="exit non-zero on warnings too")
-    ap.add_argument("--today", help="override today's date (YYYY-MM-DD) for staleness checks")
+    clock = ap.add_mutually_exclusive_group()
+    clock.add_argument("--now", help="override the current instant (ISO 8601 datetime with explicit UTC offset)")
+    clock.add_argument("--today", help="legacy clock override: YYYY-MM-DD interpreted as midnight UTC; prefer --now")
     args = ap.parse_args()
 
     root = Path(args.bundle).resolve()
@@ -1028,16 +1080,21 @@ def main() -> int:
         sys.stderr.write(f"not a directory: {args.bundle}\n")
         return 2
 
-    if args.today:
-        try:
-            today = dt.date.fromisoformat(args.today)
-        except ValueError:
+    if args.now is not None:
+        now = as_datetime(args.now)
+        if now is None:
+            sys.stderr.write(f"--now must be an ISO 8601 datetime with an explicit UTC offset, got {args.now!r}\n")
+            return 2
+    elif args.today is not None:
+        today = as_date(args.today)
+        if today is None:
             sys.stderr.write(f"--today must be YYYY-MM-DD, got {args.today!r}\n")
             return 2
+        now = dt.datetime.combine(today, dt.time(), tzinfo=dt.timezone.utc)
     else:
-        today = dt.date.today()
+        now = dt.datetime.now(dt.timezone.utc)
 
-    f, stats = validate(root, today)
+    f, stats = validate(root, now)
 
     if args.json:
         items = [i for i in f.items if args.info or i["severity"] != "info"]

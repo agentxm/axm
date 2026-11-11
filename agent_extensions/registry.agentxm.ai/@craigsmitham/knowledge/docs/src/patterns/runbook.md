@@ -2,19 +2,31 @@
 type: Pattern
 title: Runbook
 description: For a bounded operational task with an established procedure, specify repeatable execution with explicit conditions, verification, recovery, and escalation.
-tags: [docs, runbook, pattern, operations, maintenance, incident-response, verification, automation]
+tags:
+- docs
+- runbook
+- operations
+- maintenance
+- incident-response
+- verification
+- automation
+- documentation-pattern
+- pattern
+- authoring
 status: stable
 sources:
-  - id: aws-runbooks
-    resource: https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/ops_ready_to_support_use_runbooks.html
-    title: AWS — Use runbooks to perform procedures
-  - id: aws-runbook-branching
-    resource: https://docs.aws.amazon.com/systems-manager/latest/userguide/automation-action-branch.html
-    title: AWS — Run conditional automation steps
-  - id: diataxis-how-to
-    resource: https://diataxis.fr/how-to-guides/
-    title: Diátaxis — How-to guides
-generated: { by: "codex/gpt-6", at: 2026-09-11T00:08:06Z }
+- id: aws-runbooks
+  resource: https://docs.aws.amazon.com/wellarchitected/latest/operational-excellence-pillar/ops_ready_to_support_use_runbooks.html
+  title: AWS — Use runbooks to perform procedures
+- id: aws-runbook-branching
+  resource: https://docs.aws.amazon.com/systems-manager/latest/userguide/automation-action-branch.html
+  title: AWS — Run conditional automation steps
+- id: diataxis-how-to
+  resource: https://diataxis.fr/how-to-guides/
+  title: Diátaxis — How-to guides
+generated:
+  by: codex/gpt-6
+  at: '2026-11-11T17:40:43Z'
 ---
 
 # Runbook
@@ -23,7 +35,10 @@ For a bounded operational task with an established procedure, **specify
 repeatable execution with explicit conditions, verification, recovery, and
 escalation**.
 
-## Context
+This pattern describes the reusable document design. A local runbook realizes
+it for a particular operational task, with its own evidence and ownership.
+
+## Purpose
 
 An operational task recurs and its desired outcome is known. It may be planned
 work, such as deployment, onboarding, or maintenance, or a mitigation selected
@@ -31,7 +46,7 @@ during an incident. The reader has the required skills but may be unfamiliar
 with this procedure. Accurate execution matters regardless of whether the work
 is urgent.
 
-## Problem
+## What it helps readers do
 
 How can any qualified practitioner complete the task consistently without
 relying on the original author's memory or filling gaps during execution?
@@ -41,7 +56,7 @@ exceptions. Those omissions make it difficult to know whether to proceed,
 recover, or stop. The procedure needs to make those decisions explicit enough
 to execute and verify.
 
-## Forces
+## Design tradeoffs
 
 - **Efficiency versus safety** — readers need to finish promptly while checking
   consequential actions.
@@ -54,7 +69,7 @@ to execute and verify.
 - **Current accuracy versus maintenance cost** — system changes can make a
   command, threshold, or prerequisite stale.
 
-## Solution
+## How to write it
 
 Create a **runbook** that:
 
@@ -84,7 +99,7 @@ inputs, permissions, expected results, and recovery guidance aligned with the
 implementation. A runbook can be manual, partly automated, or fully
 executable.[^aws-runbooks]
 
-## Consequences
+## Benefits and maintenance costs
 
 - Execution becomes transferable and silent failures become visible earlier.
 - Supported variation can be handled without improvising new procedures.
@@ -97,7 +112,7 @@ executable.[^aws-runbooks]
 
 ## When to use
 
-Use this pattern when:
+Use a runbook when:
 
 - a bounded task and its desired outcome are known;
 - an established procedure covers the supported conditions;
@@ -112,8 +127,10 @@ Use this pattern when:
   or escalate before claiming a repeatable path.
 - The reader is learning the system from zero — provide a tutorial separately.
 - The material is only a system inventory — use reference documentation.
+- Competent users need only prompts for known actions or a bounded check — use
+  a [Checklist](checklist.md), linking procedural detail where needed.
 
-## Pattern boundaries
+## Terminology
 
 A runbook owns repeatable execution of a bounded task. Explicit branching,
 parameterization, multiple participating roles, and automation can all serve
@@ -123,7 +140,7 @@ inputs or earlier results.[^aws-runbook-branching]
 
 A runbook may stand alone or support several playbooks. Its entry condition can
 be a direct task request; incident diagnosis is not a prerequisite for routine
-work. See [Playbook](playbook.md#pattern-boundaries) for the broader terminology
+work. See [Playbook](playbook.md#terminology) for the broader terminology
 and how the two forms relate.
 
 ## Illustrative example
@@ -148,7 +165,7 @@ It may also be used during a planned rollback without any incident playbook.
 This synthetic outline illustrates the documentation boundary. A usable local
 runbook would supply the actual commands, thresholds, and recovery details.
 
-## Evidence and known uses
+## Sources and examples
 
 - **AWS operational guidance** describes runbooks for specific outcomes,
   including onboarding and deployments, with permissions, error handling,
@@ -164,14 +181,14 @@ runbook would supply the actual commands, thresholds, and recovery details.
 The bounded-task formulation is this bundle's convention. These sources support
 its execution concerns without making the terminology universal.
 
-## Related patterns
+## Related
 
 - [Playbook](playbook.md) — guides assessment and coordinated response, and may
   invoke a runbook for a selected task.
-- [Pattern library](pattern-library.md) — keeps runbook guidance connected to
-  related patterns and lifecycle evidence.
-- [How-to guide](../guides/how-to.md) — supplies the underlying procedure craft.
-- [Reference explainer](../explainers/reference.md) — owns inventories and exact
+- [How-to guide](how-to.md) — supplies the underlying procedure craft.
+- [Checklist](checklist.md) — supports bounded execution prompts, verification,
+  or readiness decisions within or alongside the procedure.
+- [Reference](reference.md) — owns inventories and exact
   system facts that a runbook can link instead of duplicating.
 
 [^aws-runbooks]: AWS — Use runbooks to perform procedures.

@@ -31,13 +31,13 @@ requires DNS verification) — see [Identifier grammar](identifier-grammar.md).
   context in CLI settings; **slug** is the unprefixed value behind a handle.
   "Namespace" is a deprecated legacy alias.
 - The handle is the identity a version is published under, not the actor that
-  publishes it. A person signed in to AXM, a personal access token, or a
-  [trusted publisher](extension-model.md#core-terms) running in CI all publish
-  under the owner's handle, and none of them changes who owns the extension.
+  publishes it. A person signed in to AXM and a personal access token used in CI
+  both publish under the owner's handle, and neither changes who owns the
+  extension.
 
 ## Recyclable names, permanent versions
 
-Publisher names are recyclable, but published coordinates are not:
+Handles are recyclable, but published coordinates are not:
 
 - A released (emptied) handle enters a cooldown before it can be re-registered
   by someone else.
@@ -50,7 +50,7 @@ Publisher names are recyclable, but published coordinates are not:
   new Library may immediately use the same title with a fresh ID; it inherits no
   membership or grants. There is no Library title reuse hold.
 - Every published exact version coordinate `(handle, type, name, version)` is
-  **permanently retired** — no one, including the original publisher, can ever
+  **permanently retired** — no one, including the original owner, can ever
   republish it.
 
 ## Extension holds and Handle freezes
@@ -58,20 +58,26 @@ Publisher names are recyclable, but published coordinates are not:
 An extension hold and a Handle freeze are different controls. A platform hold is
 reversible containment of one extension. It keeps the publisher binding and
 published history intact while temporarily refusing discovery and new fetches;
-releasing it restores the publisher's underlying lifecycle state. See
+releasing it restores the owner's underlying lifecycle state. See
 [Visibility and discovery](visibility-and-discovery.md).
 
-An administrative Handle freeze is permanent and applies to the publisher
-identity: a frozen handle is ownerless and read-only, its published extensions
-remain accessible, and the frozen name is not released except in narrow,
+An administrative Handle freeze is permanent and applies to the handle itself: a
+frozen handle is ownerless and read-only, its published extensions remain
+accessible, and the frozen name is not released except in narrow,
 registry-reviewed cases. This is a supply-chain safety posture: it prevents
-revival-hijack attacks where an abandoned publisher name is re-registered to
-serve malicious updates.
+revival-hijack attacks where an abandoned handle is re-registered to serve
+malicious updates.
 
 ## Publisher-epoch safety
 
+A **publisher binding** is one period in which a handle belongs to one account,
+and each version records the binding it was published under. The binding, not
+the handle alone, names the owner a version came from, so a **publisher epoch**
+is the span of versions published under one binding. These are supply-chain
+terms for the publishing identity; the account itself is still the owner.
+
 AXM workspaces preserve the accepted **publisher epoch** for installed
-extensions. A recycled handle cannot silently substitute a new publisher for an
-old one: interactive flows require explicit confirmation when an install would
-cross a publisher epoch, and unattended flows fail instead. The AXM workspace
-design owns how that acceptance is recorded.
+extensions. A recycled handle cannot silently substitute a new owner for an old
+one: interactive flows require explicit confirmation when an install would cross
+a publisher epoch, and unattended flows fail instead. The AXM workspace design
+owns how that acceptance is recorded.

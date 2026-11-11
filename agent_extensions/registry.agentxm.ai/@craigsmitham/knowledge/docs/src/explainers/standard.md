@@ -17,7 +17,7 @@ sources:
   - id: odonovan-resolving
     resource: https://newcollege.unsw.edu.au/downloads/File/pdf/Lectures_Summaries/Resolving.pdf
     title: Oliver O'Donovan — Resolving
-generated: { by: "claude/opus-5", at: 2026-09-08T00:00:00Z }
+generated: { by: "codex/gpt-6", at: "2026-11-11T16:59:49Z" }
 ---
 
 # Standard
@@ -177,7 +177,7 @@ and should be governed accordingly or the standard's claim is underspecified.
 | Concept | Difference from a standard |
 | --- | --- |
 | **Good or value** | Names what is worthy of pursuit or protection; a standard establishes a reusable basis of expectation in relation to it |
-| **Principle** | [Directs judgment toward a recognized good](principle.md); a standard supplies a common basis for assessing or coordinating a defined field |
+| **Principle** | [Principle document](../patterns/principle.md); a standard supplies a common basis for assessing or coordinating a defined field |
 | **Criterion** | One property or condition used in applying a standard, not ordinarily the whole basis of judgment |
 | **Metric or measure** | Quantifies or observes a property; its relevance and interpretation depend on the standard and purpose |
 | **Benchmark or baseline** | Supplies a comparison point; it may be descriptive and carry no requirement |
@@ -186,7 +186,6 @@ and should be governed accordingly or the standard's claim is underspecified.
 | **Policy** | Adopts expectations and assigns organizational consequences, possibly by incorporating a standard |
 | **Regulation** | Imposes legally binding requirements through public authority, whether written directly or by reference to a standard |
 | **Practice** | [Sustains meaningful participation](practice.md); standards articulate and stabilize only part of its normative and tacit order |
-| **Pattern** | Offers an adaptable solution to a recurring contextual problem; it need not define conformance or a common basis for assessment |
 
 ## Failure modes
 
@@ -215,8 +214,7 @@ and should be governed accordingly or the standard's claim is underspecified.
 
 - [Standard authority and conformance](standard-authority-and-conformance.md)
 - [Practice](practice.md)
-- [Principle explainer](principle.md) · [Principle guide](../guides/principle.md)
-- [Pattern explainer](pattern.md) · [Pattern guide](../guides/pattern.md)
+- [Principle document](../patterns/principle.md)
 - [Documentation craft](documentation-craft.md)
-- [Reference explainer](reference.md) · [Reference guide](../guides/reference.md)
-- [Explanation explainer](explanation.md) · [Explanation guide](../guides/explanation.md)
+- [Reference](../patterns/reference.md)
+- [Explanation](../patterns/explanation.md)

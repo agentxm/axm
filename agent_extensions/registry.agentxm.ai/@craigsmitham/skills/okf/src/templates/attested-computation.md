@@ -16,9 +16,11 @@ executor:
   receipt: ["{{job_id}}", "{{executed_sql}}", "{{result}}"]
 attester:
   resource: "references/attesters/{{name}}.py"
+# Replace example timestamps with supported instants and explicit offsets.
 generated: { by: "{{producer}}/{{version}}", at: 2026-01-01T00:00:00Z }
+# Add only on a real verification event; otherwise delete this field.
 verified: { by: "human:{{id}}", at: 2026-01-01T00:00:00Z }
-stale_after: 2027-01-01
+stale_after: 2027-01-01T00:00:00Z
 sources:
   - id: "{{policy-key}}"
     resource: "{{https://...}}"
@@ -27,7 +29,9 @@ sources:
 
 # Computation
 
-    {{SELECT ... WHERE fiscal_year = @year}}
+```sql
+{{SELECT ... WHERE fiscal_year = @year}}
+```
 
 {{One or two sentences on what the computation binds and which policy governs it.}}[^{{policy-key}}]
 

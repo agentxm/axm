@@ -39,8 +39,8 @@ model.
   perimeter, hidden existence, and how visibility differs from archive, hold,
   deletion, yank, deprecation, and Library curation archival.
 - [AXM and AgentXM naming](domain/naming.md) — When to write the all-caps
-  product name, when to use the lowercase code identifier, and how the CLI
-  relates to the platform.
+  product name, when to use the lowercase code identifier, how the CLI relates
+  to the platform, and where the AXM mark stands for AgentXM.
 
 ## Architecture
 

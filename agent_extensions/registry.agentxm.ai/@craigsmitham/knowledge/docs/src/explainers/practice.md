@@ -23,7 +23,7 @@ sources:
   - id: odonovan-resolving
     resource: https://newcollege.unsw.edu.au/downloads/File/pdf/Lectures_Summaries/Resolving.pdf
     title: Oliver O'Donovan — Resolving
-generated: { by: "codex/gpt-6", at: 2026-09-11T00:08:06Z }
+generated: { by: "codex/gpt-6", at: "2026-11-11T16:59:49Z" }
 ---
 
 # Practice
@@ -36,7 +36,7 @@ of better and worse performance into a coherent undertaking.
 
 Here *practice* does not mean rehearsal, a repeated habit, or a recommended
 “best practice.” Nor is it another documentation form. A practice is part of
-the lived reality that principles, patterns, rules, guides, and other documents
+the lived reality that principles, rules, guides, and other documents
 selectively articulate.
 
 ## Orientation
@@ -46,7 +46,7 @@ selectively articulate.
 | **Central question** | What makes these actions intelligible as participation in one purposive undertaking? |
 | **Unit** | A standing social, material, skilled, and normative structure—not one action or procedure |
 | **Participants need** | Formation, recognition, equipment, practical judgment, and opportunities to act with others |
-| **Documentation can do** | Articulate purposes, language, norms, patterns, procedures, and accumulated reflection |
+| **Documentation can do** | Articulate purposes, language, norms, procedures, and accumulated reflection |
 | **Documentation cannot do** | Exhaust tacit knowing, confer competence or standing, or replace participation and judgment |
 
 ## What constitutes a practice
@@ -201,7 +201,6 @@ practice explicit:
 | **Principle** | Articulates a recognized good and durable direction for judgment |
 | **Standard** | Establishes a recognized basis for assessing or coordinating a defined field of the practice |
 | **Rule or policy** | Makes a determinate demand within a defined authority and scope |
-| **Pattern** | Makes a recurring contextual problem and adaptable solution transferable |
 | **[Playbook](../patterns/playbook.md)** | Guides assessment, response choices, adaptation, and coordination within a practice |
 | **[Runbook](../patterns/runbook.md)** | Specifies repeatable execution of a bounded operational task within a practice |
 
@@ -226,7 +225,7 @@ of lived competence into text.
 | Concept | Difference from a practice |
 | --- | --- |
 | **Repeated activity or habit** | Recurrence alone need not establish shared purposes, roles, equipment, or standards of participation |
-| **Best practice** | Usually a claimed preferred method; it is better documented as a principle, pattern, rule, or recommendation unless it names the richer structure described here |
+| **Best practice** | Usually a claimed preferred method; it is better documented as a principle, rule, or recommendation unless it names the richer structure described here |
 | **Standard** | [Recognized basis for judgment or coordination](standard.md); articulates and stabilizes only part of a practice's normative and tacit order |
 | **Process or workflow** | Models an ordered flow of work; a practice includes the skills, meanings, norms, and social formation that make the flow intelligible |
 | **Institution** | Stabilizes roles, authority, memory, and resources; it may host several practices and is not identical to any one of them |
@@ -280,7 +279,6 @@ subject domains and should follow their host's conventions.
 
 - [Documentation craft](documentation-craft.md)
 - [Standard](standard.md)
-- [Principle explainer](principle.md) · [Principle guide](../guides/principle.md)
-- [Pattern explainer](pattern.md) · [Pattern guide](../guides/pattern.md)
-- [Tutorial explainer](tutorial.md) · [Tutorial guide](../guides/tutorial.md)
-- [Explanation explainer](explanation.md) · [Explanation guide](../guides/explanation.md)
+- [Principle document](../patterns/principle.md)
+- [Tutorial](../patterns/tutorial.md)
+- [Explanation](../patterns/explanation.md)

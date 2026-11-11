@@ -26,7 +26,7 @@ sources:
   - id: odonovan-resolving
     resource: https://newcollege.unsw.edu.au/downloads/File/pdf/Lectures_Summaries/Resolving.pdf
     title: Oliver O'Donovan — Resolving
-generated: { by: "claude/opus-5", at: 2026-09-08T00:00:00Z }
+generated: { by: "codex/gpt-6", at: "2026-11-11T16:59:49Z" }
 ---
 
 # Standard authority and conformance
@@ -176,6 +176,6 @@ examples, qualitative review, outcomes, and practitioner judgment.
 
 - [Standard](standard.md)
 - [Practice](practice.md)
-- [Principle explainer](principle.md) · [Principle guide](../guides/principle.md)
+- [Principle document](../patterns/principle.md)
 - [Documentation quality](documentation-quality.md)
 - [Documentation audits](documentation-audits.md)

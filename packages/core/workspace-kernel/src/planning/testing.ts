@@ -10,6 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { PlanSources, type PlanSourcesService } from "./plan/plan-sources.js";
 
 import { ConfiguredAgentOutcomesProvider } from "../workspace-state/index.js";
 import { ConfiguredAgentOutcomesProviderTest } from "../workspace-state/testing.js";
@@ -43,18 +44,28 @@ export const FootprintRecorderTest: Layer.Layer<FootprintRecorder> = Layer.effec
   makeFootprintRecorder,
 );
 
+/** Local-only plans have no external access unless a test explicitly supplies it. */
+export const PlanSourcesTest = (overrides: Partial<PlanSourcesService> = {}) =>
+  Layer.succeed(PlanSources, {
+    acquire: () => Effect.die(new Error("Unexpected plan source acquisition")),
+    validateExposure: () => Effect.die(new Error("Unexpected plan Registry exposure")),
+    ...overrides,
+  });
+
 /**
  * Every per-invocation service `resolveExecutionCandidate` acquires that the CLI's
  * operation lifecycle opens around a command: the journal, the footprint
  * recorder, and a configured-agent outcome provider with no per-type
- * refinement. A test that drives a plan directly needs all of them, so this
- * is the layer to reach for rather than assembling the three by hand.
+ * refinement. External-content access is explicitly refused until a test
+ * supplies its source capability. Live workspace fixtures replace that port
+ * at their composition boundary.
  */
 export const PlanInvocationTest: Layer.Layer<
-  OperationJournal | FootprintRecorder | ConfiguredAgentOutcomesProvider
+  OperationJournal | FootprintRecorder | ConfiguredAgentOutcomesProvider | PlanSources
 > = Layer.mergeAll(
   OperationJournalTest,
   FootprintRecorderTest,
+  PlanSourcesTest(),
   ConfiguredAgentOutcomesProviderTest,
 );
 

@@ -1,3 +1,6 @@
+import * as Layer from "effect/Layer";
+import type { PlanSourcesService } from "./plan-sources.js";
+import { PlanSourcesTest } from "../testing.js";
 import { NativePlatformTest } from "../../locations/testing.js";
 import * as nodeFs from "node:fs";
 import { describe, expect, it } from "@effect/vitest";
@@ -11,11 +14,7 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import {
-  SourceNotResolvable,
-  SourceHostProviders,
-  type SourceHostProvidersService,
-} from "../../sources/index.js";
+import { SourceNotResolvable } from "../../sources/index.js";
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
 import { deriveOperationOutcome, type Plan } from "../../operations/index.js";
 import { promptablePlanExecution } from "./plan-execution-fixtures.js";
@@ -59,10 +58,8 @@ describe("Acquired content through confirmation", () => {
       let scratch = "";
       let applied = false;
       const sources = {
-        find: () => Effect.die(new Error("unexpected source discovery")),
-        resolveNamedRegistry: () => Effect.die(new Error("unexpected registry resolution")),
-        fetch: () => Effect.die(new Error("unexpected source fetch")),
-        acquireForTransition: () =>
+        validateExposure: () => Effect.die(new Error("unexpected Registry exposure")),
+        acquire: () =>
           Effect.gen(function* () {
             acquisitions += 1;
             scratch = yield* fs
@@ -75,9 +72,7 @@ describe("Acquired content through confirmation", () => {
               );
             return { directory: scratch };
           }),
-        cloneUrl: () => Option.none(),
-        origin: () => "source",
-      } satisfies SourceHostProvidersService;
+      } satisfies PlanSourcesService;
       const context = makeSpecContext(workspace.workspaceDir, {
         confirmationAvailable: true,
         confirmApplyChanges: () =>
@@ -113,8 +108,7 @@ describe("Acquired content through confirmation", () => {
         candidate,
         promptablePlanExecution({ command: ["install"], arguments: [] }),
       ).pipe(
-        Effect.provide(context.layer),
-        Effect.provideService(SourceHostProviders, sources),
+        Effect.provide(Layer.merge(context.layer, PlanSourcesTest(sources))),
         Effect.forkChild,
       );
 

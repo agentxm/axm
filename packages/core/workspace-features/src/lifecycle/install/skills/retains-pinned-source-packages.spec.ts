@@ -8,7 +8,7 @@ import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
+import { PlanSources } from "@agentxm/workspace-kernel/planning";
 import * as Result from "effect/Result";
 import {
   LockfileReader,
@@ -115,12 +115,12 @@ describe("Pinned retained source layouts", () => {
         const acquisitions = yield* Ref.make(0);
         yield* world.workspace.provide(
           Effect.gen(function* () {
-            const sources = yield* SourceHostProviders;
+            const sources = yield* PlanSources;
             const counted = {
               ...sources,
-              acquireForTransition: (ref: Parameters<typeof sources.acquireForTransition>[0]) =>
+              acquire: (ref: Parameters<typeof sources.acquire>[0]) =>
                 Ref.update(acquisitions, (count) => count + 1).pipe(
-                  Effect.andThen(sources.acquireForTransition(ref)),
+                  Effect.andThen(sources.acquire(ref)),
                 ),
             };
             const candidate = yield* InstallExtensions.prepare(
@@ -134,7 +134,7 @@ describe("Pinned retained source layouts", () => {
             const installed = yield* InstallExtensions.previewOrApply(
               candidate,
               preapprovedPlanExecution,
-            ).pipe(Effect.provideService(SourceHostProviders, counted));
+            ).pipe(Effect.provideService(PlanSources, counted));
             expect(installed.installedSkills).toHaveLength(selectedNames.length);
             expect(yield* Ref.get(acquisitions)).toBe(1);
             const address = new URL(locator);
@@ -164,7 +164,7 @@ describe("Pinned retained source layouts", () => {
             fs.rmSync(retained, { recursive: true });
             yield* Ref.set(acquisitions, 0);
             yield* applySync({ target: Option.none(), types: ["skill"] }).pipe(
-              Effect.provideService(SourceHostProviders, counted),
+              Effect.provideService(PlanSources, counted),
             );
             expect(yield* Ref.get(acquisitions)).toBe(1);
             expect(world.workspace.readFile("axm.lock")).toBe(acceptedBytes);

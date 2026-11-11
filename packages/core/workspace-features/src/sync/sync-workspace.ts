@@ -1,3 +1,4 @@
+import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 /**
  * Reconciling the workspace with what its settings and lockfile declare.
  *
@@ -532,7 +533,11 @@ const prepareSyncWorkspace = (
 const previewOrApplySyncWorkspace = (
   candidate: SyncWorkspaceCandidate,
   execution: PlanExecution,
-): Effect.Effect<OperationResolution<void>, PlanResolutionFailure, SyncWorkspaceRequirements> =>
+): Effect.Effect<
+  OperationResolution<void>,
+  PlanResolutionFailure,
+  SyncWorkspaceRequirements | PlanSources
+> =>
   resolveExecutionCandidate(candidate.execution, execution, {
     additionalFreshness: () =>
       observationsStillCurrent({

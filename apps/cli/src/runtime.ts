@@ -1,3 +1,4 @@
+import { PlanSources, makePlanSources } from "@agentxm/workspace-kernel/planning";
 import { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 import { axmBooleanEnabled } from "@agentxm/host-primitives";
 import {
@@ -444,7 +445,12 @@ const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "built
     ConfiguredAgentOutcomesProviderLive,
     fullLayer,
   );
-  return Layer.mergeAll(fullLayer, invariantFactsLayer, configuredAgentOutcomesLayer);
+  return Layer.mergeAll(
+    fullLayer,
+    invariantFactsLayer,
+    configuredAgentOutcomesLayer,
+    Layer.provide(Layer.effect(PlanSources, makePlanSources), fullLayer),
+  );
 };
 
 /** Setup binds projection ports to its explicit scope before settings exist. */

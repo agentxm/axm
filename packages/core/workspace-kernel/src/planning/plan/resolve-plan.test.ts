@@ -1,3 +1,4 @@
+import type { PlanSourcesService } from "./plan-sources.js";
 import {
   type NativeEntryRemoval,
   nativeUnitReference,
@@ -60,7 +61,7 @@ import {
   type WorkspaceTransitionLock,
 } from "../../settlement/index.js";
 import { WorkspaceTransactionScopeTest } from "../../settlement/testing.js";
-import { ResolvePlanInteractionTest } from "../testing.js";
+import { PlanSourcesTest, ResolvePlanInteractionTest } from "../testing.js";
 import {
   ConfiguredAgentOutcomesProviderTest,
   WorkspaceReadTest,
@@ -79,11 +80,7 @@ import {
 } from "./execution-candidate.js";
 import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
-import {
-  SourceHostProviders,
-  type SourceHostProvidersService,
-  SourceNotResolvable,
-} from "../../sources/index.js";
+import { SourceNotResolvable } from "../../sources/index.js";
 
 const testRecovery: CommandInvocation = { command: ["install"], arguments: [] };
 
@@ -197,6 +194,7 @@ const makeTestContext = (
       }),
       WorkspaceRecordsEmpty,
       interaction.layer,
+      PlanSourcesTest(),
       ConfiguredAgentOutcomesProviderTest,
       Layer.effect(OperationJournal, makeOperationJournal),
       Layer.effect(FootprintRecorder, makeFootprintRecorder),
@@ -233,10 +231,8 @@ describe("previewOrApply", () => {
       let failedApplied = false;
       let healthyApplied = false;
       const providers = {
-        find: () => Effect.die(new Error("unexpected source discovery")),
-        resolveNamedRegistry: () => Effect.die(new Error("unexpected registry resolution")),
-        fetch: () => Effect.die(new Error("unexpected source fetch")),
-        acquireForTransition: (ref) =>
+        validateExposure: () => Effect.die(new Error("unexpected Registry exposure")),
+        acquire: (ref) =>
           Effect.gen(function* () {
             if (ref.name === failedName) {
               failedScratch = yield* Effect.acquireRelease(
@@ -296,9 +292,7 @@ describe("previewOrApply", () => {
               );
             return { directory: healthyScratch };
           }),
-        cloneUrl: () => Option.none(),
-        origin: () => "source",
-      } satisfies SourceHostProvidersService;
+      } satisfies PlanSourcesService;
       const plan: Plan = {
         _tag: "Plan",
         name: "Install sources",
@@ -335,8 +329,7 @@ describe("previewOrApply", () => {
       const scratch = yield* makeOperationScratchBudget(MAX_OPERATION_SCRATCH_BYTES);
       const context = makeTestContext();
       const result = yield* previewOrApply(plan, { execution: preapprovedPlanExecution }).pipe(
-        Effect.provide(context.layer),
-        Effect.provideService(SourceHostProviders, providers),
+        Effect.provide(Layer.merge(context.layer, PlanSourcesTest(providers))),
         Effect.provideService(OperationScratchBudget, scratch),
       );
 
@@ -363,17 +356,13 @@ describe("previewOrApply", () => {
       let acquisitions = 0;
       let applied = false;
       const providers = {
-        find: () => Effect.die(new Error("unexpected source discovery")),
-        resolveNamedRegistry: () => Effect.die(new Error("unexpected registry resolution")),
-        fetch: () => Effect.die(new Error("unexpected source fetch")),
-        acquireForTransition: () =>
+        validateExposure: () => Effect.die(new Error("unexpected Registry exposure")),
+        acquire: () =>
           Effect.sync(() => {
             acquisitions += 1;
             return { directory: "/unreachable" };
           }),
-        cloneUrl: () => Option.none(),
-        origin: () => "source",
-      } satisfies SourceHostProvidersService;
+      } satisfies PlanSourcesService;
       const plan: Plan = {
         _tag: "Plan",
         name: "Install source",
@@ -399,8 +388,7 @@ describe("previewOrApply", () => {
       const scratch = yield* makeOperationScratchBudget(1);
       const context = makeTestContext();
       const result = yield* previewOrApply(plan, { execution: preapprovedPlanExecution }).pipe(
-        Effect.provide(context.layer),
-        Effect.provideService(SourceHostProviders, providers),
+        Effect.provide(Layer.merge(context.layer, PlanSourcesTest(providers))),
         Effect.provideService(OperationScratchBudget, scratch),
       );
 
@@ -1725,17 +1713,13 @@ describe("previewOrApply", () => {
         location: `file://${directory}`,
       };
       const sources = {
-        find: () => Effect.die(new Error("unexpected source discovery")),
-        resolveNamedRegistry: () => Effect.die(new Error("unexpected registry resolution")),
-        fetch: () => Effect.die(new Error("unexpected source fetch")),
-        acquireForTransition: () =>
+        validateExposure: () => Effect.die(new Error("unexpected Registry exposure")),
+        acquire: () =>
           Effect.sync(() => {
             acquisitions += 1;
             return { directory };
           }),
-        cloneUrl: () => Option.none(),
-        origin: () => "source",
-      } satisfies SourceHostProvidersService;
+      } satisfies PlanSourcesService;
       const context = makeTestContext(
         () =>
           Effect.gen(function* () {
@@ -1774,7 +1758,7 @@ describe("previewOrApply", () => {
 
       const result = yield* previewOrApply(plan, {
         execution: promptablePlanExecution(testRecovery),
-      }).pipe(Effect.provide(context.layer), Effect.provideService(SourceHostProviders, sources));
+      }).pipe(Effect.provide(Layer.merge(context.layer, PlanSourcesTest(sources))));
       expect(deriveOperationOutcome(result)).toBe("blocked");
       expect(result.blocking?.class).toBe("stale-candidate");
       expect(result.blocking?.escape?.description).toContain("Rerun the command");

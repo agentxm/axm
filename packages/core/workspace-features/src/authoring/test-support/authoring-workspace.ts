@@ -1,3 +1,4 @@
+import { PlanSources, makePlanSources } from "@agentxm/workspace-kernel/planning";
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/http/HttpClient";
 import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
@@ -201,7 +202,10 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
   const sources = Layer.provideMerge(SourceHostProvidersLive, policy);
   const managers = withKindManagers(sources);
   return {
-    layer: Layer.mergeAll(managers, PlanInvocationTest, interaction.layer, identity),
+    layer: Layer.provideMerge(
+      Layer.effect(PlanSources, makePlanSources),
+      Layer.mergeAll(managers, PlanInvocationTest, interaction.layer, identity),
+    ),
     /** Every plan presentation and confirmation the run asked for. */
     interaction: interaction.state,
   };

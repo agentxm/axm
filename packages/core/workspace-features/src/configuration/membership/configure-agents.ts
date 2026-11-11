@@ -1,3 +1,4 @@
+import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 import {
   recoverySwitch,
   OperationJournal,
@@ -281,6 +282,7 @@ interface MembershipReconciliation<Requirements, Output> {
  * reconciliation steps the application supplied still need.
  */
 type MembershipExecutionRequirements<Requirements> =
+  | PlanSources
   | NativeEntryRemoval
   | Requirements
   | ConfiguredAgentOutcomesProvider

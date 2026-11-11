@@ -9,7 +9,8 @@ import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { makeLifecycleFixture } from "../../testing.js";
-import { SourceHostProviders, SourceNetworkFailure } from "@agentxm/workspace-kernel/sources";
+import { SourceNetworkFailure } from "@agentxm/workspace-kernel/sources";
+import { PlanSources } from "@agentxm/workspace-kernel/planning";
 import { previewPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { UpdateExtensions } from "../../update/update-extensions.js";
 import { InstallExtensions, UninstallExtensions } from "../../index.js";
@@ -844,7 +845,7 @@ describe("Shared package failure atomicity", () => {
                 expect(world.workspace.snapshot()).toEqual(changed);
                 return;
               }
-              const sources = yield* SourceHostProviders;
+              const sources = yield* PlanSources;
               yield* Ref.set(armed, true);
               const result = yield* UpdateExtensions.previewOrApply(
                 candidate,
@@ -852,9 +853,9 @@ describe("Shared package failure atomicity", () => {
               )
                 .pipe(Effect.map((result) => result.resolution))
                 .pipe(
-                  Effect.provideService(SourceHostProviders, {
+                  Effect.provideService(PlanSources, {
                     ...sources,
-                    acquireForTransition: (ref) =>
+                    acquire: (ref) =>
                       failure === "acquisition"
                         ? Ref.set(injected, true).pipe(
                             Effect.andThen(
@@ -865,7 +866,7 @@ describe("Shared package failure atomicity", () => {
                               ),
                             ),
                           )
-                        : sources.acquireForTransition(ref),
+                        : sources.acquire(ref),
                   }),
                 );
               expect(

@@ -5,8 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { RuleManagerLive } from "@agentxm/extension-kinds/live";
-import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
+import { KnowledgeManagerLive, RuleManagerLive } from "@agentxm/extension-kinds/live";
 import { makeWorkspaceHandlerTestContext } from "../test-support/test-helpers.js";
 import { handleInstructionsDisable, handleInstructionsStatus } from "./instructions.js";
 import { writeWorkspaceFiles } from "../test-support/test-stubs.js";
@@ -54,9 +53,10 @@ describe("instructions handler", () => {
 
   const makeLayers = (options?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
     const context = makeWorkspaceHandlerTestContext(options);
-    const sourceLayer = Layer.provide(SourceHostProvidersLive, context.fullLayer);
-    const foundation = Layer.mergeAll(context.fullLayer, sourceLayer);
-    const fullLayer = Layer.provideMerge(RuleManagerLive, foundation);
+    const fullLayer = Layer.provideMerge(
+      Layer.merge(RuleManagerLive, KnowledgeManagerLive),
+      context.fullLayer,
+    );
     return {
       provide: Effect.provide(fullLayer),
       logs: context.logs,

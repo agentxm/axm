@@ -16,25 +16,10 @@ import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { afterEach, beforeEach } from "vitest";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 import { projectionOutputDigest } from "@agentxm/workspace-kernel/projection";
-import {
-  HookManagerLive,
-  KnowledgeManagerLive,
-  McpServerManagerLive,
-  PackManagerLive,
-  RuleManagerLive,
-  SkillManagerLive,
-  SubagentManagerLive,
-} from "@agentxm/extension-kinds/live";
-import {
-  ConfiguredAgentOutcomesProviderLive,
-  ProjectionParticipantsLive,
-} from "@agentxm/workspace-kernel/reconciliation/live";
 import {
   acquiredPackageRelativePath,
   computePackManifestContentIdentity,
@@ -42,11 +27,9 @@ import {
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
-  SourceHostProviders,
   type SourceHostProvidersService,
   SourceNotResolvable,
 } from "@agentxm/workspace-kernel/sources";
-import { SourceHostProvidersLive } from "@agentxm/workspace-kernel/sources/live";
 import YAML from "yaml";
 import { zipSync } from "fflate";
 import {
@@ -55,7 +38,7 @@ import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
   expectRecord,
-  makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
   planResultUnits,
   property,
 } from "../../test-support/test-helpers.js";
@@ -73,7 +56,6 @@ import { handleList as handleListMcpServers } from "../mcps/list.js";
 import { runUninstallCommand } from "../shared/uninstall-command.js";
 import { injectWriteFaults } from "@agentxm/workspace-kernel/settlement/testing";
 import { handleSync } from "./handler.js";
-import { WorkspaceFailureConversionLive } from "../../app-error/failure-catalog.js";
 
 const canonicalRegistryPath = (
   baseDir: string,
@@ -725,60 +707,9 @@ describe("root sync handler", () => {
   });
 
   const makeLayers = (
-    opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0],
+    opts?: Parameters<typeof makeWorkspaceLifecycleTestContext>[0],
     sourceHostProviders?: SourceHostProvidersService,
-  ) => {
-    const ctx = makeWorkspaceHandlerTestContext(opts);
-    const sourceProvidersLayer =
-      sourceHostProviders === undefined
-        ? Layer.provide(SourceHostProvidersLive, Layer.merge(ctx.baseLayer, ctx.wsLayer))
-        : Layer.succeed(SourceHostProviders, sourceHostProviders);
-    const managerDependencies = Layer.mergeAll(
-      ctx.baseLayer,
-      ctx.wsLayer,
-      sourceProvidersLayer,
-      WorkspaceFailureConversionLive,
-    );
-    const managersLayer = Layer.provide(
-      Layer.mergeAll(
-        HookManagerLive,
-        KnowledgeManagerLive,
-        McpServerManagerLive,
-        RuleManagerLive,
-        SkillManagerLive,
-        SubagentManagerLive,
-      ),
-      managerDependencies,
-    );
-    const packManagerLayer = Layer.provide(
-      PackManagerLive,
-      Layer.mergeAll(managerDependencies, managersLayer),
-    );
-    const invariantFactsLayer = Layer.provide(
-      Layer.provide(WorkspaceInvariantFactsLive, ProjectionParticipantsLive),
-      Layer.mergeAll(managerDependencies, managersLayer),
-    );
-    const observationsLayer = Layer.provide(
-      ConfiguredAgentOutcomesProviderLive,
-      Layer.mergeAll(managerDependencies, managersLayer),
-    );
-    return {
-      provide: Effect.provide(
-        Layer.mergeAll(
-          ctx.baseLayer,
-          ctx.wsLayer,
-          sourceProvidersLayer,
-          WorkspaceFailureConversionLive,
-          managersLayer,
-          packManagerLayer,
-          invariantFactsLayer,
-          observationsLayer,
-        ),
-      ),
-      logs: ctx.logs,
-      rendererState: ctx.rendererState,
-    };
-  };
+  ) => makeWorkspaceLifecycleTestContext({ ...opts, sourceHostProviders });
 
   it.effect("reports no-op when workspace materialization is already up to date", () =>
     Effect.gen(function* () {

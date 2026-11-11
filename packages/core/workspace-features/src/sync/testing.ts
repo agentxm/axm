@@ -1,3 +1,4 @@
+import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 /**
  * @agentxm/workspace-features/sync deterministic test ports.
  *
@@ -43,6 +44,7 @@ export interface SyncPortsTest {
     | ConfiguredAgentOutcomesProvider
     | FootprintRecorder
     | OperationJournal
+    | PlanSources
     | ResolvePlanInteraction
     | StepFailureConversion
   >;

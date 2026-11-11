@@ -18,6 +18,7 @@ import {
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
+import { PlanSources } from "@agentxm/workspace-kernel/planning";
 
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { makeGitSkillRepository } from "../../testing/git-repositories.js";
@@ -110,6 +111,7 @@ it.effect("updates a member within a missing acquired Pack's accepted constraint
         ]);
         const before = workspace.snapshot();
         const sources = yield* SourceHostProviders;
+        const planSources = yield* PlanSources;
         yield* Effect.gen(function* () {
           const request = targetedUpdateRequest({ source: FQN });
           const preview = expectResolved(yield* previewUpdate(request));
@@ -133,10 +135,13 @@ it.effect("updates a member within a missing acquired Pack's accepted constraint
               ref.type === "pack"
                 ? Effect.die("Update planning must not fetch accepted Pack declarations")
                 : sources.fetch(ref),
-            acquireForTransition: (ref) =>
+          }),
+          Effect.provideService(PlanSources, {
+            ...planSources,
+            acquire: (ref) =>
               ref.type === "pack"
                 ? Effect.die("Update planning must not acquire accepted Pack declarations")
-                : sources.acquireForTransition(ref),
+                : planSources.acquire(ref),
           }),
         );
       }),

@@ -1,3 +1,4 @@
+import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 import {
   collectSkillAcquisitions,
   settledSkillAcquisitions,
@@ -1081,7 +1082,8 @@ const prepareInstallExtensions = (
  * step requirements plus the operation boundary that presents, journals, and
  * applies it.
  */
-type ResolveInstallExtensionsRequirements = PrepareInstallRequirements | BundledAxmSkillAsset;
+type ResolveInstallExtensionsRequirements =
+  PrepareInstallRequirements | BundledAxmSkillAsset | PlanSources;
 
 interface InstallExtensionsResult {
   readonly resolution: OperationResolution;

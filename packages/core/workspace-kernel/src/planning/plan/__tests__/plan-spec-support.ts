@@ -27,7 +27,7 @@ import {
   type CommandInvocation,
   type ApplyConfirmation,
 } from "../../../operations/index.js";
-import { ResolvePlanInteractionTest } from "../../testing.js";
+import { PlanSourcesTest, ResolvePlanInteractionTest } from "../../testing.js";
 
 /** Empty physical inventory for plan cases that do not exercise readback projection. */
 export const WorkspaceRecordsEmpty = Layer.mock(WorkspaceRecords, {
@@ -83,6 +83,7 @@ export const makeSpecContext = (
       WorkspaceReadTest({ baseDir: nodePath.dirname(workspaceDir), runtimeDir: workspaceDir }),
       WorkspaceRecordsEmpty,
       interaction.layer,
+      PlanSourcesTest(),
       ConfiguredAgentOutcomesProviderTest,
       Layer.effect(OperationJournal, makeOperationJournal),
       Layer.effect(FootprintRecorder, makeFootprintRecorder),

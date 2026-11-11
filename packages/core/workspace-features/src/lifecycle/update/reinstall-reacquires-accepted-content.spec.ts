@@ -4,7 +4,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
+import { PlanSources } from "@agentxm/workspace-kernel/planning";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
@@ -175,14 +175,14 @@ describe("Update reacquisition", () => {
               );
               const before = world.workspace.snapshot();
               const acquired = yield* Ref.make<ReadonlyArray<string>>([]);
-              const providers = yield* SourceHostProviders;
+              const providers = yield* PlanSources;
               const observe = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
                 effect.pipe(
-                  Effect.provideService(SourceHostProviders, {
+                  Effect.provideService(PlanSources, {
                     ...providers,
-                    acquireForTransition: (ref) =>
+                    acquire: (ref) =>
                       Ref.update(acquired, (names) => [...names, `${ref.type}/${ref.name}`]).pipe(
-                        Effect.andThen(providers.acquireForTransition(ref)),
+                        Effect.andThen(providers.acquire(ref)),
                       ),
                   }),
                 );

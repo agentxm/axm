@@ -10,20 +10,17 @@
  */
 
 import * as fs from "node:fs";
-import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createHash } from "node:crypto";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import {
   SourceNotResolvable,
-  SourceHostProviders,
   type SourceHostProvidersService,
 } from "@agentxm/workspace-kernel/sources";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
@@ -37,9 +34,8 @@ import {
 } from "@agentxm/workspace-kernel/resolution";
 
 import {
-  AllExtensionManagersLive,
   expectNoOpPlanResult,
-  makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
   planResultUnits,
 } from "../../test-support/test-helpers.js";
 import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
@@ -169,21 +165,14 @@ describe("root update handler", () => {
     readonly machine?: boolean | undefined;
     readonly sources?: SourceHostProvidersService;
   }) => {
-    const ctx = makeWorkspaceHandlerTestContext({
+    const ctx = makeWorkspaceLifecycleTestContext({
       flags: { nonInteractive: true },
       machine: opts?.machine,
+      sourceHostProviders: opts?.sources ?? selectedSourceHostProviders,
     });
-    const coreLayer = Layer.mergeAll(
-      ctx.fullLayer,
-      Layer.succeed(SourceHostProviders, opts?.sources ?? selectedSourceHostProviders),
-    );
-    const fullLayer = Layer.provideMerge(
-      workspaceInvariantFactsLive,
-      Layer.provideMerge(AllExtensionManagersLive, coreLayer),
-    );
 
     return {
-      provide: Effect.provide(fullLayer),
+      provide: ctx.provide,
       handleUpdate: (
         args: Parameters<typeof handleUpdate>[0],
         releaseAgePosture: ReleaseAgePostureValue = "enforce",

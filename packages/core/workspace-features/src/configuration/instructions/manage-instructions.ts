@@ -1,3 +1,4 @@
+import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 /**
  * Instruction-file management: whether this workspace propagates one source
@@ -612,7 +613,7 @@ const previewOrApplyManageInstructions = (
 ): Effect.Effect<
   OperationResolution<void>,
   PlanResolutionFailure,
-  ManageInstructionsRequirements
+  ManageInstructionsRequirements | PlanSources
 > => resolveExecutionCandidate(candidate.execution, execution);
 
 /** The instruction-management use case. */

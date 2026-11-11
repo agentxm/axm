@@ -1,3 +1,4 @@
+import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 /**
  * Uninstalling extensions.
  *
@@ -499,8 +500,11 @@ const prepareUninstallExtensions: (
 const previewOrApplyUninstallExtensions = (
   candidate: UninstallExtensionsCandidate,
   execution: PlanExecution,
-): Effect.Effect<OperationResolution, UninstallExtensionsFailure, PrepareUninstallRequirements> =>
-  resolveExecutionCandidate(candidate.execution, execution);
+): Effect.Effect<
+  OperationResolution,
+  UninstallExtensionsFailure,
+  PrepareUninstallRequirements | PlanSources
+> => resolveExecutionCandidate(candidate.execution, execution);
 
 /** The removal use case: settle a request, then preview or apply it. */
 export const UninstallExtensions = {

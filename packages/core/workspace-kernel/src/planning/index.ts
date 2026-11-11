@@ -42,3 +42,6 @@ export {
   resolutionFailures,
   resolutionFailureToStepFailure,
 } from "./resolution-step-failure.js";
+
+// External-content access required by candidate resolution.
+export { PlanSources, makePlanSources } from "./plan/plan-sources.js";

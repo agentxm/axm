@@ -1,8 +1,13 @@
+import { PlanSources, makePlanSources } from "@agentxm/workspace-kernel/planning";
 import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 import { makeRegistryContextLayer } from "../runtime.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { RegistryClientFactoryTest, RegistryContextTest } from "@agentxm/registry-client/testing";
-import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
+import {
+  ArtifactHttpClient,
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "@agentxm/workspace-kernel/sources";
 import { PlanInteractionFailed } from "@agentxm/workspace-kernel/operations";
 /**
  * Shared test helpers for CLI package tests.
@@ -607,6 +612,8 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly machine?: boolean | undefined;
   readonly httpClient?: HttpClient.HttpClient | undefined;
   readonly screenLayer?: Layer.Layer<Screen> | undefined;
+  /** Select source adapters before plan capabilities capture them. */
+  readonly sourceHostProviders?: SourceHostProvidersService | undefined;
   readonly onFileSystemWrite?: ((event: FileSystemWriteEvent) => void) | undefined;
   /** Override filesystem operations before workspace services capture the platform. */
   readonly fileSystemLayer?: Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem>;
@@ -668,10 +675,12 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     // compose the live observer with their real extension managers below.
     ConfiguredAgentOutcomesProviderTest,
   ).pipe(Layer.provide(cliTestContext.baseLayer));
-  const fullLayer = Layer.mergeAll(
+  const handlerLayer = Layer.mergeAll(
     cliTestContext.baseLayer,
     wsLayer,
-    Layer.provide(SourceHostProvidersLive, Layer.merge(cliTestContext.baseLayer, wsLayer)),
+    opts?.sourceHostProviders === undefined
+      ? Layer.provide(SourceHostProvidersLive, Layer.merge(cliTestContext.baseLayer, wsLayer))
+      : Layer.succeed(SourceHostProviders, opts.sourceHostProviders),
     KnowledgeIndexLive,
     WorkspaceFailureConversionLive,
     // The official skill the executable carries, and the terminal selection
@@ -692,6 +701,8 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
       cliTestContext.baseLayer,
     ),
   );
+
+  const fullLayer = Layer.provideMerge(Layer.effect(PlanSources, makePlanSources), handlerLayer);
 
   return {
     ...cliTestContext,

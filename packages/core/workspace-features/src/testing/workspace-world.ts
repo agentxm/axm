@@ -1,3 +1,4 @@
+import { PlanSources, makePlanSources } from "@agentxm/workspace-kernel/planning";
 import {
   CanonicalNativePathLive,
   NativeEntryRemovalLive,
@@ -256,7 +257,9 @@ export const withKindManagers = <A, E, R>(services: Layer.Layer<A, E, R>) => {
 };
 
 export const withAllManagers = <P>(layer: ReturnType<typeof withLiveSources<P>>) => {
-  const managers = withKindManagers(layer);
+  const managers = withKindManagers(
+    Layer.provideMerge(Layer.effect(PlanSources, makePlanSources), layer),
+  );
   const observed = Layer.provideMerge(ConfiguredAgentOutcomesProviderLive, managers);
   const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, observed);
   return Layer.provideMerge(

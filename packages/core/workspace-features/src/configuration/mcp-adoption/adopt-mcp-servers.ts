@@ -1,3 +1,4 @@
+import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 /**
  * Adopting the MCP servers a workspace already had.
  *
@@ -176,7 +177,11 @@ type AdoptMcpServersRequirements =
 const previewOrApplyAdoptMcpServers = (
   candidate: AdoptMcpServersCandidate,
   execution: PlanExecution,
-): Effect.Effect<OperationResolution<void>, PlanResolutionFailure, AdoptMcpServersRequirements> =>
+): Effect.Effect<
+  OperationResolution<void>,
+  PlanResolutionFailure,
+  AdoptMcpServersRequirements | PlanSources
+> =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;

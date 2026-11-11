@@ -10,6 +10,7 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
+import { PlanSources } from "@agentxm/workspace-kernel/planning";
 
 import { makeGitSkillRepository } from "../../testing/git-repositories.js";
 import { writeLocalSkillPackage } from "../../testing/local-packages.js";
@@ -136,6 +137,7 @@ describe("Repeat installs are safe", () => {
               { version: "1.1.0", dependencies: {} },
             ]);
             const sources = yield* SourceHostProviders;
+            const planSources = yield* PlanSources;
             const unexpected = () =>
               Effect.die(
                 new Error("A warm explicit install must not consult or acquire from sources"),
@@ -155,8 +157,8 @@ describe("Repeat installs are safe", () => {
                 find: unexpected,
                 resolveNamedRegistry: unexpected,
                 fetch: unexpected,
-                acquireForTransition: unexpected,
               }),
+              Effect.provideService(PlanSources, { ...planSources, acquire: unexpected }),
             );
             expect(deriveOperationOutcome(repeated), JSON.stringify(repeated)).toBe("no-op");
             expect(durableState(world)).toEqual(before);
@@ -271,6 +273,7 @@ describe("Repeat installs are safe", () => {
               const before = durableState(world);
               repository.advance();
               const sources = yield* SourceHostProviders;
+              const planSources = yield* PlanSources;
               const unexpected = () =>
                 Effect.die(new Error("Warm Git install consulted the moved source"));
               const repeated = yield* applyInstall(
@@ -289,13 +292,16 @@ describe("Repeat installs are safe", () => {
                       : unexpected(),
                   fetch: unexpected,
                   resolveNamedRegistry: unexpected,
-                  acquireForTransition: (ref) =>
+                }),
+                Effect.provideService(PlanSources, {
+                  ...planSources,
+                  acquire: (ref) =>
                     ref.refType === "git-hosted" &&
                     ref.gitCommitSha === repository.acceptedCommit &&
                     fromFileLocation(ref.location).startsWith(
                       `${world.workspace.root}/agent_extensions/`,
                     )
-                      ? sources.acquireForTransition(ref)
+                      ? planSources.acquire(ref)
                       : unexpected(),
                 }),
               );

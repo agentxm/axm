@@ -24,6 +24,7 @@ import {
   WorkspaceRecords,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
+import { PlanSources } from "@agentxm/workspace-kernel/planning";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { writeAgentSkillDirectory } from "../../testing/local-packages.js";
@@ -145,6 +146,7 @@ describe("Activation follows desired state", () => {
           const before = world.workspace.snapshot();
           const accepted = world.workspace.readFile("axm.lock");
           const sources = yield* SourceHostProviders;
+          const planSources = yield* PlanSources;
           const unexpected = () =>
             Effect.die("Unrelated activation must not fetch an acquired Pack graph");
           yield* Effect.gen(function* () {
@@ -160,8 +162,8 @@ describe("Activation follows desired state", () => {
               find: unexpected,
               resolveNamedRegistry: unexpected,
               fetch: unexpected,
-              acquireForTransition: unexpected,
             }),
+            Effect.provideService(PlanSources, { ...planSources, acquire: unexpected }),
           );
           expect(acceptedResolutions(world.workspace.readFile("axm.lock"))).toBe(
             acceptedResolutions(accepted),

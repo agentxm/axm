@@ -180,91 +180,94 @@ export const withOperationLifecycle = <A, E, R>(
 ) =>
   Effect.scoped(
     Effect.uninterruptibleMask((restore) =>
-      Effect.gen(function* () {
-        const journal = yield* makeOperationJournal;
-        const invocation = yield* Ref.make(Option.none<CommandInvocation>());
-        const footprint = yield* makeFootprintRecorder;
-        const path = yield* Path.Path;
-        return yield* restore(
-          withLiveOperation(
-            {
-              name: args.planName,
-              mode: args.mode,
-              ...(args.productActivity === undefined
-                ? {}
-                : { productActivity: args.productActivity }),
-            },
-            publishPhaseStarted("resolution").pipe(
-              Effect.andThen(body),
-              Effect.provideService(OperationJournal, journal),
-              Effect.provideService(OperationInvocation, invocation),
-              Effect.provideService(FootprintRecorder, footprint),
+      Effect.all({
+        journal: makeOperationJournal,
+        invocation: Ref.make(Option.none<CommandInvocation>()),
+        footprint: makeFootprintRecorder,
+        path: Path.Path,
+      }).pipe(
+        Effect.flatMap(({ journal, invocation, footprint, path }) =>
+          restore(
+            withLiveOperation(
+              {
+                name: args.planName,
+                mode: args.mode,
+                ...(args.productActivity === undefined
+                  ? {}
+                  : { productActivity: args.productActivity }),
+              },
+              publishPhaseStarted("resolution").pipe(
+                Effect.andThen(body),
+                Effect.provideService(OperationJournal, journal),
+                Effect.provideService(OperationInvocation, invocation),
+                Effect.provideService(FootprintRecorder, footprint),
+              ),
+            ),
+          ).pipe(
+            Effect.catchCause((cause) =>
+              Cause.hasInterruptsOnly(cause)
+                ? Effect.gen(function* () {
+                    const state = yield* getOperationJournal.pipe(
+                      Effect.provideService(OperationJournal, journal),
+                    );
+                    const signal = requestedInterruptionSignal() ?? "SIGINT";
+                    // The observed footprint travels with the interruption: what
+                    // was durably touched before the signal landed.
+                    const workspace = yield* WorkspaceLocation;
+                    const observed = (yield* readFootprint.pipe(
+                      Effect.provideService(FootprintRecorder, footprint),
+                    ))
+                      .map((entry) => ({
+                        path: path.isAbsolute(entry.path)
+                          ? path.relative(workspace.baseDir, entry.path)
+                          : entry.path,
+                        change: entry.change,
+                      }))
+                      .filter((entry) => isRelativeWithin(path, entry.path))
+                      .filter(
+                        (entry, index, entries) =>
+                          entries.findIndex(
+                            (other) => other.path === entry.path && other.change === entry.change,
+                          ) === index,
+                      )
+                      .sort((left, right) =>
+                        left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
+                      );
+                    // An interruption leaves nothing behind in the workspace:
+                    // the terminal report's recovery content and the next
+                    // run's ordinary convergence carry the retained work. A
+                    // restoration failure reports through the transaction's
+                    // typed error instead, on this same emit boundary.
+                    const resolution = resolveInterruption(
+                      {
+                        planName: args.planName,
+                        mode: args.mode,
+                        ...(args.declaredAtomicity === undefined
+                          ? {}
+                          : { declaredAtomicity: args.declaredAtomicity }),
+                        ...(args.presentation === undefined
+                          ? {}
+                          : { presentation: args.presentation }),
+                        replayCommand: Option.getOrUndefined(
+                          Option.flatMap(yield* Ref.get(invocation), (value) =>
+                            Option.fromUndefinedOr(renderCommandInvocation(value)),
+                          ),
+                        ),
+                      },
+                      state,
+                      signal,
+                      observed,
+                    );
+                    const { exitCode } = yield* emitOperationResolution(resolution);
+                    // Inside the uninterruptible mask: the completion event must
+                    // land before the original interruption continues to the process owner.
+                    yield* recordCommandCompletion(exitCode);
+                    return yield* Effect.failCause(cause);
+                  })
+                : Effect.failCause(cause),
             ),
           ),
-        ).pipe(
-          Effect.catchCause((cause) =>
-            Cause.hasInterruptsOnly(cause)
-              ? Effect.gen(function* () {
-                  const state = yield* getOperationJournal.pipe(
-                    Effect.provideService(OperationJournal, journal),
-                  );
-                  const signal = requestedInterruptionSignal() ?? "SIGINT";
-                  // The observed footprint travels with the interruption: what
-                  // was durably touched before the signal landed.
-                  const workspace = yield* WorkspaceLocation;
-                  const observed = (yield* readFootprint.pipe(
-                    Effect.provideService(FootprintRecorder, footprint),
-                  ))
-                    .map((entry) => ({
-                      path: path.isAbsolute(entry.path)
-                        ? path.relative(workspace.baseDir, entry.path)
-                        : entry.path,
-                      change: entry.change,
-                    }))
-                    .filter((entry) => isRelativeWithin(path, entry.path))
-                    .filter(
-                      (entry, index, entries) =>
-                        entries.findIndex(
-                          (other) => other.path === entry.path && other.change === entry.change,
-                        ) === index,
-                    )
-                    .sort((left, right) =>
-                      left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
-                    );
-                  // An interruption leaves nothing behind in the workspace:
-                  // the terminal report's recovery content and the next
-                  // run's ordinary convergence carry the retained work. A
-                  // restoration failure reports through the transaction's
-                  // typed error instead, on this same emit boundary.
-                  const resolution = resolveInterruption(
-                    {
-                      planName: args.planName,
-                      mode: args.mode,
-                      ...(args.declaredAtomicity === undefined
-                        ? {}
-                        : { declaredAtomicity: args.declaredAtomicity }),
-                      ...(args.presentation === undefined
-                        ? {}
-                        : { presentation: args.presentation }),
-                      replayCommand: Option.getOrUndefined(
-                        Option.flatMap(yield* Ref.get(invocation), (value) =>
-                          Option.fromUndefinedOr(renderCommandInvocation(value)),
-                        ),
-                      ),
-                    },
-                    state,
-                    signal,
-                    observed,
-                  );
-                  const { exitCode } = yield* emitOperationResolution(resolution);
-                  // Inside the uninterruptible mask: the completion event must
-                  // land before the original interruption continues to the process owner.
-                  yield* recordCommandCompletion(exitCode);
-                  return yield* Effect.failCause(cause);
-                })
-              : Effect.failCause(cause),
-          ),
-        );
-      }),
+        ),
+      ),
     ),
   );

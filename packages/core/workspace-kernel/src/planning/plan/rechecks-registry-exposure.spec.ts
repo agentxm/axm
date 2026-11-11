@@ -1,3 +1,5 @@
+import { PlanSources, makePlanSources } from "./plan-sources.js";
+import { SourceHostProvidersTest } from "../../sources/testing.js";
 import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -166,7 +168,14 @@ describe("Registry eligibility at exposure", () => {
           Effect.provide(
             Layer.merge(
               context.layer,
-              RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, http)),
+              Layer.effect(PlanSources, makePlanSources).pipe(
+                Layer.provide(
+                  Layer.merge(
+                    SourceHostProvidersTest(),
+                    RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, http)),
+                  ),
+                ),
+              ),
             ),
           ),
         );

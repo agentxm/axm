@@ -1,3 +1,4 @@
+import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 /**
  * Inline MCP servers: an MCP server this workspace defines in its own
  * settings rather than acquiring as a package.
@@ -456,7 +457,7 @@ const previewOrApplyAddInlineMcpServer = (
 ): Effect.Effect<
   OperationResolution<void>,
   PlanResolutionFailure,
-  AddInlineMcpServerRequirements
+  AddInlineMcpServerRequirements | PlanSources
 > =>
   resolveExecutionCandidate(candidate.execution, execution, {
     additionalFreshness: () => candidate.nativeTargetsCurrent,

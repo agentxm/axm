@@ -97,9 +97,10 @@
     },
     "apps/cli": {
       "includeEntryExports": false,
-      // Explicit roots for source-conditioned Bun launchers.
+      // Explicit roots for source-conditioned Bun launchers and compiler-only tests.
       "entry": [
         "src/main.ts",
+        "src/**/*.type-test.ts",
         "scripts/generate-agent-catalog.ts",
         "scripts/generate-cli-reference.ts",
         "scripts/generate-schemas.ts",

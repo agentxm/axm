@@ -1,3 +1,4 @@
+import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 import {
   type NativeEntryRemoval,
   combineNativeLocationOutcomes,
@@ -953,8 +954,11 @@ const prepareActivation = <R>(
 const previewOrApplyActivation = (
   candidate: ActivationCandidate,
   execution: PlanExecution,
-): Effect.Effect<OperationResolution<void>, PlanResolutionFailure, ActivationRequirements> =>
-  resolveExecutionCandidate(candidate.execution, execution);
+): Effect.Effect<
+  OperationResolution<void>,
+  PlanResolutionFailure,
+  ActivationRequirements | PlanSources
+> => resolveExecutionCandidate(candidate.execution, execution);
 
 export const EnableExtension = {
   prepare: (

@@ -32,7 +32,7 @@ import {
   type PlanInteractionFailed,
 } from "../../operations/index.js";
 import { preapprovedPlanExecution, promptablePlanExecution } from "./plan-execution-fixtures.js";
-import { ResolvePlanInteractionTest } from "../testing.js";
+import { PlanSourcesTest, ResolvePlanInteractionTest } from "../testing.js";
 import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 import { workspaceTransactionFailureToStepFailure } from "../../workspace-state/index.js";
 import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
@@ -121,6 +121,7 @@ const context = (
       WorkspaceReadTest({ baseDir: nodePath.dirname(workspaceDir), runtimeDir: workspaceDir }),
       WorkspaceRecordsEmpty,
       interaction.layer,
+      PlanSourcesTest(),
       ConfiguredAgentOutcomesProviderTest,
       Layer.effect(OperationJournal, makeOperationJournal),
       Layer.effect(FootprintRecorder, makeFootprintRecorder),

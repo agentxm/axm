@@ -68,7 +68,7 @@
   "nx": {
     "includedScripts": []
   },
-  "packageManager": "pnpm@12.15.0",
+  "packageManager": "pnpm@12.18.0",
   "devDependencies": {
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/client-e2e-utils": "workspace:*",
@@ -101,7 +101,7 @@
     "@types/semver": "catalog:",
     "@typescript-eslint/parser": "catalog:",
     "@typescript/native": "catalog:",
-    "@vitest/coverage-v8": "5.0.5",
+    "@vitest/coverage-v8": "5.1.0",
     "allure": "catalog:",
     "dependency-cruiser": "catalog:",
     "effect": "catalog:",

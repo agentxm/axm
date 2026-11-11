@@ -369,7 +369,7 @@ jobs:
       - name: Set up pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@12.15.0 --activate
+          corepack prepare pnpm@12.18.0 --activate
           pnpm --version
 
       - name: Set up Bun
@@ -490,7 +490,7 @@ jobs:
       - name: Set up pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@12.15.0 --activate
+          corepack prepare pnpm@12.18.0 --activate
           pnpm --version
 
       - name: Set up Bun

@@ -11,7 +11,7 @@ const observeBranch = (
   command: Command.Command.Any,
   remainingRoute: ReadonlyArray<string>,
   observe: (input: unknown) => void,
-): Command.Command<string, never, unknown> => {
+): Command.Command<string, never, unknown, unknown> => {
   const replaced = Command.withHandler(command, (input: unknown) =>
     Effect.sync(() => {
       if (remainingRoute.length !== 0)

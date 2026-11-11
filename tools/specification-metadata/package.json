@@ -36,7 +36,7 @@
     "includedScripts": []
   },
   "peerDependencies": {
-    "effect": "^4.1.1"
+    "effect": "^4.1.3"
   },
   "devDependencies": {
     "@agentxm/test-reporting": "workspace:*",

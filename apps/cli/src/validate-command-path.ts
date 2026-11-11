@@ -13,7 +13,10 @@ const probeFlag = "--axm-command-path-probe";
  * Succeeds with the route the parser resolved: the command words after the
  * root, for the dispatcher to hand the command it runs.
  */
-export const validateCommandPath = (command: Command.Command.Any, argv: ReadonlyArray<string>) =>
+export const validateCommandPath = <Name extends string, Input, ContextInput, E, R>(
+  command: Command.Command<Name, Input, ContextInput, E, R>,
+  argv: ReadonlyArray<string>,
+) =>
   Effect.gen(function* () {
     const config = yield* CliConfig.CliConfig;
     const actionSettings = config.builtIns.flatMap((flag, index) =>
@@ -34,13 +37,17 @@ export const validateCommandPath = (command: Command.Command.Any, argv: Readonly
         builtIns: config.builtIns.filter((flag) => flag._tag !== "Action"),
       }),
       Effect.provideService(CliOutput.Presenter, { present: () => Effect.void }),
-      Effect.catchTag("ShowHelp", (error) => {
-        const errors = error.errors.filter(
-          (entry) => entry._tag !== "UnrecognizedOption" || entry.option !== probeFlag,
-        );
-        return errors.some((entry) => entry._tag === "UnknownSubcommand")
-          ? Effect.fail(new CliError.ShowHelp({ commandPath: error.commandPath, errors }))
-          : Effect.succeed(error.commandPath.slice(1));
-      }),
+      Effect.catchIf(
+        (error): error is CliError.ShowHelp =>
+          CliError.isCliError(error) && error._tag === "ShowHelp",
+        (error) => {
+          const errors = error.errors.filter(
+            (entry) => entry._tag !== "UnrecognizedOption" || entry.option !== probeFlag,
+          );
+          return errors.some((entry) => entry._tag === "UnknownSubcommand")
+            ? Effect.fail(new CliError.ShowHelp({ commandPath: error.commandPath, errors }))
+            : Effect.succeed(error.commandPath.slice(1));
+        },
+      ),
     );
   });

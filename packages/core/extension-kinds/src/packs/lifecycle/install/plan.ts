@@ -19,6 +19,7 @@ import {
   sourceResolutionRefused,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
+  type KernelFailure,
 } from "@agentxm/workspace-kernel/reconciliation";
 /**
  * Installing a pack.
@@ -677,6 +678,18 @@ export const planPackInstall: (
 ) => Effect.Effect<Plan<InstallStepRequirements>, OperationRefused, PackInstallRequirements> =
   Effect.fn("InstallExtensions.planPack")(function* (intent: PackInstallIntent) {
     const conversion = yield* StepFailureConversion;
+    const projectionRefusal = (cause: KernelFailure) => {
+      const failure = conversion.toStepFailure(cause);
+      return installRefused({
+        category: failure.category,
+        title: failure.title,
+        detail: failure.detail,
+        metadata: failure.metadata,
+        retryable: failure.retryable,
+        suggestions: failure.suggestions,
+        cause,
+      });
+    };
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
     const packManager = yield* PackManager;
@@ -893,13 +906,7 @@ export const planPackInstall: (
                   proposedRefs: intent.projectionRefs ?? refs,
                 }),
               ),
-              Effect.mapError((cause) =>
-                installRefused({
-                  category: "conflict",
-                  detail: "Pack Hook native locations cannot represent the proposed graph",
-                  cause,
-                }),
-              ),
+              Effect.mapError(projectionRefusal),
             );
     const ruleRefs = refs.filter((ref) => ref.type === "rule");
     const knowledgeRefs = refs.filter((ref) => ref.type === "knowledge");
@@ -951,13 +958,7 @@ export const planPackInstall: (
                   proposedRefs: intent.projectionRefs ?? refs,
                 }),
               ),
-              Effect.mapError((cause) =>
-                installRefused({
-                  category: "conflict",
-                  detail: "Pack Rule native locations cannot represent the proposed graph",
-                  cause,
-                }),
-              ),
+              Effect.mapError(projectionRefusal),
             );
     const knowledgeExposures =
       knowledgeRefs.length === 0
@@ -983,13 +984,7 @@ export const planPackInstall: (
                   proposedRefs: intent.projectionRefs ?? refs,
                 }),
               ),
-              Effect.mapError((cause) =>
-                installRefused({
-                  category: "conflict",
-                  detail: "Pack Knowledge native locations cannot represent the proposed graph",
-                  cause,
-                }),
-              ),
+              Effect.mapError(projectionRefusal),
             );
     const currentPackNode = graph.nodes.find(
       (node) => node.type === "pack" && node.name === intent.packToInstall.pack.name,

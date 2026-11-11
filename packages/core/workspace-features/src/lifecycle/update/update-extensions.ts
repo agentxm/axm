@@ -599,6 +599,11 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
   const providers = yield* SourceHostProviders;
   const accepted = yield* acceptedRegistryFloor(intent);
   const desired = desiredNodeForIntent(yield* (yield* DesiredStateReader).graph(), intent);
+  const durableRange = Option.orElse(intent.versionRange, () =>
+    Option.fromUndefinedOr(
+      desired?.origins.find((origin) => origin.type === "settings")?.constraint,
+    ).pipe(Option.map(decodeVersionRangeSync)),
+  );
   const current = request.reinstall
     ? Option.map(
         yield* acceptedConfiguredResolution({
@@ -631,7 +636,7 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
       Option.isSome(current) && current.value.refType === "registry"
         ? Option.some(decodeVersionRangeSync(current.value.version))
         : targetedContext?.public.effectiveConstraint === undefined
-          ? intent.versionRange
+          ? durableRange
           : Option.some(decodeVersionRangeSync(targetedContext.public.effectiveConstraint)),
     releaseAgeEvaluation,
     ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
@@ -695,6 +700,7 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
         })
       : yield* planTargetedDirect({
           intent,
+          durableRange,
           reinstall: request.reinstall === true,
           ref: selected.ref,
           nonInteractive: request.nonInteractive,
@@ -755,6 +761,7 @@ const requirePackMemberRef = (
  */
 const planTargetedDirect = Effect.fn("UpdateExtensions.planTargetedDirect")(function* (args: {
   readonly intent: RootUpdateIntent;
+  readonly durableRange: Option.Option<VersionRange>;
   readonly reinstall: boolean;
   readonly ref: ExtensionRef;
   readonly nonInteractive: boolean;
@@ -762,18 +769,12 @@ const planTargetedDirect = Effect.fn("UpdateExtensions.planTargetedDirect")(func
   readonly context?: TargetedUpdateContext;
 }) {
   const { intent, context } = args;
-  const durableRange =
-    intent.type === "pack"
-      ? intent.versionRange
-      : Option.fromUndefinedOr(
-          Option.getOrUndefined(intent.versionRange) ?? context?.public.direct?.constraint,
-        ).pipe(Option.map(decodeVersionRangeSync));
 
   const planned = yield* planResolvedTarget({
     intent,
     reinstall: args.reinstall,
     ref: args.ref,
-    versionRange: durableRange,
+    versionRange: args.durableRange,
     nonInteractive: args.nonInteractive,
     releaseAgeEvaluation: args.releaseAgeEvaluation,
   });

@@ -18,12 +18,22 @@ import {
   type PackageAddressClaim,
 } from "../../workspace-state/index.js";
 
-export const preflightPackagePlacement = (refs: ReadonlyArray<ExtensionRef>) =>
+export const preflightPackagePlacement = (
+  acquisitionRefs: ReadonlyArray<ExtensionRef>,
+  exposureRefs: ReadonlyArray<ExtensionRef>,
+) =>
   Effect.gen(function* () {
     const selected: PackageAddressClaim[] = [];
     const paths: string[] = [];
     const snapshots = new Map<string, string>();
-    for (const ref of refs) {
+    // Closures may read accepted bytes before another closure advances that
+    // package. Those exposures still need address/ownership checks, but only
+    // selected acquisitions must agree on the snapshot that will be written.
+    // Registry exposure authorization independently checks every exact ref.
+    for (const { ref, acquire } of [
+      ...acquisitionRefs.map((ref) => ({ ref, acquire: true })),
+      ...exposureRefs.map((ref) => ({ ref, acquire: false })),
+    ]) {
       if (ref.refType === "workspace") continue;
       if (ref.refType === "local") {
         const source = yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location)).pipe(
@@ -51,7 +61,7 @@ export const preflightPackagePlacement = (refs: ReadonlyArray<ExtensionRef>) =>
       const claim = packageAddressClaimForRef(ref);
       if (Result.isFailure(claim))
         return yield* new StepFailure({ category: "validation", detail: claim.failure.detail });
-      if (ref.refType !== "local") {
+      if (acquire && ref.refType !== "local") {
         const snapshot = sourceRefContentKey(ref);
         const prior = snapshots.get(claim.success.packageKey);
         if (prior !== undefined && prior !== snapshot)

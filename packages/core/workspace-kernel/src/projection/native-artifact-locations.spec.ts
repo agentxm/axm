@@ -326,6 +326,44 @@ describe("Native artifact location outcomes", () => {
       }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 
+  it.effect("conditional readers do not erase an instruction alias's proven ownership", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const alias = path.join(root, ".claude/CLAUDE.md");
+      yield* fs.makeDirectory(path.dirname(alias));
+      yield* fs.writeFileString(path.join(root, "AGENTS.md"), "# Shared guidance\n");
+      yield* fs.symlink("../AGENTS.md", alias);
+      const observed = yield* observeInstructionProjection({
+        rows: new Map(),
+        workspaceRoot: root,
+        scope: "user",
+        configuredAgents: ["claude-code"],
+        config: { fileName: "AGENTS.md", gitignoreAliases: false },
+        symlinkSupported: true,
+      });
+      const matching = observed.nativeLocations.filter(
+        (location) => location.address.path === alias,
+      );
+      expect(matching).toHaveLength(1);
+      expect(matching[0]).toMatchObject({
+        configuredConsumers: ["claude-code"],
+        potentialReaders: expect.arrayContaining(["claude-code", "opencode"]),
+        ownership: "owned",
+        state: "unchanged",
+        proof: "exact-canonical-source-link",
+        availability: expect.arrayContaining([
+          {
+            agentId: "opencode",
+            state: "unverified",
+            reason: expect.stringContaining("applicability is unverified"),
+          },
+        ]),
+      });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
   it.effect.each([false, true])("reports bounded retirement with foreign children: %s", (foreign) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

@@ -485,10 +485,8 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
     ),
   );
   const placement = yield* preflightPackagePlacement(
-    originalSteps.flatMap((step) => [
-      ...acquisitionRefsForStep(step),
-      ...(step.exposureRefs ?? []),
-    ]),
+    originalSteps.flatMap(acquisitionRefsForStep),
+    originalSteps.flatMap((step) => step.exposureRefs ?? []),
   ).pipe(Effect.result);
   const placementPlan: Plan<Requirements, Output> = Result.isSuccess(placement)
     ? {

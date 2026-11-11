@@ -143,6 +143,7 @@ import {
   packUpdateGroups,
   planPackInstall,
   readProposedGraph,
+  selectPackGraph,
 } from "@agentxm/extension-kinds/packs";
 import { planRuleInstall, type RuleInstallIntent } from "@agentxm/extension-kinds/instructions";
 import { planSkillInstall, type SkillInstallIntent } from "@agentxm/extension-kinds/skills";
@@ -1128,9 +1129,38 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
       blockedGroups.length === 0 || readyAdvances.length === 0
         ? graph
         : yield* readProposedGraph(readyAdvances.map(({ intent }) => intent.packToInstall));
-    const selectedPlans = yield* Effect.forEach(
+    // Independent Packs can contribute to the same native instruction file.
+    // Select their members before projection preflight so each plan observes
+    // the complete proposed output instead of mixing accepted and new bytes.
+    const selectedGraphs = yield* Effect.forEach(
       readyAdvances,
-      ({ intent }) => planPackInstall({ ...intent, desiredGraph: readyGraph }),
+      ({ intent }) =>
+        selectPackGraph({ ...intent, desiredGraph: readyGraph }).pipe(
+          Effect.mapError((cause) => {
+            const failure = conversion.toStepFailure(cause);
+            return installRefused({
+              category: failure.category,
+              detail: failure.detail,
+              suggestions: failure.suggestions,
+              cause,
+            });
+          }),
+          Effect.map((selection) => ({ intent, selection })),
+        ),
+      { concurrency: 16 },
+    );
+    const projectionRefs = selectedGraphs.flatMap(({ selection }) =>
+      selection.kind === "selected" ? selection.refs : [],
+    );
+    const selectedPlans = yield* Effect.forEach(
+      selectedGraphs,
+      ({ intent, selection }) =>
+        planPackInstall({
+          ...intent,
+          desiredGraph: readyGraph,
+          preparedSelection: selection,
+          projectionRefs,
+        }),
       { concurrency: 16 },
     );
     const plannedCollections = resolved.flatMap((item) =>

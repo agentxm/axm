@@ -151,7 +151,13 @@ export const observeInstructionNativeLocations = (args: {
       }),
     );
     const conditionalLocations = yield* Effect.forEach(
-      readers.filter((reader) => reader.condition !== undefined),
+      // Existing targets already carry conditional readers and their uncertain
+      // applicability. A second observation must not erase proven ownership.
+      readers.filter(
+        (reader) =>
+          reader.condition !== undefined &&
+          !locations.some((location) => location.address.path === reader.physical),
+      ),
       (reader) =>
         Effect.gen(function* () {
           const address = yield* observed.entry(reader.lexical).pipe(Effect.result);

@@ -249,6 +249,7 @@ interface RegistryPackVersion {
 interface RegistryKnowledgeVersion {
   readonly version: string;
   readonly body: string;
+  readonly description?: string;
   readonly published?: string;
 }
 
@@ -572,28 +573,30 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
       directory,
       "knowledge",
       name,
-      versions.map(({ version, body, published }) => ({
-        version,
-        published: published ?? FIXTURE_PUBLISHED_AT,
-        integrity: integrityOf(
-          writeArchive(directory, version, {
-            "knowledge.json": `${JSON.stringify(
-              {
-                owner: FIXTURE_OWNER,
-                type: "knowledge",
-                name,
-                version,
-                description: `The ${name} knowledge bundle.`,
-                format: { name: "okf", version: "0.2" },
-                bundleRoot: "src",
-              },
-              null,
-              2,
-            )}\n`,
-            "src/index.md": `---\nokf_version: "0.2"\ndescription: "The ${name} knowledge bundle."\n---\n\n# ${name}\n\n${body}\n`,
-          }),
-        ),
-      })),
+      versions.map(
+        ({ version, body, description = `The ${name} knowledge bundle.`, published }) => ({
+          version,
+          published: published ?? FIXTURE_PUBLISHED_AT,
+          integrity: integrityOf(
+            writeArchive(directory, version, {
+              "knowledge.json": `${JSON.stringify(
+                {
+                  owner: FIXTURE_OWNER,
+                  type: "knowledge",
+                  name,
+                  version,
+                  description,
+                  format: { name: "okf", version: "0.2" },
+                  bundleRoot: "src",
+                },
+                null,
+                2,
+              )}\n`,
+              "src/index.md": `---\nokf_version: "0.2"\ndescription: ${JSON.stringify(description)}\n---\n\n# ${name}\n\n${body}\n`,
+            }),
+          ),
+        }),
+      ),
     );
   };
 

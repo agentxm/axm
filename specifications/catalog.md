@@ -545,6 +545,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Limitation: Examples drive the shared operation document and the retry policy. That each adapter spells its own route correctly is witnessed by that adapter's tests. Retires when: Bind adapter evidence here when a route's spelling becomes an accepted obligation of its own.
 - Source: [`apps/cli/src/non-success-results-name-a-fitting-recovery.spec.ts`](../apps/cli/src/non-success-results-name-a-fitting-recovery.spec.ts)
 
+##### Pack projection refusals retain the instruction recovery
+
+- Requirement: `cli/packs/reports-instruction-recovery`
+- Owner: `workspace-features`
+- Statement: When Pack installation or update is refused because a required instruction route is not current, AXM shall expose the affected path and the producer's explanation in the ordinary refusal and offer a sync recovery addressed to the selected workspace scope.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Pack planning and failure rendering inspect a missing native alias in a temporary workspace; executing sync and retrying establish that the recovery repairs the refused precondition.
+- Methods: example
+- Derived from: `cli/non-success-results-name-a-fitting-recovery`
+- Additional evidence: process via [`apps/cli-e2e/src/pack-instruction-recovery.e2e.test.ts`](../apps/cli-e2e/src/pack-instruction-recovery.e2e.test.ts) — The built CLI must show the producer's path and recovery in both ordinary and machine output; replaying that command must repair the selected project or user scope and make the refused Pack operation succeed.
+- Source: [`packages/core/workspace-features/src/lifecycle/update/reports-instruction-recovery.spec.ts`](../packages/core/workspace-features/src/lifecycle/update/reports-instruction-recovery.spec.ts)
+
 ##### A read carries the credential the invocation holds
 
 - Requirement: `cli/reads-carry-the-invocations-credential`

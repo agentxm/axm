@@ -18,7 +18,11 @@ import {
   nativeUnitReference,
   type NativeLocationOutcome,
 } from "../../locations/index.js";
-import type { ConfiguredAgentOutcome } from "../../operations/index.js";
+import {
+  publicRecoveryValue,
+  recoveryOption,
+  type ConfiguredAgentOutcome,
+} from "../../operations/index.js";
 import type { ProjectionUnitObservation } from "../units.js";
 import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
 import type * as FileSystem from "effect/FileSystem";
@@ -437,25 +441,29 @@ export const observeInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>
   const config = yield* activeInstructionsConfig();
   if (Option.isNone(config)) return observations;
   const path = yield* Path.Path;
+  const location = yield* WorkspaceLocation;
   const prospectiveRoots = [
     ...new Set(
       routeLocations.flatMap((unit) =>
         unit.aliases
           .filter((alias) => alias.endsWith(path.sep + path.normalize(config.value.fileName)))
           .map((alias) =>
-            path.resolve(
-              alias,
-              ...path
-                .normalize(config.value.fileName)
-                .split(path.sep)
-                .map(() => ".."),
-            ),
+            // User aliases such as ~/.codex/AGENTS.md are routes from one
+            // home source, not additional roots for instruction propagation.
+            location.scope === "user"
+              ? location.baseDir
+              : path.resolve(
+                  alias,
+                  ...path
+                    .normalize(config.value.fileName)
+                    .split(path.sep)
+                    .map(() => ".."),
+                ),
           ),
       ),
     ),
   ];
   if (prospectiveRoots.length === 0) return observations;
-  const location = yield* WorkspaceLocation;
   const configuredAgents =
     options?.configuredAgents ?? (yield* (yield* SettingsReader).configuredAgents);
   const snapshot = yield* observeInstructionProjection({
@@ -533,7 +541,19 @@ export const observeInstructionSurfacePlans = Effect.fnUntraced(function* <E, R>
     )
       return yield* new InstructionMaintenanceFailed({
         category: "conflict",
-        detail: `Required instruction route is not current at ${route.targetFile}; run axm sync to restore the configured instruction files.`,
+        detail: `Required instruction route is not current at ${route.targetFile}; run axm sync${location.scope === "user" ? " --scope user" : ""} to restore the configured instruction files.`,
+        suggestions: [
+          {
+            description: "Restore the configured instruction files",
+            invocation: {
+              command: ["sync"],
+              arguments:
+                location.scope === "user"
+                  ? [recoveryOption("--scope", publicRecoveryValue("user"))]
+                  : [],
+            },
+          },
+        ],
       });
   }
   const proposedRoutes = requiredRoutes.filter((route) =>

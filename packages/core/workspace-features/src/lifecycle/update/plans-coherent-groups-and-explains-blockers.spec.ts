@@ -81,6 +81,67 @@ describe("A workspace update plans coherent groups", () => {
     return created;
   };
 
+  for (const kind of ["rule", "knowledge"] as const)
+    for (const raiseMinimum of [false, true])
+      it.effect(
+        `independent ${kind} Packs and direct Knowledge update together (raise minimum: ${raiseMinimum})`,
+        () => {
+          const { workspace, registry, cleanup } = makeInstallWorld({
+            settings: {
+              agents: ["claude-code", "codex"],
+              instructionFiles: { fileName: "AGENTS.md" },
+            },
+          });
+          cleanups.push(cleanup);
+          const plural = kind === "rule" ? "rules" : "knowledge";
+          const publish = (name: string, advance: boolean) => {
+            const versions = [
+              { version: "1.0.0", body: `${name} old.`, description: `${name} old.` },
+              ...(advance
+                ? [{ version: "1.1.0", body: `${name} new.`, description: `${name} new.` }]
+                : []),
+            ];
+            if (kind === "rule") registry.writeRule(name, versions);
+            else registry.writeKnowledge(name, versions);
+            registry.writePack(
+              `${name}-pack`,
+              versions.map(({ version }) => ({
+                version,
+                dependencies: {
+                  [`@acme/${plural}/${name}`]: raiseMinimum ? `^${version}` : "^1.0.0",
+                },
+              })),
+            );
+          };
+          for (const name of ["alpha", "beta"]) publish(name, false);
+          registry.writeKnowledge("direct", [{ version: "3.0.0", body: "Unrelated guidance." }]);
+          return workspace
+            .provide(
+              Effect.gen(function* () {
+                for (const name of ["alpha", "beta"]) yield* installPack(`${name}-pack`);
+                yield* applyInstall(
+                  installRequest({
+                    type: "knowledge",
+                    subject: { kind: "source", source: "@acme/knowledge/direct" },
+                  }),
+                );
+                const before = workspace.snapshot();
+                for (const name of ["alpha", "beta"]) publish(name, true);
+                const preview = expectResolved(yield* previewUpdate(configuredUpdateRequest({})));
+                expect(workspace.snapshot()).toEqual(before);
+                expect(deriveOperationOutcome(preview), JSON.stringify(preview)).toBe("previewed");
+                const applied = expectResolved(yield* applyUpdate(configuredUpdateRequest({})));
+                expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe("applied");
+                expect(workspace.readFile("axm.lock")).not.toContain('version = "1.0.0"');
+                expect(workspace.readFile("AGENTS.md")).toContain("alpha new.");
+                expect(workspace.readFile("AGENTS.md")).toContain("beta new.");
+                expect(workspace.readFile("AGENTS.md")).toContain("direct");
+              }),
+            )
+            .pipe(Effect.provide(NodeServices.layer));
+        },
+      );
+
   it.effect("two selected Packs sharing a member advance on one member resolution", () => {
     const { workspace, registry } = world();
     registry.writeRule("shared", [{ version: "1.0.0", body: "First." }]);

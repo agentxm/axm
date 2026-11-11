@@ -361,8 +361,8 @@ describe("workspace transition lock", () => {
       const lock = yield* makeWorkspaceTransitionLock;
       const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
       const reachedHolderWrite = yield* Deferred.make<void>();
-      // A FileSystem whose holder write parks long enough for the test to
-      // interrupt the acquiring fiber mid-acquisition, deterministically.
+      const finishHolderWrite = yield* Deferred.make<void>();
+      // Hold the native write until interruption has been requested.
       const gatedServices = Layer.effect(
         FileSystem.FileSystem,
         Effect.gen(function* () {
@@ -372,7 +372,7 @@ describe("workspace transition lock", () => {
             writeFileString: (...args: Parameters<FileSystem.FileSystem["writeFileString"]>) =>
               args[0].endsWith("holder.json")
                 ? Deferred.succeed(reachedHolderWrite, void 0).pipe(
-                    Effect.andThen(Effect.sleep("50 millis")),
+                    Effect.andThen(Deferred.await(finishHolderWrite)),
                     Effect.andThen(real.writeFileString(...args)),
                   )
                 : real.writeFileString(...args),
@@ -390,7 +390,12 @@ describe("workspace transition lock", () => {
         ).pipe(Effect.provide(gatedServices)),
       );
       yield* Deferred.await(reachedHolderWrite);
-      yield* Fiber.interrupt(fiber);
+      const interrupting = yield* Effect.forkChild(Fiber.interrupt(fiber), {
+        startImmediately: true,
+      });
+      yield* Deferred.succeed(finishHolderWrite, undefined);
+      yield* Fiber.join(interrupting);
+      expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true);
       expect(fs.existsSync(lockPath)).toBe(false);
       expect(Option.isSome(yield* lock.held(path.resolve(workspaceDir)))).toBe(false);
     }).pipe(Effect.provide(services)),

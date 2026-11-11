@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as nativeFs from "node:fs";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Deferred from "effect/Deferred";
@@ -82,29 +83,62 @@ describe("the credential home's refresh lock", () => {
   it.live("is given back by a waiter that stopped waiting", () =>
     Effect.gen(function* () {
       const home = yield* temporaryHome;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const target = path.join(home, "refresh");
+      yield* fs.writeFileString(target, "");
       const held = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
-
+      const attempted = yield* Deferred.make<void>();
+      const lateRelease = yield* Deferred.make<void>();
+      const entered = yield* Ref.make(false);
+      const failure = (cause: unknown) =>
+        new RegistryAccessFailed({ category: "auth", detail: "Refresh lock failed", cause });
+      const options = { retries: { retries: 40, minTimeout: 25, maxTimeout: 100 } };
       const holder = yield* Effect.forkChild(
-        withStore(home, (store) =>
-          store.withRefreshLock(
-            Deferred.succeed(held, undefined).pipe(Effect.andThen(Deferred.await(release))),
-          ),
+        withFileLock(
+          target,
+          options,
+          failure,
+          Deferred.succeed(held, undefined).pipe(Effect.andThen(Deferred.await(release))),
         ),
       );
       yield* Deferred.await(held);
 
+      // Exercise the real lock library and filesystem. Observe its failed grant
+      // and eventual abandoned release through its native filesystem port.
       const waiter = yield* Effect.forkChild(
-        withStore(home, (store) => store.withRefreshLock(Effect.void)),
+        withFileLock(
+          target,
+          {
+            ...options,
+            fs: {
+              ...nativeFs,
+              mkdir: (directory, callback) =>
+                nativeFs.mkdir(directory, (error) => {
+                  if (error?.code === "EEXIST") Deferred.doneUnsafe(attempted, Effect.void);
+                  callback(error);
+                }),
+              rmdir: (directory, callback) =>
+                nativeFs.rmdir(directory, (error) => {
+                  callback(error);
+                  if (error === null) Deferred.doneUnsafe(lateRelease, Effect.void);
+                }),
+            },
+          },
+          failure,
+          Ref.set(entered, true),
+        ),
       );
-      yield* Effect.sleep("100 millis");
-      // The interruption returns while the holder still has the lock: a caller's
-      // deadline is not extended by another invocation's turn.
-      yield* Fiber.interrupt(waiter);
-
+      yield* Deferred.await(attempted);
+      // The waiter finishes while the holder remains parked, then a late grant
+      // must be released before this test can finish.
+      yield* Fiber.interrupt(waiter).pipe(Effect.timeout("1 second"));
       yield* Deferred.succeed(release, undefined);
       yield* Fiber.join(holder);
-      yield* withStore(home, (store) => store.withRefreshLock(Effect.void));
+      yield* Deferred.await(lateRelease).pipe(Effect.timeout("2 seconds"));
+      expect(yield* Ref.get(entered)).toBe(false);
+      yield* withFileLock(target, options, failure, Effect.void);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

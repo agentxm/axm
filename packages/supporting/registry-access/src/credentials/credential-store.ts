@@ -202,7 +202,13 @@ const checkFilePermissions = (fs: FileSystem.FileSystem, filePath: string) =>
  */
 export const withFileLock = <A, E, R>(
   target: string,
-  options: Pick<lockfile.LockOptions, "retries" | "stale" | "update">,
+  options: Pick<lockfile.LockOptions, "retries" | "stale" | "update"> & {
+    /** Native operations used by proper-lockfile, replaceable at the adapter boundary. */
+    readonly fs?: Pick<typeof import("node:fs"), "stat" | "realpath" | "utimes"> & {
+      readonly mkdir: (path: string, callback: import("node:fs").NoParamCallback) => void;
+      readonly rmdir: (path: string, callback: import("node:fs").NoParamCallback) => void;
+    };
+  },
   failure: (cause: unknown) => RegistryAccessFailed,
   effect: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E | RegistryAccessFailed, R> =>

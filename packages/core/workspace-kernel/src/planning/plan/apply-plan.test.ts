@@ -399,9 +399,10 @@ describe("applyPlan interruption boundaries", () => {
   // before any interruptible boundary: an interrupt arriving with the
   // completion can otherwise erase the only in-memory evidence that the
   // unit's durable effect was committed.
-  it.live("records settlement before an interruptible boundary", () =>
+  it.effect("records settlement before an interruptible boundary", () =>
     Effect.gen(function* () {
       const settlementEntered = yield* Deferred.make<void>();
+      const finishSettlement = yield* Deferred.make<void>();
       const settled: Array<string> = [];
       const fiber = yield* Effect.forkChild(
         applyPlan(
@@ -409,11 +410,10 @@ describe("applyPlan interruption boundaries", () => {
             jobs: [{ concurrency: 1, steps: [makeReadyStep("a")] }],
           }),
           {
-            // The suspension inside the observation guarantees the interrupt
-            // is delivered while settlement is still being recorded.
+            // Hold the observation until the controller has requested interruption.
             onStepCompleted: (step) =>
               Deferred.succeed(settlementEntered, void 0).pipe(
-                Effect.andThen(Effect.sleep("50 millis")),
+                Effect.andThen(Deferred.await(finishSettlement)),
                 Effect.andThen(
                   Effect.sync(() => {
                     settled.push(step.label);
@@ -424,7 +424,12 @@ describe("applyPlan interruption boundaries", () => {
         ),
       );
       yield* Deferred.await(settlementEntered);
-      yield* Fiber.interrupt(fiber);
+      const interrupting = yield* Effect.forkChild(Fiber.interrupt(fiber), {
+        startImmediately: true,
+      });
+      yield* Deferred.succeed(finishSettlement, undefined);
+      yield* Fiber.join(interrupting);
+      expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true);
       expect(settled).toEqual(["a"]);
     }),
   );

@@ -34,6 +34,7 @@ describe("signal interruption", () => {
       );
 
       expect(result.code, result.stdout + result.stderr).toBe(130);
+      expect(result.stdout.trim(), result.stderr).not.toBe("");
       const document = JSON.parse(result.stdout);
       expect(document.ok).toBe(false);
       expect(document.result.contract).toBe("plan-result-v4");

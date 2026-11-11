@@ -46,13 +46,10 @@ const Inventory = Schema.Struct({
 });
 const decodeInventory = Schema.decodeUnknownSync(Schema.fromJsonString(Inventory));
 
-it.live(
+it.live.skipIf(process.platform !== "linux")(
   "lists 30 installed packages with their accepted lockfile",
   () =>
     Effect.gen(function* () {
-      expect(process.platform, "Run cli-e2e:test:performance on the Linux reference host").toBe(
-        "linux",
-      );
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();

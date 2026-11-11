@@ -53,8 +53,10 @@ function fixture(t) {
 set -eu
 if [ "$2" = verify:integration ]; then exec bash "$VERIFIER"; fi
 printf '%s\\n' "$*" >> "$CHECK_LOG"
-if [ "$2" = verify:integration:source ]; then
+if [ "$2" = verify:integration:source ] || [ "$2" = test:e2e:affected ]; then
   [ -z "\${GIT_DIR+x}" ] && [ -z "\${GIT_WORK_TREE+x}" ] || exit 9
+fi
+if [ "$2" = verify:integration:source ]; then
   [ "\${DIRTY_AFTER:-0}" = 0 ] || printf dirty > source.txt
   if [ "\${INIT_DURING_CHECK:-0}" = 1 ]; then
     temporary=$(mktemp -d)
@@ -64,6 +66,12 @@ if [ "$2" = verify:integration:source ]; then
   fi
   [ "\${BARE_AFTER:-0}" = 0 ] || git config core.bare true
   exit "\${CHECK_STATUS:-0}"
+fi
+if [ "$2" = test:e2e:affected ]; then
+  [ "\${E2E_DIRTY_AFTER:-0}" = 0 ] || printf dirty > source.txt
+  [ "\${E2E_HEAD_AFTER:-0}" = 0 ] || git -c core.hooksPath=/dev/null commit --allow-empty -qm 'Unexpected check commit'
+  [ "\${E2E_BARE_AFTER:-0}" = 0 ] || git config core.bare true
+  exit "\${E2E_STATUS:-0}"
 fi
 `,
     { mode: 0o755 },
@@ -92,7 +100,7 @@ fi
         },
       },
     );
-  return { cwd, base, head, git, log, run };
+  return { cwd, base, head, git, bin, log, run };
 }
 
 test("commits have no hook and branch/tag handoffs need no toolchain or clean checkout", (t) => {
@@ -106,20 +114,59 @@ test("commits have no hook and branch/tag handoffs need no toolchain or clean ch
   assert.equal(existsSync(f.log), false);
 });
 
-test("destination main verifies the complete range even from a handoff branch", (t) => {
+test("destination main verifies the complete range, then affected E2E, even from a handoff branch", (t) => {
   const f = fixture(t);
   const result = f.run();
   assert.equal(result.status, 0, result.stderr);
-  assert.match(readFileSync(f.log, "utf8"), new RegExp(`--base ${f.base} --head ${f.head}`));
-  assert.match(readFileSync(f.log, "utf8"), /verify:integration:source/);
+  assert.deepEqual(readFileSync(f.log, "utf8").trim().split("\n"), [
+    `run check:commit-history -- --base ${f.base} --head ${f.head}`,
+    "run verify:integration:source",
+    "run test:e2e:affected",
+  ]);
 });
 
-test("verification failure blocks integration", (t) => {
+test("source verification failure blocks integration without running E2E", (t) => {
   const f = fixture(t);
-  assert.notEqual(f.run(undefined, { CHECK_STATUS: "7" }).status, 0);
+  assert.equal(f.run(undefined, { CHECK_STATUS: "7" }).status, 7);
+  assert.doesNotMatch(readFileSync(f.log, "utf8"), /test:e2e:affected/);
 });
 
-test("source checks do not inherit the caller's hook-local Git context", (t) => {
+test("an E2E failure blocks a real main push and leaves the remote unchanged", (t) => {
+  const f = fixture(t);
+  const remote = join(f.cwd, ".git", "remote.git");
+  f.git("init", "--bare", remote);
+  f.git("push", remote, `${f.base}:refs/heads/main`);
+  const hooks = join(f.cwd, ".git", "fixture-hooks");
+  mkdirSync(hooks);
+  writeFileSync(
+    join(hooks, "pre-push"),
+    '#!/bin/sh\nexec /bin/sh "$MAIN_INTEGRATION_HOOK" "$@"\n',
+    {
+      mode: 0o755,
+    },
+  );
+  f.git("config", "core.hooksPath", hooks);
+  const result = spawnSync("git", ["push", remote, "HEAD:main"], {
+    cwd: f.cwd,
+    encoding: "utf8",
+    env: {
+      ...fixtureEnvironment,
+      PATH: `${f.bin}:${fixtureEnvironment.PATH ?? ""}`,
+      MAIN_INTEGRATION_HOOK: hook,
+      VERIFIER: verifier,
+      CHECK_LOG: f.log,
+      E2E_STATUS: "11",
+    },
+  });
+  assert.notEqual(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(readFileSync(f.log, "utf8").trim().split("\n").slice(-2), [
+    "run verify:integration:source",
+    "run test:e2e:affected",
+  ]);
+  assert.equal(f.git("--git-dir", remote, "rev-parse", "refs/heads/main"), f.base);
+});
+
+test("source and E2E checks do not inherit the caller's hook-local Git context", (t) => {
   const f = fixture(t);
   const result = f.run(undefined, {
     GIT_DIR: join(f.cwd, ".git"),
@@ -145,6 +192,20 @@ test("dirty checkout, unchecked source, deletion, and main creation fail before 
 test("generated changes invalidate the checked candidate", (t) => {
   const f = fixture(t);
   assert.notEqual(f.run(undefined, { DIRTY_AFTER: "1" }).status, 0);
+});
+
+test("E2E output changes invalidate the checked candidate", (t) => {
+  const f = fixture(t);
+  const result = f.run(undefined, { E2E_DIRTY_AFTER: "1" });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /verification changed files/);
+});
+
+test("E2E changes to HEAD invalidate the checked candidate", (t) => {
+  const f = fixture(t);
+  const result = f.run(undefined, { E2E_HEAD_AFTER: "1" });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /HEAD changed during verification/);
 });
 
 test("divergent main fails instead of permitting a force push", (t) => {
@@ -192,6 +253,12 @@ for (const status of ["0", "7"]) {
   test(`source checks exiting ${status} that corrupt core.bare fail loudly`, (t) => {
     const f = fixture(t);
     const result = f.run(undefined, { BARE_AFTER: "1", CHECK_STATUS: status });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /core.bare is true/);
+  });
+  test(`E2E checks exiting ${status} that corrupt core.bare fail loudly`, (t) => {
+    const f = fixture(t);
+    const result = f.run(undefined, { E2E_BARE_AFTER: "1", E2E_STATUS: status });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /core.bare is true/);
   });

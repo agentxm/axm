@@ -44,7 +44,11 @@ for that revision, not permission to publish or deploy it.
    The pre-push hook inspects the destination, establishes the advertised remote
    base and candidate, and runs `pnpm run verify:integration`. It checks the
    complete commit range and invokes `verify:integration:source`, whose current
-   check inventory lives in `package.json`. It refuses dirty state, an unchecked
+   check inventory lives in `package.json`, then runs the published
+   `test:e2e:affected` workflow for affected, host-compatible E2E checks. A
+   failure in either stage blocks the push; E2E runs only after source verification
+   succeeds. Platform-specific assurance remains in CI. After both stages, the
+   gate rechecks HEAD and checkout cleanliness. It refuses dirty state, an unchecked
    source ref, history rewrites, and generated changes left by verification.
    Dependency installation activates Husky; do not disable hooks for integration.
 4. If another writer advances main, the normal push fails. Fetch, rebase, and
@@ -126,8 +130,9 @@ leave a required check with no event that can produce it.
 
 Retain candidate/base SHAs, verification results, the PR when used, main-push CI,
 and GitHub setting readback. Hook fixtures exercise ordinary branch handoffs,
-main-ref dispatch, stale/dirty candidates, and failed verification against an
-isolated Git repository. Live direct-main operation under the new settings has
+main-ref dispatch, ordered source/E2E verification, stale/dirty candidates,
+post-E2E HEAD and output changes, and a real push whose failed E2E check leaves
+an isolated remote's main unchanged. Live direct-main operation under the new settings has
 not yet been exercised; merging this document does not assert that settings
 have been changed. Review this runbook when hooks, verification, access, or
 release qualification changes.

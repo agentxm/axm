@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Host-owned Git boundary; Nx owns source checks and their caches.
+# Host-owned Git boundary; published workflows own source and host E2E checks.
 set -euo pipefail
 : "${NX_BASE:?The pre-push hook supplies the advertised remote main SHA}"
 : "${NX_HEAD:?The pre-push hook supplies the candidate SHA}"
@@ -19,9 +19,11 @@ while IFS= read -r git_variable; do
   unset "$git_variable"
 done < <(git rev-parse --local-env-vars)
 pnpm run check:commit-history -- --base "$NX_BASE" --head "$NX_HEAD"
-source_status=0
-pnpm run verify:integration:source || source_status=$?
-[[ "$(git config --bool core.bare)" != true ]] || refuse 'core.bare is true; repair the repository before integration'
-[[ "$source_status" == 0 ]] || exit "$source_status"
+for workflow in verify:integration:source test:e2e:affected; do
+  verification_status=0
+  pnpm run "$workflow" || verification_status=$?
+  [[ "$(git config --bool core.bare)" != true ]] || refuse 'core.bare is true; repair the repository before integration'
+  [[ "$verification_status" == 0 ]] || exit "$verification_status"
+done
 [[ "$(git rev-parse HEAD)" == "$NX_HEAD" ]] || refuse 'HEAD changed during verification'
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || refuse 'verification changed files; commit the result and retry'

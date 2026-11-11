@@ -140,7 +140,7 @@ test("an E2E failure blocks a real main push and leaves the remote unchanged", (
   mkdirSync(hooks);
   writeFileSync(
     join(hooks, "pre-push"),
-    '#!/bin/sh\nexec /bin/sh "$MAIN_INTEGRATION_HOOK" "$@"\n',
+    '#!/bin/sh\nPATH="$(cd "$TEST_BIN" && pwd):$PATH" exec /bin/sh "$MAIN_INTEGRATION_HOOK" "$@"\n',
     {
       mode: 0o755,
     },
@@ -151,7 +151,7 @@ test("an E2E failure blocks a real main push and leaves the remote unchanged", (
     encoding: "utf8",
     env: {
       ...fixtureEnvironment,
-      PATH: `${f.bin}:${fixtureEnvironment.PATH ?? ""}`,
+      TEST_BIN: f.bin,
       MAIN_INTEGRATION_HOOK: hook,
       VERIFIER: verifier,
       CHECK_LOG: f.log,
@@ -159,6 +159,7 @@ test("an E2E failure blocks a real main push and leaves the remote unchanged", (
     },
   });
   assert.notEqual(result.status, 0, result.stdout + result.stderr);
+  assert.equal(existsSync(f.log), true, result.stdout + result.stderr);
   assert.deepEqual(readFileSync(f.log, "utf8").trim().split("\n").slice(-2), [
     "run verify:integration:source",
     "run test:e2e:affected",

@@ -33,6 +33,10 @@ native axes:
 
 ## Research and verification maintenance
 
+See the [2026-11-10 agent surface research refresh](research-2026-11-10.md)
+for naming, distribution changes, and proposed catalog follow-up as of that date.
+The snapshot does not renew runtime verification.
+
 This README is the maintenance entry point. Marketplace maintainers triage
 vendor release notes and documentation changes weekly, review high-churn
 products monthly, and review the full inventory quarterly. Ownership changes,

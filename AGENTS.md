@@ -67,6 +67,9 @@ Before changing the AXM skill, CLI help, agent-extension-engineering packages,
 website docs, or their relationships, read
 [Agent extension enablement architecture](docs/architecture/extension-enablement.md).
 
+For local trace capture and inspection, follow [Local tracing](contributing/guides/local-tracing.md)
+and use the published Seq workflows for the pinned client.
+
 [Contributor guides](contributing/guides/README.md) own implementation
 procedures; [DevOps](devops/index.md) owns environments and operations.
 Shared extension terminology belongs to the

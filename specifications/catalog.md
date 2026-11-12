@@ -741,6 +741,20 @@ People and agents can understand invalid workspace state and recover it through 
 - Additional evidence: process via [`apps/cli-e2e/src/smoke.e2e.test.ts`](../apps/cli-e2e/src/smoke.e2e.test.ts) — Observes the shipped process streams under --json: exactly one stdout document per invocation, NDJSON diagnostics on stderr, and the redacted error envelope for failing and defect invocations — channel separation the in-memory renderer capture cannot prove.
 - Source: [`apps/cli/src/app-error/errors-do-not-disclose-credentials.spec.ts`](../apps/cli/src/app-error/errors-do-not-disclose-credentials.spec.ts)
 
+##### Local trace receipts identify the exact invocation
+
+- Requirement: `cli/local-tracing-identifies-invocations`
+- Owner: `cli`
+- Statement: Explicitly requested local trace receipts shall identify the invocation's exported trace without changing command output or outcome, overwriting existing files, or exposing command inputs.
+- Class: quality (reliability)
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Concurrent invocations write actual receipt files and export to a loopback OTLP receiver.
+- Methods: example
+- Additional evidence: binary via [`apps/cli-e2e/src/binary-local-tracing.e2e.test.ts`](../apps/cli-e2e/src/binary-local-tracing.e2e.test.ts) — Runs the compiled CLI with a real local collector, checks disabled and enabled export, verifies stdout/stderr/exit equivalence, and proves ambient proxy settings do not redirect diagnostic traffic.
+- Source: [`apps/cli/src/cli-runtime/local-tracing-identifies-invocations.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-identifies-invocations.spec.ts)
+
 #### Constraints
 
 ##### Git-index lint requires a resolved project index

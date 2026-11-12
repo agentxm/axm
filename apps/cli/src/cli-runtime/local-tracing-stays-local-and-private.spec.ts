@@ -79,7 +79,9 @@ describe("Private local tracing", () => {
   );
 
   it("accepts only literal loopback collectors without URL credentials or query data", () => {
-    expect(localTraceEndpoint({ AXM_TRACE: "true" })).toBe("http://127.0.0.1:4318/v1/traces");
+    expect(localTraceEndpoint({ AXM_TRACE: "true" })).toBe(
+      "http://127.0.0.1:5341/ingest/otlp/v1/traces",
+    );
     expect(localTraceEndpoint({ AXM_TRACE: "false" })).toBeUndefined();
     expect(localTraceEndpoint({ AXM_TRACE: "TRUE" })).toBeUndefined();
     for (const endpoint of [
@@ -120,6 +122,7 @@ describe("Private local tracing", () => {
               AXM_TRACE: "1",
               AXM_TRACE_ENDPOINT: receiver.endpoint,
               AXM_TELEMETRY: "off",
+              AXM_TRACE_API_KEY: secret,
               OTEL_RESOURCE_ATTRIBUTES: `private=${secret}`,
             }).pipe(
               Effect.provideService(
@@ -129,7 +132,12 @@ describe("Private local tracing", () => {
             ),
           );
           expect(Exit.isFailure(result)).toBe(true);
+          expect(receiver.headers[0]?.["x-seq-apikey"]).toBe(secret);
+          expect(
+            receiver.spans().find((span) => span.name === "axm.archive.admit")?.status.code,
+          ).toBe(2);
           expect(receiver.bodies.length).toBeGreaterThan(0);
+          expect(receiver.headers[0]?.["content-type"]).toBe("application/x-protobuf");
           expect(receiver.bodies.join("")).not.toContain(secret);
           expect(
             receiver.spans().every((span) => span.events.length === 0 && span.links.length === 0),

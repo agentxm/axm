@@ -63,7 +63,13 @@
     "cache:warm": "pnpm exec nx run-many -t lint typecheck build test --exclude=axm,cli-e2e --nxBail",
     "cache:warm:affected": "pnpm exec nx affected -t lint typecheck build test --exclude=axm,cli-e2e --nxBail",
     "verify:integration": "bash scripts/verify-integration.sh",
-    "verify:integration:source": "pnpm exec nx run axm:scan-secrets && pnpm run format:check:affected && pnpm run verify:clean && pnpm run axm:local -- lint --staged --strict && pnpm run verify:affected"
+    "verify:integration:source": "pnpm exec nx run axm:scan-secrets && pnpm run format:check:affected && pnpm run verify:clean && pnpm run axm:local -- lint --staged --strict && pnpm run verify:affected",
+    "seq": "pnpm exec nx run axm:seq",
+    "seq:start": "pnpm exec nx run axm:seq:start",
+    "seq:stop": "pnpm exec nx run axm:seq:stop",
+    "seq:status": "pnpm exec nx run axm:seq:status",
+    "trace:run": "pnpm exec nx run axm:trace:run",
+    "seq:verify": "pnpm exec nx run axm:seq:verify"
   },
   "nx": {
     "includedScripts": []

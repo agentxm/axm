@@ -1,4 +1,7 @@
 import * as http from "node:http";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import * as Schema from "effect/Schema";
 import { createBinaryRunner, createTempDir } from "@agentxm/client-e2e-utils";
 import { describe, expect, it } from "vitest";
 import { resolveBinaryPath } from "./distribution-targets.js";
@@ -16,6 +19,7 @@ export const executionBinding = {
     "cli/local-tracing-describes-operation-work",
     "cli/local-tracing-stays-local-and-private",
     "cli/local-tracing-preserves-outcomes",
+    "cli/local-tracing-identifies-invocations",
   ],
   boundary: "binary",
   rationale:
@@ -32,6 +36,7 @@ describe("compiled local tracing", () => {
         response.writeHead(404).end();
         return;
       }
+      expect(request.headers["content-type"]).toBe("application/x-protobuf");
       let body = "";
       request.on("data", (chunk: unknown) => {
         body += String(chunk);
@@ -78,7 +83,25 @@ describe("compiled local tracing", () => {
         });
         expect(baseline.exitCode === 0).toBe(succeeds);
         expect(payloads).toHaveLength(before);
-        const traced = await run(args, { cwd: root.path, env: { ...environment, AXM_TRACE: "1" } });
+        const receiptPath = join(
+          root.path,
+          succeeds ? "success-receipt.json" : "failure-receipt.json",
+        );
+        const traced = await run(args, {
+          cwd: root.path,
+          env: { ...environment, AXM_TRACE: "1", AXM_TRACE_RECEIPT: receiptPath },
+        });
+        const receipt = Schema.decodeUnknownSync(
+          Schema.fromJsonString(
+            Schema.Struct({
+              service: Schema.Literal("axm"),
+              traceId: Schema.String,
+              spanId: Schema.String,
+            }),
+          ),
+        )(readFileSync(receiptPath, "utf8"));
+        expect(receipt.traceId).toMatch(/^[0-9a-f]{32}$/);
+        expect(receipt.spanId).toMatch(/^[0-9a-f]{16}$/);
         expect(traced.exitCode).toBe(baseline.exitCode);
         expect(traced.stdout).toBe(baseline.stdout);
         expect(stableDiagnosticOutput(traced.stderr, succeeds)).toBe(

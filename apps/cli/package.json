@@ -95,6 +95,7 @@
     "@xterm/headless": "6.0.0",
     "ajv": "8.20.0",
     "fflate": "catalog:",
+    "protobufjs": "^8.8.1",
     "semver": "catalog:",
     "string-argv": "0.4.0",
     "typescript": "catalog:",

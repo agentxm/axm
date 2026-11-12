@@ -1,0 +1,15 @@
+# One developer-owned instance shared by repositories and worktrees.
+name: agentxm-local-observability
+services:
+  seq:
+    image: datalust/seq:2026.1.17526@sha256:76f6ecdf9f742442f5b7e31eb9b94084b952af0575049d5c1e9d9101a6c8100f
+    ports:
+      - "127.0.0.1:5341:80"
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"
+    mem_limit: 512m
+    volumes:
+      - seq-data:/data
+volumes:
+  seq-data:

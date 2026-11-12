@@ -1,4 +1,5 @@
 import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient";
+import { writeFile } from "node:fs/promises";
 import { axmBooleanEnabled } from "@agentxm/host-primitives";
 import * as Cause from "effect/Cause";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -122,7 +123,9 @@ export const localTraceEndpoint = (
 ): string | undefined => {
   if (!axmBooleanEnabled(environment["AXM_TRACE"], false)) return undefined;
   try {
-    const url = new URL(environment["AXM_TRACE_ENDPOINT"] ?? "http://127.0.0.1:4318/v1/traces");
+    const url = new URL(
+      environment["AXM_TRACE_ENDPOINT"] ?? "http://127.0.0.1:5341/ingest/otlp/v1/traces",
+    );
     if (
       !["http:", "https:"].includes(url.protocol) ||
       !["127.0.0.1", "[::1]", "localhost"].includes(url.hostname) ||
@@ -214,18 +217,48 @@ const safeTracer = (exporter: Tracer.Tracer): Tracer.Tracer => {
   });
 };
 
-const exporter = (url: string) =>
+// Preserve the privacy boundary while making standard OTLP error queries useful.
+// The delegate never receives the original Cause, so no formatter sees private errors.
+const safeSerialization = Layer.effect(OtlpSerialization.OtlpSerialization)(
+  Effect.map(OtlpSerialization.OtlpSerialization, (inner) => ({
+    ...inner,
+    traces: (data: OtlpTracer.TraceData) =>
+      inner.traces({
+        ...data,
+        resourceSpans: data.resourceSpans.map((resource) => ({
+          ...resource,
+          scopeSpans: resource.scopeSpans.map((scope) => ({
+            ...scope,
+            spans: scope.spans.map((span) => ({
+              ...span,
+              status: {
+                code: span.attributes.some(
+                  (attribute) =>
+                    attribute.key === "axm.outcome" && attribute.value.stringValue === "failure",
+                )
+                  ? 2
+                  : 0,
+              },
+            })),
+          })),
+        })),
+      }),
+  })),
+).pipe(Layer.provide(OtlpSerialization.layerProtobuf));
+
+const exporter = (url: string, apiKey: string | undefined) =>
   Effect.gen(function* () {
     const services = yield* Layer.build(
       Layer.mergeAll(
         OtlpExporter.layerFlusher,
-        OtlpSerialization.layerJson,
+        safeSerialization,
         // A fresh explicit agent neither inherits proxy configuration nor follows redirects.
         NodeHttpClient.layerNodeHttpOptions({ proxyEnv: {} }),
       ),
     );
     return yield* OtlpTracer.make({
       url,
+      headers: apiKey ? { "X-Seq-ApiKey": apiKey } : {},
       resource: { serviceName: "axm" },
       exportInterval: "1 second",
       maxBatchSize: 128,
@@ -249,10 +282,29 @@ export const withLocalTracing = <A, E, R>(
     (scope) =>
       Effect.gen(function* () {
         const setup = yield* Effect.exit(
-          exporter(endpoint).pipe(Effect.provideService(Scope.Scope, scope)),
+          exporter(endpoint, environment["AXM_TRACE_API_KEY"]).pipe(
+            Effect.provideService(Scope.Scope, scope),
+          ),
         );
         if (Exit.isFailure(setup)) return yield* program;
-        return yield* program.pipe(
+        const receipt = environment["AXM_TRACE_RECEIPT"];
+        const tracedProgram = Effect.gen(function* () {
+          const span = yield* Effect.option(Effect.currentSpan);
+          if (receipt && Option.isSome(span))
+            yield* Effect.tryPromise((signal) =>
+              writeFile(
+                receipt,
+                JSON.stringify({
+                  service: "axm",
+                  traceId: span.value.traceId,
+                  spanId: span.value.spanId,
+                }) + "\n",
+                { flag: "wx", mode: 0o600, signal },
+              ),
+            ).pipe(Effect.timeoutOption("100 millis"), Effect.ignoreCause);
+          return yield* program;
+        });
+        return yield* tracedProgram.pipe(
           Effect.withSpan("axm.cli.invocation", { root: true }, { captureStackTrace: false }),
           Effect.provideService(Tracer.Tracer, safeTracer(setup.value)),
           Effect.provideService(HttpClient.TracerPropagationEnabled, false),

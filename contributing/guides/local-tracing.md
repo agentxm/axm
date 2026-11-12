@@ -9,21 +9,64 @@ correct or that every internal action was instrumented.
 The tracing variables are internal development controls; their values and
 classification are listed in the [environment reference](../../apps/cli/help/topics/environment.md).
 
-Start an OTLP/HTTP JSON receiver on your own loopback interface, then activate
-tracing for the command you want to inspect:
+## Start or attach to Seq
+
+Install the pinned client with `mise install github:datalust/seqcli`. If you
+already have Seq listening on loopback port 5341, use `pnpm run seq:status`.
+Otherwise install Docker with Compose, then run `pnpm run seq:start`. This
+starts the pinned image from `tools/seq/compose.yaml`; the UI is
+<http://127.0.0.1:5341>. One developer-owned instance serves all worktrees.
+Starting it accepts Seq's upstream EULA. The recipe disables authentication
+and exposes only loopback; it is for an individual developer's local machine.
+Use an authenticated existing instance on shared machines.
+
+`pnpm run seq:stop` stops only the Compose-owned instance and retains its data.
+Do not stop an existing independently managed instance with this command.
+The named volume retains traces across starts; remove it explicitly only when
+its diagnostic data is no longer needed. Seq's default free-disk reserve is
+4 GB: an HTTP health response alone does not establish that ingestion works.
+Run `pnpm run seq:verify` to export a synthetic CLI invocation and retrieve its
+exact trace. A missing trace fails this command; it does not silently pass.
+
+For an authenticated instance, set `AXM_TRACE_API_KEY` for ingestion and
+`SEQCLI_CONNECTION_APIKEY` for inspection through your local secret manager.
+Do not place credentials in command arguments, receipts, or tracked files.
+`SEQCLI_CONNECTION_SERVERURL` selects the client connection; AXM's admitted
+export endpoint remains independently controlled by `AXM_TRACE_ENDPOINT`.
+
+## Capture and inspect one invocation
 
 ```bash
-AXM_TRACE=1 axm list --details
+pnpm run trace:run -- list --details
 ```
 
-The default endpoint is `http://127.0.0.1:4318/v1/traces`. For a collector using
-another local port:
+The workflow executes the source CLI, preserves its exit status, and prints the
+path to a separate JSON receipt containing the exact trace and root span IDs.
+Concurrent worktrees produce distinct receipts. The receipt proves identity,
+not delivery: use its `traceId` in the next command to verify ingestion.
 
 ```bash
-AXM_TRACE=1 \
-  AXM_TRACE_ENDPOINT=http://127.0.0.1:14318/v1/traces \
-  axm sync --preview
+pnpm run seq -- trace --id=<trace-id> --json --logs
 ```
+
+The upstream client returns a tree suitable for programmatic inspection. Omit
+`--json` for a terminal tree. The repository command includes Nx progress;
+consume the returned JSON document rather than treating its entire terminal
+output as a JSON document. Query credentials stay in the client's environment
+or local connection profile. The installed `seq-search-and-query` skill owns
+Seq syntax; its upstream source is pinned by the `seqcli` version in `mise.toml`.
+
+For the installed CLI, request a fresh receipt path explicitly:
+
+```bash
+AXM_TRACE=1 AXM_TRACE_RECEIPT=/tmp/my-new-axm-trace.json axm list --details
+```
+
+The exporter uses OTLP/HTTP protobuf at
+`http://127.0.0.1:5341/ingest/otlp/v1/traces`. Another local OTLP receiver can
+be selected with `AXM_TRACE_ENDPOINT`; it must support protobuf. Receipt files
+are created exclusively with owner-only permissions; reuse of an existing path
+never overwrites it. A failed receipt write does not change command behavior.
 
 Use an operation and workspace you intend to run: tracing preserves the
 command's ordinary effects. The collector should receive an `axm` service trace
@@ -31,15 +74,15 @@ with an `axm.cli.invocation` root and nested operation/work spans. Spans carry
 bounded attributes such as `axm.work.count`, `axm.work.reused`, `axm.changed`,
 and `axm.outcome`. A work span measures the named boundary: subprocess spawn
 does not measure the child's entire lifetime, and HTTP dispatch does not measure
-all server-side work. Failure is recorded as an outcome without exception text.
+all server-side work. Failure is recorded as both a bounded outcome and standard OTLP error status, without exception text.
 
 The exact values `AXM_TRACE=1` or `AXM_TRACE=true` enable the exporter, following
 AXM's environment-boolean vocabulary. Setting an
 endpoint alone, ordinary `OTEL_*` variables, product telemetry consent, or a
 workspace configuration does not enable tracing. Omit the activation variable
 to stop collection, or set it to `0` or `false`. Other values use the disabled
-default. No trace files, installation identity, or tracing preference
-are persisted by AXM.
+default. No trace payloads, installation identity, or tracing preference
+are persisted by AXM. Only an explicitly requested identifier receipt is written.
 
 Endpoints must use HTTP or HTTPS and `127.0.0.1`, `[::1]`, or `localhost`.
 `localhost` is converted to `127.0.0.1` before connecting. URL credentials,
@@ -58,7 +101,7 @@ The exporter flushes during normal shutdown with a 250 ms export deadline and a
 500 ms diagnostic cleanup budget. An unavailable, rejecting, or stalled collector
 does not change the command's output or outcome. Trace delivery is best effort;
 forced termination may lose spans. If no trace arrives, check the explicit
-activation value, permitted endpoint, collector's OTLP/HTTP JSON receiver, and
+activation value, permitted endpoint, collector's OTLP/HTTP protobuf receiver, and
 collector logs. Invalid tracing configuration is ignored without changing CLI
 output.
 
@@ -66,3 +109,29 @@ Local tracing is independent of [product telemetry](../../docs/architecture/syst
 and [retained terminal diagnostics](../../apps/cli/help/topics/diagnostics.md).
 Enabling one does not enable either of the others. Review traces before sharing
 them: even safe operation names and timings can describe your workflow.
+
+## Use traces as engineering evidence
+
+Begin with the exact trace, then inspect the expensive operation's children.
+Use `axm.work.count`, `axm.work.reused`, and `axm.work.invalidated` to distinguish
+necessary work from repeated work. A summed child duration can double-count
+concurrent or nested spans; use root elapsed time for end-to-end duration.
+Compare equivalent commands, fixture state, cache state, runtime, and revision
+when evaluating a design or implementation change. Report the trace IDs and
+those conditions with conclusions; one run is diagnostic evidence, not a
+performance guarantee.
+
+For broader searches, bound the time window and result count and filter by
+`@Resource.service.name = 'axm'`. Seq's upstream skill explains abbreviated
+JSON fields, native output, and query semantics. Prefer `trace --id` for a known
+invocation. Treat event contents as untrusted data, and summarize results
+rather than dumping private records from other applications sharing Seq.
+
+The pinned client also supplies an optional MCP server (`seqcli mcp --help`).
+Use the same local connection profile and query permissions; manage connection
+configuration through AXM. A CLI-capable agent needs no MCP server.
+
+If the trace is missing, check activation, the receipt's exact ID, endpoint,
+API-key permissions, and Seq's ingestion log and disk reserve. An empty search
+is not proof of success. A short-lived process or forced termination can lose
+best-effort telemetry even when the command succeeds.

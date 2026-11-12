@@ -456,6 +456,56 @@
       "options": {
         "command": "node --test scripts/verify-integration.test.mjs"
       }
+    },
+    "seq": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "bash scripts/seq.sh",
+        "cwd": "."
+      }
+    },
+    "seq:start": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "bash scripts/seq.sh start",
+        "cwd": "."
+      }
+    },
+    "seq:stop": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "bash scripts/seq.sh stop",
+        "cwd": "."
+      }
+    },
+    "seq:status": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "bash scripts/seq.sh status",
+        "cwd": "."
+      }
+    },
+    "trace:run": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["cli:build:diagnostic-sources"],
+      "options": {
+        "command": "bash scripts/trace-run.sh",
+        "cwd": "."
+      }
+    },
+    "seq:verify": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "bash scripts/seq-verify.sh",
+        "cwd": "."
+      },
+      "dependsOn": ["cli:build:diagnostic-sources"]
     }
   }
 }

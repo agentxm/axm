@@ -73,8 +73,11 @@ command's ordinary effects. The collector should receive an `axm` service trace
 with an `axm.cli.invocation` root and nested operation/work spans. Spans carry
 bounded attributes such as `axm.work.count`, `axm.work.reused`, `axm.changed`,
 and `axm.outcome`. A work span measures the named boundary: subprocess spawn
-does not measure the child's entire lifetime, and HTTP dispatch does not measure
-all server-side work. Failure is recorded as both a bounded outcome and standard OTLP error status, without exception text.
+does not measure the child's entire lifetime, and HTTP dispatch ends at response
+headers. Failure is recorded as both a bounded outcome and standard OTLP error
+status, without exception text. Expected absence probes can produce failed
+observation spans inside a successful invocation; check the root outcome before
+treating a child error as a failed command.
 
 The exact values `AXM_TRACE=1` or `AXM_TRACE=true` enable the exporter, following
 AXM's environment-boolean vocabulary. Setting an

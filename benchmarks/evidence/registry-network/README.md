@@ -37,6 +37,80 @@ owns reproduction commands and environment options. Preserve binary hashes,
 actual proxy configuration, request timelines, raw samples, and exact trace IDs.
 A partial report (`complete: false`) is not a complete benchmark.
 
+## Before/after instrumentation comparison
+
+Measured on Linux x64 on 2026-11-12. Before is product source at `faabc7c9d`;
+after is `45e752305`. Both use preserved compiled binaries and the same
+synthetic Registry contents and network profiles. The initial harness used
+`Effect.runPromise`; the candidate harness adds scoped runtime shutdown and
+formatting. Child command timing and fixture semantics are unchanged.
+
+Each cell is **before → instrumented**, median milliseconds of three untraced
+runs. [Summary JSON](comparison-summary.json) includes ranges, request counts,
+body bytes, and artifact hashes. Raw reports retain every sample and timeline:
+[before](before-10.json) and [instrumented](after-10.json).
+
+| Operation / cache   |  Baseline ms |    Typical ms |       Slow ms |
+| ------------------- | -----------: | ------------: | ------------: |
+| list / cold         |    436 → 473 |     355 → 408 |     341 → 433 |
+| list / warm         |    363 → 412 |     340 → 349 |     329 → 366 |
+| view / cold         |    224 → 201 |     297 → 317 |     512 → 520 |
+| view / warm         |    270 → 198 |     310 → 326 |     526 → 555 |
+| install / cold      |  1155 → 1185 |   1874 → 2004 |   3214 → 3402 |
+| install / warm      |   1349 → 905 |   1794 → 1853 |   3463 → 3590 |
+| sync-restore / cold |  8680 → 8100 | 10909 → 12566 | 19804 → 21633 |
+| sync-restore / warm |  7304 → 7999 | 10936 → 13086 | 19735 → 21522 |
+| sync-noop / cold    |  1285 → 1570 |   1229 → 1710 |   1188 → 1281 |
+| sync-noop / warm    |  1373 → 1551 |   1267 → 1516 |   1199 → 1159 |
+| update / cold       | 8843 → 10131 | 11215 → 14216 | 20312 → 22044 |
+| update / warm       |  7789 → 9857 | 12284 → 13222 | 21048 → 22469 |
+
+These measurements do not establish a speedup or a precise instrumentation
+overhead. Runs were sequential on a shared VM, with only three observations per
+condition. Local-only list and no-op sync also vary although their Registry work
+is zero. Several instrumented medians are higher; overlapping ranges and control
+variation prevent assigning that difference solely to instrumentation. Use
+interleaved binaries on a controlled host before setting a regression threshold.
+The architecture recommendations are supported by actual request sequences and
+parse executions, not by treating those timing differences as eliminated work.
+
+## Scaling and trace verification
+
+The final harness also completed one untraced and one traced sample per condition
+at one extension, before and after instrumentation: [before](before-1.json) and
+[instrumented](after-1.json). Those single samples are scaling diagnostics, not
+additional three-sample timing estimates. Across both sizes, all **432 command
+samples** succeeded and all **144 diagnostic traces** were retrieved from Seq.
+
+[Trace verification](trace-verification.json) records every exact trace/root ID,
+Seq completeness, span counts, and body bytes. Each trace matched its receipt and
+had a successful root. Every instrumented request/attempt count matched modeled
+Registry wire requests, and each archive-body count and byte total matched the
+server records. Body spans were nested within their attempts. The
+[artifact provenance](provenance.json) maps both preserved binaries to producing
+revisions and identifies the harness snapshots.
+
+The following counts were identical before and after instrumentation:
+
+| Warm operation | Registry calls, 1 → 10 extensions | Lockfile parses, 1 → 10 extensions |
+| -------------- | --------------------------------: | ---------------------------------: |
+| Ordinary list  |                             0 → 0 |                              1 → 1 |
+| No-op sync     |                             0 → 0 |                            34 → 34 |
+| Restoring sync |                            6 → 60 |                           62 → 170 |
+| Update         |                            7 → 70 |                           42 → 375 |
+
+These parse counts come from the exact baseline-profile traces for list/no-op
+sync and slow-profile traces for restore/update, linked by ID in the verification
+JSON. A parser span represents an actual TOML parse, unlike the multiple HTTP
+wrapper spans described below. The counts identify investigation targets; they
+do not declare every mutation-time parse redundant.
+
+The [cold install trace](after-install-cold-baseline-trace.json),
+`fdb1e0d04e1f5685c3044696282a2c89`, demonstrates complete-body timing:
+HTTP headers arrived in **1.43 ms**, archive-body consumption took **101.46 ms**,
+and its enclosing attempt lasted **103.49 ms**, reporting **382 bytes**. The
+fixture deliberately delayed the body by 100 ms after flushing headers.
+
 ## Findings and architectural recommendations
 
 ### Batch and schedule eligibility by phase
@@ -70,6 +144,12 @@ phases from 40 requests to 22 while retaining all 20 HEAD checks. This is a desi
 estimate, not a measured optimized result. Under a four-request budget, each
 phase changes from twenty serial round trips to one metadata round trip plus
 three waves of HEAD requests, before server processing and local overhead.
+
+A warm archive substitutes a metadata-plus-HEAD sequence for one archive GET.
+With these tiny archives and injected latency, a warm run can therefore be slower
+than a cold run despite transferring zero archive bodies. This does not establish
+that caching is harmful for realistic large payloads; it identifies redundant
+validation work to consolidate without weakening access policy.
 
 The middle acquisition phase is a second opportunity: its per-item metadata
 checks also bypass planning's metadata batcher. Unify the bulk acquisition input
@@ -182,6 +262,67 @@ only for owners with the same publication obligations; settings, managed
 regions, canonical package replacement, and native identity-preserving writes
 should not be forced into one overwrite policy.
 
+## Proposed functional and technical contract
+
+Each operation constructs a scoped execution context with distinct owners for
+stable observations, exact content acquisition, current eligibility, and live
+publication. The contract applies across the CLI; commands select the facts and
+capabilities they need rather than recreating their own caches.
+
+```mermaid
+flowchart LR
+  R[Stable read and selection phase] --> E[Batched metadata and bounded access checks]
+  E --> A[Budgeted exact content acquisition]
+  A --> C[Confirmation]
+  C --> F[Fresh batched eligibility]
+  F --> L[Workspace transition lock]
+  L --> V[Fresh preimage validation]
+  V --> P[Publication, verification, receipts]
+```
+
+Queries stop after their requested observation; a local inventory does not enter
+the Registry path. A no-op mutation still validates current observations before
+claiming convergence. Read-only phases can share decoded inputs; every write or
+phase exit invalidates that view. Candidate documents are keyed by their actual
+input identities, not only by destination path. Independent work is bounded by
+the existing operation budgets, and all remote work finishes before acquiring
+the workspace transition lock.
+
+Implementation acceptance should establish:
+
+- One decode of each stable document per phase, including nested providers,
+  without reusing observations after a mutation, changed candidate input, or
+  phase exit. Delayed prepared closures must fall back to live readers.
+- Metadata batches contain at most 100 compatible items. Independent identities
+  enter bounded concurrent work; duplicates within that phase share completed
+  immutable metadata. Failures and credentials cannot bleed across phases or
+  sources.
+- Exact publisher, version, integrity, and current content access remain checked
+  at the existing eligibility boundaries. Revocation during confirmation still
+  refuses the affected closure. Cached archives never grant access by themselves.
+- Acquisition retains exact admitted content only within resource budgets and
+  transfers ownership to materialization; it does not repeatedly reparse or
+  rehash the same owned immutable bytes without a new integrity obligation.
+- Publication performs each required live conflict, route, snapshot, and receipt
+  check at its owner. It preserves unmanaged content, no-op behavior, identity
+  requirements, and closure rollback. Reusing prepared data never bypasses those
+  checks.
+- Before/after measurements cover every affected operation under all fixed
+  profiles and both archive-cache states, with equal command semantics and
+  artifact provenance. Compare elapsed distributions, actual requests, body
+  bytes, parsing counts, and complete trace evidence. Count reductions must be
+  explained by preserved obligations; changes in timing alone do not prove
+  eliminated work.
+
+Implement in three reviewable stages: (1) correct phase-reader consumption and
+bulk eligibility interfaces with deterministic behavioral evidence; (2) route
+selection and acquisition through the existing metadata batching and admitted
+content owners; (3) consolidate prepared publication inputs where the read audit
+shows the same obligation being repeated. Run the operation matrix at every
+stage. The existing request, extraction, buffered-archive, and scratch budgets
+remain independent controls; do not replace them with one universal cache or
+semaphore.
+
 ## Decisions before implementing the redesign
 
 1. **Eligibility scheduling:** recommend batch metadata plus bounded parallel
@@ -214,3 +355,32 @@ network wait. Use server request records for wire counts and the new Registry
 request/attempt/body spans for semantic operation timing. A follow-up can move
 transport span ownership to one actual exchange boundary while preserving the
 header/body distinction; exporter filtering alone must not erase useful timing.
+
+One baseline cold-restore sample also received four unattributed `GET /` requests
+that returned 404; the modeled Registry routes still account for fifty calls.
+The raw report retains them (54 total), rather than attributing them to duplicate
+archive acquisition. No other baseline sample contained those root requests.
+The fixture records all incoming traffic, so inspect routes before interpreting
+request-count outliers.
+
+## Verification and delivery boundary
+
+- Registry request-policy and remote-client tests: **114 passed**, including body
+  completion, failure, interruption, and successful archive-byte attribution.
+- Local tracing tests: **13 passed**, including native OTLP export of the new
+  nested spans and bounded byte attributes.
+- Network-controller specification: **10 passed**, using the declared HTTP API
+  substitute for configuration ordering, ownership, refusal, drift, and cleanup.
+- Owning lint/typecheck tasks for `axm`, `registry-client`, and `cli`: passed;
+  the root checks were repeated after final harness changes.
+- Host CLI compilation, specification catalog generation, and source hygiene:
+  passed. Native Linux Toxiproxy carried all measured Registry traffic.
+- Reusing an existing benchmark output was refused before modifying either the
+  report bytes or proxy state; this prevents stale trace receipts from being
+  paired with a fresh run.
+
+Measurements are opt-in and uncached; they are not added to commit hooks or the
+main integration gate. The full integration/E2E gate was not run for this
+investigation, and these changes have not been merged or pushed to main.
+Native macOS/Windows proxy execution remains unverified here. Future integration
+must use the existing main-only gate and applicable CI assurance.

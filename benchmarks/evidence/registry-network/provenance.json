@@ -1,0 +1,33 @@
+{
+  "baseline": {
+    "revision": "faabc7c9de2bc78b8a526e80ae554a69646fe22b",
+    "binarySha256": "02dbf76df72cc070a8520669c2f0ad48a66ac89fa9b79243eb6597ef4dae422e"
+  },
+  "instrumented": {
+    "revision": "45e752305a796c808de434e45b3e0f5e1a685123",
+    "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6"
+  },
+  "harnessSnapshots": {
+    "baseline-harness.ts": {
+      "sha256": "c3ed3726d63e3fe1c4a1251ca150288b46dbdb29a354c0ac5690aa9074ae154a",
+      "path": "snapshots/baseline-harness.ts.txt"
+    },
+    "baseline-fixture.ts": {
+      "sha256": "a2ab4081e2d2c0d2598aff7645e56aab676cea739e0b9c7d7aac0b59c69750ee",
+      "path": "snapshots/baseline-fixture.ts.txt"
+    },
+    "candidate-harness.ts": {
+      "sha256": "4f0a1a24f0962ad2cbdcc9455a7d36b57b848c510602ad49bc582fd98c591f11",
+      "path": "snapshots/candidate-harness.ts.txt"
+    },
+    "candidate-fixture.ts": {
+      "sha256": "c3b9ce30b4e83112f2e8f3d345a7676c656e900eee26c28baf179ba7330bc5ad",
+      "path": "snapshots/candidate-fixture.ts.txt"
+    }
+  },
+  "notes": [
+    "The ten-extension runs precede harness safeguards for existing outputs and use of the canonical platform cache-root helper.",
+    "The one-extension runs exercise the final safeguards and cache-root helper. Linux cache placement and measured child command semantics are unchanged.",
+    "sourceRevision/sourceStatus in raw reports describe the launching checkout; preserved binary identity is mapped above."
+  ]
+}

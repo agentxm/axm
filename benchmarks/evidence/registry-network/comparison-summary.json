@@ -1,0 +1,1088 @@
+{
+  "fixtureSize": 10,
+  "beforeBinarySha256": "02dbf76df72cc070a8520669c2f0ad48a66ac89fa9b79243eb6597ef4dae422e",
+  "afterBinarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+  "conditions": [
+    {
+      "operation": "list",
+      "cache": "cold",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 435.5,
+            "minMs": 350.1,
+            "maxMs": 473.7,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 473.4,
+            "minMs": 360.3,
+            "maxMs": 626.2,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 354.9,
+            "minMs": 337.5,
+            "maxMs": 393.8,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 408.3,
+            "minMs": 358.5,
+            "maxMs": 438.2,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 340.9,
+            "minMs": 304.0,
+            "maxMs": 352.8,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 433.2,
+            "minMs": 391.4,
+            "maxMs": 437.4,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        }
+      }
+    },
+    {
+      "operation": "list",
+      "cache": "warm",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 363.3,
+            "minMs": 323.2,
+            "maxMs": 512.8,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 412.4,
+            "minMs": 309.0,
+            "maxMs": 448.6,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 340.1,
+            "minMs": 338.7,
+            "maxMs": 454.8,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 348.6,
+            "minMs": 337.6,
+            "maxMs": 447.3,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 328.7,
+            "minMs": 315.6,
+            "maxMs": 362.5,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 366.2,
+            "minMs": 346.1,
+            "maxMs": 509.2,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        }
+      }
+    },
+    {
+      "operation": "view",
+      "cache": "cold",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 223.6,
+            "minMs": 214.0,
+            "maxMs": 244.4,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 200.9,
+            "minMs": 191.1,
+            "maxMs": 227.7,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 297.2,
+            "minMs": 283.2,
+            "maxMs": 336.6,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 317.1,
+            "minMs": 297.9,
+            "maxMs": 347.7,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 512.1,
+            "minMs": 496.0,
+            "maxMs": 525.9,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 519.9,
+            "minMs": 518.3,
+            "maxMs": 590.5,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        }
+      }
+    },
+    {
+      "operation": "view",
+      "cache": "warm",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 270.3,
+            "minMs": 198.8,
+            "maxMs": 286.5,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 197.6,
+            "minMs": 177.4,
+            "maxMs": 203.6,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 310.1,
+            "minMs": 309.6,
+            "maxMs": 392.1,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 325.5,
+            "minMs": 320.4,
+            "maxMs": 348.1,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 526.4,
+            "minMs": 508.9,
+            "maxMs": 574.2,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 554.7,
+            "minMs": 514.0,
+            "maxMs": 555.9,
+            "requests": [
+              1
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        }
+      }
+    },
+    {
+      "operation": "install",
+      "cache": "cold",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 1154.7,
+            "minMs": 962.6,
+            "maxMs": 1421.9,
+            "requests": [
+              7
+            ],
+            "archiveBytes": [
+              382
+            ],
+            "peakArchiveBodies": 1
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 1185.3,
+            "minMs": 1105.8,
+            "maxMs": 1191.1,
+            "requests": [
+              7
+            ],
+            "archiveBytes": [
+              382
+            ],
+            "peakArchiveBodies": 1
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 1874.1,
+            "minMs": 1766.4,
+            "maxMs": 2239.0,
+            "requests": [
+              7
+            ],
+            "archiveBytes": [
+              382
+            ],
+            "peakArchiveBodies": 1
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 2004.5,
+            "minMs": 1714.3,
+            "maxMs": 2208.2,
+            "requests": [
+              7
+            ],
+            "archiveBytes": [
+              382
+            ],
+            "peakArchiveBodies": 1
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 3213.8,
+            "minMs": 3169.4,
+            "maxMs": 3228.7,
+            "requests": [
+              7
+            ],
+            "archiveBytes": [
+              382
+            ],
+            "peakArchiveBodies": 1
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 3402.0,
+            "minMs": 3391.7,
+            "maxMs": 3642.8,
+            "requests": [
+              7
+            ],
+            "archiveBytes": [
+              382
+            ],
+            "peakArchiveBodies": 1
+          }
+        }
+      }
+    },
+    {
+      "operation": "install",
+      "cache": "warm",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 1349.4,
+            "minMs": 904.3,
+            "maxMs": 1464.1,
+            "requests": [
+              8
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 904.7,
+            "minMs": 783.9,
+            "maxMs": 1228.2,
+            "requests": [
+              8
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 1793.9,
+            "minMs": 1784.5,
+            "maxMs": 2013.1,
+            "requests": [
+              8
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 1853.4,
+            "minMs": 1724.5,
+            "maxMs": 2440.7,
+            "requests": [
+              8
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 3463.1,
+            "minMs": 3296.4,
+            "maxMs": 3613.4,
+            "requests": [
+              8
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 3589.5,
+            "minMs": 3517.6,
+            "maxMs": 3681.6,
+            "requests": [
+              8
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        }
+      }
+    },
+    {
+      "operation": "sync-restore",
+      "cache": "cold",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 8679.5,
+            "minMs": 6202.0,
+            "maxMs": 10670.6,
+            "requests": [
+              50,
+              54
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 8100.5,
+            "minMs": 7041.4,
+            "maxMs": 8588.5,
+            "requests": [
+              50
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 10908.7,
+            "minMs": 10547.8,
+            "maxMs": 11311.1,
+            "requests": [
+              50
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 12565.8,
+            "minMs": 10816.7,
+            "maxMs": 13474.5,
+            "requests": [
+              50
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 19803.5,
+            "minMs": 19415.9,
+            "maxMs": 19948.1,
+            "requests": [
+              50
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 21633.1,
+            "minMs": 20359.7,
+            "maxMs": 22249.8,
+            "requests": [
+              50
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          }
+        }
+      }
+    },
+    {
+      "operation": "sync-restore",
+      "cache": "warm",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 7303.9,
+            "minMs": 6005.4,
+            "maxMs": 7766.2,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 7999.0,
+            "minMs": 6921.8,
+            "maxMs": 10199.1,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 10936.5,
+            "minMs": 10399.2,
+            "maxMs": 11672.7,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 13085.9,
+            "minMs": 11109.6,
+            "maxMs": 16676.3,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 19735.3,
+            "minMs": 19545.8,
+            "maxMs": 20585.6,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 21521.9,
+            "minMs": 21456.6,
+            "maxMs": 22173.5,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        }
+      }
+    },
+    {
+      "operation": "sync-noop",
+      "cache": "cold",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 1285.4,
+            "minMs": 1209.6,
+            "maxMs": 1574.4,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 1570.0,
+            "minMs": 1232.3,
+            "maxMs": 1795.4,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 1228.9,
+            "minMs": 1134.3,
+            "maxMs": 1785.0,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 1710.4,
+            "minMs": 1229.8,
+            "maxMs": 2219.4,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 1187.6,
+            "minMs": 1000.7,
+            "maxMs": 1201.1,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 1280.8,
+            "minMs": 1254.6,
+            "maxMs": 1448.9,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        }
+      }
+    },
+    {
+      "operation": "sync-noop",
+      "cache": "warm",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 1373.1,
+            "minMs": 1164.2,
+            "maxMs": 1647.5,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 1551.0,
+            "minMs": 1337.3,
+            "maxMs": 1604.3,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 1266.7,
+            "minMs": 1216.2,
+            "maxMs": 1506.1,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 1515.6,
+            "minMs": 1139.7,
+            "maxMs": 2303.8,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 1198.7,
+            "minMs": 1107.1,
+            "maxMs": 1305.7,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 1159.2,
+            "minMs": 979.9,
+            "maxMs": 1511.7,
+            "requests": [
+              0
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        }
+      }
+    },
+    {
+      "operation": "update",
+      "cache": "cold",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 8843.0,
+            "minMs": 6917.0,
+            "maxMs": 9326.1,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 10130.9,
+            "minMs": 7698.6,
+            "maxMs": 10646.5,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 11214.9,
+            "minMs": 10920.3,
+            "maxMs": 12397.4,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 14216.5,
+            "minMs": 10641.4,
+            "maxMs": 14943.6,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 20312.3,
+            "minMs": 20238.2,
+            "maxMs": 20366.7,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 22044.5,
+            "minMs": 19935.0,
+            "maxMs": 23209.4,
+            "requests": [
+              60
+            ],
+            "archiveBytes": [
+              3819
+            ],
+            "peakArchiveBodies": 4
+          }
+        }
+      }
+    },
+    {
+      "operation": "update",
+      "cache": "warm",
+      "profiles": {
+        "baseline": {
+          "before": {
+            "samples": 3,
+            "medianMs": 7789.0,
+            "minMs": 6449.3,
+            "maxMs": 9645.6,
+            "requests": [
+              70
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 9856.9,
+            "minMs": 6458.0,
+            "maxMs": 11704.4,
+            "requests": [
+              70
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "typical": {
+          "before": {
+            "samples": 3,
+            "medianMs": 12284.2,
+            "minMs": 11220.0,
+            "maxMs": 15762.2,
+            "requests": [
+              70
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 13222.4,
+            "minMs": 12000.2,
+            "maxMs": 16326.4,
+            "requests": [
+              70
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        },
+        "slow": {
+          "before": {
+            "samples": 3,
+            "medianMs": 21047.5,
+            "minMs": 20943.5,
+            "maxMs": 24061.9,
+            "requests": [
+              70
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          },
+          "after": {
+            "samples": 3,
+            "medianMs": 22469.2,
+            "minMs": 20776.8,
+            "maxMs": 25774.6,
+            "requests": [
+              70
+            ],
+            "archiveBytes": [
+              0
+            ],
+            "peakArchiveBodies": 0
+          }
+        }
+      }
+    }
+  ]
+}

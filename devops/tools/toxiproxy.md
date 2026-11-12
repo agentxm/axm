@@ -127,7 +127,9 @@ warm refer to the archive cache; OS page caches are uncontrolled. Every sample
 uses a fresh process and copied disposable workspace.
 
 The output defaults to `test-results/benchmarks/registry-network.json`, with exact
-trace receipts in the sibling `.receipts` directory. The report contains the
+trace receipts in the sibling `.receipts` directory. Existing output or receipts
+are refused; choose an unused `AXM_NETWORK_OUTPUT` for each run so old trace IDs
+cannot be mistaken for new evidence. The report contains the
 binary hash, source revision and dirty state, host, actual proxy settings, elapsed
 times, request counts, body bytes, and server request intervals. `complete: false`
 means the run is partial and must not be treated as a complete matrix. Server
@@ -138,7 +140,9 @@ Environment options are `AXM_NETWORK_BINARY` (a preserved comparison binary),
 (comma-separated selections from 1,10,50), and `AXM_NETWORK_PORT` (default 18089).
 `AXM_REGISTRY_NETWORK_API` selects the existing control server. A binary override
 still runs the target's build prerequisite; preserve the baseline binary outside
-the build output. Do not run builds or other benchmarks concurrently with timing.
+the build output. The source revision describes the launching checkout; with a
+binary override, retain its producing revision alongside the recorded binary
+hash. Do not run builds or other benchmarks concurrently with timing.
 The synthetic Registry models 100 ms archive body processing and illustrative
 network profiles; it does not reproduce production TLS, DNS, payload sizes,
 authentication, database load, or internet behavior.

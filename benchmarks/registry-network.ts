@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
+import { resolveAxmCacheRootPure } from "@agentxm/host-primitives";
 import { controlNetwork } from "../scripts/registry-network/control.js";
 import { startLifecycleRegistry } from "./lifecycle-registry.js";
 
@@ -31,10 +32,18 @@ const program = Effect.gen(function* () {
     !Number.isInteger(repetitions) ||
     repetitions < 1 ||
     repetitions > 10 ||
+    new Set(sizes).size !== sizes.length ||
     sizes.some((size) => ![1, 10, 50].includes(size))
   ) {
     return yield* new BenchmarkError({
       message: "Use repetitions 1..10 and sizes selected from 1,10,50.",
+    });
+  }
+  // Never pair a fresh timing run with receipts left by an older invocation.
+  if (fs.existsSync(output) || fs.existsSync(`${output}.receipts`)) {
+    return yield* new BenchmarkError({
+      message:
+        "Benchmark output or receipts already exist; choose an unused AXM_NETWORK_OUTPUT path.",
     });
   }
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-network-matrix-"));
@@ -115,13 +124,8 @@ const program = Effect.gen(function* () {
   const copy = (from: string, to: string) =>
     fs.cpSync(from, to, { recursive: true, verbatimSymlinks: true });
   const clearCache = (home: string) => {
-    for (const dir of [
-      path.join(home, ".cache", "axm"),
-      path.join(home, "cache"),
-      path.join(home, "Library", "Caches", "axm"),
-    ]) {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
+    const cache = resolveAxmCacheRootPure(path.join, process.platform, home, { axmUserHome: home });
+    fs.rmSync(cache, { recursive: true, force: true });
   };
   save(false);
   yield* Effect.gen(function* () {

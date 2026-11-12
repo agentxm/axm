@@ -271,6 +271,10 @@ export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
 
     if (Exit.isFailure(exit)) return yield* Effect.failCause(exit.cause);
     const exitCode = yield* getOperationExitCode;
+    yield* Effect.annotateCurrentSpan({
+      "axm.exit.code": Option.getOrElse(exitCode, () => 0),
+      "axm.outcome": Option.getOrElse(exitCode, () => 0) === 0 ? "success" : "failure",
+    });
     return processOutcome(Option.getOrElse(exitCode, () => 0));
   });
 
@@ -353,6 +357,7 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
         Effect.catchCause((cause) => {
           if (Cause.hasInterruptsOnly(cause)) return Effect.failCause(cause);
           return Effect.gen(function* () {
+            yield* Effect.annotateCurrentSpan("axm.outcome", "failure");
             const diagnostics = yield* TerminalDiagnostics;
             const record = yield* diagnostics.current;
             return {

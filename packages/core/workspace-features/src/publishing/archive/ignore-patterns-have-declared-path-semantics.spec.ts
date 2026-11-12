@@ -111,7 +111,7 @@ describe("Publication file selection", () => {
           exclude: row.exclude,
           manifest: "skill.json",
         });
-        const contents = yield* archiveContents(planned.archive);
+        const contents = yield* archiveContents(planned.archive.copyBytes());
         expect(contents["skill.json"]).toBeDefined();
         expect(contents["src/.git"]).toBeUndefined();
         for (const file of row.retained) expect(contents[file], file).toBeDefined();

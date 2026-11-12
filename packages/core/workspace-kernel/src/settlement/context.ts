@@ -32,8 +32,10 @@ import {
   observeAncestorRoute,
   observePathState,
   replacePathState,
+  publicationPathState,
+  type PathState,
 } from "./path-state.js";
-import { isRelativeWithin } from "@agentxm/host-primitives";
+import { isRelativeWithin, type FilePublication } from "@agentxm/host-primitives";
 
 export interface WorkspaceTransactionContext {
   readonly claims: BoundaryClaims;
@@ -356,54 +358,81 @@ export const protectInContext = (
   );
 
 /** Capture a completed AXM mutation, independently of whether output recording is enabled. */
-export const recordWorkspacePostimage = Effect.fnUntraced(function* (
+const recordPostimage = <E>(
   target: string,
-): Effect.fn.Return<void> {
-  const current = yield* CurrentWorkspaceTransaction;
-  if (Option.isNone(current)) return;
-  const context = current.value;
-  const closure = yield* CurrentWorkspaceClosure;
-  const { fs, path } = context;
-  const address = yield* resolveNativeEntry(target).pipe(
-    Effect.provideService(FileSystem.FileSystem, fs),
-    Effect.provideService(Path.Path, path),
-    Effect.option,
-  );
-  // Unresolvable state can never become authority to overwrite it during rollback.
-  if (Option.isNone(address)) return;
-  yield* SynchronizedRef.updateEffect(context.ledger, (ledger) =>
-    Effect.gen(function* () {
-      const actual = yield* observePathState(fs, path, address.value.entryPath);
-      const snapshots: Array<Snapshot> = [];
-      for (const snapshot of ledger.snapshots) {
-        const relative = path.relative(snapshot.target, address.value.entryPath);
-        if (snapshot.closure === closure && isRelativeWithin(path, relative)) {
-          const expected = new Map(replacePathState(path, snapshot.expected, relative, actual));
-          // Recursive creation adds ancestor entries too. Observe only each
-          // directory entry, never absorb unrecorded siblings into AXM's delta.
-          if (relative !== "" && actual.get("") !== "absent") {
-            let parent = path.dirname(address.value.entryPath);
-            while (
-              parent === snapshot.target ||
-              parent.startsWith(`${snapshot.target}${path.sep}`)
-            ) {
-              const key = path.relative(snapshot.target, parent);
-              if (expected.get(key) === undefined || expected.get(key) === "absent") {
-                const parentState = yield* observePathState(fs, path, parent);
-                const entry = parentState.get("");
-                if (entry !== undefined) expected.set(key, entry);
+  validate: (actual: PathState | undefined) => Effect.Effect<void, E>,
+): Effect.Effect<void, E> =>
+  Effect.gen(function* () {
+    const current = yield* CurrentWorkspaceTransaction;
+    if (Option.isNone(current)) return;
+    const context = current.value;
+    const closure = yield* CurrentWorkspaceClosure;
+    const { fs, path } = context;
+    const address = yield* resolveNativeEntry(target).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.option,
+    );
+    // Unresolvable state can never become authority to overwrite it during rollback.
+    if (Option.isNone(address)) {
+      yield* validate(undefined);
+      return;
+    }
+    yield* SynchronizedRef.updateEffect(context.ledger, (ledger) =>
+      Effect.gen(function* () {
+        const actual = yield* observePathState(fs, path, address.value.entryPath);
+        yield* validate(actual);
+        const snapshots: Array<Snapshot> = [];
+        for (const snapshot of ledger.snapshots) {
+          const relative = path.relative(snapshot.target, address.value.entryPath);
+          if (snapshot.closure === closure && isRelativeWithin(path, relative)) {
+            const expected = new Map(replacePathState(path, snapshot.expected, relative, actual));
+            // Recursive creation adds ancestor entries too. Observe only each
+            // directory entry, never absorb unrecorded siblings into AXM's delta.
+            if (relative !== "" && actual.get("") !== "absent") {
+              let parent = path.dirname(address.value.entryPath);
+              while (
+                parent === snapshot.target ||
+                parent.startsWith(`${snapshot.target}${path.sep}`)
+              ) {
+                const key = path.relative(snapshot.target, parent);
+                if (expected.get(key) === undefined || expected.get(key) === "absent") {
+                  const parentState = yield* observePathState(fs, path, parent);
+                  const entry = parentState.get("");
+                  if (entry !== undefined) expected.set(key, entry);
+                }
+                if (parent === snapshot.target) break;
+                parent = path.dirname(parent);
               }
-              if (parent === snapshot.target) break;
-              parent = path.dirname(parent);
             }
-          }
-          snapshots.push({ ...snapshot, expected });
-        } else snapshots.push(snapshot);
-      }
-      return { ...ledger, snapshots };
-    }),
+            snapshots.push({ ...snapshot, expected });
+          } else snapshots.push(snapshot);
+        }
+        return { ...ledger, snapshots };
+      }),
+    );
+  });
+
+/** Legacy directory/removal changes have no staged file identity. */
+export const recordWorkspacePostimage = (target: string): Effect.Effect<void> =>
+  recordPostimage(target, () => Effect.void);
+
+/** Verify the complete published file before it can become rollback authority. */
+export const recordWorkspaceFilePostimage = (target: string, publication: FilePublication) =>
+  recordPostimage(target, (actual) =>
+    Effect.gen(function* () {
+      const expected = publicationPathState(publication);
+      if (actual === undefined || !equalPathStates(actual, expected))
+        return yield* new WorkspaceSnapshotError({
+          target,
+          step: "verify-publication",
+          cause:
+            actual === undefined
+              ? "publication-route-unresolvable"
+              : "publication-changed-before-recording",
+        });
+    }).pipe(Effect.withSpan("axm.verify.publication", { attributes: { "axm.work.count": 1 } })),
   );
-});
 
 /** Snapshot a path before its first mutation when a workspace transaction is active. */
 export const protectWorkspacePath = Effect.fnUntraced(function* (

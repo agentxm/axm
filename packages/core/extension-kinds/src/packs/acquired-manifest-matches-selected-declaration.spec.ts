@@ -1,4 +1,5 @@
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { pathToFileURL } from "node:url";
 import { AcquiredContent, sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
@@ -12,7 +13,10 @@ import * as Schema from "effect/Schema";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import type { RegistryPackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import type {
+  LocalPackRef,
+  RegistryPackRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { NativeWriteAuthorityPermissive } from "@agentxm/workspace-kernel/agent-adapters/testing";
 import { PackManager } from "@agentxm/workspace-kernel/materialization";
 import { FootprintRecorderTest } from "@agentxm/workspace-kernel/planning/testing";
@@ -20,6 +24,8 @@ import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import {
   computePackPathsForLayout,
   WorkspaceLocation,
+  LOCKFILE_VERSION,
+  type Lockfile,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { WorkspaceReadTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { PackDefinitionInvalid } from "./index.js";
@@ -123,6 +129,84 @@ const withFetched = <A, E, R>(
   });
 
 describe("Acquired Pack manifest agreement", () => {
+  it.effect("advances retained path Pack bytes with the selected accepted declaration", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-pack-update-" });
+      const source = path.join(root, "source");
+      yield* fs.makeDirectory(source);
+      yield* fs.writeFileString(path.join(source, "pack.json"), JSON.stringify(manifest));
+      const local: LocalPackRef = {
+        type: "pack",
+        refType: "local",
+        owner: manifest.owner,
+        name: manifest.name,
+        source: { type: "local", path: source },
+        location: pathToFileURL(source).href,
+        version: manifest.version,
+        pack: { name: manifest.name, dependencies: manifest.dependencies },
+        sourceMembers: [],
+      };
+      const accepted = yield* Ref.make<Lockfile>({ lockfileVersion: LOCKFILE_VERSION, skills: {} });
+      const services = Layer.mergeAll(
+        WorkspaceReadTest({ baseDir: root, acceptedResolutions: Ref.get(accepted) }),
+        Layer.mock(RegistryClientFactory, {}),
+        Layer.mock(SourceHostProviders, {
+          fetch: () => Effect.succeed({ directory: source }),
+          cloneUrl: () => Option.none(),
+          origin: () => "unused",
+        }),
+        NativeWriteAuthorityPermissive,
+        FootprintRecorderTest,
+      );
+      yield* Effect.gen(function* () {
+        const manager = yield* PackManager;
+        const initial = yield* manager.materializeInstall({ ref: local });
+        const recorded = yield* manager.acceptedResolution({
+          ref: local,
+          materialization: Option.some(initial),
+        });
+        if (Option.isNone(recorded)) return yield* Effect.die("Expected accepted Pack resolution");
+        yield* Ref.update(accepted, (lock) => ({
+          ...lock,
+          packs: { [local.name]: recorded.value.entry },
+        }));
+        const advanced = Schema.decodeUnknownSync(PackManifestSchema)({
+          ...manifest,
+          version: "1.1.0",
+          dependencies: { "@acme/skills/review": "^2.0.0" },
+        });
+        yield* fs.writeFileString(path.join(source, "pack.json"), JSON.stringify(advanced));
+        const selected: LocalPackRef = {
+          ...local,
+          version: advanced.version,
+          pack: { name: advanced.name, dependencies: advanced.dependencies },
+        };
+        const materialization = yield* manager.materializeInstall({ ref: selected });
+        const next = yield* manager.acceptedResolution({
+          ref: selected,
+          materialization: Option.some(materialization),
+        });
+        if (Option.isNone(next)) return yield* Effect.die("Expected updated Pack resolution");
+        const layout = yield* Ref.get((yield* WorkspaceLocation).layout);
+        const canonical = computePackPathsForLayout(
+          path.join,
+          layout,
+          selected,
+          selected.name,
+        ).canonicalPath;
+        const observed = yield* Schema.decodeUnknownEffect(
+          Schema.fromJsonString(PackManifestSchema),
+        )(yield* fs.readFileString(path.join(canonical, "pack.json")));
+        expect(observed).toEqual(advanced);
+        expect(next.value.entry.manifestVersion).toBe(observed.version);
+        expect(next.value.entry.dependencies).toEqual(advanced.dependencies);
+        expect(next.value.entry.treeIntegrity).not.toBe(recorded.value.entry.treeIntegrity);
+      }).pipe(Effect.provide(PackManagerLive.pipe(Layer.provideMerge(services))));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
   it.effect.each(mismatches)("preserves canonical content after a $field mismatch", ({ text }) =>
     withFetched(text, (canonical) =>
       Effect.gen(function* () {

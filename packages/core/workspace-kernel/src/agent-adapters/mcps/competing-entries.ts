@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { McpConfigIoFailed } from "../errors.js";
-import { findGitRoot, NativeResolutionRoot } from "../../locations/index.js";
+import { findGitRoot, NativeResolutionRoot, resolveNativeReferent } from "../../locations/index.js";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { readNativeMcpConfig, readNativeMcpValues, decodeJsonMcpConfig } from "./native-config.js";
 import { isLexicallyWithin } from "@agentxm/host-primitives";
@@ -17,6 +17,7 @@ export interface CompetingMcpEntry {
 export const readCompetingMcpEntries = (args: {
   readonly agentId: string;
   readonly target: McpConfigTarget;
+  readonly serversPath: ReadonlyArray<string>;
   readonly locations: ReadonlyArray<{
     readonly path: string;
     readonly format: McpConfigTarget["format"];
@@ -85,7 +86,7 @@ export const readCompetingMcpEntries = (args: {
       }
     }
     for (const location of args.locations) {
-      if (location.path === args.target.path || !observable(location.path)) continue;
+      if (!observable(location.path)) continue;
       const raw = yield* readNativeMcpConfig(location.path);
       if (Option.isNone(raw)) continue;
       const values = yield* readNativeMcpValues({
@@ -93,6 +94,33 @@ export const readCompetingMcpEntries = (args: {
         configPath: location.path,
         raw: raw.value,
       });
+      const sameContainer =
+        location.serversPath.length === args.serversPath.length &&
+        location.serversPath.every((key, index) => key === args.serversPath[index]);
+      const compatibleGrammar =
+        location.format === args.target.format ||
+        [location.format, args.target.format].every(
+          (format) => format === "json" || format === "jsonc",
+        );
+      if (sameContainer && compatibleGrammar) {
+        const physical = yield* resolveNativeReferent(location.path).pipe(
+          Effect.mapError(
+            (cause) =>
+              new McpConfigIoFailed({ detail: "Cannot inspect competing MCP location", cause }),
+          ),
+        );
+        if (physical === args.target.path) {
+          // The same named entries under the same container are one declaration.
+          // Both grammars must accept the actual bytes, including strict JSON readers.
+          yield* readNativeMcpValues({
+            ...location,
+            configPath: location.path,
+            format: args.target.format,
+            raw: raw.value,
+          });
+          continue;
+        }
+      }
       // Copilot documents .mcp.json winning over .github/mcp.json at the same root.
       const lower =
         args.agentId === "github-copilot-cli" &&

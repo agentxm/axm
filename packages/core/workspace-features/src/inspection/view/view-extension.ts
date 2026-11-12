@@ -280,7 +280,7 @@ export const ViewExtension = {
           name: index.value.name,
           version: latest.version,
         },
-        archive: { archiveBytes: archive, archiveContentType: "application/zip" },
+        archive: { content: archive, archiveContentType: "application/zip" },
       }).pipe(
         Effect.mapError(
           () =>
@@ -290,18 +290,12 @@ export const ViewExtension = {
             }),
         ),
       );
-      const manifest = yield* Schema.decodeUnknownEffect(HookManifestSchema)(
-        normalized.manifest.raw,
-        { onExcessProperty: "error" },
-      ).pipe(
-        Effect.mapError(
-          () =>
-            new PublishedMetadataUnavailable({
-              reason: "field-unavailable",
-              detail: "Published Hook manifest is invalid.",
-            }),
-        ),
-      );
+      const manifest = normalized.manifest.validated;
+      if (manifest.type !== "hook")
+        return yield* new PublishedMetadataUnavailable({
+          reason: "field-unavailable",
+          detail: "Published Hook manifest is invalid.",
+        });
       const scope = request.hookContext?.scope ?? "project";
       const agentOutcomes = (request.hookContext?.agents ?? []).map((id) => {
         if (!isConfigurableAgentId(id))

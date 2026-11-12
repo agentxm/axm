@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
+import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
@@ -75,8 +76,28 @@ describe("Saving settings", () => {
 
       const authored: unknown = JSON.parse(text);
       const settings = yield* decodeSettings(authored);
-      yield* writeSettingsAtPath(settingsPath, settings).pipe(Effect.provide(NativePlatformTest));
-
+      const before = fs.statSync(settingsPath);
+      let reads = 0;
+      yield* Effect.gen(function* () {
+        const real = yield* FileSystem.FileSystem;
+        const observed: FileSystem.FileSystem = {
+          ...real,
+          readFileString: (file, encoding) =>
+            real.readFileString(file, encoding).pipe(
+              Effect.tap(() =>
+                Effect.sync(() => {
+                  if (file === settingsPath) reads++;
+                }),
+              ),
+            ),
+        };
+        yield* writeSettingsAtPath(settingsPath, settings).pipe(
+          Effect.provideService(FileSystem.FileSystem, observed),
+        );
+      }).pipe(Effect.provide(NativePlatformTest));
+      expect(reads).toBe(1);
+      expect(fs.statSync(settingsPath).ino).toBe(before.ino);
+      expect(fs.statSync(settingsPath).mtimeMs).toBe(before.mtimeMs);
       expect(fs.readFileSync(settingsPath, "utf8")).toBe(text);
     }),
   );

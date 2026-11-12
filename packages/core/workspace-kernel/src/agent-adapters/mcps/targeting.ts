@@ -384,6 +384,7 @@ export const resolveConfiguredMcpTargets = (args: {
           ...(yield* readCompetingMcpEntries({
             agentId: member.agentId,
             target: member.target,
+            serversPath: member.config.serversPath,
             locations,
             workspaceRoot: args.workspaceRoot,
             userHome: args.nativeDirectoryInputs.userHome,

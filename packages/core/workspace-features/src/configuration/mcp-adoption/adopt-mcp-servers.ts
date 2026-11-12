@@ -43,6 +43,7 @@ import {
   ConfiguredAgentOutcomesProvider,
   LockfileReader,
   SettingsReader,
+  DesiredStateReader,
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
@@ -154,6 +155,7 @@ const importArtifact = (
 
 /** Every service an inline adoption and its plan resolution need. */
 type AdoptMcpServersRequirements =
+  | DesiredStateReader
   | ConfiguredAgentOutcomesProvider
   | FileSystem.FileSystem
   | NativeWriteAuthority

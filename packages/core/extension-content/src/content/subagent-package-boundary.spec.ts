@@ -3,6 +3,8 @@ import { expect, it, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
+import { SubagentManifestSchema } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   loadSubagentPackage,
@@ -66,6 +68,7 @@ it.effect(
             version: exactVersion("1.0.0"),
           },
           raw: manifest,
+          validated: yield* Schema.decodeUnknownEffect(SubagentManifestSchema)(manifest),
           fileName: "subagent.json",
         },
         readEntry: (source) =>

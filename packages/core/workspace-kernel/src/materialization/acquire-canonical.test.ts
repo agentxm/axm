@@ -139,6 +139,47 @@ describe("canonical acquisition dispatch", () => {
     ),
   );
 
+  it.effect("reacquires accepted bytes that no longer satisfy the selected declaration", () =>
+    run(
+      Effect.gen(function* () {
+        const source = path.join(root, "source");
+        const canonicalPath = path.join(root, "canonical", "audit");
+        fs.mkdirSync(source);
+        fs.writeFileSync(path.join(source, "hook.sh"), "old declaration");
+        const args = {
+          ref: refFor(source),
+          type: "hook",
+          baseDir: root,
+          canonicalPath,
+          force: false,
+          external: { reuse: true },
+          copyFailure: { code: "validation", detail: () => "copy failed" },
+        } as const;
+        const initial = yield* acquireCanonicalForRef({ ...args, accepted: Option.none() });
+        const accepted = Option.some<LockEntry>({
+          source: { type: "path", path: "source" },
+          identity: { owner: handle("@acme"), name: extensionName("audit") },
+          resolved: { tree: initial.treeIntegrity },
+          treeIntegrity: initial.treeIntegrity,
+        });
+        fs.writeFileSync(path.join(source, "hook.sh"), "selected declaration");
+        const acquired = yield* acquireCanonicalForRef({
+          ...args,
+          accepted,
+          validate: (directory) =>
+            fs.readFileSync(path.join(directory, "hook.sh"), "utf8") === "selected declaration"
+              ? Effect.void
+              : Effect.fail("declaration mismatch"),
+        });
+        expect(acquired.reused).toBe(false);
+        expect(fs.readFileSync(path.join(canonicalPath, "hook.sh"), "utf8")).toBe(
+          "selected declaration",
+        );
+        expect(acquired.treeIntegrity).not.toBe(initial.treeIntegrity);
+      }),
+    ),
+  );
+
   it.effect("records registry publication parents independently of an external source target", () =>
     run(
       Effect.gen(function* () {

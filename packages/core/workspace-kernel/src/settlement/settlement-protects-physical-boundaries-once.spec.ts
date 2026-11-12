@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "workspace/locations/settlement-protects-physical-boundaries-once",
   title: "Settlement protects each physical boundary and preserves foreign changes",
   statement:
-    "AXM shall restore a failed closure's physical preimages once, coalescing aliases and overlapping boundaries, only while each boundary still matches AXM's observed postimage, and shall preserve divergent foreign state with recovery evidence.",
+    "AXM shall restore a failed closure's physical preimages once, coalescing aliases and overlapping boundaries, only while each boundary still matches AXM's observed postimage, verifying file publications against the writer's intended whole bytes and pre-publication entry identity before recording them, and shall preserve divergent foreign state with recovery evidence.",
   class: "functional",
   role: "supporting",
   goals: ["safe-repetition", "workspace-intent-fidelity"],

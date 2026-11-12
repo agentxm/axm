@@ -1,10 +1,11 @@
 import * as Effect from "effect/Effect";
+import * as Context from "effect/Context";
 import * as Result from "effect/Result";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import { WorkspaceReadViews, WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
 import { WorkspaceInvariantFacts } from "@agentxm/workspace-kernel/projection";
 import { writeLocalRulePackage, writeLocalSkillPackage } from "../testing/local-packages.js";
 import { SyncWorkspace } from "./sync-workspace.js";
@@ -27,6 +28,36 @@ export const specification = defineSpecification({
   assumptions: [],
   openQuestions: [],
 });
+
+/** Mutate after a real inventory read from each newly captured phase. */
+const afterSkillInventoryObserved = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+  onObservation: () => void,
+) =>
+  Effect.gen(function* () {
+    const views = yield* WorkspaceReadViews;
+    return yield* effect.pipe(
+      Effect.provideService(WorkspaceReadViews, {
+        capture: (options) =>
+          views.capture(options).pipe(
+            Effect.map((context) => {
+              const records = Context.get(context, WorkspaceRecords);
+              return Context.add(context, WorkspaceRecords, {
+                ...records,
+                getExtensionInventory: (type, selection) =>
+                  records
+                    .getExtensionInventory(type, selection)
+                    .pipe(
+                      Effect.tap(() =>
+                        type === "skill" ? Effect.sync(onObservation) : Effect.void,
+                      ),
+                    ),
+              });
+            }),
+          ),
+      }),
+    );
+  });
 
 describe("Sync no-op observation freshness", () => {
   const cleanups: Array<() => void> = [];
@@ -51,25 +82,15 @@ describe("Sync no-op observation freshness", () => {
           yield* applySync();
           const projection = ".claude/skills/review";
           expect(workspace.exists(projection)).toBe(true);
-          const records = yield* WorkspaceRecords;
           let changed = false;
-          const observed = {
-            ...records,
-            getExtensionInventory: (type, options) =>
-              records.getExtensionInventory(type, options).pipe(
-                Effect.tap(() =>
-                  Effect.sync(() => {
-                    if (type !== "skill" || changed) return;
-                    workspace.remove(projection);
-                    changed = true;
-                  }),
-                ),
-              ),
-          } satisfies typeof records;
-          const result = yield* SyncWorkspace.prepare(syncRequest()).pipe(
-            Effect.provideService(WorkspaceRecords, observed),
-            Effect.result,
-          );
+          const result = yield* afterSkillInventoryObserved(
+            SyncWorkspace.prepare(syncRequest()),
+            () => {
+              if (changed) return;
+              workspace.remove(projection);
+              changed = true;
+            },
+          ).pipe(Effect.result);
           expect(changed).toBe(true);
           expect(Result.isFailure(result)).toBe(true);
           if (Result.isFailure(result)) {
@@ -100,25 +121,15 @@ describe("Sync no-op observation freshness", () => {
         .provide(
           Effect.gen(function* () {
             yield* applySync();
-            const records = yield* WorkspaceRecords;
             let changed = false;
-            const observed = {
-              ...records,
-              getExtensionInventory: (type, options) =>
-                records.getExtensionInventory(type, options).pipe(
-                  Effect.tap(() =>
-                    Effect.sync(() => {
-                      if (type !== "skill" || changed) return;
-                      workspace.writeFile("axm.json", `${workspace.readFile("axm.json")}\n`);
-                      changed = true;
-                    }),
-                  ),
-                ),
-            } satisfies typeof records;
-            const result = yield* SyncWorkspace.prepare(syncRequest()).pipe(
-              Effect.provideService(WorkspaceRecords, observed),
-              Effect.result,
-            );
+            const result = yield* afterSkillInventoryObserved(
+              SyncWorkspace.prepare(syncRequest()),
+              () => {
+                if (changed) return;
+                workspace.writeFile("axm.json", `${workspace.readFile("axm.json")}\n`);
+                changed = true;
+              },
+            ).pipe(Effect.result);
             expect(changed).toBe(true);
             expect(Result.isFailure(result)).toBe(true);
             if (Result.isFailure(result)) {

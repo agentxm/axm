@@ -3,6 +3,8 @@
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
+import * as Option from "effect/Option";
+import { CurrentWorkspaceReadPhaseInvalidation } from "./read-phase-lifetime.js";
 
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { Lockfile } from "../desired/lockfile/schema.js";
@@ -58,6 +60,15 @@ const CurrentAcceptedResolutionBatch = Context.Reference<AcceptedResolutionBatch
   { defaultValue: () => undefined },
 );
 
+/** Capture logical pending facts without mistaking them for persisted validity. */
+export const pendingAcceptedResolutions = (documents: WorkspaceDocumentsService) =>
+  Effect.gen(function* () {
+    const batch = yield* CurrentAcceptedResolutionBatch;
+    return batch?.target === documents
+      ? Option.some(yield* Ref.get(batch.pending))
+      : Option.none<Lockfile>();
+  });
+
 /** Whether this fiber runs inside an accepted-resolution batch targeting `documents`. */
 export const inAcceptedResolutionBatch = (
   documents: WorkspaceDocumentsService,
@@ -73,6 +84,11 @@ export const batchableWorkspaceDocuments = (
 ): WorkspaceDocumentsService => {
   const documents: WorkspaceDocumentsService = {
     ...adapter,
+    writeSettings: (next, options) =>
+      Effect.gen(function* () {
+        (yield* CurrentWorkspaceReadPhaseInvalidation)?.();
+        return yield* adapter.writeSettings(next, options);
+      }),
     acceptedResolutions: Effect.gen(function* () {
       const batch = yield* CurrentAcceptedResolutionBatch;
       return batch?.target === documents
@@ -81,6 +97,7 @@ export const batchableWorkspaceDocuments = (
     }),
     commitAcceptedResolutions: (base, next, options) =>
       Effect.gen(function* () {
+        (yield* CurrentWorkspaceReadPhaseInvalidation)?.();
         const batch = yield* CurrentAcceptedResolutionBatch;
         if (batch?.target !== documents)
           return yield* adapter.commitAcceptedResolutions(base, next, options);

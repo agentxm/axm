@@ -50,7 +50,13 @@ type SkipIfUnchanged = "fail-on-read-error" | "ignore-read-errors";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface WriteFileAtomicOptions<E> {
+/** Identity selected before publication, paired with the bytes the owner wrote. */
+export interface FilePublication {
+  readonly info: FileSystem.File.Info;
+  readonly content: string | Uint8Array;
+}
+
+export interface WriteFileAtomicOptions<E, PublicationError = never, R = never> {
   readonly targetPath: string;
   readonly content: string | Uint8Array;
   /** Permissions applied when creating the temporary file. */
@@ -66,6 +72,8 @@ export interface WriteFileAtomicOptions<E> {
   /** Best-effort remove of the target before rename (Windows cannot always rename over an existing file). */
   readonly removeTargetBeforeRename?: boolean;
   readonly mapError: (failure: AtomicWriteFailure) => E;
+  /** Runs after rename, using the staged identity. Rename and recording are interruption-masked. */
+  readonly onPublished?: (publication: FilePublication) => Effect.Effect<void, PublicationError, R>;
 }
 
 /** In-process sequence so concurrent fibers never share a temp path. */
@@ -116,12 +124,14 @@ const targetHasContent = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const writeFileAtomic = <E>(
+export const writeFileAtomic = <E, PublicationError = never, R = never>(
   fs: FileSystem.FileSystem,
-  options: WriteFileAtomicOptions<E>,
-): Effect.Effect<"written" | "skipped", E> =>
+  options: WriteFileAtomicOptions<E, PublicationError, R>,
+): Effect.Effect<"written" | "skipped", E | PublicationError, R> =>
   Effect.gen(function* () {
-    const { content, mapError, targetPath } = options;
+    const { mapError, targetPath } = options;
+    const content =
+      typeof options.content === "string" ? options.content : Uint8Array.from(options.content);
     const tempPath = options.tempPath ?? makeTempPath(targetPath);
     const fail =
       (step: AtomicWriteStep) =>
@@ -147,10 +157,71 @@ export const writeFileAtomic = <E>(
           ? fs.writeFileString(tempPath, content, { mode: options.mode })
           : fs.writeFile(tempPath, content, { mode: options.mode })
       ).pipe(Effect.mapError(fail("write-temp")));
-      if (options.removeTargetBeforeRename === true) {
-        yield* fs.remove(targetPath).pipe(Effect.ignore);
-      }
-      yield* fs.rename(tempPath, targetPath).pipe(Effect.mapError(fail("rename")));
+      const info =
+        options.onPublished === undefined
+          ? undefined
+          : yield* fs.stat(tempPath).pipe(Effect.mapError(fail("write-temp")));
+      yield* Effect.gen(function* () {
+        if (options.removeTargetBeforeRename === true) {
+          yield* fs.remove(targetPath).pipe(Effect.ignore);
+        }
+        yield* fs.rename(tempPath, targetPath).pipe(Effect.mapError(fail("rename")));
+        if (info !== undefined && options.onPublished !== undefined)
+          yield* options.onPublished({ info, content });
+      }).pipe(
+        Effect.withSpan("axm.publish.file", {
+          attributes: { "axm.publication.method": "replace", "axm.work.count": 1 },
+        }),
+        Effect.uninterruptible,
+      );
     }).pipe(Effect.ensuring(fs.remove(tempPath, { force: true }).pipe(Effect.ignore)));
     return "written" as const;
   });
+
+/**
+ * Update an existing file without replacing its entry identity. Native insertion
+ * receipts bind that identity. New files use a staged identity captured before
+ * rename; neither branch treats a post-write stat as publication authority.
+ */
+export const writeFilePreservingIdentity = <E, PublicationError, R>(
+  fs: FileSystem.FileSystem,
+  options: {
+    readonly targetPath: string;
+    readonly content: string | Uint8Array;
+    readonly mapError: (cause: PlatformError) => E;
+    readonly onPublished: (
+      publication: FilePublication,
+    ) => Effect.Effect<void, PublicationError, R>;
+  },
+): Effect.Effect<void, E | PublicationError, R> =>
+  Effect.gen(function* () {
+    const info = yield* fs.stat(options.targetPath).pipe(
+      Effect.map(Option.some),
+      Effect.catch((cause) =>
+        cause.reason._tag === "NotFound"
+          ? Effect.succeedNone
+          : Effect.fail(options.mapError(cause)),
+      ),
+    );
+    if (Option.isNone(info)) {
+      yield* writeFileAtomic(fs, {
+        ...options,
+        mapError: (failure) => options.mapError(failure.cause),
+      });
+      return;
+    }
+    const content =
+      typeof options.content === "string" ? options.content : Uint8Array.from(options.content);
+    yield* Effect.gen(function* () {
+      yield* (
+        typeof content === "string"
+          ? fs.writeFileString(options.targetPath, content)
+          : fs.writeFile(options.targetPath, content)
+      ).pipe(Effect.mapError(options.mapError));
+      yield* options.onPublished({ info: info.value, content });
+    }).pipe(
+      Effect.withSpan("axm.publish.file", {
+        attributes: { "axm.publication.method": "in-place", "axm.work.count": 1 },
+      }),
+    );
+  }).pipe(Effect.uninterruptible);

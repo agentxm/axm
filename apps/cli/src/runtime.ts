@@ -27,6 +27,7 @@ import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import { CliConfig, Flag, GlobalFlag } from "effect/cli";
 
 import { AppError, makeAppError } from "./app-error/index.js";
@@ -208,8 +209,28 @@ export const makeRegistryHttpClientLayer = (fetchImplementation: typeof globalTh
     ),
   );
 
-export const PlatformLayer = Layer.mergeAll(
+const nodeServicesWithProcessSpans = Layer.provideMerge(
+  Layer.effect(
+    ChildProcessSpawner.ChildProcessSpawner,
+    Effect.map(ChildProcessSpawner.ChildProcessSpawner, (spawner) =>
+      ChildProcessSpawner.make((command) =>
+        spawner.spawn(command).pipe(
+          Effect.withSpan(
+            "axm.process.spawn",
+            {
+              attributes: { "axm.work.count": 1 },
+            },
+            { captureStackTrace: false },
+          ),
+        ),
+      ),
+    ),
+  ),
   NodeServices.layer,
+);
+
+export const PlatformLayer = Layer.mergeAll(
+  nodeServicesWithProcessSpans,
   CanonicalNativePathLive,
   NativeEntryRemovalLive,
   AxmHttpClientLayer,

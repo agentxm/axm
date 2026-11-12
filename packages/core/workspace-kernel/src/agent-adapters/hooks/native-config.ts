@@ -1,3 +1,4 @@
+import { writeFilePreservingIdentity } from "@agentxm/host-primitives";
 /** One physically resolved hook container, edited only under exact selected-scope authority. */
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -175,18 +176,16 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
       if (args.dryRun !== true && planned !== raw) {
         yield* authority.protect(physical);
         yield* authority.createParentDirectories(physical);
-        yield* fs.writeFileString(physical, planned).pipe(
-          Effect.mapError(
-            (cause) =>
-              new HookIoFailed({
-                detail: `Cannot write hooks configuration: ${physical}`,
-                cause,
-              }),
-          ),
-        );
-        yield* authority.record({
-          path: physical,
-          change: Option.isNone(before) ? "created" : "modified",
+        yield* writeFilePreservingIdentity(fs, {
+          targetPath: physical,
+          content: planned,
+          onPublished: (publication) =>
+            authority.record(
+              { path: physical, change: Option.isNone(before) ? "created" : "modified" },
+              publication,
+            ),
+          mapError: (cause) =>
+            new HookIoFailed({ detail: `Cannot write hooks configuration: ${physical}`, cause }),
         });
         current = yield* read();
         if (Option.getOrElse(current, () => "") !== planned)

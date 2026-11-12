@@ -1,15 +1,11 @@
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import * as Schema from "effect/Schema";
 import * as Predicate from "effect/Predicate";
-import {
-  HookManifestSchema,
-  requiredHookRuntimeFiles,
-} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import { requiredHookRuntimeFiles } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { parseFrontmatterEffect } from "../content/frontmatter.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { inspectKnowledgeEntries, type KnowledgeBundleEntry } from "../knowledge/okf.js";
-import { readSubagentPackage } from "../content/subagent-content.js";
+import { resolveSubagentPackage } from "../content/subagent-content.js";
 import type { ArchiveGuardrailError, ZipEntry } from "./archive-guardrails.js";
 import type { ResolvedManifest } from "./manifest-policy.js";
 
@@ -81,8 +77,14 @@ export const validateFilteredPackage = (
         return;
       }
       case "subagent": {
-        yield* readSubagentPackage({
-          manifest: args.manifest.raw,
+        const manifest = args.manifest.validated;
+        if (manifest.type !== "subagent")
+          return yield* new FilteredPackageError({
+            code: "reference_invalid",
+            detail: "Filtered Subagent package must have a validated Subagent manifest.",
+          });
+        yield* resolveSubagentPackage({
+          manifest,
           readFile: (path) => readText(args, path),
         }).pipe(
           Effect.mapError((error) =>
@@ -114,18 +116,12 @@ export const validateFilteredPackage = (
         return;
       }
       case "hook": {
-        const manifest = yield* Schema.decodeUnknownEffect(HookManifestSchema)(args.manifest.raw, {
-          onExcessProperty: "error",
-        }).pipe(
-          Effect.mapError(
-            () =>
-              new FilteredPackageError({
-                code: "reference_invalid",
-                detail:
-                  "Filtered Hook manifest must declare valid native implementations and safe package-relative references.",
-              }),
-          ),
-        );
+        const manifest = args.manifest.validated;
+        if (manifest.type !== "hook")
+          return yield* new FilteredPackageError({
+            code: "reference_invalid",
+            detail: "Filtered Hook package must have a validated Hook manifest.",
+          });
         for (const file of requiredHookRuntimeFiles(manifest))
           yield* requireEntry(args.entries, file);
         return;

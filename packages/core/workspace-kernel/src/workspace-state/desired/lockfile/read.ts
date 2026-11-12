@@ -15,7 +15,11 @@ import {
   LockfileVersionUnsupported,
 } from "./errors.js";
 import { LOCKFILE_VERSION, LockfileSchema } from "./schema.js";
-import { LockfileTomlValueError, parseLockfileToml } from "./toml-values.js";
+import {
+  LockfileTomlValueError,
+  parseLockfileToml,
+  type ParsedLockfileToml,
+} from "./toml-values.js";
 
 /** The lockfile version a legacy YAML lockfile declares, or `0` when it declares none. */
 const legacyLockfileVersion = (bytes: string): number => {
@@ -63,20 +67,24 @@ export const readLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.
   return Option.some<RawSourceBytes>({ path: lockfilePath, bytes });
 });
 
-/** Decode lockfile bytes once with the current version gate and strict schema policy. */
-export const decodeLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.decode")(
-  function* (path: string, bytes: string) {
-    const parsed = yield* Effect.try({
-      try: (): unknown => parseLockfileToml(bytes).document,
-      catch: (cause) =>
-        cause instanceof LockfileTomlValueError
-          ? new LockfileDecodeError({
-              path,
-              issues: [cause.detail],
-              raw: "[Lockfile input withheld]",
-            })
-          : new LockfileParseError({ path, raw: bytes, cause }),
-    });
+/** Parse once, retaining tool-owned kinds independently of the accepted-resolution view. */
+export const parseLockfileBytes = (path: string, bytes: string) =>
+  Effect.try({
+    try: () => parseLockfileToml(bytes),
+    catch: (cause) =>
+      cause instanceof LockfileTomlValueError
+        ? new LockfileDecodeError({
+            path,
+            issues: [cause.detail],
+            raw: "[Lockfile input withheld]",
+          })
+        : new LockfileParseError({ path, raw: bytes, cause }),
+  }).pipe(Effect.withSpan("axm.parse.lockfile", { attributes: { "axm.work.count": 1 } }));
+
+/** Decode the admitted document without parsing the same bytes a second time. */
+export const decodeLockfileDocument = Effect.fn("workspace.read-model.state.lockfile.decode")(
+  function* (path: string, document: ParsedLockfileToml) {
+    const parsed = document.document;
     if (Predicate.isObject(parsed) && Object.hasOwn(parsed, "version")) {
       const observedVersion: unknown = Reflect.get(parsed, "version");
       if (
@@ -108,3 +116,9 @@ export const decodeLockfileBytes = Effect.fn("workspace.read-model.state.lockfil
     );
   },
 );
+
+/** Strict raw-byte entry point used by ordinary readers. */
+export const decodeLockfileBytes = (path: string, bytes: string) =>
+  parseLockfileBytes(path, bytes).pipe(
+    Effect.flatMap((parsed) => decodeLockfileDocument(path, parsed)),
+  );

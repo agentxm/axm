@@ -719,7 +719,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
               }),
         });
         if (
-          sha512Integrity(observed.archive) !== candidate.integrity ||
+          sha512Integrity(observed.archive.copyBytes()) !== candidate.integrity ||
           observed.policyFingerprint !== candidate.policyFingerprint
         ) {
           return yield* publishRefused({
@@ -749,7 +749,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         }
       }),
     { discard: true },
-  );
+  ).pipe(Effect.withSpan("axm.publish.validate-source"));
 
   // The journal and the footprint recorder are this run's own: the journal
   // records per-unit started and resolved facts through the apply so an

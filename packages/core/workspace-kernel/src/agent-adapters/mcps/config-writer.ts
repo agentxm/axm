@@ -4,6 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { writeFilePreservingIdentity } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -18,6 +19,7 @@ import {
   type NativeFormatFailure,
 } from "../errors.js";
 import { runWithTransientFileBackup } from "../transient-backup.js";
+import { withNativeConfigReadView } from "../native-config-syntax.js";
 import { NativeWriteAuthority } from "../native-write-authority.js";
 import { editNativeTomlMcpEntry, detachNativeTomlMcpEntry } from "./toml-adoption.js";
 import { deleteYamlEntry, readYamlEntry, setYamlEntry, setYamlScalar } from "../yaml.js";
@@ -122,21 +124,19 @@ const writeIfChanged = (
       oldRaw,
       newRaw,
       tempPrefix: "axm-mcp-config-backup-",
-      operation: fs.writeFileString(configPath, newRaw).pipe(
-        Effect.mapError(
-          (cause) =>
-            new McpConfigIoFailed({
-              detail: `Failed to write MCP config: ${configPath}`,
-              cause,
-            }),
-        ),
-      ),
+      operation: writeFilePreservingIdentity(fs, {
+        targetPath: configPath,
+        content: newRaw,
+        onPublished: (publication) =>
+          authority.record(
+            { path: configPath, change: Option.isNone(before) ? "created" : "modified" },
+            publication,
+          ),
+        mapError: (cause) =>
+          new McpConfigIoFailed({ detail: `Failed to write MCP config: ${configPath}`, cause }),
+      }),
       onBackupRetained: (error, backupPath) =>
         new WriteBackupRetained({ backupPath, cause: error }),
-    });
-    yield* authority.record({
-      path: configPath,
-      change: Option.isNone(before) ? "created" : "modified",
     });
     return {
       targets: [
@@ -377,7 +377,7 @@ const preserveOtherNativeValues = (args: {
       });
   });
 
-const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: string, raw: string) =>
+export const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: string, raw: string) =>
   Effect.gen(function* () {
     const { target } = args;
     const values = yield* readNativeMcpValues({
@@ -515,31 +515,33 @@ export const writeAgentMcpConfig = (
     const authority = yield* NativeWriteAuthority;
     return yield* authority.withExclusiveWrite(
       configPath,
-      Effect.gen(function* () {
-        const before = yield* readNativeMcpConfig(configPath);
-        const raw = Option.getOrElse(before, () => "");
-        const values = yield* readNativeMcpValues({
-          configPath,
-          raw,
-          format: args.target.format,
-          serversPath: args.serversPath,
-        });
-        const next = yield* prepareMcpWrite(args, configPath, raw);
-        const result =
-          raw === next
-            ? { targets: [{ path: args.target.path, change: "unchanged" as const }] }
-            : yield* writeIfChanged(configPath, args.target.path, before, next);
-        return yield* describeNativeResult(
-          args,
-          configPath,
-          result,
-          raw === next
-            ? "unchanged"
-            : Object.hasOwn(values, args.serverName)
-              ? "updated"
-              : "created",
-        );
-      }),
+      withNativeConfigReadView(
+        Effect.gen(function* () {
+          const before = yield* readNativeMcpConfig(configPath);
+          const raw = Option.getOrElse(before, () => "");
+          const values = yield* readNativeMcpValues({
+            configPath,
+            raw,
+            format: args.target.format,
+            serversPath: args.serversPath,
+          });
+          const next = yield* prepareMcpWrite(args, configPath, raw);
+          const result =
+            raw === next
+              ? { targets: [{ path: args.target.path, change: "unchanged" as const }] }
+              : yield* writeIfChanged(configPath, args.target.path, before, next);
+          return yield* describeNativeResult(
+            args,
+            configPath,
+            result,
+            raw === next
+              ? "unchanged"
+              : Object.hasOwn(values, args.serverName)
+                ? "updated"
+                : "created",
+          );
+        }),
+      ),
     );
   });
 
@@ -626,34 +628,36 @@ export const removeAgentMcpConfigs = (
     const authority = yield* NativeWriteAuthority;
     return yield* authority.withExclusiveWrite(
       configPath,
-      Effect.gen(function* () {
-        const before = yield* readNativeMcpConfig(configPath);
-        const raw = Option.getOrElse(before, () => "");
-        const values = yield* readNativeMcpValues({
-          configPath,
-          raw,
-          format: args.target.format,
-          serversPath: args.serversPath,
-        });
-        const names = [...new Set(args.serverNames)]
-          .filter((name) => Object.hasOwn(values, name))
-          .sort();
-        const rendered = yield* renderMcpRemovals(args, configPath, raw);
-        if (raw === rendered) return { targets: [] };
-        const result: AgentMcpConfigWriteResult =
-          args.dryRun === true
-            ? { targets: [{ path: args.target.path, change: "updated" }] }
-            : yield* writeIfChanged(configPath, args.target.path, before, rendered);
-        const outcomes = yield* Effect.forEach(names, (serverName) =>
-          describeNativeResult(
-            { ...args, serverName },
+      withNativeConfigReadView(
+        Effect.gen(function* () {
+          const before = yield* readNativeMcpConfig(configPath);
+          const raw = Option.getOrElse(before, () => "");
+          const values = yield* readNativeMcpValues({
             configPath,
-            result,
-            args.disableOnly && args.activationField.required !== null ? "updated" : "removed",
-          ),
-        );
-        return { targets: outcomes.flatMap((outcome) => outcome.targets) };
-      }),
+            raw,
+            format: args.target.format,
+            serversPath: args.serversPath,
+          });
+          const names = [...new Set(args.serverNames)]
+            .filter((name) => Object.hasOwn(values, name))
+            .sort();
+          const rendered = yield* renderMcpRemovals(args, configPath, raw);
+          if (raw === rendered) return { targets: [] };
+          const result: AgentMcpConfigWriteResult =
+            args.dryRun === true
+              ? { targets: [{ path: args.target.path, change: "updated" }] }
+              : yield* writeIfChanged(configPath, args.target.path, before, rendered);
+          const outcomes = yield* Effect.forEach(names, (serverName) =>
+            describeNativeResult(
+              { ...args, serverName },
+              configPath,
+              result,
+              args.disableOnly && args.activationField.required !== null ? "updated" : "removed",
+            ),
+          );
+          return { targets: outcomes.flatMap((outcome) => outcome.targets) };
+        }),
+      ),
     );
   });
 
@@ -674,55 +678,57 @@ export const retireAgentMcpConfig = (
     return yield* authority
       .withExclusiveWrite(
         configPath,
-        Effect.gen(function* () {
-          const before = yield* readNativeMcpConfig(configPath);
-          const raw = Option.getOrElse(before, () => "");
-          const values = yield* readNativeMcpValues({
-            configPath,
-            raw,
-            format: args.target.format,
-            serversPath: args.serversPath,
-          });
-          yield* assertAdoptionCurrent(
-            configPath,
-            args.serverName,
-            values[args.serverName],
-            args.adoption,
-          );
-          const next = yield* Effect.gen(function* () {
-            switch (args.target.format) {
-              case "toml":
-                return yield* detachNativeTomlMcpEntry(raw, args.serversPath, args.serverName);
-              case "yaml":
-                return yield* retireYaml({
-                  configPath,
-                  raw,
-                  serversPath: args.serversPath,
-                  serverName: args.serverName,
-                });
-              case "json":
-              case "jsonc":
-              case "starlark":
-              case "vscode-settings":
-                return yield* retireJsonLike({
-                  configPath,
-                  raw,
-                  serversPath: args.serversPath,
-                  serverName: args.serverName,
-                  format: args.target.format,
-                });
-            }
-          });
-          yield* preserveOtherNativeValues({
-            configPath,
-            format: args.target.format,
-            serversPath: args.serversPath,
-            serverNames: [args.serverName],
-            before: raw,
-            after: next,
-          });
-          return yield* writeIfChanged(configPath, args.target.path, before, next);
-        }),
+        withNativeConfigReadView(
+          Effect.gen(function* () {
+            const before = yield* readNativeMcpConfig(configPath);
+            const raw = Option.getOrElse(before, () => "");
+            const values = yield* readNativeMcpValues({
+              configPath,
+              raw,
+              format: args.target.format,
+              serversPath: args.serversPath,
+            });
+            yield* assertAdoptionCurrent(
+              configPath,
+              args.serverName,
+              values[args.serverName],
+              args.adoption,
+            );
+            const next = yield* Effect.gen(function* () {
+              switch (args.target.format) {
+                case "toml":
+                  return yield* detachNativeTomlMcpEntry(raw, args.serversPath, args.serverName);
+                case "yaml":
+                  return yield* retireYaml({
+                    configPath,
+                    raw,
+                    serversPath: args.serversPath,
+                    serverName: args.serverName,
+                  });
+                case "json":
+                case "jsonc":
+                case "starlark":
+                case "vscode-settings":
+                  return yield* retireJsonLike({
+                    configPath,
+                    raw,
+                    serversPath: args.serversPath,
+                    serverName: args.serverName,
+                    format: args.target.format,
+                  });
+              }
+            });
+            yield* preserveOtherNativeValues({
+              configPath,
+              format: args.target.format,
+              serversPath: args.serversPath,
+              serverNames: [args.serverName],
+              before: raw,
+              after: next,
+            });
+            return yield* writeIfChanged(configPath, args.target.path, before, next);
+          }),
+        ),
       )
       .pipe(Effect.flatMap((result) => describeNativeResult(args, configPath, result, "removed")));
   });

@@ -82,6 +82,7 @@ export interface DeclaredPublishIdentity {
 export interface ResolvedManifest {
   readonly identity: ManifestIdentity;
   readonly raw: unknown;
+  readonly validated: ExtensionManifest;
   readonly fileName: string;
 }
 
@@ -215,9 +216,10 @@ export const resolveManifest = (
     const rawBytes = yield* input.readEntry(manifestEntry.fileName);
     const text = new TextDecoder().decode(rawBytes);
 
-    const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
-      text,
+    const parsed = yield* Effect.suspend(() =>
+      Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(text),
     ).pipe(
+      Effect.withSpan("axm.archive.parse-manifest"),
       Effect.mapError(
         () =>
           new ManifestError({
@@ -229,7 +231,10 @@ export const resolveManifest = (
 
     yield* Effect.fromResult(validateManifestHasNoAgentsField(manifestEntry.fileName, parsed));
     const schema = manifestSchemaForType(input.type);
-    yield* Schema.decodeUnknownEffect(schema)(parsed, { onExcessProperty: "error" }).pipe(
+    const validated = yield* Effect.suspend(() =>
+      Schema.decodeUnknownEffect(schema)(parsed, { onExcessProperty: "error" }),
+    ).pipe(
+      Effect.withSpan("axm.archive.decode-manifest"),
       Effect.mapError((error) => {
         const companionPackageError = classifyCompanionPackageManifestError(parsed);
         return new ManifestError({
@@ -242,19 +247,17 @@ export const resolveManifest = (
       }),
     );
 
-    const identity = yield* Schema.decodeUnknownEffect(ManifestIdentitySchema)(parsed).pipe(
-      Effect.mapError(
-        () =>
-          new ManifestError({
-            code: "manifest_schema_invalid",
-            detail: `Manifest file "${manifestEntry.fileName}" is missing required identity fields (owner, type, name, version).`,
-          }),
-      ),
-    );
+    const identity: ManifestIdentity = {
+      owner: validated.owner,
+      type: validated.type,
+      name: validated.name,
+      version: validated.version,
+    };
 
     return {
       identity,
       raw: parsed,
+      validated,
       fileName: manifestEntry.fileName,
     };
   });

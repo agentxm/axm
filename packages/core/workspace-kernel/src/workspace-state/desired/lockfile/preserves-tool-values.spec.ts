@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "workspace/lockfile/preserves-tool-values",
   title: "Lockfile writes preserve tool-owned TOML values and their kinds",
   statement:
-    "Every successful AXM lockfile write shall preserve the latest tool namespaces, scalar kinds, signed 64-bit integer values, binary64 float values including negative zero, temporal kinds and fractional precision, keys, empty containers, and array order. Invalid or unrepresentable prior tool values shall fail before replacement, never authorize dropping tool data. Tool values shall not influence accepted resolution.",
+    "Every successful AXM lockfile write shall preserve the latest tool namespaces, scalar kinds, signed 64-bit integer values, binary64 float values including negative zero, temporal kinds and fractional precision, keys, empty containers, and array order. Invalid or unrepresentable prior tool values shall fail before replacement, never authorize dropping tool data. Tool values shall not influence accepted resolution. Replacing an unchanged accepted-resolution document shall preserve its authored bytes and file identity without rewriting it.",
   class: "functional",
   role: "supporting",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -86,6 +86,44 @@ const prior = [
 ].join("\n");
 
 describe("tool-owned lockfile values", () => {
+  it.effect.each(["replacement", "delta", "snapshot"] as const)(
+    "leaves an unchanged document and lossless tool syntax untouched after one live %s read",
+    (mode) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const target = path.join(root, "axm.lock");
+        const authored = `# authored syntax\n${prior}`;
+        yield* fs.writeFileString(target, authored);
+        const before = yield* fs.stat(target);
+        let reads = 0;
+        const observed: FileSystem.FileSystem = {
+          ...fs,
+          readFileString: (file, encoding) =>
+            fs.readFileString(file, encoding).pipe(
+              Effect.tap(() =>
+                Effect.sync(() => {
+                  if (file === target) reads++;
+                }),
+              ),
+            ),
+        };
+        const write =
+          mode === "replacement"
+            ? writeLockfileAtPath(target, empty)
+            : mode === "delta"
+              ? commitLockfileUpdates(root, empty, [(current) => current])
+              : commitLockfileSnapshotUpdateAtPath(target, empty, empty);
+        yield* write.pipe(Effect.provideService(FileSystem.FileSystem, observed));
+        expect(reads).toBe(1);
+        expect(yield* fs.readFileString(target)).toBe(authored);
+        const after = yield* fs.stat(target);
+        expect(after.ino).toEqual(before.ino);
+        expect(after.mtime).toEqual(before.mtime);
+      }).pipe(Effect.scoped, Effect.provide(platform)),
+  );
+
   it.effect("retains an explicitly empty tool root through replacement", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

@@ -175,7 +175,7 @@ export const unconfirmedPublishOutcomes = (
 const uploadEvidence = (candidate: UploadCandidate) => ({
   archive: {
     ...candidate.archivePlan,
-    zipBytes: candidate.archive.length,
+    zipBytes: candidate.archive.byteLength,
     integrity: candidate.integrity,
   },
   ...(candidate.sourceAssessment?.state === undefined

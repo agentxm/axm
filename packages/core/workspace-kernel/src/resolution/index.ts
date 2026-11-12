@@ -44,6 +44,9 @@ export { evaluateSourceAuthority, type SourceAuthorityBlockedFact } from "./sour
 export { type ResolvedConfiguredEntry } from "./configured-entry.js";
 export {
   makeConfiguredReleaseAgeEvaluation,
+  makeConfiguredReleaseAgePolicy,
+  type ConfiguredReleaseAgePolicy,
+  classifyConfiguredSource,
   settleRegistryResolution,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,

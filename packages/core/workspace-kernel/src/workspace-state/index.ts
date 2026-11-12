@@ -417,7 +417,10 @@ export {
   WorkspaceReadViews,
   withWorkspaceReadView,
   withWorkspaceObservationReadView,
+  withFreshWorkspaceObservationReadView,
 } from "./workspace/read-view.js";
+export { CurrentWorkspaceReadPhase } from "./workspace/read-phase.js";
+export { observeConfiguredTargets } from "./workspace/selected-configured-observations.js";
 
 export { ensureWorkspaceTransientIgnores } from "./workspace/runtime-ignores.js";
 

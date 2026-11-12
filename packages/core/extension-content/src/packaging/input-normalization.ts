@@ -4,7 +4,7 @@ import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle
 import {
   ArchiveGuardrailError,
   type ArchiveGuardrailLimits,
-  defaultReadEntry,
+  ValidatedArchive,
   type ZipEntry,
   validateArchive,
 } from "./archive-guardrails.js";
@@ -23,7 +23,7 @@ import {
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import { FilteredPackageError, validateFilteredPackage } from "./filtered-package-validation.js";
 
-export interface DeclaredPublishIdentity {
+interface DeclaredPublishIdentity {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
@@ -31,7 +31,7 @@ export interface DeclaredPublishIdentity {
 }
 
 export interface PublishArchiveInput {
-  readonly archiveBytes: Uint8Array;
+  readonly content: Uint8Array | ValidatedArchive;
   readonly archiveContentType?: string;
   readonly clientIntegrity?: string;
 }
@@ -52,7 +52,7 @@ export interface PublishInput {
   readonly type: ExtensionType;
   readonly name: ExtensionName;
   readonly version: Version;
-  readonly archiveBytes: Uint8Array;
+  readonly archive: ValidatedArchive;
   readonly archiveContentType: string;
   readonly manifest: ResolvedManifest;
   readonly clientIntegrity?: string;
@@ -71,29 +71,41 @@ export const normalizePublishInput = (
 > =>
   Effect.gen(function* () {
     const { declaredIdentity, archive, digestHeader, guardrailLimits } = args;
-    const entryReader = args.readEntry ?? defaultReadEntry;
-
     yield* Effect.fromResult(enforceArchiveContentType(archive.archiveContentType));
-    yield* Effect.fromResult(enforceArchiveSizeLimit(archive.archiveBytes.length));
-
-    const entries = yield* validateArchive(archive.archiveBytes, guardrailLimits);
+    yield* Effect.fromResult(enforceArchiveSizeLimit(archive.content.byteLength));
+    yield* Effect.annotateCurrentSpan(
+      "axm.work.reused",
+      archive.content instanceof ValidatedArchive,
+    );
+    const admitted = yield* validateArchive(archive.content, guardrailLimits);
+    const { entries } = admitted;
+    // Only the built-in reader has immutable input semantics. A custom reader
+    // remains a fresh call and receives its own byte copy on every invocation.
+    const members = new Map<string, Uint8Array>();
+    const readEntry = (fileName: string): Effect.Effect<Uint8Array, ArchiveGuardrailError> =>
+      Effect.gen(function* () {
+        const customReader = args.readEntry;
+        if (customReader !== undefined) {
+          const entry = admitted.entry(fileName);
+          if (entry === undefined)
+            return yield* new ArchiveGuardrailError({
+              code: "malformed_archive",
+              message: `Entry "${fileName}" not found in archive.`,
+              entry: fileName,
+            });
+          return yield* customReader(admitted.copyBytes(), entry);
+        }
+        const cached = members.get(fileName);
+        if (cached !== undefined) return cached;
+        const bytes = yield* admitted.readEntry(fileName);
+        members.set(fileName, bytes);
+        return bytes;
+      });
 
     const manifest = yield* resolveManifest({
       type: declaredIdentity.type,
       entries,
-      readEntry: (fileName) => {
-        const entry = entries.find((candidate) => candidate.fileName === fileName);
-        if (entry === undefined) {
-          return Effect.fail(
-            new ArchiveGuardrailError({
-              code: "malformed_archive",
-              message: `Entry "${fileName}" not found in archive.`,
-              entry: fileName,
-            }),
-          );
-        }
-        return entryReader(archive.archiveBytes, entry);
-      },
+      readEntry,
     });
 
     yield* Effect.fromResult(
@@ -104,18 +116,7 @@ export const normalizePublishInput = (
       type: declaredIdentity.type,
       entries,
       manifest,
-      readEntry: (fileName) => {
-        const entry = entries.find((candidate) => candidate.fileName === fileName);
-        return entry === undefined
-          ? Effect.fail(
-              new FilteredPackageError({
-                code: "required_file_missing",
-                detail: `Filtered package file "${fileName}" is missing.`,
-                path: fileName,
-              }),
-            )
-          : entryReader(archive.archiveBytes, entry);
-      },
+      readEntry,
     });
 
     return {
@@ -123,7 +124,7 @@ export const normalizePublishInput = (
       type: declaredIdentity.type,
       name: declaredIdentity.name,
       version: declaredIdentity.version,
-      archiveBytes: archive.archiveBytes,
+      archive: admitted,
       archiveContentType: archive.archiveContentType ?? "application/zip",
       manifest,
       ...(archive.clientIntegrity === undefined
@@ -131,4 +132,4 @@ export const normalizePublishInput = (
         : { clientIntegrity: archive.clientIntegrity }),
       ...(digestHeader === undefined ? {} : { digestHeader }),
     };
-  });
+  }).pipe(Effect.withSpan("axm.archive.normalize"));

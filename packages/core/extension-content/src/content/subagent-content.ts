@@ -249,9 +249,12 @@ export const readSubagentPackage = <E, R>(args: {
   readonly readFile: (relativePath: string) => Effect.Effect<string, E, R>;
 }): Effect.Effect<DecodedSubagentPackage, SubagentContentError | E, R> =>
   Effect.gen(function* () {
-    const manifest = yield* Schema.decodeUnknownEffect(SubagentManifestSchema, {
-      onExcessProperty: "error",
-    })(args.manifest).pipe(
+    const manifest = yield* Effect.suspend(() =>
+      Schema.decodeUnknownEffect(SubagentManifestSchema, {
+        onExcessProperty: "error",
+      })(args.manifest),
+    ).pipe(
+      Effect.withSpan("axm.subagent.decode-manifest"),
       Effect.mapError(
         (cause) =>
           new SubagentContentError({
@@ -261,6 +264,16 @@ export const readSubagentPackage = <E, R>(args: {
           }),
       ),
     );
+    return yield* resolveSubagentPackage({ manifest, readFile: args.readFile });
+  });
+
+/** Resolve content after the owning boundary has validated the manifest. */
+export const resolveSubagentPackage = <E, R>(args: {
+  readonly manifest: SubagentManifest;
+  readonly readFile: (relativePath: string) => Effect.Effect<string, E, R>;
+}): Effect.Effect<DecodedSubagentPackage, SubagentContentError | E, R> =>
+  Effect.gen(function* () {
+    const { manifest } = args;
     const core =
       manifest.core === undefined
         ? undefined

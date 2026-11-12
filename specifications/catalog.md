@@ -3728,6 +3728,22 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `apps/cli/src/root/lifecycle/command.ts`, `apps/cli/src/root/lifecycle/command.test.ts`
 - Source: [`packages/core/workspace-features/src/publishing/yank/submits-the-requested-version-selection.spec.ts`](../packages/core/workspace-features/src/publishing/yank/submits-the-requested-version-selection.spec.ts)
 
+#### Quality
+
+##### Local exporter failures cannot change the command outcome
+
+- Requirement: `cli/local-tracing-preserves-outcomes`
+- Owner: `cli`
+- Statement: Local tracing shall preserve the command's output, result, and exit status when export fails, flush on normal shutdown within a bounded timeout, and perform no additional product reads to enrich traces.
+- Class: quality (reliability)
+- Role: experience
+- Product goals: `safe-repetition`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Successful and failing Effects run through the real exporter against rejecting and stalled loopback collectors with the live clock.
+- Methods: example
+- Additional evidence: binary via [`apps/cli-e2e/src/binary-local-tracing.e2e.test.ts`](../apps/cli-e2e/src/binary-local-tracing.e2e.test.ts) — Runs the compiled CLI with a real local collector, checks disabled and enabled export, verifies stdout/stderr/exit equivalence, and proves ambient proxy settings do not redirect diagnostic traffic.
+- Source: [`apps/cli/src/cli-runtime/local-tracing-preserves-outcomes.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-preserves-outcomes.spec.ts)
+
 ### Goal: trustworthy-distribution
 
 Publishing and acquiring extensions preserves integrity, provenance, and immutable accepted resolutions.
@@ -5700,6 +5716,20 @@ People and agents can understand invalid workspace state and recover it through 
 - Additional evidence: process via [`apps/cli-e2e/src/lint.e2e.test.ts`](../apps/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`packages/core/workspace-features/src/linting/document/findings-name-the-violated-invariant.spec.ts`](../packages/core/workspace-features/src/linting/document/findings-name-the-violated-invariant.spec.ts)
 
+##### Local traces nest actual work under its operation
+
+- Requirement: `cli/local-tracing-describes-operation-work`
+- Owner: `cli`
+- Statement: An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse without reporting every implementation helper.
+- Class: functional
+- Role: interface
+- Product goals: `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The real Effect OTLP exporter sends completed spans to a loopback HTTP receiver.
+- Methods: example
+- Additional evidence: binary via [`apps/cli-e2e/src/binary-local-tracing.e2e.test.ts`](../apps/cli-e2e/src/binary-local-tracing.e2e.test.ts) — Runs the compiled CLI with a real local collector, checks disabled and enabled export, verifies stdout/stderr/exit equivalence, and proves ambient proxy settings do not redirect diagnostic traffic.
+- Source: [`apps/cli/src/cli-runtime/local-tracing-describes-operation-work.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-describes-operation-work.spec.ts)
+
 ##### Sync identifies the shared output that needs updating
 
 - Requirement: `cli/sync/reports-aggregate-projection-drift-at-unit-precision`
@@ -6886,6 +6916,20 @@ Observation of product use stays within the documented data boundary and under t
 
 #### Quality
 
+##### Local tracing requires explicit activation and excludes private inputs
+
+- Requirement: `cli/local-tracing-stays-local-and-private`
+- Owner: `cli`
+- Statement: Diagnostic tracing shall create an exporter only after explicit process-level activation, send only to a local endpoint independently of product telemetry, and exclude secrets, content, raw arguments, sensitive paths, and automatic error details from exported data.
+- Class: quality (security)
+- Role: interface
+- Product goals: `privacy-and-consent`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The actual exporter is observed at a real loopback HTTP receiver, including rejected and redirected endpoints.
+- Methods: example
+- Additional evidence: binary via [`apps/cli-e2e/src/binary-local-tracing.e2e.test.ts`](../apps/cli-e2e/src/binary-local-tracing.e2e.test.ts) — Runs the compiled CLI with a real local collector, checks disabled and enabled export, verifies stdout/stderr/exit equivalence, and proves ambient proxy settings do not redirect diagnostic traffic.
+- Source: [`apps/cli/src/cli-runtime/local-tracing-stays-local-and-private.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-stays-local-and-private.spec.ts)
+
 ##### Skill install telemetry identifies only currently public sources
 
 - Requirement: `system/security/skill-install-telemetry-public-identity`
@@ -7568,7 +7612,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `workspace/mcps/shared-native-writes-require-compatible-authority`
 - Owner: `workspace-kernel`
-- Statement: AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy the configured applicable native readers, with other catalog readers reported only as potential readers, and a validated declaration authorizes creation or complete replacement of its named entry independently of native ownership metadata; alias escapes and stale import candidates shall leave native files unchanged.
+- Statement: AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy the configured applicable native readers, with other catalog readers reported only as potential readers, and a validated declaration authorizes creation or complete replacement of its named entry independently of native ownership metadata; compatible aliases of the same interpreted container shall remain one declaration on repetition, while alias escapes and stale import candidates shall leave native files unchanged.
 - Class: functional
 - Role: supporting
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`, `safe-repetition`
@@ -7966,7 +8010,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `workspace/locations/settlement-protects-physical-boundaries-once`
 - Owner: `workspace-kernel`
-- Statement: AXM shall restore a failed closure's physical preimages once, coalescing aliases and overlapping boundaries, only while each boundary still matches AXM's observed postimage, and shall preserve divergent foreign state with recovery evidence.
+- Statement: AXM shall restore a failed closure's physical preimages once, coalescing aliases and overlapping boundaries, only while each boundary still matches AXM's observed postimage, verifying file publications against the writer's intended whole bytes and pre-publication entry identity before recording them, and shall preserve divergent foreign state with recovery evidence.
 - Class: functional
 - Role: supporting
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -8454,7 +8498,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `workspace/lockfile/preserves-tool-values`
 - Owner: `workspace-kernel`
-- Statement: Every successful AXM lockfile write shall preserve the latest tool namespaces, scalar kinds, signed 64-bit integer values, binary64 float values including negative zero, temporal kinds and fractional precision, keys, empty containers, and array order. Invalid or unrepresentable prior tool values shall fail before replacement, never authorize dropping tool data. Tool values shall not influence accepted resolution.
+- Statement: Every successful AXM lockfile write shall preserve the latest tool namespaces, scalar kinds, signed 64-bit integer values, binary64 float values including negative zero, temporal kinds and fractional precision, keys, empty containers, and array order. Invalid or unrepresentable prior tool values shall fail before replacement, never authorize dropping tool data. Tool values shall not influence accepted resolution. Replacing an unchanged accepted-resolution document shall preserve its authored bytes and file identity without rewriting it.
 - Class: functional
 - Role: supporting
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`

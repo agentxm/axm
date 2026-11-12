@@ -7,7 +7,7 @@ import {
   defaultReadEntry,
   parseZipCentralDirectory,
   validateArchive,
-} from "./archive-guardrails.js";
+} from "../index.js";
 import {
   buildDecompressionBombZip,
   buildMalformedZip,
@@ -246,6 +246,45 @@ describe("parseZipCentralDirectory", () => {
 });
 
 describe("validateArchive", () => {
+  it.effect("owns bytes and entry facts across caller mutations and repeated admission", () =>
+    Effect.gen(function* () {
+      const original = buildZip([{ fileName: "entry.txt", content: textContent("original") }]);
+      const input = Buffer.from(original);
+      const archive = yield* validateArchive(input);
+      input.fill(0);
+      archive.copyBytes().fill(0);
+      (yield* archive.readEntry("entry.txt")).fill(0);
+      expect(archive.copyBytes()).toEqual(original);
+      expect(new TextDecoder().decode(yield* archive.readEntry("entry.txt"))).toBe("original");
+      expect(Object.isFrozen(archive)).toBe(true);
+      expect(Object.isFrozen(archive.entries)).toBe(true);
+      expect(Object.isFrozen(archive.entries[0])).toBe(true);
+      expect(yield* validateArchive(archive)).toBe(archive);
+      expect((yield* validateArchive(archive, { maxEntries: 0 }).pipe(Effect.flip)).code).toBe(
+        "entry_count_exceeded",
+      );
+      expect(
+        (yield* validateArchive(archive, { maxDecompressedBytes: 1 }).pipe(Effect.flip)).code,
+      ).toBe("decompression_limit_exceeded");
+    }),
+  );
+
+  it.effect("does not reuse admission under a stronger compression-ratio limit", () =>
+    Effect.gen(function* () {
+      const archive = yield* validateArchive(
+        buildZip([
+          {
+            fileName: "entry.txt",
+            content: textContent("a".repeat(500)),
+            compressionMethod: 8,
+          },
+        ]),
+      );
+      const error = yield* validateArchive(archive, { maxCompressionRatio: 1 }).pipe(Effect.flip);
+      expect(error.code).toBe("compression_ratio_exceeded");
+    }),
+  );
+
   it.effect("accepts a valid archive", () =>
     Effect.gen(function* () {
       const zip = buildZip([
@@ -256,7 +295,7 @@ describe("validateArchive", () => {
         { fileName: "index.js", content: textContent("module.exports = {}") },
       ]);
 
-      const entries = yield* validateArchive(zip);
+      const { entries } = yield* validateArchive(zip);
       expect(entries).toHaveLength(2);
     }),
   );
@@ -345,7 +384,7 @@ describe("validateArchive", () => {
 
   it.effect("allows repeated finite links and contained dangling targets", () =>
     Effect.gen(function* () {
-      const entries = yield* validateArchive(
+      const { entries } = yield* validateArchive(
         buildZip([
           { fileName: "root", content: textContent("."), externalAttributes: 0o120777 << 16 },
           {
@@ -425,7 +464,7 @@ describe("validateArchive", () => {
 
   it.effect("allows filenames beginning with two dots when they are not parent segments", () =>
     Effect.gen(function* () {
-      const entries = yield* validateArchive(
+      const { entries } = yield* validateArchive(
         buildZip([{ fileName: "src/..metadata", content: textContent("unchanged") }]),
       );
       expect(entries[0]?.fileName).toBe("src/..metadata");
@@ -448,7 +487,7 @@ describe("validateArchive", () => {
         { fileName: ".env", content: textContent("TOKEN=secret") },
       ]);
 
-      const entries = yield* validateArchive(zip);
+      const { entries } = yield* validateArchive(zip);
       expect(entries).toHaveLength(3);
     }),
   );

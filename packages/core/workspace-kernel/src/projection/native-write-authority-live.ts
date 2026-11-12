@@ -17,6 +17,7 @@ import {
   protectWorkspacePath,
   protectCreatedAncestors,
   recordFootprint,
+  recordFilePublication,
   WorkspaceFileWriteLocks,
 } from "../settlement/index.js";
 import { makeNativeInsertionAuthority } from "./native-insertion-receipts.js";
@@ -44,7 +45,12 @@ export const NativeWriteAuthorityLive = Layer.effect(
           Effect.andThen(protectWorkspacePath(absolutePath)),
           Effect.mapError((cause) => new NativeWriteRefused({ path: absolutePath, cause })),
         ),
-      record: (change) => recordFootprint(change),
+      record: (change, publication) =>
+        publication === undefined
+          ? recordFootprint(change)
+          : recordFilePublication(change, publication).pipe(
+              Effect.mapError((cause) => new NativeWriteRefused({ path: change.path, cause })),
+            ),
     });
   }),
 );

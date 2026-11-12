@@ -37,7 +37,7 @@ import {
   type ManagerRequirements,
 } from "@agentxm/workspace-kernel/materialization";
 import {
-  makeConfiguredReleaseAgeEvaluation,
+  makeConfiguredReleaseAgePolicy,
   normalizeReleaseAgeRecords,
 } from "@agentxm/workspace-kernel/resolution";
 import { type PlannedJobStep, OperationRefused } from "@agentxm/workspace-kernel/operations";
@@ -201,7 +201,7 @@ export const collectConfiguredPackRecovery = (args: {
     if (packNames.size === 0) return undefined;
 
     const requestBudget = yield* Effect.serviceOption(OperationRequestBudget);
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgePolicy();
     const configured = yield* settings.entries("pack");
     const entries = acquisitionConfiguredEntries(configured).filter(([name]) =>
       packNames.has(name),

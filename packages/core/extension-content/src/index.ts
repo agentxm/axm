@@ -52,6 +52,7 @@ export {
 export {
   ArchiveGuardrailError,
   type ArchiveGuardrailLimits,
+  type ValidatedArchive,
   ZIP_LOCAL_SIGNATURE,
   type ZipEntry,
   checkForbiddenSourceEntries,

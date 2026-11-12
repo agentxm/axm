@@ -11,7 +11,7 @@ depends-on:
 
 # Workspace execution
 
-AXM observes a workspace through one coherent snapshot and changes it through
+AXM observes a workspace through a coherent phase-bounded view and changes it through
 semantic mutation closures. This keeps command handlers from developing
 incompatible views of settings, accepted lock state, canonical content, inline
 configuration, ownership, and managed outputs.
@@ -70,6 +70,23 @@ accepted-entry joins, install-root inventory and required native inspections.
 Writers retain fresh persistence reads. Any observation after a settings, lock,
 canonical or projected-state write acquires a new view, including within the
 same closure and after rollback. Views are not shared across concurrent closures.
+Sharing is lazy reuse within a bounded phase, not an atomic filesystem snapshot.
+Typed failures, absence, directory membership and decoded documents belong to
+that phase as much as successful reads do. Read options and reader semantics
+remain part of an observation's identity. Text decoding shares the captured
+bytes; callers receive independent mutable buffers and directory arrays.
+
+The document owner supplies pending accepted-resolution facts during a closure.
+Those logical facts do not prove that a persisted lockfile exists or is valid.
+A physical mutation through the observation port or a logical document update
+ends sharing immediately, before the mutation begins.
+A phase ends when its query or preparation returns, including failure. A reader
+retained by a prepared operation must then obtain live facts; it cannot extend
+the lifetime of the completed phase's observations. A no-op decision and final
+post-write verification each start a fresh phase. Selected native verification
+uses the selected canonical facts and the complete desired contributor graph,
+without rebuilding display inventory for every other installed extension.
+
 Diagnostics may tolerate later invalid workspace state to describe
 it, but planning preserves the distinction among missing, invalid, unsupported,
 and valid inputs. Closure-local isolation begins at this post-construction
@@ -199,6 +216,15 @@ Restoration compares the current state with AXM's expected postimage before
 replacing it. Foreign edits and additions survive a failed closure. When they
 prevent complete restoration, the result reports the affected original paths
 and retained recovery paths instead of claiming an exact rollback.
+
+File publishers establish the intended bytes and file identity before recording
+a completed mutation. Settlement checks the complete live file against that
+witness before granting rollback authority. An intervening edit or replacement
+therefore remains foreign state even when it occurs between publication and
+recording. Atomic replacement uses the staged file's identity; native writers
+that must retain insertion-receipt identity keep the existing entry. Directory,
+symlink, and removal operations retain their distinct boundary rules; this file
+witness is not a transaction over the whole filesystem.
 
 Authoritative files publish through atomic replacement. Canonical directories
 publish as complete directories rather than partially populated destinations.

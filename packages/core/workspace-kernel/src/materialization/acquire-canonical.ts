@@ -176,7 +176,14 @@ export const acquireCanonicalForRef = <E = never>(
         accepted: args.accepted,
         force: args.force,
       });
-      if (Option.isSome(reusable)) {
+      // Accepted bytes may still describe an older selected declaration (for
+      // example a path Pack whose manifest has advanced). Reuse must satisfy
+      // the same owner validation as fresh acquisition, not just the old lock.
+      const selectedContentMatches =
+        Option.isSome(reusable) &&
+        (args.validate === undefined ||
+          (yield* Effect.isSuccess(args.validate(args.canonicalPath))));
+      if (Option.isSome(reusable) && selectedContentMatches) {
         return {
           packageRoot: args.canonicalPath,
           treeIntegrity: reusable.value,

@@ -36,7 +36,6 @@ import {
 } from "@agentxm/registry-protocol/unstable/publish";
 import {
   PUBLICATION_SET_CONTRACT,
-  archiveSha256Hex,
   type PackDependencyDescriptor,
   type PreviewPublicationSetRequest,
   type PublicationCandidateResult,
@@ -163,9 +162,7 @@ const publicationDescriptorForCandidate = Effect.fn("Publish.publicationDescript
       }),
       request: Option.getOrNull(visibility),
     },
-    ...(candidate.action === "publish"
-      ? { archiveSha256Hex: archiveSha256Hex(candidate.archive) }
-      : {}),
+    ...(candidate.action === "publish" ? { archiveSha256Hex: candidate.archiveSha256Hex } : {}),
     ...(pack === undefined ? {} : { pack }),
   } satisfies PublicationDescriptor;
 });
@@ -350,10 +347,10 @@ export const publishCandidate: (
               type: candidate.type,
               name: candidate.name,
               version: candidate.version,
-              archive: candidate.archive,
+              archive: candidate.archive.copyBytes(),
               metadata,
               ...uploadBinding,
-            }),
+            }).pipe(Effect.withSpan("axm.publish.upload")),
           ),
         ),
       ),

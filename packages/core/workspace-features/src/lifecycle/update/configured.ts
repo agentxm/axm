@@ -27,6 +27,7 @@ import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
 import type * as Config from "effect/Config";
 import type * as FileSystem from "effect/FileSystem";
@@ -35,7 +36,9 @@ import type * as Scope from "effect/Scope";
 
 import {
   heldBackReleaseWarnings,
-  makeConfiguredReleaseAgeEvaluation,
+  makeConfiguredReleaseAgePolicy,
+  classifyConfiguredSource,
+  type ConfiguredReleaseAgePolicy,
   normalizeReleaseAgeRecords,
   ReleaseAgePosture,
   releaseAgeRecord,
@@ -66,7 +69,7 @@ import {
   recoveryPositional,
   publicRecoveryValue,
 } from "@agentxm/workspace-kernel/operations";
-import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+
 import {
   DesiredStateReader,
   LockfileReader,
@@ -104,7 +107,6 @@ import {
 import {
   SourceHostProviders,
   WorkspaceCatalog,
-  resolveSource,
   listRemoteRefs,
   withPackRegistryIndexMemo,
 } from "@agentxm/workspace-kernel/sources";
@@ -186,7 +188,7 @@ interface CollectedWorkspaceUpdatePlans {
 interface WorkspaceUpdateCollectionRequest extends WorkspaceUpdateNameSelection {
   readonly reinstall: boolean;
   readonly retainedNames?: ReadonlySet<string>;
-  readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
+  readonly releaseAgeEvaluation: ConfiguredReleaseAgePolicy;
   /**
    * Whether the invoking surface can prompt while a planned advance runs.
    * MCP connections and Pack members are the only advances that would ask.
@@ -489,13 +491,13 @@ interface ConfiguredUpdateIntentArgs<TIntent, R> {
   readonly type: InstallableExtensionType;
   readonly name: string;
   readonly source: string;
-  readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
+  readonly releaseAgeEvaluation: ConfiguredReleaseAgePolicy;
   /**
    * The effective constraint the Registry selects within, with the
    * contributors that intersect to it; the declared range is what is recorded.
    */
   readonly effective: DesiredEffectiveConstraint;
-  readonly fallback: Effect.Effect<
+  readonly fallback: (classifiedSource: Source) => Effect.Effect<
     {
       readonly ref: ExtensionRef;
       readonly versionRange: Option.Option<VersionRange>;
@@ -553,9 +555,9 @@ const prepareUpdateIntent = <TIntent, R>(
     const selectionRange = Option.isSome(acceptedRegistry)
       ? Option.some(decodeVersionRangeSync(acceptedRegistry.value.version))
       : args.effective.range;
-    const declaredSource = yield* Effect.option(resolveSource(args.source));
-    if (!args.reinstall && Option.isSome(declaredSource) && declaredSource.value.type === "git") {
-      const gitSource = declaredSource.value;
+    const declaredSource = yield* classifyConfiguredSource(args.name, args.source, args.type);
+    if (!args.reinstall && declaredSource.type === "git") {
+      const gitSource = declaredSource;
       const selector = Option.getOrUndefined(gitSource.ref);
       if (selector !== undefined) {
         const remote = yield* listRemoteRefs(gitSource.url.href);
@@ -587,6 +589,7 @@ const prepareUpdateIntent = <TIntent, R>(
       args.type,
       args.releaseAgeEvaluation,
       selectionRange,
+      declaredSource,
     );
     return Effect.gen(function* () {
       const registryResolution = yield* resolveRegistry;
@@ -642,7 +645,7 @@ const prepareUpdateIntent = <TIntent, R>(
                 }),
         } as const;
       }
-      const resolved = yield* args.fallback;
+      const resolved = yield* args.fallback(declaredSource);
       const intent = args.makeIntent(resolved.ref, resolved.versionRange);
       if (intent === undefined) {
         return yield* installRefused({
@@ -678,9 +681,10 @@ interface EntryUpdateKind<TIntent, RResolve, RPlan> {
   readonly resolve: (
     name: string,
     source: string,
-    releaseAgeEvaluation: ReleaseAgeEvaluation,
+    releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
     selectionRange: Option.Option<VersionRange>,
-  ) => ConfiguredUpdateIntentArgs<TIntent, RResolve>["fallback"];
+    classifiedSource?: Source,
+  ) => ReturnType<ConfiguredUpdateIntentArgs<TIntent, RResolve>["fallback"]>;
   readonly makeIntent: (
     ref: ExtensionRef,
     versionRange: Option.Option<VersionRange>,
@@ -706,7 +710,8 @@ const resolveUpdateIntentFor = <TIntent, RResolve, RPlan>(
     releaseAgeEvaluation: selection.releaseAgeEvaluation,
     effective,
     reinstall: selection.reinstall,
-    fallback: kind.resolve(name, source, selection.releaseAgeEvaluation, effective.range),
+    fallback: (classifiedSource) =>
+      kind.resolve(name, source, selection.releaseAgeEvaluation, effective.range, classifiedSource),
     makeIntent: (ref, versionRange) => kind.makeIntent(ref, versionRange, selection.reinstall),
   });
 
@@ -714,7 +719,7 @@ const resolveMcpServerIntent = (
   graph: DesiredStateGraph,
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   effective: DesiredEffectiveConstraint,
   nonInteractive: boolean,
   reinstall: boolean,
@@ -727,7 +732,14 @@ const resolveMcpServerIntent = (
       releaseAgeEvaluation,
       effective,
       reinstall,
-      fallback: resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, effective.range),
+      fallback: (classifiedSource) =>
+        resolveConfiguredMcpServer(
+          name,
+          source,
+          releaseAgeEvaluation,
+          effective.range,
+          classifiedSource,
+        ),
       makeIntent: (ref, versionRange) =>
         ref.type === "mcp-server"
           ? ({
@@ -763,33 +775,37 @@ const resolveMcpServerIntent = (
 const preparePackRef = (
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   nonInteractive: boolean,
   reinstall: boolean,
 ) =>
-  prepareUpdateIntent({
-    type: "pack",
-    reinstall,
-    name,
-    source,
-    releaseAgeEvaluation,
-    // A Pack is never another Pack's member: its own declaration is its only contributor.
-    effective: { range: Option.none(), contributors: [] },
-    fallback: resolveConfiguredPack(name, source, releaseAgeEvaluation),
-    makeIntent: (ref, versionRange) =>
-      ref.type === "pack"
-        ? ({
-            packToInstall: ref,
-            forceCanonical: reinstall,
-            ...(reinstall
-              ? { dependencyResolver: acceptedPackDependencyResolver(releaseAgeEvaluation) }
-              : {}),
-            versionRange,
-            nonInteractive,
-            releaseAgeEvaluation,
-            heldRelease: WORKSPACE_UPDATE_HELD_RELEASE_POLICY,
-          } satisfies PackInstallIntent)
-        : undefined,
+  Effect.gen(function* () {
+    const evaluation = yield* releaseAgeEvaluation.read;
+    return yield* prepareUpdateIntent({
+      type: "pack",
+      reinstall,
+      name,
+      source,
+      releaseAgeEvaluation,
+      // A Pack is never another Pack's member: its own declaration is its only contributor.
+      effective: { range: Option.none(), contributors: [] },
+      fallback: (classifiedSource) =>
+        resolveConfiguredPack(name, source, releaseAgeEvaluation, undefined, classifiedSource),
+      makeIntent: (ref, versionRange) =>
+        ref.type === "pack"
+          ? ({
+              packToInstall: ref,
+              forceCanonical: reinstall,
+              ...(reinstall
+                ? { dependencyResolver: acceptedPackDependencyResolver(evaluation) }
+                : {}),
+              versionRange,
+              nonInteractive,
+              releaseAgeEvaluation: evaluation,
+              heldRelease: WORKSPACE_UPDATE_HELD_RELEASE_POLICY,
+            } satisfies PackInstallIntent)
+          : undefined,
+    });
   });
 
 interface ResolvedPlanCollection {
@@ -1294,7 +1310,7 @@ export const buildWorkspaceUpdatePlan: (
   ConfiguredUpdateFailure,
   WorkspaceUpdateCollectorContext | ReleaseAgePosture
 > = Effect.fn("UpdateExtensions.sweepConfigured")(function* (args) {
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
+  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgePolicy();
   const accepted = retainedPackageBindings(yield* (yield* LockfileReader).lockfile);
   const priorGraph = yield* (yield* DesiredStateReader).graph();
   const namesForBinding = (binding: (typeof accepted)[number]): ReadonlyArray<string> => {

@@ -49,7 +49,8 @@ import {
   type NativeLocationOutcome,
   isGitManaged,
 } from "../../locations/index.js";
-import { recordFootprint } from "../../settlement/index.js";
+import { recordFilePublication } from "../../settlement/index.js";
+import { writeFilePreservingIdentity } from "@agentxm/host-primitives";
 import {
   projectionGeneration,
   projectionIsCurrent,
@@ -2066,17 +2067,21 @@ const writeFile = (filePath: string, content: string) =>
             }),
         ),
       );
-      yield* fs.writeFileString(filePath, content).pipe(
-        Effect.mapError(
-          (error) =>
-            new InstructionMaintenanceFailed({
-              category: "internal",
-              detail: `Failed to write instruction file: ${filePath}`,
-              cause: error,
-            }),
-        ),
-      );
-      yield* recordFootprint({ path: filePath, change: existed ? "modified" : "created" });
+      yield* writeFilePreservingIdentity(fs, {
+        targetPath: filePath,
+        content,
+        onPublished: (publication) =>
+          recordFilePublication(
+            { path: filePath, change: existed ? "modified" : "created" },
+            publication,
+          ),
+        mapError: (error) =>
+          new InstructionMaintenanceFailed({
+            category: "internal",
+            detail: `Failed to write instruction file: ${filePath}`,
+            cause: error,
+          }),
+      });
     }),
   );
 

@@ -596,6 +596,8 @@ export const workspaceTransactionFailureToStepFailure = (
             return "Failed to create the rollback snapshot directory";
           case "copy":
             return `Failed to snapshot transaction target ${failure.target}`;
+          case "verify-publication":
+            return "Cannot verify the workspace publication";
           case "inspect-ancestor":
             return `Failed to inspect transaction ancestor ${failure.target}`;
         }

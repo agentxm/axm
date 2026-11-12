@@ -69,6 +69,10 @@ import {
 import {
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesUnavailable,
+  configuredAgentLifecycleOutcomes,
+  DesiredStateReader,
+  UNCONSTRAINED_DESIRED_NODE,
+  type DesiredStateGraph,
   WorkspaceRecords,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
@@ -965,7 +969,7 @@ describe("previewOrApply", () => {
     },
   );
 
-  it.effect("shares final inventory readback across enabled operations of one type", () => {
+  it.effect("reads back selected targets together with their complete contributor graph", () => {
     const context = makeTestContext();
     const plan: Plan = {
       _tag: "Plan",
@@ -990,9 +994,21 @@ describe("previewOrApply", () => {
       ],
     };
     return Effect.gen(function* () {
-      const lifecycle = yield* makeOperationLifecycle({ name: plan.name, mode: "apply" });
-      const events: Array<OperationEvent> = [];
-      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void events.push(event)));
+      const desired = yield* DesiredStateReader;
+      const graph = {
+        ...(yield* desired.graph()),
+        nodes: ["review", "triage", "unselected"].map((name) => ({
+          type: "skill" as const,
+          name,
+          identity: { authority: "workspace" as const, fqn: `@acme/skills/${name}` },
+          source: "workspace",
+          enabled: true,
+          origins: [],
+          constraint: UNCONSTRAINED_DESIRED_NODE,
+        })),
+      } satisfies DesiredStateGraph;
+      const observedTargets: Array<ReadonlyArray<string>> = [];
+      const contributorGraphs: Array<DesiredStateGraph | undefined> = [];
       const records = yield* WorkspaceRecords;
       let inventoryReads = 0;
       const observed = {
@@ -1019,20 +1035,46 @@ describe("previewOrApply", () => {
         configuredAgentOperations: operations,
       }).pipe(
         Effect.provideService(WorkspaceRecords, observed),
-        Effect.provideService(OperationLifecycle, lifecycle),
+        Effect.provideService(DesiredStateReader, {
+          ...desired,
+          graph: () => Effect.succeed(graph),
+        }),
+        Effect.provideService(ConfiguredAgentOutcomesProvider, {
+          byExtensionType: {
+            skill: (request) =>
+              Effect.sync(() => {
+                if (request.desiredGraph !== undefined) {
+                  observedTargets.push(request.rows.map((row) => row.name));
+                  contributorGraphs.push(request.desiredGraph);
+                }
+                return new Map(
+                  request.rows.map((row) => [
+                    row.name,
+                    {
+                      nativeLocations: [],
+                      agentOutcomes: configuredAgentLifecycleOutcomes({
+                        type: request.type,
+                        name: row.name,
+                        agentIds: request.agentIds,
+                        scope: request.scope,
+                        state: request.state,
+                        targetState: row.targetState,
+                        installed: true,
+                      }),
+                    },
+                  ]),
+                );
+              }),
+          },
+        }),
       );
-      yield* lifecycle.settle("applied");
-      yield* lifecycle.drained.await;
       expect(result.units.map((unit) => unit.agentOutcomes?.map(({ name }) => name))).toEqual([
         ["review"],
         ["triage"],
       ]);
-      expect(inventoryReads).toBe(1);
-      expect(
-        events.filter(
-          (event) => event._tag === "UnitStarted" && event.unitId === "agent-readback:skill",
-        ),
-      ).toHaveLength(1);
+      expect(inventoryReads).toBe(0);
+      expect(observedTargets).toEqual([["review", "triage"]]);
+      expect(contributorGraphs).toEqual([graph]);
     }).pipe(Effect.provide(context.layer));
   });
 

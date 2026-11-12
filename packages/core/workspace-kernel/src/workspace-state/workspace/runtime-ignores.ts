@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { readFileStringIfPresent, writeFileAtomic } from "@agentxm/host-primitives";
-import { protectWorkspacePath, recordFootprint } from "../../settlement/index.js";
+import { protectWorkspacePath, recordFilePublication } from "../../settlement/index.js";
 import { RuntimeIgnoreWriteError } from "./errors.js";
 
 export const ensureWorkspaceTransientIgnores = (workspaceRoot: string) =>
@@ -36,7 +36,11 @@ export const ensureWorkspaceTransientIgnores = (workspaceRoot: string) =>
     yield* writeFileAtomic(fs, {
       targetPath: filePath,
       content: prefix + missing.join(newline) + newline,
+      onPublished: (publication) =>
+        recordFilePublication(
+          { path: filePath, change: exists ? "modified" : "created" },
+          publication,
+        ),
       mapError: ({ step, cause }) => new RuntimeIgnoreWriteError({ path: filePath, step, cause }),
     });
-    yield* recordFootprint({ path: filePath, change: exists ? "modified" : "created" });
   });

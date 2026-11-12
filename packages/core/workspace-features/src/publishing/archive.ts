@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { sha512Integrity } from "@agentxm/host-primitives";
-import { validateArchive } from "@agentxm/extension-content";
+import { validateArchive, type ValidatedArchive } from "@agentxm/extension-content";
 import { validateContainedLink } from "@agentxm/workspace-kernel/locations";
 import { zipSync, type Zippable } from "fflate";
 import type {
@@ -102,7 +102,7 @@ export interface ArchivePlan {
 
 /** Deterministic archive bytes paired with the exact plan that produced them. */
 interface PlannedZipArchive {
-  readonly archive: Uint8Array;
+  readonly archive: ValidatedArchive;
   readonly plan: ArchivePlan;
   readonly selection: ResolvedFileSelection;
   readonly policyFingerprint: string;
@@ -346,7 +346,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
     });
     // Shared admission also resolves the virtual link graph, including links
     // whose targets change meaning after an earlier link and a '..' segment.
-    yield* validateArchive(archive).pipe(
+    const admitted = yield* validateArchive(archive).pipe(
       Effect.mapError((cause) =>
         publishRefused({
           category: "validation",
@@ -361,7 +361,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       matchCount: files.filter(({ decision }) => decision.matchedRules.includes(rule)).length,
     }));
     return {
-      archive,
+      archive: admitted,
       ...resolved,
       policyFingerprint: JSON.stringify({
         selection: resolved.policyFingerprint,
@@ -385,7 +385,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
         uncompressedBytes: included.reduce((total, file) => total + file.size, 0),
       },
     } satisfies PlannedZipArchive;
-  });
+  }).pipe(Effect.withSpan("axm.publish.archive"));
 
 export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
-  planZipArchive(dir, options).pipe(Effect.map(({ archive }) => archive));
+  planZipArchive(dir, options).pipe(Effect.map(({ archive }) => archive.copyBytes()));

@@ -106,7 +106,7 @@ describe("prepared distribution freshness", () => {
           if (change === "unchanged" || change === "excluded-bytes") {
             expect(document.counts.published).toBe(1);
             expect(new Uint8Array(world.archive("review"))).toEqual(
-              ready.candidate.uploadCandidates[0]?.archive,
+              ready.candidate.uploadCandidates[0]?.archive.copyBytes(),
             );
           } else {
             expect(document.counts.published).toBe(0);

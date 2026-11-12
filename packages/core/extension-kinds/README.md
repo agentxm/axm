@@ -11,6 +11,13 @@ Consumers import one kind through `./skills`, `./subagents`,
 by the native host. No kind imports another kind, and no kind imports a workspace
 feature.
 
+Subagent materialization carries the final validated snapshot's compiled outputs
+through native apply. Compatible consumers of one physical file share its write
+and projection row. The native writer checks every planned alias and current
+file under its lock before applying those bytes; unchanged generations preserve
+hand edits. External-source preflight and staged-content validation remain
+separate safety boundaries.
+
 This package is unsupported and may change in any release. Ordinary users
 should use the [`axm` CLI](https://axm.sh) instead.
 

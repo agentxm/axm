@@ -9,9 +9,12 @@ import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
+import * as ChildProcess from "effect/process/ChildProcess";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import { afterEach, beforeEach, vi } from "vitest";
 import {
   getBuiltInSources,
+  PlatformLayer,
   makeArtifactHttpClientLayer,
   makeCliLoggerLayer,
   makeRegistryHttpClientLayer,
@@ -21,9 +24,42 @@ import {
 } from "./runtime.js";
 import { makeWorkspaceHandlerTestContext } from "./test-support/test-helpers.js";
 import { makeTestScreen } from "./test-support/screen-test.js";
+import { localTracingCollector } from "./test-support/local-tracing-collector.js";
+import { withLocalTracing } from "./cli-runtime/index.js";
 
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { RegistryHttpClient } from "@agentxm/registry-client";
+
+describe("Local subprocess traces", () => {
+  it.live("records one real spawn without exposing command arguments or output", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const receiver = yield* localTracingCollector();
+        const secret = "PRIVATE-subprocess-argument";
+        const program = Effect.gen(function* () {
+          const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+          return yield* spawner.string(
+            ChildProcess.make(process.execPath, ["-e", `process.stdout.write('${secret}')`]),
+          );
+        }).pipe(Effect.provide(PlatformLayer));
+        expect(
+          yield* withLocalTracing(program, {
+            AXM_TRACE: "1",
+            AXM_TRACE_ENDPOINT: receiver.endpoint,
+          }),
+        ).toBe(secret);
+        const spans = receiver.spans();
+        const root = spans.find((span) => span.name === "axm.cli.invocation");
+        const work = spans.filter((span) => span.name === "axm.process.spawn");
+        expect(work).toHaveLength(1);
+        expect(work[0]?.parentSpanId).toBe(root?.spanId);
+        expect(receiver.bodies.join("")).not.toContain(secret);
+        expect(receiver.bodies.join("")).not.toContain(process.execPath);
+      }),
+    ),
+  );
+});
+
 describe("getBuiltInSources", () => {
   it("defines only the built-in registry because Git locators are self-describing", () => {
     expect(getBuiltInSources()).toEqual([

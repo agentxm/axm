@@ -288,6 +288,28 @@ export const runCliOperationBenchmark = (repoRoot: string, outputPath: string): 
           });
           await fs.rename(pendingReport, outputPath);
         };
+        const collectionStarted = performance.now();
+        const progress = async (
+          scenarioId: string,
+          scenarioOrdinal: number,
+          phase: string,
+          ordinal: number,
+          count: number,
+        ): Promise<void> => {
+          const progressPath = `${outputPath}.progress.json`;
+          await writeJson(`${progressPath}.pending`, {
+            subject,
+            smoke,
+            scenarioId,
+            scenarioOrdinal,
+            scenarioCount: selected.length,
+            phase,
+            ordinal,
+            count,
+            elapsedMs: performance.now() - collectionStarted,
+          });
+          await fs.rename(`${progressPath}.pending`, progressPath);
+        };
         await persist();
         for (const [index, scenario] of selected.entries()) {
           const previous = receipts.find(
@@ -322,6 +344,7 @@ export const runCliOperationBenchmark = (repoRoot: string, outputPath: string): 
                     ] as const);
             for (const { phase, count } of phases) {
               for (let ordinal = 0; ordinal < count; ordinal += 1) {
+                await progress(scenario.id, index + 1, phase, ordinal + 1, count);
                 const result = await runEvidence(
                   runScenarioSample(scenario, repoRoot, binary, { subject }),
                   signal,
@@ -370,6 +393,7 @@ export const runCliOperationBenchmark = (repoRoot: string, outputPath: string): 
           ];
           await writeJson(path.join(path.dirname(outputPath), evidencePath), receipt);
           if (!smoke && status === "passed") {
+            await progress(scenario.id, index + 1, "syscalls", 1, 1);
             let evidence: (typeof DiagnosticSchema.Type)["evidence"];
             try {
               evidence = await runEvidence(

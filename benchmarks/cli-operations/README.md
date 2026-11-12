@@ -106,6 +106,10 @@ Both are diagnostic selections and leave `collectionComplete` false. A normal
 full collection refuses to start when the scenario registry omits a required
 route or mode.
 
+`<output>.progress.json` identifies the current scenario, phase, and repetition.
+The harness updates it outside the measured invocation. Completed receipts and
+the process exit status remain the evidence for completion.
+
 `AXM_OPERATIONS_RESUME=1` reads an existing report at the output path and skips
 completed scenarios. Resume rejects a changed binary, source revision, host,
 protocol, or harness digest. It retries failed or missing diagnostics without

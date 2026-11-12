@@ -176,7 +176,7 @@ jobs:
           persist-credentials: false
 
       - name: Audit workflow security with zizmor
-        uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
           advanced-security: false
           config: .github/zizmor.yml
@@ -471,7 +471,7 @@ jobs:
 
       - name: Publish JUnit report
         if: always()
-        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6.6.1
+        uses: mikepenz/action-junit-report@8a133bfa3ecb0ea9024c1e2ae788b4c25f6cdb9d # v6.6.2
         with:
           report_paths: "test-results/**/junit.xml"
           check_name: Test Results - ${{ matrix.partition }}
@@ -633,7 +633,7 @@ jobs:
 
       - name: Publish JUnit report
         if: always() && steps.verify.outcome != 'skipped'
-        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6.6.1
+        uses: mikepenz/action-junit-report@8a133bfa3ecb0ea9024c1e2ae788b4c25f6cdb9d # v6.6.2
         with:
           report_paths: "test-results/**/junit.xml"
           check_name: Workspace Test Results - ${{ matrix.partition }}
@@ -735,7 +735,7 @@ jobs:
 
       - name: Publish JUnit report
         if: always() && steps.verify.outcome != 'skipped'
-        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6.6.1
+        uses: mikepenz/action-junit-report@8a133bfa3ecb0ea9024c1e2ae788b4c25f6cdb9d # v6.6.2
         with:
           report_paths: "test-results/**/junit.xml"
           check_name: CLI E2E Test Results (${{ matrix.name }})
@@ -811,7 +811,7 @@ jobs:
 
       - name: Publish Windows JUnit report
         if: always()
-        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6.6.1
+        uses: mikepenz/action-junit-report@8a133bfa3ecb0ea9024c1e2ae788b4c25f6cdb9d # v6.6.2
         with:
           report_paths: "test-results/*-windows/junit.xml"
           check_name: Windows Workspace Test Results

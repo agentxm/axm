@@ -38,6 +38,7 @@ const TYPE_BY_PLURAL: Readonly<Record<string, string>> = {
   packs: "pack",
 };
 
+/** @public Dependent fixtures name this record in emitted declarations. */
 export interface PublishRecord {
   readonly owner: string;
   readonly plural: string;
@@ -53,7 +54,10 @@ export interface PublishRecord {
   readonly byteLength: number;
 }
 
-/** Every request the CLI made, in order — the transport contract under test. */
+/**
+ * Every completed fixture HTTP request, regardless of caller, in response-finish order.
+ * @public Dependent fixtures name this record in emitted declarations.
+ */
 export interface RequestRecord {
   readonly method: string;
   readonly path: string;
@@ -123,6 +127,8 @@ export interface HttpRegistry {
 }
 
 export interface HttpRegistryOptions {
+  /** Explicit listener address; ordinary E2E callers retain 127.0.0.1. */
+  readonly bindAddress?: string;
   /** Additional fixture protocols share this origin and request accounting. */
   readonly handleRequest?: (
     request: http.IncomingMessage,
@@ -1220,9 +1226,13 @@ export const startHttpRegistry = async (
     });
   });
 
+  const bindAddress = options.bindAddress ?? "127.0.0.1";
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => resolve());
+    server.listen(0, bindAddress, () => {
+      server.off("error", reject);
+      resolve();
+    });
   });
 
   const address = server.address();
@@ -1231,7 +1241,7 @@ export const startHttpRegistry = async (
   }
 
   return {
-    url: `http://127.0.0.1:${address.port}`,
+    url: `http://${bindAddress}:${address.port}`,
     archiveEntries: (owner, plural, name, version) => {
       const stored = extensions
         .get(key(owner, plural, name))

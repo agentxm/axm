@@ -123,6 +123,37 @@ comparison inputs remains visible as incomplete. Scenario ownership and the
 separate architecture-allocation matrix describe what the evidence establishes;
 benchmark coverage alone cannot prove that an architectural migration is done.
 
+## HTTP fixture isolation and request counters
+
+Benchmark HTTP Registry, device authorization, and release-proxy listeners bind
+explicitly to `127.0.0.2`. The host must support that address; a bind failure
+fails preparation without falling back to `127.0.0.1`. Shared E2E helpers retain
+`127.0.0.1` as their default. This isolates the reference-host listeners from
+unrelated traffic directed to the default loopback address. It does not provide
+a network namespace or prove which operating-system process sent a request.
+
+The fixtures retain method, pathname, response status, and User-Agent in memory
+without authorization headers or query strings. They reject requests outside
+their API path or without the compiled client's `axm-cli/<version>` User-Agent,
+and fail the invocation with safe request details if such traffic arrives.
+They also check again when closing, so late contamination cannot be reported as
+a successful sample. Unknown traffic is never silently removed to produce a
+zero-request result. The release proxy separately validates its CONNECT target;
+CONNECT is a tunnel request and may omit a User-Agent.
+
+`requests`, server processing time, and response-byte metrics describe observed
+fixture traffic during the scenario's measurement window. User-Agent and an
+isolated listener distinguish unrelated traffic but do not establish PID
+attribution. Exact compiled transport-dispatch counts require separate capability
+instrumentation. Existing positive protocol, artifact, credential-persistence,
+and zero-request assertions remain required. Host compatibility and certificate
+validation must be checked with the compiled scenarios before collection; a
+listener-only test is insufficient. Tests that instantiate the benchmark's
+`127.0.0.2` listeners are selected explicitly on Linux; portable default-binding,
+bind-failure, and request-guard controls remain available on other hosts. A
+non-Linux test selection is not benchmark coverage. Existing native platform CI
+retains platform assurance; cross-host performance remains a separate claim.
+
 ## Script installation fixtures
 
 Script reinstall cases require `openssl` on `PATH` to issue a disposable CA and

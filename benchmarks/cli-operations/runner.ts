@@ -12,7 +12,7 @@ import type {
   ScenarioContext,
 } from "./fixtures.js";
 
-export class BenchmarkProcessFailure extends Data.TaggedError("BenchmarkProcessFailure")<{
+class BenchmarkProcessFailure extends Data.TaggedError("BenchmarkProcessFailure")<{
   readonly message: string;
   readonly cause?: unknown;
 }> {}
@@ -22,7 +22,7 @@ export class BenchmarkScenarioFailure extends Data.TaggedError("BenchmarkScenari
 }> {}
 
 /** Bun reports operating-system resource usage of the actual compiled child. */
-export const invokeCompiled = (
+const invokeCompiled = (
   binary: string,
   workspace: string,
   home: string,

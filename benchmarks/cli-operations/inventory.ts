@@ -12,7 +12,7 @@ export const parseCommandSnapshot = Schema.decodeUnknownSync(CommandSnapshotSche
   onExcessProperty: "error",
 });
 
-export const operationId = (route: ReadonlyArray<string>): string =>
+const operationId = (route: ReadonlyArray<string>): string =>
   route.length === 0 ? "(root)" : route.join(" ");
 
 /**

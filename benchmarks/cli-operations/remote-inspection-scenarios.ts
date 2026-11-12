@@ -1,7 +1,8 @@
+import { startBenchmarkRegistry } from "./http-fixture.js";
 import * as Schema from "effect/Schema";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { fixtureArchive, startHttpRegistry } from "@agentxm/client-e2e-utils/registry";
+import { fixtureArchive } from "@agentxm/client-e2e-utils/registry";
 import {
   assertOutput,
   assertSuccessful,
@@ -62,7 +63,7 @@ const inspectionScenario = (
   },
   description: `Assess ${bulk ? "all seven installed kinds" : selected.map((kind) => kind.type).join(", ")} against fresh ${filter === "outdated" ? "newer Registry versions" : `Registry ${filter} metadata`} (${output}).`,
   prepare: async (context) => {
-    const registry = await startHttpRegistry();
+    const registry = await startBenchmarkRegistry();
     try {
       await configureWorkspace(context, {
         agents: ["claude-code"],
@@ -241,7 +242,7 @@ const cachedAcquisitionScenario = (
     const token = "axm_pat_disposable_cached_acquisition";
     const archivePath = "/v1/extensions/@benchmark/skills/sample/1.0.0/archive";
     let revoked = false;
-    const registry = await startHttpRegistry({
+    const registry = await startBenchmarkRegistry({
       tokenOwners: { [token]: "@benchmark" },
       handleRequest: async (request, response) => {
         if (
@@ -384,7 +385,7 @@ const sharedPackGraphScenario = (
   description:
     "Resolve two configured Registry Packs that share one member, then verify both constraints and one native materialization",
   prepare: async (context) => {
-    const registry = await startHttpRegistry();
+    const registry = await startBenchmarkRegistry();
     try {
       const member = "@benchmark/skills/shared";
       const memberFiles = packageFiles(extensionKinds[0], "shared");

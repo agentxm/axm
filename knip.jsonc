@@ -54,6 +54,7 @@
         "allurerc.ts",
         "benchmarks/lifecycle-preload.cjs",
         "scripts/axm-local.ts",
+        "scripts/test-support/cli-operation-http-runner.ts",
         "specifications/product-goals.ts",
         "tools/architecture/check.mjs",
         "tools/architecture/*.test.mjs",
@@ -101,6 +102,7 @@
       "entry": [
         "src/main.ts",
         "src/**/*.type-test.ts",
+        "scripts/export-benchmark-inventory.ts",
         "scripts/generate-agent-catalog.ts",
         "scripts/generate-cli-reference.ts",
         "scripts/generate-schemas.ts",

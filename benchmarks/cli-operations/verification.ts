@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema";
 import type { BenchmarkMode } from "./model.js";
 import type { PreparedInvocation, ProcessResult, ScenarioContext } from "./fixtures.js";
 
-export type JsonAssertion =
+type JsonAssertion =
   | { readonly at: ReadonlyArray<string | number>; readonly equals: unknown }
   | { readonly at: ReadonlyArray<string | number>; readonly absent: true };
 

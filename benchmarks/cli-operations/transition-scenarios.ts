@@ -1,7 +1,8 @@
+import { startBenchmarkRegistry } from "./http-fixture.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
-import { fixtureArchive, startHttpRegistry } from "@agentxm/client-e2e-utils/registry";
+import { fixtureArchive } from "@agentxm/client-e2e-utils/registry";
 import {
   assertOutput,
   assertSuccessful,
@@ -115,7 +116,7 @@ export const transitionScenarios = (): ReadonlyArray<BenchmarkScenario> => {
         description: `Replace authored ${kind.type} authority with an external source`,
         prepare: async (context) => {
           await prepareAuthoredPackage(context, kind);
-          const registry = await startHttpRegistry();
+          const registry = await startBenchmarkRegistry();
           try {
             let source: string;
             if (kind.type === "mcp-server" || kind.type === "pack") {

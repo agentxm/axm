@@ -6,9 +6,14 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import { expect, it } from "@effect/vitest";
 import { authScenarios } from "../benchmarks/cli-operations/auth-scenarios.js";
 import type { ProcessResult, ScenarioContext } from "../benchmarks/cli-operations/fixtures.js";
+
+// These controls instantiate the Linux reference benchmark's explicit 127.0.0.2 listener.
+// Other hosts retain their production auth/keychain coverage; selection is not benchmark evidence.
+const referenceHostTest = it.effect.skipIf(process.platform !== "linux");
 
 class FixtureTestFailed extends Data.TaggedError("FixtureTestFailed")<{
   readonly cause: unknown;
@@ -134,7 +139,7 @@ const approved: Preparation = async (context) => {
   return document(url, "logged-in");
 };
 
-it.effect(
+referenceHostTest(
   "auth preparation rejects an inherited session and retains its successful JSON for diagnosis",
   () =>
     Effect.scoped(
@@ -152,7 +157,7 @@ it.effect(
 );
 
 for (const state of ["pending", "session"]) {
-  it.effect(
+  referenceHostTest(
     `auth preparation requires the local ${state} artifact after successful login output`,
     () =>
       Effect.scoped(
@@ -175,7 +180,7 @@ for (const state of ["pending", "session"]) {
   );
 }
 
-it.effect("auth preparation rejects credentials stored for a different Registry", () =>
+referenceHostTest("auth preparation rejects credentials stored for a different Registry", () =>
   Effect.scoped(
     Effect.gen(function* () {
       const context = yield* contextFor(async (context) => {
@@ -191,7 +196,7 @@ it.effect("auth preparation rejects credentials stored for a different Registry"
   ),
 );
 
-it.effect(
+referenceHostTest(
   "pending reuse requires the original durable authorization and cannot create credentials",
   () =>
     Effect.scoped(
@@ -216,7 +221,7 @@ it.effect(
     ),
 );
 
-it.effect(
+referenceHostTest(
   "retaining a session verifies its identity request and preserves local credential bytes",
   () =>
     Effect.scoped(
@@ -224,7 +229,10 @@ it.effect(
         const context = yield* contextFor(approved);
         const invocation = yield* prepared("auth:login:retained-session:json", context);
         const url = yield* observe(() => registryUrl(context));
-        const response = yield* HttpClient.get(`${url}/v1/auth/me`);
+        const response = yield* HttpClientRequest.get(`${url}/v1/auth/me`).pipe(
+          HttpClientRequest.setHeader("user-agent", "axm-cli/fixture-test"),
+          HttpClient.execute,
+        );
         expect(response.status).toBe(200);
         yield* response.arrayBuffer;
         const retained = document(url, "already-logged-in");
@@ -239,7 +247,7 @@ it.effect(
     ),
 );
 
-it.effect("logout requires completed remote revocation and removes the local session", () =>
+referenceHostTest("logout requires completed remote revocation and removes the local session", () =>
   Effect.scoped(
     Effect.gen(function* () {
       const context = yield* contextFor(approved);
@@ -256,7 +264,10 @@ it.effect("logout requires completed remote revocation and removes the local ses
           "did not observe POST /v1/auth/revoke",
         ),
       );
-      const response = yield* HttpClient.post(`${url}/v1/auth/revoke`);
+      const response = yield* HttpClientRequest.post(`${url}/v1/auth/revoke`).pipe(
+        HttpClientRequest.setHeader("user-agent", "axm-cli/fixture-test"),
+        HttpClient.execute,
+      );
       expect(response.status).toBe(200);
       yield* response.arrayBuffer;
       yield* observe(() =>

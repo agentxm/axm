@@ -126,7 +126,7 @@
         }
       ],
       "options": {
-        "command": "bun scripts/bench.ts",
+        "command": "bash scripts/run-benchmarks.sh",
         "cwd": "."
       }
     },
@@ -145,7 +145,7 @@
       "parallelism": false,
       "dependsOn": ["cli:compile-host", "cli:export:benchmark-inventory"],
       "options": {
-        "command": "bun scripts/bench.ts",
+        "command": "bash scripts/run-benchmarks.sh",
         "cwd": ".",
         "env": {
           "AXM_BENCHMARK_SUITE": "operations"

@@ -1,13 +1,18 @@
+import { startBenchmarkRegistry } from "./http-fixture.js";
 import { createHash } from "node:crypto";
 import { benchmarkProcessEnvironment } from "../process-environment.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import * as Schema from "effect/Schema";
-import { fixtureArchive, startHttpRegistry } from "@agentxm/client-e2e-utils/registry";
+import { fixtureArchive } from "@agentxm/client-e2e-utils/registry";
 import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 import type { BenchmarkMode, BenchmarkOperation, ScenarioDimensions } from "./model.js";
-import { wrapPrepared, type PreparedExpectation } from "./verification.js";
+import {
+  wrapPrepared,
+  type ArtifactExpectation,
+  type PreparedExpectation,
+} from "./verification.js";
 import {
   assertOutput,
   assertSuccessful,
@@ -62,7 +67,7 @@ const initializeGit = async (context: ScenarioContext): Promise<void> => {
 };
 
 /** The retained reference workload has 20 Skills and ten 50-concept Knowledge bundles. */
-export const prepareInventory = async (context: ScenarioContext, count = 30): Promise<void> => {
+const prepareInventory = async (context: ScenarioContext, count = 30): Promise<void> => {
   const entries: Record<string, Record<string, { source: string }>> = { skills: {}, knowledge: {} };
   for (let index = 0; index < count; index++) {
     const kind = index % 3 === 2 ? knowledge : skill;
@@ -93,7 +98,7 @@ const installInvocation = async (
   change: "install" | "update" | "no-op-update" = "install",
   settings: Readonly<Record<string, unknown>> = {},
 ): Promise<PreparedInvocation> => {
-  const registry = await startHttpRegistry();
+  const registry = await startBenchmarkRegistry();
   try {
     const archive = fixtureArchive(packageFiles(kind));
     registry.seed({
@@ -557,6 +562,11 @@ export const localScenarios = (
       }));
   });
 
+/**
+ * Benchmark-owned setup shared with lifecycle scaling diagnostics. Their driver
+ * is applied only in the isolated instrumentation checkout, outside this graph.
+ * @public
+ */
 export const prepareMixedInventory = async (
   context: ScenarioContext,
   count: number,
@@ -1430,7 +1440,7 @@ const primaryExpectation = (
                 {
                   kind: "absent",
                   path: ".gitignore",
-                } satisfies import("./verification.js").ArtifactExpectation,
+                } satisfies ArtifactExpectation,
               ]
             : []),
         ],

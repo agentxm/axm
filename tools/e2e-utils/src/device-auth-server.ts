@@ -1,6 +1,11 @@
 import * as http from "node:http";
 
-type DeviceOutcome = "approved" | "denied" | "expired" | "pending";
+export type DeviceOutcome = "approved" | "denied" | "expired" | "pending";
+
+interface DeviceAuthServerOptions {
+  /** Explicit listener address; ordinary E2E callers retain 127.0.0.1. */
+  readonly bindAddress?: string;
+}
 
 const sendJson = (response: http.ServerResponse, status: number, body: unknown) => {
   response.writeHead(status, { "content-type": "application/json" });
@@ -13,12 +18,15 @@ export const startDeviceAuthServer = async (
     request: http.IncomingMessage,
     response: http.ServerResponse,
   ) => Promise<boolean>,
+  options: DeviceAuthServerOptions = {},
 ) => {
+  const bindAddress = options.bindAddress ?? "127.0.0.1";
   let outcome = initialOutcome;
   const requests: Array<{
     readonly method: string;
     readonly path: string;
     readonly status: number;
+    readonly userAgent: string | undefined;
   }> = [];
   const server = http.createServer((request, response) => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
@@ -27,6 +35,7 @@ export const startDeviceAuthServer = async (
         method: request.method ?? "GET",
         path: pathname,
         status: response.statusCode,
+        userAgent: request.headers["user-agent"],
       }),
     );
     void (async () => {
@@ -37,7 +46,7 @@ export const startDeviceAuthServer = async (
           sendJson(response, 500, { error: "server_address_unavailable" });
           return;
         }
-        const verificationUri = `http://127.0.0.1:${address.port}/device`;
+        const verificationUri = `http://${bindAddress}:${address.port}/device`;
         sendJson(response, 200, {
           device_code: "device-secret",
           user_code: "ABCD-1234",
@@ -101,11 +110,17 @@ export const startDeviceAuthServer = async (
     })().catch(() => sendJson(response, 500, { error: "fixture_failed" }));
   });
 
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, bindAddress, () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
   const address = server.address();
   if (address === null || typeof address === "string") throw new Error("Expected TCP address");
   return {
-    url: `http://127.0.0.1:${address.port}`,
+    url: `http://${bindAddress}:${address.port}`,
     requests,
     setOutcome: (next: DeviceOutcome) => {
       outcome = next;

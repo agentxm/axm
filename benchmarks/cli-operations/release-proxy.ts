@@ -6,6 +6,11 @@ import * as net from "node:net";
 import * as path from "node:path";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import {
+  benchmarkBindAddress,
+  benchmarkTraffic,
+  type FixtureRequestObservation,
+} from "./http-fixture.js";
 
 class ReleaseFixtureFailure extends Data.TaggedError("ReleaseFixtureFailure")<{
   readonly message: string;
@@ -16,6 +21,7 @@ export interface ReleaseProxy {
   readonly environment: Readonly<Record<string, string>>;
   readonly checksum: string;
   readonly payloadBytes: number;
+  readonly observations: ReadonlyArray<FixtureRequestObservation>;
   readonly metrics: () => Readonly<Record<string, number>>;
   readonly close: () => Promise<void>;
 }
@@ -23,7 +29,7 @@ export interface ReleaseProxy {
 const listen = (server: net.Server): Promise<number> =>
   new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(0, benchmarkBindAddress, () => {
       server.off("error", reject);
       const address = server.address();
       if (address === null || typeof address === "string")
@@ -131,6 +137,7 @@ export const startReleaseProxy = (options: {
       );
       const prefix = `/cli-v${options.version}/`;
       const sockets = new Set<net.Socket>();
+      const traffic = benchmarkTraffic();
       const counts = {
         releaseRequests: 0,
         releaseBinaryRequests: 0,
@@ -149,6 +156,19 @@ export const startReleaseProxy = (options: {
       };
       const server = https.createServer({ key: tls.key, cert: tls.cert }, (request, response) => {
         counts.releaseRequests += 1;
+        if (
+          traffic.observe(
+            request,
+            response,
+            (pathname) =>
+              pathname === `${prefix}${options.assetName}` ||
+              pathname === `${prefix}SHA256SUMS` ||
+              pathname === "/latest.txt",
+          )
+        ) {
+          counts.releaseUnexpectedRequests += 1;
+          return;
+        }
         let body: Buffer | undefined;
         if (request.method === "GET" && request.headers.host === "releases.axm.sh") {
           if (request.url === `${prefix}${options.assetName}`) {
@@ -183,30 +203,57 @@ export const startReleaseProxy = (options: {
       server.on("tlsClientError", () => {
         counts.releaseTlsErrors += 1;
       });
-      const proxy = http.createServer((_request, response) => {
+      const proxy = http.createServer((request, response) => {
         counts.releaseUnexpectedRequests += 1;
-        response.writeHead(403);
-        response.end();
+        traffic.observe(request, response, () => false);
       });
       proxy.on("connection", remember);
+      const assertTrafficClean = (): void => {
+        traffic.assertClean();
+        if (
+          counts.releaseUnexpectedRequests !== 0 ||
+          counts.releaseDeniedConnections !== 0 ||
+          counts.releaseTlsErrors !== 0
+        )
+          throw new ReleaseFixtureFailure({
+            message: `Release fixture received unexpected traffic: ${JSON.stringify(traffic.observations)}`,
+          });
+      };
       const close = async (): Promise<void> => {
         for (const socket of sockets) socket.destroy();
         await Promise.all([
           new Promise<void>((resolve) => proxy.close(() => resolve())),
           new Promise<void>((resolve) => server.close(() => resolve())),
         ]);
+        assertTrafficClean();
       };
       try {
         const port = await listen(server);
         proxy.on("connect", (request, socket, head) => {
           counts.releaseConnections += 1;
+          // CONNECT is the tunnel protocol, not an AXM HTTP dispatch; Bun may omit its UA.
+          const accepted = request.url === "releases.axm.sh:443";
+          const observation: {
+            method: string;
+            path: string;
+            status: number | null;
+            userAgent: string | undefined;
+          } = {
+            method: "CONNECT",
+            path: accepted ? "releases.axm.sh:443" : "[unexpected CONNECT target]",
+            status: null,
+            userAgent: request.headers["user-agent"],
+          };
+          traffic.observations.push(observation);
           if (request.url !== "releases.axm.sh:443") {
             counts.releaseDeniedConnections += 1;
+            observation.status = 403;
             socket.end("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n");
             return;
           }
           // This fixed loopback endpoint is the only connection this proxy can make.
-          const local = net.connect(port, "127.0.0.1", () => {
+          const local = net.connect(port, benchmarkBindAddress, () => {
+            observation.status = 200;
             socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
             if (head.length > 0) local.write(head);
             socket.pipe(local);
@@ -217,7 +264,7 @@ export const startReleaseProxy = (options: {
           socket.on("error", () => local.destroy());
         });
         const proxyPort = await listen(proxy);
-        const address = `http://127.0.0.1:${String(proxyPort)}`;
+        const address = `http://${benchmarkBindAddress}:${String(proxyPort)}`;
         return {
           environment: {
             HTTP_PROXY: address,
@@ -232,7 +279,11 @@ export const startReleaseProxy = (options: {
           },
           checksum,
           payloadBytes: payload.byteLength,
-          metrics: () => ({ ...counts }),
+          observations: traffic.observations,
+          metrics: () => {
+            assertTrafficClean();
+            return { ...counts };
+          },
           close,
         };
       } catch (cause) {

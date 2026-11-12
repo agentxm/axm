@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
-import { startDeviceAuthServer } from "@agentxm/client-e2e-utils/registry";
+import { startBenchmarkDeviceAuthServer } from "./http-fixture.js";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -261,7 +261,7 @@ const authFixture = async (context: ScenarioContext, approved: boolean) => {
     expiresAt: tokenExpires,
     lastUsedAt: null,
   });
-  const server = await startDeviceAuthServer(
+  const server = await startBenchmarkDeviceAuthServer(
     approved ? "approved" : "pending",
     async (request, response) => {
       const pathname = new URL(request.url ?? "/", "http://localhost").pathname;

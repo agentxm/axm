@@ -3,7 +3,7 @@ import type * as http from "node:http";
 import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
-import { startHttpRegistry } from "@agentxm/client-e2e-utils/registry";
+import { startBenchmarkRegistry } from "./http-fixture.js";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
 const revision = '"benchmark-revision"';
@@ -95,7 +95,7 @@ export const startDistributionRegistry = async (initial: DistributionRegistryIni
     states.set(target, state);
     return state;
   };
-  const registry = await startHttpRegistry({
+  const registry = await startBenchmarkRegistry({
     enforcePackDependencies: true,
     handleRequest: (request, response) =>
       Effect.runPromise(
@@ -316,14 +316,18 @@ export const startDistributionRegistry = async (initial: DistributionRegistryIni
     },
     stateFor,
     resetMetrics: () => {
+      registry.assertTrafficClean();
       observedRequests = 0;
       serverProcessingMs = 0;
       responseBytes = 0;
     },
-    metrics: () => ({
-      requests: observedRequests,
-      serverProcessingMs,
-      responseWireBytes: responseBytes,
-    }),
+    metrics: () => {
+      registry.assertTrafficClean();
+      return {
+        requests: observedRequests,
+        serverProcessingMs,
+        responseWireBytes: responseBytes,
+      };
+    },
   };
 };

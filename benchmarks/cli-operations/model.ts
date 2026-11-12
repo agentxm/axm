@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 
-export const CommandEffectSchema = Schema.Literals([
+const CommandEffectSchema = Schema.Literals([
   "none",
   "workspace",
   "authored-source",
@@ -55,7 +55,7 @@ export const CommandSnapshotSchema = Schema.Struct({
 });
 
 export type CommandSnapshot = typeof CommandSnapshotSchema.Type;
-export type CommandEffect = typeof CommandEffectSchema.Type;
+type CommandEffect = typeof CommandEffectSchema.Type;
 
 export interface BenchmarkMode {
   readonly id: string;

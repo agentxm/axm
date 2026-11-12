@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Schema from "effect/Schema";
 
+import { NetworkIsolationSchema, readNetworkIsolation } from "./network-isolation.js";
 import { authScenarios } from "./auth-scenarios.js";
 import { scenarioEvidencePaths } from "./artifacts.js";
 import { applicationStateScenarios } from "./application-state-scenarios.js";
@@ -112,6 +113,7 @@ const StoredReportSchema = Schema.Struct({
   snapshot: CommandSnapshotSchema,
   receipts: Schema.Array(BenchmarkReceiptSchema),
   diagnostics: Schema.optionalKey(Schema.Array(DiagnosticSchema)),
+  networkContexts: Schema.Array(NetworkIsolationSchema),
 });
 
 const hashText = (text: string): string => createHash("sha256").update(text).digest("hex");
@@ -146,6 +148,8 @@ const harnessDigest = async (repoRoot: string): Promise<string> => {
   await visit("benchmarks/cli-operations");
   files.push(
     "scripts/bench.ts",
+    "scripts/run-benchmarks.sh",
+    "scripts/with-private-network.sh",
     "benchmarks/lifecycle-sources.ts",
     "benchmarks/process-environment.ts",
     "tools/e2e-utils/src/device-auth-server.ts",
@@ -194,6 +198,7 @@ export const runCliOperationBenchmark = (repoRoot: string, outputPath: string): 
         const binarySha256 = await binaryIdentity(binary);
         const harnessSha256 = await harnessDigest(repoRoot);
         const protocolHash = hashText(JSON.stringify(benchmarkProtocol));
+        const isolation = await Effect.runPromise(readNetworkIsolation);
         const host = {
           platform: process.platform,
           architecture: process.arch,
@@ -202,7 +207,9 @@ export const runCliOperationBenchmark = (repoRoot: string, outputPath: string): 
           logicalCpus: os.cpus().length,
           memoryBytes: os.totalmem(),
           bun: process.versions["bun"] ?? null,
-          node: process.version,
+          nodeCompatibility: process.version,
+          bunExecutable: process.execPath,
+          networkIsolation: isolation.profile,
         };
         const hostId = hashText(JSON.stringify({ ...host, hostname: os.hostname() }));
         const smoke = process.env["AXM_OPERATIONS_SMOKE"] === "1";
@@ -215,6 +222,7 @@ export const runCliOperationBenchmark = (repoRoot: string, outputPath: string): 
         if (selected.length === 0) throw new Error("No benchmark scenarios match the selection.");
         if (!smoke && selectors.length === 0 && declarations.length > 0)
           throw new Error(`Incomplete benchmark scenario registry:\n${declarations.join("\n")}`);
+        let networkContexts = [isolation];
         let receipts: BenchmarkReceipt[] = [];
         let diagnostics: Array<typeof DiagnosticSchema.Type> = [];
         let integrityVerified = false;
@@ -231,6 +239,7 @@ export const runCliOperationBenchmark = (repoRoot: string, outputPath: string): 
             previous.smoke !== smoke
           )
             throw new Error("Cannot resume changed benchmark inputs, host, binary, or protocol.");
+          networkContexts = [...previous.networkContexts, isolation];
           receipts = [...previous.receipts];
           diagnostics = [...(previous.diagnostics ?? [])];
           await fs.copyFile(outputPath, `${outputPath}.before-resume-${Date.now()}.json`);
@@ -247,6 +256,7 @@ export const runCliOperationBenchmark = (repoRoot: string, outputPath: string): 
             binarySha256,
             hostId,
             host,
+            networkContexts,
             smoke,
             protocol: benchmarkProtocol,
             snapshot,

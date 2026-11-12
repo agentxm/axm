@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { startHttpRegistry } from "@agentxm/client-e2e-utils/registry";
+import { startHttpRegistry } from "./e2e/http-registry-server.js";
 import { makeEnvironmentProcessFixture } from "./test-support/environment-process-fixture.js";
 
 export const specification = defineSpecification({

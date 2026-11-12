@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { startHttpRegistry } from "@agentxm/client-e2e-utils/registry";
+import { startHttpRegistry } from "./e2e/http-registry-server.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
 import { initRegistryWorkspace } from "./test-support/registry-workspace.js";
 

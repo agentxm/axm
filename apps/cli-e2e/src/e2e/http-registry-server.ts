@@ -38,7 +38,7 @@ const TYPE_BY_PLURAL: Readonly<Record<string, string>> = {
   packs: "pack",
 };
 
-export interface PublishRecord {
+interface PublishRecord {
   readonly owner: string;
   readonly plural: string;
   readonly name: string;
@@ -54,7 +54,7 @@ export interface PublishRecord {
 }
 
 /** Every request the CLI made, in order — the transport contract under test. */
-export interface RequestRecord {
+interface RequestRecord {
   readonly method: string;
   readonly path: string;
   readonly status: number;
@@ -88,46 +88,10 @@ export interface HttpRegistry {
     targetVersion: string,
   ) => void;
   readonly yank: (owner: string, plural: string, name: string, version: string) => void;
-  readonly setArchival: (
-    owner: string,
-    plural: string,
-    name: string,
-    archival: { readonly archivedAt: string; readonly message: string } | null,
-  ) => void;
-  readonly setDeprecation: (
-    owner: string,
-    plural: string,
-    name: string,
-    deprecation: {
-      readonly deprecatedAt: string;
-      readonly reason: "unmaintained";
-      readonly message: string;
-    } | null,
-  ) => void;
-  /** Admit deterministic fixture bytes without timing a setup publication. */
-  readonly seed: (input: {
-    readonly owner: string;
-    readonly plural: string;
-    readonly name: string;
-    readonly version: string;
-    readonly archive: Uint8Array;
-  }) => void;
-  /** Independent decoded bytes for postconditions; never aliases stored archive state. */
-  readonly archiveEntries: (
-    owner: string,
-    plural: string,
-    name: string,
-    version: string,
-  ) => Readonly<Record<string, Uint8Array>>;
   readonly close: () => Promise<void>;
 }
 
 export interface HttpRegistryOptions {
-  /** Additional fixture protocols share this origin and request accounting. */
-  readonly handleRequest?: (
-    request: http.IncomingMessage,
-    response: http.ServerResponse,
-  ) => Promise<boolean>;
   /** Hold a selected index response to observe independent resolution requests. */
   readonly beforeIndexResponse?: (pluralAndName: string) => Promise<void> | void;
   /** Test-only delay used to make an unordered pack upload fail deterministically. */
@@ -288,11 +252,6 @@ const parsePreviewDescriptor = (value: unknown): PreviewDescriptor | undefined =
   }
   const archiveSha256Hex = value["archiveSha256Hex"];
   if (archiveSha256Hex !== undefined && typeof archiveSha256Hex !== "string") return undefined;
-  if (
-    value["participation"] === "publish" &&
-    (typeof archiveSha256Hex !== "string" || !/^[a-f0-9]{64}$/u.test(archiveSha256Hex))
-  )
-    return undefined;
   const visibilityValue = value["visibility"];
   if (!isRecord(visibilityValue)) return undefined;
   const request = visibilityValue["request"];
@@ -412,26 +371,9 @@ export const startHttpRegistry = async (
 ): Promise<HttpRegistry> => {
   const extensions = new Map<string, Array<StoredVersion>>();
   const extensionVisibilities = new Map<string, "public" | "private">();
-  const extensionArchivals = new Map<
-    string,
-    { readonly archivedAt: string; readonly message: string } | null
-  >();
-  const extensionDeprecations = new Map<
-    string,
-    {
-      readonly deprecatedAt: string;
-      readonly reason: "unmaintained";
-      readonly message: string;
-    } | null
-  >();
   const previewBindings = new Map<
     string,
-    {
-      readonly condition: string;
-      readonly setDigest: string;
-      readonly descriptorDigest: string;
-      readonly archiveSha256Hex: string;
-    }
+    { readonly condition: string; readonly setDigest: string; readonly descriptorDigest: string }
   >();
   const publishes: Array<PublishRecord> = [];
   const pendingPublishFailures = new Set(options.failPublishOnce ?? []);
@@ -491,7 +433,6 @@ export const startHttpRegistry = async (
     });
 
     void (async () => {
-      if (await options.handleRequest?.(request, response)) return;
       if (
         trustedPublishing !== undefined &&
         request.method === "POST" &&
@@ -700,13 +641,10 @@ export const startHttpRegistry = async (
             .digest("hex")}"`;
           const candidateDigest = descriptorDigest(candidate);
           if (candidate.participation === "publish") {
-            if (candidate.archiveSha256Hex === undefined)
-              throw new Error("Publish descriptor has no archive digest");
             previewBindings.set(targetKey(owner, plural, name, version), {
               condition,
               setDigest,
               descriptorDigest: candidateDigest,
-              archiveSha256Hex: candidate.archiveSha256Hex,
             });
           }
           return {
@@ -829,13 +767,6 @@ export const startHttpRegistry = async (
         }
 
         const archive = await readBody(request);
-        if (
-          crypto.createHash("sha256").update(archive).digest("hex") !==
-          expectedBinding.archiveSha256Hex
-        ) {
-          sendProblem(response, 422, "Published archive differs from its admitted descriptor.");
-          return;
-        }
         const integrity = sha512Integrity(archive);
         const failureKey = `${plural}/${name}`;
         const dependencies = plural === "packs" ? packDependencyConstraints(archive) : undefined;
@@ -1057,17 +988,15 @@ export const startHttpRegistry = async (
             }
           }
           const visibility = extensionVisibilities.get(key(owner, plural, name)) ?? "public";
-          const deprecation = extensionDeprecations.get(key(owner, plural, name)) ?? null;
-          const archival = extensionArchivals.get(key(owner, plural, name)) ?? null;
           const revision = crypto
             .createHash("sha256")
-            .update(JSON.stringify({ visibility, versions, archival, deprecation }))
+            .update(JSON.stringify({ visibility, versions }))
             .digest("hex");
           const current = {
             publisherBindingId: "hbnd_e2e",
             visibility,
-            archival,
-            deprecation,
+            archival: null,
+            deprecation: null,
             revision,
             observedAt,
             validUntil,
@@ -1201,8 +1130,8 @@ export const startHttpRegistry = async (
           type,
           publisherBindingId: "hbnd_e2e",
           visibility: extensionVisibilities.get(key(owner, plural, name)) ?? "public",
-          archival: extensionArchivals.get(key(owner, plural, name)) ?? null,
-          deprecation: extensionDeprecations.get(key(owner, plural, name)) ?? null,
+          archival: null,
+          deprecation: null,
           versions: versions.map((entry) => ({
             version: entry.version,
             published: entry.published,
@@ -1232,48 +1161,6 @@ export const startHttpRegistry = async (
 
   return {
     url: `http://127.0.0.1:${address.port}`,
-    archiveEntries: (owner, plural, name, version) => {
-      const stored = extensions
-        .get(key(owner, plural, name))
-        ?.find((item) => item.version === version);
-      if (stored === undefined)
-        throw new Error(`No fixture archive ${owner}/${plural}/${name}@${version}`);
-      return Object.fromEntries(
-        Object.entries(unzipSync(stored.archive)).map(([entry, bytes]) => [
-          entry,
-          Uint8Array.from(bytes),
-        ]),
-      );
-    },
-    setArchival: (owner, plural, name, archival) => {
-      const identity = key(owner, plural, name);
-      if (!extensions.has(identity)) throw new Error(`Cannot archive unknown fixture ${identity}`);
-      extensionArchivals.set(identity, archival === null ? null : { ...archival });
-    },
-    setDeprecation: (owner, plural, name, deprecation) => {
-      const identity = key(owner, plural, name);
-      if (!extensions.has(identity))
-        throw new Error(`Cannot deprecate unknown fixture ${identity}`);
-      extensionDeprecations.set(identity, deprecation === null ? null : { ...deprecation });
-    },
-    seed: ({ owner, plural, name, version, archive: bytes }) => {
-      if (TYPE_BY_PLURAL[plural] === undefined) throw new Error(`Unknown fixture kind ${plural}`);
-      const archive = Buffer.from(bytes);
-      const identity = key(owner, plural, name);
-      const versions = extensions.get(identity) ?? [];
-      if (versions.some((item) => item.version === version)) {
-        throw new Error(`Duplicate fixture version ${identity}@${version}`);
-      }
-      versions.push({
-        version,
-        archive,
-        integrity: sha512Integrity(archive),
-        published: "2026-01-01T00:00:00.000Z",
-        ...(plural === "packs" ? { dependencies: packDependencyConstraints(archive) } : {}),
-      });
-      extensions.set(identity, versions);
-      extensionVisibilities.set(identity, "public");
-    },
     publishes,
     requests,
     metadataRequests,

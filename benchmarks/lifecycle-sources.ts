@@ -4,7 +4,6 @@ import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
-import { benchmarkProcessEnvironment } from "./process-environment.js";
 
 const owner = "@acme";
 
@@ -61,22 +60,20 @@ export interface LifecycleGitSource {
   readonly close: () => Promise<void>;
 }
 
-/** A real loopback Git remote with independently authored initial and subsequent trees. */
-export const startGitFixture = async (
-  root: string,
-  initialize: (source: string) => void,
-  change: (source: string) => void,
-): Promise<LifecycleGitSource> => {
+export const startLifecycleGitSource = async (root: string): Promise<LifecycleGitSource> => {
   const source = path.join(root, "git-source");
   const remote = path.join(root, "bench.git");
   fs.mkdirSync(source);
-  initialize(source);
-  const environment = benchmarkProcessEnvironment(path.join(root, "git-author-home"));
+  writeSkillPackage(source, "bench-git", "Accepted Git guidance.");
   const git = (args: ReadonlyArray<string>, cwd = source): string =>
     execFileSync("git", args, {
       cwd,
       encoding: "utf8",
-      env: environment,
+      env: {
+        PATH: process.env["PATH"],
+        HOME: path.join(root, "git-author-home"),
+        GIT_CONFIG_NOSYSTEM: "1",
+      },
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
   fs.mkdirSync(path.join(root, "git-author-home"));
@@ -99,7 +96,7 @@ export const startGitFixture = async (
       `--port=${String(port)}`,
       root,
     ],
-    { env: environment, stdio: ["ignore", "ignore", "pipe"] },
+    { stdio: ["ignore", "ignore", "pipe"] },
   );
   try {
     await awaitGitDaemon(daemon);
@@ -110,7 +107,10 @@ export const startGitFixture = async (
   return {
     url: `git://127.0.0.1:${String(port)}/bench.git`,
     advance: () => {
-      change(source);
+      fs.appendFileSync(
+        path.join(source, "vendor", "bench-git", "src", "SKILL.md"),
+        "\nNew Git guidance.\n",
+      );
       git(["add", "."]);
       git(["commit", "--quiet", "-m", "newer"]);
       git(["push", remote, "main"]);
@@ -123,16 +123,3 @@ export const startGitFixture = async (
       }),
   };
 };
-
-export const startLifecycleGitSource = (root: string): Promise<LifecycleGitSource> =>
-  startGitFixture(
-    root,
-    (source) => {
-      writeSkillPackage(source, "bench-git", "Accepted Git guidance.");
-    },
-    (source) =>
-      fs.appendFileSync(
-        path.join(source, "vendor", "bench-git", "src", "SKILL.md"),
-        "\nNew Git guidance.\n",
-      ),
-  );

@@ -101,11 +101,10 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["^build", "test:integration-hook", "bench:operations:coverage"],
+      "dependsOn": ["^build", "test:integration-hook"],
       "inputs": [
         "{workspaceRoot}/package.json",
         "{workspaceRoot}/scripts/**/*",
-        "{workspaceRoot}/benchmarks/**/*",
         "{workspaceRoot}/.github/**/*",
         "sharedGlobals"
       ],
@@ -128,28 +127,6 @@
       "options": {
         "command": "bun scripts/bench.ts",
         "cwd": "."
-      }
-    },
-    "bench:operations:coverage": {
-      "executor": "nx:run-commands",
-      "cache": false,
-      "dependsOn": ["cli:export:benchmark-inventory"],
-      "options": {
-        "command": "bun --conditions=axm-source scripts/verify-cli-benchmark-coverage.ts",
-        "cwd": "."
-      }
-    },
-    "bench:operations": {
-      "executor": "nx:run-commands",
-      "cache": false,
-      "parallelism": false,
-      "dependsOn": ["cli:compile-host", "cli:export:benchmark-inventory"],
-      "options": {
-        "command": "bun scripts/bench.ts",
-        "cwd": ".",
-        "env": {
-          "AXM_BENCHMARK_SUITE": "operations"
-        }
       }
     },
     "allure-report": {

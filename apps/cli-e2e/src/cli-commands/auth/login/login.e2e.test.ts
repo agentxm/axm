@@ -4,7 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { startDeviceAuthServer } from "@agentxm/client-e2e-utils/registry";
+import { startDeviceAuthServer } from "../../../e2e/device-auth-server.js";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli, writeUserDefaultRegistry } from "../../../e2e/utils.js";
 

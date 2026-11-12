@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { startHttpRegistry, type HttpRegistry } from "@agentxm/client-e2e-utils/registry";
+import { startHttpRegistry, type HttpRegistry } from "./e2e/http-registry-server.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
 import {
   LEGACY_LOCKFILE_NAME,

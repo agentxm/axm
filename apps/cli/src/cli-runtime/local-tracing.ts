@@ -21,6 +21,9 @@ import * as Tracer from "effect/Tracer";
 const spanNames = new Set([
   "axm.cli.invocation",
   "axm.http.request",
+  "axm.registry.request",
+  "axm.registry.attempt",
+  "axm.registry.archive-body",
   "axm.process.spawn",
   "axm.observation.phase",
   "axm.resolve.desired-state",

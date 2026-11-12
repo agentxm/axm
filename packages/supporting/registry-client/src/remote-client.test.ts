@@ -11,6 +11,7 @@ import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as DateTime from "effect/DateTime";
+import * as Tracer from "effect/Tracer";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -1125,6 +1126,14 @@ describe("getExtensionPackage", () => {
   it.effect("downloads an exact selection without fetching its index again", () =>
     Effect.gen(function* () {
       const archive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      });
       const requestedUrls: Array<string> = [];
       const httpClient = makeMockHttpClient((request) => {
         requestedUrls.push(request.url);
@@ -1132,15 +1141,20 @@ describe("getExtensionPackage", () => {
       });
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
-      const result = yield* client.getExtensionPackage({
-        ...makeIndexArgs(),
-        exact: {
-          version: exactVersion("1.0.0"),
-          integrity: "sha512-selected",
-          publisherBindingId: "hbnd_test",
-        },
-      });
+      const result = yield* client
+        .getExtensionPackage({
+          ...makeIndexArgs(),
+          exact: {
+            version: exactVersion("1.0.0"),
+            integrity: "sha512-selected",
+            publisherBindingId: "hbnd_test",
+          },
+        })
+        .pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true));
 
+      const body = spans.find((span) => span.name === "axm.registry.archive-body");
+      expect(body?.status._tag).toBe("Ended");
+      expect(body?.attributes.get("axm.archive.bytes")).toBe(4);
       expect(Array.from(result.archive)).toEqual(Array.from(archive));
       expect(requestedUrls).toEqual([
         `${BASE_URL}/v1/extensions/%40acme/skills/test-skill/1.0.0/archive`,

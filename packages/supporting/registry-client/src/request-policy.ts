@@ -287,13 +287,15 @@ export const executeRegistryRequest = Effect.fnUntraced(function* <A, E, R>(
   );
   const waiting = yield* Ref.make(false);
   const budget = yield* Effect.serviceOption(OperationRequestBudget);
+  // The governed effect includes response decoding/body consumption. HTTP transport
+  // spans alone end when headers arrive. Keep the permit through the full attempt.
+  const completeAttempt = effect.pipe(
+    Effect.timeout(policy.requestTimeout),
+    Effect.withSpan("axm.registry.attempt"),
+  );
   const attempt = Option.match(budget, {
-    onNone: () => effect.pipe(Effect.timeout(policy.requestTimeout)),
-    onSome: (service) =>
-      service.withAttempt(
-        new URL(args.request.url).origin,
-        effect.pipe(Effect.timeout(policy.requestTimeout)),
-      ),
+    onNone: () => completeAttempt,
+    onSome: (service) => service.withAttempt(new URL(args.request.url).origin, completeAttempt),
   });
   const retrySession = Option.match(yield* Effect.serviceOption(RegistryRetryObservation), {
     onNone: () => undefined,
@@ -394,5 +396,6 @@ export const executeRegistryRequest = Effect.fnUntraced(function* <A, E, R>(
         ),
       ),
     ),
+    Effect.withSpan("axm.registry.request"),
   );
 });

@@ -507,6 +507,15 @@
       },
       "dependsOn": ["cli:build:diagnostic-sources"]
     },
+    "bench:registry-network": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["cli:compile-host"],
+      "options": {
+        "command": "bun --conditions=axm-source benchmarks/registry-network.ts",
+        "cwd": "."
+      }
+    },
     "registry:network": {
       "executor": "nx:run-commands",
       "cache": false,

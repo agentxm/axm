@@ -5734,7 +5734,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/local-tracing-describes-operation-work`
 - Owner: `cli`
-- Statement: An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse without reporting every implementation helper.
+- Statement: An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse and complete Registry requests from header arrival without reporting every implementation helper.
 - Class: functional
 - Role: interface
 - Product goals: `actionable-diagnostics`
@@ -7659,6 +7659,21 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 ### Goal: dependable-change-process
 
 Changes and releases land through the governed repository process with required evidence and human approval.
+
+#### Quality
+
+##### Local registry network profiles are explicit and isolated
+
+- Requirement: `tooling/registry-network-profiles`
+- Owner: `axm`
+- Statement: The development registry network workflow shall configure explicit loopback latency profiles, report actual proxy configuration, isolate worktree ownership, and remove only its own proxy without modifying CLI settings or admitting partially configured traffic.
+- Class: quality (reliability)
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The real Effect controller talks through the HTTP client to an in-memory Toxiproxy API substitute. This establishes request ordering and ownership, not native proxy latency, reachability, or platform support.
+- Methods: example
+- Source: [`scripts/registry-network.spec.ts`](../scripts/registry-network.spec.ts)
 
 #### Constraints
 

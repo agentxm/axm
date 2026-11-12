@@ -435,6 +435,9 @@ const downloadArchive = Effect.fnUntraced(function* (
       ...(total === undefined ? {} : { total }),
       ...(Option.isNone(attempt) ? {} : { attempt: attempt.value }),
     }),
+  ).pipe(
+    Effect.tap((bytes) => Effect.annotateCurrentSpan("axm.archive.bytes", bytes.byteLength)),
+    Effect.withSpan("axm.registry.archive-body"),
   );
 });
 

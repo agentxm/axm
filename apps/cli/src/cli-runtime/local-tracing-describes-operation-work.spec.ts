@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "cli/local-tracing-describes-operation-work",
   title: "Local traces nest actual work under its operation",
   statement:
-    "An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse without reporting every implementation helper.",
+    "An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse and complete Registry requests from header arrival without reporting every implementation helper.",
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics"],
@@ -73,3 +73,34 @@ describe("Local operation traces", () => {
     ),
   );
 });
+
+// Boundary evidence for the owner span names; request-policy tests govern
+// lifetime through success, body failure, and interruption.
+it.live("exports nested complete-request and archive-body spans with bounded byte counts", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const receiver = yield* localTracingCollector();
+      yield* withLocalTracing(
+        Effect.annotateCurrentSpan("axm.archive.bytes", 128).pipe(
+          Effect.withSpan("axm.registry.archive-body"),
+          Effect.withSpan("axm.registry.attempt"),
+          Effect.withSpan("axm.registry.request"),
+        ),
+        { AXM_TRACE: "1", AXM_TRACE_ENDPOINT: receiver.endpoint },
+      );
+      const spans = receiver.spans();
+      const request = spans.find((span) => span.name === "axm.registry.request");
+      const attempt = spans.find((span) => span.name === "axm.registry.attempt");
+      const body = spans.find((span) => span.name === "axm.registry.archive-body");
+      expect(request).toBeDefined();
+      expect(attempt).toBeDefined();
+      expect(body).toBeDefined();
+      expect(attempt?.parentSpanId).toBe(request?.spanId);
+      expect(body?.parentSpanId).toBe(attempt?.spanId);
+      expect(body?.attributes).toContainEqual({
+        key: "axm.archive.bytes",
+        value: { intValue: 128 },
+      });
+    }),
+  ),
+);

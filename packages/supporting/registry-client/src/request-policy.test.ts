@@ -1,3 +1,4 @@
+import * as Tracer from "effect/Tracer";
 import { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failure-mapping.js";
 import { RegistryFailureObservation } from "./failure-observation.js";
 import * as HttpClient from "effect/http/HttpClient";
@@ -598,3 +599,53 @@ it.effect(
       expect(yield* Ref.get(failures)).toBe(0);
     }),
 );
+
+// The governed effect models headers followed by a separately gated response body.
+// This proves ownership of body completion; HTTP wire behavior is covered by the
+// remote-client tests and local network benchmark.
+describe("complete registry request tracing", () => {
+  for (const result of ["success", "failure", "interrupt"] as const) {
+    it.effect(`keeps request and attempt open through body ${result}`, () =>
+      Effect.gen(function* () {
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
+        const headers = yield* Deferred.make<void>();
+        const body = yield* Deferred.make<void>();
+        const governed = Effect.gen(function* () {
+          yield* Deferred.succeed(headers, undefined);
+          yield* Deferred.await(body);
+          if (result === "failure") return yield* Effect.fail("body failed");
+          return "complete";
+        });
+        const fiber = yield* execute(governed, { policy: policy({ maxAttempts: 1 }) }).pipe(
+          Effect.withTracer(tracer),
+          Effect.withTracerEnabled(true),
+          Effect.forkChild,
+        );
+        yield* Deferred.await(headers);
+        expect(spans.map((span) => span.name).sort()).toEqual([
+          "axm.registry.attempt",
+          "axm.registry.request",
+        ]);
+        expect(spans.every((span) => span.status._tag === "Started")).toBe(true);
+        if (result === "interrupt") yield* Fiber.interrupt(fiber);
+        else {
+          yield* Deferred.succeed(body, undefined);
+          yield* Fiber.await(fiber);
+        }
+        for (const span of spans) {
+          expect(span.status._tag).toBe("Ended");
+          if (span.status._tag === "Ended") {
+            expect(span.status.exit._tag).toBe(result === "success" ? "Success" : "Failure");
+          }
+        }
+      }),
+    );
+  }
+});

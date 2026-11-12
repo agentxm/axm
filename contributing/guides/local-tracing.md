@@ -116,6 +116,15 @@ Begin with the exact trace, then inspect the expensive operation's children.
 Use `axm.work.count`, `axm.work.reused`, and `axm.work.invalidated` to distinguish
 necessary work from repeated work. A summed child duration can double-count
 concurrent or nested spans; use root elapsed time for end-to-end duration.
+For Registry traffic, `axm.http.request` measures transport until response headers;
+`axm.registry.attempt` includes response decoding or archive-body consumption.
+`axm.registry.request` also includes admission waits and retry backoff.
+`axm.registry.archive-body` isolates body consumption and reports successful
+`axm.archive.bytes`. A cached archive has no download-body span. These spans
+nest: do not add their durations together. Effect client wrappers can also
+produce nested HTTP spans for one wire request; use Registry fixture request
+records when validating network-call counts.
+
 Compare equivalent commands, fixture state, cache state, runtime, and revision
 when evaluating a design or implementation change. Report the trace IDs and
 those conditions with conclusions; one run is diagnostic evidence, not a

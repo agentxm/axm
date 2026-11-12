@@ -8,7 +8,9 @@ import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 
-interface RequestRecord {
+export interface RequestRecord {
+  readonly startedAtMs: number;
+  readonly finishedAtMs: number;
   readonly key: string;
   readonly status: number;
   readonly responseBytes: number;
@@ -31,6 +33,7 @@ export interface LifecycleRegistry {
   readonly reset: (record: boolean) => void;
   readonly failNextMetadata: (name: string) => void;
   readonly metrics: () => RequestMetrics | null;
+  readonly timeline: () => ReadonlyArray<RequestRecord>;
   readonly close: () => Promise<void>;
 }
 
@@ -111,10 +114,13 @@ export const startLifecycleRegistry = async (
     const url = new URL(request.url ?? "/", "http://benchmark.test");
     const segments = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
     const method = request.method ?? "UNKNOWN";
+    const startedAtMs = performance.now();
     let requestKey = `${method} ${url.pathname}`;
     const finish = (status: number, bytes: number, archiveBody: boolean): void => {
       if (recording) {
         records.push({
+          startedAtMs,
+          finishedAtMs: performance.now(),
           key: requestKey,
           status,
           responseBytes: bytes,
@@ -140,8 +146,12 @@ export const startLifecycleRegistry = async (
       response.writeHead(status, {
         "content-type": contentType,
         "content-length": String(byteLength),
+        ...(archiveBody
+          ? { "x-integrity": `sha512-${createHash("sha512").update(body).digest("base64")}` }
+          : {}),
       });
       if (archiveBody && method === "GET" && archiveBodyDelayMs > 0) {
+        response.flushHeaders();
         setTimeout(() => response.end(body), archiveBodyDelayMs);
       } else {
         response.end(method === "HEAD" ? undefined : body);
@@ -325,6 +335,7 @@ export const startLifecycleRegistry = async (
     failNextMetadata: (name) => {
       failNextMetadata.add(name);
     },
+    timeline: () => [...records],
     metrics: () => {
       if (!recording) return null;
       const keys = new Set(records.map((record) => record.key));

@@ -15,9 +15,9 @@ runtime dependency. Repository maintainers own its profiles and upgrades.
 
 The controller and its proposed executable specification are under
 [scripts/registry-network](../../scripts/registry-network/control.ts) and
-[registry-network.spec.ts](../../scripts/registry-network.spec.ts). The initial
-implementation is unverified: native installation, proxy timing, cancellation,
-and cross-platform behavior still need execution before integration into main.
+[registry-network.spec.ts](../../scripts/registry-network.spec.ts). Native Linux x64 installation and fixed-profile Registry traffic have been
+exercised locally. Cross-platform behavior remains a platform verification
+obligation; the in-memory controller tests do not establish native portability.
 
 ## Start the control server
 
@@ -68,13 +68,13 @@ server started separately; `registry:network:serve` always uses port 8474.
 
 ## Profiles and measurements
 
-| Profile | Delay on each stream | Jitter on each stream | Download limit |
-| --- | --- | --- | --- |
-| `baseline` | None | None | None |
-| `typical` | 50 ms | None | None |
-| `slow` | 150 ms | None | None |
-| `variable` | 50 ms | ±25 ms | None |
-| `constrained` | 50 ms | None | 512 KB/s per connection |
+| Profile       | Delay on each stream | Jitter on each stream | Download limit          |
+| ------------- | -------------------- | --------------------- | ----------------------- |
+| `baseline`    | None                 | None                  | None                    |
+| `typical`     | 50 ms                | None                  | None                    |
+| `slow`        | 150 ms               | None                  | None                    |
+| `variable`    | 50 ms                | ±25 ms                | None                    |
+| `constrained` | 50 ms                | None                  | 512 KB/s per connection |
 
 These are illustrative conditions, not measured production distributions.
 Latency is applied upstream and downstream. The resulting operation duration
@@ -94,8 +94,9 @@ responses and Retry-After in the registry fixture separately.
 Capture the operation using [local tracing](../../contributing/guides/local-tracing.md)
 and inspect the exact invocation in Seq. Only registry traffic addressed to the
 proxy is shaped: OTLP export and the control API remain outside it. Retain the
-profile JSON alongside the trace ID. Current HTTP dispatch spans may end before
-body consumption; do not infer total archive transfer time from them.
+profile JSON alongside the trace ID. HTTP dispatch spans end before body
+consumption; use the complete Registry request, attempt, and archive-body spans
+described in the tracing guide for transfer timing.
 
 Nx prints launcher progress around results. For a standalone JSON document in
 an agent harness, invoke the implementation from the repository root:
@@ -108,6 +109,39 @@ This is the documented diagnostic path for machine output; Nx remains the owning
 workflow. A healthy control API or successful profile setup proves configuration,
 not upstream availability or registry behavior. Exercise an intended registry
 operation through the listener to establish those properties.
+
+## Repeat the operation matrix
+
+With the control server and Seq running, use the owning workflow:
+
+```bash
+pnpm run bench:registry-network
+```
+
+It builds the host CLI and runs a synthetic loopback Registry through a separate,
+temporary proxy. It measures `list`, remote `view`, explicit single-extension
+`install`, no-op `sync`, restoring `sync`, and `update` in a workspace configured
+with ten skills. It rotates baseline/typical/slow profiles, makes three untraced
+samples per condition, and captures one additional trace per condition. Cold and
+warm refer to the archive cache; OS page caches are uncontrolled. Every sample
+uses a fresh process and copied disposable workspace.
+
+The output defaults to `test-results/benchmarks/registry-network.json`, with exact
+trace receipts in the sibling `.receipts` directory. The report contains the
+binary hash, source revision and dirty state, host, actual proxy settings, elapsed
+times, request counts, body bytes, and server request intervals. `complete: false`
+means the run is partial and must not be treated as a complete matrix. Server
+intervals exclude the proxy's downstream delay; use spans for client timing.
+
+Environment options are `AXM_NETWORK_BINARY` (a preserved comparison binary),
+`AXM_NETWORK_OUTPUT`, `AXM_NETWORK_REPETITIONS` (1–10), `AXM_NETWORK_SIZES`
+(comma-separated selections from 1,10,50), and `AXM_NETWORK_PORT` (default 18089).
+`AXM_REGISTRY_NETWORK_API` selects the existing control server. A binary override
+still runs the target's build prerequisite; preserve the baseline binary outside
+the build output. Do not run builds or other benchmarks concurrently with timing.
+The synthetic Registry models 100 ms archive body processing and illustrative
+network profiles; it does not reproduce production TLS, DNS, payload sizes,
+authentication, database load, or internet behavior.
 
 ## Change profiles and clean up
 

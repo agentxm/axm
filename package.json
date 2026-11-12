@@ -70,6 +70,7 @@
     "seq:status": "pnpm exec nx run axm:seq:status",
     "trace:run": "pnpm exec nx run axm:trace:run",
     "seq:verify": "pnpm exec nx run axm:seq:verify",
+    "bench:registry-network": "pnpm exec nx run axm:bench:registry-network",
     "registry:network": "pnpm exec nx run axm:registry:network",
     "registry:network:serve": "pnpm exec nx run axm:registry:network:serve"
   },

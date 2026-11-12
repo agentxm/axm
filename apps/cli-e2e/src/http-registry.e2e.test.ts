@@ -10,7 +10,7 @@ import {
   EXTENSION_TYPE_MATRIX,
   type MatrixExtensionType,
 } from "./__generated__/extension-type-matrix.js";
-import { startHttpRegistry, type HttpRegistry } from "./e2e/http-registry-server.js";
+import { startHttpRegistry, type HttpRegistry } from "@agentxm/client-e2e-utils/registry";
 import { createTempDir, runCli } from "./e2e/utils.js";
 import { ptyIsSupported, runCliUnderPty } from "./pty.js";
 import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";

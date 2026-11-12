@@ -8,13 +8,18 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./registry": {
+      "types": "./src/registry.ts",
+      "default": "./src/registry.ts"
     }
   },
   "nx": {
     "includedScripts": []
   },
   "dependencies": {
-    "execa": "catalog:"
+    "execa": "catalog:",
+    "fflate": "catalog:"
   },
   "devDependencies": {
     "@agentxm/test-reporting": "workspace:*",

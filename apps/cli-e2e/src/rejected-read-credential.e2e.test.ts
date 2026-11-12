@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { defineExecutionBinding } from "@agentxm/specification-metadata";
 
-import { startHttpRegistry } from "./e2e/http-registry-server.js";
+import { startHttpRegistry } from "@agentxm/client-e2e-utils/registry";
 import { createTempDir, runCli, writeUserDefaultRegistry } from "./utils.js";
 
 export const executionBinding = defineExecutionBinding({

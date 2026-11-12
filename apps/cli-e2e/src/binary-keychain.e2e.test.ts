@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { createBinaryRunner, createTempDir, runCommand } from "@agentxm/client-e2e-utils";
 import { resolveBinaryPath } from "./distribution-targets.js";
-import { startDeviceAuthServer } from "./e2e/device-auth-server.js";
+import { startDeviceAuthServer } from "@agentxm/client-e2e-utils/registry";
 
 export const executionBinding = {
   requirements: ["cli/credentials/native-keychain-packaging"],

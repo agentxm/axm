@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { startHttpRegistry } from "../../../e2e/http-registry-server.js";
+import { startHttpRegistry } from "@agentxm/client-e2e-utils/registry";
 import { createTempDir, runCli, writeUserDefaultRegistry } from "../../../e2e/utils.js";
 
 // Process evidence for this module is bound by the auth.e2e.test.ts Vitest entrypoint.

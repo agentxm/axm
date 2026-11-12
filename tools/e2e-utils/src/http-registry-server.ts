@@ -38,7 +38,7 @@ const TYPE_BY_PLURAL: Readonly<Record<string, string>> = {
   packs: "pack",
 };
 
-interface PublishRecord {
+export interface PublishRecord {
   readonly owner: string;
   readonly plural: string;
   readonly name: string;
@@ -54,7 +54,7 @@ interface PublishRecord {
 }
 
 /** Every request the CLI made, in order — the transport contract under test. */
-interface RequestRecord {
+export interface RequestRecord {
   readonly method: string;
   readonly path: string;
   readonly status: number;
@@ -88,10 +88,33 @@ export interface HttpRegistry {
     targetVersion: string,
   ) => void;
   readonly yank: (owner: string, plural: string, name: string, version: string) => void;
+  readonly setDeprecation: (
+    owner: string,
+    plural: string,
+    name: string,
+    deprecation: {
+      readonly deprecatedAt: string;
+      readonly reason: "unmaintained";
+      readonly message: string;
+    } | null,
+  ) => void;
+  /** Admit deterministic fixture bytes without timing a setup publication. */
+  readonly seed: (input: {
+    readonly owner: string;
+    readonly plural: string;
+    readonly name: string;
+    readonly version: string;
+    readonly archive: Uint8Array;
+  }) => void;
   readonly close: () => Promise<void>;
 }
 
 export interface HttpRegistryOptions {
+  /** Additional fixture protocols share this origin and request accounting. */
+  readonly handleRequest?: (
+    request: http.IncomingMessage,
+    response: http.ServerResponse,
+  ) => Promise<boolean>;
   /** Hold a selected index response to observe independent resolution requests. */
   readonly beforeIndexResponse?: (pluralAndName: string) => Promise<void> | void;
   /** Test-only delay used to make an unordered pack upload fail deterministically. */
@@ -371,6 +394,14 @@ export const startHttpRegistry = async (
 ): Promise<HttpRegistry> => {
   const extensions = new Map<string, Array<StoredVersion>>();
   const extensionVisibilities = new Map<string, "public" | "private">();
+  const extensionDeprecations = new Map<
+    string,
+    {
+      readonly deprecatedAt: string;
+      readonly reason: "unmaintained";
+      readonly message: string;
+    } | null
+  >();
   const previewBindings = new Map<
     string,
     { readonly condition: string; readonly setDigest: string; readonly descriptorDigest: string }
@@ -433,6 +464,7 @@ export const startHttpRegistry = async (
     });
 
     void (async () => {
+      if (await options.handleRequest?.(request, response)) return;
       if (
         trustedPublishing !== undefined &&
         request.method === "POST" &&
@@ -988,15 +1020,16 @@ export const startHttpRegistry = async (
             }
           }
           const visibility = extensionVisibilities.get(key(owner, plural, name)) ?? "public";
+          const deprecation = extensionDeprecations.get(key(owner, plural, name)) ?? null;
           const revision = crypto
             .createHash("sha256")
-            .update(JSON.stringify({ visibility, versions }))
+            .update(JSON.stringify({ visibility, versions, deprecation }))
             .digest("hex");
           const current = {
             publisherBindingId: "hbnd_e2e",
             visibility,
             archival: null,
-            deprecation: null,
+            deprecation,
             revision,
             observedAt,
             validUntil,
@@ -1131,7 +1164,7 @@ export const startHttpRegistry = async (
           publisherBindingId: "hbnd_e2e",
           visibility: extensionVisibilities.get(key(owner, plural, name)) ?? "public",
           archival: null,
-          deprecation: null,
+          deprecation: extensionDeprecations.get(key(owner, plural, name)) ?? null,
           versions: versions.map((entry) => ({
             version: entry.version,
             published: entry.published,
@@ -1161,6 +1194,30 @@ export const startHttpRegistry = async (
 
   return {
     url: `http://127.0.0.1:${address.port}`,
+    setDeprecation: (owner, plural, name, deprecation) => {
+      const identity = key(owner, plural, name);
+      if (!extensions.has(identity))
+        throw new Error(`Cannot deprecate unknown fixture ${identity}`);
+      extensionDeprecations.set(identity, deprecation === null ? null : { ...deprecation });
+    },
+    seed: ({ owner, plural, name, version, archive: bytes }) => {
+      if (TYPE_BY_PLURAL[plural] === undefined) throw new Error(`Unknown fixture kind ${plural}`);
+      const archive = Buffer.from(bytes);
+      const identity = key(owner, plural, name);
+      const versions = extensions.get(identity) ?? [];
+      if (versions.some((item) => item.version === version)) {
+        throw new Error(`Duplicate fixture version ${identity}@${version}`);
+      }
+      versions.push({
+        version,
+        archive,
+        integrity: sha512Integrity(archive),
+        published: "2026-01-01T00:00:00.000Z",
+        ...(plural === "packs" ? { dependencies: packDependencyConstraints(archive) } : {}),
+      });
+      extensions.set(identity, versions);
+      extensionVisibilities.set(identity, "public");
+    },
     publishes,
     requests,
     metadataRequests,

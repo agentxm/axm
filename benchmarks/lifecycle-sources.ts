@@ -60,11 +60,16 @@ export interface LifecycleGitSource {
   readonly close: () => Promise<void>;
 }
 
-export const startLifecycleGitSource = async (root: string): Promise<LifecycleGitSource> => {
+/** A real loopback Git remote with independently authored initial and subsequent trees. */
+export const startGitFixture = async (
+  root: string,
+  initialize: (source: string) => void,
+  change: (source: string) => void,
+): Promise<LifecycleGitSource> => {
   const source = path.join(root, "git-source");
   const remote = path.join(root, "bench.git");
   fs.mkdirSync(source);
-  writeSkillPackage(source, "bench-git", "Accepted Git guidance.");
+  initialize(source);
   const git = (args: ReadonlyArray<string>, cwd = source): string =>
     execFileSync("git", args, {
       cwd,
@@ -107,10 +112,7 @@ export const startLifecycleGitSource = async (root: string): Promise<LifecycleGi
   return {
     url: `git://127.0.0.1:${String(port)}/bench.git`,
     advance: () => {
-      fs.appendFileSync(
-        path.join(source, "vendor", "bench-git", "src", "SKILL.md"),
-        "\nNew Git guidance.\n",
-      );
+      change(source);
       git(["add", "."]);
       git(["commit", "--quiet", "-m", "newer"]);
       git(["push", remote, "main"]);
@@ -123,3 +125,16 @@ export const startLifecycleGitSource = async (root: string): Promise<LifecycleGi
       }),
   };
 };
+
+export const startLifecycleGitSource = (root: string): Promise<LifecycleGitSource> =>
+  startGitFixture(
+    root,
+    (source) => {
+      writeSkillPackage(source, "bench-git", "Accepted Git guidance.");
+    },
+    (source) =>
+      fs.appendFileSync(
+        path.join(source, "vendor", "bench-git", "src", "SKILL.md"),
+        "\nNew Git guidance.\n",
+      ),
+  );

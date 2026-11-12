@@ -996,6 +996,9 @@ importers:
       execa:
         specifier: 'catalog:'
         version: 10.1.1
+      fflate:
+        specifier: 'catalog:'
+        version: 0.8.3
     devDependencies:
       '@agentxm/test-reporting':
         specifier: workspace:*

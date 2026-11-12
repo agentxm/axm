@@ -6,6 +6,9 @@ file, parser, compiler, archive, HTTP, and subprocess work from reused results.
 They are diagnostic evidence; an absent span does not prove an operation is
 correct or that every internal action was instrumented.
 
+The tracing variables are internal development controls; their values and
+classification are listed in the [environment reference](../../apps/cli/help/topics/environment.md).
+
 Start an OTLP/HTTP JSON receiver on your own loopback interface, then activate
 tracing for the command you want to inspect:
 

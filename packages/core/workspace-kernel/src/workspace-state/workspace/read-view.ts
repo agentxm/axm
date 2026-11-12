@@ -106,12 +106,7 @@ export const WorkspaceReadViewsLive = Layer.effect(
           };
           const observation =
             options?.observations === true
-              ? makeObservationReadView(
-                  fs,
-                  canonical,
-                  () => active,
-                  close,
-                )
+              ? makeObservationReadView(fs, canonical, () => active, close)
               : Context.make(FileSystem.FileSystem, fs).pipe(
                   Context.add(CanonicalNativePath, canonical),
                 );

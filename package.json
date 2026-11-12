@@ -69,7 +69,9 @@
     "seq:stop": "pnpm exec nx run axm:seq:stop",
     "seq:status": "pnpm exec nx run axm:seq:status",
     "trace:run": "pnpm exec nx run axm:trace:run",
-    "seq:verify": "pnpm exec nx run axm:seq:verify"
+    "seq:verify": "pnpm exec nx run axm:seq:verify",
+    "registry:network": "pnpm exec nx run axm:registry:network",
+    "registry:network:serve": "pnpm exec nx run axm:registry:network:serve"
   },
   "nx": {
     "includedScripts": []

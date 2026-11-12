@@ -6,3 +6,5 @@ Locally adopted engineering tools.
 - [Gitleaks in AXM](gitleaks.md) — Secret detection for committed history and staged or tracked changes, with exact historical exceptions and fully redacted diagnostics.
 - [CodeQL in AXM](codeql.md) — Managed source security analysis for AXM, including local-input threats, with source-specific review of reported findings.
 - [Dependabot in AXM](dependabot.md) — Native dependency proposals for the pnpm workspace and GitHub Actions, with coordinated manual exceptions and ordinary review gates.
+
+- [Toxiproxy for local registry development](toxiproxy.md) — Worktree-owned loopback network profiles for observing AXM registry latency, concurrency, and archive transfers.

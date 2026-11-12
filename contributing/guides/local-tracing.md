@@ -135,3 +135,10 @@ If the trace is missing, check activation, the receipt's exact ID, endpoint,
 API-key permissions, and Seq's ingestion log and disk reserve. An empty search
 is not proof of success. A short-lived process or forced termination can lose
 best-effort telemetry even when the command succeeds.
+
+## Observe registry behavior under network delay
+
+Use the [local registry network workflow](../../devops/tools/toxiproxy.md) to
+compare fixed latency profiles while recording exact invocation traces. Keep
+profile JSON and cache conditions with the trace ID; Seq export itself is not
+shaped by the registry proxy.

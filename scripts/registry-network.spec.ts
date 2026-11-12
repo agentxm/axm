@@ -1,0 +1,149 @@
+import { describe, expect, it } from "vitest";
+import { defineSpecification } from "@agentxm/specification-metadata";
+import * as Effect from "effect/Effect";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
+import * as Schema from "effect/Schema";
+import { controlNetwork } from "./registry-network/control.js";
+
+export const specification = defineSpecification({
+  requirement: "tooling/registry-network-profiles",
+  title: "Local registry network profiles are explicit and isolated",
+  statement:
+    "The development registry network workflow shall configure explicit loopback latency profiles, report actual proxy configuration, isolate worktree ownership, and remove only its own proxy without modifying CLI settings or admitting partially configured traffic.",
+  class: "quality",
+  characteristic: "reliability",
+  role: "supporting",
+  goals: ["dependable-change-process"],
+  boundary: "memory",
+  boundaryRationale:
+    "The real Effect controller talks through the HTTP client to an in-memory Toxiproxy API substitute. This establishes request ordering and ownership, not native proxy latency, reachability, or platform support.",
+  methods: ["example"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
+});
+
+const ProxyInput = Schema.Struct({
+  name: Schema.String, listen: Schema.String, upstream: Schema.String, enabled: Schema.Boolean,
+});
+const Enabled = Schema.Struct({ enabled: Schema.Boolean });
+const ToxicInput = Schema.Struct({
+  name: Schema.String, type: Schema.String, stream: Schema.String, toxicity: Schema.Number,
+  attributes: Schema.Record(Schema.String, Schema.Number),
+});
+type StoredProxy = typeof ProxyInput.Type & { toxics: Array<typeof ToxicInput.Type> };
+
+const fixture = (failSecondToxic = false) => {
+  const proxies = new Map<string, StoredProxy>();
+  const requests: Array<{ method: string; path: string }> = [];
+  const enabledOnCreate: boolean[] = [];
+  let additions = 0;
+  const fetcher: typeof globalThis.fetch = Object.assign(async (input: string | URL | Request, init?: RequestInit) => {
+    const request = new Request(input, init);
+    const path = new URL(request.url).pathname;
+    requests.push({ method: request.method, path });
+    if (path === "/proxies" && request.method === "POST") {
+      const body = Schema.decodeUnknownSync(ProxyInput)(await request.json());
+      if (proxies.has(body.name)) return new Response(null, { status: 409 });
+      enabledOnCreate.push(body.enabled);
+      const proxy = { ...body, toxics: [] };
+      proxies.set(body.name, proxy);
+      return Response.json(proxy, { status: 201 });
+    }
+    const name = path.split("/")[2] ?? "";
+    const proxy = proxies.get(name);
+    if (proxy === undefined) return new Response(null, { status: 404 });
+    if (request.method === "GET") return Response.json(proxy);
+    if (request.method === "DELETE") {
+      proxies.delete(name);
+      return new Response(null, { status: 204 });
+    }
+    if (path.endsWith("/toxics")) {
+      additions += 1;
+      if (failSecondToxic && additions === 2) return new Response(null, { status: 500 });
+      const toxic = Schema.decodeUnknownSync(ToxicInput)(await request.json());
+      proxy.toxics.push(toxic);
+      return Response.json(toxic);
+    }
+    const enabled = Schema.decodeUnknownSync(Enabled)(await request.json());
+    proxies.set(name, { ...proxy, ...enabled });
+    return Response.json(proxies.get(name));
+  }, { preconnect: () => undefined });
+  const run = (options: Parameters<typeof controlNetwork>[0]) => Effect.runPromise(controlNetwork(options).pipe(
+    Effect.provide(FetchHttpClient.layer),
+    Effect.provideService(FetchHttpClient.Fetch, fetcher),
+    Effect.provideService(FetchHttpClient.RequestInit, { redirect: "error", cache: "no-store" }),
+  ));
+  return { proxies, requests, enabledOnCreate, run };
+};
+const base = { worktree: "/work/one", api: "http://127.0.0.1:8474" };
+const start = { ...base, action: "start", upstream: "http://localhost:8787", port: 18080 } satisfies Parameters<typeof controlNetwork>[0];
+
+describe("local registry network profiles", () => {
+  it("adds symmetric delay before enabling the listener and reports actual drift", async () => {
+    const server = fixture();
+    const result = await server.run({ ...start, profile: "typical" });
+    expect(server.enabledOnCreate).toEqual([false]);
+    expect(result.registryOrigin).toBe("http://127.0.0.1:18080");
+    expect(result.proxy?.upstream).toBe("127.0.0.1:8787");
+    expect(result.proxy?.toxics.map((toxic) => [toxic.stream, toxic.attributes])).toEqual([
+      ["upstream", { latency: 50, jitter: 0 }], ["downstream", { latency: 50, jitter: 0 }],
+    ]);
+    const proxy = server.proxies.get(result.owner);
+    if (proxy === undefined) throw new Error("Missing created proxy");
+    proxy.toxics.pop();
+    expect((await server.run({ ...base, action: "status" })).profile).toBe("custom-or-incomplete");
+  });
+
+  it("isolates worktrees, refuses replacement, and makes owned cleanup idempotent", async () => {
+    const server = fixture();
+    const first = await server.run({ ...start, profile: "baseline" });
+    const second = await server.run({ ...start, worktree: "/work/two", port: 18081, profile: "constrained" });
+    expect(first.proxy?.toxics).toEqual([]);
+    expect(second.proxy?.toxics.find((toxic) => toxic.type === "bandwidth")?.attributes).toEqual({ rate: 512 });
+    await expect(server.run({ ...start, profile: "slow" })).rejects.toThrow("already has a proxy");
+    await server.run({ ...base, action: "stop" });
+    expect((await server.run({ ...base, action: "stop" })).active).toBe(false);
+    expect(server.proxies.has(second.owner)).toBe(true);
+    expect(server.requests.some((request) => request.path === "/reset")).toBe(false);
+  });
+
+  it.each([
+    { profile: "slow", latency: 150, jitter: 0 },
+    { profile: "variable", latency: 50, jitter: 25 },
+  ] satisfies Array<{ profile: "slow" | "variable"; latency: number; jitter: number }>)(
+    "reports $profile conditions on both streams", async ({ profile, latency, jitter }) => {
+      const server = fixture();
+      const result = await server.run({ ...start, profile });
+      expect(result.profile).toBe(profile);
+      expect(result.proxy?.toxics.map((toxic) => toxic.attributes)).toEqual([
+        { latency, jitter }, { latency, jitter },
+      ]);
+    },
+  );
+
+  it("cleans up a failed profile without ever enabling it", async () => {
+    const server = fixture(true);
+    await expect(server.run(start)).rejects.toThrow("HTTP 500");
+    expect(server.proxies.size).toBe(0);
+    expect(server.requests.filter((request) => request.method === "POST" && /^\/proxies\/[^/]+$/.test(request.path))).toEqual([]);
+  });
+
+  it.each([
+    "https://registry.example.com", "http://user:secret@localhost:8787",
+    "http://localhost:8787/path", "http://localhost:8787/?secret=value",
+  ])("rejects inadmissible upstreams before creating a proxy: %s", async (upstream) => {
+    const server = fixture();
+    await expect(server.run({ ...start, upstream })).rejects.toThrow();
+    expect(server.requests.every((request) => request.method === "GET")).toBe(true);
+  });
+
+  it("rejects remote control APIs and a proxy pointing to its own listener", async () => {
+    const server = fixture();
+    await expect(server.run({ ...base, action: "status", api: "http://example.com" })).rejects.toThrow();
+    expect(server.requests).toEqual([]);
+    await expect(server.run({ ...start, upstream: "http://127.0.0.1:18080" })).rejects.toThrow("distinct");
+    expect(server.proxies.size).toBe(0);
+  });
+});

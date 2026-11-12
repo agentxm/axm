@@ -506,6 +506,28 @@
         "cwd": "."
       },
       "dependsOn": ["cli:build:diagnostic-sources"]
+    },
+    "registry:network": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "metadata": {
+        "description": "Configure or inspect a worktree-owned local registry latency proxy"
+      },
+      "options": {
+        "command": "bun scripts/registry-network.ts",
+        "cwd": "."
+      }
+    },
+    "registry:network:serve": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "metadata": {
+        "description": "Run the pinned loopback Toxiproxy control server in the foreground"
+      },
+      "options": {
+        "command": "mise exec -- toxiproxy-server -host 127.0.0.1 -port 8474",
+        "cwd": "."
+      }
     }
   }
 }

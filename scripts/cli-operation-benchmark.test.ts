@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   benchmarkCoverageProblems,
   allocationCoverageProblems,
+  scenarioCoverageProblems,
 } from "../benchmarks/cli-operations/coverage.js";
 import {
   benchmarkOperations,
@@ -179,6 +180,46 @@ describe("complete compiled CLI benchmark evidence", () => {
         ],
       }),
     ).toEqual(["changed registration: sync"]);
+  });
+
+  it("requires archived and combined lifecycle listing evidence independently", () => {
+    const first = snapshot.entries[0];
+    const fixture = scenarios[0];
+    if (first === undefined || fixture === undefined)
+      throw new Error("Missing fixture registration");
+    const lifecycleOperations = benchmarkOperations({
+      ...snapshot,
+      entries: [
+        {
+          ...first,
+          path: ["list"],
+          capabilities: { preview: false, effect: "none", inputs: "explicit", modes: [] },
+          flags: [
+            { name: "deprecated", type: "boolean", required: false },
+            { name: "archived", type: "boolean", required: false },
+          ],
+        },
+      ],
+    });
+    const lifecycleScenarios = lifecycleOperations.flatMap((operation) =>
+      operation.modes.map((mode) => ({
+        ...fixture,
+        id: `${operation.id}/${mode.id}`,
+        operationId: operation.id,
+        modeId: mode.id,
+      })),
+    );
+    expect(scenarioCoverageProblems(lifecycleOperations, lifecycleScenarios)).toEqual([]);
+    expect(
+      lifecycleOperations[0]?.modes.find((mode) => mode.id === "deprecated-archived")?.flags,
+    ).toEqual(["--deprecated", "--archived"]);
+    for (const mode of ["archived", "deprecated-archived"])
+      expect(
+        scenarioCoverageProblems(
+          lifecycleOperations,
+          lifecycleScenarios.filter((scenario) => scenario.modeId !== mode),
+        ),
+      ).toContain(`missing scenario: list [${mode}]`);
   });
 
   it("keeps an unknown flag and an unspecified fixture representation incomplete", () => {

@@ -88,6 +88,12 @@ export interface HttpRegistry {
     targetVersion: string,
   ) => void;
   readonly yank: (owner: string, plural: string, name: string, version: string) => void;
+  readonly setArchival: (
+    owner: string,
+    plural: string,
+    name: string,
+    archival: { readonly archivedAt: string; readonly message: string } | null,
+  ) => void;
   readonly setDeprecation: (
     owner: string,
     plural: string,
@@ -394,6 +400,10 @@ export const startHttpRegistry = async (
 ): Promise<HttpRegistry> => {
   const extensions = new Map<string, Array<StoredVersion>>();
   const extensionVisibilities = new Map<string, "public" | "private">();
+  const extensionArchivals = new Map<
+    string,
+    { readonly archivedAt: string; readonly message: string } | null
+  >();
   const extensionDeprecations = new Map<
     string,
     {
@@ -1021,14 +1031,15 @@ export const startHttpRegistry = async (
           }
           const visibility = extensionVisibilities.get(key(owner, plural, name)) ?? "public";
           const deprecation = extensionDeprecations.get(key(owner, plural, name)) ?? null;
+          const archival = extensionArchivals.get(key(owner, plural, name)) ?? null;
           const revision = crypto
             .createHash("sha256")
-            .update(JSON.stringify({ visibility, versions, deprecation }))
+            .update(JSON.stringify({ visibility, versions, archival, deprecation }))
             .digest("hex");
           const current = {
             publisherBindingId: "hbnd_e2e",
             visibility,
-            archival: null,
+            archival,
             deprecation,
             revision,
             observedAt,
@@ -1163,7 +1174,7 @@ export const startHttpRegistry = async (
           type,
           publisherBindingId: "hbnd_e2e",
           visibility: extensionVisibilities.get(key(owner, plural, name)) ?? "public",
-          archival: null,
+          archival: extensionArchivals.get(key(owner, plural, name)) ?? null,
           deprecation: extensionDeprecations.get(key(owner, plural, name)) ?? null,
           versions: versions.map((entry) => ({
             version: entry.version,
@@ -1194,6 +1205,11 @@ export const startHttpRegistry = async (
 
   return {
     url: `http://127.0.0.1:${address.port}`,
+    setArchival: (owner, plural, name, archival) => {
+      const identity = key(owner, plural, name);
+      if (!extensions.has(identity)) throw new Error(`Cannot archive unknown fixture ${identity}`);
+      extensionArchivals.set(identity, archival === null ? null : { ...archival });
+    },
     setDeprecation: (owner, plural, name, deprecation) => {
       const identity = key(owner, plural, name);
       if (!extensions.has(identity))

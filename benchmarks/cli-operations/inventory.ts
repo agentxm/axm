@@ -30,6 +30,7 @@ const observationModes = new Set([
   "available",
   "outdated",
   "deprecated",
+  "archived",
   "bundled",
   "fuzzy",
   "include-index-backlinks",
@@ -240,6 +241,20 @@ export const benchmarkOperations = (snapshot: CommandSnapshot): ReadonlyArray<Be
           effect: entry.capabilities.effect,
         });
     }
+    // The accepted lifecycle filter contract defines a distinct union operation.
+    // Require it explicitly without generating arbitrary flag combinations.
+    if (
+      entry.path.length === 1 &&
+      entry.path[0] === "list" &&
+      ["deprecated", "archived"].every((name) => entry.flags.some((flag) => flag.name === name))
+    )
+      add({
+        id: "deprecated-archived",
+        kind: "operation",
+        flags: ["--deprecated", "--archived"],
+        arguments: [],
+        effect: entry.capabilities.effect,
+      });
     if (entry.flags.some((flag) => flag.name === "gitignore"))
       add({
         id: "no-gitignore",

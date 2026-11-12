@@ -14,7 +14,7 @@ import {
 import { wrapPrepared } from "./verification.js";
 
 const AssessmentDocument = Schema.Struct({
-  filter: Schema.Literals(["outdated", "deprecated"]),
+  filter: Schema.Literals(["outdated", "deprecated", "archived", "lifecycle"]),
   count: Schema.Number,
   items: Schema.Array(
     Schema.Struct({
@@ -24,6 +24,9 @@ const AssessmentDocument = Schema.Struct({
         state: Schema.String,
         installedVersion: Schema.optionalKey(Schema.String),
         latestMatching: Schema.optionalKey(Schema.String),
+        archival: Schema.optionalKey(
+          Schema.Struct({ archivedAt: Schema.String, message: Schema.optionalKey(Schema.String) }),
+        ),
         deprecation: Schema.optionalKey(
           Schema.Struct({ reason: Schema.String, message: Schema.optionalKey(Schema.String) }),
         ),
@@ -38,15 +41,15 @@ const AssessmentDocument = Schema.Struct({
 });
 
 const inspectionScenario = (
-  filter: "outdated" | "deprecated",
+  filter: "outdated" | "deprecated" | "archived" | "lifecycle",
   selected: ReadonlyArray<ExtensionKind>,
   output: "human" | "json",
   bulk: boolean,
 ): BenchmarkScenario => ({
   id: `list-${filter}-${bulk ? "all-kinds" : selected.map((kind) => kind.type).join("-")}-${output}`,
   operationId: "list",
-  modeId: filter,
-  fixtureId: "registry-inspection-v1",
+  modeId: filter === "lifecycle" ? "deprecated-archived" : filter,
+  fixtureId: filter === "lifecycle" ? "registry-lifecycle-union-v1" : "registry-inspection-v1",
   dimensions: {
     scope: "project",
     source: "registry",
@@ -57,7 +60,7 @@ const inspectionScenario = (
     format: "remote-assessment",
     kinds: selected.map((kind) => kind.type),
   },
-  description: `Assess ${bulk ? "all seven installed kinds" : selected.map((kind) => kind.type).join(", ")} against fresh ${filter === "outdated" ? "newer Registry versions" : "Registry deprecation guidance"} (${output}).`,
+  description: `Assess ${bulk ? "all seven installed kinds" : selected.map((kind) => kind.type).join(", ")} against fresh ${filter === "outdated" ? "newer Registry versions" : `Registry ${filter} metadata`} (${output}).`,
   prepare: async (context) => {
     const registry = await startHttpRegistry();
     try {
@@ -68,40 +71,69 @@ const inspectionScenario = (
         defaultRegistry: "benchmark",
         minimumReleaseAge: "0s",
       });
-      for (const kind of selected) {
+      const states =
+        filter === "lifecycle"
+          ? [
+              { name: "deprecated-only", deprecated: true, archived: false },
+              { name: "archived-only", deprecated: false, archived: true },
+              { name: "both", deprecated: true, archived: true },
+            ]
+          : [
+              {
+                name: "sample",
+                deprecated: filter === "deprecated",
+                archived: filter === "archived",
+              },
+            ];
+      const expected = selected.flatMap((kind) => states.map((state) => ({ kind, ...state })));
+      for (const { kind, name } of expected) {
         registry.seed({
           owner: "@benchmark",
           plural: kind.plural,
-          name: "sample",
+          name,
           version: "1.0.0",
-          archive: fixtureArchive(packageFiles(kind)),
+          archive: fixtureArchive(packageFiles(kind, name)),
         });
         assertSuccessful(
           await context.run([
             "install",
-            `@benchmark/${kind.plural}/sample@^1.0.0`,
+            `@benchmark/${kind.plural}/${name}@^1.0.0`,
             "--accept-execution-changes",
             "--non-interactive",
             "--json",
           ]),
         );
+      }
+      // Apply lifecycle changes after every installation so setup observes active packages.
+      for (const { kind, name, deprecated, archived } of expected) {
         if (filter === "outdated")
           registry.seed({
             owner: "@benchmark",
             plural: kind.plural,
-            name: "sample",
+            name,
             version: "1.1.0",
-            archive: fixtureArchive(packageFiles(kind, "sample", "1.1.0")),
+            archive: fixtureArchive(packageFiles(kind, name, "1.1.0")),
           });
-        else
-          registry.setDeprecation("@benchmark", kind.plural, "sample", {
+        if (deprecated)
+          registry.setDeprecation("@benchmark", kind.plural, name, {
             deprecatedAt: "2026-01-01T00:00:00.000Z",
             reason: "unmaintained",
             message: "Fixture is no longer maintained",
           });
+        if (archived)
+          registry.setArchival("@benchmark", kind.plural, name, {
+            archivedAt: "2026-01-02T00:00:00.000Z",
+            message: "Fixture publication is closed",
+          });
       }
       const beforeRequests = registry.requests.length;
-      const mode = { id: filter, flags: [`--${filter}`, ...(output === "json" ? ["--json"] : [])] };
+      const mode = {
+        id: filter === "lifecycle" ? "deprecated-archived" : filter,
+        flags: [
+          ...(filter === "lifecycle" ? ["--deprecated", "--archived"] : [`--${filter}`]),
+          ...(output === "json" ? ["--json"] : []),
+        ],
+      };
       return await wrapPrepared(
         context,
         mode,
@@ -114,15 +146,15 @@ const inspectionScenario = (
           ],
           expectedExitCode: 0,
           verify: (result) => {
-            assertOutput(result, "sample");
+            for (const state of states) assertOutput(result, state.name);
             const requests = registry.requests.slice(beforeRequests);
-            for (const kind of selected) {
+            for (const { kind, name } of expected) {
               if (
                 !requests.some(
                   (request) =>
                     request.method === "GET" &&
                     decodeURIComponent(request.path) ===
-                      `/v1/extensions/@benchmark/${kind.plural}/sample`,
+                      `/v1/extensions/@benchmark/${kind.plural}/${name}`,
                 )
               )
                 throw new Error(`No current Registry observation for ${kind.type}`);
@@ -137,25 +169,39 @@ const inspectionScenario = (
               )(result.stdout);
               if (
                 document.filter !== filter ||
-                document.count !== selected.length ||
-                document.coverage.checked !== selected.length ||
+                document.count !== expected.length ||
+                document.items.length !== expected.length ||
+                document.coverage.eligible !== expected.length ||
+                document.coverage.checked !== expected.length ||
                 document.coverage.unknown !== 0
               )
                 throw new Error("Remote inspection did not assess the complete selected inventory");
-              for (const kind of selected) {
-                const item = document.items.find(
-                  (candidate) => candidate.type === kind.type && candidate.name === "sample",
+              for (const { kind, name, deprecated, archived } of expected) {
+                const matching = document.items.filter(
+                  (candidate) => candidate.type === kind.type && candidate.name === name,
                 );
-                if (item === undefined) throw new Error(`Missing ${kind.type} assessment`);
-                if (
-                  filter === "outdated"
-                    ? item.assessment.state !== "available" ||
-                      item.assessment.installedVersion !== "1.0.0" ||
-                      item.assessment.latestMatching !== "1.1.0"
-                    : item.assessment.state !== "deprecated" ||
-                      item.assessment.deprecation?.reason !== "unmaintained"
+                const item = matching[0];
+                if (matching.length !== 1 || item === undefined)
+                  throw new Error(`Expected exactly one ${kind.type}/${name} assessment`);
+                if (filter === "outdated") {
+                  if (
+                    item.assessment.state !== "available" ||
+                    item.assessment.installedVersion !== "1.0.0" ||
+                    item.assessment.latestMatching !== "1.1.0"
+                  )
+                    throw new Error(`Unexpected ${kind.type} outdated assessment`);
+                } else if (
+                  item.assessment.state !== (archived ? "archived" : "deprecated") ||
+                  (item.assessment.deprecation !== undefined) !== deprecated ||
+                  (item.assessment.archival !== undefined) !== archived ||
+                  (deprecated &&
+                    (item.assessment.deprecation?.reason !== "unmaintained" ||
+                      item.assessment.deprecation.message !== "Fixture is no longer maintained")) ||
+                  (archived &&
+                    (item.assessment.archival?.archivedAt !== "2026-01-02T00:00:00.000Z" ||
+                      item.assessment.archival.message !== "Fixture publication is closed"))
                 )
-                  throw new Error(`Unexpected ${kind.type} ${filter} assessment`);
+                  throw new Error(`Unexpected ${kind.type}/${name} ${filter} assessment`);
               }
             }
           },
@@ -516,7 +562,7 @@ const sharedPackGraphScenario = (
 
 /** Typed list routes do not register remote filters; root --type selects each kind. */
 export const remoteInspectionScenarios = (): ReadonlyArray<BenchmarkScenario> => [
-  ...(["outdated", "deprecated"] as const).flatMap((filter) =>
+  ...(["outdated", "deprecated", "archived", "lifecycle"] as const).flatMap((filter) =>
     (["human", "json"] as const).flatMap((output) => [
       ...extensionKinds.map((kind) => inspectionScenario(filter, [kind], output, false)),
       inspectionScenario(filter, extensionKinds, output, true),

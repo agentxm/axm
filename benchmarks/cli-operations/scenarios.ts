@@ -427,6 +427,11 @@ const rootPreparer = (operation: BenchmarkOperation): ScenarioPreparer | undefin
         await configureWorkspace(context, { skills: { sample: { source: "./vendor/sample" } } });
         assertSuccessful(await context.run(["sync", "--json", "--non-interactive"]));
       } else {
+        if (operation.id === "lint" && ["fix", "preview"].includes(mode.id))
+          await fs.writeFile(
+            path.join(context.workspace, "AGENTS.md"),
+            "# Benchmark instructions\nPreserve this authored content.\n",
+          );
         await prepareAuthoredPackage(context, skill, "sample", operation.id !== "enable");
       }
       if (mode.id === "staged") await initializeGit(context);
@@ -1114,6 +1119,18 @@ const primaryExpectation = (
           ? { envelope: "raw", json: [{ at: ["bomFormat"], equals: "CycloneDX" }] }
           : { includes: ["CycloneDX"] },
     };
+  if (
+    operation.id === "list" &&
+    ["outdated", "deprecated", "archived", "deprecated-archived"].includes(mode.id)
+  )
+    return {
+      noDurableChange: true,
+      output: {
+        includes: [
+          `No ${mode.id === "deprecated-archived" ? "deprecated or archived" : mode.id} extensions found`,
+        ],
+      },
+    };
   if (action === "list")
     return {
       noDurableChange: true,
@@ -1184,7 +1201,10 @@ const primaryExpectation = (
       };
     case "lint":
       return mode.id === "fix" || mode.id === "preview"
-        ? { artifacts: [{ kind: "symlink", path: "CLAUDE.md", target: "AGENTS.md" }] }
+        ? {
+            readonlyPaths: ["axm.json", "AGENTS.md", "skills", ".claude/skills"],
+            artifacts: [{ kind: "symlink", path: "CLAUDE.md", target: "AGENTS.md" }],
+          }
         : {
             noDurableChange: true,
             ...(mode.id === "staged" ? { readonlyPaths: [".git/index"] } : {}),
@@ -1548,6 +1568,14 @@ const verifyLocalPreparation = async (
     verify: async (result) => {
       await wrapped.verify(result);
       if (mode.id === "preview") return;
+      if (
+        operation.id === "list" &&
+        ["outdated", "deprecated", "archived", "deprecated-archived"].includes(mode.id)
+      ) {
+        const output = result.stdout + result.stderr;
+        if (/extension-\d+/u.test(output) || output.includes("could not be assessed"))
+          throw new Error("Local inventory produced lifecycle matches or an incomplete assessment");
+      }
       const action = operation.route.at(-1);
       const kind = kindFor(operation) ?? skill;
       if (action === "enable" || action === "disable") {

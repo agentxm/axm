@@ -176,14 +176,10 @@ export const acquireCanonicalForRef = <E = never>(
         accepted: args.accepted,
         force: args.force,
       });
-      // Accepted bytes may still describe an older selected declaration (for
-      // example a path Pack whose manifest has advanced). Reuse must satisfy
-      // the same owner validation as fresh acquisition, not just the old lock.
-      const selectedContentMatches =
-        Option.isSome(reusable) &&
-        (args.validate === undefined ||
-          (yield* Effect.isSuccess(args.validate(args.canonicalPath))));
-      if (Option.isSome(reusable) && selectedContentMatches) {
+      // Validation is a refusal boundary, not permission to fetch replacement
+      // bytes. Owners decide whether their selected declaration allows reuse.
+      if (Option.isSome(reusable)) {
+        if (args.validate !== undefined) yield* args.validate(args.canonicalPath);
         return {
           packageRoot: args.canonicalPath,
           treeIntegrity: reusable.value,

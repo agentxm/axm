@@ -74,10 +74,10 @@ describe("inspection read phase", () => {
         const reads = new Map<string, number>();
         const counted: FileSystem.FileSystem = {
           ...fs,
-          readFileString: (path, ...options) =>
+          readFile: (path) =>
             Effect.gen(function* () {
               reads.set(path, (reads.get(path) ?? 0) + 1);
-              return yield* fs.readFileString(path, ...options);
+              return yield* fs.readFile(path);
             }),
         };
         yield* fixture
@@ -106,10 +106,10 @@ describe("inspection read phase", () => {
         const reads = new Map<string, number>();
         const counted: FileSystem.FileSystem = {
           ...fs,
-          readFileString: (path, ...options) =>
+          readFile: (path) =>
             Effect.gen(function* () {
               reads.set(path, (reads.get(path) ?? 0) + 1);
-              return yield* fs.readFileString(path, ...options);
+              return yield* fs.readFile(path);
             }),
         };
         const assertDocumentReads = () => {

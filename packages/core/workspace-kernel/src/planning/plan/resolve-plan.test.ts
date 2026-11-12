@@ -800,6 +800,71 @@ describe("previewOrApply", () => {
     }).pipe(Effect.provide(context.layer));
   });
 
+  it.effect.each([false, true])(
+    "preserves a closure refusal while reading back missing outputs (committed sibling: %s)",
+    (withCommittedSibling) => {
+      const context = makeTestContext();
+      const refusal = new StepFailure({
+        category: "conflict",
+        title: "Acquired content differs",
+        detail: "Preserve the edited acquired content",
+        suggestions: [{ description: "Use explicit install to restore accepted content." }],
+      });
+      const steps: Array<PlannedJobStep> = [];
+      if (withCommittedSibling)
+        steps.push({
+          readiness: "ready",
+          label: "sibling",
+          run: Effect.succeed({ result: "success", message: "changed" }),
+        });
+      steps.push({
+        readiness: "ready",
+        label: "review",
+        run: Effect.fail(refusal),
+      });
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Enable skills",
+        description: Option.none(),
+        jobs: [{ concurrency: 1, steps }],
+      };
+      return Effect.gen(function* () {
+        const result = yield* previewOrApply(plan, {
+          execution: preapprovedPlanExecution,
+          configuredAgentOperations: steps.map(({ label }) => ({
+            extensionType: "skill",
+            name: label,
+            plannedState: "enabled",
+          })),
+        });
+        expect(deriveOperationOutcome(result)).toBe(withCommittedSibling ? "partial" : "failed");
+        expect(result.failure).toMatchObject({
+          category: refusal.category,
+          title: refusal.title,
+          // Applied step failures retain the public category suffix.
+          detail: "Preserve the edited acquired content (conflict)",
+          suggestions: refusal.suggestions,
+        });
+        expect(result.suggestions).toEqual(refusal.suggestions);
+        expect(result.units.map(({ state }) => state)).toEqual(
+          withCommittedSibling ? ["committed", "failed"] : ["failed"],
+        );
+        // Both the refused target and the committed sibling still carry fresh
+        // missing-output evidence; neither retains its speculative projection.
+        expect(result.units.map(({ agentOutcomes }) => agentOutcomes)).toEqual(
+          steps.map(({ label }) => [
+            expect.objectContaining({
+              name: label,
+              agentId: "claude-code",
+              outcome: "failed",
+              reasonCode: "extension-missing",
+            }),
+          ]),
+        );
+      }).pipe(Effect.provide(context.layer));
+    },
+  );
+
   it.effect.each(["step", "artifact", "empty-step", "empty-artifact", "generic"] as const)(
     "uses %s planning evidence without treating a pending source as current",
     (evidence) => {

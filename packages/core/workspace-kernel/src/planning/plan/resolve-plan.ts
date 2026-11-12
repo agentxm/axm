@@ -1194,7 +1194,10 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
       ({ outcome }) => outcome === "blocked" || outcome === "failed",
     );
     const executedWithOutcomes = withExecutedAgentOutcomes(result, currentOutcomes);
-    if (incomplete !== undefined) {
+    // A failed closure already states why its requested output was not realized.
+    // Keep fresh per-agent evidence, including for committed siblings, without
+    // replacing that typed failure and its recovery with a convergence symptom.
+    if (incomplete !== undefined && failedStep === undefined) {
       return yield* Effect.fail({
         error: new StepFailure({
           category: "conflict",

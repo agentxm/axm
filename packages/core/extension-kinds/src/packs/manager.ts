@@ -218,15 +218,28 @@ export const PackManagerLive = Layer.effect(
         }
         return noContent;
       }
+      const accepted = yield* lockfile.entry("pack", ref.pack.name);
+      const expected = computePackManifestContentIdentity({
+        owner: ref.owner,
+        type: "pack",
+        name: ref.pack.name,
+        version: ref.version,
+        dependencies: ref.pack.dependencies,
+      });
       const materialized = yield* acquireCanonicalForRef({
         ref,
         type: "pack",
         baseDir,
         canonicalPath: packDir,
-        accepted: yield* lockfile.entry("pack", ref.pack.name),
+        accepted,
         force: force === true,
         nativeInsertionEligible: nativeInsertionEligible === true,
-        external: { reuse: true },
+        // A path or Git selection may advance while the previous accepted
+        // tree remains intact. Its lock identity decides reuse eligibility;
+        // validation failures must keep their cause instead of triggering a fetch.
+        external: {
+          reuse: Option.isSome(accepted) && accepted.value.manifestContentIdentity === expected,
+        },
         copyFailure: { code: "internal", detail: (target) => `Failed to retain Pack at ${target}` },
         validate: (stagingPath) =>
           Effect.gen(function* () {
@@ -246,13 +259,6 @@ export const PackManagerLive = Layer.effect(
                 detail: `Fetched Pack manifest is ${observed.status}: ${manifestPath}`,
               });
             }
-            const expected = computePackManifestContentIdentity({
-              owner: ref.owner,
-              type: "pack",
-              name: ref.pack.name,
-              version: ref.version,
-              dependencies: ref.pack.dependencies,
-            });
             if (observed.contentIdentity !== expected) {
               return yield* new PackDefinitionInvalid({
                 detail: `Fetched Pack ${observed.manifest.owner}/packs/${observed.manifest.name}@${observed.manifest.version} does not match the selected Pack ${ref.owner}/packs/${ref.pack.name}@${ref.version} dependency declaration`,

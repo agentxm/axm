@@ -139,7 +139,7 @@ describe("canonical acquisition dispatch", () => {
     ),
   );
 
-  it.effect("reacquires accepted bytes that no longer satisfy the selected declaration", () =>
+  it.effect("reacquires accepted bytes when the owner selects a different declaration", () =>
     run(
       Effect.gen(function* () {
         const source = path.join(root, "source");
@@ -166,6 +166,7 @@ describe("canonical acquisition dispatch", () => {
         const acquired = yield* acquireCanonicalForRef({
           ...args,
           accepted,
+          external: { reuse: false },
           validate: (directory) =>
             fs.readFileSync(path.join(directory, "hook.sh"), "utf8") === "selected declaration"
               ? Effect.void
@@ -176,6 +177,50 @@ describe("canonical acquisition dispatch", () => {
           "selected declaration",
         );
         expect(acquired.treeIntegrity).not.toBe(initial.treeIntegrity);
+      }),
+    ),
+  );
+
+  it.effect("preserves a reused tree and the owner's validation failure without reacquiring", () =>
+    run(
+      Effect.gen(function* () {
+        const source = path.join(root, "source");
+        const canonicalPath = path.join(root, "canonical", "audit");
+        fs.mkdirSync(source);
+        fs.writeFileSync(path.join(source, "hook.sh"), "accepted content");
+        const args = {
+          ref: refFor(source),
+          type: "hook",
+          baseDir: root,
+          canonicalPath,
+          force: false,
+          external: { reuse: true },
+          copyFailure: { code: "validation", detail: () => "copy failed" },
+        } as const;
+        const initial = yield* acquireCanonicalForRef({ ...args, accepted: Option.none() });
+        const accepted = Option.some<LockEntry>({
+          source: { type: "path", path: "source" },
+          identity: { owner: handle("@acme"), name: extensionName("audit") },
+          resolved: { tree: initial.treeIntegrity },
+          treeIntegrity: initial.treeIntegrity,
+        });
+        fs.writeFileSync(path.join(source, "hook.sh"), "replacement would pass validation");
+        const refusal = { _tag: "OwnerValidationRefused", detail: "Unsupported package" } as const;
+        const failure = yield* Effect.flip(
+          acquireCanonicalForRef({
+            ...args,
+            accepted,
+            validate: (directory) =>
+              fs.readFileSync(path.join(directory, "hook.sh"), "utf8") === "accepted content"
+                ? Effect.fail(refusal)
+                : Effect.void,
+          }),
+        );
+        expect(failure).toBe(refusal);
+        expect(fs.readFileSync(path.join(canonicalPath, "hook.sh"), "utf8")).toBe(
+          "accepted content",
+        );
+        expect(yield* computeMaterializedTreeIntegrity(canonicalPath)).toBe(initial.treeIntegrity);
       }),
     ),
   );

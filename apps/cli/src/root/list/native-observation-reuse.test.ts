@@ -23,10 +23,10 @@ it.effect("reuses the native inventory observation for detailed MCP query result
       (base) =>
         ({
           ...base,
-          readFileString: (file, ...options) =>
+          readFile: (file) =>
             Effect.gen(function* () {
               if (file === nativePath) reads += 1;
-              return yield* base.readFileString(file, ...options);
+              return yield* base.readFile(file);
             }),
         }) satisfies FileSystem.FileSystem,
     ),

@@ -185,10 +185,10 @@ describe("Lightweight inventory", () => {
       let reads = 0;
       const counted: FileSystem.FileSystem = {
         ...fs,
-        readFileString: (file, ...options) =>
+        readFile: (file) =>
           Effect.gen(function* () {
             if (file.startsWith(fixture.sourceRoot("platform"))) reads++;
-            return yield* fs.readFileString(file, ...options);
+            return yield* fs.readFile(file);
           }),
       };
       yield* fixture

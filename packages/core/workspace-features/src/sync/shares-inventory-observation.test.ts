@@ -1,8 +1,13 @@
 import * as Effect from "effect/Effect";
+import * as Context from "effect/Context";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 
-import { DesiredStateReader, WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  DesiredStateReader,
+  WorkspaceReadViews,
+  WorkspaceRecords,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { SyncWorkspace } from "./sync-workspace.js";
@@ -13,6 +18,46 @@ import {
   syncRequest,
 } from "../testing/sync-fixture.js";
 import { writeLocalSkillPackage } from "../testing/local-packages.js";
+
+/** Count the real readers selected for each planning or fresh validation phase. */
+const countPhaseReads = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+  counts: { skillInventoryReads: number; graphReads: number },
+) =>
+  Effect.gen(function* () {
+    const views = yield* WorkspaceReadViews;
+    return yield* effect.pipe(
+      Effect.provideService(WorkspaceReadViews, {
+        capture: (options) =>
+          views.capture(options).pipe(
+            Effect.map((context) => {
+              const records = Context.get(context, WorkspaceRecords);
+              const desired = Context.get(context, DesiredStateReader);
+              return context.pipe(
+                Context.add(WorkspaceRecords, {
+                  ...records,
+                  getExtensionInventory: (type, selection) =>
+                    Effect.sync(() => {
+                      if (type === "skill") counts.skillInventoryReads += 1;
+                    }).pipe(Effect.andThen(records.getExtensionInventory(type, selection))),
+                }),
+                Context.add(DesiredStateReader, {
+                  ...desired,
+                  evaluate: (selection) =>
+                    Effect.sync(() => {
+                      counts.graphReads += 1;
+                    }).pipe(Effect.andThen(desired.evaluate(selection))),
+                  graph: (selection) =>
+                    Effect.sync(() => {
+                      counts.graphReads += 1;
+                    }).pipe(Effect.andThen(desired.graph(selection))),
+                }),
+              );
+            }),
+          ),
+      }),
+    );
+  });
 
 describe("Sync inventory observation", () => {
   const cleanups: Array<() => void> = [];
@@ -37,34 +82,10 @@ describe("Sync inventory observation", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          const records = yield* WorkspaceRecords;
-          const desiredState = yield* DesiredStateReader;
-          let skillInventoryReads = 0;
-          let graphReads = 0;
-          const observed = {
-            ...records,
-            getExtensionInventory: (type, options) =>
-              Effect.sync(() => {
-                if (type === "skill") skillInventoryReads += 1;
-              }).pipe(Effect.andThen(records.getExtensionInventory(type, options))),
-          } satisfies typeof records;
-          const observedGraph = {
-            ...desiredState,
-            evaluate: (options) =>
-              Effect.sync(() => {
-                graphReads += 1;
-              }).pipe(Effect.andThen(desiredState.evaluate(options))),
-            graph: (options) =>
-              Effect.sync(() => {
-                graphReads += 1;
-              }).pipe(Effect.andThen(desiredState.graph(options))),
-          } satisfies typeof desiredState;
-          yield* SyncWorkspace.prepare(syncRequest()).pipe(
-            Effect.provideService(WorkspaceRecords, observed),
-            Effect.provideService(DesiredStateReader, observedGraph),
-          );
-          expect(skillInventoryReads).toBe(2);
-          expect(graphReads).toBe(2);
+          const counts = { skillInventoryReads: 0, graphReads: 0 };
+          yield* countPhaseReads(SyncWorkspace.prepare(syncRequest()), counts);
+          expect(counts.skillInventoryReads).toBe(2);
+          expect(counts.graphReads).toBe(2);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -90,24 +111,10 @@ describe("Sync inventory observation", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          const desiredState = yield* DesiredStateReader;
-          let graphReads = 0;
-          const observed = {
-            ...desiredState,
-            evaluate: (options) =>
-              Effect.sync(() => {
-                graphReads += 1;
-              }).pipe(Effect.andThen(desiredState.evaluate(options))),
-            graph: (options) =>
-              Effect.sync(() => {
-                graphReads += 1;
-              }).pipe(Effect.andThen(desiredState.graph(options))),
-          } satisfies typeof desiredState;
-          const candidate = yield* SyncWorkspace.prepare(syncRequest()).pipe(
-            Effect.provideService(DesiredStateReader, observed),
-          );
+          const counts = { skillInventoryReads: 0, graphReads: 0 };
+          const candidate = yield* countPhaseReads(SyncWorkspace.prepare(syncRequest()), counts);
           expect(candidate._tag).toBe("SyncWorkspace");
-          expect(graphReads).toBe(2);
+          expect(counts.graphReads).toBe(2);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

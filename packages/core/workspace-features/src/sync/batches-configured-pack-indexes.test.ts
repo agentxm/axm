@@ -1,6 +1,7 @@
 import { makeOperationRequestBudget, OperationRequestBudget } from "@agentxm/host-primitives";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
+import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -11,7 +12,7 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 import { ResolutionMetadataRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
-import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
+import { LockfileReader, WorkspaceReadViews } from "@agentxm/workspace-kernel/workspace-state";
 import { SyncWorkspace } from "./sync-workspace.js";
 import { makeSyncFixture, syncRequest } from "../testing/sync-fixture.js";
 
@@ -52,30 +53,51 @@ it.effect("batches configured Pack indexes despite uneven workspace read complet
   return workspace
     .provide(
       Effect.gen(function* () {
-        const lockfile = yield* LockfileReader;
+        const views = yield* WorkspaceReadViews;
         const releaseFirst = yield* Deferred.make<void>();
+        const firstHeld = yield* Deferred.make<void>();
         const secondReady = yield* Deferred.make<void>();
         let secondReads = 0;
         // Hold the first Pack's accepted-resolution read, and note when the
         // second Pack's has been read twice, whichever accessor reads it.
         const gate = (type: string, name: string) =>
           Effect.gen(function* () {
-            if (type === "pack" && name === "first") yield* Deferred.await(releaseFirst);
+            if (type === "pack" && name === "first") {
+              yield* Deferred.succeed(firstHeld, undefined);
+              yield* Deferred.await(releaseFirst);
+            }
             if (type === "pack" && name === "second" && ++secondReads === 2)
               yield* Deferred.succeed(secondReady, undefined);
           });
         const budget = yield* makeOperationRequestBudget({ invocation: 2, origin: 2 });
         const planning = yield* SyncWorkspace.prepare(syncRequest()).pipe(
-          Effect.provideService(LockfileReader, {
-            ...lockfile,
-            entry: (type, name) => Effect.tap(lockfile.entry(type, name), () => gate(type, name)),
-            acceptedEntry: (type, name) =>
-              Effect.tap(lockfile.acceptedEntry(type, name), () => gate(type, name)),
+          Effect.provideService(WorkspaceReadViews, {
+            capture: (options) =>
+              views.capture(options).pipe(
+                Effect.map((context) => {
+                  // Gate the real reader used by this preparation phase, after
+                  // capture has supplied its shared document observations.
+                  const lockfile = Context.get(context, LockfileReader);
+                  return Context.add(context, LockfileReader, {
+                    ...lockfile,
+                    entry: (type, name) =>
+                      Effect.tap(lockfile.entry(type, name), () => gate(type, name)),
+                    acceptedEntry: (type, name) =>
+                      Effect.tap(lockfile.acceptedEntry(type, name), () => gate(type, name)),
+                  });
+                }),
+              ),
           }),
           Effect.provideService(OperationRequestBudget, budget),
           Effect.forkChild,
         );
-        yield* Deferred.await(secondReady);
+        const reached = yield* Effect.raceFirst(
+          Effect.all([Deferred.await(firstHeld), Deferred.await(secondReady)]).pipe(
+            Effect.as("held-local-preparation"),
+          ),
+          Fiber.await(planning).pipe(Effect.as("planning-completed")),
+        );
+        expect(reached).toBe("held-local-preparation");
         // Let every unblocked fiber finish its work while the first Pack's read remains held.
         yield* TestClock.adjust("1 second");
         expect(batches).toEqual([]);

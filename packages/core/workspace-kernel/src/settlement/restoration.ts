@@ -338,6 +338,9 @@ export const restoreAll = Effect.fnUntraced(function* (
             }),
           )
         : restoreSnapshot(fs, path, snapshot).pipe(
+            Effect.withSpan("axm.rollback.restore", {
+              attributes: { "axm.snapshot.kind": snapshot.state, "axm.work.count": 1 },
+            }),
             Effect.andThen(recordFootprint({ path: snapshot.target, change: "restored" })),
           )
     ).pipe(Effect.result);
@@ -397,6 +400,10 @@ export const verifySnapshots = (
             cause: { state: snapshot.state },
           });
         }
-      }),
+      }).pipe(
+        Effect.withSpan("axm.rollback.verify", {
+          attributes: { "axm.snapshot.kind": snapshot.state, "axm.work.count": 1 },
+        }),
+      ),
     { discard: true },
   );

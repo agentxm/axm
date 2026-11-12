@@ -25,6 +25,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -45,12 +46,11 @@ import { ExtensionResolutionFailed } from "./errors.js";
 import { parseMinimumReleaseAge, releaseAgeRecords } from "./release-age-policy.js";
 import { ReleaseAgePosture } from "./release-age-posture.js";
 
-export const makeConfiguredReleaseAgeEvaluation = () =>
+const readConfiguredReleaseAgeEvaluation = (evaluatedAt: DateTime.Utc) =>
   Effect.gen(function* () {
     const mode = yield* ReleaseAgePosture;
     const settings = yield* SettingsReader;
     const minimumReleaseAge = yield* parseMinimumReleaseAge(yield* settings.minimumReleaseAge);
-    const evaluatedAt = yield* DateTime.now;
     const exclude = yield* settings.minimumReleaseAgeExclude;
     return {
       minimumReleaseAge,
@@ -59,6 +59,47 @@ export const makeConfiguredReleaseAgeEvaluation = () =>
       exclude,
     } satisfies ReleaseAgeEvaluation;
   });
+
+/** A concrete evaluation for callers already selecting Registry releases. */
+export const makeConfiguredReleaseAgeEvaluation = () =>
+  Effect.flatMap(DateTime.now, readConfiguredReleaseAgeEvaluation);
+
+/** One preparation cutoff; settings policy is read only when selection needs it. */
+export const makeConfiguredReleaseAgePolicy = () =>
+  Effect.gen(function* () {
+    const evaluatedAt = yield* DateTime.now;
+    const settings = yield* SettingsReader;
+    const mode = yield* ReleaseAgePosture;
+    const read = yield* Effect.cached(
+      readConfiguredReleaseAgeEvaluation(evaluatedAt).pipe(
+        Effect.provideService(SettingsReader, settings),
+        Effect.provideService(ReleaseAgePosture, mode),
+      ),
+    );
+    return { evaluatedAt, read };
+  });
+export type ConfiguredReleaseAgePolicy = Effect.Success<
+  ReturnType<typeof makeConfiguredReleaseAgePolicy>
+>;
+
+/** Keep the classified source through candidate preparation and source discovery. */
+export const classifyConfiguredSource = (
+  name: string,
+  source: string,
+  expectedType: ExtensionType,
+) =>
+  resolveSource(source, { expectedType }).pipe(
+    Effect.mapError((failure) =>
+      failure._tag === "ConfigError"
+        ? failure
+        : new ExtensionResolutionFailed({
+            category: "validation",
+            detail: `Invalid ${expectedType} source for ${name}: ${failure.detail}`,
+            cause: failure,
+          }),
+    ),
+    Effect.withSpan("axm.resolve.configured-source", { attributes: { "axm.work.count": 1 } }),
+  );
 
 type ConfiguredRegistryRef = Extract<
   ConfiguredRegistryResolution,
@@ -126,8 +167,9 @@ const prepareConfiguredRegistryRef = (
   name: string,
   source: string,
   expectedType: ExtensionType,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   selectionRange: Option.Option<VersionRange> | undefined,
+  classifiedSource: Source,
 ) =>
   prepareConfiguredRegistryEntry(
     name,
@@ -135,6 +177,7 @@ const prepareConfiguredRegistryRef = (
     expectedType,
     releaseAgeEvaluation,
     selectionRange,
+    classifiedSource,
   ).pipe(
     Effect.map((resolve) =>
       resolve.pipe(
@@ -162,15 +205,19 @@ export const prepareConfiguredRegistryEntry = (
   name: string,
   source: string,
   expectedType: ExtensionType,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   selectionRange?: Option.Option<VersionRange>,
+  classifiedSource?: Source,
 ): Effect.Effect<
   Effect.Effect<
     Option.Option<ConfiguredRegistryResolution>,
     SourceResolutionFailure,
     SourceHostProviders | Scope.Scope
   >,
-  ExtensionResolutionFailed | AcceptedCanonicalRefError | Config.ConfigError,
+  | ExtensionResolutionFailed
+  | AcceptedCanonicalRefError
+  | Config.ConfigError
+  | Effect.Error<ConfiguredReleaseAgePolicy["read"]>,
   | WorkspaceCatalog
   | WorkspaceLocation
   | SettingsReader
@@ -183,17 +230,8 @@ export const prepareConfiguredRegistryEntry = (
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) return Effect.succeed(Option.none());
 
-    const resolvedSource = yield* resolveSource(source, { expectedType }).pipe(
-      Effect.mapError((failure) =>
-        failure._tag === "ConfigError"
-          ? failure
-          : new ExtensionResolutionFailed({
-              category: "validation",
-              detail: `Invalid ${expectedType} source for ${name}: ${failure.detail}`,
-              cause: failure,
-            }),
-      ),
-    );
+    const resolvedSource =
+      classifiedSource ?? (yield* classifyConfiguredSource(name, source, expectedType));
     if (resolvedSource.type !== "registry") return Effect.succeed(Option.none());
 
     const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
@@ -236,6 +274,7 @@ export const prepareConfiguredRegistryEntry = (
           })
         : Option.none(),
     );
+    const evaluation = yield* releaseAgeEvaluation.read;
     return Effect.gen(function* () {
       const providers = yield* SourceHostProviders;
       const resolution = yield* providers.resolveNamedRegistry(resolvedSource, {
@@ -243,7 +282,7 @@ export const prepareConfiguredRegistryEntry = (
         type: expectedType,
         owner,
         versionRange: selectionRange ?? versionRange,
-        releaseAgeEvaluation,
+        releaseAgeEvaluation: evaluation,
         ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
       });
       const acceptedVersion =
@@ -317,9 +356,10 @@ const packRefConstructor: ConfiguredRefConstructor<"pack"> = {
 const prepareConfiguredEntry = <TType extends ExtensionType>(
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   refConstructor: ConfiguredRefConstructor<TType>,
   selectionRange?: Option.Option<VersionRange>,
+  classifiedSource?: Source,
 ) =>
   Effect.gen(function* () {
     const expectedType = refConstructor.type;
@@ -336,12 +376,15 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
       return Effect.succeed({ ref, versionRange: Option.none<VersionRange>() });
     }
 
+    const resolvedSource =
+      classifiedSource ?? (yield* classifyConfiguredSource(name, source, expectedType));
     const resolveRegistry = yield* prepareConfiguredRegistryRef(
       name,
       source,
       expectedType,
       releaseAgeEvaluation,
       selectionRange,
+      resolvedSource,
     );
     return Effect.gen(function* () {
       const registry = yield* resolveRegistry;
@@ -357,17 +400,6 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
       }
 
       const providers = yield* SourceHostProviders;
-      const resolvedSource = yield* resolveSource(source, { expectedType }).pipe(
-        Effect.mapError((cause) =>
-          cause._tag === "ConfigError"
-            ? cause
-            : new ExtensionResolutionFailed({
-                category: "validation",
-                detail: `Invalid ${typeLabel} source for ${name}: ${cause.detail}`,
-                cause,
-              }),
-        ),
-      );
 
       const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
       const expectedPlural = toExtensionTypePlural(expectedType);
@@ -522,33 +554,57 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
 const resolveConfiguredEntry = <TType extends ExtensionType>(
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   refConstructor: ConfiguredRefConstructor<TType>,
   selectionRange?: Option.Option<VersionRange>,
+  classifiedSource?: Source,
 ) =>
-  prepareConfiguredEntry(name, source, releaseAgeEvaluation, refConstructor, selectionRange).pipe(
-    Effect.flatten,
-  );
+  prepareConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    refConstructor,
+    selectionRange,
+    classifiedSource,
+  ).pipe(Effect.flatten);
 
 export const prepareConfiguredPack = (
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
-) => prepareConfiguredEntry(name, source, releaseAgeEvaluation, packRefConstructor);
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
+  classifiedSource?: Source,
+) =>
+  prepareConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    packRefConstructor,
+    undefined,
+    classifiedSource,
+  );
 
 export const resolveConfiguredSkill = (
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   selectionRange?: Option.Option<VersionRange>,
+  classifiedSource?: Source,
 ) =>
-  resolveConfiguredEntry(name, source, releaseAgeEvaluation, skillRefConstructor, selectionRange);
+  resolveConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    skillRefConstructor,
+    selectionRange,
+    classifiedSource,
+  );
 
 export const resolveConfiguredMcpServer = (
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   selectionRange?: Option.Option<VersionRange>,
+  classifiedSource?: Source,
 ) =>
   resolveConfiguredEntry(
     name,
@@ -556,13 +612,15 @@ export const resolveConfiguredMcpServer = (
     releaseAgeEvaluation,
     mcpServerRefConstructor,
     selectionRange,
+    classifiedSource,
   );
 
 export const resolveConfiguredSubagent = (
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   selectionRange?: Option.Option<VersionRange>,
+  classifiedSource?: Source,
 ) =>
   resolveConfiguredEntry(
     name,
@@ -570,27 +628,47 @@ export const resolveConfiguredSubagent = (
     releaseAgeEvaluation,
     subagentRefConstructor,
     selectionRange,
+    classifiedSource,
   );
 
 export const resolveConfiguredRule = (
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   selectionRange?: Option.Option<VersionRange>,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, ruleRefConstructor, selectionRange);
+  classifiedSource?: Source,
+) =>
+  resolveConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    ruleRefConstructor,
+    selectionRange,
+    classifiedSource,
+  );
 
 export const resolveConfiguredHook = (
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   selectionRange?: Option.Option<VersionRange>,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, hookRefConstructor, selectionRange);
+  classifiedSource?: Source,
+) =>
+  resolveConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    hookRefConstructor,
+    selectionRange,
+    classifiedSource,
+  );
 
 export const resolveConfiguredKnowledge = (
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   selectionRange?: Option.Option<VersionRange>,
+  classifiedSource?: Source,
 ) =>
   resolveConfiguredEntry(
     name,
@@ -598,11 +676,21 @@ export const resolveConfiguredKnowledge = (
     releaseAgeEvaluation,
     knowledgeRefConstructor,
     selectionRange,
+    classifiedSource,
   );
 
 export const resolveConfiguredPack = (
   name: string,
   source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
   selectionRange?: Option.Option<VersionRange>,
-) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, packRefConstructor, selectionRange);
+  classifiedSource?: Source,
+) =>
+  resolveConfiguredEntry(
+    name,
+    source,
+    releaseAgeEvaluation,
+    packRefConstructor,
+    selectionRange,
+    classifiedSource,
+  );

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
+import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { validateFilteredPackage } from "../index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -78,21 +80,26 @@ const files = [
   "fixtures/stderr.txt",
 ];
 const validate = (names: ReadonlyArray<string>) =>
-  validateFilteredPackage({
-    type: "hook",
-    manifest,
-    entries: names.map((fileName) => ({
-      fileName,
-      versionMadeBy: 20,
-      crc32: 0,
-      compressedSize: 1,
-      uncompressedSize: 1,
-      compressionMethod: 0,
-      externalAttributes: 0,
-      localHeaderOffset: 0,
-      localDataOffset: 0,
-    })),
-    readEntry: () => Effect.die("Hook closure validation must never read or execute bodies"),
+  Effect.gen(function* () {
+    const validated = yield* Schema.decodeUnknownEffect(HookManifestSchema)(manifest.raw).pipe(
+      Effect.orDie,
+    );
+    return yield* validateFilteredPackage({
+      type: "hook",
+      manifest: { ...manifest, validated },
+      entries: names.map((fileName) => ({
+        fileName,
+        versionMadeBy: 20,
+        crc32: 0,
+        compressedSize: 1,
+        uncompressedSize: 1,
+        compressionMethod: 0,
+        externalAttributes: 0,
+        localHeaderOffset: 0,
+        localDataOffset: 0,
+      })),
+      readEntry: () => Effect.die("Hook closure validation must never read or execute bodies"),
+    });
   });
 
 describe("Filtered Hook extension closure", () => {

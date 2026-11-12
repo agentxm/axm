@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "workspace/mcps/shared-native-writes-require-compatible-authority",
   title: "Shared MCP declarations authorize entries under compatible readers",
   statement:
-    "AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy the configured applicable native readers, with other catalog readers reported only as potential readers, and a validated declaration authorizes creation or complete replacement of its named entry independently of native ownership metadata; alias escapes and stale import candidates shall leave native files unchanged.",
+    "AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy the configured applicable native readers, with other catalog readers reported only as potential readers, and a validated declaration authorizes creation or complete replacement of its named entry independently of native ownership metadata; compatible aliases of the same interpreted container shall remain one declaration on repetition, while alias escapes and stale import candidates shall leave native files unchanged.",
   class: "functional",
   role: "supporting",
   goals: ["agent-interoperability", "workspace-intent-fidelity", "safe-repetition"],
@@ -504,16 +504,19 @@ describe("authority at shared MCP files", () => {
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("writes aliased Claude and Cursor configuration once", () =>
+  it.effect("writes aliased Claude and Cursor configuration once and repeats without changes", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
       yield* fs.makeDirectory(path.join(root, ".cursor"));
-      yield* fs.writeFileString(path.join(root, ".mcp.json"), "{}\n");
+      yield* fs.writeFileString(
+        path.join(root, ".mcp.json"),
+        '{"mcpServers":{"foreign":{"command":"foreign"}},"unrelated":true}\n',
+      );
       yield* fs.symlink("../.mcp.json", path.join(root, ".cursor/mcp.json"));
       const authority = yield* makeRecordingNativeWriteAuthority;
-      const outcomes = yield* syncInlineMcpServerToAgents(["claude-code", "cursor"], {
+      const sync = syncInlineMcpServerToAgents(["claude-code", "cursor"], {
         nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
 
         workspaceRoot: root,
@@ -524,8 +527,22 @@ describe("authority at shared MCP files", () => {
           enabled: true,
         },
       }).pipe(Effect.provide(authority.layer));
+      const outcomes = yield* sync;
       expect(outcomes.map((outcome) => outcome._tag)).toEqual(["success", "success"]);
       expect((yield* authority.observed).records).toHaveLength(1);
+      const beforeRepeat = yield* fs.readFileString(path.join(root, ".mcp.json"));
+      const beforeInfo = yield* fs.stat(path.join(root, ".mcp.json"));
+      expect(JSON.parse(beforeRepeat)).toEqual({
+        mcpServers: {
+          foreign: { command: "foreign" },
+          context: { type: "stdio", command: "node" },
+        },
+        unrelated: true,
+      });
+      expect((yield* sync).map((outcome) => outcome._tag)).toEqual(["success", "success"]);
+      expect((yield* authority.observed).records).toHaveLength(1);
+      expect(yield* fs.readFileString(path.join(root, ".mcp.json"))).toBe(beforeRepeat);
+      expect((yield* fs.stat(path.join(root, ".mcp.json"))).mtime).toEqual(beforeInfo.mtime);
       expect(yield* fs.readLink(path.join(root, ".cursor/mcp.json"))).toBe("../.mcp.json");
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );

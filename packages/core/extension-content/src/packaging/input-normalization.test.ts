@@ -1,12 +1,16 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
   normalizePublishInput,
   type DeclaredPublishIdentity,
   type PublishArchiveInput,
-} from "./input-normalization.js";
-import { defaultReadEntry, parseZipCentralDirectory } from "./archive-guardrails.js";
+  ArchiveGuardrailError,
+  defaultReadEntry,
+  parseZipCentralDirectory,
+  validateArchive,
+} from "../index.js";
 import { buildZip, textContent } from "./test-zip-helpers.js";
 
 const makeDeclaredIdentity = (
@@ -48,12 +52,141 @@ const makeBody = (
   zip?: Uint8Array,
   overrides?: Partial<PublishArchiveInput>,
 ): PublishArchiveInput => ({
-  archiveBytes: zip ?? makeValidSkillZip(),
+  content: zip ?? makeValidSkillZip(),
   archiveContentType: "application/zip",
   ...overrides,
 });
 
+const knowledgeArchive = () =>
+  buildZip([
+    {
+      fileName: "knowledge.json",
+      content: textContent(
+        JSON.stringify({
+          owner: "@acme",
+          type: "knowledge",
+          name: "code-review",
+          version: "1.0.0",
+          format: { name: "okf", version: "0.2" },
+          bundleRoot: "src",
+        }),
+      ),
+    },
+    {
+      fileName: "src/index.md",
+      content: textContent('---\nokf_version: "0.2"\n---\n# Review\n\n- [Review](review.md)\n'),
+    },
+    {
+      fileName: "src/review.md",
+      content: textContent(
+        "---\ntype: reference\ndescription: Review guidance\ntags: [review]\n---\n# Review\n",
+      ),
+    },
+  ]);
+
 describe("normalizePublishInput", () => {
+  it.effect("resolves a Subagent from the manifest already validated by admission", () =>
+    Effect.gen(function* () {
+      const names: string[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          names.push(options.name);
+          return new Tracer.NativeSpan(options);
+        },
+      });
+      const result = yield* normalizePublishInput({
+        declaredIdentity: makeDeclaredIdentity({ type: "subagent" }),
+        archive: {
+          archiveContentType: "application/zip",
+          content: buildZip([
+            {
+              fileName: "subagent.json",
+              content: textContent(
+                JSON.stringify({
+                  owner: "@acme",
+                  type: "subagent",
+                  name: "code-review",
+                  version: "1.0.0",
+                  description: "Reviews code changes.",
+                  core: { instructions: "src/review.md" },
+                }),
+              ),
+            },
+            { fileName: "src/review.md", content: textContent("Review carefully.") },
+          ]),
+        },
+      }).pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true));
+      expect(result.manifest.validated.type).toBe("subagent");
+      expect(names.filter((name) => name === "axm.archive.decode-manifest")).toHaveLength(1);
+      expect(names).not.toContain("axm.subagent.decode-manifest");
+    }),
+  );
+
+  it.effect("reuses structural admission and reads each Knowledge member once per inspection", () =>
+    Effect.gen(function* () {
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      });
+      const observe = <A, E>(effect: Effect.Effect<A, E>) =>
+        effect.pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true));
+      const admitted = yield* observe(validateArchive(knowledgeArchive()));
+      for (let inspection = 0; inspection < 2; inspection++) {
+        const result = yield* observe(
+          normalizePublishInput({
+            declaredIdentity: makeDeclaredIdentity({ type: "knowledge" }),
+            archive: { content: admitted, archiveContentType: "application/zip" },
+          }),
+        );
+        expect(result.archive).toBe(admitted);
+        expect(result.manifest.validated.type).toBe("knowledge");
+      }
+      const count = (name: string) => spans.filter((span) => span.name === name).length;
+      expect(count("axm.archive.parse")).toBe(1);
+      expect(count("axm.archive.admit")).toBe(1);
+      expect(count("axm.archive.read-member")).toBe(6);
+      expect(count("axm.archive.decode-manifest")).toBe(2);
+      expect(
+        spans
+          .filter((span) => span.name === "axm.archive.normalize")
+          .map((span) => span.attributes.get("axm.work.reused")),
+      ).toEqual([true, true]);
+      expect(spans.every((span) => span.status._tag === "Ended")).toBe(true);
+    }),
+  );
+
+  it.effect("keeps custom reader calls fresh and isolated from the owned archive", () =>
+    Effect.gen(function* () {
+      const bytes = knowledgeArchive();
+      const admitted = yield* validateArchive(bytes);
+      let indexReads = 0;
+      const result = yield* normalizePublishInput({
+        declaredIdentity: makeDeclaredIdentity({ type: "knowledge" }),
+        archive: { content: admitted, archiveContentType: "application/zip" },
+        readEntry: (copy, entry) =>
+          Effect.gen(function* () {
+            expect(copy).toEqual(bytes);
+            const content = yield* defaultReadEntry(copy, entry);
+            copy.fill(0);
+            if (entry.fileName === "src/index.md" && ++indexReads === 2) {
+              return yield* new ArchiveGuardrailError({
+                code: "malformed_archive",
+                message: "reader refused",
+              });
+            }
+            return content;
+          }),
+      }).pipe(Effect.flip);
+      expect(result).toMatchObject({ _tag: "FilteredPackageError", code: "content_invalid" });
+      expect(indexReads).toBe(2);
+      expect(admitted.copyBytes()).toEqual(bytes);
+    }),
+  );
+
   it.effect("normalizes a valid skill publish input", () =>
     Effect.gen(function* () {
       const result = yield* normalizePublishInput({

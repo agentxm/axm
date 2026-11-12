@@ -111,6 +111,16 @@ inferring attribution from development stacks.
 
 ## Local diagnostics
 
+Opt-in local tracing is a separate process-owned observer. The CLI runtime
+installs the existing Effect OTLP tracer only for explicit local activation;
+product telemetry consent and workspace settings cannot enable it. Owner spans
+describe meaningful phases and actual work. The export boundary admits stable
+names and bounded attributes, omits raw inputs and automatic exception details,
+and permits only loopback destinations without proxying or redirects. Its
+bounded shutdown and export failures cannot change the command outcome.
+[Local tracing](../../../contributing/guides/local-tracing.md) owns activation,
+endpoint rules, interpretation, and delivery limits.
+
 The process creates one terminal diagnostic identity before rendering, independently
 of remote consent. Human output, JSON, local evidence and any remote report use
 that identity. Remote transport and local storage can fail independently without

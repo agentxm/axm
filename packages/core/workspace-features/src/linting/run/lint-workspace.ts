@@ -51,6 +51,7 @@ import {
   deriveAgentOutputAuthority,
   instructionProjectionEffects,
   instructionReconciliationReadiness,
+  withMcpInspectionReadView,
 } from "@agentxm/workspace-kernel/projection";
 import {
   LockfileReader,
@@ -60,6 +61,7 @@ import {
   acceptedResolutionRef,
   acceptedCanonicalObservation,
   observeInstallRoot,
+  withWorkspaceObservationReadView,
   type CanonicalObservation,
   type DesiredExtensionNode,
   type AcceptedResolutionWriter,
@@ -245,318 +247,325 @@ export type LintWorkspaceFailure =
   | Effect.Error<ReturnType<typeof applyDeterminedRepairs>>;
 
 const runLint = (selection: LintSelection, options: { readonly strict: boolean }) =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const location = yield* WorkspaceLocation;
-    const layout = yield* Ref.get(location.layout);
-    const settingsReader = yield* SettingsReader;
-    const desiredState = yield* DesiredStateReader;
-    const lockfile = yield* LockfileReader;
-    const agentRepository = yield* CodingAgentRepository;
-    const axmSkillCompatibilityPolicy = yield* AxmSkillCompatibilityPolicy;
-    const invariantFacts = yield* WorkspaceInvariantFacts;
-    const userHome = selection.scope === "user" ? selection.workspaceRoot : selection.userHome;
-    // Every rule that reports a canonical observation reads this one
-    // observation of each desired node for the run.
-    const canonicalObservations: Effect.Effect<
-      ReadonlyArray<{
-        readonly desired: DesiredExtensionNode;
-        readonly observation: CanonicalObservation;
-      }>,
-      WorkspaceHealthFailure
-    > = yield* Effect.cached(
+  withWorkspaceObservationReadView(
+    withMcpInspectionReadView(
       Effect.gen(function* () {
-        const graph = yield* desiredState.graph();
-        return yield* Effect.forEach(
-          graph.nodes,
-          (node) =>
-            acceptedCanonicalObservation({
-              type: node.type,
-              name: node.name,
-            }).pipe(
-              Effect.flatMap((accepted) =>
-                Option.isNone(accepted)
-                  ? new LintStagingFailed({
-                      category: "internal",
-                      detail: `Desired extension disappeared while linting: ${node.type}:${node.name}`,
-                    })
-                  : Effect.succeed({ desired: node, observation: accepted.value.observation }),
-              ),
-            ),
-          { concurrency: 16 },
-        );
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fileSystem),
-        Effect.provideService(Path.Path, path),
-        Effect.provideService(WorkspaceLocation, location),
-        Effect.provideService(LockfileReader, lockfile),
-        Effect.provideService(DesiredStateReader, desiredState),
-      ),
-    );
-    // A node whose canonical tree is absent has nothing for its own artifact
-    // and content rules to inspect, so they defer to the one finding the
-    // observation router names. Unavailable observations defer nothing.
-    const observed = yield* Effect.result(canonicalObservations);
-    const deferred = Result.isFailure(observed)
-      ? new Set<string>()
-      : nodesDeferringToObservation(observed.success);
-
-    // The official AXM skill is the desired node its identity selects, judged
-    // from that node's canonical observation; no other copy on disk counts.
-    const officialAxmSkill = yield* Effect.cached(
-      canonicalObservations.pipe(
-        Effect.flatMap((nodes) =>
-          assessOfficialAxmSkill({
-            selected: selectOfficialAxmSkill(nodes),
-            policy: axmSkillCompatibilityPolicy,
-          }),
-        ),
-        Effect.provideService(FileSystem.FileSystem, fileSystem),
-        Effect.provideService(Path.Path, path),
-      ),
-    );
-
-    const desiredGraph = yield* desiredState.graph();
-    const { rule: workspaceContext, view } = yield* buildLintWorkspace({
-      nativeDirectoryInputs: location.nativeDirectoryInputs,
-      platform: { fs: fileSystem, path },
-      workspaceRoot: selection.workspaceRoot,
-      userHome,
-      scope: selection.scope,
-      desiredState: desiredGraph,
-      gitIndexView: selection.input.view === "git-index",
-      officialAxmSkill,
-      owner: settingsReader.owner.pipe(Effect.catch(() => Effect.succeed(Option.none()))),
-      projections: { facts: invariantFacts.projectionFacts },
-      defersExtensionRules: (type, name) => deferred.has(`${type}:${name}`),
-    });
-    // The settings document lint decides against is the one strict read the
-    // workspace read model already made; lint keeps no decoder of its own.
-    const settings = yield* workspaceContext.workspace.state.settings;
-    const config = lintConfigFromSettings(settings);
-
-    // Reconciliation facts: what AXM owns, and what it realized for the agents
-    // this workspace configures. Both come from the shared projection
-    // capability, never from the reconciliation feature.
-    const configuredAgents = yield* settingsReader.configuredAgents;
-    const skillNodes = desiredGraph.nodes.filter(
-      (node) => node.type === "skill" && !deferred.has(`skill:${node.name}`),
-    );
-    const nativeSkills = yield* Effect.cached(
-      observeConfiguredSkillLocations({
-        type: "skill",
-        state: "current",
-        scope: location.scope,
-        agentIds: configuredAgents,
-        rows: skillNodes.map((node) => ({
-          name: node.name,
-          targetState: node.enabled ? "enabled" : "disabled",
-          installed: true,
-        })),
-      }).pipe(
-        Effect.map((observations) =>
-          skillNodes.flatMap((node) => {
-            const observation = observations.get(node.name);
-            return observation === undefined
-              ? []
-              : [
-                  {
-                    name: node.name,
-                    enabled: node.enabled,
-                    implicit: !node.origins.some((origin) => origin.type === "settings"),
-                    observation,
-                  },
-                ];
-          }),
-        ),
-        Effect.provideService(FileSystem.FileSystem, fileSystem),
-        Effect.provideService(Path.Path, path),
-        Effect.provideService(WorkspaceLocation, location),
-        Effect.provideService(SettingsReader, settingsReader),
-        Effect.provideService(LockfileReader, lockfile),
-        Effect.provideService(DesiredStateReader, desiredState),
-        Effect.provideService(CodingAgentRepository, agentRepository),
-      ),
-    );
-    const outputAuthority = deriveAgentOutputAuthority({
-      path,
-      baseDir: location.baseDir,
-      layout,
-      desired: desiredGraph,
-      acceptedResolutions: yield* lockfile.lockfile,
-      settings: Option.getOrElse(settings, () => ({})),
-    });
-    const authoredSkills = {
-      layout,
-      entries: Option.isSome(settings) ? (settings.value.skills ?? {}) : {},
-    };
-    const ownership = yield* observeWorkspaceOwnershipIssues({
-      nativeDirectoryInputs: location.nativeDirectoryInputs,
-      workspaceRoot: location.baseDir,
-      scope: location.scope,
-      configuredAgentIds: new Set(configuredAgents),
-      ...outputAuthority,
-      authoredSkills,
-    });
-    const materializationAgentIds = new Set(
-      (yield* agentRepository.getMaterializationAgents()).map(({ id }) => id),
-    );
-    const agentOutputs = yield* observeAgentOutputs({
-      nativeDirectoryInputs: location.nativeDirectoryInputs,
-      workspaceRoot: location.baseDir,
-      scope: location.scope,
-      desiredAgentIds: materializationAgentIds,
-      expectedNames: expectedProjectionNames(desiredGraph),
-      ...outputAuthority,
-      authoredSkills,
-    });
-    // Cross-scope agent facts. The agents that read this workspace also read
-    // the user scope; a project folder that is the user home has no separate
-    // user scope, and a Git-index snapshot has no live agent folders.
-    const liveView = selection.input.view === "filesystem";
-    const realRoot = (root: string) =>
-      fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => path.resolve(root)));
-    const projectIsUserHome =
-      selection.scope === "project" &&
-      (yield* realRoot(selection.workspaceRoot)) === (yield* realRoot(userHome));
-    const userScope =
-      liveView && !projectIsUserHome
-        ? Option.some(yield* observeUserScope(userHome, location.nativeDirectoryInputs))
-        : Option.none<UserScopeObservation>();
-    const agentContent =
-      liveView && selection.scope === "project" && !projectIsUserHome && Option.isNone(settings)
-        ? Option.some(
-            yield* observeProjectAgentContent({
-              projectRoot: location.baseDir,
-              outputs: agentOutputs.outputs,
-            }),
-          )
-        : Option.none<ReadonlyArray<AgentContentEntry>>();
-    // Install-root and authoring-folder facts. An unreadable lockfile leaves
-    // the install root unobserved; its own rule reports the lockfile.
-    const installRoot = yield* observeInstallRoot({
-      layout,
-      graph: desiredGraph,
-      locks: lockfile,
-    }).pipe(Effect.option);
-    const authoredPackages = Option.isSome(settings)
-      ? yield* observeAuthoredPackages({ layout, settings: settings.value })
-      : [];
-    const registryClients = yield* RegistryClientFactory;
-    const deprecatedInstalled =
-      selection.fix || Result.isFailure(observed)
-        ? []
-        : (yield* Effect.forEach(observed.success, ({ desired, observation }) =>
-            observation.status !== "usable"
-              ? Effect.succeedNone
-              : acceptedResolutionRef({ type: desired.type, name: desired.name, desired }).pipe(
-                  Effect.option,
-                  Effect.map(Option.flatten),
-                  Effect.flatMap((accepted) => {
-                    if (Option.isNone(accepted) || accepted.value.refType !== "registry") {
-                      return Effect.succeedNone;
-                    }
-                    const ref = accepted.value;
-                    return Effect.gen(function* () {
-                      const client = yield* registryClients.forEndpoint(ref.source.location);
-                      const index = yield* client.getExtensionIndex({
-                        owner: ref.owner,
-                        type: ref.type,
-                        name: ref.name,
-                      });
-                      return Option.flatMap(index, (entry) =>
-                        entry.deprecation === null
-                          ? Option.none()
-                          : Option.some({
-                              fqn: `${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
-                              deprecation: entry.deprecation,
-                              memberPacks: desired.origins.flatMap((origin) =>
-                                origin.type === "pack" ? [origin.pack.fqn] : [],
-                              ),
-                            }),
-                      );
-                    }).pipe(Effect.orElseSucceed(() => Option.none()));
-                  }),
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const location = yield* WorkspaceLocation;
+        const layout = yield* Ref.get(location.layout);
+        const settingsReader = yield* SettingsReader;
+        const desiredState = yield* DesiredStateReader;
+        const lockfile = yield* LockfileReader;
+        const agentRepository = yield* CodingAgentRepository;
+        const axmSkillCompatibilityPolicy = yield* AxmSkillCompatibilityPolicy;
+        const invariantFacts = yield* WorkspaceInvariantFacts;
+        const userHome = selection.scope === "user" ? selection.workspaceRoot : selection.userHome;
+        // Every rule that reports a canonical observation reads this one
+        // observation of each desired node for the run.
+        const canonicalObservations: Effect.Effect<
+          ReadonlyArray<{
+            readonly desired: DesiredExtensionNode;
+            readonly observation: CanonicalObservation;
+          }>,
+          WorkspaceHealthFailure
+        > = yield* Effect.cached(
+          Effect.gen(function* () {
+            const graph = yield* desiredState.graph();
+            return yield* Effect.forEach(
+              graph.nodes,
+              (node) =>
+                acceptedCanonicalObservation({
+                  type: node.type,
+                  name: node.name,
+                }).pipe(
+                  Effect.flatMap((accepted) =>
+                    Option.isNone(accepted)
+                      ? new LintStagingFailed({
+                          category: "internal",
+                          detail: `Desired extension disappeared while linting: ${node.type}:${node.name}`,
+                        })
+                      : Effect.succeed({ desired: node, observation: accepted.value.observation }),
+                  ),
                 ),
-          )).flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
-    const evaluations = yield* evaluateAllCatalogs({
-      view: selection.input.view,
-      contexts: {
-        skill: buildSkillRuleContexts(view),
-        pack: buildPackRuleContexts(view),
-        subagent: view.subagentContexts,
-        "mcp-server": view.mcpServerContexts,
-        rule: view.ruleContexts,
-        hook: view.hookContexts,
-        knowledge: view.knowledgeContexts,
-        workspace: [
-          {
-            ...workspaceContext,
-            ownership: Effect.succeed(ownership),
-            agentOutputs: Effect.succeed(agentOutputs),
-            nativeSkills,
-            ...(Option.isSome(installRoot)
-              ? { installRoot: Effect.succeed(installRoot.value) }
-              : {}),
-            authoredPackages: Effect.succeed(authoredPackages),
-            deprecatedInstalled: Effect.succeed(deprecatedInstalled),
-            ...(Option.isSome(userScope) ? { userScope: Effect.succeed(userScope.value) } : {}),
-            ...(Option.isSome(agentContent)
-              ? { agentContent: Effect.succeed(agentContent.value) }
-              : {}),
-            health: {
-              desiredState: desiredState.graph(),
-              canonicalObservations,
-            },
+              { concurrency: 16 },
+            );
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+            Effect.provideService(Path.Path, path),
+            Effect.provideService(WorkspaceLocation, location),
+            Effect.provideService(LockfileReader, lockfile),
+            Effect.provideService(DesiredStateReader, desiredState),
+          ),
+        );
+        // A node whose canonical tree is absent has nothing for its own artifact
+        // and content rules to inspect, so they defer to the one finding the
+        // observation router names. Unavailable observations defer nothing.
+        const observed = yield* Effect.result(canonicalObservations);
+        const deferred = Result.isFailure(observed)
+          ? new Set<string>()
+          : nodesDeferringToObservation(observed.success);
+
+        // The official AXM skill is the desired node its identity selects, judged
+        // from that node's canonical observation; no other copy on disk counts.
+        const officialAxmSkill = yield* Effect.cached(
+          canonicalObservations.pipe(
+            Effect.flatMap((nodes) =>
+              assessOfficialAxmSkill({
+                selected: selectOfficialAxmSkill(nodes),
+                policy: axmSkillCompatibilityPolicy,
+              }),
+            ),
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+            Effect.provideService(Path.Path, path),
+          ),
+        );
+
+        const desiredGraph = yield* desiredState.graph();
+        const { rule: workspaceContext, view } = yield* buildLintWorkspace({
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          platform: { fs: fileSystem, path },
+          workspaceRoot: selection.workspaceRoot,
+          userHome,
+          scope: selection.scope,
+          desiredState: desiredGraph,
+          gitIndexView: selection.input.view === "git-index",
+          officialAxmSkill,
+          owner: settingsReader.owner.pipe(Effect.catch(() => Effect.succeed(Option.none()))),
+          projections: { facts: invariantFacts.projectionFacts },
+          defersExtensionRules: (type, name) => deferred.has(`${type}:${name}`),
+        });
+        // The settings document lint decides against is the one strict read the
+        // workspace read model already made; lint keeps no decoder of its own.
+        const settings = yield* workspaceContext.workspace.state.settings;
+        const config = lintConfigFromSettings(settings);
+
+        // Reconciliation facts: what AXM owns, and what it realized for the agents
+        // this workspace configures. Both come from the shared projection
+        // capability, never from the reconciliation feature.
+        const configuredAgents = yield* settingsReader.configuredAgents;
+        const skillNodes = desiredGraph.nodes.filter(
+          (node) => node.type === "skill" && !deferred.has(`skill:${node.name}`),
+        );
+        const nativeSkills = yield* Effect.cached(
+          observeConfiguredSkillLocations({
+            type: "skill",
+            state: "current",
+            scope: location.scope,
+            agentIds: configuredAgents,
+            rows: skillNodes.map((node) => ({
+              name: node.name,
+              targetState: node.enabled ? "enabled" : "disabled",
+              installed: true,
+            })),
+          }).pipe(
+            Effect.map((observations) =>
+              skillNodes.flatMap((node) => {
+                const observation = observations.get(node.name);
+                return observation === undefined
+                  ? []
+                  : [
+                      {
+                        name: node.name,
+                        enabled: node.enabled,
+                        implicit: !node.origins.some((origin) => origin.type === "settings"),
+                        observation,
+                      },
+                    ];
+              }),
+            ),
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+            Effect.provideService(Path.Path, path),
+            Effect.provideService(WorkspaceLocation, location),
+            Effect.provideService(SettingsReader, settingsReader),
+            Effect.provideService(LockfileReader, lockfile),
+            Effect.provideService(DesiredStateReader, desiredState),
+            Effect.provideService(CodingAgentRepository, agentRepository),
+          ),
+        );
+        const outputAuthority = deriveAgentOutputAuthority({
+          path,
+          baseDir: location.baseDir,
+          layout,
+          desired: desiredGraph,
+          acceptedResolutions: yield* lockfile.lockfile,
+          settings: Option.getOrElse(settings, () => ({})),
+        });
+        const authoredSkills = {
+          layout,
+          entries: Option.isSome(settings) ? (settings.value.skills ?? {}) : {},
+        };
+        const ownership = yield* observeWorkspaceOwnershipIssues({
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          workspaceRoot: location.baseDir,
+          scope: location.scope,
+          configuredAgentIds: new Set(configuredAgents),
+          ...outputAuthority,
+          authoredSkills,
+        });
+        const materializationAgentIds = new Set(
+          (yield* agentRepository.getMaterializationAgents()).map(({ id }) => id),
+        );
+        const agentOutputs = yield* observeAgentOutputs({
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          workspaceRoot: location.baseDir,
+          scope: location.scope,
+          desiredAgentIds: materializationAgentIds,
+          expectedNames: expectedProjectionNames(desiredGraph),
+          ...outputAuthority,
+          authoredSkills,
+        });
+        // Cross-scope agent facts. The agents that read this workspace also read
+        // the user scope; a project folder that is the user home has no separate
+        // user scope, and a Git-index snapshot has no live agent folders.
+        const liveView = selection.input.view === "filesystem";
+        const realRoot = (root: string) =>
+          fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => path.resolve(root)));
+        const projectIsUserHome =
+          selection.scope === "project" &&
+          (yield* realRoot(selection.workspaceRoot)) === (yield* realRoot(userHome));
+        const userScope =
+          liveView && !projectIsUserHome
+            ? Option.some(yield* observeUserScope(userHome, location.nativeDirectoryInputs))
+            : Option.none<UserScopeObservation>();
+        const agentContent =
+          liveView && selection.scope === "project" && !projectIsUserHome && Option.isNone(settings)
+            ? Option.some(
+                yield* observeProjectAgentContent({
+                  projectRoot: location.baseDir,
+                  outputs: agentOutputs.outputs,
+                }),
+              )
+            : Option.none<ReadonlyArray<AgentContentEntry>>();
+        // Install-root and authoring-folder facts. An unreadable lockfile leaves
+        // the install root unobserved; its own rule reports the lockfile.
+        const installRoot = yield* observeInstallRoot({
+          layout,
+          graph: desiredGraph,
+          locks: lockfile,
+        }).pipe(Effect.option);
+        const authoredPackages = Option.isSome(settings)
+          ? yield* observeAuthoredPackages({ layout, settings: settings.value })
+          : [];
+        const registryClients = yield* RegistryClientFactory;
+        const deprecatedInstalled =
+          selection.fix || Result.isFailure(observed)
+            ? []
+            : (yield* Effect.forEach(observed.success, ({ desired, observation }) =>
+                observation.status !== "usable"
+                  ? Effect.succeedNone
+                  : acceptedResolutionRef({ type: desired.type, name: desired.name, desired }).pipe(
+                      Effect.option,
+                      Effect.map(Option.flatten),
+                      Effect.flatMap((accepted) => {
+                        if (Option.isNone(accepted) || accepted.value.refType !== "registry") {
+                          return Effect.succeedNone;
+                        }
+                        const ref = accepted.value;
+                        return Effect.gen(function* () {
+                          const client = yield* registryClients.forEndpoint(ref.source.location);
+                          const index = yield* client.getExtensionIndex({
+                            owner: ref.owner,
+                            type: ref.type,
+                            name: ref.name,
+                          });
+                          return Option.flatMap(index, (entry) =>
+                            entry.deprecation === null
+                              ? Option.none()
+                              : Option.some({
+                                  fqn: `${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
+                                  deprecation: entry.deprecation,
+                                  memberPacks: desired.origins.flatMap((origin) =>
+                                    origin.type === "pack" ? [origin.pack.fqn] : [],
+                                  ),
+                                }),
+                          );
+                        }).pipe(Effect.orElseSucceed(() => Option.none()));
+                      }),
+                    ),
+              )).flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
+        const evaluations = yield* evaluateAllCatalogs({
+          view: selection.input.view,
+          contexts: {
+            skill: buildSkillRuleContexts(view),
+            pack: buildPackRuleContexts(view),
+            subagent: view.subagentContexts,
+            "mcp-server": view.mcpServerContexts,
+            rule: view.ruleContexts,
+            hook: view.hookContexts,
+            knowledge: view.knowledgeContexts,
+            workspace: [
+              {
+                ...workspaceContext,
+                ownership: Effect.succeed(ownership),
+                agentOutputs: Effect.succeed(agentOutputs),
+                nativeSkills,
+                ...(Option.isSome(installRoot)
+                  ? { installRoot: Effect.succeed(installRoot.value) }
+                  : {}),
+                authoredPackages: Effect.succeed(authoredPackages),
+                deprecatedInstalled: Effect.succeed(deprecatedInstalled),
+                ...(Option.isSome(userScope) ? { userScope: Effect.succeed(userScope.value) } : {}),
+                ...(Option.isSome(agentContent)
+                  ? { agentContent: Effect.succeed(agentContent.value) }
+                  : {}),
+                health: {
+                  desiredState: desiredState.graph(),
+                  canonicalObservations,
+                },
+              },
+            ],
           },
-        ],
-      },
-      config,
-    });
-    const rawSummary = summarizeEvaluations(evaluations, config);
-    const summary =
-      selection.nativeView.kind !== "git-index"
-        ? rawSummary
-        : remapLintSummaryPaths(
-            rawSummary,
-            selection.nativeView.readRoot,
-            selection.nativeView.displayRoot,
-            path,
-          );
-    const officialAssessment = yield* Effect.result(officialAxmSkill);
-    const axmSkillCompatibility =
-      Result.isSuccess(officialAssessment) && officialAssessment.success._tag === "assessed"
-        ? officialAssessment.success.compatibility
-        : undefined;
-    const exitCategory = summary.exitCategory;
-    const outcome = resolveLintExitCategory({ category: exitCategory, strict: options.strict });
-    return {
-      result: {
-        document: toLintJsonDocument({
-          summary,
-          input: selection.input,
-          ...(axmSkillCompatibility === undefined ? {} : { axmSkillCompatibility }),
-        }),
-        summary,
-        exitCategory,
-        outcome,
-        repaired: [],
-      } satisfies LintWorkspaceResult,
-      settings,
-      instructionSnapshot:
-        workspaceContext.instructions === undefined
-          ? Option.none()
-          : yield* workspaceContext.instructions.snapshot,
-    };
-  });
+          config,
+        });
+        const rawSummary = summarizeEvaluations(evaluations, config);
+        const summary =
+          selection.nativeView.kind !== "git-index"
+            ? rawSummary
+            : remapLintSummaryPaths(
+                rawSummary,
+                selection.nativeView.readRoot,
+                selection.nativeView.displayRoot,
+                path,
+              );
+        const officialAssessment = yield* Effect.result(officialAxmSkill);
+        const axmSkillCompatibility =
+          Result.isSuccess(officialAssessment) && officialAssessment.success._tag === "assessed"
+            ? officialAssessment.success.compatibility
+            : undefined;
+        const exitCategory = summary.exitCategory;
+        const outcome = resolveLintExitCategory({ category: exitCategory, strict: options.strict });
+        return {
+          result: {
+            document: toLintJsonDocument({
+              summary,
+              input: selection.input,
+              ...(axmSkillCompatibility === undefined ? {} : { axmSkillCompatibility }),
+            }),
+            summary,
+            exitCategory,
+            outcome,
+            repaired: [],
+          } satisfies LintWorkspaceResult,
+          settings,
+          instructionSnapshot:
+            workspaceContext.instructions === undefined
+              ? Option.none()
+              : yield* workspaceContext.instructions.snapshot,
+        };
+      }),
+    ),
+  );
 
 /** Report the workspace's facts without changing it. */
 export const queryLintWorkspace = (
   selection: LintSelection,
   options: { readonly strict: boolean },
 ): Effect.Effect<LintWorkspaceResult, LintWorkspaceFailure, LintWorkspaceRequirements> =>
-  runLint(selection, options).pipe(Effect.map(({ result }) => result));
+  runLint(selection, options).pipe(
+    Effect.map(({ result }) => result),
+    Effect.withSpan("LintWorkspace.query"),
+  );
 
 /**
  * Repair the state whose desired value the workspace already determines, then
@@ -594,7 +603,7 @@ export const fixLintWorkspace = (
         document: {
           ...before.document,
           normalization: {
-            mode: "preview",
+            mode: "preview" as const,
             changes: Option.isSome(instructionSnapshot)
               ? instructionProjectionEffects(instructionSnapshot.value)
               : [],
@@ -638,7 +647,7 @@ export const fixLintWorkspace = (
       outcome,
       repaired,
     };
-  });
+  }).pipe(Effect.withSpan("LintWorkspace.fix"));
 
 /** The workspace lint use case. */
 export const LintWorkspace = {

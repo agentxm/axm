@@ -53,14 +53,15 @@ export interface WorkspaceRecoveryEntry {
 }
 
 /**
- * Registering a path with the active transaction failed: the pre-mutation
- * preimage could not be taken, so the path was never mutated. `target` is the
+ * Registering a path with the active transaction failed: its preimage could
+ * not be taken, or its publication no longer matches the owner's prepared state. `target` is the
  * path being protected; the `create-store` step's message interpolates
  * nothing.
  */
 export class WorkspaceSnapshotError extends Data.TaggedError("WorkspaceSnapshotError")<{
   readonly target: string;
-  readonly step: "inspect-target" | "create-store" | "copy" | "inspect-ancestor";
+  readonly step:
+    "inspect-target" | "create-store" | "copy" | "inspect-ancestor" | "verify-publication";
   readonly cause: unknown;
 }> {}
 

@@ -15,7 +15,11 @@
  */
 
 // Detection (effectful)
-export { invalidNativeConfig, parseNativeConfigRoot } from "./native-config-syntax.js";
+export {
+  invalidNativeConfig,
+  parseNativeConfigRoot,
+  withNativeConfigReadView,
+} from "./native-config-syntax.js";
 export {
   nativeConfigObservationReason,
   type NativeConfigObservationDiagnostic,
@@ -99,7 +103,7 @@ export {
   type SubagentRenderInput,
   type SubagentRenderOutput,
 } from "./subagents/rendering/types.js";
-export { removeSubagentFiles } from "./subagents/sync.js";
+export { removeSubagentFiles, writePreparedSubagentFile } from "./subagents/sync.js";
 
 // MCP native format
 export {

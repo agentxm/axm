@@ -16,8 +16,8 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
-import { isRelativeWithin } from "@agentxm/host-primitives";
-import { recordWorkspacePostimage } from "./context.js";
+import { isRelativeWithin, type FilePublication } from "@agentxm/host-primitives";
+import { recordWorkspacePostimage, recordWorkspaceFilePostimage } from "./context.js";
 
 export interface FootprintObservation {
   /** Absolute path of the durable change. */
@@ -39,6 +39,21 @@ export const recordFootprint = Effect.fnUntraced(function* (
   if (Option.isNone(service)) return;
   yield* Ref.update(service.value.ref, (entries) => [...entries, observation]);
 });
+
+/** A file change must match the producer's identity and full bytes before recording. */
+export const recordFilePublication = (
+  observation: FootprintObservation,
+  publication: FilePublication,
+) =>
+  recordWorkspaceFilePostimage(observation.path, publication).pipe(
+    Effect.andThen(
+      Effect.gen(function* () {
+        const service = yield* Effect.serviceOption(FootprintRecorder);
+        if (Option.isSome(service))
+          yield* Ref.update(service.value.ref, (entries) => [...entries, observation]);
+      }),
+    ),
+  );
 
 /** Every durable change observed so far by the operation's recorder. */
 export const readFootprint: Effect.Effect<

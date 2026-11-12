@@ -18,7 +18,9 @@ import * as Option from "effect/Option";
 import {
   sweepStaleAtomicWriteTemps,
   writeFileAtomic,
+  writeFilePreservingIdentity,
   type AtomicWriteFailure,
+  type FilePublication,
 } from "./atomic-write.js";
 
 const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -55,6 +57,49 @@ describe("writeFileAtomic", () => {
         expect(nodeFs.readdirSync(tempDir)).toEqual(["target.txt"]);
       }),
     ),
+  );
+
+  it.effect.each(["replace", "in-place"] as const)(
+    "owns Buffer bytes in the %s publication witness",
+    (method) =>
+      withContext(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          if (method === "in-place") yield* fs.writeFileString(target, "old");
+          const payload = Buffer.from("owner bytes");
+          let recorded = false;
+          const forwarding: FileSystem.FileSystem = {
+            ...fs,
+            writeFile: (file, bytes, options) =>
+              fs.writeFile(file, bytes, options).pipe(
+                Effect.tap(() =>
+                  Effect.sync(() => {
+                    payload.fill(0);
+                  }),
+                ),
+              ),
+          };
+          const options = {
+            targetPath: target,
+            content: payload,
+            onPublished: (publication: FilePublication) =>
+              Effect.sync(() => {
+                recorded = true;
+                expect(publication.content).toEqual(Uint8Array.from(Buffer.from("owner bytes")));
+              }),
+          };
+          if (method === "replace")
+            yield* writeFileAtomic(forwarding, { ...options, mapError: identityFailure });
+          else
+            yield* writeFilePreservingIdentity(forwarding, {
+              ...options,
+              mapError: (cause) => cause,
+            });
+          expect(recorded).toBe(true);
+          expect(payload.every((byte) => byte === 0)).toBe(true);
+          expect(yield* fs.readFileString(target)).toBe("owner bytes");
+        }),
+      ),
   );
 
   it.effect("writes binary content", () =>

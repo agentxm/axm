@@ -48,3 +48,4 @@ export {
   type SubjectType,
   type SourceKind,
 } from "./command-summary.js";
+export { localTraceEndpoint, withLocalTracing } from "./local-tracing.js";

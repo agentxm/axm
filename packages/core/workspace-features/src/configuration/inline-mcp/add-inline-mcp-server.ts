@@ -54,6 +54,7 @@ import {
   ConfiguredAgentOutcomesProvider,
   LockfileReader,
   SettingsReader,
+  DesiredStateReader,
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
@@ -353,6 +354,7 @@ const projectStep = (
 
 /** Every service an inline MCP change and its plan resolution need. */
 type AddInlineMcpServerRequirements =
+  | DesiredStateReader
   | ConfiguredAgentOutcomesProvider
   | FileSystem.FileSystem
   | FootprintRecorder

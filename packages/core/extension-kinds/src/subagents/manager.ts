@@ -68,6 +68,7 @@ import {
 import {
   SubagentIoFailed,
   removeSubagentFiles,
+  writePreparedSubagentFile,
   type SubagentWriteDecision,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import type { NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
@@ -236,6 +237,8 @@ export const SubagentManagerLive = Layer.effect(
           {
             readonly unit: ProjectionUnitPath;
             readonly content: string;
+            readonly agentIds: string[];
+            readonly bindings: Array<{ readonly path: string; readonly directory: string }>;
             readonly claimants: Array<{
               readonly provenance: ReturnType<typeof provenance>;
               readonly input: Extract<
@@ -261,6 +264,17 @@ export const SubagentManagerLive = Layer.effect(
               return yield* new SubagentNativeConflict({
                 detail: `Configured consumers require incompatible Subagent bytes at ${destination}`,
               });
+            const claimant = { provenance: provenance(ref), input: target.compiled.input };
+            const binding = {
+              path: path.join(target.directory.dir, output.path),
+              directory: target.directory.dir,
+            };
+            if (prior !== undefined) {
+              prior.claimants.push(claimant);
+              prior.agentIds.push(target.agent.id);
+              prior.bindings.push(binding);
+              continue;
+            }
             const unit = yield* scopeUnitPath(baseDir, destination).pipe(
               Effect.mapError(
                 (cause) =>
@@ -274,14 +288,13 @@ export const SubagentManagerLive = Layer.effect(
               return yield* new SubagentDefinitionInvalid({
                 detail: `Subagent output is outside the workspace scope root: ${destination}`,
               });
-            const claimant = { provenance: provenance(ref), input: target.compiled.input };
-            if (prior === undefined)
-              files.set(destination, {
-                unit: unit.value,
-                content: output.content,
-                claimants: [claimant],
-              });
-            else prior.claimants.push(claimant);
+            files.set(destination, {
+              unit: unit.value,
+              content: output.content,
+              claimants: [claimant],
+              agentIds: [target.agent.id],
+              bindings: [binding],
+            });
           }
         }
         return new Map(
@@ -290,6 +303,8 @@ export const SubagentManagerLive = Layer.effect(
             {
               unit: file.unit,
               content: file.content,
+              agentIds: [...new Set(file.agentIds)],
+              bindings: file.bindings,
               gen: subagentProjectionGeneration(file.claimants),
             },
           ]),
@@ -593,7 +608,7 @@ export const SubagentManagerLive = Layer.effect(
           if (target.directory._tag === "misconfigured")
             return yield* new SubagentDefinitionInvalid({ detail: target.directory.reason });
         const planned = yield* plannedFiles(ref, targets);
-        if (unrecorded === "report") return;
+        if (unrecorded === "report") return { targets, planned };
         for (const destination of planned.keys()) {
           const decision = decideAt({
             planned,
@@ -611,6 +626,7 @@ export const SubagentManagerLive = Layer.effect(
               },
             });
         }
+        return { targets, planned };
       }).pipe(
         Effect.mapError((cause) =>
           cause instanceof SubagentDefinitionInvalid || cause instanceof SubagentNativeConflict
@@ -629,10 +645,13 @@ export const SubagentManagerLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         const { canonicalPath } = getCanonicalPaths(ref);
+        let prepared: Effect.Success<ReturnType<typeof preflight>> | undefined;
+        let validations = 0;
         const validate = (root: string) =>
           Effect.gen(function* () {
             const pkg = yield* readPackage(root);
-            if (project) yield* preflight(ref, pkg);
+            if (project) prepared = yield* preflight(ref, pkg);
+            validations++;
           });
         if (ref.refType === "workspace") {
           yield* verifyWorkspaceRefLocation({
@@ -642,10 +661,14 @@ export const SubagentManagerLive = Layer.effect(
             invalid: (detail) => new SubagentDefinitionInvalid({ detail }),
           });
           yield* validate(canonicalPath);
-          return yield* computeMaterializedTreeIntegrity(canonicalPath);
+          return {
+            treeIntegrity: yield* computeMaterializedTreeIntegrity(canonicalPath),
+            prepared,
+          };
         }
         if (ref.refType !== "registry")
           yield* validate(yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location)));
+        const beforeAcquisition = validations;
         const materialized = yield* acquireCanonicalForRef({
           ref,
           type: "subagent",
@@ -661,163 +684,129 @@ export const SubagentManagerLive = Layer.effect(
           },
           external: { sourcePath: (packageRoot) => packageRoot, targetPath: canonicalPath },
         });
-        if (materialized.reused) yield* validate(canonicalPath);
-        return materialized.treeIntegrity;
+        // Acquisition validates staged bytes before promotion and validates
+        // reused canonical bytes. The self-copy path performs neither; retain
+        // its fresh check. Prepared outputs belong to that accepted snapshot.
+        if (validations === beforeAcquisition) yield* validate(canonicalPath);
+        return { treeIntegrity: materialized.treeIntegrity, prepared };
       });
     const materializeInstall: SubagentManagerService["materializeInstall"] = Effect.fn(
       "SubagentManager.materializeInstall",
-    )(
-      function* ({ ref, force, nativeInsertionEligible, nativeInsertionEligiblePaths }) {
-        const { canonicalPath } = getCanonicalPaths(ref);
-        const posture = yield* ProjectionOutputPosture;
-        const authority = yield* captureAgentOutputAuthority();
-        const treeIntegrity = yield* materializeCanonical(
-          ref,
-          force === true,
-          nativeInsertionEligible === true,
-          true,
-        );
-        const pkg = yield* readPackage(canonicalPath);
-        const targets = yield* preparedTargets(ref, pkg);
-        const rows = yield* subagentRows;
-        const planned = yield* plannedFiles(ref, targets);
-        const writable = targets.filter(
-          (target) => target.directory._tag === "supported" && target.compiled._tag === "Compiled",
-        );
-        const results = yield* applyProjectionPlansWithResults(
-          writable.map((target) =>
-            planSingletonProjection({
-              unitId: "subagent:native-profile",
-              targetFile: `subagent:${ref.subagent.name}:configured-agents`,
-              contributor: ref,
-              adapter: {
-                observe: () =>
-                  Effect.succeed({
-                    unitId: "subagent:native-profile",
-                    path: `${target.agent.id}:${ref.subagent.name}`,
-                    present: false,
-                    current: false,
-                    expectedContributors: [ref.subagent.name],
-                    observedContributors: [],
-                  }),
-                apply: () =>
-                  Effect.gen(function* () {
-                    if (target.compiled._tag !== "Compiled")
-                      return yield* new SubagentDefinitionInvalid({
-                        detail: "Subagent implementation changed after preparation",
-                      });
-                    const outcome = yield* target.agent.addSubagent({
-                      workspaceRoot: baseDir,
-                      scope: location.scope,
-                      decideWrite: ({ filePath, prior }) =>
-                        decideAt({
-                          planned,
-                          rows,
-                          destination: filePath,
-                          bytes: prior,
-                          posture,
-                        }),
-                      nativeRoots,
-                      nativeInsertionEligible: nativeInsertionEligible === true,
-                      ...(nativeInsertionEligiblePaths === undefined
-                        ? {}
-                        : { nativeInsertionEligiblePaths }),
-                      input: target.compiled.input,
-                      force: false,
-                    });
-                    if (outcome._tag !== "success")
-                      return yield* new SubagentDefinitionInvalid({ detail: outcome.reason });
-                    return { agentId: target.agent.id, outcome };
-                  }),
-              },
-            }),
-          ),
-        );
-        const successful = results;
-        const keep = new Set<string>();
-        for (const { outcome } of successful)
-          for (const file of outcome.renderedFilePaths) {
-            const { address } = yield* assertNativeMutationWithinRoots(
-              nativeRoots,
-              path.resolve(baseDir, file),
-              "content",
-              baseDir,
-            );
-            keep.add(address.referentPath ?? address.entryPath);
-          }
-        const written = successful.flatMap(({ outcome }) =>
-          (outcome.nativeTargets ?? []).flatMap((target): ReadonlyArray<ProjectionRowChange> => {
-            const file = planned.get(target.path);
-            return file === undefined ||
-              target.decision === undefined ||
-              target.decision === "current"
-              ? []
-              : [
-                  {
-                    kind: "subagents",
-                    path: file.unit,
-                    row: { gen: file.gen, output: projectionOutputDigest(file.content) },
-                  },
-                ];
-          }),
-        );
-        const retired = yield* retireOutputs({
-          names: nativeNames(ref, targets),
-          authority,
-          keep,
-          rows,
-          reportUnrecorded: false,
+    )(function* ({ ref, force, nativeInsertionEligible, nativeInsertionEligiblePaths }) {
+      const { canonicalPath } = getCanonicalPaths(ref);
+      const posture = yield* ProjectionOutputPosture;
+      const authority = yield* captureAgentOutputAuthority();
+      const materialized = yield* materializeCanonical(
+        ref,
+        force === true,
+        nativeInsertionEligible === true,
+        true,
+      );
+      const prepared = materialized.prepared;
+      if (prepared === undefined)
+        return yield* new SubagentDefinitionInvalid({
+          detail: "Subagent publication has no prepared native outputs",
         });
-        yield* stageRows([...retired.rowChanges, ...written]);
-        const agentIdsByPath = new Map<string, string[]>();
-        for (const { agentId, outcome } of successful)
-          for (const file of outcome.renderedFilePaths) {
-            const relative = path.relative(baseDir, path.resolve(baseDir, file));
-            const ids = agentIdsByPath.get(relative) ?? [];
-            if (!ids.includes(agentId)) ids.push(agentId);
-            agentIdsByPath.set(relative, ids);
-          }
-        const nativeLocations = yield* nativeArtifactLocationOutcomes({
-          workspaceRoot: baseDir,
-          scope: location.scope,
-          agents: yield* agentRepo.all,
-          configuredAgentIds: new Set(targets.map(({ agent }) => agent.id)),
-          sharedSkillPolicy: false,
-          targets: successful.flatMap(({ outcome }) =>
-            (outcome.nativeTargets ?? []).map((target) => ({
-              path: target.path,
-              kind: target.kind,
-              state: target.change,
-            })),
-          ),
-        }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new SubagentIoFailed({ detail: "Cannot observe native Subagent locations", cause }),
-          ),
-        );
-        return {
-          sourceHash: Option.some(yield* computePackageContentHash(canonicalPath)),
-          treeIntegrity: Option.fromUndefinedOr(treeIntegrity),
-          observation: {
-            nativeLocations: combineNativeLocationOutcomes([
-              ...nativeLocations,
-              ...retired.nativeLocations,
-            ]),
-            agents: successful.map(({ agentId }) => agentId),
-            agentOutcomes: targets.map((target) => outcomeForTarget(ref, target, "projected")),
-            targets: [...agentIdsByPath]
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([file, agentIds]) => ({ path: file, agentIds })),
-          },
-        } satisfies SubagentMaterializationFacts;
-      },
-      Effect.mapError((cause) =>
-        cause._tag === "NativeLocationError"
-          ? new SubagentIoFailed({ detail: "Cannot resolve Subagent output", cause })
-          : cause,
-      ),
-    );
+      const { targets, planned } = prepared;
+      const rows = yield* subagentRows;
+      const results = yield* applyProjectionPlansWithResults(
+        [...planned].map(([destination, file]) =>
+          planSingletonProjection({
+            unitId: "subagent:native-profile",
+            targetFile: destination,
+            contributor: ref,
+            adapter: {
+              observe: () =>
+                Effect.succeed({
+                  unitId: "subagent:native-profile",
+                  path: destination,
+                  present: false,
+                  current: false,
+                  expectedContributors: [ref.subagent.name],
+                  observedContributors: [],
+                }),
+              apply: () =>
+                Effect.gen(function* () {
+                  const outcome = yield* writePreparedSubagentFile({
+                    workspaceRoot: baseDir,
+                    filePath: destination,
+                    content: file.content,
+                    bindings: file.bindings,
+                    decideWrite: ({ filePath, prior }) =>
+                      decideAt({
+                        planned,
+                        rows,
+                        destination: filePath,
+                        bytes: prior,
+                        posture,
+                      }),
+                    nativeRoots,
+                    nativeInsertionEligible: nativeInsertionEligible === true,
+                    ...(nativeInsertionEligiblePaths === undefined
+                      ? {}
+                      : { nativeInsertionEligiblePaths }),
+                  });
+                  if (outcome._tag === "conflict")
+                    return yield* new SubagentDefinitionInvalid({ detail: outcome.reason });
+                  return { destination, file, outcome };
+                }),
+            },
+          }),
+        ),
+      );
+      const keep = new Set(results.map(({ destination }) => destination));
+      const written = results.flatMap(({ file, outcome }): ReadonlyArray<ProjectionRowChange> =>
+        outcome.decision === "current"
+          ? []
+          : [
+              {
+                kind: "subagents",
+                path: file.unit,
+                row: { gen: file.gen, output: projectionOutputDigest(file.content) },
+              },
+            ],
+      );
+      const retired = yield* retireOutputs({
+        names: nativeNames(ref, targets),
+        authority,
+        keep,
+        rows,
+        reportUnrecorded: false,
+      });
+      yield* stageRows([...retired.rowChanges, ...written]);
+      const nativeLocations = yield* nativeArtifactLocationOutcomes({
+        workspaceRoot: baseDir,
+        scope: location.scope,
+        agents: yield* agentRepo.all,
+        configuredAgentIds: new Set(targets.map(({ agent }) => agent.id)),
+        sharedSkillPolicy: false,
+        targets: results.map(({ destination, outcome }) => ({
+          path: destination,
+          kind: "subagent",
+          state: outcome.change,
+        })),
+      }).pipe(
+        Effect.mapError(
+          (cause) =>
+            new SubagentIoFailed({ detail: "Cannot observe native Subagent locations", cause }),
+        ),
+      );
+      return {
+        sourceHash: Option.some(yield* computePackageContentHash(canonicalPath)),
+        treeIntegrity: Option.fromUndefinedOr(materialized.treeIntegrity),
+        observation: {
+          nativeLocations: combineNativeLocationOutcomes([
+            ...nativeLocations,
+            ...retired.nativeLocations,
+          ]),
+          agents: [...new Set(results.flatMap(({ file }) => file.agentIds))],
+          agentOutcomes: targets.map((target) => outcomeForTarget(ref, target, "projected")),
+          targets: results
+            .map(({ file }) => ({ path: file.unit, agentIds: file.agentIds }))
+            .sort((a, b) => a.path.localeCompare(b.path)),
+        },
+      } satisfies SubagentMaterializationFacts;
+    });
     const makeMaterializeRemoval = (
       retainCanonical: boolean,
     ): SubagentManagerService["materializeUninstall"] =>
@@ -1013,7 +1002,7 @@ export const SubagentManagerLive = Layer.effect(
       acquireCanonical: ({ ref, force, nativeInsertionEligible }) =>
         Effect.gen(function* () {
           const { canonicalPath } = getCanonicalPaths(ref);
-          const treeIntegrity = yield* materializeCanonical(
+          const materialized = yield* materializeCanonical(
             ref,
             force === true,
             nativeInsertionEligible === true,
@@ -1021,7 +1010,7 @@ export const SubagentManagerLive = Layer.effect(
           );
           return {
             sourceHash: Option.some(yield* computePackageContentHash(canonicalPath)),
-            treeIntegrity: Option.fromUndefinedOr(treeIntegrity),
+            treeIntegrity: Option.fromUndefinedOr(materialized.treeIntegrity),
             observation: { agents: [], targets: [] },
           };
         }),

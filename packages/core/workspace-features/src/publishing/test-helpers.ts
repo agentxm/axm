@@ -458,7 +458,7 @@ export const registryProblem = (code: string, status: number): Response =>
 /** Inspect the real ZIP's central directory and independently decompress each entry. */
 export const archiveContents = (bytes: Uint8Array) =>
   Effect.gen(function* () {
-    const entries = yield* validateArchive(bytes);
+    const { entries } = yield* validateArchive(bytes);
     return Object.fromEntries(
       entries.map((entry) => {
         const start = entry.localDataOffset;

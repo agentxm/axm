@@ -16,6 +16,7 @@ import {
   type McpConfigTarget,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { resolveNativeReadLocation, type NativeDirectoryInputs } from "../../locations/index.js";
+import { withNativeConfigReadView } from "../native-config-syntax.js";
 import { preflightNativeConfigReaders } from "../native-config-readers.js";
 import { McpConfigInvalid, McpDefinitionInvalid, McpSharedTargetConflict } from "../errors.js";
 import type { CodingAgentFailure } from "../errors.js";
@@ -24,7 +25,7 @@ import type { NativeWriteAuthority } from "../native-write-authority.js";
 import {
   removeAgentMcpConfigs,
   validateAgentMcpConfigRemovals,
-  validateAgentMcpConfigWrite,
+  prepareMcpWrite,
   writeAgentMcpConfig,
   type RemoveAgentMcpConfigsArgs,
 } from "./config-writer.js";
@@ -63,73 +64,75 @@ const describePhysicalConsumers = (args: {
   readonly agentIds: ReadonlyArray<string>;
   readonly targets: ReadonlyArray<McpServerSyncTarget>;
 }) =>
-  Effect.gen(function* () {
-    if (args.targets.length === 0) return args.targets;
-    const raw = Option.getOrElse(yield* readNativeMcpConfig(args.physicalPath), () => "");
-    const path = yield* Path.Path;
-    const potentialReaders: Array<string> = [];
-    const physicalPaths = new Map<string, string>();
-    for (const agentId of CONFIGURABLE_AGENT_IDS) {
-      const native = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"].native;
-      if (!("locations" in native)) continue;
-      for (const location of native.locations) {
-        const resolved = resolveNativeReadLocation(
-          path,
-          agentId,
-          location,
-          args,
-          args.nativeDirectoryInputs,
-        );
-        if (resolved === undefined) continue;
-        const declared = {
-          scope: location.scope,
-          nativeRoot: resolved.nativeRoot,
-          path: resolved.path,
-          format: location.format,
-          attribution: location.attribution ?? ("agent" as const),
-        };
-        const physical =
-          physicalPaths.get(resolved.path) ??
-          (yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, declared).pipe(
-            Effect.option,
-          ));
-        const physicalPath =
-          typeof physical === "string" ? physical : Option.getOrUndefined(physical);
-        if (physicalPath === undefined) continue;
-        physicalPaths.set(resolved.path, physicalPath);
-        if (physicalPath !== args.physicalPath) continue;
-        if (!args.agentIds.includes(agentId)) {
-          potentialReaders.push(agentId);
-          break;
-        }
-        if (location.keyPath !== undefined)
-          yield* readNativeMcpValues({
-            configPath: args.physicalPath,
-            raw,
+  withNativeConfigReadView(
+    Effect.gen(function* () {
+      if (args.targets.length === 0) return args.targets;
+      const raw = Option.getOrElse(yield* readNativeMcpConfig(args.physicalPath), () => "");
+      const path = yield* Path.Path;
+      const potentialReaders: Array<string> = [];
+      const physicalPaths = new Map<string, string>();
+      for (const agentId of CONFIGURABLE_AGENT_IDS) {
+        const native = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"].native;
+        if (!("locations" in native)) continue;
+        for (const location of native.locations) {
+          const resolved = resolveNativeReadLocation(
+            path,
+            agentId,
+            location,
+            args,
+            args.nativeDirectoryInputs,
+          );
+          if (resolved === undefined) continue;
+          const declared = {
+            scope: location.scope,
+            nativeRoot: resolved.nativeRoot,
+            path: resolved.path,
             format: location.format,
-            serversPath: location.keyPath,
-          });
+            attribution: location.attribution ?? ("agent" as const),
+          };
+          const physical =
+            physicalPaths.get(resolved.path) ??
+            (yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, declared).pipe(
+              Effect.option,
+            ));
+          const physicalPath =
+            typeof physical === "string" ? physical : Option.getOrUndefined(physical);
+          if (physicalPath === undefined) continue;
+          physicalPaths.set(resolved.path, physicalPath);
+          if (physicalPath !== args.physicalPath) continue;
+          if (!args.agentIds.includes(agentId)) {
+            potentialReaders.push(agentId);
+            break;
+          }
+          if (location.keyPath !== undefined)
+            yield* readNativeMcpValues({
+              configPath: args.physicalPath,
+              raw,
+              format: location.format,
+              serversPath: location.keyPath,
+            });
+        }
       }
-    }
-    return args.targets.map((target): McpServerSyncTarget =>
-      target.nativeLocation === undefined
-        ? target
-        : {
-            ...target,
-            nativeLocation: {
-              ...target.nativeLocation,
-              configuredConsumers: [...new Set(args.agentIds)].sort(),
-              potentialReaders: potentialReaders.sort(),
-              availability: [...new Set(args.agentIds)].sort().map((agentId) => ({
-                agentId,
-                state: "unverified",
-                reason:
-                  "Native config readback verified; agent configuration selection is not observable",
-              })),
+      return args.targets.map((target): McpServerSyncTarget =>
+        target.nativeLocation === undefined
+          ? target
+          : {
+              ...target,
+              nativeLocation: {
+                ...target.nativeLocation,
+                configuredConsumers: [...new Set(args.agentIds)].sort(),
+                potentialReaders: potentialReaders.sort(),
+                availability: [...new Set(args.agentIds)].sort().map((agentId) => ({
+                  agentId,
+                  state: "unverified",
+                  reason:
+                    "Native config readback verified; agent configuration selection is not observable",
+                })),
+              },
             },
-          },
-    );
-  });
+      );
+    }),
+  );
 
 export interface SyncInlineMcpServerArgs {
   readonly workspaceRoot: string;
@@ -190,65 +193,72 @@ const validatePlannedWrites = (
     readonly expectedEntry: Readonly<Record<string, unknown>>;
   }>,
 ) =>
-  Effect.gen(function* () {
-    for (const write of writes) {
-      for (const target of write.declaredTargets) {
-        const current = yield* resolveAgentMcpConfigTargetPath(workspaceRoot, target);
-        if (current !== write.path) {
-          return yield* new McpConfigInvalid({
-            detail: `MCP location changed before writing: ${target.path}`,
-          });
+  withNativeConfigReadView(
+    Effect.gen(function* () {
+      for (const write of writes) {
+        for (const target of write.declaredTargets) {
+          const current = yield* resolveAgentMcpConfigTargetPath(workspaceRoot, target);
+          if (current !== write.path) {
+            return yield* new McpConfigInvalid({
+              detail: `MCP location changed before writing: ${target.path}`,
+            });
+          }
         }
-      }
-      yield* preflightNativeConfigReaders({
-        nativeDirectoryInputs: authority.nativeDirectoryInputs,
-        workspaceRoot,
-        scope: write.target.scope,
-        physicalPath: write.path,
-        configuredAgentIds,
-        writerFormat: write.target.format,
-        raw: Option.getOrElse(yield* readNativeMcpConfig(write.path), () => ""),
-      });
-      if (write.agentIds.includes("pi")) {
-        const entries = yield* readNativeMcpValues({
-          configPath: write.path,
-          raw: Option.getOrElse(yield* readNativeMcpConfig(write.path), () => ""),
-          format: write.target.format,
-          serversPath: write.config.serversPath,
+        const raw = Option.getOrElse(yield* readNativeMcpConfig(write.path), () => "");
+        yield* preflightNativeConfigReaders({
+          nativeDirectoryInputs: authority.nativeDirectoryInputs,
+          workspaceRoot,
+          scope: write.target.scope,
+          physicalPath: write.path,
+          configuredAgentIds,
+          writerFormat: write.target.format,
+          raw,
         });
-        const normalizedName = serverName.replaceAll("-", "_");
-        if (
-          Object.keys(entries).some(
-            (name) => name !== serverName && name.replaceAll("-", "_") === normalizedName,
-          )
-        ) {
-          return yield* new McpConfigInvalid({
-            detail: "Pi server names collide after native hyphen/underscore normalization",
+        if (write.agentIds.includes("pi")) {
+          const entries = yield* readNativeMcpValues({
+            configPath: write.path,
+            raw,
+            format: write.target.format,
+            serversPath: write.config.serversPath,
           });
+          const normalizedName = serverName.replaceAll("-", "_");
+          if (
+            Object.keys(entries).some(
+              (name) => name !== serverName && name.replaceAll("-", "_") === normalizedName,
+            )
+          ) {
+            return yield* new McpConfigInvalid({
+              detail: "Pi server names collide after native hyphen/underscore normalization",
+            });
+          }
         }
-      }
-      const adoption = adoptions?.find((entry) => entry.filePath === write.path);
-      const proposedRaw = yield* validateAgentMcpConfigWrite({
-        workspaceRoot,
-        serverName,
-        serversPath: write.config.serversPath,
-        target: write.target,
-        entry: write.entry,
+        const adoption = adoptions?.find((entry) => entry.filePath === write.path);
+        const proposedRaw = yield* prepareMcpWrite(
+          {
+            workspaceRoot,
+            serverName,
+            serversPath: write.config.serversPath,
+            target: write.target,
+            entry: write.entry,
 
-        ...(adoption === undefined ? {} : { adoption }),
-      });
-      yield* preflightNativeConfigReaders({
-        nativeDirectoryInputs: authority.nativeDirectoryInputs,
-        workspaceRoot,
-        scope: write.target.scope,
-        physicalPath: write.path,
-        configuredAgentIds,
-        writerFormat: write.target.format,
-        raw: Option.getOrElse(yield* readNativeMcpConfig(write.path), () => ""),
-        proposedRaw,
-      });
-    }
-  });
+            ...(adoption === undefined ? {} : { adoption }),
+          },
+          write.path,
+          raw,
+        );
+        yield* preflightNativeConfigReaders({
+          nativeDirectoryInputs: authority.nativeDirectoryInputs,
+          workspaceRoot,
+          scope: write.target.scope,
+          physicalPath: write.path,
+          configuredAgentIds,
+          writerFormat: write.target.format,
+          raw,
+          proposedRaw,
+        });
+      }
+    }),
+  );
 
 /** Resolve physical sharing and preflight inline native entries without publishing settings. */
 export const validateInlineMcpServerTargets = (

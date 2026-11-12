@@ -48,7 +48,8 @@ import {
 } from "./extensions/operations.js";
 import {
   extensionRefLifecycleWarnings,
-  makeConfiguredReleaseAgeEvaluation,
+  makeConfiguredReleaseAgePolicy,
+  type ConfiguredReleaseAgePolicy,
   normalizeReleaseAgeRecords,
   ReleaseAgePosture,
   resolveConfiguredHook,
@@ -113,7 +114,7 @@ import {
   type PlannedJobStep,
   OperationRefused,
 } from "../operations/index.js";
-import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
@@ -474,7 +475,7 @@ export type ConfiguredEntryResolutionRequirements =
 const resolveDesiredNodeRef = (
   node: DesiredExtensionNode & { readonly source: string },
   observation: CanonicalObservation,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  releaseAgeEvaluation: ConfiguredReleaseAgePolicy,
 ): Effect.Effect<ResolvedDesiredRef, OperationRefused, ConfiguredEntryResolutionRequirements> => {
   const annotate = <A>(
     effect: Effect.Effect<
@@ -618,7 +619,7 @@ export const collectMaterializeSteps = (args: {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const providers = yield* SourceHostProviders;
-    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgePolicy();
     const configuredMcpServerEntries =
       args.settings === undefined
         ? yield* settings.entries("mcp-server")

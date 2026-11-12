@@ -13,7 +13,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Predicate from "effect/Predicate";
 import { SettingsWriteError } from "./errors.js";
-import { protectWorkspacePath, recordFootprint } from "../../../settlement/index.js";
+import { protectWorkspacePath, recordFilePublication } from "../../../settlement/index.js";
 import {
   SETTINGS_KEY_ORDER,
   SETTINGS_KNOWN_KEYS,
@@ -131,7 +131,7 @@ export const renderExistingSettings = (
   priorText: string,
   prior: Schema.Json,
   target: Schema.Json,
-  canonicalContent: string,
+  canonicalContent: () => string,
   applyPatch: typeof applyJsonPatchToText = applyJsonPatchToText,
 ): ExistingSettingsRenderResult => {
   const patch = JsonPatch.get(prior, target);
@@ -145,12 +145,12 @@ export const renderExistingSettings = (
     getInsertionIndex: (path, properties) => insertionIndexFor(priorWasCanonical, path, properties),
   });
   if (edited._tag === "Failure") {
-    return { content: canonicalContent, fallbackReason: "edit_failed" };
+    return { content: canonicalContent(), fallbackReason: "edit_failed" };
   }
 
   const parsed = parseJson(edited.text);
   if (parsed === undefined || JsonPatch.get(parsed, target).length !== 0) {
-    return { content: canonicalContent, fallbackReason: "edited_content_invalid" };
+    return { content: canonicalContent(), fallbackReason: "edited_content_invalid" };
   }
 
   return {
@@ -202,10 +202,11 @@ export const writeSettingsAtPath = (
     );
 
     const ordered = orderSettingsRecord(encoded);
-    const canonicalContent = serializeCanonicalSettings(ordered);
+    const canonicalContent = () => serializeCanonicalSettings(ordered);
     const targetResult = yield* Effect.result(Schema.decodeUnknownEffect(Schema.Json)(ordered));
-    let content = canonicalContent;
+    let content: string | undefined;
     let priorRaw: string | undefined;
+    let existed = true;
 
     if (targetResult._tag === "Failure") {
       yield* Effect.logDebug("Falling back to canonical settings serialization", {
@@ -219,7 +220,9 @@ export const writeSettingsAtPath = (
           settingsPath,
           reason: "existence_check_failed",
         });
-      } else if (existsResult.success) {
+      } else if (!existsResult.success) {
+        existed = false;
+      } else {
         const readResult = yield* Effect.result(fs.readFileString(settingsPath));
         if (readResult._tag === "Failure") {
           yield* Effect.logDebug("Falling back to canonical settings serialization", {
@@ -253,6 +256,13 @@ export const writeSettingsAtPath = (
       }
     }
 
+    content ??= canonicalContent();
+    // This is the owner's live read. Do not reopen the same file just to compare
+    // bytes again in the atomic publisher, or render a canonical no-op fallback.
+    if (content === priorRaw) {
+      yield* Effect.annotateCurrentSpan("axm.changed", false);
+      return;
+    }
     const restoration =
       roundTrip === undefined || priorRaw === undefined || priorRaw === content
         ? undefined
@@ -264,9 +274,12 @@ export const writeSettingsAtPath = (
           });
     content = restoration?.content ?? content;
     if (restoration !== undefined) yield* restoration.revalidate;
+    if (content === priorRaw) {
+      yield* Effect.annotateCurrentSpan("axm.changed", false);
+      return;
+    }
     yield* protectWorkspacePath(settingsPath);
 
-    const existed = yield* fs.exists(settingsPath).pipe(Effect.orElseSucceed(() => true));
     // Write to a temp file then atomically rename into place, so an interrupted
     // write can never truncate or corrupt the user's existing settings file.
     // The temp file is removed on any failure or interruption.
@@ -277,7 +290,11 @@ export const writeSettingsAtPath = (
     const written = yield* writeFileAtomic(fs, {
       targetPath: settingsPath,
       content,
-      skipIfUnchanged: "ignore-read-errors",
+      onPublished: (publication) =>
+        recordFilePublication(
+          { path: settingsPath, change: existed ? "modified" : "created" },
+          publication,
+        ),
       mapError: (failure) =>
         new SettingsWriteError({
           path: failure.step === "write-temp" ? failure.tempPath : settingsPath,
@@ -286,7 +303,10 @@ export const writeSettingsAtPath = (
         }),
     });
     if (written === "written") {
-      yield* recordFootprint({ path: settingsPath, change: existed ? "modified" : "created" });
+      yield* Effect.annotateCurrentSpan("axm.changed", true);
       if (restoration !== undefined) yield* restoration.finish;
     }
-  }).pipe(Effect.uninterruptible);
+  }).pipe(
+    Effect.withSpan("axm.publish.document", { attributes: { "axm.document.kind": "settings" } }),
+    Effect.uninterruptible,
+  );

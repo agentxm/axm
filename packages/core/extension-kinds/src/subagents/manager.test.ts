@@ -21,6 +21,7 @@ import * as nodePath from "node:path";
 import { describe, expect, it, vi } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
@@ -28,11 +29,7 @@ import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing"
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
-import {
-  codingAgentForId,
-  type AddSubagentArgs,
-  type CodingAgent,
-} from "@agentxm/workspace-kernel/agent-adapters";
+import { codingAgentForId, type CodingAgent } from "@agentxm/workspace-kernel/agent-adapters";
 import { SubagentManager } from "@agentxm/workspace-kernel/materialization";
 import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
@@ -333,22 +330,6 @@ describe("SubagentManager", () => {
     });
 
     it.effect("renders to configured agents without writing lockfile render metadata", () => {
-      const addSubagentCalls: Array<AddSubagentArgs> = [];
-      const addSubagentSpy = vi.fn((args: AddSubagentArgs) =>
-        Effect.sync(() => {
-          addSubagentCalls.push(args);
-          return {
-            _tag: "success" as const,
-            renderedFilePaths: [`.claude/agents/planner.md`],
-            warnings: [],
-          };
-        }),
-      );
-
-      const agentWithSpy = makeMockCodingAgent("claude-code", {
-        addSubagent: addSubagentSpy,
-      });
-
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
       writeSubagentPackage(sourceDir, "planner", "Plans work");
 
@@ -369,37 +350,24 @@ describe("SubagentManager", () => {
             },
           ],
         });
-        expect(addSubagentSpy).toHaveBeenCalledOnce();
-        // The adapter receives the plain render input; provenance stays with
-        // the projection's generation and never reaches the file.
-        expect(addSubagentCalls[0]?.input).toMatchObject({
-          agentId: "claude-code",
-          name: "planner",
-        });
-        expect(JSON.stringify(addSubagentCalls[0]?.input)).not.toContain("axm:");
+        const native = nodeFs.readFileSync(
+          nodePath.join(axmDir, "..", ".claude/agents/planner.md"),
+          "utf8",
+        );
+        expect(native).toContain("planner");
+        expect(native).toContain("Plans work");
+        expect(native).not.toContain("axm:");
       }).pipe(
         Effect.provide(
           makeTestLayer({
             axmDir,
-            agents: [agentWithSpy],
+            agents: [codingAgentForId("claude-code")],
           }),
         ),
       );
     });
 
-    it.effect("re-renders even when source hash matches", () => {
-      const addSubagentSpy = vi.fn(() =>
-        Effect.succeed({
-          _tag: "success" as const,
-          renderedFilePaths: [],
-          warnings: [],
-        }),
-      );
-
-      const agentWithSpy = makeMockCodingAgent("claude-code", {
-        addSubagent: addSubagentSpy,
-      });
-
+    it.effect("repairs a missing native output even when source hash matches", () => {
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
       writeSubagentPackage(sourceDir, "planner", "Plans work");
 
@@ -411,12 +379,14 @@ describe("SubagentManager", () => {
         yield* manager.materializeInstall({
           ref: makeLocalSubagentRef("planner", sourceDir),
         });
-        expect(addSubagentSpy).toHaveBeenCalledOnce();
+        expect(
+          nodeFs.readFileSync(nodePath.join(axmDir, "..", ".claude/agents/planner.md"), "utf8"),
+        ).toContain("Plans work");
       }).pipe(
         Effect.provide(
           makeTestLayer({
             axmDir,
-            agents: [agentWithSpy],
+            agents: [codingAgentForId("claude-code")],
             lockedSubagents: {
               planner: {
                 source: { type: "path", path: decodeRelativePathSync("sources/planner") },
@@ -429,6 +399,66 @@ describe("SubagentManager", () => {
         ),
       );
     });
+
+    it.effect(
+      "applies one prepared physical output for aliased readers and preserves their hand edits",
+      () => {
+        const sourceDir = nodePath.join(tmpDir, "source", "planner");
+        writeSubagentPackage(sourceDir, "planner", "Plans work");
+        const projectDir = nodePath.join(tmpDir, "project");
+        const axmDir = nodePath.join(projectDir, ".axm");
+        const physical = nodePath.join(projectDir, ".claude/agents");
+        const alias = nodePath.join(projectDir, ".cursor/agents");
+        nodeFs.mkdirSync(physical, { recursive: true });
+        nodeFs.mkdirSync(nodePath.dirname(alias), { recursive: true });
+        nodeFs.symlinkSync(physical, alias, "dir");
+        const native = nodePath.join(physical, "planner.md");
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
+        const count = (name: string) => spans.filter((span) => span.name === name).length;
+        return Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const accepted = yield* AcceptedResolutionWriter;
+          const ref = makeLocalSubagentRef("planner", sourceDir);
+          const first = yield* manager.materializeInstall({ ref });
+          expect(first.observation.agents).toEqual(["claude-code", "cursor"]);
+          expect(first.observation.targets).toEqual([
+            { path: ".claude/agents/planner.md", agentIds: ["claude-code", "cursor"] },
+          ]);
+          expect(count("axm.subagent.apply")).toBe(1);
+          expect(count("axm.subagent.publish")).toBe(1);
+          // The external source preflight and staged snapshot each need one
+          // compilation per reader; apply consumes the final prepared outputs.
+          expect(count("axm.subagent.compile")).toBe(4);
+          expect((yield* accepted.projectionRows("subagents")).size).toBe(1);
+          expect(nodeFs.readFileSync(native, "utf8")).toContain("Plans work");
+          nodeFs.writeFileSync(native, "Shared hand edit\n");
+          spans.length = 0;
+          const second = yield* manager.materializeInstall({ ref });
+          expect(second.observation.targets).toEqual(first.observation.targets);
+          expect(count("axm.subagent.apply")).toBe(1);
+          expect(count("axm.subagent.publish")).toBe(0);
+          expect(nodeFs.readFileSync(native, "utf8")).toBe("Shared hand edit\n");
+          expect(nodeFs.readlinkSync(alias)).toBe(physical);
+          expect((yield* accepted.projectionRows("subagents")).size).toBe(1);
+        }).pipe(
+          Effect.provide(
+            makeTestLayer({
+              axmDir,
+              agents: [codingAgentForId("claude-code"), codingAgentForId("cursor")],
+            }),
+          ),
+          Effect.withTracer(tracer),
+          Effect.withTracerEnabled(true),
+        );
+      },
+    );
 
     it.effect("records each written file and leaves a current file's bytes alone", () => {
       const sourceDir = nodePath.join(tmpDir, "source", "planner");

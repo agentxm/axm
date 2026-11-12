@@ -6,6 +6,7 @@ import { isProcessOutcome, isProcessFailure } from "./process-outcome.js";
 import { withGracefulShutdown } from "./graceful-shutdown.js";
 import { resolveVerbosityFromArgv } from "../cli-flags/resolve-verbosity.js";
 import { resolveFormatFromArgv } from "./resolve-format.js";
+import { withLocalTracing } from "./local-tracing.js";
 
 /**
  * Run one CLI invocation. Runtime output is owned by Screen; this process
@@ -23,7 +24,12 @@ export const runCliMain = async (
 
   try {
     // eslint-disable-next-line no-restricted-syntax -- runCliMain is the sanctioned CLI process-entry adapter.
-    outcome = await Effect.runPromise(withGracefulShutdown(execute(args)));
+    outcome = await Effect.runPromise(
+      withGracefulShutdown(
+        // eslint-disable-next-line no-restricted-properties -- Explicit process-owned diagnostic activation, independent of product settings.
+        withLocalTracing(execute(args), process.env),
+      ),
+    );
   } catch (error) {
     // eslint-disable-next-line no-restricted-syntax -- runCliMain is the sanctioned CLI process-entry adapter.
     await Effect.runPromise(handleError(error, format, detail));

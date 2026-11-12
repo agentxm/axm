@@ -16,7 +16,13 @@ import type { DesiredStateReaderService } from "./desired-state-reader.js";
 import { ExtensionPaths, makeExtensionPaths } from "./extension-paths-service.js";
 import { unresolvedPackRoutes } from "./desired-state-queries.js";
 import { DesiredPackGraphIncomplete } from "./errors.js";
-import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
+import {
+  WorkspaceDocuments,
+  pendingAcceptedResolutions,
+  type WorkspaceDocumentsService,
+} from "./documents.js";
+import { CurrentWorkspaceReadPhase } from "./read-phase.js";
+import { CurrentWorkspaceReadPhaseInvalidation } from "./read-phase-lifetime.js";
 import { DesiredStateReader, makeDesiredStateReader } from "./desired-state-reader.js";
 import { WorkspaceLocation } from "./location.js";
 import { LockfileReader, makeLockfileReader } from "./lockfile-reader.js";
@@ -50,11 +56,25 @@ export class WorkspaceReadViews extends Context.Service<
  */
 const withReadView = <A, E, R>(effect: Effect.Effect<A, E, R>, observations: boolean) =>
   Effect.gen(function* () {
+    const current = yield* CurrentWorkspaceReadPhase;
+    if (current !== undefined && current.isActive()) {
+      yield* Effect.annotateCurrentSpan("axm.work.reused", true);
+      return yield* effect;
+    }
     const factory = yield* Effect.serviceOption(WorkspaceReadViews);
     if (Option.isNone(factory)) return yield* effect;
     const readers = yield* factory.value.capture({ observations });
-    return yield* effect.pipe(Effect.provideContext(readers));
-  });
+    yield* Effect.annotateCurrentSpan("axm.work.reused", false);
+    const phase = Context.get(readers, CurrentWorkspaceReadPhase);
+    return yield* effect.pipe(
+      Effect.provideContext(readers),
+      Effect.ensuring(
+        Effect.sync(() => phase?.close()).pipe(
+          Effect.andThen(Effect.annotateCurrentSpan("axm.work.invalidated", true)),
+        ),
+      ),
+    );
+  }).pipe(Effect.withSpan("axm.observation.phase"));
 
 /** Stable documents for a planning phase; live filesystem ports remain available. */
 export const withWorkspaceReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -63,6 +83,10 @@ export const withWorkspaceReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =
 /** Pure queries may additionally share physical observations until the query returns. */
 export const withWorkspaceObservationReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   withReadView(effect, true);
+
+/** Mutation/no-op verification must never inherit preparation's observations. */
+export const withFreshWorkspaceObservationReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  withReadView(effect, true).pipe(Effect.provideService(CurrentWorkspaceReadPhase, undefined));
 
 export const WorkspaceReadViewsLive = Layer.effect(
   WorkspaceReadViews,
@@ -76,14 +100,24 @@ export const WorkspaceReadViewsLive = Layer.effect(
     return {
       capture: (options) =>
         Effect.suspend(() => {
+          let active = true;
+          const close = () => {
+            active = false;
+          };
           const observation =
             options?.observations === true
-              ? makeObservationReadView(fs, canonical)
+              ? makeObservationReadView(
+                  fs,
+                  canonical,
+                  () => active,
+                  close,
+                )
               : Context.make(FileSystem.FileSystem, fs).pipe(
                   Context.add(CanonicalNativePath, canonical),
                 );
           const io = observation.pipe(Context.add(Path.Path, path));
           return Effect.gen(function* () {
+            const pending = yield* pendingAcceptedResolutions(documents);
             const model = yield* readModelFor(location, location.scope);
             const inheritedScope = location.scope === "project" ? "user" : "project";
             const inherited = yield* Effect.cached(readModelFor(location, inheritedScope));
@@ -91,6 +125,7 @@ export const WorkspaceReadViewsLive = Layer.effect(
               ...documents,
               settings: (scope?: "project" | "user") =>
                 Effect.gen(function* () {
+                  if (!active) return yield* documents.settings(scope);
                   if (location.observationView?.kind === "git-index" && scope === "user") {
                     return createDefaultSettings();
                   }
@@ -103,45 +138,85 @@ export const WorkspaceReadViewsLive = Layer.effect(
                       : createDefaultSettings(),
                   );
                 }).pipe(Effect.provideContext(io)),
-              acceptedResolutionState: model.state.lockfile.pipe(
-                Effect.map((value) =>
-                  Option.isSome(value) ? ("ok" as const) : ("missing" as const),
-                ),
-                Effect.catchTag(
-                  [
-                    "LockfileIoError",
-                    "LockfileParseError",
-                    "LockfileDecodeError",
-                    "LockfileVersionUnsupported",
-                  ],
-                  () => Effect.succeed("invalid" as const),
-                ),
+              acceptedResolutionState: Effect.suspend(() =>
+                !active
+                  ? documents.acceptedResolutionState
+                  : model.state.lockfile.pipe(
+                      Effect.map((value) =>
+                        Option.isSome(value) ? ("ok" as const) : ("missing" as const),
+                      ),
+                      Effect.catchTag(
+                        [
+                          "LockfileIoError",
+                          "LockfileParseError",
+                          "LockfileDecodeError",
+                          "LockfileVersionUnsupported",
+                        ],
+                        () => Effect.succeed("invalid" as const),
+                      ),
+                    ),
               ),
-              acceptedResolutions: model.state.lockfile.pipe(
-                Effect.map(
-                  Option.getOrElse(
-                    () =>
-                      ({
-                        lockfileVersion: LOCKFILE_VERSION,
-                        skills: {},
-                      }) satisfies Lockfile,
-                  ),
-                ),
+              acceptedResolutions: Effect.suspend(() =>
+                !active
+                  ? documents.acceptedResolutions
+                  : Option.isSome(pending)
+                    ? Effect.succeed(pending.value)
+                    : model.state.lockfile.pipe(
+                        Effect.map(
+                          Option.getOrElse(
+                            () =>
+                              ({
+                                lockfileVersion: LOCKFILE_VERSION,
+                                skills: {},
+                              }) satisfies Lockfile,
+                          ),
+                        ),
+                      ),
               ),
             };
             const base = makeDesiredStateReader(location, capturedDocuments, manifests, path);
-            const evaluation = yield* Effect.cached(base.evaluate());
+            const evaluation = yield* Effect.cached(
+              base.evaluate().pipe(Effect.withSpan("axm.resolve.desired-state")),
+            );
+            const candidates: Array<{
+              readonly inputs: NonNullable<Parameters<typeof base.evaluate>[0]>;
+              readonly evaluation: ReturnType<typeof base.evaluate>;
+            }> = [];
+            const evaluate: DesiredStateReaderService["evaluate"] = (options) =>
+              Effect.suspend(() =>
+                !active
+                  ? base.evaluate(options)
+                  : options === undefined
+                    ? evaluation
+                    : Effect.gen(function* () {
+                        // Retain immutable input identities without serializing whole
+                        // caller values or collapsing distinct candidate documents.
+                        const existing = () =>
+                          candidates.find(
+                            ({ inputs }) =>
+                              inputs.settings === options.settings &&
+                              inputs.acceptedResolutions === options.acceptedResolutions &&
+                              inputs.prospectivePacks === options.prospectivePacks,
+                          );
+                        const prior = existing();
+                        if (prior !== undefined) return yield* prior.evaluation;
+                        const created = yield* Effect.cached(
+                          base.evaluate(options).pipe(Effect.withSpan("axm.resolve.desired-state")),
+                        );
+                        const selected = existing()?.evaluation ?? created;
+                        if (existing() === undefined)
+                          candidates.push({ inputs: options, evaluation: selected });
+                        return yield* selected;
+                      }),
+              );
             const desired: DesiredStateReaderService = {
               ...base,
-              evaluate: (options) => (options === undefined ? evaluation : base.evaluate(options)),
-              graph: (options) =>
-                options === undefined
-                  ? evaluation.pipe(Effect.map((value) => value.graph))
-                  : base.graph(options),
+              evaluate,
+              graph: (options) => evaluate(options).pipe(Effect.map((value) => value.graph)),
               isRequiredByInstalledPack: (target) =>
                 Effect.gen(function* () {
                   if (target.type === "pack") return false;
-                  const { graph } = yield* evaluation;
+                  const { graph } = yield* evaluate();
                   if (unresolvedPackRoutes(graph).length > 0)
                     return yield* new DesiredPackGraphIncomplete();
                   return graph.nodes.some(
@@ -156,24 +231,48 @@ export const WorkspaceReadViewsLive = Layer.effect(
               location,
               capturedDocuments,
               yield* Ref.make(Option.none<ReadonlyArray<SourceHostConfig>>()),
+              () => active,
             );
-            const locks = makeLockfileReader(capturedDocuments, desired, (yield* evaluation).graph);
+            // Only MCP alias lookup needs the graph; a lock-only query must not
+            // evaluate every authored Pack while acquiring its readers.
+            const locks = makeLockfileReader(capturedDocuments, desired);
             const layout = yield* Ref.get(location.layout);
             const installRoot = yield* Effect.cached(
               desired
                 .graph()
                 .pipe(Effect.flatMap((graph) => observeInstallRoot({ layout, graph, locks }))),
             );
-            const records = makeWorkspaceRecords(location, desired, locks, {
+            const capturedRecords = makeWorkspaceRecords(location, desired, locks, {
               model,
               installRoot,
               readers: { desired, settings, locks },
             });
+            const liveRecords = makeWorkspaceRecords(location, desired, locks);
+            const records: typeof capturedRecords = {
+              getInventory: (options) =>
+                Effect.suspend(() =>
+                  (active ? capturedRecords : liveRecords).getInventory(options),
+                ),
+              getExtensionInventory: (type, options) =>
+                Effect.suspend(() =>
+                  (active ? capturedRecords : liveRecords).getExtensionInventory(type, options),
+                ),
+              rows: (type) =>
+                Effect.suspend(() => (active ? capturedRecords : liveRecords).rows(type)),
+            };
             return Context.make(DesiredStateReader, desired).pipe(
               Context.add(SettingsReader, settings),
               Context.add(LockfileReader, locks),
               Context.add(WorkspaceRecords, records),
               Context.add(ExtensionPaths, makeExtensionPaths(location, settings, locks)),
+              Context.add(CurrentWorkspaceReadPhaseInvalidation, close),
+              Context.add(CurrentWorkspaceReadPhase, {
+                fileSystem: Context.get(observation, FileSystem.FileSystem),
+                readers: { desired, settings, locks },
+                packDocuments: new Map(),
+                isActive: () => active,
+                close,
+              }),
               Context.merge(observation),
             );
           }).pipe(Effect.provideContext(io));

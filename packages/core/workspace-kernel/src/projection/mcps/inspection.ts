@@ -23,6 +23,7 @@ import type { McpInspectionError } from "./errors.js";
 import type { ConfiguredAgentOutcome } from "../../operations/index.js";
 import type { McpServerEntry } from "../../workspace-state/index.js";
 import {
+  withNativeConfigReadView,
   decodeMcpServerManifestAt,
   readPluginMcpDefinition,
   resolveConfiguredMcpTargets,
@@ -751,7 +752,9 @@ export const withMcpInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R
         });
         return yield* selected;
       });
-    return yield* effect.pipe(Effect.provideService(McpInspectionReadView, { inspect }));
+    return yield* withNativeConfigReadView(
+      effect.pipe(Effect.provideService(McpInspectionReadView, { inspect })),
+    );
   });
 
 /** Use the phase's detailed observation when one is explicitly in scope. */

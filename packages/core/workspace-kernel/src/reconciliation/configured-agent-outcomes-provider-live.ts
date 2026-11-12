@@ -28,6 +28,7 @@ import {
 import { NativeWriteAuthority } from "../agent-adapters/index.js";
 import {
   ConfiguredAgentOutcomesProvider,
+  CurrentWorkspaceReadPhase,
   ConfiguredAgentOutcomesUnavailable,
   DesiredStateReader,
   usableAcceptedCanonicalRef,
@@ -63,9 +64,9 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
     const settings = yield* SettingsReader;
     const locks = yield* LockfileReader;
     const desired = yield* DesiredStateReader;
+    const liveFileSystem = yield* FileSystem.FileSystem;
     const managerLayer = Layer.mergeAll(
       Layer.succeed(CodingAgentRepository, yield* CodingAgentRepository),
-      Layer.succeed(FileSystem.FileSystem, yield* FileSystem.FileSystem),
       Layer.succeed(Path.Path, yield* Path.Path),
       Layer.succeed(NativeEntryRemoval, yield* NativeEntryRemoval),
       Layer.succeed(RegistryClientFactory, yield* RegistryClientFactory),
@@ -73,11 +74,18 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
       Layer.succeed(WorkspaceLocation, yield* WorkspaceLocation),
     );
     const managerLayerFor = (request: ConfiguredAgentOutcomesRequest) =>
-      Layer.mergeAll(
-        managerLayer,
-        Layer.succeed(SettingsReader, request.readers?.settings ?? settings),
-        Layer.succeed(LockfileReader, request.readers?.locks ?? locks),
-        Layer.succeed(DesiredStateReader, request.readers?.desired ?? desired),
+      Layer.unwrap(
+        Effect.gen(function* () {
+          const phase = yield* CurrentWorkspaceReadPhase;
+          const readers = request.readers ?? phase?.readers;
+          return Layer.mergeAll(
+            managerLayer,
+            Layer.succeed(FileSystem.FileSystem, phase?.fileSystem ?? liveFileSystem),
+            Layer.succeed(SettingsReader, readers?.settings ?? settings),
+            Layer.succeed(LockfileReader, readers?.locks ?? locks),
+            Layer.succeed(DesiredStateReader, readers?.desired ?? desired),
+          );
+        }),
       );
     const mapFailure = (failure: Parameters<typeof adapter.toStepFailure>[0]) => {
       const step = adapter.toStepFailure(failure);

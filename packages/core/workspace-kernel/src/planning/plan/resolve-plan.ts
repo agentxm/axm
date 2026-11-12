@@ -72,7 +72,11 @@ import {
   type ConfiguredAgentOperation,
   type PlanExecution,
 } from "../../operations/index.js";
-import { ProjectionOutputPosture, REPLACE_UNRECORDED_FLAG } from "../../projection/index.js";
+import {
+  ProjectionOutputPosture,
+  REPLACE_UNRECORDED_FLAG,
+  withMcpInspectionReadView,
+} from "../../projection/index.js";
 import { preflightPackagePlacement } from "./package-placement.js";
 import { registryExposureRefsForStep, validateRegistryExposure } from "./registry-exposure.js";
 import { PlanSources } from "./plan-sources.js";
@@ -97,7 +101,8 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
-  WorkspaceRecords,
+  observeConfiguredTargets,
+  withFreshWorkspaceObservationReadView,
   configuredAgentLifecycleOutcomes,
   resolveConfiguredExtensionObservations,
   type ConfiguredAgentOutcomesProviderService,
@@ -619,7 +624,6 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
   options?: ResolveExecutionCandidateOptions<Requirements, Output>,
 ) {
   const location = yield* WorkspaceLocation;
-  const records = yield* WorkspaceRecords;
   const settings = yield* SettingsReader;
   const interaction = yield* ResolvePlanInteraction;
   const path = yield* Path.Path;
@@ -1136,31 +1140,28 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
       return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
     }
     yield* enterPhase("verification");
-    type Readback = {
-      readonly byName: ReadonlyMap<string, ReadonlyArray<ConfiguredAgentOutcome>>;
-    };
-    const readbacks = new Map<ConfiguredAgentOperation["extensionType"], Readback>(
-      yield* Effect.forEach(
-        [
-          ...new Set(
-            operations
-              .filter((operation) => operation.plannedState === "enabled")
-              .map((operation) => operation.extensionType),
-          ),
-        ],
-        (type) =>
-          observeUnit(
-            { id: `agent-readback:${type}`, label: `current ${type} agent state` },
-            Effect.gen(function* () {
-              const inventory = yield* records
-                .getExtensionInventory(type, { details: true })
-                .pipe(Effect.mapError(workspaceStateReadFailureToStepFailure));
-              const byName = new Map(
-                inventory.items.map((item) => [item.name, item.agentOutcomes] as const),
-              );
-              return [type, { byName } satisfies Readback] as const;
-            }),
-          ),
+    const readbacks = yield* withFreshWorkspaceObservationReadView(
+      withMcpInspectionReadView(
+        observeConfiguredTargets(
+          operations
+            .filter((operation) => operation.plannedState === "enabled")
+            .map((operation) => ({
+              type: operation.extensionType,
+              name: operation.name,
+            })),
+          configuredAgents,
+        ),
+      ),
+    ).pipe(
+      Effect.mapError((failure) =>
+        failure._tag === "ConfiguredAgentOutcomesUnavailable"
+          ? new StepFailure({
+              category: failure.category,
+              detail: failure.detail,
+              ...(failure.suggestions === undefined ? {} : { suggestions: failure.suggestions }),
+              ...(failure.cause === undefined ? {} : { cause: failure.cause }),
+            })
+          : workspaceStateReadFailureToStepFailure(failure),
       ),
     );
     const currentOutcomes = operations.flatMap((operation) => {
@@ -1175,8 +1176,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
           installed: false,
         });
       }
-      const readback = readbacks.get(operation.extensionType);
-      const observed = readback?.byName.get(operation.name);
+      const observed = readbacks.get(`${operation.extensionType}:${operation.name}`)?.agentOutcomes;
       return (
         observed ??
         configuredAgentLifecycleOutcomes({

@@ -10,6 +10,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type { FilePublication } from "@agentxm/host-primitives";
 import * as Data from "effect/Data";
 import type * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
@@ -122,7 +123,10 @@ export interface NativeWriteAuthorityService {
    */
   readonly protect: (absolutePath: string) => Effect.Effect<void, NativeWriteRefused>;
   /** Report one durable change for the operation footprint. */
-  readonly record: (change: NativeWriteRecord) => Effect.Effect<void>;
+  readonly record: (
+    change: NativeWriteRecord,
+    publication?: FilePublication,
+  ) => Effect.Effect<void, NativeWriteRefused>;
 }
 
 export class NativeWriteAuthority extends ServiceMap.Service<

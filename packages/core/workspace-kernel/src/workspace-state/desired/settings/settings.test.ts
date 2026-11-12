@@ -596,7 +596,7 @@ ${lintBlock}
         "{}\n",
         {},
         { agents: ["claude-code"] },
-        canonicalContent,
+        () => canonicalContent,
         () => ({ _tag: "Success", text: "{ invalid" }),
       );
 

@@ -5,10 +5,20 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
+import type { FilePublication } from "@agentxm/host-primitives";
 import { nativeInode } from "../locations/index.js";
 
 /** Flat entry observations allow one writer's delta to update only its own subtree. */
 export type PathState = ReadonlyMap<string, string>;
+
+/** Expected whole-file state, established before the write becomes visible. */
+export const publicationPathState = ({ info, content }: FilePublication): PathState => {
+  const inode = nativeInode(info);
+  if (info.type !== "File" || Option.isNone(inode) || Option.isNone(info.birthtime))
+    return new Map([["", "unreadable"]]);
+  const identity = `${info.dev}:${inode.value}:${info.birthtime.value.getTime()}:${info.mode}`;
+  return new Map([["", `file:${identity}:${createHash("sha256").update(content).digest("hex")}`]]);
+};
 
 /** Existing directory routes only: later AXM-created ancestors are covered by their snapshots. */
 export const observeAncestorRoute = Effect.fnUntraced(function* (

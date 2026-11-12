@@ -10,6 +10,7 @@ import {
   type PackManifestObservation,
 } from "../../pack-manifests.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
+import { CurrentWorkspaceReadPhase } from "../../read-phase.js";
 
 export const FilesystemPackManifests = Layer.effect(
   PackManifests,
@@ -37,15 +38,28 @@ export const FilesystemPackManifests = Layer.effect(
           relativePath: path.relative(relativeTo, manifestPath),
           // Not found is absence; every other failure is an I/O fact that
           // proves nothing about the document, and is reported as such.
-          manifest: fs.readFileString(manifestPath).pipe(
-            Effect.match({
-              onSuccess: decodePackManifestDocument,
-              onFailure: (error): PackManifestObservation =>
-                error.reason._tag === "NotFound"
-                  ? { status: "absent" }
-                  : { status: "unreadable", reason: error.reason._tag },
-            }),
-          ),
+          manifest: Effect.gen(function* () {
+            const phase = yield* CurrentWorkspaceReadPhase;
+            const read = (phase?.fileSystem ?? fs).readFileString(manifestPath).pipe(
+              Effect.match({
+                onSuccess: decodePackManifestDocument,
+                onFailure: (error): PackManifestObservation =>
+                  error.reason._tag === "NotFound"
+                    ? { status: "absent" }
+                    : { status: "unreadable", reason: error.reason._tag },
+              }),
+              Effect.withSpan("axm.observation.pack-document", {
+                attributes: { "axm.work.count": 1 },
+              }),
+            );
+            if (phase === undefined || !phase.isActive()) return yield* read;
+            const previous = phase.packDocuments.get(manifestPath);
+            if (previous !== undefined) return yield* previous;
+            const created = yield* Effect.cached(read);
+            const selected = phase.packDocuments.get(manifestPath) ?? created;
+            phase.packDocuments.set(manifestPath, selected);
+            return yield* selected;
+          }),
         };
       },
     });

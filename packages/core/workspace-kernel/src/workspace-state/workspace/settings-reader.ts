@@ -104,6 +104,7 @@ export const makeSettingsReader = (
   location: WorkspaceLocationService,
   documents: WorkspaceDocumentsService,
   sourcesCache: Ref.Ref<Option.Option<ReadonlyArray<SourceHostConfig>>>,
+  isActive: () => boolean = () => true,
 ): SettingsReaderService => {
   const settings = documents.settings();
   const userSettings = documents.settings("user");
@@ -115,13 +116,13 @@ export const makeSettingsReader = (
 
   const configuredSources: Read<ReadonlyArray<SourceHostConfig>> = Effect.gen(function* () {
     const cached = yield* Ref.get(sourcesCache);
-    if (Option.isSome(cached)) return cached.value;
+    if (isActive() && Option.isSome(cached)) return cached.value;
     const merged = mergeSources(
       (yield* projectSettings).sources ?? [],
       (yield* userSettings).sources ?? [],
       location.builtInSources,
     );
-    yield* Ref.set(sourcesCache, Option.some(merged));
+    if (isActive()) yield* Ref.set(sourcesCache, Option.some(merged));
     return merged;
   }).pipe(Effect.withSpan("SettingsReader.configuredSources"));
 

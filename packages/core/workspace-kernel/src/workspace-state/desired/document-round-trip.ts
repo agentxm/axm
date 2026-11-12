@@ -24,6 +24,7 @@ import {
   protectCreatedAncestors,
   protectWorkspacePath,
   recordFootprint,
+  recordFilePublication,
   retireWorkspacePath,
   type WorkspaceFileWriteLocksService,
 } from "../../settlement/index.js";
@@ -221,9 +222,13 @@ export const prepareDocumentRoundTrip = <E>(args: {
             targetPath: target,
             content: text,
             skipIfUnchanged: "ignore-read-errors",
+            onPublished: (publication) =>
+              recordFilePublication(
+                { path: target, change: existed ? "modified" : "created" },
+                publication,
+              ),
             mapError: (cause) => mapFailure(target, cause),
           });
-          yield* recordFootprint({ path: target, change: existed ? "modified" : "created" });
         }).pipe(
           Effect.provideService(FileSystem.FileSystem, fs),
           Effect.provideService(Path.Path, path),

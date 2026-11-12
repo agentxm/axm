@@ -7,6 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { readFileStringIfPresent, writeFilePreservingIdentity } from "@agentxm/host-primitives";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { assertNativeMutationWithinRoots, resolveNativeReferent } from "../../locations/index.js";
@@ -27,6 +28,123 @@ import type {
 /** Failures the shared subagent sync helpers raise. */
 export type SubagentSyncFailure = SubagentIoFailed | NativeWriteRefused;
 
+/** One prepared physical output, including every logical reader that selected it. */
+export interface PreparedSubagentFileArgs extends Pick<
+  AddSubagentArgs,
+  | "workspaceRoot"
+  | "nativeRoots"
+  | "nativeInsertionEligible"
+  | "nativeInsertionEligiblePaths"
+  | "decideWrite"
+> {
+  readonly filePath: string;
+  readonly content: string;
+  readonly bindings: ReadonlyArray<{
+    readonly path: string;
+    readonly directory: string;
+  }>;
+}
+
+/** Apply prepared bytes once, with live alias and ownership decisions under the write lock. */
+export const writePreparedSubagentFile = Effect.fn("axm.subagent.apply")(function* (
+  args: PreparedSubagentFileArgs,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const authority = yield* NativeWriteAuthority;
+  const filePath = path.resolve(args.filePath);
+  const result = yield* authority.withExclusiveWrite(
+    filePath,
+    Effect.gen(function* () {
+      // Re-resolve every claimant: an alias retargeted since planning no longer
+      // participates in this physical unit, even when its former target survives.
+      for (const requested of new Set([
+        filePath,
+        ...args.bindings.map((binding) => binding.path),
+      ])) {
+        const { address } = yield* assertNativeMutationWithinRoots(
+          args.nativeRoots ?? [args.workspaceRoot],
+          requested,
+          "content",
+          args.workspaceRoot,
+        ).pipe(
+          Effect.mapError(
+            (cause) =>
+              new SubagentIoFailed({ detail: "Cannot resolve prepared Subagent output", cause }),
+          ),
+        );
+        if ((address.referentPath ?? address.entryPath) !== filePath)
+          return {
+            _tag: "conflict",
+            reason: `Subagent output identity changed after preparation: ${requested}`,
+          } as const;
+        if (requested === filePath && address.kind !== "absent" && address.kind !== "file")
+          return {
+            _tag: "conflict",
+            reason: `Preserved unowned Subagent entry: ${requested}`,
+          } as const;
+      }
+      const prior = yield* readFileStringIfPresent(fs, filePath).pipe(
+        Effect.mapError(
+          (cause) =>
+            new SubagentIoFailed({
+              detail: `Cannot read current Subagent output: ${filePath}`,
+              cause,
+            }),
+        ),
+      );
+      const decision = args.decideWrite({ filePath, prior, rendered: args.content });
+      if (decision._tag === "conflict") return decision;
+      if (decision._tag !== "write")
+        return { _tag: "written", change: "unchanged", decision: decision._tag } as const;
+      let eligibleDirectory = false;
+      if (args.nativeInsertionEligiblePaths !== undefined) {
+        for (const directory of new Set(args.bindings.map((binding) => binding.directory))) {
+          const physical = yield* resolveNativeReferent(directory).pipe(
+            Effect.mapError(
+              (cause) =>
+                new SubagentIoFailed({
+                  detail: "Cannot resolve Subagent publication directory",
+                  cause,
+                }),
+            ),
+          );
+          if (args.nativeInsertionEligiblePaths.has(physical)) eligibleDirectory = true;
+        }
+      }
+      const capture = yield* authority.captureCreatedDirectories({
+        path: filePath,
+        unit: JSON.stringify(["subagent-parent-directories", filePath]),
+        eligible: args.nativeInsertionEligible === true || eligibleDirectory,
+      });
+      yield* authority.protect(filePath);
+      const createdDirectories = yield* authority.createParentDirectories(filePath);
+      yield* writeFilePreservingIdentity(fs, {
+        targetPath: filePath,
+        content: args.content,
+        onPublished: (publication) =>
+          authority.record(
+            { path: filePath, change: Option.isSome(prior) ? "modified" : "created" },
+            publication,
+          ),
+        mapError: (cause) =>
+          new SubagentIoFailed({ detail: `Failed to write subagent file: ${filePath}`, cause }),
+      }).pipe(Effect.withSpan("axm.subagent.publish"));
+      yield* authority.recordCreatedDirectories({ capture, createdDirectories });
+      return {
+        _tag: "written",
+        change: Option.isSome(prior) ? "updated" : "created",
+        decision: "write",
+      } as const;
+    }),
+  );
+  yield* Effect.annotateCurrentSpan(
+    "axm.changed",
+    result._tag === "written" && result.decision === "write",
+  );
+  return result;
+});
+
 /**
  * Write rendered subagent files to an agent's subagents directory.
  *
@@ -42,9 +160,7 @@ const writeSubagentFiles = (
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const authority = yield* NativeWriteAuthority;
 
     const descriptor = isConfigurableAgentId(args.input.agentId)
       ? AGENT_DESCRIPTORS[args.input.agentId].subagents
@@ -96,18 +212,6 @@ const writeSubagentFiles = (
       { concurrency: 1 },
     );
 
-    const eligibleDirectory =
-      args.nativeInsertionEligiblePaths?.has(
-        yield* resolveNativeReferent(subagentsDir).pipe(
-          Effect.mapError(
-            (cause) =>
-              new SubagentIoFailed({
-                detail: "Cannot resolve Subagent publication directory",
-                cause,
-              }),
-          ),
-        ),
-      ) === true;
     const renderedFilePaths: Array<string> = [];
     const nativeTargets: Array<{
       path: string;
@@ -116,58 +220,12 @@ const writeSubagentFiles = (
       decision: "current" | "record" | "write";
     }> = [];
     for (const { output, filePath } of resolvedOutputs) {
-      const written = yield* authority.withExclusiveWrite(
+      const written = yield* writePreparedSubagentFile({
+        ...args,
         filePath,
-        Effect.gen(function* () {
-          const { address } = yield* assertNativeMutationWithinRoots(
-            args.nativeRoots ?? [args.workspaceRoot],
-            filePath,
-            "content",
-            args.workspaceRoot,
-          ).pipe(
-            Effect.mapError(
-              (cause) =>
-                new SubagentIoFailed({ detail: `Unsafe Subagent output: ${filePath}`, cause }),
-            ),
-          );
-          if (address.kind !== "absent" && address.kind !== "file")
-            return {
-              _tag: "conflict",
-              reason: `Preserved unowned Subagent entry: ${filePath}`,
-            } as const;
-          const prior = yield* fs.readFileString(filePath).pipe(Effect.option);
-          const decision = args.decideWrite({ filePath, prior, rendered: output.content });
-          if (decision._tag === "conflict") return decision;
-          if (decision._tag !== "write")
-            return { _tag: "written", change: "unchanged", decision: decision._tag } as const;
-          const capture = yield* authority.captureCreatedDirectories({
-            path: filePath,
-            unit: JSON.stringify(["subagent-parent-directories", filePath]),
-            eligible: args.nativeInsertionEligible === true || eligibleDirectory,
-          });
-          yield* authority.protect(filePath);
-          const createdDirectories = yield* authority.createParentDirectories(filePath);
-          yield* fs.writeFileString(filePath, output.content).pipe(
-            Effect.mapError(
-              (cause) =>
-                new SubagentIoFailed({
-                  detail: `Failed to write subagent file: ${filePath}`,
-                  cause,
-                }),
-            ),
-          );
-          yield* authority.record({
-            path: filePath,
-            change: Option.isSome(prior) ? "modified" : "created",
-          });
-          yield* authority.recordCreatedDirectories({ capture, createdDirectories });
-          return {
-            _tag: "written",
-            change: Option.isSome(prior) ? "updated" : "created",
-            decision: "write",
-          } as const;
-        }),
-      );
+        content: output.content,
+        bindings: [{ path: path.resolve(subagentsDir, output.path), directory: subagentsDir }],
+      });
       if (written._tag === "conflict") return written;
       nativeTargets.push({
         path: filePath,

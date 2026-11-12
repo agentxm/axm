@@ -46,10 +46,10 @@ describe("Existing-format skill distribution admission", () => {
           const archiveBytes = archiveFor(body);
           const result = yield* normalizePublishInput({
             declaredIdentity: identity,
-            archive: { archiveBytes, archiveContentType: "application/zip" },
+            archive: { content: archiveBytes, archiveContentType: "application/zip" },
           });
           expect(result.manifest.identity).toMatchObject(identity);
-          expect(result.archiveBytes).toBe(archiveBytes);
+          expect(result.archive.copyBytes()).toEqual(archiveBytes);
         }),
     );
   }
@@ -70,9 +70,9 @@ describe("Existing-format skill distribution admission", () => {
       ]);
       const result = yield* normalizePublishInput({
         declaredIdentity: identity,
-        archive: { archiveBytes, archiveContentType: "application/zip" },
+        archive: { content: archiveBytes, archiveContentType: "application/zip" },
       });
-      expect(result.archiveBytes).toBe(archiveBytes);
+      expect(result.archive.copyBytes()).toEqual(archiveBytes);
     }),
   );
 
@@ -90,7 +90,7 @@ describe("Existing-format skill distribution admission", () => {
       ]);
       const failure = yield* normalizePublishInput({
         declaredIdentity: identity,
-        archive: { archiveBytes, archiveContentType: "application/zip" },
+        archive: { content: archiveBytes, archiveContentType: "application/zip" },
       }).pipe(Effect.flip);
       expect(failure).toMatchObject({ _tag: "ManifestError", code: "manifest_schema_invalid" });
     }),
@@ -101,7 +101,7 @@ describe("Existing-format skill distribution admission", () => {
       for (const archiveBytes of [archiveFor(undefined), archiveFor("# Review\n", "different")]) {
         const failure = yield* normalizePublishInput({
           declaredIdentity: identity,
-          archive: { archiveBytes, archiveContentType: "application/zip" },
+          archive: { content: archiveBytes, archiveContentType: "application/zip" },
         }).pipe(Effect.flip);
         expect(["FilteredPackageError", "ManifestError"]).toContain(failure._tag);
       }

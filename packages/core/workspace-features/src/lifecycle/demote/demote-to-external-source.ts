@@ -64,7 +64,7 @@ import {
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
-  makeConfiguredReleaseAgeEvaluation,
+  makeConfiguredReleaseAgePolicy,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -195,7 +195,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
   source: string,
 ) {
   const conversion = yield* StepFailureConversion;
-  const evaluation = yield* makeConfiguredReleaseAgeEvaluation();
+  const evaluation = yield* makeConfiguredReleaseAgePolicy();
   const desiredState = yield* DesiredStateReader;
   const graph = yield* desiredState.graph();
   // The replacement's own range stands in for the authored declaration; every

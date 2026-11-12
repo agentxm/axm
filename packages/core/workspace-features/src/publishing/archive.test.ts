@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import { parseZipCentralDirectory } from "@agentxm/extension-content";
 import { unzipSync } from "fflate";
 import { buildZipArchive, planZipArchive } from "./archive.js";
 
@@ -78,8 +77,8 @@ describe("buildZipArchive", () => {
         fs.symlinkSync("b", path.join(sourceDir, "a"));
         fs.symlinkSync("a", path.join(sourceDir, "b"));
         const { archive, plan } = yield* planZipArchive(sourceDir);
-        const contents = unzipSync(archive);
-        const entries = yield* parseZipCentralDirectory(archive);
+        const contents = unzipSync(archive.copyBytes());
+        const entries = archive.entries;
         expect(
           (entries.find((entry) => entry.fileName === "hello.txt")?.externalAttributes ?? 0) >>> 16,
         ).toBe(0o100755);
@@ -211,7 +210,7 @@ describe("buildZipArchive", () => {
           excludedCount: 1,
           uncompressedBytes: 11,
         });
-        expect(Object.keys(unzipSync(planned.archive))).toEqual(["hello.txt"]);
+        expect(Object.keys(unzipSync(planned.archive.copyBytes()))).toEqual(["hello.txt"]);
       }),
     ),
   );

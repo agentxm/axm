@@ -8,7 +8,6 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type {
   ReleaseAgeBypassRecord,
   ReleaseAgeHoldbackRecord,
@@ -23,13 +22,14 @@ import {
   acceptedConfiguredResolution,
   acceptedPackDependencyResolver,
   prepareConfiguredPack,
+  type ConfiguredReleaseAgePolicy,
 } from "@agentxm/workspace-kernel/resolution";
 import type { PackInstallIntent } from "../lifecycle/install/plan.js";
 
 interface ConfiguredPackIntentArgs {
   readonly name: string;
   readonly source: string;
-  readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
+  readonly releaseAgeEvaluation: ConfiguredReleaseAgePolicy;
   readonly nonInteractive: boolean;
   readonly forceCanonical?: boolean;
   readonly deferProjections?: boolean;
@@ -68,9 +68,12 @@ export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Ef
     ...(args.forceCanonical === true ? { forceCanonical: true } : {}),
   }).pipe(Effect.mapError(configuredEntryResolutionRefused(args.name)));
 
+  const evaluation = yield* args.releaseAgeEvaluation.read.pipe(
+    Effect.mapError(configuredEntryResolutionRefused(args.name)),
+  );
   const shared = {
     nonInteractive: args.nonInteractive,
-    releaseAgeEvaluation: args.releaseAgeEvaluation,
+    releaseAgeEvaluation: evaluation,
     heldRelease: INSTALL_HELD_RELEASE_POLICY,
     ...(args.forceCanonical === true ? { forceCanonical: true } : {}),
     ...(args.deferProjections === true ? { deferProjections: true } : {}),

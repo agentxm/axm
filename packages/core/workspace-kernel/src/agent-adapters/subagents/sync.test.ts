@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as PlatformError from "effect/PlatformError";
 import type {
   AddSubagentArgs,
   CodingAgent,
@@ -17,10 +18,89 @@ import type {
 import type { SubagentRenderInput } from "./rendering/types.js";
 import { codingAgentForId } from "../agents/adapters.js";
 import { NativeWriteAuthorityPermissive } from "../testing.js";
+import { writePreparedSubagentFile } from "../index.js";
 
 const TestLayer = Layer.merge(NodeServices.layer, NativeWriteAuthorityPermissive);
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(TestLayer));
+
+it.effect("refuses unreadable existing prepared output before deciding or writing", () =>
+  withNode(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+      const filePath = nodePath.join(root, "review.md");
+      yield* fs.writeFileString(filePath, "Existing native content\n");
+      let decisions = 0;
+      const error = yield* writePreparedSubagentFile({
+        workspaceRoot: root,
+        filePath,
+        content: "Replacement\n",
+        bindings: [{ path: filePath, directory: root }],
+        decideWrite: () => {
+          decisions++;
+          return { _tag: "write" };
+        },
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, {
+          ...fs,
+          readFileString: () =>
+            Effect.fail(
+              PlatformError.systemError({
+                _tag: "PermissionDenied",
+                module: "FileSystem",
+                method: "readFileString",
+              }),
+            ),
+        }),
+        Effect.flip,
+      );
+      expect(error._tag).toBe("SubagentIoFailed");
+      expect(decisions).toBe(0);
+      expect(yield* fs.readFileString(filePath)).toBe("Existing native content\n");
+    }).pipe(Effect.scoped),
+  ),
+);
+
+it.effect("refuses a prepared file after any reader alias changes physical destination", () =>
+  withNode(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+      const first = nodePath.join(root, "first");
+      const second = nodePath.join(root, "second");
+      const alias = nodePath.join(root, "alias");
+      yield* fs.makeDirectory(first);
+      yield* fs.makeDirectory(second);
+      yield* fs.symlink(first, alias);
+      const filePath = nodePath.join(first, "review.md");
+      const other = nodePath.join(second, "review.md");
+      yield* fs.writeFileString(filePath, "Original\n");
+      yield* fs.writeFileString(other, "Foreign\n");
+      const args = {
+        workspaceRoot: root,
+        filePath,
+        content: "Prepared\n",
+        bindings: [
+          { path: filePath, directory: first },
+          { path: nodePath.join(alias, "review.md"), directory: alias },
+        ],
+        decideWrite: () => ({ _tag: "write" as const }),
+      };
+      expect(yield* writePreparedSubagentFile(args)).toMatchObject({
+        _tag: "written",
+        decision: "write",
+      });
+      yield* fs.remove(alias);
+      yield* fs.symlink(second, alias);
+      expect(
+        yield* writePreparedSubagentFile({ ...args, content: "Must not write\n" }),
+      ).toMatchObject({ _tag: "conflict" });
+      expect(yield* fs.readFileString(filePath)).toBe("Prepared\n");
+      expect(yield* fs.readFileString(other)).toBe("Foreign\n");
+    }).pipe(Effect.scoped),
+  ),
+);
 
 const claudeCodeCodingAgent = codingAgentForId("claude-code");
 const codexCodingAgent = codingAgentForId("codex");

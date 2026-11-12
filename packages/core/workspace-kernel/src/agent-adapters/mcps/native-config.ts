@@ -9,6 +9,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { readFileStringIfPresent } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -67,17 +68,7 @@ export const readNativeMcpConfig = (
 ): Effect.Effect<Option.Option<string>, McpConfigIoFailed, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs
-      .exists(configPath)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new McpConfigIoFailed({ detail: `Failed to inspect MCP config: ${configPath}`, cause }),
-        ),
-      );
-    if (!exists) return Option.none();
-    return yield* fs.readFileString(configPath).pipe(
-      Effect.map(Option.some),
+    return yield* readFileStringIfPresent(fs, configPath).pipe(
       Effect.mapError(
         (cause) =>
           new McpConfigIoFailed({ detail: `Failed to read MCP config: ${configPath}`, cause }),
@@ -170,12 +161,8 @@ export const readNativeMcpDocument = (
 export const readNativeMcpValues = (
   args: NativeMcpConfigRead,
 ): Effect.Effect<Readonly<Record<string, unknown>>, McpConfigInvalid> =>
-  readNativeMcpDocument(args).pipe(
-    Effect.flatMap((root) =>
-      readServersMap(root, args.serversPath, args.configPath).pipe(
-        Effect.map((servers) => servers ?? {}),
-      ),
-    ),
+  decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath, args.format).pipe(
+    Effect.map(({ servers }) => servers ?? {}),
   );
 
 /** Record-shaped server declarations from any supported native config. */

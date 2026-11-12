@@ -43,7 +43,7 @@ import {
 import { buildInstallOperation } from "@agentxm/workspace-kernel/reconciliation";
 import { withKindManagers } from "../../testing/workspace-world.js";
 import {
-  makeConfiguredReleaseAgeEvaluation,
+  makeConfiguredReleaseAgePolicy,
   ReleaseAgePosture,
   resolveConfiguredPack,
   resolveConfiguredSkill,
@@ -180,7 +180,7 @@ const toStepFailure = (failure: ExtensionManagerFailure): StepFailure =>
 export const installRegistrySkill = Effect.fn("InspectionFixture.installRegistrySkill")(
   function* (args: { readonly name: string; readonly source: string }) {
     const manager = yield* SkillManager;
-    const releaseAge = yield* makeConfiguredReleaseAgeEvaluation();
+    const releaseAge = yield* makeConfiguredReleaseAgePolicy();
     const resolved = yield* resolveConfiguredSkill(args.name, args.source, releaseAge);
     const step = buildInstallOperation(manager, {
       ref: resolved.ref,
@@ -206,7 +206,7 @@ export const installRegistrySkill = Effect.fn("InspectionFixture.installRegistry
 export const installRegistryPack = Effect.fn("InspectionFixture.installRegistryPack")(
   function* (args: { readonly name: string; readonly source: string }) {
     const manager = yield* PackManager;
-    const releaseAge = yield* makeConfiguredReleaseAgeEvaluation();
+    const releaseAge = yield* makeConfiguredReleaseAgePolicy();
     const resolved = yield* resolveConfiguredPack(args.name, args.source, releaseAge);
     const step = buildInstallOperation(manager, {
       ref: resolved.ref,

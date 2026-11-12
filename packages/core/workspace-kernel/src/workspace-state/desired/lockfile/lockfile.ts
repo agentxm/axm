@@ -8,6 +8,7 @@
  * @packageDocumentation
  */
 
+import { isDeepStrictEqual } from "node:util";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -18,7 +19,7 @@ import * as Schema from "effect/Schema";
 
 import {
   protectWorkspacePath,
-  recordFootprint,
+  recordFilePublication,
   retireWorkspacePath,
   WorkspaceFileWriteLocks,
   type WorkspaceSnapshotError,
@@ -26,12 +27,17 @@ import {
 import { LockfileWriteError } from "./errors.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
 import { patchProjections } from "./projections.js";
-import { decodeLockfileBytes, readLockfileBytes } from "./read.js";
+import {
+  decodeLockfileBytes,
+  readLockfileBytes,
+  parseLockfileBytes,
+  decodeLockfileDocument,
+} from "./read.js";
 import type { LockfileReadError } from "./errors.js";
 import type { DocumentRoundTripContext } from "../document-round-trip.js";
 import { prepareLockfileRoundTrip } from "./round-trip.js";
 import { emitLockfileToml } from "./toml.js";
-import { parseLockfileToml, type ToolTables } from "./toml-values.js";
+import { parseLockfileToml, type ParsedLockfileToml } from "./toml-values.js";
 
 /**
  * Pure lockfile transformation used to batch multiple lockfile updates before
@@ -61,30 +67,11 @@ const ensureLockfileParent = (lockfilePath: string) =>
   });
 
 /** A preservation failure is a write failure, never permission to discard prior tool data. */
-const priorToolTables = (path: string, prior: string | undefined) =>
+const priorDocument = (path: string, prior: string | undefined) =>
   Effect.try({
-    try: () => (prior === undefined ? undefined : parseLockfileToml(prior).tool),
+    try: () => (prior === undefined ? undefined : parseLockfileToml(prior)),
     catch: (cause) => new LockfileWriteError({ path, step: "read-target", cause }),
   });
-
-/** Encode the view and emit the whole canonical file, carrying tool tables forward. */
-const encodeLockfileToml = Effect.fnUntraced(function* (
-  lockfilePath: string,
-  lockfile: Lockfile,
-  tool: ToolTables | undefined,
-) {
-  const encoded = yield* Schema.encodeEffect(LockfileSchema)(lockfile, {
-    onExcessProperty: "error",
-  }).pipe(
-    Effect.mapError(
-      (cause) => new LockfileWriteError({ path: lockfilePath, step: "encode", cause }),
-    ),
-  );
-  return yield* Effect.try({
-    try: () => emitLockfileToml(encoded, tool),
-    catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "serialize", cause }),
-  });
-});
 
 const patchOptionalMap = <T>(
   fresh: Readonly<Record<string, T>> | undefined,
@@ -173,21 +160,23 @@ const withLockfileLock = <A, E, R>(
     return yield* locks.withLock(lockfilePath, effect);
   });
 
-const writeLockfileUnlocked = (
-  lockfilePath: string,
-  lockfile: Lockfile,
-  roundTrip?: DocumentRoundTripContext,
-) =>
+interface LockfileWriteObservation {
+  readonly raw: string | undefined;
+  readonly parsed: ParsedLockfileToml | undefined;
+}
+
+/** Full replacement only needs the prior document's lossless tool values. */
+const observeLockfileForReplacement = (lockfilePath: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const existed = yield* fs
+    const exists = yield* fs
       .exists(lockfilePath)
       .pipe(
         Effect.mapError(
           (cause) => new LockfileWriteError({ path: lockfilePath, step: "check-target", cause }),
         ),
       );
-    const prior = existed
+    const raw = exists
       ? yield* fs
           .readFileString(lockfilePath)
           .pipe(
@@ -196,8 +185,51 @@ const writeLockfileUnlocked = (
             ),
           )
       : undefined;
-    const tool = yield* priorToolTables(lockfilePath, prior);
-    let content = yield* encodeLockfileToml(lockfilePath, lockfile, tool);
+    return {
+      raw,
+      parsed: yield* priorDocument(lockfilePath, raw),
+    } satisfies LockfileWriteObservation;
+  });
+
+/** Patches also validate the current joined view, under the same live file lock. */
+const observeLockfileForPatch = (lockfilePath: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const raw = yield* readLockfileBytes(fs, lockfilePath);
+    if (Option.isNone(raw))
+      return { observation: { raw: undefined, parsed: undefined }, current: undefined };
+    const parsed = yield* parseLockfileBytes(lockfilePath, raw.value.bytes);
+    const current = yield* decodeLockfileDocument(lockfilePath, parsed);
+    return { observation: { raw: raw.value.bytes, parsed }, current };
+  });
+
+const writeLockfileUnlocked = (
+  lockfilePath: string,
+  lockfile: Lockfile,
+  observation: LockfileWriteObservation,
+  roundTrip?: DocumentRoundTripContext,
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const { raw: prior, parsed } = observation;
+    const existed = prior !== undefined;
+    const encoded = yield* Schema.encodeEffect(LockfileSchema)(lockfile, {
+      onExcessProperty: "error",
+    }).pipe(
+      Effect.mapError(
+        (cause) => new LockfileWriteError({ path: lockfilePath, step: "encode", cause }),
+      ),
+    );
+    // Tool values remain lossless and are always parsed, including on no-op writes.
+    // They are not part of the accepted-resolution view being replaced.
+    if (parsed !== undefined && isDeepStrictEqual(parsed.document, encoded)) {
+      yield* Effect.annotateCurrentSpan("axm.changed", false);
+      return;
+    }
+    let content = yield* Effect.try({
+      try: () => emitLockfileToml(encoded, parsed?.tool),
+      catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "serialize", cause }),
+    });
     const restoration =
       roundTrip === undefined || prior === content
         ? undefined
@@ -215,7 +247,12 @@ const writeLockfileUnlocked = (
           (cause) => new LockfileWriteError({ path: lockfilePath, step: "write-temp", cause }),
         ),
       );
+      yield* Effect.annotateCurrentSpan("axm.changed", true);
       yield* restoration.finish;
+      return;
+    }
+    if (prior === content) {
+      yield* Effect.annotateCurrentSpan("axm.changed", false);
       return;
     }
     yield* protectWorkspacePath(lockfilePath);
@@ -223,7 +260,11 @@ const writeLockfileUnlocked = (
     const written = yield* writeFileAtomic(fs, {
       targetPath: lockfilePath,
       content,
-      skipIfUnchanged: "fail-on-read-error",
+      onPublished: (publication) =>
+        recordFilePublication(
+          { path: lockfilePath, change: existed ? "modified" : "created" },
+          publication,
+        ),
       mapError: (failure) =>
         new LockfileWriteError({
           path: failure.step === "write-temp" ? failure.tempPath : lockfilePath,
@@ -232,10 +273,13 @@ const writeLockfileUnlocked = (
         }),
     });
     if (written === "written") {
-      yield* recordFootprint({ path: lockfilePath, change: existed ? "modified" : "created" });
+      yield* Effect.annotateCurrentSpan("axm.changed", true);
       if (restoration !== undefined) yield* restoration.finish;
     }
-  }).pipe(Effect.uninterruptible);
+  }).pipe(
+    Effect.withSpan("axm.publish.document", { attributes: { "axm.document.kind": "lockfile" } }),
+    Effect.uninterruptible,
+  );
 
 // -----------------------------------------------------------------------------
 // Public Functions
@@ -249,7 +293,7 @@ const writeLockfileUnlocked = (
  * the enclosing workspace transaction.
  * Temporary files are removed by scoped finalizer on interruption, and stale
  * temp files from older crashed writers are swept before each write. When the
- * encoded bytes already match, the existing lockfile is left untouched.
+ * encoded owned document is unchanged, the existing lockfile is left untouched.
  *
  * `writeLockfile` remains a full replacement operation. Call
  * `commitLockfileUpdates` when applying deltas that must reread the latest
@@ -271,7 +315,12 @@ export const writeLockfileAtPath = (
     yield* withLockfileLock(
       lockfilePath,
       Effect.gen(function* () {
-        yield* writeLockfileUnlocked(lockfilePath, lockfile, roundTrip);
+        yield* writeLockfileUnlocked(
+          lockfilePath,
+          lockfile,
+          yield* observeLockfileForReplacement(lockfilePath),
+          roundTrip,
+        );
       }),
     );
   });
@@ -312,9 +361,9 @@ export const commitLockfileUpdates = (
     const updated = yield* withLockfileLock(
       lockfilePath,
       Effect.gen(function* () {
-        const current = yield* readLockfileAtPath(lockfilePath);
+        const { current, observation } = yield* observeLockfileForPatch(lockfilePath);
         const updated = applyLockfileUpdates(current ?? lockfile, updates);
-        yield* writeLockfileUnlocked(lockfilePath, updated);
+        yield* writeLockfileUnlocked(lockfilePath, updated, observation);
         return updated;
       }),
     );
@@ -343,9 +392,9 @@ export const commitLockfileSnapshotUpdateAtPath = (
     const updated = yield* withLockfileLock(
       lockfilePath,
       Effect.gen(function* () {
-        const current = yield* readLockfileAtPath(lockfilePath);
+        const { current, observation } = yield* observeLockfileForPatch(lockfilePath);
         const updated = applyLockfileSnapshotPatch(current ?? base, base, next);
-        yield* writeLockfileUnlocked(lockfilePath, updated, roundTrip);
+        yield* writeLockfileUnlocked(lockfilePath, updated, observation, roundTrip);
         return updated;
       }),
     );

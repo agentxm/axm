@@ -13,6 +13,7 @@ export default defineConfig({
     exclude: [
       "src/ordinary-inventory-latency.spec.ts",
       "src/binary-smoke.e2e.test.ts",
+      "src/binary-local-tracing.e2e.test.ts",
       "src/install-verification.e2e.test.ts",
       "src/**/*.windows.e2e.test.ts",
     ],

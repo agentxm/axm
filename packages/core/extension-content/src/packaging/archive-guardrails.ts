@@ -260,8 +260,9 @@ export const parseZipCentralDirectory = (
       );
     }
 
+    yield* Effect.annotateCurrentSpan("axm.archive.entries", entries.length);
     return entries;
-  });
+  }).pipe(Effect.withSpan("axm.archive.parse"));
 
 const INFLATE_CHUNK_SIZE = 16 * 1024;
 
@@ -335,7 +336,7 @@ export const defaultReadEntry = (
       message: `Unsupported compression method ${compressionMethod} for entry "${fileName}".`,
       entry: fileName,
     });
-  });
+  }).pipe(Effect.withSpan("axm.archive.read-member"));
 
 const checkPathTraversal = (
   entries: readonly ZipEntry[],
@@ -646,23 +647,88 @@ export const checkForbiddenSourceEntries = (
   return Effect.void;
 };
 
-export const validateArchive = (
-  archiveBytes: Uint8Array,
-  limits?: ArchiveGuardrailLimits,
-): Effect.Effect<readonly ZipEntry[], ArchiveGuardrailError> =>
-  Effect.gen(function* () {
-    const appliedLimits = { ...DEFAULT_LIMITS, ...limits };
-    const entries = yield* parseZipCentralDirectory(archiveBytes);
+/**
+ * An owned ZIP snapshot whose structure and links have passed admission.
+ * Bytes never escape by reference. Expanded members belong to an inspection,
+ * not this value, so a prepared publication does not retain expanded content.
+ */
+export class ValidatedArchive {
+  readonly #bytes: Uint8Array;
+  readonly #limits: Required<ArchiveGuardrailLimits>;
+  readonly #entriesByName: ReadonlyMap<string, ZipEntry>;
+  readonly entries: readonly ZipEntry[];
 
-    yield* checkPathTraversal(entries);
-    yield* checkAbsolutePaths(entries);
-    yield* checkDuplicateEntries(entries);
-    yield* checkCompressionMethods(entries);
-    yield* checkEntryCount(entries, appliedLimits);
-    yield* checkDecompressedSize(entries, appliedLimits);
-    yield* checkCompressionRatio(entries, appliedLimits);
-    yield* checkMemberTopology(entries);
-    yield* checkSymlinks(archiveBytes, entries);
+  private constructor(
+    bytes: Uint8Array,
+    entries: readonly ZipEntry[],
+    limits: Required<ArchiveGuardrailLimits>,
+  ) {
+    this.#bytes = bytes;
+    this.#limits = Object.freeze(limits);
+    this.entries = Object.freeze(entries.map((entry) => Object.freeze({ ...entry })));
+    this.#entriesByName = new Map(this.entries.map((entry) => [entry.fileName, entry]));
+    Object.freeze(this);
+  }
 
-    return entries;
-  });
+  get byteLength(): number {
+    return this.#bytes.byteLength;
+  }
+
+  copyBytes(): Uint8Array {
+    return new Uint8Array(this.#bytes);
+  }
+
+  entry(fileName: string): ZipEntry | undefined {
+    return this.#entriesByName.get(fileName);
+  }
+
+  readEntry(fileName: string): Effect.Effect<Uint8Array, ArchiveGuardrailError> {
+    const entry = this.entry(fileName);
+    return entry === undefined
+      ? Effect.fail(malformed(`Entry "${fileName}" not found in archive.`, fileName))
+      : defaultReadEntry(this.#bytes, entry);
+  }
+
+  static validate(
+    input: Uint8Array | ValidatedArchive,
+    limits?: ArchiveGuardrailLimits,
+  ): Effect.Effect<ValidatedArchive, ArchiveGuardrailError> {
+    return Effect.suspend(() => {
+      const appliedLimits = { ...DEFAULT_LIMITS, ...limits };
+      if (input instanceof ValidatedArchive) {
+        if (
+          appliedLimits.maxEntries >= input.#limits.maxEntries &&
+          appliedLimits.maxDecompressedBytes >= input.#limits.maxDecompressedBytes &&
+          appliedLimits.maxCompressionRatio >= input.#limits.maxCompressionRatio
+        )
+          return Effect.succeed(input);
+        // A stronger policy can inspect admitted facts without parsing or
+        // decoding the immutable ZIP again. Never widen the original proof.
+        return Effect.gen(function* () {
+          yield* checkEntryCount(input.entries, appliedLimits);
+          yield* checkDecompressedSize(input.entries, appliedLimits);
+          yield* checkCompressionRatio(input.entries, appliedLimits);
+          return input;
+        }).pipe(Effect.withSpan("axm.archive.limits"));
+      }
+      return Effect.gen(function* () {
+        // Uint8Array(Buffer) also copies: Buffer.slice() would retain an alias.
+        const bytes = new Uint8Array(input);
+        const entries = yield* parseZipCentralDirectory(bytes);
+        yield* checkPathTraversal(entries);
+        yield* checkAbsolutePaths(entries);
+        yield* checkDuplicateEntries(entries);
+        yield* checkCompressionMethods(entries);
+        yield* checkEntryCount(entries, appliedLimits);
+        yield* checkDecompressedSize(entries, appliedLimits);
+        yield* checkCompressionRatio(entries, appliedLimits);
+        yield* checkMemberTopology(entries);
+        yield* checkSymlinks(bytes, entries);
+        yield* Effect.annotateCurrentSpan("axm.archive.entries", entries.length);
+        return new ValidatedArchive(bytes, entries, appliedLimits);
+      }).pipe(Effect.withSpan("axm.archive.admit"));
+    });
+  }
+}
+
+export const validateArchive = ValidatedArchive.validate;

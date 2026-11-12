@@ -33,6 +33,7 @@ import {
   protectCreatedAncestors,
   protectWorkspacePath,
   recordFootprint,
+  recordFilePublication,
   retireWorkspacePath,
   WorkspaceFileWriteLocks,
 } from "../settlement/index.js";
@@ -152,9 +153,13 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
             targetPath: target,
             content: contents,
             skipIfUnchanged: "ignore-read-errors",
+            onPublished: (publication) =>
+              recordFilePublication(
+                { path: target, change: existed ? "modified" : "created" },
+                publication,
+              ),
             mapError: (cause) => new NativeWriteRefused({ path: target, cause }),
           });
-          yield* recordFootprint({ path: target, change: existed ? "modified" : "created" });
         }),
       ),
     retire: (target) =>

@@ -46,8 +46,9 @@ import {
   checkForbiddenSourceEntries,
   enforceArchiveSizeLimit,
   normalizePublishInput,
-  validateArchive,
+  type ValidatedArchive,
 } from "@agentxm/extension-content";
+import { archiveSha256Hex } from "@agentxm/registry-protocol/unstable/registry";
 import { inspectKnowledgeBundle } from "@agentxm/extension-content/knowledge";
 import { RegistryClientFactory, RegistryContext } from "@agentxm/registry-client";
 import {
@@ -157,7 +158,8 @@ export interface UploadCandidate extends CandidateVersion {
   readonly publishOptions?: Schema.Schema.Type<typeof PublishOptionsSchema>;
   readonly fileSelection: import("@agentxm/workspace-kernel/acquisition").ResolvedFileSelection;
   readonly policyFingerprint: string;
-  readonly archive: Uint8Array;
+  readonly archive: ValidatedArchive;
+  readonly archiveSha256Hex: string;
   readonly archivePlan: ArchivePlan;
   readonly integrity: string;
   readonly backfill: boolean;
@@ -758,7 +760,7 @@ const envelopePattern = (value: string): string => {
   return `${negative ? "!" : ""}${rooted}`;
 };
 
-export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
+export const decodeCandidate = Effect.fn("axm.publish.prepare")(function* (
   selected: SelectedEntry,
   registry: TargetRegistry,
   backfillRequested: boolean,
@@ -974,12 +976,7 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   };
   // Guardrails run on the built bytes and only ever reject: the uploaded
   // archive is exactly the one these checks and the integrity digest saw.
-  const archiveEntries = yield* validateArchive(archive).pipe(
-    Effect.mapError((cause) =>
-      validation(`Archive validation failed for ${selected.fqn}: ${cause.message}`, { cause }),
-    ),
-  );
-  yield* checkForbiddenSourceEntries(archiveEntries).pipe(
+  yield* checkForbiddenSourceEntries(archive.entries).pipe(
     Effect.mapError((cause) =>
       validation(`Refusing to publish ${selected.fqn}: ${cause.message}`, {
         suggestions: [{ description: "Remove the unsafe entry from the extension directory." }],
@@ -987,12 +984,14 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       }),
     ),
   );
-  yield* Effect.fromResult(enforceArchiveSizeLimit(archive.length)).pipe(
+  yield* Effect.fromResult(enforceArchiveSizeLimit(archive.byteLength)).pipe(
     Effect.mapError((cause) =>
       validation(`Cannot publish ${selected.fqn}: ${cause.detail}`, { cause }),
     ),
   );
-  const integrity = sha512Integrity(archive);
+  const archiveBytes = archive.copyBytes();
+  const integrity = sha512Integrity(archiveBytes);
+  const archiveDigest = archiveSha256Hex(archiveBytes);
   yield* normalizePublishInput({
     declaredIdentity: {
       owner: selected.owner,
@@ -1001,7 +1000,7 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       version: manifest.version,
     },
     archive: {
-      archiveBytes: archive,
+      content: archive,
       archiveContentType: "application/zip",
       clientIntegrity: integrity,
     },
@@ -1022,6 +1021,7 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     fileSelection: plannedArchive.selection,
     policyFingerprint: plannedArchive.policyFingerprint,
     archive,
+    archiveSha256Hex: archiveDigest,
     archivePlan,
     integrity,
     backfill,

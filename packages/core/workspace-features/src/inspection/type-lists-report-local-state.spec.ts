@@ -15,7 +15,7 @@ import {
 import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace-kernel/reconciliation/live";
 import { StepFailureConversionTest } from "@agentxm/workspace-kernel/reconciliation/testing";
 import {
-  makeConfiguredReleaseAgeEvaluation,
+  makeConfiguredReleaseAgePolicy,
   resolveConfiguredSubagent,
 } from "@agentxm/workspace-kernel/resolution";
 import { writeLocalSubagentPackage } from "../testing/local-packages.js";
@@ -124,7 +124,7 @@ describe("Type-specific inventory", () => {
           const resolved = yield* resolveConfiguredSubagent(
             "planner",
             source,
-            yield* makeConfiguredReleaseAgeEvaluation(),
+            yield* makeConfiguredReleaseAgePolicy(),
           );
           const step = buildInstallOperation(manager, {
             ref: resolved.ref,

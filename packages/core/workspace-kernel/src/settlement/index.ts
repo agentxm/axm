@@ -63,6 +63,7 @@ export {
   makeFootprintRecorder,
   readFootprint,
   recordFootprint,
+  recordFilePublication,
   type FootprintObservation,
 } from "./footprint-recorder.js";
 

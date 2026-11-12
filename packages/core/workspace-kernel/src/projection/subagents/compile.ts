@@ -223,43 +223,47 @@ export const compileSubagentImplementation = (args: {
 };
 
 /** Bind selected runtime inputs while the candidate source tree is still alive. */
-export const prepareSubagentImplementation = Effect.fn("prepareSubagentImplementation")(
-  function* (args: {
-    readonly package: DecodedSubagentPackage;
-    readonly agentId: string;
-    readonly sourceRoot: string;
-    readonly retainedRoot: string;
-  }) {
-    const selected = selectSubagentImplementation(args.package, args.agentId);
-    if (
-      selected.kind === "unsupported" ||
-      (selected.kind === "native" && selected.native.format === "json")
-    )
-      return compileSubagentImplementation(args);
-    const path = yield* Path.Path;
-    return yield* bindSubagentResources({
-      agentId: args.agentId,
-      configuration:
-        selected.kind === "native" ? selected.native.configuration : selected.configuration,
-      body: selected.kind === "native" ? selected.native.instructions : selected.instructions,
-      ...(selected.kind === "native" && selected.native.format !== "json"
-        ? { native: { format: selected.native.format, content: selected.native.content } }
-        : {}),
-      base: selected.kind === "native" ? path.dirname(selected.source) : ".",
-      sourceRoot: args.sourceRoot,
-      retainedRoot: args.retainedRoot,
-    }).pipe(
-      Effect.map((resources) => compileSubagentImplementation({ ...args, resources })),
-      Effect.catchTag("PackageResourceInvalid", (error) =>
-        Effect.succeed({
-          _tag: "Unsupported",
-          mode: selected.kind === "core" ? "portable" : selected.kind,
-          reasonCode: "subagent-runtime-reference-unresolved",
-          reason: `${error.detail} (${error.reference})`,
-          sourceDependencies: selected.sourceDependencies,
-          resourceFailure: error,
-        } satisfies CompiledSubagentImplementation),
-      ),
+export const prepareSubagentImplementation = Effect.fn("axm.subagent.prepare")(function* (args: {
+  readonly package: DecodedSubagentPackage;
+  readonly agentId: string;
+  readonly sourceRoot: string;
+  readonly retainedRoot: string;
+}) {
+  const selected = selectSubagentImplementation(args.package, args.agentId);
+  if (
+    selected.kind === "unsupported" ||
+    (selected.kind === "native" && selected.native.format === "json")
+  )
+    return yield* Effect.sync(() => compileSubagentImplementation(args)).pipe(
+      Effect.withSpan("axm.subagent.compile"),
     );
-  },
-);
+  const path = yield* Path.Path;
+  return yield* bindSubagentResources({
+    agentId: args.agentId,
+    configuration:
+      selected.kind === "native" ? selected.native.configuration : selected.configuration,
+    body: selected.kind === "native" ? selected.native.instructions : selected.instructions,
+    ...(selected.kind === "native" && selected.native.format !== "json"
+      ? { native: { format: selected.native.format, content: selected.native.content } }
+      : {}),
+    base: selected.kind === "native" ? path.dirname(selected.source) : ".",
+    sourceRoot: args.sourceRoot,
+    retainedRoot: args.retainedRoot,
+  }).pipe(
+    Effect.flatMap((resources) =>
+      Effect.sync(() => compileSubagentImplementation({ ...args, resources })).pipe(
+        Effect.withSpan("axm.subagent.compile"),
+      ),
+    ),
+    Effect.catchTag("PackageResourceInvalid", (error) =>
+      Effect.succeed({
+        _tag: "Unsupported",
+        mode: selected.kind === "core" ? "portable" : selected.kind,
+        reasonCode: "subagent-runtime-reference-unresolved",
+        reason: `${error.detail} (${error.reference})`,
+        sourceDependencies: selected.sourceDependencies,
+        resourceFailure: error,
+      } satisfies CompiledSubagentImplementation),
+    ),
+  );
+});

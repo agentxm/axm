@@ -9,8 +9,13 @@ import * as Exit from "effect/Exit";
 import * as Schema from "effect/Schema";
 
 import { authScenarios } from "./auth-scenarios.js";
+import { scenarioEvidencePaths } from "./artifacts.js";
 import { applicationStateScenarios } from "./application-state-scenarios.js";
-import { benchmarkCoverageProblems, scenarioCoverageProblems } from "./coverage.js";
+import {
+  benchmarkCoverageProblems,
+  receiptIdentityProblems,
+  scenarioCoverageProblems,
+} from "./coverage.js";
 import { distributionScenarios } from "./distribution-scenarios.js";
 import { writeJson, type BenchmarkScenario } from "./fixtures.js";
 import {
@@ -110,10 +115,17 @@ const StoredReportSchema = Schema.Struct({
 });
 
 const hashText = (text: string): string => createHash("sha256").update(text).digest("hex");
-const readReport = async (file: string) =>
-  Schema.decodeUnknownSync(Schema.fromJsonString(StoredReportSchema))(
+const readReport = async (file: string) => {
+  const report = Schema.decodeUnknownSync(Schema.fromJsonString(StoredReportSchema))(
     await fs.readFile(file, "utf8"),
   );
+  const problems = receiptIdentityProblems(report, report.receipts);
+  if (problems.length > 0)
+    throw new Error(
+      `Report contains inconsistent receipt identities: ${file}\n${problems.join("\n")}`,
+    );
+  return report;
+};
 
 const runEvidence = async <A, E>(effect: Effect.Effect<A, E>, signal: AbortSignal): Promise<A> => {
   const exit = await Effect.runPromiseExit(effect, { signal });
@@ -325,10 +337,8 @@ export const runCliOperationBenchmark = (repoRoot: string, outputPath: string): 
               ))
           )
             continue;
-          const evidencePath = path.join(
-            "receipts",
-            `${hashText(scenario.id).slice(0, 20)}-${subject}.json`,
-          );
+          const evidencePaths = scenarioEvidencePaths(outputPath, scenario.id, subject);
+          const evidencePath = evidencePaths.receipt;
           const samples: BenchmarkSample[] = previous === undefined ? [] : [...previous.samples];
           let status: BenchmarkReceipt["status"] = "passed";
           try {
@@ -401,11 +411,7 @@ export const runCliOperationBenchmark = (repoRoot: string, outputPath: string): 
                   scenario,
                   repoRoot,
                   binary,
-                  path.join(
-                    path.dirname(outputPath),
-                    "traces",
-                    `${hashText(scenario.id).slice(0, 20)}-${subject}.txt`,
-                  ),
+                  path.join(path.dirname(outputPath), evidencePaths.trace),
                   subject,
                 ),
                 signal,

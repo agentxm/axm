@@ -41,8 +41,8 @@ and dependencies before invoking the targets below. Linux diagnostics also need
    SHA, a separate output path, and
    `AXM_OPERATIONS_COMPARE=/tmp/axm-comparison/baseline.json`. Omit the baseline
    binary and inventory overrides so the candidate uses its own outputs.
-6. Retain both reports, the `receipts/` and `traces/` directories, and
-   `comparison.json`. Review individual regressions and incomplete rows before
+6. Retain both reports, each report's `<report-filename>.evidence/` directory,
+   and `comparison.json`. Review individual regressions and incomplete rows before
    claiming the comparison is complete. Keep builds and unrelated verification
    processes out of the timed collection interval.
 
@@ -112,8 +112,10 @@ the process exit status remain the evidence for completion.
 
 `AXM_OPERATIONS_RESUME=1` reads an existing report at the output path and skips
 completed scenarios. Resume rejects a changed binary, source revision, host,
-protocol, or harness digest. It retries failed or missing diagnostics without
-repeating valid timing samples. An edited fixture requires new comparable
+protocol, or harness digest, and receipts whose identities do not match their
+enclosing report. Separate reports have separate receipt and trace directories;
+resuming the same report preserves its evidence paths. Resume retries failed or
+missing diagnostics without repeating valid timing samples. An edited fixture requires new comparable
 collection rather than relabeling old evidence.
 
 An unavailable diagnostic, a failed case, a missing mode, or incompatible

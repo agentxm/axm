@@ -120,6 +120,14 @@ export interface BenchmarkReceipt {
   readonly evidencePath: string;
 }
 
+export interface BenchmarkReportIdentity {
+  readonly subject: BenchmarkReceipt["subject"];
+  readonly revision: string;
+  readonly binarySha256: string;
+  readonly hostId: string;
+  readonly smoke: boolean;
+}
+
 export const BenchmarkReceiptSchema: Schema.Codec<BenchmarkReceipt> = Schema.Struct({
   scenarioId: Schema.String,
   operationId: Schema.String,

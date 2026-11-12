@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { isDeepStrictEqual } from "node:util";
+import * as Schema from "effect/Schema";
 import { fixtureArchive, startHttpRegistry } from "@agentxm/client-e2e-utils/registry";
+import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 import type { BenchmarkMode, BenchmarkOperation, ScenarioDimensions } from "./model.js";
 import { wrapPrepared, type PreparedExpectation } from "./verification.js";
 import {
@@ -434,7 +437,21 @@ const rootPreparer = (operation: BenchmarkOperation): ScenarioPreparer | undefin
           );
         await prepareAuthoredPackage(context, skill, "sample", operation.id !== "enable");
       }
-      if (mode.id === "staged") await initializeGit(context);
+      if (mode.id === "staged") {
+        await initializeGit(context);
+        const settingsPath = path.join(context.workspace, "axm.json");
+        await writeJson(settingsPath, {
+          ...(await readJsonObject(settingsPath)),
+          agents: "claude-code",
+        });
+        const workingTreeLint = await context.run(["lint", "--json", "--non-interactive"]);
+        if (workingTreeLint.exitCode === 0)
+          throw new Error(
+            "Staged fixture's invalid working tree unexpectedly passed ordinary lint",
+          );
+        assertOutput(workingTreeLint, "agents");
+        assertOutput(workingTreeLint, "axm.json");
+      }
       if (operation.id === "lint" && ["fix", "preview"].includes(mode.id))
         await fs.rm(path.join(context.workspace, "CLAUDE.md"), { force: true });
       const args =
@@ -1193,7 +1210,25 @@ const primaryExpectation = (
     };
   switch (operation.id) {
     case "setup":
-      return setting(["agents"], ["claude-code"]);
+      return {
+        artifacts: [
+          {
+            kind: "json",
+            path: "axm.json",
+            assertions: [
+              { at: ["agents"], equals: ["claude-code"] },
+              { at: ["skills", "axm", "source"], equals: "workspace" },
+              { at: ["skills", "axm", "origin"], equals: "bundled" },
+            ],
+          },
+          { kind: "text", path: "axm.lock", includes: ["version = 1"] },
+          {
+            kind: "text",
+            path: ".claude/skills/axm/SKILL.md",
+            includes: ["name: axm"],
+          },
+        ],
+      };
     case "sync":
       return {
         readonlyPaths: ["axm.json", "axm.lock", "skills", ".claude", "AGENTS.md", "CLAUDE.md"],
@@ -1267,6 +1302,21 @@ const primaryExpectation = (
     case "mcps adopt":
       return {
         artifacts: [
+          {
+            kind: "json",
+            path: "axm.json",
+            assertions: [
+              {
+                at: ["mcpServers", "native", "connection", "transport"],
+                equals: "streamable-http",
+              },
+              {
+                at: ["mcpServers", "native", "connection", "url"],
+                equals: "https://benchmark.invalid/mcp",
+              },
+              { at: ["mcpServers", "native", "agents"], absent: true },
+            ],
+          },
           {
             kind: "json",
             path: ".mcp.json",
@@ -1399,6 +1449,7 @@ const primaryExpectation = (
       return { noDurableChange: true, output: { includes: ["AGENTS.md"] } };
     case "instructions adopt":
       return {
+        readonlyPaths: ["axm.json", "AGENTS.md", "rules"],
         artifacts: [
           { kind: "text", path: "AGENTS.md", includes: ["Keep changes carefully focused."] },
         ],
@@ -1529,7 +1580,15 @@ const verifyNativeActivation = async (
         : undefined;
   if (
     nativePath !== undefined &&
-    (await exists(path.join(context.workspace, nativePath))) !== enabled
+    (enabled
+      ? !(await exists(path.join(context.workspace, nativePath)))
+      : await fs.lstat(path.join(context.workspace, nativePath)).then(
+          () => true,
+          (cause: unknown) => {
+            if (cause instanceof Error && "code" in cause && cause.code === "ENOENT") return false;
+            throw cause;
+          },
+        ))
   )
     throw new Error(`Native activation mismatch at ${nativePath}`);
   if (kind.type === "mcp-server") {
@@ -1562,12 +1621,41 @@ const verifyLocalPreparation = async (
   mode: BenchmarkMode,
   prepared: PreparedInvocation,
 ): Promise<PreparedInvocation> => {
+  const readLock = async () =>
+    Schema.decodeUnknownSync(LockfileSchema)(
+      parseLockfileToml(await fs.readFile(path.join(context.workspace, "axm.lock"), "utf8"))
+        .document,
+    );
+  let adoptedLock: unknown;
+  if (operation.id === "instructions adopt" && mode.id !== "preview") {
+    const before = await readLock();
+    const rules = before.projections?.rules;
+    const row = Object.entries(rules?.units ?? {}).find(([unit]) => unit === "AGENTS.md")?.[1];
+    const raw = await fs.readFile(path.join(context.workspace, "AGENTS.md"), "utf8");
+    const body = raw.split("<!-- axm:rules -->\n")[1]?.split("<!-- /axm:rules -->")[0];
+    if (rules === undefined || row?.gen === undefined || body === undefined)
+      throw new Error(
+        "Instruction adoption fixture lacks its existing projection and edited region",
+      );
+    const output = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    if (row.output === output)
+      throw new Error("Instruction adoption fixture already records the edited body");
+    adoptedLock = {
+      ...before,
+      projections: {
+        ...before.projections,
+        rules: { ...rules, units: { ...rules.units, "AGENTS.md": { ...row, output } } },
+      },
+    };
+  }
   const wrapped = await wrapPrepared(context, mode, prepared, primaryExpectation(operation, mode));
   return {
     ...wrapped,
     verify: async (result) => {
       await wrapped.verify(result);
       if (mode.id === "preview") return;
+      if (adoptedLock !== undefined && !isDeepStrictEqual(await readLock(), adoptedLock))
+        throw new Error("Instruction adoption did not update only the selected projection digest");
       if (
         operation.id === "list" &&
         ["outdated", "deprecated", "archived", "deprecated-archived"].includes(mode.id)

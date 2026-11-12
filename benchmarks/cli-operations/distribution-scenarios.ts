@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { deepStrictEqual } from "node:assert";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -62,6 +63,50 @@ const seedPackage = (
     version: "1.0.0",
     archive,
   });
+};
+
+const authoredFiles = async (directory: string): Promise<Readonly<Record<string, Buffer>>> => {
+  const files: Record<string, Buffer> = {};
+  const visit = async (relative: string): Promise<void> => {
+    for (const entry of await fs.readdir(path.join(directory, relative), { withFileTypes: true })) {
+      const name = relative === "" ? entry.name : `${relative}/${entry.name}`;
+      if (entry.isDirectory()) await visit(name);
+      else if (entry.isFile()) files[name] = await fs.readFile(path.join(directory, name));
+      else throw new Error(`Unexpected authored fixture entry: ${name}`);
+    }
+  };
+  await visit("");
+  return files;
+};
+
+const verifyPublishedFiles = (
+  registry: Awaited<ReturnType<typeof startDistributionRegistry>>,
+  kind: ExtensionKind,
+  name: string,
+  expected: Readonly<Record<string, Buffer>>,
+): void => {
+  const actual = registry.archiveEntries("@benchmark", kind.plural, name, "1.0.0");
+  deepStrictEqual(
+    Object.keys(actual)
+      .filter((file) => !file.endsWith("/"))
+      .sort(),
+    Object.keys(expected).sort(),
+    `Published member inventory differs for ${kind.plural}/${name}`,
+  );
+  for (const [file, expectedBytes] of Object.entries(expected)) {
+    const bytes = actual[file];
+    if (bytes === undefined) throw new Error(`Missing published member ${file}`);
+    if (file === kind.manifest) {
+      const decode = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
+      deepStrictEqual(
+        decode(new TextDecoder().decode(bytes)),
+        decode(expectedBytes.toString("utf8")),
+        `Published manifest differs for ${kind.plural}/${name}`,
+      );
+    } else if (!expectedBytes.equals(bytes)) {
+      throw new Error(`Published payload differs for ${kind.plural}/${name}/${file}`);
+    }
+  }
 };
 
 const publishScenario = (
@@ -135,6 +180,12 @@ const publishScenario = (
       }
       await fs.appendFile(path.join(source, "index.md"), `\n${links.join("\n")}\n`);
     }
+    const expectedPackages = await Promise.all(
+      (workload === "all-kinds" ? extensionKinds : [kind]).map(async (item) => ({
+        kind: item,
+        files: await authoredFiles(path.join(context.workspace, item.plural, benchmarkName)),
+      })),
+    );
     const registry = await startDistributionRegistry();
     try {
       await bindRegistry(context, registry.url);
@@ -162,8 +213,7 @@ const publishScenario = (
             )
               throw new Error("Publication did not produce the expected upload footprint");
             if (mode !== "preview") {
-              const expected = workload === "all-kinds" ? extensionKinds : [kind];
-              for (const item of expected) {
+              for (const { kind: item, files } of expectedPackages) {
                 if (
                   !registry.publishes.some(
                     (published) =>
@@ -176,6 +226,7 @@ const publishScenario = (
                 ) {
                   throw new Error(`Missing prepared artifact upload for ${identity(item)}`);
                 }
+                verifyPublishedFiles(registry, item, benchmarkName, files);
               }
             }
           },
@@ -406,6 +457,45 @@ const viewScenario = (
           expectedExitCode: 0,
           verify: (result) => {
             assertOutput(result, "1.0.0");
+            if (kind.type === "hook" && field === undefined) {
+              if (
+                !registry.requests.some(
+                  (request) =>
+                    request.method === "GET" &&
+                    request.status === 200 &&
+                    decodeURIComponent(request.path) ===
+                      `/v1/extensions/${identity(kind)}/1.0.0/archive`,
+                )
+              )
+                throw new Error("Hook view did not inspect its selected published archive");
+              if (mode === "json") {
+                const document = Schema.decodeUnknownSync(
+                  Schema.fromJsonString(
+                    Schema.Struct({
+                      result: Schema.Struct({
+                        hook: Schema.Struct({
+                          evidence: Schema.Literal("published-static-only"),
+                          manifest: Schema.Unknown,
+                        }),
+                      }),
+                    }),
+                  ),
+                )(result.stdout);
+                const manifest = packageFiles(kind, benchmarkName)[kind.manifest];
+                if (manifest === undefined)
+                  throw new Error("Missing authored Hook fixture manifest");
+                deepStrictEqual(
+                  document.result.hook.manifest,
+                  Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown))(manifest),
+                  "Hook view did not preserve published manifest facts",
+                );
+              } else {
+                assertOutput(result, "Published static facts");
+                assertOutput(result, "native (claude-code)");
+                assertOutput(result, "codex (codex)");
+                assertOutput(result, "SessionStart");
+              }
+            }
             if (target === "local-name") {
               assertOutput(result, identity(kind));
               if (
@@ -426,7 +516,8 @@ const viewScenario = (
         },
         {
           noDurableChange: true,
-          ...(target === "local-name" && mode === "json"
+          ...((target === "local-name" || (kind.type === "hook" && field === undefined)) &&
+          mode === "json"
             ? {
                 output: {
                   json: [
@@ -638,6 +729,8 @@ const dependencyPublication = (
       packs: { [benchmarkName]: { source: "workspace" } },
     });
     assertSuccessful(await context.run(["sync", "--json", "--non-interactive"]));
+    const expectedMember = await authoredFiles(path.join(context.workspace, "skills", "member"));
+    const expectedPack = await authoredFiles(path.join(context.workspace, "packs", benchmarkName));
     const registry = await startDistributionRegistry();
     try {
       await bindRegistry(context, registry.url);
@@ -671,6 +764,10 @@ const dependencyPublication = (
               throw new Error(`Unexpected dependency publication order: ${JSON.stringify(actual)}`);
             if (!registry.requests.some((request) => request.path === "/v1/publish-previews"))
               throw new Error("Pack publication did not reach admission");
+            if (output !== "preview") {
+              verifyPublishedFiles(registry, skillKind, "member", expectedMember);
+              verifyPublishedFiles(registry, pack, benchmarkName, expectedPack);
+            }
           },
           dispose: registry.close,
           metrics: registry.metrics,

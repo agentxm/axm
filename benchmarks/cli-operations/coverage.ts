@@ -1,6 +1,7 @@
 import type {
   BenchmarkOperation,
   BenchmarkReceipt,
+  BenchmarkReportIdentity,
   OperationAllocation,
   ScenarioDeclaration,
 } from "./model.js";
@@ -9,6 +10,23 @@ import { ScenarioDimensionsSchema } from "./model.js";
 import * as Schema from "effect/Schema";
 
 const key = (operationId: string, modeId: string): string => `${operationId} [${modeId}]`;
+
+/** A valid-looking receipt from another collection cannot inherit this report's identity. */
+export const receiptIdentityProblems = (
+  report: BenchmarkReportIdentity,
+  receipts: ReadonlyArray<BenchmarkReceipt>,
+): ReadonlyArray<string> => {
+  const problems: string[] = [];
+  const protocolId = report.smoke ? `${benchmarkProtocol.id}-smoke` : benchmarkProtocol.id;
+  for (const receipt of receipts) {
+    for (const field of ["subject", "revision", "binarySha256", "hostId"] as const)
+      if (receipt[field] !== report[field])
+        problems.push(`${receipt.scenarioId}: ${field} does not match report`);
+    if (receipt.protocolId !== protocolId)
+      problems.push(`${receipt.scenarioId}: protocolId does not match report`);
+  }
+  return problems;
+};
 
 export interface CoverageInput {
   readonly operations: ReadonlyArray<BenchmarkOperation>;

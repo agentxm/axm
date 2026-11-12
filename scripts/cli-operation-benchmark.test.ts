@@ -3,7 +3,9 @@ import {
   benchmarkCoverageProblems,
   allocationCoverageProblems,
   scenarioCoverageProblems,
+  receiptIdentityProblems,
 } from "../benchmarks/cli-operations/coverage.js";
+import { scenarioEvidencePaths } from "../benchmarks/cli-operations/artifacts.js";
 import {
   benchmarkOperations,
   compareCommandInventories,
@@ -100,6 +102,47 @@ const receipts: ReadonlyArray<BenchmarkReceipt> = scenarios.flatMap((scenario) =
 });
 
 describe("complete compiled CLI benchmark evidence", () => {
+  it("rejects valid-looking receipts whose identities differ from their enclosing report", () => {
+    const baseline = receipts.filter((receipt) => receipt.subject === "baseline");
+    const report = {
+      subject: "baseline",
+      revision: "a".repeat(40),
+      binarySha256: "a".repeat(64),
+      hostId: "test-host",
+      smoke: false,
+    } as const;
+    expect(receiptIdentityProblems(report, baseline)).toEqual([]);
+    for (const [field, value] of [
+      ["subject", "candidate"],
+      ["revision", "b".repeat(40)],
+      ["binarySha256", "b".repeat(64)],
+      ["hostId", "another-host"],
+      ["protocolId", `${benchmarkProtocol.id}-smoke`],
+    ] as const) {
+      const first = baseline[0];
+      if (first === undefined) throw new Error("Missing baseline fixture receipt");
+      expect(receiptIdentityProblems(report, [{ ...first, [field]: value }])).toContain(
+        `${first.scenarioId}: ${field} does not match report`,
+      );
+    }
+    expect(
+      receiptIdentityProblems(
+        { ...report, smoke: true },
+        baseline.map((receipt) => ({ ...receipt, protocolId: `${benchmarkProtocol.id}-smoke` })),
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps evidence distinct between reports while preserving same-report resume paths", () => {
+    const first = scenarioEvidencePaths("/results/baseline.json", "sync/default", "baseline");
+    const second = scenarioEvidencePaths("/results/recheck.json", "sync/default", "baseline");
+    expect(first.receipt).not.toEqual(second.receipt);
+    expect(first.trace).not.toEqual(second.trace);
+    expect(first).toEqual(
+      scenarioEvidencePaths("/results/baseline.json", "sync/default", "baseline"),
+    );
+  });
+
   it("requires a separate scenario and both results for a new route or mode", () => {
     expect(benchmarkCoverageProblems({ operations, scenarios, receipts })).toEqual([]);
     const first = snapshot.entries[0];

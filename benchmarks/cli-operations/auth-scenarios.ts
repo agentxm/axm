@@ -1,12 +1,15 @@
 import * as path from "node:path";
 import * as fs from "node:fs/promises";
 import { startDeviceAuthServer } from "@agentxm/client-e2e-utils/registry";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
   assertOutput,
   assertSuccessful,
   writeJson,
   type BenchmarkScenario,
+  type ProcessResult,
   type ScenarioContext,
 } from "./fixtures.js";
 
@@ -15,7 +18,213 @@ const tokenSecret = "axm_pat_disposable_benchmark";
 const tokenCreated = "2026-01-01T00:00:00.000Z";
 const tokenExpires = "2099-01-01T00:00:00.000Z";
 // Exercise restricted-file persistence in the disposable home, never a host keychain.
-const persistedAuthEnvironment = { CI: "", SSH_CONNECTION: "benchmark" };
+// Credential tier selection recognizes SSH_CLIENT/SSH_TTY, not SSH_CONNECTION.
+const persistedAuthEnvironment = { CI: "", SSH_CLIENT: "benchmark" };
+
+class AuthFixtureFailed extends Data.TaggedError("AuthFixtureFailed")<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
+
+const observe = <A>(message: string, action: () => Promise<A>) =>
+  Effect.tryPromise({ try: action, catch: (cause) => new AuthFixtureFailed({ message, cause }) });
+
+const credentialFile = (context: ScenarioContext) =>
+  path.join(context.home, ".config", "axm", "credentials.json");
+const pendingFile = (context: ScenarioContext) =>
+  path.join(context.home, ".axm", "pending-login.json");
+
+const absent = (file: string) =>
+  Effect.runPromise(
+    observe(`Could not inspect ${file}`, async () => {
+      try {
+        await fs.lstat(file);
+        return false;
+      } catch (cause) {
+        if (cause instanceof Error && "code" in cause && cause.code === "ENOENT") return true;
+        throw cause;
+      }
+    }).pipe(
+      Effect.flatMap((missing) =>
+        missing
+          ? Effect.void
+          : Effect.fail(new AuthFixtureFailed({ message: `Unexpected auth state: ${file}` })),
+      ),
+    ),
+  );
+
+const restrictedFile = (file: string) =>
+  Effect.gen(function* () {
+    const info = yield* observe(`Required local auth file is missing: ${file}`, () =>
+      fs.lstat(file),
+    );
+    if (!info.isFile())
+      return yield* new AuthFixtureFailed({
+        message: `Auth state is not a regular local file: ${file}`,
+      });
+    if (process.platform !== "win32" && (info.mode & 0o777) !== 0o600)
+      return yield* new AuthFixtureFailed({
+        message: `Auth file is not restricted to its owner: ${file}`,
+      });
+    return yield* observe(`Could not read local auth file: ${file}`, () =>
+      fs.readFile(file, "utf8"),
+    );
+  });
+
+const pendingSchema = Schema.Struct({
+  version: Schema.Literal(3),
+  registryUrl: Schema.String,
+  deviceCode: Schema.Literal("device-secret"),
+  userCode: Schema.Literal("ABCD-1234"),
+  verificationUri: Schema.String,
+  verificationUriComplete: Schema.String,
+  interval: Schema.Literal(1),
+  expiresAt: Schema.String,
+});
+
+const verifyPending = (context: ScenarioContext, registryUrl: string) =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const content = yield* restrictedFile(pendingFile(context));
+      const pending = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(pendingSchema))(
+        content,
+      );
+      if (
+        pending.registryUrl !== registryUrl ||
+        pending.verificationUri !== `${registryUrl}/device` ||
+        pending.verificationUriComplete !== `${registryUrl}/device?user_code=ABCD-1234` ||
+        !(Date.parse(pending.expiresAt) > Date.now())
+      )
+        return yield* new AuthFixtureFailed({
+          message: "Pending sign-in does not belong to the live fixture authorization",
+        });
+      return content;
+    }),
+  );
+
+const sessionSchema = Schema.Struct({
+  version: Schema.Literal(1),
+  registries: Schema.Record(
+    Schema.String,
+    Schema.Struct({
+      accounts: Schema.Record(
+        Schema.String,
+        Schema.Struct({
+          access_token: Schema.Literal("axm_ses_e2e"),
+          refresh_token: Schema.Literal("axm_ref_e2e"),
+          expires_at: Schema.String,
+          active: Schema.Literal(true),
+        }),
+      ),
+    }),
+  ),
+});
+
+const verifySession = (context: ScenarioContext, registryUrl: string) =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const content = yield* restrictedFile(credentialFile(context));
+      const file = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(sessionSchema))(content);
+      const accounts = file.registries[registryUrl]?.accounts;
+      if (
+        Object.keys(file.registries).length !== 1 ||
+        accounts === undefined ||
+        Object.keys(accounts).length !== 1 ||
+        accounts["@alice"]?.expires_at !== tokenExpires
+      )
+        return yield* new AuthFixtureFailed({
+          message: "Local credentials do not contain only the approved fixture session",
+        });
+      return content;
+    }),
+  );
+
+const loginDocument = Schema.Struct({
+  ok: Schema.Literal(true),
+  result: Schema.Struct({
+    status: Schema.String,
+    registryHost: Schema.String,
+    flow: Schema.optionalKey(Schema.String),
+    handle: Schema.optionalKey(Schema.String),
+    userCode: Schema.optionalKey(Schema.String),
+  }),
+});
+
+const verifyLoginJson = (
+  result: ProcessResult,
+  registryUrl: string,
+  status: "pending-human" | "logged-in" | "already-logged-in",
+  flow?: "started" | "re-emitted",
+) => {
+  assertSuccessful(result);
+  const document = Schema.decodeUnknownSync(Schema.fromJsonString(loginDocument))(result.stdout);
+  if (
+    document.result.status !== status ||
+    document.result.registryHost !== new URL(registryUrl).host ||
+    (flow !== undefined && document.result.flow !== flow) ||
+    (status === "pending-human"
+      ? document.result.userCode !== "ABCD-1234"
+      : document.result.handle !== "@alice")
+  )
+    throw new AuthFixtureFailed({
+      message: `Expected ${status}${flow === undefined ? "" : ` (${flow})`} from fixture login; observed ${document.result.status}`,
+    });
+};
+
+const prepareLogin = async (context: ScenarioContext, registryUrl: string, approved: boolean) => {
+  const result = await context.run(
+    [
+      "login",
+      "--device-code",
+      ...(approved ? ["--wait-for-human", "5"] : []),
+      "--json",
+      "--non-interactive",
+    ],
+    { env: persistedAuthEnvironment },
+  );
+  try {
+    verifyLoginJson(
+      result,
+      registryUrl,
+      approved ? "logged-in" : "pending-human",
+      approved ? undefined : "started",
+    );
+    if (approved) {
+      await verifySession(context, registryUrl);
+      await absent(pendingFile(context));
+    } else {
+      await verifyPending(context, registryUrl);
+      await absent(credentialFile(context));
+    }
+  } catch (cause) {
+    // The fixture issues only disposable credentials; preserve its process result for diagnosis.
+    throw new AuthFixtureFailed({
+      message: `Fixture login preparation did not establish ${approved ? "a local session" : "a pending authorization"}: ${String(cause)}\n${result.stdout}\n${result.stderr}`,
+      cause,
+    });
+  }
+};
+
+const requireRequest = (
+  requests: ReadonlyArray<{
+    readonly method: string;
+    readonly path: string;
+    readonly status: number;
+  }>,
+  method: string,
+  requestPath: string,
+  status: number,
+) => {
+  if (
+    !requests.some(
+      (request) =>
+        request.method === method && request.path === requestPath && request.status === status,
+    )
+  )
+    throw new AuthFixtureFailed({
+      message: `Auth fixture did not observe ${method} ${requestPath} returning ${status}`,
+    });
+};
 const createRequest = Schema.Struct({
   name: Schema.String,
   expiresIn: Schema.Number,
@@ -135,21 +344,9 @@ export const authScenarios = (): ReadonlyArray<BenchmarkScenario> => {
         prepare: async (context) => {
           const server = await authFixture(context, operationId !== "login");
           try {
-            if (operationId !== "login") {
-              assertSuccessful(
-                await context.run(
-                  [
-                    "login",
-                    "--device-code",
-                    "--wait-for-human",
-                    "5",
-                    "--json",
-                    "--non-interactive",
-                  ],
-                  { env: persistedAuthEnvironment },
-                ),
-              );
-            }
+            if (operationId !== "login") await prepareLogin(context, server.url, true);
+            const credentialsBefore =
+              operationId === "login" ? undefined : await verifySession(context, server.url);
             const requestsBefore = server.requests.length;
             const args = [
               ...operationId.split(" "),
@@ -164,7 +361,7 @@ export const authScenarios = (): ReadonlyArray<BenchmarkScenario> => {
               expectedExitCode: 0,
               dispose: server.close,
               metrics: () => ({ requests: server.requests.length - requestsBefore, userWaitMs: 0 }),
-              verify: (result) => {
+              verify: async (result) => {
                 assertSuccessful(result);
                 assertOutput(
                   result,
@@ -182,6 +379,46 @@ export const authScenarios = (): ReadonlyArray<BenchmarkScenario> => {
                 );
                 if (operationId === "token revoke" && server.tokens.has(tokenId))
                   throw new Error("Token was not revoked");
+                if (operationId === "login") {
+                  requireRequest(
+                    server.requests.slice(requestsBefore),
+                    "POST",
+                    "/v1/auth/device/code",
+                    200,
+                  );
+                  if (modeId === "json")
+                    verifyLoginJson(result, server.url, "pending-human", "started");
+                  await verifyPending(context, server.url);
+                  await absent(credentialFile(context));
+                } else if (operationId === "logout") {
+                  if (modeId === "json") {
+                    const loggedOut = Schema.decodeUnknownSync(
+                      Schema.fromJsonString(loginDocument),
+                    )(result.stdout);
+                    if (
+                      loggedOut.result.status !== "logged-out" ||
+                      loggedOut.result.registryHost !== new URL(server.url).host ||
+                      loggedOut.result.handle !== "@alice"
+                    )
+                      throw new AuthFixtureFailed({
+                        message: "Logout did not report the fixture session's completed revocation",
+                      });
+                  } else {
+                    assertOutput(result, `Logged out of ${new URL(server.url).host} as @alice.`);
+                  }
+                  requireRequest(
+                    server.requests.slice(requestsBefore),
+                    "POST",
+                    "/v1/auth/revoke",
+                    200,
+                  );
+                  await absent(credentialFile(context));
+                  await absent(pendingFile(context));
+                } else if ((await verifySession(context, server.url)) !== credentialsBefore) {
+                  throw new AuthFixtureFailed({
+                    message: "Authenticated query or token operation changed the saved session",
+                  });
+                }
               },
             };
           } catch (error) {
@@ -221,23 +458,12 @@ export const authScenarios = (): ReadonlyArray<BenchmarkScenario> => {
         description: `Device sign-in ${flow}; approval is controlled with no human wait`,
         prepare: async (context) => {
           const server = await authFixture(context, retained || flow === "approved-new");
-          const pendingFile = path.join(context.home, ".axm", "pending-login.json");
           try {
-            if (flow !== "approved-new") {
-              assertSuccessful(
-                await context.run(
-                  [
-                    "login",
-                    "--device-code",
-                    ...(retained ? ["--wait-for-human", "5"] : []),
-                    "--json",
-                    "--non-interactive",
-                  ],
-                  { env: persistedAuthEnvironment },
-                ),
-              );
-            }
-            const pendingBefore = pending ? await fs.readFile(pendingFile, "utf8") : undefined;
+            if (flow !== "approved-new") await prepareLogin(context, server.url, retained);
+            const pendingBefore = pending ? await verifyPending(context, server.url) : undefined;
+            const credentialsBefore = retained
+              ? await verifySession(context, server.url)
+              : undefined;
             if (flow === "approved-resume") server.setOutcome("approved");
             if (expired) server.setOutcome("expired");
             const requestsBefore = server.requests.length;
@@ -254,6 +480,33 @@ export const authScenarios = (): ReadonlyArray<BenchmarkScenario> => {
               dispose: server.close,
               metrics: () => ({ requests: server.requests.length - requestsBefore, userWaitMs: 0 }),
               verify: async (result) => {
+                const measuredRequests = server.requests.slice(requestsBefore);
+                if (expired && modeId === "json")
+                  Schema.decodeUnknownSync(
+                    Schema.fromJsonString(
+                      Schema.Struct({
+                        ok: Schema.Literal(false),
+                        code: Schema.Literal("auth_expired"),
+                      }),
+                    ),
+                  )(result.stdout);
+                if (!expired && modeId === "json")
+                  verifyLoginJson(
+                    result,
+                    server.url,
+                    pending ? "pending-human" : retained ? "already-logged-in" : "logged-in",
+                    pending ? "re-emitted" : undefined,
+                  );
+                if (!expired && !pending && !retained && modeId === "default")
+                  assertOutput(
+                    result,
+                    `Signed in to ${new URL(server.url).host} as alice@example.com`,
+                  );
+                if (retained && modeId === "default")
+                  assertOutput(
+                    result,
+                    `Already logged in to ${new URL(server.url).host} as @alice.`,
+                  );
                 assertOutput(
                   result,
                   pending
@@ -268,27 +521,42 @@ export const authScenarios = (): ReadonlyArray<BenchmarkScenario> => {
                 );
                 if (
                   flow !== "approved-new" &&
-                  server.requests
-                    .slice(requestsBefore)
-                    .some((request) => request.path === "/v1/auth/device/code")
+                  measuredRequests.some((request) => request.path === "/v1/auth/device/code")
                 )
                   throw new Error("Resuming sign-in created an unrelated device authorization");
                 if (pending) {
-                  if ((await fs.readFile(pendingFile, "utf8")) !== pendingBefore)
+                  if (measuredRequests.length !== 0)
+                    throw new AuthFixtureFailed({
+                      message: "Pending sign-in reuse unexpectedly contacted the Registry",
+                    });
+                  if ((await verifyPending(context, server.url)) !== pendingBefore)
                     throw new Error("Pending sign-in reuse changed its authorization");
+                  await absent(credentialFile(context));
                 } else {
+                  requireRequest(
+                    measuredRequests,
+                    retained ? "GET" : "POST",
+                    retained ? "/v1/auth/me" : "/v1/auth/token",
+                    expired ? 400 : 200,
+                  );
+                  if (flow === "approved-new")
+                    requireRequest(measuredRequests, "POST", "/v1/auth/device/code", 200);
+                  if (!expired && !retained)
+                    requireRequest(measuredRequests, "GET", "/v1/auth/me", 200);
                   if (
-                    await fs.stat(pendingFile).then(
-                      () => true,
-                      (error: unknown) => {
-                        if (error instanceof Error && "code" in error && error.code === "ENOENT")
-                          return false;
-                        throw error;
-                      },
-                    )
+                    retained &&
+                    measuredRequests.some((request) => request.path === "/v1/auth/token")
                   )
-                    throw new Error("Settled device authorization was not removed");
+                    throw new AuthFixtureFailed({
+                      message: "Retaining a current session requested new tokens",
+                    });
+                  await absent(pendingFile(context));
                   if (!expired) {
+                    const credentialsAfter = await verifySession(context, server.url);
+                    if (retained && credentialsAfter !== credentialsBefore)
+                      throw new AuthFixtureFailed({
+                        message: "Retaining a session changed its local credential file",
+                      });
                     const stored = await context.run(
                       ["token", "show", "--plain", "--non-interactive"],
                       { env: persistedAuthEnvironment },
@@ -296,7 +564,7 @@ export const authScenarios = (): ReadonlyArray<BenchmarkScenario> => {
                     assertSuccessful(stored);
                     if (stored.stdout !== "axm_ses_e2e\n")
                       throw new Error("Approved session was not persisted across processes");
-                  }
+                  } else await absent(credentialFile(context));
                 }
               },
             };

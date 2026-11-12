@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { benchmarkProcessEnvironment } from "../process-environment.js";
 import { deepStrictEqual } from "node:assert";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -639,7 +640,11 @@ const shareScenario = (mode: "default" | "json", ecosystem?: string): BenchmarkS
       ["tag", "v1.0.0"],
       ["remote", "add", "origin", pathToFileURL(context.workspace).href],
     ])
-      execFileSync("git", args, { cwd: context.workspace, stdio: "ignore" });
+      execFileSync("git", args, {
+        cwd: context.workspace,
+        env: benchmarkProcessEnvironment(context.home),
+        stdio: "ignore",
+      });
     return wrapPrepared(
       context,
       { id: mode, flags: mode === "json" ? ["--json"] : [] },

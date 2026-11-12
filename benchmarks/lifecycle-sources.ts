@@ -4,6 +4,7 @@ import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import * as net from "node:net";
 import * as path from "node:path";
+import { benchmarkProcessEnvironment } from "./process-environment.js";
 
 const owner = "@acme";
 
@@ -70,15 +71,12 @@ export const startGitFixture = async (
   const remote = path.join(root, "bench.git");
   fs.mkdirSync(source);
   initialize(source);
+  const environment = benchmarkProcessEnvironment(path.join(root, "git-author-home"));
   const git = (args: ReadonlyArray<string>, cwd = source): string =>
     execFileSync("git", args, {
       cwd,
       encoding: "utf8",
-      env: {
-        PATH: process.env["PATH"],
-        HOME: path.join(root, "git-author-home"),
-        GIT_CONFIG_NOSYSTEM: "1",
-      },
+      env: environment,
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
   fs.mkdirSync(path.join(root, "git-author-home"));
@@ -101,7 +99,7 @@ export const startGitFixture = async (
       `--port=${String(port)}`,
       root,
     ],
-    { stdio: ["ignore", "ignore", "pipe"] },
+    { env: environment, stdio: ["ignore", "ignore", "pipe"] },
   );
   try {
     await awaitGitDaemon(daemon);

@@ -147,6 +147,7 @@ const harnessDigest = async (repoRoot: string): Promise<string> => {
   files.push(
     "scripts/bench.ts",
     "benchmarks/lifecycle-sources.ts",
+    "benchmarks/process-environment.ts",
     "tools/e2e-utils/src/device-auth-server.ts",
     "tools/e2e-utils/src/http-registry-server.ts",
     "tools/e2e-utils/src/archive.ts",

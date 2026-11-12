@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
+import { benchmarkProcessEnvironment } from "../process-environment.js";
 import type {
   BenchmarkScenario,
   InvocationOptions,
@@ -20,23 +21,6 @@ export class BenchmarkScenarioFailure extends Data.TaggedError("BenchmarkScenari
   readonly cause?: unknown;
 }> {}
 
-/** Empty environment allowlist prevents ambient Registry/auth configuration leaking into a fixture. */
-export const scenarioEnvironment = (home: string): Readonly<Record<string, string>> => ({
-  PATH: process.env["PATH"] ?? "",
-  ...(process.env["SystemRoot"] === undefined ? {} : { SystemRoot: process.env["SystemRoot"] }),
-  HOME: home,
-  USERPROFILE: home,
-  AXM_USER_HOME: home,
-  XDG_CONFIG_HOME: path.join(home, ".config"),
-  XDG_CACHE_HOME: path.join(home, ".cache"),
-  XDG_DATA_HOME: path.join(home, ".local", "share"),
-  AXM_NO_UPDATE_CHECK: "1",
-  AXM_TELEMETRY: "0",
-  CI: "1",
-  NO_COLOR: "1",
-  TERM: "dumb",
-});
-
 /** Bun reports operating-system resource usage of the actual compiled child. */
 export const invokeCompiled = (
   binary: string,
@@ -52,7 +36,7 @@ export const invokeCompiled = (
         [...(options.processWrapper ?? []), options.binary ?? binary, ...args],
         {
           cwd: options.cwd ?? workspace,
-          env: { ...scenarioEnvironment(home), ...options.env },
+          env: { ...benchmarkProcessEnvironment(home), ...options.env },
           stdin: options.stdin === undefined ? "ignore" : new Blob([options.stdin]),
           stdout: "pipe",
           stderr: "pipe",

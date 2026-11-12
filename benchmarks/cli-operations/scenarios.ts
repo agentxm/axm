@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { benchmarkProcessEnvironment } from "../process-environment.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -53,7 +54,7 @@ const initializeGit = async (context: ScenarioContext): Promise<void> => {
       cwd: context.workspace,
       stdout: "pipe",
       stderr: "pipe",
-      env: { PATH: process.env["PATH"], HOME: context.home, GIT_CONFIG_NOSYSTEM: "1" },
+      env: benchmarkProcessEnvironment(context.home),
     });
     const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
     if (code !== 0) throw new Error(`Git fixture failed: ${stderr}`);

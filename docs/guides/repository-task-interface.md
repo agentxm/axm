@@ -3,17 +3,22 @@ type: Guide
 status: stable
 description: Local binding of the portable repository task-interface contract to AXM's Nx, pnpm, cache, release, and host execution surfaces.
 depends-on:
-  - ../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md
+  - https://github.com/agentxm/axm/blob/63c26504c7728b5a84d0eb96c55514277771aa5b/agent_extensions/registry.agentxm.ai/%40craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md
 ---
 
 # Repository task interface
 
 The
-[portable repository task-interface guide](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md)
+[portable repository task-interface guide](https://github.com/agentxm/axm/blob/63c26504c7728b5a84d0eb96c55514277771aa5b/agent_extensions/registry.agentxm.ai/%40craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md)
 is authoritative for task-interface semantics and conformance criteria. This
 document binds that guidance to AXM. It records repository-specific choices,
 host boundaries, and temporary gaps; it does not redefine the portable model.
 A local deviation is a gap with a retirement condition, not alternative policy.
+
+The portable guide is pinned to the accepted 2.2.0 snapshot in public repository
+history. The retired bundle is no longer installed; this reference preserves the
+existing contract without reintroducing that dependency. Rebinding to successor
+guidance requires reviewing its semantics and the conformance checks together.
 
 Resolved Nx configuration and executable checks own current behavior. Root
 instructions and contributor guides route here instead of copying this binding.

@@ -81,15 +81,10 @@ describe("repository task interface", () => {
     dependencies = graph.dependencies;
   });
 
-  it("uses the current portable guide as the sole semantic authority", () => {
-    const manifest = readObject(
-      "agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/knowledge.json",
-    );
-    expect(manifest["version"]).toBe("2.2.0");
-
+  it("pins the portable authority without requiring the retired bundle", () => {
     const binding = read("docs/guides/repository-task-interface.md");
     expect(binding).toContain(
-      "agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md",
+      "https://github.com/agentxm/axm/blob/63c26504c7728b5a84d0eb96c55514277771aa5b/agent_extensions/registry.agentxm.ai/%40craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md",
     );
     expect(read("AGENTS.md")).toContain("docs/guides/repository-task-interface.md");
 

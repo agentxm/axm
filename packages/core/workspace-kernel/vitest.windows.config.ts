@@ -16,6 +16,8 @@ export default defineConfig({
       "src/locations/**/*.test.ts",
       "src/locations/**/*.spec.ts",
       "src/settlement/authorities-refuse-overlapping-physical-boundaries.spec.ts",
+      "src/workspace-state/desired/settings/publication-interference.test.ts",
+      "src/projection/native-publication-interference.test.ts",
     ],
     setupFiles: [purposeSetupFile],
     testTimeout: 120_000,

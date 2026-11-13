@@ -157,23 +157,43 @@ export const writeFileAtomic = <E, PublicationError = never, R = never>(
           ? fs.writeFileString(tempPath, content, { mode: options.mode })
           : fs.writeFile(tempPath, content, { mode: options.mode })
       ).pipe(Effect.mapError(fail("write-temp")));
-      const info =
-        options.onPublished === undefined
-          ? undefined
-          : yield* fs.stat(tempPath).pipe(Effect.mapError(fail("write-temp")));
       yield* Effect.gen(function* () {
-        if (options.removeTargetBeforeRename === true) {
-          yield* fs.remove(targetPath).pipe(Effect.ignore);
-        }
-        yield* fs.rename(tempPath, targetPath).pipe(Effect.mapError(fail("rename")));
-        if (info !== undefined && options.onPublished !== undefined)
-          yield* options.onPublished({ info, content });
-      }).pipe(
-        Effect.withSpan("axm.publish.file", {
-          attributes: { "axm.publication.method": "replace", "axm.work.count": 1 },
-        }),
-        Effect.uninterruptible,
-      );
+        const file =
+          process.platform === "win32" && options.onPublished !== undefined
+            ? yield* fs.open(tempPath, { flag: "r" }).pipe(Effect.mapError(fail("write-temp")))
+            : undefined;
+        const info =
+          options.onPublished === undefined
+            ? undefined
+            : yield* (file === undefined ? fs.stat(tempPath) : file.stat).pipe(
+                Effect.mapError(fail("write-temp")),
+              );
+        yield* Effect.gen(function* () {
+          if (options.removeTargetBeforeRename === true) {
+            yield* fs.remove(targetPath).pipe(Effect.ignore);
+          }
+          yield* fs.rename(tempPath, targetPath).pipe(Effect.mapError(fail("rename")));
+          if (info !== undefined && options.onPublished !== undefined) {
+            // Windows can tunnel the destination's former creation time onto a
+            // renamed file. Refresh only that timestamp through the retained
+            // staged handle; a target-path stat could adopt a foreign replacement.
+            // https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/fltkernel/nf-fltkernel-fltgettunneledname
+            const published =
+              file === undefined
+                ? info
+                : {
+                    ...info,
+                    birthtime: (yield* file.stat.pipe(Effect.mapError(fail("rename")))).birthtime,
+                  };
+            yield* options.onPublished({ info: published, content });
+          }
+        }).pipe(
+          Effect.withSpan("axm.publish.file", {
+            attributes: { "axm.publication.method": "replace", "axm.work.count": 1 },
+          }),
+          Effect.uninterruptible,
+        );
+      }).pipe(Effect.scoped);
     }).pipe(Effect.ensuring(fs.remove(tempPath, { force: true }).pipe(Effect.ignore)));
     return "written" as const;
   });

@@ -26,6 +26,8 @@ const program = Effect.gen(function* () {
   const output = path.resolve(
     process.env["AXM_NETWORK_OUTPUT"] ?? "test-results/benchmarks/registry-network.json",
   );
+  const operationFilter = process.env["AXM_NETWORK_OPERATION"];
+  const profileFilter = process.env["AXM_NETWORK_PROFILE"];
   const repetitions = Number(process.env["AXM_NETWORK_REPETITIONS"] ?? 3);
   const sizes = (process.env["AXM_NETWORK_SIZES"] ?? "10").split(",").map(Number);
   if (
@@ -40,7 +42,12 @@ const program = Effect.gen(function* () {
     });
   }
   // Never pair a fresh timing run with receipts left by an older invocation.
-  if (fs.existsSync(output) || fs.existsSync(`${output}.receipts`)) {
+  if (
+    fs.existsSync(output) ||
+    fs.existsSync(`${output}.receipts`) ||
+    fs.existsSync(`${output}.invocations`) ||
+    fs.existsSync(`${output}.failure.json`)
+  ) {
     return yield* new BenchmarkError({
       message:
         "Benchmark output or receipts already exist; choose an unused AXM_NETWORK_OUTPUT path.",
@@ -63,6 +70,8 @@ const program = Effect.gen(function* () {
     host: { platform: os.platform(), arch: os.arch(), release: os.release() },
     repetitions,
     sizes,
+    operationFilter: operationFilter ?? null,
+    profileFilter: profileFilter ?? null,
     archiveBodyDelayMs: 100,
     upstream: "synthetic loopback Registry",
     cacheMeaning:
@@ -70,9 +79,12 @@ const program = Effect.gen(function* () {
   };
   const save = (complete: boolean) =>
     fs.writeFileSync(output, `${JSON.stringify({ ...provenance, complete, samples }, null, 2)}\n`);
+  let invocationCount = 0;
   const invoke = (workspace: string, home: string, args: ReadonlyArray<string>, receipt?: string) =>
     Effect.tryPromise({
       try: async (signal) => {
+        const invocation = path.join(`${output}.invocations`, String(invocationCount++));
+        fs.mkdirSync(invocation, { recursive: true });
         const started = performance.now();
         const child = Bun.spawn([binary, ...args, "--json", "--non-interactive"], {
           cwd: workspace,
@@ -100,12 +112,20 @@ const program = Effect.gen(function* () {
             new Response(child.stdout).text(),
             new Response(child.stderr).text(),
           ]);
+          const durationMs = performance.now() - started;
+          fs.writeFileSync(path.join(invocation, "stdout.txt"), stdout);
+          fs.writeFileSync(path.join(invocation, "stderr.txt"), stderr);
+          fs.writeFileSync(
+            path.join(invocation, "result.json"),
+            `${JSON.stringify({ args, workspace, exitCode, durationMs, receipt }, null, 2)}\n`,
+          );
           if (exitCode !== 0)
             throw new BenchmarkError({
-              message: `${args.join(" ")} failed (${exitCode}): ${stderr.slice(0, 1500)} ${stdout.slice(0, 1500)}`,
+              message: `${args.join(" ")} failed (${exitCode}); full output retained at ${invocation}.`,
             });
           return {
-            durationMs: performance.now() - started,
+            durationMs,
+            invocation,
             exitCode,
             trace:
               receipt === undefined
@@ -215,14 +235,23 @@ const program = Effect.gen(function* () {
           { operation: "sync-noop", args: ["sync"], source: installed, cache: warmOne },
           { operation: "update", args: ["update"], source: installed, cache: warmBoth },
         ];
+        const selectedCases = cases.filter(
+          (scenario) => operationFilter === undefined || scenario.operation === operationFilter,
+        );
+        const profiles = (["baseline", "typical", "slow"] as const).filter(
+          (profile) => profileFilter === undefined || profile === profileFilter,
+        );
+        if (selectedCases.length === 0 || profiles.length === 0)
+          return yield* new BenchmarkError({
+            message: "AXM_NETWORK_OPERATION or AXM_NETWORK_PROFILE selects no diagnostic cases.",
+          });
         for (let repeat = 0; repeat <= repetitions; repeat += 1) {
           const traced = repeat === repetitions;
-          const profiles = ["baseline", "typical", "slow"] as const;
           for (let offset = 0; offset < profiles.length; offset += 1) {
             const selected = profiles[(repeat + offset) % profiles.length];
             if (selected === undefined) continue;
             const configured = yield* profile(selected);
-            for (const scenario of cases)
+            for (const scenario of selectedCases)
               for (const cacheState of ["cold", "warm"]) {
                 const id = `${count}-${selected}-${scenario.operation}-${cacheState}-${repeat}`;
                 const sampleRoot = path.join(root, id);
@@ -234,7 +263,16 @@ const program = Effect.gen(function* () {
                 if (cacheState === "cold") clearCache(sampleHome);
                 const receipt = traced ? path.join(`${output}.receipts`, `${id}.json`) : undefined;
                 registry.reset(true);
-                const result = yield* invoke(workspace, sampleHome, scenario.args, receipt);
+                const result = yield* invoke(workspace, sampleHome, scenario.args, receipt).pipe(
+                  Effect.tapError(() =>
+                    Effect.sync(() =>
+                      fs.writeFileSync(
+                        `${output}.failure.json`,
+                        `${JSON.stringify({ id, requests: registry.metrics(), timeline: registry.timeline() }, null, 2)}\n`,
+                      ),
+                    ),
+                  ),
+                );
                 samples.push({
                   id,
                   count,

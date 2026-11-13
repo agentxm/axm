@@ -27,6 +27,10 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
+import * as Ref from "effect/Ref";
+import * as Scope from "effect/Scope";
+import * as Fiber from "effect/Fiber";
+import { makeLiveRegistryReadPhase, type RegistryReadPhaseService } from "./read-phase.js";
 import type * as HttpClient from "effect/http/HttpClient";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import {
@@ -41,7 +45,7 @@ import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import { makeRegistryLifecycleClient, type RegistryLifecycleClient } from "./admin-client.js";
 import { requireHttpRegistryEndpoint } from "./capabilities.js";
-import type { RegistryOperationUnsupported, RegistryRequestFailed } from "./errors.js";
+import { RegistryRequestFailed, type RegistryOperationUnsupported } from "./errors.js";
 import type { RegistryRequestPolicy } from "./request-policy.js";
 import {
   RegistryHttpClient,
@@ -52,6 +56,8 @@ import {
 } from "./registry-transport.js";
 
 export interface RegistryClientFactoryService {
+  /** A fresh metadata observation phase, including nested calls made by the effect. */
+  readonly withReadPhase: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
   readonly authorityContext: (
     endpoint: RegistryEndpoint,
   ) => Effect.Effect<RegistryAuthorityContext, RegistryRequestFailed>;
@@ -111,7 +117,7 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
     const transport = (endpoint: HttpRegistryEndpoint) =>
       services.authorization.authorize(endpoint, registryWire(endpoint, services.httpClient));
 
-    const forEndpoint: RegistryClientFactoryService["forEndpoint"] = (endpoint, options) =>
+    const rawForEndpoint: RegistryClientFactoryService["forEndpoint"] = (endpoint, options) =>
       Effect.gen(function* () {
         if (!isHttpRegistryEndpoint(endpoint)) {
           return createLocalRegistryClient(
@@ -130,11 +136,95 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
         );
       });
 
+    const authorityContext: RegistryClientFactoryService["authorityContext"] = (endpoint) =>
+      isHttpRegistryEndpoint(endpoint)
+        ? services.authorization.currentContext(endpoint)
+        : Effect.succeed(fileAuthority);
+    // Explicit policy overrides have independent budgets and therefore cannot
+    // borrow requests executed under another client's policy.
+    const policies = new Map<string, RegistryRequestPolicy>();
+    const policyIds = new WeakMap<RegistryRequestPolicy, string>();
+    const currentPhase = ServiceMap.Reference<RegistryReadPhaseService | undefined>(
+      `@agentxm/registry-client/read-phase/${randomUUID()}`,
+      { defaultValue: () => undefined },
+    );
+    const withReadPhase: RegistryClientFactoryService["withReadPhase"] = (effect) =>
+      Effect.acquireUseRelease(
+        Scope.make(),
+        (scope) =>
+          Effect.gen(function* () {
+            const open = yield* Ref.make(true);
+            const phase = yield* makeLiveRegistryReadPhase(
+              authorityContext,
+              (endpoint, policy) => {
+                const requestPolicy = policies.get(policy);
+                return rawForEndpoint(
+                  endpoint,
+                  requestPolicy === undefined ? undefined : { requestPolicy },
+                );
+              },
+              scope,
+            );
+            yield* Scope.addFinalizer(scope, Effect.andThen(Ref.set(open, false), phase.clear));
+            const guarded: RegistryReadPhaseService = {
+              clear: phase.clear,
+              get: (endpoint, args, policy) =>
+                Effect.gen(function* () {
+                  if (!(yield* Ref.get(open)))
+                    return yield* new RegistryRequestFailed({
+                      category: "conflict",
+                      detail: "Registry metadata read phase has ended.",
+                    });
+                  return yield* Effect.acquireUseRelease(
+                    Effect.forkIn(phase.get(endpoint, args, policy), scope),
+                    Fiber.join,
+                    Fiber.interrupt,
+                  );
+                }),
+            };
+            return yield* Effect.provideService(effect, currentPhase, guarded);
+          }),
+        (scope, exit) => Scope.close(scope, exit),
+      );
+    const forEndpoint: RegistryClientFactoryService["forEndpoint"] = (endpoint, options) =>
+      Effect.gen(function* () {
+        const client = yield* rawForEndpoint(endpoint, options);
+        let policy = "default";
+        if (options?.requestPolicy !== undefined) {
+          const existing = policyIds.get(options.requestPolicy);
+          policy = existing ?? randomUUID();
+          policyIds.set(options.requestPolicy, policy);
+          policies.set(policy, options.requestPolicy);
+        }
+        const getExtensionIndex: RegistryClient["getExtensionIndex"] = (args) => {
+          const read = Effect.flatMap(currentPhase, (phase) =>
+            phase === undefined
+              ? withReadPhase(
+                  Effect.flatMap(currentPhase, (active) =>
+                    active === undefined
+                      ? Effect.die("Registry read phase was not installed")
+                      : active.get(endpoint, args, policy),
+                  ),
+                )
+              : phase.get(endpoint, args, policy),
+          );
+          return read.pipe(
+            Effect.mapError((error) =>
+              error._tag === "ConfigError"
+                ? new RegistryRequestFailed({
+                    category: "internal",
+                    detail: "Registry client configuration is unavailable.",
+                  })
+                : error,
+            ),
+          );
+        };
+        return { ...client, getExtensionIndex } satisfies RegistryClient;
+      });
+
     return {
-      authorityContext: (endpoint) =>
-        isHttpRegistryEndpoint(endpoint)
-          ? services.authorization.currentContext(endpoint)
-          : Effect.succeed(fileAuthority),
+      authorityContext,
+      withReadPhase,
       forEndpoint,
       lifecycle: (endpoint, operation) =>
         Effect.map(requireHttpRegistryEndpoint(endpoint, "lifecycle", operation), (http) =>
@@ -169,3 +259,9 @@ export const RegistryClientFactoryLive: Layer.Layer<
     });
   }),
 );
+
+/** Start a fresh shared metadata observation at a feature boundary. */
+export const withRegistryReadPhase = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R | RegistryClientFactory> =>
+  Effect.flatMap(RegistryClientFactory, (factory) => factory.withReadPhase(effect));

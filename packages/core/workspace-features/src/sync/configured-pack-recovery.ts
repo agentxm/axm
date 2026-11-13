@@ -1,3 +1,4 @@
+import { withRegistryReadPhase } from "@agentxm/registry-client";
 /**
  * Restore missing configured Pack content without changing accepted choices.
  *
@@ -47,7 +48,6 @@ import {
   selectPackGraph,
 } from "@agentxm/extension-kinds/packs";
 import { acceptedResolutionIncompatibleText } from "@agentxm/workspace-kernel/projection";
-import { withPackRegistryIndexMemo } from "@agentxm/workspace-kernel/sources";
 import {
   acceptedCanonicalObservation,
   acceptedLockedResolutionRef,
@@ -439,4 +439,4 @@ export const collectConfiguredPackRecovery = (args: {
             },
       steps: recovered.flatMap(({ steps }): ReadonlyArray<RecoveryStep> => steps),
     };
-  }).pipe(withPackRegistryIndexMemo);
+  }).pipe(withRegistryReadPhase);

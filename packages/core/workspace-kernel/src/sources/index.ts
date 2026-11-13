@@ -70,7 +70,6 @@ export {
   type ResolvedExtensionPackage,
 } from "./package-sources.js";
 export { discoverConventionRefs, pluginMcpPackageName } from "./providers/convention-discovery.js";
-export { withPackRegistryIndexMemo } from "./providers/registry/index-memo.js";
 
 // Locator utilities
 

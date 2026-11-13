@@ -623,3 +623,5 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
     },
   };
 };
+
+export { makeRegistryReadPhase } from "./read-phase.js";

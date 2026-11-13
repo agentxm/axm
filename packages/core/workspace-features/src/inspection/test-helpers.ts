@@ -24,6 +24,7 @@ export const RegistryClientFactoryTestLive = (
     const client = makeStubRegistryClient(indices);
     return {
       authorityContext: () => Effect.die("Unexpected Registry authority lookup"),
+      withReadPhase: (effect) => effect,
       forEndpoint: () => Effect.succeed(client),
       lifecycle: () => Effect.die("Inspection never manages a Registry's lifecycle"),
       wire: () => Effect.die("Inspection never authenticates with a Registry"),

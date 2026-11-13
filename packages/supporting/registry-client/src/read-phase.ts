@@ -9,28 +9,27 @@ import * as ServiceMap from "effect/Context";
 import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import type * as Scope from "effect/Scope";
+import * as Fiber from "effect/Fiber";
 import * as MutableHashMap from "effect/MutableHashMap";
 import * as Exit from "effect/Exit";
 import * as Result from "effect/Result";
 import * as Request from "effect/Request";
 import * as RequestResolver from "effect/RequestResolver";
 
-import {
-  RegistryClientFactory,
-  type RegistryAuthorityContext,
-  RegistryRequestFailed,
-  type GetExtensionIndexArgs,
-  type RegistryClientFailure,
-} from "@agentxm/registry-client";
+import type { RegistryAuthorityContext } from "./registry-transport.js";
+import { RegistryRequestFailed, type RegistryClientFailure } from "./errors.js";
+import type { RegistryClient, GetExtensionIndexArgs } from "./client.js";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import * as Option from "effect/Option";
 
 /** Planning can inspect the same identity under several independent constraints. */
-const MAX_PACK_INDEX_MEMO_ENTRIES = 256;
+const MAX_METADATA_ENTRIES = 256;
 
 /** Diagnostic state belongs to the requester that actually starts a cache lookup. */
 const CurrentRegistryIndexRequest = ServiceMap.Reference<{ executed: boolean } | undefined>(
-  "@agentxm/workspace-kernel/sources/registry-index-memo/CurrentRegistryIndexRequest",
+  "@agentxm/registry-client/read-phase/CurrentRegistryIndexRequest",
   { defaultValue: () => undefined },
 );
 
@@ -38,6 +37,7 @@ class RegistryIndexKey extends Data.Class<
   GetExtensionIndexArgs & {
     readonly location: string;
     readonly authority: RegistryAuthorityContext;
+    readonly policy: string;
   }
 > {}
 
@@ -47,31 +47,28 @@ interface RegistryIndexRequest extends Request.Request<
 > {
   readonly _tag: "RegistryIndexRequest";
   readonly key: RegistryIndexKey;
+  readonly abandoned: Deferred.Deferred<void>;
 }
 
 const RegistryIndexRequest = Request.tagged<RegistryIndexRequest>("RegistryIndexRequest");
 
-export interface RegistryIndexMemoService {
+export interface RegistryReadPhaseService {
+  readonly clear: Effect.Effect<void>;
   readonly get: (
     endpoint: RegistryEndpoint,
     args: GetExtensionIndexArgs,
+    policy?: string,
   ) => Effect.Effect<Option.Option<ExtensionIndex>, RegistryClientFailure | Config.ConfigError>;
 }
 
-/** Provided for one pack-planning phase; no result survives that phase. */
-export class RegistryIndexMemo extends ServiceMap.Service<
-  RegistryIndexMemo,
-  RegistryIndexMemoService
->()("@agentxm/workspace-kernel/sources/registry-index-memo/RegistryIndexMemo") {}
-
-export const makeRegistryIndexMemo = <R>(
+export const makeRegistryReadPhase = <R>(
   authorityContext: (
     endpoint: RegistryEndpoint,
   ) => Effect.Effect<RegistryAuthorityContext, RegistryClientFailure>,
   lookup: (
     key: RegistryIndexKey,
   ) => Effect.Effect<Option.Option<ExtensionIndex>, RegistryClientFailure | Config.ConfigError, R>,
-): Effect.Effect<RegistryIndexMemoService, never, R> =>
+): Effect.Effect<RegistryReadPhaseService, never, R> =>
   Cache.makeWith(
     (key: RegistryIndexKey) => {
       const work = lookup(key);
@@ -82,18 +79,24 @@ export const makeRegistryIndexMemo = <R>(
       });
     },
     {
-      capacity: MAX_PACK_INDEX_MEMO_ENTRIES,
+      capacity: MAX_METADATA_ENTRIES,
       timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
     },
   ).pipe(
     Effect.map(
       (cache) =>
         ({
-          get: (endpoint, args) =>
+          clear: Cache.invalidateAll(cache),
+          get: (endpoint, args, policy = "default") =>
             Effect.gen(function* () {
               for (let attempt = 0; attempt < 3; attempt += 1) {
                 const authority = yield* authorityContext(endpoint);
-                const key = new RegistryIndexKey({ location: endpoint.href, authority, ...args });
+                const key = new RegistryIndexKey({
+                  location: endpoint.href,
+                  authority,
+                  policy,
+                  ...args,
+                });
                 const result = yield* Effect.result(
                   Effect.gen(function* () {
                     // This cache retains only successful results indefinitely. Failed
@@ -146,23 +149,28 @@ export const makeRegistryIndexMemo = <R>(
                 detail: "Registry credentials changed repeatedly during metadata selection.",
               });
             }),
-        }) satisfies RegistryIndexMemoService,
+        }) satisfies RegistryReadPhaseService,
     ),
   );
 
-export const makeLiveRegistryIndexMemo = (): Effect.Effect<
-  RegistryIndexMemoService,
-  never,
-  RegistryClientFactory
-> =>
+export const makeLiveRegistryReadPhase = (
+  authorityContext: (
+    endpoint: RegistryEndpoint,
+  ) => Effect.Effect<RegistryAuthorityContext, RegistryClientFailure>,
+  forEndpoint: (
+    endpoint: RegistryEndpoint,
+    policy: string,
+  ) => Effect.Effect<RegistryClient, Config.ConfigError>,
+  scope: Scope.Scope,
+): Effect.Effect<RegistryReadPhaseService> =>
   Effect.gen(function* () {
-    const registryClients = yield* RegistryClientFactory;
     const resolver = RequestResolver.makeWith<RegistryIndexRequest>({
       batchKey: ({ request }) =>
         JSON.stringify([
           request.key.location,
           request.key.authority.id,
           request.key.authority.generation,
+          request.key.policy,
         ]),
       delay: Effect.yieldNow,
       collectWhile: (entries) => entries.size < 100,
@@ -180,7 +188,7 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
                 detail: endpoint.failure.message,
               });
             }
-            const client = yield* registryClients.forEndpoint(endpoint.success);
+            const client = yield* forEndpoint(endpoint.success, first.policy);
             return yield* client.selectMany(
               entries.map(({ request }) => ({
                 owner: request.key.owner,
@@ -189,7 +197,15 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
               })),
             );
           });
-          const result = yield* Effect.exit(run);
+          // RequestResolver releases its pending batch before transport starts.
+          // Own running-batch cancellation explicitly: a shared exchange remains
+          // useful until every cache lookup in this batch has been abandoned.
+          const allAbandoned = Effect.all(
+            entries.map(({ request }) => Deferred.await(request.abandoned)),
+            // At most 100 in-memory signals, bounded by collectWhile above.
+            { concurrency: entries.length },
+          ).pipe(Effect.andThen(Effect.interrupt));
+          const result = yield* Effect.exit(Effect.raceFirst(run, allAbandoned));
           if (Exit.isFailure(result)) yield* Effect.annotateCurrentSpan("axm.outcome", "failure");
           for (const [index, entry] of entries.entries()) {
             if (Exit.isFailure(result)) {
@@ -210,16 +226,18 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
                   : Exit.succeed(value.success),
             );
           }
-        }).pipe(Effect.withSpan("axm.registry.metadata-batch")),
+        }).pipe(
+          Effect.withSpan("axm.registry.metadata-batch"),
+          Effect.forkIn(scope),
+          Effect.flatMap(Fiber.join),
+        ),
     });
-    return yield* makeRegistryIndexMemo(registryClients.authorityContext, (key) =>
-      Effect.request(RegistryIndexRequest({ key }), resolver),
+    return yield* makeRegistryReadPhase(authorityContext, (key) =>
+      Effect.gen(function* () {
+        const abandoned = yield* Deferred.make<void>();
+        return yield* Effect.request(RegistryIndexRequest({ key, abandoned }), resolver).pipe(
+          Effect.onInterrupt(() => Deferred.succeed(abandoned, undefined)),
+        );
+      }),
     );
   });
-
-export const withPackRegistryIndexMemo = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R | RegistryClientFactory> =>
-  Effect.flatMap(makeLiveRegistryIndexMemo(), (memo) =>
-    Effect.provideService(effect, RegistryIndexMemo, memo),
-  );

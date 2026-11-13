@@ -19,7 +19,7 @@ import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/t
 import { extensionName, exactVersion, handle, makeTestAxmSkillGate } from "../../test-helpers.js";
 import { RegistryResolutionPolicyTest } from "../../testing.js";
 import { createRemoteRegistrySourceHostProvider } from "./host-provider.js";
-import { RegistryIndexMemo, makeRegistryIndexMemo } from "./index-memo.js";
+import { makeRegistryReadPhase } from "@agentxm/registry-client/testing";
 
 export const specification = defineSpecification({
   requirement: "workspace/pack-member-index-is-shared-without-sharing-selection",
@@ -86,11 +86,10 @@ describe("Shared Registry index for pack planning", () => {
       const client = yield* factory.forEndpoint(
         decodeRegistryEndpointSync("file:///tmp/axm-unused-index-provider"),
       );
-      const provider = createRemoteRegistrySourceHostProvider(client);
       const started = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
       let reads = 0;
-      const memo = yield* makeRegistryIndexMemo(
+      const memo = yield* makeRegistryReadPhase(
         () => Effect.succeed(new RegistryAuthorityContext({ id: "test-authority", generation: 0 })),
         () =>
           Effect.gen(function* () {
@@ -100,13 +99,22 @@ describe("Shared Registry index for pack planning", () => {
             return Option.some(index);
           }),
       );
-      const first = yield* provider
-        .resolveNamed(source, options("^1.0.0"))
-        .pipe(Effect.provideService(RegistryIndexMemo, memo), Effect.forkChild);
+      const provider = createRemoteRegistrySourceHostProvider({
+        ...client,
+        getExtensionIndex: (args) =>
+          memo
+            .get(source.location, args)
+            .pipe(
+              Effect.mapError((error) =>
+                error._tag === "ConfigError"
+                  ? new RegistryOperationFailed({ category: "internal", detail: String(error) })
+                  : error,
+              ),
+            ),
+      });
+      const first = yield* provider.resolveNamed(source, options("^1.0.0")).pipe(Effect.forkChild);
       yield* Deferred.await(started);
-      const second = yield* provider
-        .resolveNamed(source, options("^2.0.0"))
-        .pipe(Effect.provideService(RegistryIndexMemo, memo), Effect.forkChild);
+      const second = yield* provider.resolveNamed(source, options("^2.0.0")).pipe(Effect.forkChild);
       yield* Effect.yieldNow;
       yield* Deferred.succeed(release, undefined);
       const results = [yield* Fiber.join(first), yield* Fiber.join(second)];
@@ -130,7 +138,7 @@ describe("Shared Registry index for pack planning", () => {
   it.effect("retries a transient index failure within the planning phase", () =>
     Effect.gen(function* () {
       let reads = 0;
-      const memo = yield* makeRegistryIndexMemo(
+      const memo = yield* makeRegistryReadPhase(
         () => Effect.succeed(new RegistryAuthorityContext({ id: "test-authority", generation: 0 })),
         () => {
           reads += 1;

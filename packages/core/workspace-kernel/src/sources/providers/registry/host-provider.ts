@@ -30,7 +30,6 @@ import {
   type RegistryClient,
   type RegistryExtensionManifest,
   type GetExtensionPackageArgs,
-  type GetExtensionIndexArgs,
   type GetExtensionsByOwnerArgs,
 } from "@agentxm/registry-client";
 import {
@@ -74,7 +73,6 @@ import type {
 } from "@agentxm/extension-model/unstable/sources/types";
 import { makeThrottledUnitProgress } from "../../../operations/index.js";
 import { extractExternalArchive } from "../../../acquisition/index.js";
-import { RegistryIndexMemo } from "./index-memo.js";
 type RegistryProviderRequirements =
   | FileSystem.FileSystem
   | Path.Path
@@ -197,17 +195,6 @@ const entryForVersion = (
     onSome: Effect.succeed,
   });
 
-const readRegistryIndex = (
-  client: RegistryClient,
-  source: RegistrySource,
-  args: GetExtensionIndexArgs,
-) =>
-  Effect.serviceOption(RegistryIndexMemo).pipe(
-    Effect.flatMap((memo) =>
-      Option.isSome(memo) ? memo.value.get(source.location, args) : client.getExtensionIndex(args),
-    ),
-  );
-
 const probeAxmSkillCompatibility = Effect.fnUntraced(function* (
   client: RegistryClient,
   source: RegistrySource,
@@ -290,7 +277,7 @@ const resolveNamedFromClient = Effect.fnUntraced(function* (
   RegistryProviderRequirements
 > {
   const policy = yield* RegistryResolutionPolicy;
-  const indexOption = yield* readRegistryIndex(client, source, {
+  const indexOption = yield* client.getExtensionIndex({
     owner: options.owner,
     type: options.type,
     name: decodeExtensionNameSync(options.name),
@@ -490,20 +477,22 @@ const findWithVersionRange = (
                   Effect.flatMap((decodedName) =>
                     Option.isNone(decodedName)
                       ? Effect.succeed(Option.none<RegistryExtensionManifest>())
-                      : readRegistryIndex(client, source, {
-                          owner,
-                          type,
-                          name: decodedName.value,
-                        }).pipe(
-                          Effect.flatMap((indexOption) =>
-                            Option.match(indexOption, {
-                              onNone: () =>
-                                Effect.succeed(Option.none<RegistryExtensionManifest>()),
-                              onSome: (index) =>
-                                Effect.succeed(manifestFromIndex(index, options.versionRange)),
-                            }),
+                      : client
+                          .getExtensionIndex({
+                            owner,
+                            type,
+                            name: decodedName.value,
+                          })
+                          .pipe(
+                            Effect.flatMap((indexOption) =>
+                              Option.match(indexOption, {
+                                onNone: () =>
+                                  Effect.succeed(Option.none<RegistryExtensionManifest>()),
+                                onSome: (index) =>
+                                  Effect.succeed(manifestFromIndex(index, options.versionRange)),
+                              }),
+                            ),
                           ),
-                        ),
                   ),
                 ),
               { concurrency: 1 },

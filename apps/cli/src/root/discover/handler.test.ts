@@ -38,6 +38,7 @@ const companion = (name: string, official: boolean, attestedBy: ReadonlyArray<st
 const stubFactoryLayer = (respond: () => DiscoverPackagesResponse | undefined) =>
   Layer.succeed(RegistryClientFactory, {
     authorityContext: () => Effect.die("Unexpected Registry authority lookup"),
+    withReadPhase: (effect) => effect,
     forEndpoint: () => Effect.succeed(makeStubClient(respond)),
     lifecycle: () => Effect.die("Discover manages no lifecycle"),
     wire: () => Effect.die("Discover authenticates nothing"),

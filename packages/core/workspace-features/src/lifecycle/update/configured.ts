@@ -1,3 +1,4 @@
+import { withRegistryReadPhase } from "@agentxm/registry-client";
 /**
  * The configured-entry sweep an update performs.
  *
@@ -108,7 +109,6 @@ import {
   SourceHostProviders,
   WorkspaceCatalog,
   listRemoteRefs,
-  withPackRegistryIndexMemo,
 } from "@agentxm/workspace-kernel/sources";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
@@ -1202,7 +1202,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
         ],
       }),
     };
-  }).pipe(withPackRegistryIndexMemo);
+  }).pipe(withRegistryReadPhase);
 
 // Total over every entry type: a missing key is a compile error, so a type can
 // never again be silently dropped from workspace update.

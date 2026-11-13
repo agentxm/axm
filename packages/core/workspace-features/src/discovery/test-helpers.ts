@@ -23,6 +23,7 @@ export const registryFactoryForClient = (
   observeLocation: (location: string) => void = () => undefined,
 ): RegistryClientFactoryService => ({
   authorityContext: () => Effect.die("Unexpected Registry authority lookup"),
+  withReadPhase: (effect) => effect,
   forEndpoint: (endpoint) =>
     Effect.sync(() => {
       observeLocation(endpoint.href);

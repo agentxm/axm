@@ -1,5 +1,9 @@
-import { RegistryAuthorityContext } from "@agentxm/registry-client";
-import { withDetailedWork, workObservations } from "../../../locations/testing.js";
+import { RegistryAuthorityContext } from "./index.js";
+import {
+  CurrentWorkObserver,
+  type WorkFact,
+  type WorkObserver,
+} from "@agentxm/host-primitives/work-observation";
 import { expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -8,10 +12,10 @@ import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Scheduler from "effect/Scheduler";
 import * as Tracer from "effect/Tracer";
-import { RegistryOperationFailed } from "@agentxm/registry-client";
-import { testRegistryEndpoint } from "@agentxm/registry-client/testing";
-import { extensionName, handle } from "../../test-helpers.js";
-import { makeRegistryIndexMemo } from "./index-memo.js";
+import { RegistryOperationFailed } from "./index.js";
+import { testRegistryEndpoint } from "./testing.js";
+import { extensionName, handle } from "./test-helpers.js";
+import { makeRegistryReadPhase } from "./read-phase.js";
 
 for (const detail of [false, true]) {
   it.effect(
@@ -21,7 +25,7 @@ for (const detail of [false, true]) {
         const observations = workObservations(detail);
         let lookups = 0;
         const results = yield* Effect.gen(function* () {
-          const memo = yield* makeRegistryIndexMemo(
+          const memo = yield* makeRegistryReadPhase(
             () =>
               Effect.succeed(new RegistryAuthorityContext({ id: "test-authority", generation: 0 })),
             () =>
@@ -82,7 +86,7 @@ it.effect(
       let lookups = 0;
       let failures = 0;
       yield* Effect.gen(function* () {
-        const memo = yield* makeRegistryIndexMemo(
+        const memo = yield* makeRegistryReadPhase(
           () =>
             Effect.succeed(new RegistryAuthorityContext({ id: "test-authority", generation: 0 })),
           () =>
@@ -109,7 +113,7 @@ it.effect(
         expect(yield* Fiber.join(first)).toEqual(Option.none());
         expect(yield* Fiber.join(second)).toEqual(Option.none());
         expect(yield* get).toEqual(Option.none());
-        const failing = yield* makeRegistryIndexMemo(
+        const failing = yield* makeRegistryReadPhase(
           () =>
             Effect.succeed(new RegistryAuthorityContext({ id: "test-authority", generation: 0 })),
           () =>
@@ -145,3 +149,23 @@ it.effect(
       expect(JSON.stringify(requests.map((span) => [...span.attributes]))).not.toContain("private");
     }).pipe(Effect.scoped),
 );
+
+/** Owner-local observations; independent fixtures still determine the expected work. */
+const workObservations = (detail: boolean) => {
+  const facts: WorkFact[] = [];
+  const observer: WorkObserver = {
+    record: (fact) => {
+      facts.push(fact);
+    },
+    detailSelected: () => detail,
+  };
+  const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.provideService(effect, CurrentWorkObserver, observer);
+  return { facts, observer, provide };
+};
+
+/** Explicitly select detail when a test verifies real span lifetime or attributes. */
+const withDetailedWork =
+  (tracer: Tracer.Tracer) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(workObservations(true).provide, Effect.withTracer(tracer));

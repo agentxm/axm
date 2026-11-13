@@ -2,10 +2,10 @@ import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
-import { RegistryAuthorityContext, RegistryRequestFailed } from "@agentxm/registry-client";
-import { testRegistryEndpoint } from "@agentxm/registry-client/testing";
-import { extensionName, handle } from "../../test-helpers.js";
-import { makeRegistryIndexMemo } from "./index-memo.js";
+import { RegistryAuthorityContext, RegistryRequestFailed } from "./index.js";
+import { testRegistryEndpoint } from "./testing.js";
+import { extensionName, handle } from "./test-helpers.js";
+import { makeRegistryReadPhase } from "./read-phase.js";
 
 const identity = { owner: handle("@acme"), type: "skill" as const, name: extensionName("member") };
 const authority = (id: string, generation: number) =>
@@ -15,7 +15,7 @@ it.effect("shares only within the same authority identity and generation", () =>
   Effect.gen(function* () {
     const context = yield* Ref.make(authority("first", 0));
     let reads = 0;
-    const memo = yield* makeRegistryIndexMemo(
+    const memo = yield* makeRegistryReadPhase(
       () => Ref.get(context),
       () =>
         Effect.sync(() => {
@@ -41,7 +41,7 @@ it.effect(
     Effect.gen(function* () {
       const context = yield* Ref.make(authority("first", 0));
       const generations: number[] = [];
-      const memo = yield* makeRegistryIndexMemo(
+      const memo = yield* makeRegistryReadPhase(
         () => Ref.get(context),
         (key) =>
           Effect.gen(function* () {
@@ -60,7 +60,7 @@ it.effect("fails closed on unreadable credentials even with a cached result", ()
   Effect.gen(function* () {
     const readable = yield* Ref.make(true);
     let reads = 0;
-    const memo = yield* makeRegistryIndexMemo(
+    const memo = yield* makeRegistryReadPhase(
       () =>
         Ref.get(readable).pipe(
           Effect.flatMap((value) =>
@@ -90,7 +90,7 @@ it.effect("bounds retries when credentials keep changing during selection", () =
   Effect.gen(function* () {
     const context = yield* Ref.make(authority("first", 0));
     let reads = 0;
-    const memo = yield* makeRegistryIndexMemo(
+    const memo = yield* makeRegistryReadPhase(
       () => Ref.get(context),
       (key) =>
         Effect.gen(function* () {

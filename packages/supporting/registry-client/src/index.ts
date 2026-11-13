@@ -88,6 +88,7 @@ export { formatDeprecationWarning } from "./deprecation-warning.js";
 
 export {
   makeRegistryClientFactory,
+  withRegistryReadPhase,
   RegistryClientFactory,
   RegistryClientFactoryLive,
   type RegistryClientFactoryService,

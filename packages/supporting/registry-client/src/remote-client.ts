@@ -1,4 +1,5 @@
 import { RegistryRequestAttempt } from "./request-attempt.js";
+import { computeIntegrity } from "@agentxm/host-primitives";
 // @effect-diagnostics anyUnknownInErrorContext:off — generated HTTP response errors are translated to typed registry failures by this registry adapter
 /**
  * Remote HTTPS registry client.
@@ -1051,7 +1052,23 @@ export const createRemoteRegistryClient = (
       },
     );
     const archive = yield* archiveCache === undefined
-      ? fetchArchive
+      ? fetchArchive.pipe(
+          Effect.flatMap((bytes) =>
+            computeIntegrity(bytes).pipe(
+              Effect.flatMap((actual) =>
+                actual === selected.integrity
+                  ? Effect.succeed(bytes)
+                  : Effect.fail(
+                      new RegistryOperationFailed({
+                        category: "validation",
+                        detail:
+                          "Downloaded registry archive did not match its published integrity.",
+                      }),
+                    ),
+              ),
+            ),
+          ),
+        )
       : archiveCache.load(
           JSON.stringify([
             baseUrl,

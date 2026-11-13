@@ -6,6 +6,7 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { NativeWriteAuthorityPermissive } from "@agentxm/workspace-kernel/agent-adapters/testing";
 import { FootprintRecorderTest } from "@agentxm/workspace-kernel/planning/testing";
 import { recordFootprint } from "@agentxm/workspace-kernel/settlement";
@@ -407,16 +408,6 @@ describe("installMcpServer", () => {
     const extDir = path.join(registryRoot, "extensions", owner, "mcps", name);
     fs.mkdirSync(extDir, { recursive: true });
 
-    // Create index.json
-    fs.writeFileSync(
-      path.join(extDir, "index.json"),
-      JSON.stringify({
-        name,
-        type: "mcp-server",
-        versions: { [version]: { version, published: new Date().toISOString(), integrity: "" } },
-      }),
-    );
-
     // Create a simple zip archive containing a file
     const archiveSourceDir = path.join(tmpDir, "archive-source");
     fs.mkdirSync(archiveSourceDir, { recursive: true });
@@ -445,6 +436,19 @@ describe("installMcpServer", () => {
     );
     const archivePath = path.join(extDir, `${version}.zip`);
     execSync(`cd "${archiveSourceDir}" && zip -r "${archivePath}" .`);
+    const integrity = `sha512-${createHash("sha512").update(fs.readFileSync(archivePath)).digest("base64")}`;
+    fs.writeFileSync(
+      path.join(extDir, "index.json"),
+      JSON.stringify({
+        owner,
+        name,
+        type: "mcp-server",
+        publisherBindingId: "hbnd_test",
+        archival: null,
+        deprecation: null,
+        versions: [{ version, published: "2026-11-13T12:00:00Z", integrity }],
+      }),
+    );
 
     return { registryRoot, archivePath };
   };
@@ -634,7 +638,7 @@ describe("installMcpServer", () => {
   });
 
   describe("registry install — empty integrity without canonical", () => {
-    it.effect("fetches without validation when canonical does not exist", () =>
+    it.effect("selects and admits current registry content when canonical does not exist", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         const { registryRoot } = setupLocalRegistry();
@@ -780,7 +784,7 @@ describe("installMcpServer", () => {
   });
 
   describe("non-empty integrity validation", () => {
-    it.effect("fails when integrity does not match", () =>
+    it.effect("refuses materialization when accepted integrity disagrees with the registry", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
         const { registryRoot } = setupLocalRegistry();
@@ -797,7 +801,10 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         if (result.result === "error") {
-          expect(result.error).toMatchObject({ _tag: "ArchiveIntegrityMismatch" });
+          expect(result.error).toMatchObject({
+            _tag: "RegistryOperationFailed",
+            category: "conflict",
+          });
         }
       }),
     );

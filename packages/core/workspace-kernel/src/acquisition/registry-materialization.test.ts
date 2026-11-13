@@ -47,6 +47,24 @@ describe("Registry package payload fidelity", () => {
         "src/empty/": new Uint8Array(),
       });
       yield* fs.writeFile(path.join(registry.root, archivePath), archive);
+      yield* fs.writeFileString(
+        path.join(registry.root, path.dirname(archivePath), "index.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+          publisherBindingId: "hbnd_test",
+          archival: null,
+          deprecation: null,
+          versions: [
+            {
+              version: "1.0.0",
+              published: "2026-11-13T12:00:00Z",
+              integrity: sha512Integrity(archive),
+            },
+          ],
+        }),
+      );
       const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "axm-registry-payload-" });
       const destinationPath = path.join(baseDir, "package");
       const result = yield* materializeRegistryPackageWithTreeIntegrity({

@@ -22,7 +22,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, layer } from "@effect/vitest";
 
-import { computeIntegrity } from "@agentxm/host-primitives";
+import { computeIntegrity, sha512Integrity } from "@agentxm/host-primitives";
 import type {
   ExtensionIndex,
   VersionEntry,
@@ -1744,7 +1744,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                     {
                       version: "1.0.0",
                       published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
-                      integrity: "sha512-AAAA==",
+                      integrity: sha512Integrity(new Uint8Array([0x50, 0x4b])),
                     },
                   ],
                 }),

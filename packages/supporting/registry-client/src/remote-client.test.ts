@@ -6,6 +6,7 @@
  * schema decode errors, and the full publish error mapping table.
  */
 
+import { createHash } from "node:crypto";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
@@ -132,6 +133,8 @@ const runFailure = <A>(effect: Effect.Effect<A, RegistryClientFailure>) => Effec
 /**
  * Standard extension index response body.
  */
+const archiveIntegrity = (bytes: Uint8Array) =>
+  `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
 const extensionIndexResponse = {
   name: "test-skill",
   owner: "@acme",
@@ -147,7 +150,7 @@ const extensionIndexResponse = {
     {
       version: "1.0.0",
       published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
-      integrity: "sha512-abc123",
+      integrity: archiveIntegrity(new Uint8Array([0x50, 0x4b, 0x03, 0x04])),
       dependencies: {},
       packages: [{ purl: "pkg:npm/react" }],
     },
@@ -975,6 +978,22 @@ describe("validateExtensionAccessBatch", () => {
 });
 
 describe("getExtensionPackage", () => {
+  it.effect("rejects corrupt downloaded bytes when no archive cache is configured", () =>
+    Effect.gen(function* () {
+      const httpClient = makeArchiveHttpClient((request) =>
+        request.url.endsWith("/archive")
+          ? new Response(new Uint8Array([9, 9, 9]), { status: 200 })
+          : new Response(JSON.stringify(extensionIndexResponse), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+      const failure = yield* runFailure(client.getExtensionPackage(makePackageArgs()));
+      expect(failure).toMatchObject({
+        _tag: "RegistryOperationFailed",
+        category: "validation",
+        detail: "Downloaded registry archive did not match its published integrity.",
+      });
+    }),
+  );
   it.effect("validates a warm exact archive outside the first metadata history page", () =>
     Effect.gen(function* () {
       const cachedArchive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
@@ -1132,7 +1151,7 @@ describe("getExtensionPackage", () => {
             ...makeIndexArgs(),
             exact: {
               version: exactVersion("1.0.0"),
-              integrity: "sha512-selected",
+              integrity: archiveIntegrity(retriedBody),
               publisherBindingId: "hbnd_test",
             },
             onProgress: (progress) =>
@@ -1194,7 +1213,7 @@ describe("getExtensionPackage", () => {
           ...makeIndexArgs(),
           exact: {
             version: exactVersion("1.0.0"),
-            integrity: "sha512-selected",
+            integrity: archiveIntegrity(archive),
             publisherBindingId: "hbnd_test",
           },
         })

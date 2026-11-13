@@ -15,18 +15,20 @@ interface Options {
 /** The report contains captured document hashes and gaps, never credentials or raw stdout. */
 export default class WireCoverageReporter implements Reporter {
   private nameFiltered = false;
-  private completeSuite = false;
+  private suiteSelected = false;
+  private shard: Vitest["config"]["shard"];
   constructor(private readonly options: Options) {}
 
-  onInit(context: Vitest): void {
+  onInit(context: { readonly config: Pick<Vitest["config"], "testNamePattern" | "shard"> }): void {
     this.nameFiltered = context.config.testNamePattern !== undefined;
+    this.shard = context.config.shard;
   }
 
-  onTestRunStart(specifications: ReadonlyArray<TestSpecification>): void {
+  onTestRunStart(specifications: ReadonlyArray<Pick<TestSpecification, "moduleId">>): void {
     fs.rmSync(this.options.output, { force: true });
     fs.rmSync(this.options.directory, { recursive: true, force: true });
     const selected = new Set(specifications.map((specification) => specification.moduleId));
-    this.completeSuite =
+    this.suiteSelected =
       !this.nameFiltered && this.options.suiteFiles.every((file) => selected.has(file));
   }
 
@@ -60,9 +62,12 @@ export default class WireCoverageReporter implements Reporter {
       witnesses,
     );
     const schemaHashes = [...new Set(registers.map((entry) => entry.schemaSha256))];
+    // Vitest supplies the full selected file list before its sequencer applies sharding.
+    const completeSuite =
+      this.suiteSelected && (this.shard === undefined || this.shard.count === 1);
     const enforceComplete =
       this.options.requireComplete === "1" ||
-      (this.options.requireComplete !== "0" && this.completeSuite);
+      (this.options.requireComplete !== "0" && completeSuite);
     const gaps = [
       ...coverage.missingResults,
       ...coverage.missingVariants,
@@ -73,13 +78,17 @@ export default class WireCoverageReporter implements Reporter {
     const report = {
       ...coverage,
       testRun: reason,
-      completeSuite: this.completeSuite,
+      completeSuite,
+      suiteSelected: this.suiteSelected,
+      shard: this.shard ?? null,
       enforced: enforceComplete,
       complete: reason === "passed" && gaps.length === 0 && schemaHashes.length === 1,
       schemaHashes,
       artifacts: [...new Set(registers.map((entry) => entry.artifact))],
       validatedDocuments: receipts.filter((entry) => entry.schemaSha256 !== undefined).length,
+      registers,
       receipts,
+      witnesses,
     };
     fs.mkdirSync(path.dirname(this.options.output), { recursive: true });
     fs.writeFileSync(this.options.output, `${JSON.stringify(report, null, 2)}\n`);

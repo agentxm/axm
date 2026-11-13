@@ -50,6 +50,18 @@
       ],
       "outputs": ["{workspaceRoot}/test-results/cli-e2e"]
     },
+    "verify-wire-coverage": {
+      "metadata": {
+        "description": "Validate the complete CLI wire matrix from downloaded shard reports: <artifact-directory> <expected-shards>. No CLI build or execution."
+      },
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun --conditions=axm-source src/test-support/verify-wire-coverage.ts",
+        "cwd": "apps/cli-e2e",
+        "forwardAllArgs": true
+      }
+    },
     "e2e-windows": {
       "cache": false,
       "dependsOn": ["cli:build"],

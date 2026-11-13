@@ -670,6 +670,15 @@ esac
     expect(e2e).toContain("needs.classify.outputs.head");
     expect(JSON.stringify(jobs["verify-pr"])).toContain("--exclude=cli-e2e");
     expect(jobs).not.toHaveProperty("verify-main-hosted");
+    const required = JSON.stringify(jobs["required"]);
+    expect(required).toContain("cli-e2e:verify-wire-coverage");
+    expect(required).toContain("steps.wire-setup.outcome == 'success'");
+    expect(required.indexOf("Collect partition evidence")).toBeLessThan(
+      required.indexOf("Require complete combined CLI wire evidence"),
+    );
+    expect(required.indexOf("Require complete combined CLI wire evidence")).toBeLessThan(
+      required.indexOf("Retain combined verification evidence"),
+    );
   });
 
   it("reports fixture setup and cleanup failures together", async () => {

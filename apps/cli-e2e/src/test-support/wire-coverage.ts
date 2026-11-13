@@ -1,4 +1,11 @@
-import type { WireReceipt, WireRoute } from "./wire-contracts.js";
+import * as Schema from "effect/Schema";
+import {
+  WireReceiptSchema,
+  WireRegisterSchema,
+  WireWitnessSchema,
+  type WireReceipt,
+  type WireRoute,
+} from "./wire-contracts.js";
 
 /** Frozen before running the redesigned CLI; discovery also detects new unlisted adapters/modes. */
 const REQUIRED_WIRE_RESULTS = [
@@ -134,5 +141,86 @@ export const wireCoverage = (
       ),
     ].sort(),
     externalDocuments: receipts.filter((entry) => entry.document === "external"),
+  };
+};
+
+/** Original observations and selection scope; claimed coverage fields are deliberately not inputs. */
+export const WireRunEvidenceSchema = Schema.Struct({
+  testRun: Schema.Literals(["passed", "failed", "interrupted"]),
+  suiteSelected: Schema.Boolean,
+  shard: Schema.NullOr(Schema.Struct({ index: Schema.Number, count: Schema.Number })),
+  registers: Schema.Array(WireRegisterSchema),
+  receipts: Schema.Array(WireReceiptSchema),
+  witnesses: Schema.Array(WireWitnessSchema),
+});
+export type WireRunEvidence = typeof WireRunEvidenceSchema.Type;
+
+/** Recompute one complete matrix from all independently recorded partitions. */
+export const aggregateWireCoverage = (
+  runs: ReadonlyArray<WireRunEvidence>,
+  expectedShards: number,
+) => {
+  const issues: string[] = [];
+  if (!Number.isInteger(expectedShards) || expectedShards < 1)
+    issues.push("The expected shard count must be a positive integer.");
+  if (runs.length !== expectedShards)
+    issues.push(`Expected ${expectedShards} shard reports; received ${runs.length}.`);
+  const indices = new Set<number>();
+  for (const run of runs) {
+    if (run.testRun !== "passed") issues.push("A wire shard did not pass its test run.");
+    if (!run.suiteSelected) issues.push("A wire shard filtered the complete suite selection.");
+    const shard = run.shard;
+    if (
+      shard === null ||
+      shard.count !== expectedShards ||
+      !Number.isInteger(shard.index) ||
+      shard.index < 1 ||
+      shard.index > expectedShards
+    ) {
+      issues.push("A wire shard has missing or inconsistent partition metadata.");
+    } else if (indices.has(shard.index)) {
+      issues.push(`Duplicate wire shard index ${shard.index}.`);
+    } else {
+      indices.add(shard.index);
+    }
+  }
+  const registers = runs.flatMap((run) => run.registers);
+  const receipts = runs.flatMap((run) => run.receipts);
+  const witnesses = runs.flatMap((run) => run.witnesses);
+  const coverage = wireCoverage(
+    registers.flatMap((entry) => entry.routes),
+    receipts,
+    witnesses,
+  );
+  const schemaHashes = [...new Set(registers.map((entry) => entry.schemaSha256))];
+  if (schemaHashes.length !== 1)
+    issues.push("Wire shards must observe one identical schema bundle.");
+  if (
+    receipts.some(
+      (receipt) =>
+        receipt.schemaSha256 !== undefined && !schemaHashes.includes(receipt.schemaSha256),
+    )
+  )
+    issues.push("A wire receipt names a schema bundle absent from the captured registers.");
+  const gaps = [
+    ...coverage.missingResults,
+    ...coverage.missingVariants,
+    ...coverage.missingExternalDocuments,
+    ...coverage.unregisteredRequirements,
+    ...coverage.unfrozenAdapters,
+  ];
+  if (gaps.length > 0) issues.push(`Unverified wire variants: ${[...new Set(gaps)].join(", ")}`);
+  return {
+    ...coverage,
+    complete: issues.length === 0,
+    issues,
+    partitions: runs.map((run) => ({
+      testRun: run.testRun,
+      suiteSelected: run.suiteSelected,
+      shard: run.shard,
+    })),
+    schemaHashes,
+    artifacts: [...new Set(registers.map((entry) => entry.artifact))],
+    validatedDocuments: receipts.filter((entry) => entry.schemaSha256 !== undefined).length,
   };
 };

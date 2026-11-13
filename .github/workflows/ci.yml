@@ -1093,7 +1093,7 @@ jobs:
       - release-content
       - npm-cohort
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: Require every applicable check
         env:
@@ -1139,15 +1139,33 @@ jobs:
             echo "All applicable jobs succeeded."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Checkout wire coverage validator
+        id: wire-checkout
+        if: always() && needs.verify-e2e.result != 'skipped'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Collect partition evidence
         id: evidence
-        if: always() && (needs.verify-pr.result != 'skipped' || needs.verify-main.result != 'skipped')
+        if: always() && (needs.verify-pr.result != 'skipped' || needs.verify-main.result != 'skipped' || needs.verify-e2e.result != 'skipped')
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: test-results-*
           path: verification-evidence
           # Preserve artifact directories: every shard has its own evidence.json.
           merge-multiple: false
+
+      - name: Set up the wire validator toolchain
+        id: wire-setup
+        if: always() && steps.wire-checkout.outcome == 'success' && steps.evidence.outcome == 'success'
+        uses: ./.github/actions/setup-workspace
+        with:
+          remote-cache-bypass: "true"
+
+      - name: Require complete combined CLI wire evidence
+        if: always() && steps.wire-setup.outcome == 'success'
+        run: pnpm exec nx run cli-e2e:verify-wire-coverage -- "$GITHUB_WORKSPACE/verification-evidence" 2
 
       - name: Retain combined verification evidence
         if: always() && steps.evidence.outcome == 'success'

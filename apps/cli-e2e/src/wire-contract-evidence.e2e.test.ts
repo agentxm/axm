@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as os from "node:os";
 import * as Schema from "effect/Schema";
 import { defineExecutionBinding } from "@agentxm/specification-metadata";
 import { makeOutputControlsFixture } from "./test-support/output-controls-harness.js";
@@ -9,7 +10,13 @@ import {
   wholeStdoutValidator,
   type WireReceipt,
 } from "./test-support/wire-contracts.js";
-import { wireCoverage } from "./test-support/wire-coverage.js";
+import {
+  aggregateWireCoverage,
+  wireCoverage,
+  WireRunEvidenceSchema,
+  type WireRunEvidence,
+} from "./test-support/wire-coverage.js";
+import WireCoverageReporter from "./test-support/wire-coverage-reporter.js";
 
 export const executionBinding = defineExecutionBinding({
   requirements: ["cli/machine-output/publishes-route-result-schemas"],
@@ -193,5 +200,194 @@ describe("Assembled wire contract evidence", () => {
     );
     expect(observed.missingResults).not.toContain("login:apply");
     expect(observed.observedVariants).toContain("login:pending-human");
+  });
+});
+
+// Synthetic validated-observation receipts test aggregation; producer validation is exercised above.
+const completeWireShards = (): ReadonlyArray<WireRunEvidence> => {
+  const requirements = wireCoverage([], [], []);
+  const routes = requirements.requiredResults.map((entry) => {
+    const separator = entry.lastIndexOf(":");
+    return {
+      route: `axm fixture ${entry}`,
+      family: entry.slice(0, separator),
+      class: "structured-result",
+      modes: [entry.slice(separator + 1)],
+    };
+  });
+  const receipts: WireReceipt[] = routes.flatMap((route) =>
+    route.modes.map((mode): WireReceipt => ({
+      artifact: "fixture",
+      route: route.route,
+      family: route.family,
+      document: "result",
+      mode,
+      exitCode: 0,
+      stdoutSha256: route.route,
+      schemaSha256: "one-schema",
+      variants: [],
+    })),
+  );
+  receipts.push({
+    artifact: "fixture",
+    route: "axm fixture error",
+    family: "generic-error",
+    document: "error",
+    exitCode: 2,
+    stdoutSha256: "before-operation",
+    schemaSha256: "one-schema",
+    variants: requirements.requiredVariants.filter(
+      (variant) => variant !== "generic-error:before-operation",
+    ),
+  });
+  receipts.push({
+    artifact: "fixture",
+    route: "axm lock export",
+    family: "external-document",
+    document: "external",
+    exitCode: 0,
+    stdoutSha256: "external",
+    variants: [],
+  });
+  return [1, 2].map((index): WireRunEvidence => ({
+    testRun: "passed",
+    suiteSelected: true,
+    shard: { index, count: 2 },
+    registers: [{ artifact: "fixture", schemaSha256: "one-schema", routes }],
+    receipts: receipts.filter((_, receiptIndex) => receiptIndex % 2 === index - 1),
+    witnesses:
+      index === 2
+        ? [{ stdoutSha256: "before-operation", variant: "generic-error:before-operation" }]
+        : [],
+  }));
+};
+
+describe("Partitioned wire evidence", () => {
+  it.each([
+    {
+      name: "ordinary shard",
+      shard: { index: 1, count: 2 },
+      force: undefined,
+      expectedEnforcement: false,
+    },
+    { name: "whole suite", shard: undefined, force: undefined, expectedEnforcement: true },
+    {
+      name: "single-partition whole suite",
+      shard: { index: 1, count: 1 },
+      force: undefined,
+      expectedEnforcement: true,
+    },
+    {
+      name: "explicitly required shard",
+      shard: { index: 1, count: 2 },
+      force: "1",
+      expectedEnforcement: true,
+    },
+  ])(
+    "keeps $name coverage scope and enforcement distinct",
+    ({ shard, force, expectedEnforcement }) => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-wire-reporter-"));
+      const output = path.join(root, "coverage.json");
+      const reporter = new WireCoverageReporter({
+        directory: path.join(root, "receipts"),
+        output,
+        suiteFiles: ["first.ts", "second.ts"],
+        ...(force === undefined ? {} : { requireComplete: force }),
+      });
+      try {
+        reporter.onInit({ config: shard === undefined ? {} : { shard } });
+        // This is the actual Vitest boundary: selection is supplied before sharding.
+        reporter.onTestRunStart([{ moduleId: "first.ts" }, { moduleId: "second.ts" }]);
+        const finish = () => reporter.onTestRunEnd([], [], "passed");
+        if (expectedEnforcement) expect(finish).toThrow("wire coverage matrix is incomplete");
+        else expect(finish).not.toThrow();
+        expect(parseObject(fs.readFileSync(output, "utf8"))).toMatchObject({
+          suiteSelected: true,
+          completeSuite: shard === undefined || shard.count === 1,
+          shard: shard ?? null,
+          enforced: expectedEnforcement,
+          complete: false,
+          missingResults: expect.arrayContaining(["login:apply"]),
+          registers: [],
+          receipts: [],
+          witnesses: [],
+        });
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("recomputes the complete shared matrix from two disjoint raw receipt sets", () => {
+    const shards = completeWireShards();
+    expect(shards.every((shard) => aggregateWireCoverage([shard], 2).complete === false)).toBe(
+      true,
+    );
+    const combined = aggregateWireCoverage(shards, 2);
+    expect(combined).toMatchObject({
+      complete: true,
+      issues: [],
+      missingResults: [],
+      missingVariants: [],
+      missingExternalDocuments: [],
+      schemaHashes: ["one-schema"],
+    });
+    expect(combined.observedResults).toHaveLength(43);
+    expect(combined.requiredVariants).toHaveLength(15);
+  });
+
+  it("rejects missing, duplicate, failed and filtered partitions even when their union covers every route", () => {
+    const shards = completeWireShards();
+    expect(aggregateWireCoverage(shards.slice(0, 1), 2).issues).toContain(
+      "Expected 2 shard reports; received 1.",
+    );
+    expect(
+      aggregateWireCoverage(
+        shards.map((shard) => ({ ...shard, shard: { index: 1, count: 2 } })),
+        2,
+      ).issues,
+    ).toContain("Duplicate wire shard index 1.");
+    const failed = shards.map((shard) =>
+      Schema.decodeUnknownSync(WireRunEvidenceSchema)({ ...shard, testRun: "failed" }),
+    );
+    expect(aggregateWireCoverage(failed, 2).issues).toContain(
+      "A wire shard did not pass its test run.",
+    );
+    expect(
+      aggregateWireCoverage(
+        shards.map((shard) => ({ ...shard, suiteSelected: false })),
+        2,
+      ).issues,
+    ).toContain("A wire shard filtered the complete suite selection.");
+  });
+
+  it("refuses schema disagreement and ignores falsified claimed-complete fields", () => {
+    const shards = completeWireShards();
+    expect(() =>
+      Schema.decodeUnknownSync(WireRunEvidenceSchema)({ ...shards[0], registers: undefined }),
+    ).toThrow();
+    const mixed = shards.map((shard, index) => ({
+      ...shard,
+      registers: shard.registers.map((register) => ({
+        ...register,
+        schemaSha256: index === 0 ? "one-schema" : "other-schema",
+      })),
+    }));
+    expect(aggregateWireCoverage(mixed, 2).issues).toContain(
+      "Wire shards must observe one identical schema bundle.",
+    );
+    const forged = shards.map((shard) =>
+      Schema.decodeUnknownSync(WireRunEvidenceSchema)({
+        ...shard,
+        complete: true,
+        missingResults: [],
+        observedResults: ["login:apply"],
+        receipts: shard.receipts.filter((receipt) => receipt.family !== "login"),
+      }),
+    );
+    expect(aggregateWireCoverage(forged, 2)).toMatchObject({
+      complete: false,
+      missingResults: expect.arrayContaining(["login:apply"]),
+    });
   });
 });

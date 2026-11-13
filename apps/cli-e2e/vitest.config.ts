@@ -7,6 +7,7 @@ import { makeTestReporting, purposeSetupFile } from "@agentxm/test-reporting/rep
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 const reporting = makeTestReporting({ project: "cli-e2e" });
+const reporters = reporting.reporters ?? [];
 const wireOutput = fileURLToPath(
   new URL("../../test-results/cli-e2e/wire-coverage.json", import.meta.url),
 );
@@ -28,7 +29,7 @@ export default defineConfig({
   test: {
     ...reporting,
     reporters: [
-      ...(reporting.reporters ?? []),
+      ...(Array.isArray(reporters) ? reporters : [reporters]),
       [
         fileURLToPath(new URL("src/test-support/wire-coverage-reporter.ts", import.meta.url)),
         {

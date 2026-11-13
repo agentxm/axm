@@ -110,11 +110,11 @@ export const verifyStagedNativeImport = (
     const document = yield* Schema.decodeUnknownEffect(
       Schema.Struct({
         ok: Schema.Literal(true),
+        mode: Schema.Literal(mode),
+        outcome: Schema.Literal(mode === "apply" ? "applied" : "previewed"),
         result: Schema.Struct({
           contract: Schema.Literal("plan-result-v4"),
           planName: Schema.Literal("Import native extension"),
-          mode: Schema.Literal(mode),
-          outcome: Schema.Literal(mode === "apply" ? "applied" : "previewed"),
           candidateId: Schema.String,
           counts: Schema.Struct({
             total: Schema.Literal(1),

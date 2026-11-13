@@ -25,6 +25,10 @@ export const executionBinding = defineExecutionBinding({
 });
 
 const READ = ["view", "@test/skills/absent", "--json"] as const;
+// Observe the requested Registry resource. Other local clients can reach the
+// loopback fixture too; GET / does not read an extension. Keep the complete
+// request log in assertion diagnostics rather than discarding that traffic.
+const READ_PATH = "/v1/extensions/%40test/skills/absent";
 
 describe("A read the Registry rejects for its credential", () => {
   it("renews the stored session once and retries the read", async () => {
@@ -80,10 +84,13 @@ describe("A read the Registry rejects for its credential", () => {
       });
       expect(result.stdout).not.toContain("axm login");
       expect(registry.presentedRefreshTokens).toEqual(["axm_ref_stored"]);
-      const reads = registry.requests.filter((request) => request.method === "GET");
-      expect(reads.map((request) => [request.authorization, request.status])).toEqual([
-        ["Bearer axm_ses_unresolvable", 401],
-        ["Bearer axm_ses_current-r1", 404],
+      const reads = registry.requests.filter((request) => request.path === READ_PATH);
+      expect(
+        reads.map((request) => [request.method, request.authorization, request.status]),
+        JSON.stringify(registry.requests),
+      ).toEqual([
+        ["GET", "Bearer axm_ses_unresolvable", 401],
+        ["GET", "Bearer axm_ses_current-r1", 404],
       ]);
     } finally {
       home.cleanup();
@@ -111,8 +118,10 @@ describe("A read the Registry rejects for its credential", () => {
         code: "auth",
         detail: "Could not read AXM_TOKEN_FILE at /nonexistent/axm-token-file.",
       });
-      // Nothing was asked of the Registry as if the person were nobody.
-      expect(registry.requests).toEqual([]);
+      // The requested extension was not read anonymously. The credential
+      // adapter's owning specification independently asserts zero transport calls.
+      const reads = registry.requests.filter((request) => request.path === READ_PATH);
+      expect(reads, JSON.stringify(registry.requests)).toEqual([]);
     } finally {
       home.cleanup();
       await registry.close();
@@ -134,8 +143,14 @@ describe("A read the Registry rejects for its credential", () => {
 
       expect(result.exitCode, result.stdout + result.stderr).toBe(4);
       expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, code: "auth" });
+      const reads = registry.requests.filter((request) => request.path === READ_PATH);
+      expect(reads.length, JSON.stringify(registry.requests)).toBeGreaterThan(0);
       expect(
-        registry.requests.every((request) => request.authorization === "Bearer unresolvable-token"),
+        reads.every(
+          (request) =>
+            request.method === "GET" && request.authorization === "Bearer unresolvable-token",
+        ),
+        JSON.stringify(registry.requests),
       ).toBe(true);
     } finally {
       home.cleanup();

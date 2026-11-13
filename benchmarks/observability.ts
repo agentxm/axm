@@ -774,6 +774,8 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 ? undefined
                 : yield* scenario.verify({
                     fixture,
+                    phase,
+                    artifacts,
                     stdout: result.stdout,
                     stderr: result.stderr,
                     startedAtMillis,

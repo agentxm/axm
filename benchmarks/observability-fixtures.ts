@@ -5,8 +5,10 @@ import * as path from "node:path";
 import * as os from "node:os";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { resolveAxmCacheRootPure } from "@agentxm/host-primitives";
+import { readContainerReceipts, type ContainerIdentity } from "@agentxm/workspace-kernel/locations";
 import type { OperationPhase } from "@agentxm/workspace-kernel/operations";
 import { controlNetwork } from "../scripts/registry-network/control.js";
 import {
@@ -89,6 +91,9 @@ export interface ObservabilityScenario {
   };
   readonly verify?: (observed: {
     readonly fixture: WorkspaceTemplate;
+    readonly phase: "preflight" | "timing";
+    /** Durable sample evidence directory, including when semantic verification fails. */
+    readonly artifacts: string;
     readonly stdout: string;
     readonly stderr: string;
     readonly startedAtMillis: number;
@@ -164,6 +169,169 @@ const localCondition = {
   network: "not-applicable",
   archiveBodyDelayMillis: 0,
 } as const;
+
+const forkBeforeReceipts = (fixture: WorkspaceTemplate) =>
+  path.join(path.dirname(fixture.workspace), "fork-receipts-before", "projection-containers.json");
+
+/** Native metadata is checked independently of the product's receipt verifier. */
+const observeForkIdentity = (identity: ContainerIdentity, fixture: WorkspaceTemplate) => {
+  const insideSample = (target: string) =>
+    [fixture.workspace, fixture.home].some((root) => {
+      const relative = path.relative(root, target);
+      return (
+        relative === "" ||
+        (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(".." + path.sep))
+      );
+    });
+  const paths = [
+    identity.nativeRoot,
+    identity.ownerRoot,
+    identity.identityOwnerRoot,
+    identity.target,
+    identity.physicalPath,
+    identity.owner.path,
+    identity.root.path,
+    ...identity.parents.map((parent) => parent.path),
+    ...identity.aliases.flatMap((alias) => [alias.path, alias.entryPath, alias.referentPath]),
+  ];
+  const outsideSample = paths.filter((target) => !insideSample(target));
+  if (outsideSample.length > 0) return { matchesSample: false, outsideSample, checks: [] };
+  const checks: Array<{
+    readonly field: string;
+    readonly expected: unknown;
+    readonly observed?: unknown;
+    readonly error?: string;
+    readonly matches: boolean;
+  }> = [];
+  const check = (field: string, expected: unknown, read: () => unknown) => {
+    try {
+      const observed = read();
+      checks.push({
+        field,
+        expected,
+        observed,
+        matches: JSON.stringify(observed) === JSON.stringify(expected),
+      });
+    } catch (error) {
+      checks.push({ field, expected, error: String(error), matches: false });
+    }
+  };
+  const nativeIdentity = (target: string) => {
+    const info = fs.statSync(target, { bigint: true });
+    return {
+      device: info.dev.toString(),
+      inode: info.ino.toString(),
+      birthtime: info.birthtime.getTime(),
+      mode: Number(info.mode),
+    };
+  };
+  check("owner", identity.owner.identity, () => nativeIdentity(identity.owner.path));
+  check("root", identity.root.identity, () => nativeIdentity(identity.root.path));
+  check("entry", identity.entry, () => nativeIdentity(identity.physicalPath));
+  identity.parents.forEach((parent, index) =>
+    check("parents/" + index, parent.identity, () => nativeIdentity(parent.path)),
+  );
+  check("owner-referent", identity.owner.path, () => fs.realpathSync(identity.identityOwnerRoot));
+  check("root-referent", identity.root.path, () => fs.realpathSync(identity.nativeRoot));
+  check("target-referent", identity.physicalPath, () => fs.realpathSync(identity.target));
+  identity.aliases.forEach((alias, index) => {
+    check("aliases/" + index + "/referent", alias.referentPath, () => fs.realpathSync(alias.path));
+    check("aliases/" + index + "/entry", alias.entryPath, () =>
+      path.join(fs.realpathSync(path.dirname(alias.path)), path.basename(alias.path)),
+    );
+    check("aliases/" + index + "/link", alias.linkTarget, () =>
+      fs.lstatSync(alias.entryPath).isSymbolicLink() ? fs.readlinkSync(alias.entryPath) : undefined,
+    );
+  });
+  return { matchesSample: checks.every((check) => check.matches), outsideSample, checks };
+};
+
+const verifyForkReceipts: NonNullable<ObservabilityScenario["verify"]> = ({
+  fixture,
+  artifacts,
+  phase,
+}) =>
+  Effect.gen(function* () {
+    if (phase === "timing")
+      return {
+        assertions: [
+          "Timing retains the runner's declared process outcome and output comparison; full receipt/native audit belongs to preflight.",
+        ],
+      };
+    const retained = path.join(artifacts, "retained");
+    const beforeDirectory = path.join(retained, "fork-receipts-before");
+    const afterDirectory = path.join(retained, "fork-receipts-after");
+    // Copy both raw documents before decoding or checking native identity. Failed
+    // verification must retain the evidence that was missing from the first run.
+    yield* Effect.try(() => {
+      fs.mkdirSync(beforeDirectory, { recursive: true });
+      fs.mkdirSync(afterDirectory, { recursive: true });
+      fs.copyFileSync(
+        forkBeforeReceipts(fixture),
+        path.join(beforeDirectory, "projection-containers.json"),
+      );
+      fs.copyFileSync(
+        path.join(fixture.workspace, ".axm", "projection-containers.json"),
+        path.join(afterDirectory, "projection-containers.json"),
+      );
+    });
+    // Both retained files must exist after successful copies. The public reader
+    // fails malformed JSON/schema; its empty-store fallback applies only to absence.
+    const before = yield* readContainerReceipts(beforeDirectory).pipe(
+      Effect.provide(NodeServices.layer),
+    );
+    const after = yield* readContainerReceipts(afterDirectory).pipe(
+      Effect.provide(NodeServices.layer),
+    );
+    const inherited = new Set([
+      ...before.entries.map((entry) => JSON.stringify(entry.identity)),
+      ...before.createdDirectories.map((identity) => JSON.stringify(identity)),
+    ]);
+    const observations = [
+      ...after.entries.map((entry, index) => ({
+        location: "entries/" + index,
+        identity: entry.identity,
+      })),
+      ...after.createdDirectories.map((identity, index) => ({
+        location: "createdDirectories/" + index,
+        identity,
+      })),
+    ].map(({ location, identity }) => {
+      const unchanged = inherited.has(JSON.stringify(identity));
+      const observed = observeForkIdentity(identity, fixture);
+      return {
+        location,
+        classification: unchanged ? "inherited-unchanged" : "new-or-refreshed",
+        ...observed,
+        valid: unchanged || observed.matchesSample,
+      };
+    });
+    yield* Effect.try(() =>
+      fs.writeFileSync(
+        path.join(retained, "fork-receipt-native-observations.json"),
+        JSON.stringify(
+          {
+            observation:
+              "Node native metadata and aliases in the actual sample; only an exact unchanged before identity may retain expired copied proof. No comparison projection.",
+            observations,
+          },
+          null,
+          2,
+        ) + "\n",
+      ),
+    );
+    if (observations.some((observation) => !observation.valid))
+      return yield* fixtureFailure(
+        "Fork wrote a new or refreshed container identity that does not match the actual sample filesystem; raw receipts and independent native observations are retained.",
+      );
+    return {
+      assertions: [
+        "Raw before/after projection-container receipts retained before independent verification.",
+        "New or refreshed identities match sample native metadata and aliases; expired inherited identities are permitted only when unchanged from before.",
+        "Receipt bytes remain subject to the unchanged exact state comparison.",
+      ],
+    };
+  });
 
 export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
   root: string,
@@ -674,6 +842,16 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
           args: ["fork", "workspace:@acme/skills/bench-authored", "@acme/skills/bench-fork"],
           template: authored,
           condition: { ...localCondition, source: "authored", extensions: 1 },
+          prepare: (fixture) =>
+            Effect.try(() => {
+              const before = forkBeforeReceipts(fixture);
+              fs.mkdirSync(path.dirname(before), { recursive: true });
+              fs.copyFileSync(
+                path.join(fixture.workspace, ".axm", "projection-containers.json"),
+                before,
+              );
+            }),
+          verify: verifyForkReceipts,
         },
       );
     }

@@ -547,6 +547,16 @@ separately staged imports to share an ID. Raw IDs remain retained and every
 other output, input and state field remains strict. This output-only check also
 runs in timing without a native filesystem audit.
 
+The enabled-native adoption refusal fixture retains its generated diagnostic
+record before comparison. Preflight binds the printed UUID to the single
+restricted diagnostic file and expected refusal, validates occurrence/history
+times against the invocation, then projects only those UUID/time fields and
+the exact diagnostic filename. Failure semantics, causes, history order and
+unknown fields remain strict; raw records, paths and hashes remain retained.
+Timing validates the printed failure/UUID without repeating the record audit.
+This records the existing refusal and partial restoration; it does not certify
+successful adoption or complete rollback.
+
 The [evidence ledger](../../benchmarks/evidence/local-observability/README.md)
 records completed captures and their provenance. This comparison rule does not
 certify an uncompleted capture or relax product identity checks.

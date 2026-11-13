@@ -432,8 +432,43 @@ export interface FileObservation {
   readonly bytes?: number;
   readonly sha256?: string;
   readonly comparisonSha256?: string;
+  readonly comparisonPath?: string;
   readonly target?: string;
 }
+
+/** Apply one independently verified file projection, preserving raw identity and bytes. */
+export const applyFileComparison = (
+  entries: ReadonlyArray<FileObservation>,
+  projection: { readonly path: string; readonly sha256: string; readonly comparisonPath?: string },
+): ReadonlyArray<FileObservation> => {
+  if (!entries.some((entry) => entry.path === projection.path && entry.kind === "file"))
+    throw fixtureFailure("A fixture comparison projection names an absent product file.");
+  const comparisonPath = projection.comparisonPath ?? projection.path;
+  if (
+    comparisonPath.length === 0 ||
+    comparisonPath.includes("\\") ||
+    comparisonPath.includes(":") ||
+    comparisonPath.includes("\0") ||
+    comparisonPath.split("/").some((part) => part === "" || part === "." || part === "..") ||
+    path.posix.dirname(comparisonPath) !== path.posix.dirname(projection.path) ||
+    entries.some(
+      (entry) =>
+        entry.path !== projection.path && (entry.comparisonPath ?? entry.path) === comparisonPath,
+    )
+  )
+    throw fixtureFailure(
+      "A file comparison path must be a unique sibling of the retained raw file.",
+    );
+  return entries.map((entry) =>
+    entry.path === projection.path
+      ? {
+          ...entry,
+          comparisonSha256: projection.sha256,
+          ...(projection.comparisonPath === undefined ? {} : { comparisonPath }),
+        }
+      : entry,
+  );
+};
 
 /** Snapshot without following symlinks. Raw hashes remain available beside normalized JSON hashes. */
 export const snapshotTree = (
@@ -483,7 +518,7 @@ export const snapshotDigest = (entries: ReadonlyArray<FileObservation>): string 
   digest(
     JSON.stringify(
       entries.map((entry) => ({
-        path: entry.path,
+        path: entry.comparisonPath ?? entry.path,
         kind: entry.kind,
         mode: entry.mode,
         ...(entry.target === undefined ? {} : { target: entry.target }),

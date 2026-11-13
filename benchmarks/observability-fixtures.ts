@@ -9,7 +9,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { resolveAxmCacheRootPure } from "@agentxm/host-primitives";
 import { readContainerReceipts, type ContainerIdentity } from "@agentxm/workspace-kernel/locations";
-import type { OperationPhase } from "@agentxm/workspace-kernel/operations";
+import { FailureDiagnosticSchema, type OperationPhase } from "@agentxm/workspace-kernel/operations";
 import { controlNetwork } from "../scripts/registry-network/control.js";
 import {
   startLifecycleRegistry,
@@ -112,6 +112,7 @@ export interface ObservabilityScenario {
       readonly fileComparisons?: ReadonlyArray<{
         readonly container: "workspace" | "home";
         readonly path: string;
+        readonly comparisonPath?: string;
         readonly sha256: string;
         readonly reason: string;
       }>;
@@ -119,6 +120,171 @@ export interface ObservabilityScenario {
     unknown
   >;
 }
+
+/** The expected adoption refusal creates one fresh, invocation-bound diagnostic. */
+export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario["verify"]> = ({
+  fixture,
+  artifacts,
+  stdout,
+  phase,
+  startedAtMillis,
+  endedAtMillis,
+}) =>
+  Effect.gen(function* () {
+    const uuid = Schema.String.check(
+      Schema.isPattern(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u),
+    );
+    const raw = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(stdout);
+    const output = yield* Schema.decodeUnknownEffect(
+      Schema.Struct({
+        ok: Schema.Literal(false),
+        diagnosticId: uuid,
+        result: Schema.Struct({
+          outcome: Schema.Literal("failed"),
+          failure: Schema.Struct({ code: Schema.Literal("internal"), message: Schema.String }),
+        }),
+      }),
+    )(raw);
+    const expectedMessage =
+      "Preserved unowned skill artifact at " +
+      path.join(fixture.workspace, ".agents", "skills", "bench-001");
+    if (output.result.failure.message !== expectedMessage + " (internal)")
+      return yield* fixtureFailure(
+        "Adoption diagnostic must remain bound to the expected native refusal.",
+      );
+    const stdoutComparison = JSON.stringify(
+      projectComparisonField(raw, ["diagnosticId"], output.diagnosticId, "<adoption-diagnostic>"),
+    );
+    if (phase === "timing")
+      return {
+        assertions: [
+          "Timing projects only the schema-validated printed diagnostic UUID; stored-record validation belongs to preflight.",
+        ],
+        stdoutComparison,
+      };
+    const directory = path.join(fixture.home, ".axm", "diagnostics");
+    const relative = ".axm/diagnostics/" + output.diagnosticId + ".json";
+    const file = path.join(fixture.home, relative);
+    if (
+      !fs.lstatSync(directory).isDirectory() ||
+      JSON.stringify(fs.readdirSync(directory)) !== JSON.stringify([output.diagnosticId + ".json"])
+    )
+      return yield* fixtureFailure(
+        "Adoption refusal must create exactly its reported diagnostic record.",
+      );
+    const info = fs.lstatSync(file);
+    if (!info.isFile() || info.size > 64 * 1024 || (info.mode & 0o777) !== 0o600)
+      return yield* fixtureFailure(
+        "Adoption diagnostic must be one bounded restricted ordinary file.",
+      );
+    const bytes = fs.readFileSync(file);
+    const retained = path.join(artifacts, "retained", "adoption-diagnostic.json");
+    fs.mkdirSync(path.dirname(retained), { recursive: true });
+    fs.writeFileSync(retained, bytes, { flag: "wx", mode: 0o600 });
+    const rawRecord = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+      bytes.toString("utf8"),
+    );
+    const record = yield* Schema.decodeUnknownEffect(
+      Schema.Struct({
+        eventId: uuid,
+        invocationId: uuid,
+        occurredAt: Schema.String,
+        failure: Schema.Struct({
+          ...FailureDiagnosticSchema.fields,
+          category: Schema.Literal("internal"),
+          errorClass: Schema.Literal("internal"),
+          phase: Schema.Literal("command"),
+          handled: Schema.Literal(true),
+          history: Schema.optional(
+            Schema.Array(
+              Schema.Struct({
+                operation: FailureDiagnosticSchema.fields.operation,
+                outcome: Schema.String,
+                elapsedMs: Schema.optional(Schema.Number),
+              }),
+            ).check(Schema.isMaxLength(16)),
+          ),
+        }),
+        causes: Schema.Array(Schema.Struct({ _tag: Schema.String, message: Schema.String })).check(
+          Schema.isMaxLength(16),
+        ),
+      }),
+    )(rawRecord);
+    const instant = Date.parse(record.occurredAt);
+    if (
+      ![startedAtMillis, endedAtMillis].every(Number.isFinite) ||
+      endedAtMillis < startedAtMillis ||
+      record.eventId !== output.diagnosticId ||
+      !Number.isFinite(instant) ||
+      new Date(instant).toISOString() !== record.occurredAt ||
+      instant < startedAtMillis ||
+      instant > endedAtMillis ||
+      !record.causes.some(
+        (cause) =>
+          cause.message === expectedMessage || cause.message === output.result.failure.message,
+      )
+    )
+      return yield* fixtureFailure(
+        "Stored adoption diagnostic does not match the printed failure and invocation window.",
+      );
+    let projected = projectComparisonField(
+      rawRecord,
+      ["eventId"],
+      record.eventId,
+      "<adoption-diagnostic>",
+    );
+    projected = projectComparisonField(
+      projected,
+      ["invocationId"],
+      record.invocationId,
+      "<adoption-invocation>",
+    );
+    projected = projectComparisonField(
+      projected,
+      ["occurredAt"],
+      record.occurredAt,
+      "<during-invocation>",
+    );
+    let previous = 0;
+    for (const [index, transition] of (record.failure.history ?? []).entries()) {
+      const elapsed = transition.elapsedMs;
+      if (elapsed === undefined) continue;
+      if (
+        !Number.isFinite(elapsed) ||
+        elapsed < previous ||
+        elapsed > endedAtMillis - startedAtMillis
+      )
+        return yield* fixtureFailure(
+          "Adoption diagnostic history has invalid invocation-relative timing.",
+        );
+      previous = elapsed;
+      projected = projectComparisonField(
+        projected,
+        ["failure", "history", String(index), "elapsedMs"],
+        elapsed,
+        "<invocation-relative-duration>",
+      );
+    }
+    return {
+      assertions: [
+        "Raw adoption diagnostic retained; printed UUID, file identity, internal refusal cause and occurrence/history timing independently validated.",
+        "Only the validated event/invocation UUIDs, occurrence/history times and exact diagnostic filename are projected; failure semantics, history order, causes and unknown fields remain strict.",
+      ],
+      stdoutComparison,
+      fileComparisons: [
+        {
+          container: "home" as const,
+          path: relative,
+          comparisonPath: ".axm/diagnostics/adoption-diagnostic.json",
+          sha256: digest(
+            JSON.stringify(normalizeObservation(projected, [fixture.workspace, fixture.home])),
+          ),
+          reason:
+            "Exact adoption diagnostic UUID binding and process-bounded times verified before projection; raw path, record and hashes retained.",
+        },
+      ],
+    };
+  });
 
 export type PrepareInvocation = (
   fixture: WorkspaceTemplate,
@@ -749,8 +915,9 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
               settingsDigest = digest(fs.readFileSync(path.join(fixture.workspace, "axm.json")));
               lockDigest = digest(fs.readFileSync(path.join(fixture.workspace, "axm.lock")));
             }),
-          verify: ({ fixture, stdout }) =>
+          verify: (observation) =>
             Effect.gen(function* () {
+              const { fixture, stdout } = observation;
               const raw = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
                 stdout,
               );
@@ -851,12 +1018,20 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
                     "<verified-adoption-recovery>/" + index + ".snap",
                   );
                 }
+                const diagnostic = yield* verifyAdoptionFailureDiagnostic({
+                  ...observation,
+                  stdout: JSON.stringify(projected),
+                });
+                if (diagnostic.stdoutComparison === undefined)
+                  return yield* fixtureFailure("Adoption diagnostic comparison is missing.");
                 return {
                   assertions: [
                     "Known enabled-native baseline failure retains moved authored bytes, restores settings/lock, and keeps independently verified original recovery snapshots.",
                     "The original acquired path remains absent; this records existing partial restoration and does not establish successful or atomic adoption.",
+                    ...diagnostic.assertions,
                   ],
-                  stdoutComparison: JSON.stringify(projected),
+                  stdoutComparison: diagnostic.stdoutComparison,
+                  fileComparisons: diagnostic.fileComparisons ?? [],
                   retainedArtifacts: [{ name: "adoption-recovery", source: recovery.snapshotDir }],
                 };
               }

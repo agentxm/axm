@@ -29,7 +29,9 @@ import {
   runObservedProcess,
   snapshotDigest,
   snapshotTree,
+  applyFileComparison,
 } from "../benchmarks/observability-process.js";
+import { verifyAdoptionFailureDiagnostic } from "../benchmarks/observability-fixtures.js";
 import { harnessProvenance } from "../benchmarks/observability-provenance.js";
 import { verifyStagedNativeImport } from "../benchmarks/observability-typed-fixtures.js";
 import {
@@ -1018,6 +1020,221 @@ describe("independent comparison artifacts", () => {
       projectComparisonField(raw, ["result", "canonical", "validatedAt"], "wrong", "ignored"),
     ).toThrow();
     expect(raw.result.canonical.validatedAt).toBe("2026-01-01");
+  });
+
+  it.effect(
+    "binds adoption diagnostic UUID/time projection to the retained record and preserves other facts",
+    () =>
+      Effect.gen(function* () {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-adoption-diagnostic-"));
+        try {
+          const fixture = {
+            workspace: path.join(root, "workspace"),
+            home: path.join(root, "home"),
+          };
+          const directory = path.join(fixture.home, ".axm", "diagnostics");
+          fs.mkdirSync(directory, { recursive: true });
+          const message =
+            "Preserved unowned skill artifact at " +
+            path.join(fixture.workspace, ".agents", "skills", "bench-001");
+          const hashes: string[] = [];
+          const outputs: string[] = [];
+          for (const [index, id] of [
+            "00000000-0000-4000-8000-000000000001",
+            "00000000-0000-4000-8000-000000000002",
+            "00000000-0000-4000-8000-000000000003",
+          ].entries()) {
+            for (const name of fs.readdirSync(directory)) fs.unlinkSync(path.join(directory, name));
+            const record = {
+              eventId: id,
+              invocationId: "10000000-0000-4000-8000-00000000000" + index,
+              occurredAt: new Date(1200 + index * 10).toISOString(),
+              failure: {
+                kind: "skill-materialization-failed",
+                operation: "workspace.operation",
+                category: "internal",
+                errorClass: "internal",
+                phase: "command",
+                handled: true,
+                history: [
+                  { operation: "workspace.apply", outcome: "started", elapsedMs: 10 + index },
+                ],
+              },
+              causes: [{ _tag: "SkillMaterializationFailed", message, stack: "unchanged stack" }],
+              futureProductField: index === 2 ? "changed" : "preserved",
+            };
+            const bytes = JSON.stringify(record) + "\n";
+            const file = path.join(directory, id + ".json");
+            fs.writeFileSync(file, bytes, { mode: 0o600 });
+            const stdout = JSON.stringify({
+              ok: false,
+              diagnosticId: id,
+              result: {
+                outcome: "failed",
+                failure: { code: "internal", message: message + " (internal)" },
+                recovery: { retained: ["skills"] },
+              },
+              suggestions: [{ description: "Keep recovery bytes" }],
+            });
+            const artifacts = path.join(root, "evidence", String(index));
+            const result = yield* verifyAdoptionFailureDiagnostic({
+              fixture,
+              artifacts,
+              stdout,
+              stderr: "",
+              phase: "preflight",
+              startedAtMillis: 1000,
+              endedAtMillis: 2000,
+            });
+            expect(
+              fs.readFileSync(path.join(artifacts, "retained", "adoption-diagnostic.json"), "utf8"),
+            ).toBe(bytes);
+            expect(fs.readFileSync(file, "utf8")).toBe(bytes);
+            const projection = result.fileComparisons?.[0];
+            if (projection === undefined || result.stdoutComparison === undefined)
+              return yield* Effect.die("Missing validated diagnostic comparison");
+            const raw = snapshotTree(fixture.home, [fixture.workspace, fixture.home]);
+            const compared = applyFileComparison(raw, projection);
+            expect(compared.find((entry) => entry.path === projection.path)).toMatchObject({
+              path: projection.path,
+              sha256: digest(bytes),
+              comparisonPath: ".axm/diagnostics/adoption-diagnostic.json",
+            });
+            hashes.push(snapshotDigest(compared));
+            outputs.push(result.stdoutComparison);
+          }
+          expect(hashes[0]).toBe(hashes[1]);
+          expect(hashes[2]).not.toBe(hashes[1]);
+          expect(outputs[0]).toBe(outputs[1]);
+          expect(outputs[1]).toBe(outputs[2]);
+          expect(outputs[0]).toContain("Keep recovery bytes");
+        } finally {
+          fs.rmSync(root, { recursive: true, force: true });
+        }
+      }),
+  );
+
+  it.effect(
+    "rejects unbound, malformed or out-of-window adoption diagnostics before comparison",
+    () =>
+      Effect.gen(function* () {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-adoption-diagnostic-negative-"));
+        try {
+          const fixture = {
+            workspace: path.join(root, "workspace"),
+            home: path.join(root, "home"),
+          };
+          const directory = path.join(fixture.home, ".axm", "diagnostics");
+          fs.mkdirSync(directory, { recursive: true });
+          const id = "00000000-0000-4000-8000-000000000001";
+          const message =
+            "Preserved unowned skill artifact at " +
+            path.join(fixture.workspace, ".agents", "skills", "bench-001");
+          for (const fault of [
+            "event",
+            "time",
+            "history",
+            "category",
+            "cause",
+            "extra",
+            "malformed",
+          ]) {
+            for (const name of fs.readdirSync(directory)) fs.unlinkSync(path.join(directory, name));
+            const record = {
+              eventId: fault === "event" ? "00000000-0000-4000-8000-000000000002" : id,
+              invocationId: "10000000-0000-4000-8000-000000000001",
+              occurredAt: new Date(fault === "time" ? 900 : 1200).toISOString(),
+              failure: {
+                kind: "skill-materialization-failed",
+                operation: "workspace.operation",
+                category: fault === "category" ? "network" : "internal",
+                errorClass: "internal",
+                phase: "command",
+                handled: true,
+                history: [
+                  {
+                    operation: "workspace.apply",
+                    outcome: "started",
+                    elapsedMs: fault === "history" ? -1 : 10,
+                  },
+                ],
+              },
+              causes: [
+                {
+                  _tag: "SkillMaterializationFailed",
+                  message: fault === "cause" ? "unrelated failure" : message,
+                },
+              ],
+            };
+            const bytes = fault === "malformed" ? "{" : JSON.stringify(record);
+            fs.writeFileSync(path.join(directory, id + ".json"), bytes, { mode: 0o600 });
+            if (fault === "extra") fs.writeFileSync(path.join(directory, "unexpected.json"), "{}");
+            const artifacts = path.join(root, "evidence", fault);
+            const result = yield* verifyAdoptionFailureDiagnostic({
+              fixture,
+              artifacts,
+              stdout: JSON.stringify({
+                ok: false,
+                diagnosticId: id,
+                result: {
+                  outcome: "failed",
+                  failure: { code: "internal", message: message + " (internal)" },
+                },
+              }),
+              stderr: "",
+              phase: "preflight",
+              startedAtMillis: 1000,
+              endedAtMillis: 2000,
+            }).pipe(Effect.exit);
+            expect(result._tag, fault).toBe("Failure");
+            if (fault !== "extra")
+              expect(
+                fs.readFileSync(
+                  path.join(artifacts, "retained", "adoption-diagnostic.json"),
+                  "utf8",
+                ),
+              ).toBe(bytes);
+          }
+        } finally {
+          fs.rmSync(root, { recursive: true, force: true });
+        }
+      }),
+  );
+
+  it("rejects comparison path escapes, collisions and absent files without mutating raw observations", () => {
+    const entries = [
+      { path: "diagnostics/first.json", kind: "file" as const, mode: 0o600, sha256: "raw-first" },
+      { path: "diagnostics/second.json", kind: "file" as const, mode: 0o600, sha256: "raw-second" },
+    ] as const;
+    for (const comparisonPath of [
+      "../escape",
+      "/absolute",
+      "diagnostics/../escape",
+      "diagnostics/second.json",
+      "other/file.json",
+      "C:\\escape",
+    ])
+      expect(() =>
+        applyFileComparison(entries, {
+          path: entries[0].path,
+          sha256: "projected",
+          comparisonPath,
+        }),
+      ).toThrow();
+    expect(() => applyFileComparison(entries, { path: "missing", sha256: "projected" })).toThrow();
+    const projected = applyFileComparison(entries, {
+      path: entries[0].path,
+      sha256: "projected",
+      comparisonPath: "diagnostics/verified.json",
+    });
+    expect(() =>
+      applyFileComparison(projected, {
+        path: entries[1].path,
+        sha256: "projected",
+        comparisonPath: "diagnostics/verified.json",
+      }),
+    ).toThrow();
+    expect(entries[0].sha256).toBe("raw-first");
   });
 
   it("retains exact raw bytes and identity while compressing completed artifacts", () => {

@@ -52,6 +52,7 @@ import {
   progressComparisonNormalization,
   runObservedProcess,
   snapshotDigest,
+  applyFileComparison,
   snapshotTree,
   volatileComparisonFields,
 } from "./observability-process.js";
@@ -818,11 +819,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                   "comparison-projection",
                   "A preparation comparison names an absent product file.",
                 );
-              const projected = entries.map((entry) =>
-                entry.path === projection.path
-                  ? { ...entry, comparisonSha256: projection.sha256 }
-                  : entry,
-              );
+              const projected = applyFileComparison(entries, projection);
               if (projection.container === "workspace") comparedBeforeWorkspace = projected;
               else comparedBeforeHome = projected;
             }
@@ -1019,6 +1016,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                     "comparison-projection",
                     "A fixture comparison projection names an absent product file.",
                   );
+                const projected = applyFileComparison(entries, projection);
                 const rawProjectionPath = path.join(
                   artifacts,
                   "raw-projections",
@@ -1029,11 +1027,6 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 fs.copyFileSync(
                   path.join(fixture[projection.container], projection.path),
                   rawProjectionPath,
-                );
-                const projected = entries.map((entry) =>
-                  entry.path === projection.path
-                    ? { ...entry, comparisonSha256: projection.sha256 }
-                    : entry,
                 );
                 if (projection.container === "workspace") comparedWorkspace = projected;
                 else comparedHome = projected;

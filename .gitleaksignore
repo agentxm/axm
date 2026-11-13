@@ -24,3 +24,7 @@ b358bae8413b11ee712d30dec35956f39b78d971:specifications/support/telemetry-harnes
 # Synthetic token for structured-output redaction assertions.
 # packages/core/src/unstable/cli-runtime/json-envelope.test.ts
 5419fa3ffacf095f4391ef5e53399fa7fc81afb7:packages/core/src/unstable/cli-runtime/json-envelope.test.ts:generic-api-key:49
+
+# Synthetic token resource ID, not a credential, in the loopback device-auth fixture.
+# tools/test-support/src/device-auth-server.ts
+d2a0b59214949382b64b73868a43344774f75c13:tools/test-support/src/device-auth-server.ts:generic-api-key:26

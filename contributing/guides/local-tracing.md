@@ -476,6 +476,15 @@ strict. Archive disk-cache reads and failed, interrupted or incompletely measure
 reuse do not qualify. Individual traces, receipts and inspections retain the
 original labels and exact payloads; the report declares this comparison projection.
 
+Successful native lock-heartbeat `stat` and `utimes` calls depend on actual lock
+hold time and timer scheduling. Their fully measured counts and ownership remain
+exact in each inspection and in `trace.periodicMaintenance`; they are reported
+separately from deterministic cross-run work equality. Failed or incompletely
+measured heartbeats and all other native work remain in the strict comparison.
+The owning lock test independently observes actual heartbeat/mtime refresh with
+tracing enabled and disabled. This distinction does not permit missing accounting
+or a performance claim from unequal-duration diagnostics.
+
 Keep `report.json`, raw-artifact hashes, receipts and independent oracle records.
 `harness-modules.json` identifies the complete statically resolvable module
 closure, including public fixture implementations and explicit unavailable

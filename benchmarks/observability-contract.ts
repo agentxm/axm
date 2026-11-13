@@ -56,6 +56,23 @@ export type ObservabilityBudgets = typeof ObservabilityBudgetsSchema.Type;
 export const traceModes = ["disabled", "summary", "detail"] as const;
 export type TraceMode = (typeof traceModes)[number];
 
+/** Structural artifact view; the decoder/composition retains each complete validated row. */
+interface PeriodicMaintenanceFact {
+  readonly kind: string;
+  readonly owner: string;
+  readonly ownerName: string;
+  readonly count: number;
+  readonly executed: number | null;
+  readonly workDurationMs: number | null;
+  readonly dimensions: Readonly<Record<string, string | number | boolean>>;
+  readonly measurements: Readonly<
+    Record<
+      string,
+      { readonly total: number; readonly measured: number; readonly occurrences: number }
+    >
+  >;
+}
+
 export interface OperationCoverage {
   readonly command: string;
   readonly variant: string;
@@ -91,6 +108,8 @@ export interface ObservationSample {
   readonly trace?: {
     readonly complete: boolean;
     readonly delivery: "inspected" | "not-individually-inspected";
+    /** Exact inspected heartbeat facts; null means this timing trace was not retrieved. */
+    readonly periodicMaintenance: ReadonlyArray<PeriodicMaintenanceFact> | null;
     readonly retainedSpanCount: number;
     readonly retainedDetailSpanCount: number | null;
     readonly summaryGroups: number;

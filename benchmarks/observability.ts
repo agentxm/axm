@@ -111,7 +111,63 @@ const isDeliveredReuse = (row: TraceWorkSummary): boolean =>
     );
   });
 
-/** Owner IDs and durations differ per invocation; completed work totals must not. */
+const periodicMaintenanceComparison = {
+  kind: "axm.native.lock-io",
+  phase: "heartbeat",
+  operations: ["stat", "utimes"],
+  condition:
+    "Successful positive-integer count=executed rows only, with complete executed and duration measurements, no additional quantities or dimensions beyond native operation/phase, outcome and owner.",
+  rationale:
+    "Periodic lock refresh depends on actual hold duration and timer scheduling. Exact per-invocation observations remain in trace.periodicMaintenance and the raw inspection; they are separate from deterministic cross-run work equality.",
+};
+
+const isPeriodicMaintenance = (row: TraceWorkSummary): boolean => {
+  const executed = row.measurements["axm.work.executed"];
+  const duration = row.measurements["axm.summary.work-duration-us"];
+  return (
+    row.kind === "axm.native.lock-io" &&
+    row.dimensions["axm.native.phase"] === "heartbeat" &&
+    (row.dimensions["axm.native.operation"] === "stat" ||
+      row.dimensions["axm.native.operation"] === "utimes") &&
+    row.dimensions["axm.outcome"] === "success" &&
+    typeof row.dimensions["axm.work.owner"] === "string" &&
+    row.dimensions["axm.work.owner"].length > 0 &&
+    Object.keys(row.dimensions).every((key) =>
+      ["axm.native.phase", "axm.native.operation", "axm.outcome", "axm.work.owner"].includes(key),
+    ) &&
+    Number.isSafeInteger(row.count) &&
+    row.count > 0 &&
+    row.executed === row.count &&
+    executed?.total === row.count &&
+    executed.measured === row.count &&
+    executed.occurrences === row.count &&
+    duration !== undefined &&
+    Number.isFinite(duration.total) &&
+    duration.total >= 0 &&
+    duration.measured === row.count &&
+    duration.occurrences === row.count &&
+    row.workDurationMs === duration.total / 1000 &&
+    Object.keys(row.measurements).length === 2 &&
+    [
+      row.requested,
+      row.reused,
+      row.bytes,
+      row.ioBytes,
+      row.archiveBytes,
+      row.workCount,
+      row.batchItems,
+      row.registryBatchItems,
+      row.archiveEntries,
+      row.deniedItems,
+    ].every((value) => value === null)
+  );
+};
+
+/** Exact observations retained alongside the deterministic comparison, never rewritten. */
+export const periodicMaintenanceWork = (work: ReadonlyArray<TraceWorkSummary>) =>
+  work.filter(isPeriodicMaintenance);
+
+/** Compare deterministic work; preserve duration-dependent maintenance separately. */
 export const workDigest = (work: ReadonlyArray<TraceWorkSummary>): string => {
   const groups = new Map<string, Array<number | null>>();
   const measured = new Map<
@@ -119,6 +175,7 @@ export const workDigest = (work: ReadonlyArray<TraceWorkSummary>): string => {
     Map<string, { total: number; measured: number; occurrences: number }>
   >();
   for (const row of work) {
+    if (isPeriodicMaintenance(row)) continue;
     const deliveredReuse = isDeliveredReuse(row);
     const key = JSON.stringify([
       row.kind,
@@ -354,6 +411,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             protocolFields: [...volatileComparisonFields],
             progress: progressComparisonNormalization,
             deliveredReuse: deliveredReuseComparison,
+            periodicMaintenance: periodicMaintenanceComparison,
             fixtureRoots:
               "Temporary workspace/home roots normalize to indexed markers; raw bytes and hashes are retained.",
             requestOrder:
@@ -822,6 +880,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               trace = {
                 complete: true,
                 delivery: "not-individually-inspected",
+                periodicMaintenance: null,
                 retainedSpanCount: receipt.retainedSpanCount,
                 retainedDetailSpanCount: null,
                 summaryGroups: receipt.aggregateEventCount,
@@ -901,6 +960,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                   retainedDetailSpanCount: inspected.evidence.retainedDetailSpanCount,
                   summaryGroups: inspected.evidence.aggregateEventCount,
                   workDigest: workDigest(inspected.work),
+                  periodicMaintenance: periodicMaintenanceWork(inspected.work),
                   retrievalBytes: Buffer.byteLength(retrieved.stdout),
                 };
               }

@@ -35,7 +35,7 @@ import {
   discoverObservabilityRoutes,
   makeObservabilityCoverage,
 } from "../benchmarks/observability-coverage.js";
-import { workDigest } from "../benchmarks/observability.js";
+import { periodicMaintenanceWork, workDigest } from "../benchmarks/observability.js";
 
 const budgets = Schema.decodeUnknownSync(Schema.fromJsonString(ObservabilityBudgetsSchema))(
   fs.readFileSync(new URL("../benchmarks/observability-budgets.json", import.meta.url), "utf8"),
@@ -80,6 +80,7 @@ const samples = (repetitions = 5): ObservationSample[] => {
                 trace: {
                   complete: true,
                   delivery: "not-individually-inspected",
+                  periodicMaintenance: null,
                   retainedSpanCount: 3,
                   retainedDetailSpanCount: null,
                   summaryGroups: 1,
@@ -104,6 +105,7 @@ const preflight = (): PreflightCheck[] =>
           trace: {
             complete: true,
             delivery: "inspected",
+            periodicMaintenance: [],
             retainedSpanCount: 3,
             retainedDetailSpanCount: 1,
             summaryGroups: 1,
@@ -152,6 +154,26 @@ const deliveredReuse = (
   registryBatchItems: null,
   archiveEntries: null,
   deniedItems: null,
+});
+
+const heartbeatWork = (operation: "stat" | "utimes", count = 1): TraceWorkSummary => ({
+  ...deliveredReuse("hit", count),
+  kind: "axm.native.lock-io",
+  ownerName: "axm.cli.operation",
+  dimensions: {
+    "axm.work.owner": "SyncWorkspace.previewOrApply",
+    "axm.outcome": "success",
+    "axm.native.phase": "heartbeat",
+    "axm.native.operation": operation,
+  },
+  workDurationMs: (count * 100) / 1000,
+  executed: count,
+  requested: null,
+  reused: null,
+  measurements: {
+    "axm.work.executed": { total: count, measured: count, occurrences: count },
+    "axm.summary.work-duration-us": { total: count * 100, measured: count, occurrences: count },
+  },
 });
 
 // Unit facts and schedules from the retained 61-event cold sync-restore pair.
@@ -717,6 +739,61 @@ describe("independent comparison artifacts", () => {
           },
         ]),
       );
+  });
+
+  it("retains exact periodic heartbeat facts separately from deterministic work equality", () => {
+    const productWork = deliveredReuse("hit");
+    const work = [productWork, heartbeatWork("stat", 2), heartbeatWork("utimes", 2)];
+    const original = structuredClone(work);
+    expect(workDigest(work)).toBe(workDigest([productWork]));
+    expect(periodicMaintenanceWork(work)).toEqual(original.slice(1));
+    expect(periodicMaintenanceWork([productWork])).toEqual([]);
+    expect(work).toEqual(original);
+    expect(workDigest([...work, { ...productWork, executed: 1 }])).not.toBe(workDigest(work));
+  });
+
+  it("keeps failed, partial and other native work in strict cross-run accounting", () => {
+    const heartbeat = heartbeatWork("stat");
+    const strict: ReadonlyArray<TraceWorkSummary> = [
+      { ...heartbeat, kind: "axm.io.stat" },
+      { ...heartbeat, count: 0 },
+      { ...heartbeat, executed: 0 },
+      { ...heartbeat, bytes: 0 },
+      { ...heartbeat, measurements: {} },
+      {
+        ...heartbeat,
+        measurements: {
+          ...heartbeat.measurements,
+          "axm.work.executed": { total: 1, measured: 0, occurrences: 1 },
+        },
+      },
+      {
+        ...heartbeat,
+        measurements: {
+          ...heartbeat.measurements,
+          "axm.summary.work-duration-us": { total: 100, measured: 0, occurrences: 1 },
+        },
+      },
+      {
+        ...heartbeat,
+        measurements: {
+          ...heartbeat.measurements,
+          "axm.work.bytes": { total: 0, measured: 1, occurrences: 1 },
+        },
+      },
+      { ...heartbeat, dimensions: { ...heartbeat.dimensions, "axm.outcome": "failure" } },
+      { ...heartbeat, dimensions: { ...heartbeat.dimensions, "axm.outcome": "interrupted" } },
+      { ...heartbeat, dimensions: { ...heartbeat.dimensions, "axm.native.phase": "acquire" } },
+      { ...heartbeat, dimensions: { ...heartbeat.dimensions, "axm.native.phase": "release" } },
+      { ...heartbeat, dimensions: { ...heartbeat.dimensions, "axm.native.phase": "cleanup" } },
+      { ...heartbeat, dimensions: { ...heartbeat.dimensions, "axm.native.phase": "exit" } },
+      { ...heartbeat, dimensions: { ...heartbeat.dimensions, "axm.native.operation": "unlink" } },
+      { ...heartbeat, dimensions: { ...heartbeat.dimensions, "axm.failure.kind": "denied" } },
+    ];
+    for (const row of strict) {
+      expect(periodicMaintenanceWork([row])).toEqual([]);
+      expect(workDigest([row])).not.toBe(workDigest([]));
+    }
   });
 
   it("includes transitive fixture modules in the executable harness identity", () => {

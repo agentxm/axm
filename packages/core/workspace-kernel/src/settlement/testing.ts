@@ -25,6 +25,7 @@ import type * as Path from "effect/Path";
 import type { WorkspaceTransitionLock } from "./transition-lock.js";
 
 export { makeMemoryTransitionLockWorld } from "./memory-transition-lock.js";
+export { startWorkspaceTransitionProcess } from "./testing/contention-process.js";
 
 /**
  * A transaction scope over the given paths whose admission is one in-memory

@@ -1,4 +1,5 @@
 import { WorkspaceTransactionScope } from "../../settlement/index.js";
+import { startWorkspaceTransitionProcess } from "../../settlement/testing.js";
 import { PlanSources, makePlanSources } from "./plan-sources.js";
 import {
   AxmSkillCandidateGateTest,
@@ -52,9 +53,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "supporting",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
-  boundary: "platform",
+  boundary: "process",
   boundaryRationale:
-    "The real candidate pipeline, Registry client, filesystem cache and archive extraction execute over a temporary workspace and controlled HTTP port. Request ordering, extracted files and closure outcomes are observed; deployed Registry authorization and actual CLI process behavior remain separate evidence.",
+    "The real candidate pipeline, Registry client, filesystem cache and archive extraction execute over a temporary workspace and controlled HTTP port. A separate process holds the production transition lock during revocation or source mutation. Request ordering, lock ownership and closure outcomes are observed; deployed Registry policy and compiled CLI behavior remain separate evidence.",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],
@@ -85,6 +86,8 @@ describe("Registry eligibility at exposure", () => {
     "denied",
     "revoked-during-confirmation",
     "revoked-during-contention",
+    "revoked-during-process-contention",
+    "source-changed-during-process-contention",
     "repeated-contention",
     "no-registry-exposure",
     "local-contention",
@@ -93,9 +96,17 @@ describe("Registry eligibility at exposure", () => {
     "ten-warm-revoked",
     "hundred-and-one-distinct",
   ] as const) {
-    it.effect(scenario, () =>
+    const processContention =
+      scenario === "revoked-during-process-contention" ||
+      scenario === "source-changed-during-process-contention";
+    const test = processContention ? it.live : it.effect;
+    test(scenario, () =>
       Effect.gen(function* () {
         const workspace = yield* makeSpecWorkspace("axm-registry-exposure-");
+        const sourceChanges = scenario === "source-changed-during-process-contention";
+        const contentionRevokes =
+          scenario === "revoked-during-contention" ||
+          scenario === "revoked-during-process-contention";
         const noExposure = scenario === "no-registry-exposure" || scenario === "local-contention";
         const requests: string[] = [];
         const batchSizes: number[] = [];
@@ -167,6 +178,25 @@ describe("Registry eligibility at exposure", () => {
         );
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
+        const materialSource = path.join(workspace.root, "reviewed-source.md");
+        if (sourceChanges) yield* fs.writeFileString(materialSource, "Reviewed guidance.");
+        const holder = processContention
+          ? yield* Effect.gen(function* () {
+              yield* fs.writeFileString(path.join(workspace.root, "state.json"), "[]");
+              yield* fs.writeFileString(path.join(workspace.root, "mirror.json"), "[]");
+              const worker = startWorkspaceTransitionProcess(workspace.root, "first");
+              yield* Effect.addFinalizer(() =>
+                Effect.promise(async () => {
+                  worker.stop();
+                  await worker.completion;
+                }),
+              );
+              const entered = yield* Effect.promise(() => worker.waitFor("entered"));
+              expect(entered.pid).not.toBe(process.pid);
+              return worker;
+            })
+          : undefined;
+        let observedHolder = false;
         const configuration = ConfigProvider.layer(
           ConfigProvider.fromUnknown({ AXM_USER_HOME: workspace.root }),
         );
@@ -236,6 +266,7 @@ describe("Registry eligibility at exposure", () => {
           _tag: "Plan",
           name: "Reconcile retained sources",
           description: Option.none(),
+          ...(sourceChanges ? { materialPaths: [materialSource] } : {}),
           riskConditions: [
             { level: "confirmable", id: "fixture-review", detail: "Review this candidate" },
           ],
@@ -304,7 +335,28 @@ describe("Registry eligibility at exposure", () => {
                       yield* request.onWaiting?.(Option.none()) ?? Effect.void;
                       denied = scenario === "revoked-during-contention";
                     }
-                    return yield* scope.acquire(request);
+                    return yield* scope.acquire({
+                      ...request,
+                      ...(holder === undefined
+                        ? {}
+                        : {
+                            onWaiting: (owner) =>
+                              Effect.gen(function* () {
+                                expect(Option.isSome(owner) ? owner.value.pid : undefined).toBe(
+                                  holder.child.pid,
+                                );
+                                observedHolder = true;
+                                yield* request.onWaiting?.(owner) ?? Effect.void;
+                                denied = contentionRevokes;
+                                if (sourceChanges)
+                                  yield* fs
+                                    .writeFileString(materialSource, "Changed guidance.")
+                                    .pipe(Effect.orDie);
+                                holder.release();
+                                expect(yield* Effect.promise(() => holder.completion)).toBe(0);
+                              }),
+                          }),
+                    });
                   }),
               });
             }),
@@ -321,6 +373,17 @@ describe("Registry eligibility at exposure", () => {
           ),
         );
         const eligibility = spans.filter((span) => span.name === "axm.registry.eligibility");
+        if (sourceChanges) {
+          expect(observedHolder).toBe(true);
+          expect(lockAttempts).toBe(2);
+          expect(yield* lockHeld).toBe(false);
+          expect(batchSizes).toEqual([1, 1, 1]);
+          expect(exposed).toBe(0);
+          expect(independent).toBe(0);
+          expect(result.blocking?.class).toBe("stale-candidate");
+          expect(yield* fs.readFileString(materialSource)).toBe("Changed guidance.");
+          return;
+        }
         if (scenario === "repeated-contention") {
           expect(lockAttempts).toBe(3);
           expect(yield* lockHeld).toBe(false);
@@ -343,21 +406,17 @@ describe("Registry eligibility at exposure", () => {
         expect(eligibility.map((span) => span.attributes.get("axm.eligibility.phase"))).toEqual([
           "before-acquisition",
           "after-confirmation",
-          ...(scenario === "revoked-during-contention" ? ["after-contention"] : []),
+          ...(contentionRevokes ? ["after-contention"] : []),
         ]);
         expect(eligibility.map((span) => span.attributes.get("axm.work.executed"))).toEqual(
-          noExposure
-            ? [0, 0]
-            : scenario === "revoked-during-contention"
-              ? [1, 1, 1]
-              : [distinct, distinct],
+          noExposure ? [0, 0] : contentionRevokes ? [1, 1, 1] : [distinct, distinct],
         );
         expect(eligibility.map((span) => span.attributes.get("axm.registry.denied"))).toEqual(
           scenario === "denied"
             ? [1, 1]
             : revokes
               ? [0, distinct]
-              : scenario === "revoked-during-contention"
+              : contentionRevokes
                 ? [0, 0, 1]
                 : [0, 0],
         );
@@ -372,10 +431,11 @@ describe("Registry eligibility at exposure", () => {
           ? []
           : distinct === 101
             ? [100, 1, 100, 1]
-            : scenario === "revoked-during-contention"
+            : contentionRevokes
               ? [1, 1, 1]
               : [distinct, distinct];
-        if (scenario === "revoked-during-contention") expect(lockAttempts).toBe(2);
+        if (contentionRevokes) expect(lockAttempts).toBe(2);
+        if (processContention) expect(observedHolder).toBe(true);
         if (scenario === "local-contention") expect(lockAttempts).toBe(1);
         expect(batchSizes).toEqual(expectedBatches);
         expect(requests).toEqual(expectedBatches.map(() => "POST"));

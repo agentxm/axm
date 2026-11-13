@@ -7,6 +7,7 @@
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Tracer from "effect/Tracer";
@@ -25,7 +26,7 @@ it.effect.each(["content", "entry"] as const)(
     Effect.gen(function* () {
       const real = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* real.makeTempDirectoryScoped();
+      const root = yield* real.makeTempDirectoryScoped().pipe(Effect.flatMap(real.realPath));
       const settingsPath = path.join(root, "axm.json");
       const independent = path.join(root, "independent.txt");
       const before = '{"agents":["claude-code"],"futureCapability":{"enabled":true}}\n';
@@ -45,7 +46,9 @@ it.effect.each(["content", "entry"] as const)(
           return span;
         },
       });
-      let foreignInfo: FileSystem.File.Info | undefined;
+      let ownedInode: string | undefined;
+      let foreignInode: string | undefined;
+      const injectionFailures: string[] = [];
       const forwarding: FileSystem.FileSystem = {
         ...real,
         rename: (source, target) =>
@@ -56,12 +59,22 @@ it.effect.each(["content", "entry"] as const)(
               return Effect.gen(function* () {
                 if (change === "entry") {
                   foreign = yield* real.readFileString(settingsPath);
+                  ownedInode = Option.getOrThrow((yield* real.stat(settingsPath)).ino).toString();
                   const other = path.join(root, "foreign-replacement");
                   yield* real.writeFileString(other, foreign);
+                  // Windows refuses replacement over an open destination. Move
+                  // that object aside, then publish the distinct foreign entry.
+                  yield* real.rename(settingsPath, path.join(root, "displaced-owner"));
                   yield* real.rename(other, settingsPath);
                 } else yield* real.writeFileString(settingsPath, foreign);
-                foreignInfo = yield* real.stat(settingsPath);
-              });
+                foreignInode = Option.getOrThrow((yield* real.stat(settingsPath)).ino).toString();
+              }).pipe(
+                Effect.tapError((error) =>
+                  Effect.sync(() => {
+                    injectionFailures.push(String(error));
+                  }),
+                ),
+              );
             }),
           ),
       };
@@ -95,9 +108,17 @@ it.effect.each(["content", "entry"] as const)(
           ? real.remove(result.failure.snapshotDir, { recursive: true, force: true })
           : Effect.void;
       yield* Effect.gen(function* () {
+        expect(injectionFailures).toEqual([]);
         expect(injected).toBe(true);
+        expect(foreignInode).toBeDefined();
         expect(yield* real.readFileString(settingsPath)).toBe(foreign);
-        expect((yield* real.stat(settingsPath)).ino).toEqual(foreignInfo?.ino);
+        expect(Option.getOrThrow((yield* real.stat(settingsPath)).ino).toString()).toBe(
+          foreignInode,
+        );
+        if (change === "entry") {
+          expect(ownedInode).toBeDefined();
+          expect(foreignInode).not.toBe(ownedInode);
+        }
         expect(yield* real.readFileString(independent)).toBe("original independent content");
         const publications = spans.filter((span) => span.name === "axm.verify.publication");
         expect(

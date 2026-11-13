@@ -98,7 +98,8 @@ it.live.skipIf(process.platform !== "win32")(
           }),
       }).pipe(Effect.result);
 
-      expect(result).toEqual({ _tag: "Failure", failure: "publication-callback-failed" });
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") expect(result.failure).toBe("publication-callback-failed");
       expect(handles).toHaveLength(1);
       const handle = handles[0];
       if (handle === undefined) return expect.fail("Expected a retained staged file handle");

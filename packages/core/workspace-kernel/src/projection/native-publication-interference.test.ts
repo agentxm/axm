@@ -18,7 +18,7 @@ it.effect(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(fs.realPath));
       const target = path.join(root, "native.json");
       const before =
         '{"mcpServers":{"context":{"command":"old"},"foreign":{"command":"keep"}},"unrelated":true}';
@@ -26,6 +26,7 @@ it.effect(
         '{"mcpServers":{"context":{"command":"new"},"foreign":{"command":"foreign-edit"}},"unrelated":true}';
       yield* fs.writeFileString(target, before);
       let injected = false;
+      const injectionFailures: string[] = [];
       const forwarding: FileSystem.FileSystem = {
         ...fs,
         writeFileString: (file, content, options) =>
@@ -33,7 +34,13 @@ it.effect(
             Effect.tap(() => {
               if (file !== target || injected) return Effect.void;
               injected = true;
-              return fs.writeFileString(target, foreign);
+              return fs.writeFileString(target, foreign).pipe(
+                Effect.tapError((error) =>
+                  Effect.sync(() => {
+                    injectionFailures.push(String(error));
+                  }),
+                ),
+              );
             }),
           ),
       };
@@ -76,6 +83,8 @@ it.effect(
         Effect.provideService(FileSystem.FileSystem, forwarding),
         Effect.result,
       );
+      expect(injectionFailures).toEqual([]);
+      expect(injected).toBe(true);
       if (
         result._tag !== "Failure" ||
         typeof result.failure === "string" ||
@@ -87,7 +96,6 @@ it.effect(
         yield* Effect.addFinalizer(() =>
           fs.remove(snapshotDir, { recursive: true, force: true }).pipe(Effect.orDie),
         );
-      expect(injected).toBe(true);
       expect(yield* fs.readFileString(target)).toBe(foreign);
       const recovery = result.failure.recovery.find((entry) => entry.originalPath === target);
       expect(recovery?.kind).toBe("snapshot");

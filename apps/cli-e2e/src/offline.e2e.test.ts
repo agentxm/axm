@@ -142,7 +142,14 @@ it("offline restore refuses a warm remote archive while an independent local ski
       "---\nname: local-offline\ndescription: Local offline guidance\n---\n# Local\nIndependent local guidance.\n",
     );
     const before = registry.requests.length;
-    const restored = await fixture.run(["sync", "--offline", "--json"], environment);
+    const restored = await fixture.run(["sync", "--offline", "--json"], {
+      ...environment,
+      AXM_TELEMETRY: "1",
+      AXM_TELEMETRY_BASE_URL: registry.url,
+      AXM_TRACE: "1",
+      AXM_TRACE_ENDPOINT: registry.url,
+      AXM_NO_UPDATE_CHECK: "0",
+    });
     expect(restored.exitCode, restored.stdout + restored.stderr).not.toBe(0);
     expect(restored.stdout + restored.stderr).toContain("network-required");
     expect(registry.requests.length).toBe(before);
@@ -153,6 +160,16 @@ it("offline restore refuses a warm remote archive while an independent local ski
         "utf8",
       ),
     ).toContain("Independent local guidance.");
+    // The inaccessible registration remains removable in ordinary online mode,
+    // without an unrelated access preflight or restoring its missing content.
+    const removed = await fixture.run(
+      ["skills", "uninstall", "remote-offline", "--json"],
+      environment,
+    );
+    expect(removed.exitCode, removed.stdout + removed.stderr).toBe(0);
+    expect(registry.requests.length).toBe(before);
+    expect(fs.readFileSync(settingsPath, "utf8")).not.toContain("remote-offline");
+    expect(fs.existsSync(remoteNative)).toBe(false);
   } finally {
     fixture.cleanup();
     await registry.close();

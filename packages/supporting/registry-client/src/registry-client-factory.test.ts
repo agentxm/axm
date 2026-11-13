@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
@@ -187,8 +187,24 @@ describe("RegistryClientFactory", () => {
         .pipe(Effect.flip);
       expect(wire._tag).toBe("RegistryOperationUnsupported");
       expect(transport.requests).toEqual([]);
+      expect(readdirSync(root)).toEqual([]);
     }).pipe(
-      Effect.provide(factoryLayer(transport.client)),
+      Effect.provide(
+        RegistryClientFactoryLive.pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              NodeServices.layer,
+              Layer.succeed(RegistryHttpClient, transport.client),
+              Layer.succeed(RegistryRequestAuthorization, {
+                currentContext: () => Effect.die("Unsupported operation looked up credentials"),
+                authorize: () => {
+                  throw new Error("Unsupported operation configured authorization");
+                },
+              }),
+            ),
+          ),
+        ),
+      ),
       Effect.ensuring(Effect.sync(() => rmSync(root, { recursive: true, force: true }))),
     );
   });

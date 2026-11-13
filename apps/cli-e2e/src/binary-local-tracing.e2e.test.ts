@@ -91,20 +91,40 @@ describe("compiled local tracing", () => {
           cwd: root.path,
           env: { ...environment, AXM_TRACE: "1", AXM_TRACE_RECEIPT: receiptPath },
         });
-        const receipt = Schema.decodeUnknownSync(
-          Schema.fromJsonString(
-            Schema.Struct({
-              schemaVersion: Schema.Literal(2),
-              service: Schema.Literal("axm"),
-              producerComplete: Schema.Literal(true),
-              aggregateEventCount: Schema.Int,
-              aggregateEventsSha256: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/)),
-              droppedAggregateEventCount: Schema.Literal(0),
-              traceId: Schema.String,
-              spanId: Schema.String,
-            }),
-          ),
-        )(readFileSync(receiptPath, "utf8"));
+        const receiptBytes = readFileSync(receiptPath);
+        const receiptText = receiptBytes.toString("utf8");
+        const receipt = (() => {
+          try {
+            return Schema.decodeUnknownSync(
+              Schema.fromJsonString(
+                Schema.Struct({
+                  schemaVersion: Schema.Literal(2),
+                  service: Schema.Literal("axm"),
+                  producerComplete: Schema.Literal(true),
+                  aggregateEventCount: Schema.Int,
+                  aggregateEventsSha256: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/)),
+                  droppedAggregateEventCount: Schema.Literal(0),
+                  traceId: Schema.String,
+                  spanId: Schema.String,
+                }),
+              ),
+            )(receiptText);
+          } catch (cause) {
+            // The fixture is removed below. Preserve the exact receipt and process
+            // result in the failure report before losing that diagnostic evidence.
+            throw new Error(
+              `Invalid trace receipt: ${JSON.stringify({
+                args,
+                exitCode: traced.exitCode,
+                stdout: traced.stdout,
+                stderr: traced.stderr,
+                receiptText,
+                receiptBytesBase64: receiptBytes.toString("base64"),
+              })}`,
+              { cause },
+            );
+          }
+        })();
         expect(receipt.traceId).toMatch(/^[0-9a-f]{32}$/);
         expect(receipt.spanId).toMatch(/^[0-9a-f]{16}$/);
         expect(traced.exitCode).toBe(baseline.exitCode);

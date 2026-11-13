@@ -3,8 +3,9 @@ import { LocalTraceEnabled } from "./local-trace-enabled.js";
 import { TraceInvocation } from "./trace-invocation.js";
 import { traceBuild, type TraceBuild } from "./trace-build.js";
 import type { TraceCaptureState, TraceTimings } from "./local-trace-receipt.js";
+import { makeLocalTraceReceiptWriter } from "./local-trace-receipt-writer/index.js";
 import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient";
-import { open, type FileHandle } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { axmBooleanEnabled } from "@agentxm/host-primitives";
 import {
   CurrentWorkObserver,
@@ -182,7 +183,7 @@ export const withLocalTracing = <A, E, R>(
   const endpoint = localTraceEndpoint(environment);
   if (endpoint === undefined && !environment["AXM_TRACE_RECEIPT"]) return program;
   return Effect.suspend(() => {
-    let receipt: FileHandle | undefined;
+    let receipt: ReturnType<typeof makeLocalTraceReceiptWriter> | undefined;
     let session: ReturnType<typeof makeLocalTraceSession> | undefined;
     let aggregateLogger: Logger.Logger<unknown, void> | undefined;
     const build = traceBuild(environment, options.version);
@@ -194,17 +195,15 @@ export const withLocalTracing = <A, E, R>(
     let executionEnded = false;
     let captureState: TraceCaptureState["captureState"] = "starting";
     const writeReceipt = () =>
-      Effect.tryPromise(async () => {
-        if (receipt === undefined) return;
+      Effect.suspend(() => {
+        if (receipt === undefined) return Effect.void;
         const document = session?.snapshot(timings) ?? {
           schemaVersion: 2,
           service: "axm",
           captureState,
         };
-        const data = JSON.stringify(document) + "\n";
-        await receipt.write(data, 0, "utf8");
-        await receipt.truncate(Buffer.byteLength(data));
-      }).pipe(Effect.timeoutOption("100 millis"), Effect.ignoreCause);
+        return receipt.write(JSON.stringify(document) + "\n");
+      }).pipe(Effect.ignoreCause);
     const openReceipt = (destination: string) =>
       Effect.callback<void, Error>((resume) => {
         let active = true;
@@ -214,7 +213,7 @@ export const withLocalTracing = <A, E, R>(
               void handle.close().catch(() => undefined);
               return;
             }
-            receipt = handle;
+            receipt = makeLocalTraceReceiptWriter(handle);
             resume(Effect.void);
           },
           () => resume(Effect.fail(new Error("Diagnostic receipt unavailable"))),
@@ -341,11 +340,7 @@ export const withLocalTracing = <A, E, R>(
             };
           yield* writeReceipt();
         }).pipe(
-          Effect.ensuring(
-            Effect.tryPromise(async () => {
-              await receipt?.close();
-            }).pipe(Effect.interruptible, Effect.timeoutOption("25 millis"), Effect.ignoreCause),
-          ),
+          Effect.ensuring(Effect.suspend(() => receipt?.close ?? Effect.void)),
           Effect.interruptible,
           Effect.timeoutOption("450 millis"),
           Effect.ignoreCause,

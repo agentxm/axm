@@ -452,5 +452,11 @@
     "requirement": "cli/help/shared-extension-glossary",
     "disposition": "retired",
     "basis": "Maintainer decision keeps the engineering knowledge concept authoritative and removes generated glossary copies from CLI help, the AXM skill, and website release assets. Consumers link to the canonical glossary and maintain terminology consistency."
+  },
+  {
+    "requirement": "cli/lint/reports-deprecated-installed",
+    "disposition": "superseded-by",
+    "successor": "cli/lint/local-inspection-requires-no-registry",
+    "basis": "Local lint evaluates workspace facts without Registry access. Current remote lifecycle assessment belongs to explicit inspection rather than implicit lint enrichment."
   }
 ]

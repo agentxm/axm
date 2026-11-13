@@ -232,6 +232,20 @@ People and agents can understand invalid workspace state and recover it through 
 - Additional evidence: process via [`apps/cli-e2e/src/lint.e2e.test.ts`](../apps/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`packages/core/workspace-features/src/linting/run/honors-configured-rule-severities.spec.ts`](../packages/core/workspace-features/src/linting/run/honors-configured-rule-severities.spec.ts)
 
+##### Local lint does not consult the Registry
+
+- Requirement: `cli/lint/local-inspection-requires-no-registry`
+- Owner: `workspace-features`
+- Statement: Lint shall inspect local workspace facts without consulting the Registry, including when installed extensions have changed lifecycle metadata.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
+- Methods: example
+- Supersedes: `cli/lint/reports-deprecated-installed`
+- Source: [`packages/core/workspace-features/src/linting/catalog/workspace/local-inspection-requires-no-registry.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/local-inspection-requires-no-registry.spec.ts)
+
 ##### Lint fails a normal run on errors and a strict run on warnings as well
 
 - Requirement: `cli/lint/normal-and-strict-runs-fail-by-severity`
@@ -302,19 +316,6 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary rationale: Production lint observes real temporary project and user directories containing dangling links and a loop.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/reports-broken-native-output-links.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/reports-broken-native-output-links.spec.ts)
-
-##### Lint reports deprecated installed extensions
-
-- Requirement: `cli/lint/reports-deprecated-installed`
-- Owner: `workspace-features`
-- Statement: When current Registry assessment marks installed extensions deprecated, lint shall report one warning per extension with its reason, replacement and the applicable command, and strict mode shall fail without changing workspace state.
-- Class: functional
-- Role: experience
-- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: platform; selection: per-change
-- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
-- Methods: example
-- Source: [`packages/core/workspace-features/src/linting/catalog/workspace/deprecated-installed.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/deprecated-installed.spec.ts)
 
 ##### Lint preserves workspace files whether the run succeeds or fails
 

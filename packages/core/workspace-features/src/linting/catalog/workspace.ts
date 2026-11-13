@@ -51,7 +51,6 @@ import { axmSkillDeclaredRule } from "./workspace/axm-skill-declared.js";
 import { axmSkillCompatibleRule } from "./workspace/axm-skill-compatible.js";
 import { managedFileUnownedRule } from "./workspace/managed-file-unowned.js";
 import { installedButNotConfiguredRule } from "./workspace/installed-but-not-configured.js";
-import { deprecatedInstalledRule } from "./workspace/deprecated-installed.js";
 import { authoredPackageDeclaredRule } from "./workspace/authored-package-declared.js";
 import { installRootEntriesRecognizedRule } from "./workspace/install-root-entries-recognized.js";
 import { sourceEndpointsAlignedRule } from "./workspace/source-endpoints-aligned.js";
@@ -115,7 +114,6 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<
   unknownAxmFenceRule,
   managedFileUnownedRule,
   installedButNotConfiguredRule,
-  deprecatedInstalledRule,
   authoredPackageDeclaredRule,
   installRootEntriesRecognizedRule,
   projectOutputsNotShadowedRule,
@@ -152,7 +150,6 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext, Config
   unknownAxmFenceRule,
   managedFileUnownedRule,
   installedButNotConfiguredRule,
-  deprecatedInstalledRule,
   authoredPackageDeclaredRule,
   installRootEntriesRecognizedRule,
   projectOutputsNotShadowedRule,

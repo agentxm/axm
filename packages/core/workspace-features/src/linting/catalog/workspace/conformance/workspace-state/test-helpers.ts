@@ -4,8 +4,6 @@ import {
   nativeOutputsReadableRule,
 } from "../../native-output-health.js";
 import * as Effect from "effect/Effect";
-import * as DateTime from "effect/DateTime";
-import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 
@@ -32,7 +30,6 @@ import { axmSkillCompatibleRule } from "../../axm-skill-compatible.js";
 import { knowledgeStateValidRule } from "../../knowledge-state-valid.js";
 import { managedFileUnownedRule } from "../../managed-file-unowned.js";
 import { installedButNotConfiguredRule } from "../../installed-but-not-configured.js";
-import { deprecatedInstalledRule } from "../../deprecated-installed.js";
 import { authoredPackageDeclaredRule } from "../../authored-package-declared.js";
 import { installRootEntriesRecognizedRule } from "../../install-root-entries-recognized.js";
 import { projectionOwnershipValidRule } from "../../projection-ownership-valid.js";
@@ -559,47 +556,6 @@ export const installedButNotConfiguredConformance: WorkspaceRuleConformanceCase 
       message:
         "Installed skill '@acme/skills/draft' is not configured in project scope: canonical path agent_extensions/registry.agentxm.ai/@acme/skills/draft, source directory agentxm, no lock row.",
       location: { file: "agent_extensions/registry.agentxm.ai/@acme/skills/draft" },
-    },
-  ],
-  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
-};
-
-const obsoleteDeprecation = {
-  deprecatedAt: DateTime.makeUnsafe("2026-09-25T00:00:00.000Z"),
-  reason: "obsolete",
-  message: "No longer needed.",
-} satisfies DeprecationView;
-
-const deprecatedInstalledContext = (deprecated: boolean) =>
-  contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
-    Effect.map(
-      (context) =>
-        ({
-          ...context,
-          deprecatedInstalled: Effect.succeed(
-            deprecated
-              ? [
-                  {
-                    fqn: "@acme/skills/old",
-                    deprecation: obsoleteDeprecation,
-                    memberPacks: [],
-                  },
-                ]
-              : [],
-          ),
-        }) satisfies WorkspaceRuleContext,
-    ),
-  );
-
-export const deprecatedInstalledConformance: WorkspaceRuleConformanceCase = {
-  rule: deprecatedInstalledRule,
-  satisfied: () => deprecatedInstalledContext(false),
-  violated: () => deprecatedInstalledContext(true),
-  expectedFindings: [
-    {
-      message:
-        "@acme/skills/old is deprecated (obsolete); replacement: none. Preview: axm migrate @acme/skills/old --preview. Apply: axm migrate @acme/skills/old.",
-      location: { file: "axm.json" },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),

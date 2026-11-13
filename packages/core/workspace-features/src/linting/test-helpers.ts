@@ -6,9 +6,7 @@
  * lint run reads it through except the two the package deliberately leaves to
  * its caller: the platform, and the statement of which extension types
  * contribute projections. This helper states both — the host file system, so
- * a run observes the same bytes the product observes; a transport that
- * refuses every request, so current deprecation assessment remains unavailable
- * without reaching the network;
+ * a run observes the same bytes the product observes;
  * and no projection participants, so nothing outside `@agentxm/workspace-features/linting`
  * decides what a fixture's workspace is expected to contain.
  */
@@ -19,7 +17,7 @@ import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing"
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientError from "effect/http/HttpClientError";
 
-import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
+import { RegistryClientFactory } from "@agentxm/registry-client";
 
 import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/testing";
 
@@ -43,17 +41,18 @@ export const OfflineHttpClient: Layer.Layer<HttpClient.HttpClient> = Layer.succe
   ),
 );
 
-/** Registry clients over the refusing transport: no request leaves the process. */
-const OfflineRegistryClients = Layer.provide(
-  RegistryClientFactoryTest(OfflineHttpClient),
-  NativePlatformTest,
-);
+// The workspace fixture composes source services, but local lint must never use them.
+const UnusedRegistryClients = Layer.succeed(RegistryClientFactory, {
+  forEndpoint: () => Effect.die("Local lint requested Registry content"),
+  lifecycle: () => Effect.die("Local lint requested Registry lifecycle"),
+  wire: () => Effect.die("Local lint requested Registry transport"),
+});
 
 /** Every service a lint run over `fixture` reads the workspace through. */
 export const lintServices = (fixture: LintWorkspaceFixture) =>
   fixture.layer.pipe(
     Layer.provideMerge(
-      Layer.mergeAll(NativePlatformTest, OfflineRegistryClients, NoProjectionParticipants),
+      Layer.mergeAll(NativePlatformTest, NoProjectionParticipants, UnusedRegistryClients),
     ),
   );
 

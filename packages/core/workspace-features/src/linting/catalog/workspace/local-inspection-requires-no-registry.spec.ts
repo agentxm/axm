@@ -7,16 +7,17 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
+import { RegistryClientFactory } from "@agentxm/registry-client";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { applyInstall, installRequest, makeInstallWorld } from "../../../testing/install-world.js";
 import { queryLintWorkspace } from "../../run/lint-workspace.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/lint/reports-deprecated-installed",
-  title: "Lint reports deprecated installed extensions",
+  requirement: "cli/lint/local-inspection-requires-no-registry",
+  title: "Local lint does not consult the Registry",
   statement:
-    "When current Registry assessment marks installed extensions deprecated, lint shall report one warning per extension with its reason, replacement and the applicable command, and strict mode shall fail without changing workspace state.",
+    "Lint shall inspect local workspace facts without consulting the Registry, including when installed extensions have changed lifecycle metadata.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
@@ -25,19 +26,19 @@ export const specification = defineSpecification({
   boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
-  supersedes: [],
+  supersedes: ["cli/lint/reports-deprecated-installed"],
   assumptions: [],
   openQuestions: [],
 });
 
-describe("Deprecated installed workspace findings", () => {
+describe("Local lint with Registry-installed extensions", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
   it.effect(
-    "reports each current deprecation and fails strict lint without changing workspace state",
+    "reports local facts without consulting the Registry or changing workspace state",
     () => {
       const world = makeInstallWorld();
       cleanups.push(world.cleanup);
@@ -75,28 +76,31 @@ describe("Deprecated installed workspace findings", () => {
               );
             }
             const before = world.workspace.snapshot();
-            const result = yield* queryLintWorkspace(
-              {
-                workspaceRoot: world.workspace.root,
-                userHome: world.workspace.root,
-                scope: "project",
-                input: { view: "filesystem" },
-                nativeView: { kind: "workspace" },
-                fix: false,
-              },
-              { strict: true },
-            );
-            const findings = result.document.findings.filter(
-              (finding) => finding.ruleId === "workspace/deprecated-installed",
-            );
-            expect(findings).toHaveLength(2);
-            expect(findings.map((finding) => finding.message)).toContainEqual(
-              expect.stringContaining("axm migrate @acme/skills/old --preview"),
-            );
-            expect(findings.map((finding) => finding.message)).toContainEqual(
-              expect.stringContaining("axm view @acme/skills/other"),
-            );
-            expect(result.outcome).toBe("fail");
+            for (const strict of [false, true]) {
+              const result = yield* queryLintWorkspace(
+                {
+                  workspaceRoot: world.workspace.root,
+                  userHome: world.workspace.root,
+                  scope: "project",
+                  input: { view: "filesystem" },
+                  nativeView: { kind: "workspace" },
+                  fix: false,
+                },
+                { strict },
+              ).pipe(
+                Effect.provideService(RegistryClientFactory, {
+                  forEndpoint: () => Effect.die("Local lint requested Registry content"),
+                  lifecycle: () => Effect.die("Local lint requested Registry lifecycle"),
+                  wire: () => Effect.die("Local lint requested Registry transport"),
+                }),
+              );
+              expect(
+                result.document.findings.some(
+                  (finding) => finding.ruleId === "workspace/deprecated-installed",
+                ),
+              ).toBe(false);
+              expect(result.document).toHaveProperty("findings");
+            }
             expect(world.workspace.snapshot()).toEqual(before);
           }),
         )

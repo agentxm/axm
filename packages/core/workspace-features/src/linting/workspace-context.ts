@@ -14,7 +14,6 @@ import type * as Option from "effect/Option";
 import type * as Result from "effect/Result";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 
 import type {
   AgentOutputInventory,
@@ -110,14 +109,6 @@ export interface WorkspaceRuleContext {
    * when it is absent.
    */
   readonly installedExtensions?: WorkspaceInstalledExtensionAccessor;
-  /** Accepted, installed Registry extensions with deprecation evidence. */
-  readonly deprecatedInstalled?: Effect.Effect<
-    ReadonlyArray<{
-      readonly fqn: string;
-      readonly deprecation: DeprecationView;
-      readonly memberPacks: ReadonlyArray<string>;
-    }>
-  >;
   /** Effective configured owner (project, then user scope), when available. */
   readonly owner?: Effect.Effect<Option.Option<Handle>>;
   /**

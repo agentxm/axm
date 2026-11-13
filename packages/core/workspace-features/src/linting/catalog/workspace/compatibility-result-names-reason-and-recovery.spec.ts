@@ -107,9 +107,7 @@ describe("Official AXM skill compatibility result", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  // `it.live`: a usable Registry package makes lint ask the (offline) Registry
-  // about deprecation, whose bounded retries need a real clock.
-  it.live.each(cases)("names the reason and recovery when $state", (testCase) => {
+  it.effect.each(cases)("names the reason and recovery when $state", (testCase) => {
     const workspace = makeOfficialAxmSkillWorkspace(testCase.state, {
       settings: { lint: { rules: isolateOfficialAxmSkillRules() } },
     });

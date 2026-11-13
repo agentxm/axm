@@ -37,9 +37,7 @@ import {
 
 import { buildPackRuleContexts, buildSkillRuleContexts } from "@agentxm/extension-content/lint";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { RegistryClientFactory } from "@agentxm/registry-client";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/cli-maintenance/official-skill/application";
 import {
   CodingAgentRepository,
@@ -58,7 +56,6 @@ import {
   DesiredStateReader,
   SettingsReader,
   WorkspaceLocation,
-  acceptedResolutionRef,
   acceptedCanonicalObservation,
   observeInstallRoot,
   withWorkspaceObservationReadView,
@@ -227,7 +224,6 @@ export interface LintWorkspaceResult {
 export type LintWorkspaceRequirements =
   | NativeEntryRemoval
   | AxmSkillCompatibilityPolicy
-  | RegistryClientFactory
   | CodingAgentRepository
   | FileSystem.FileSystem
   | LockfileReader
@@ -447,43 +443,6 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
         const authoredPackages = Option.isSome(settings)
           ? yield* observeAuthoredPackages({ layout, settings: settings.value })
           : [];
-        const registryClients = yield* RegistryClientFactory;
-        const deprecatedInstalled =
-          selection.fix || Result.isFailure(observed)
-            ? []
-            : (yield* Effect.forEach(observed.success, ({ desired, observation }) =>
-                observation.status !== "usable"
-                  ? Effect.succeedNone
-                  : acceptedResolutionRef({ type: desired.type, name: desired.name, desired }).pipe(
-                      Effect.option,
-                      Effect.map(Option.flatten),
-                      Effect.flatMap((accepted) => {
-                        if (Option.isNone(accepted) || accepted.value.refType !== "registry") {
-                          return Effect.succeedNone;
-                        }
-                        const ref = accepted.value;
-                        return Effect.gen(function* () {
-                          const client = yield* registryClients.forEndpoint(ref.source.location);
-                          const index = yield* client.getExtensionIndex({
-                            owner: ref.owner,
-                            type: ref.type,
-                            name: ref.name,
-                          });
-                          return Option.flatMap(index, (entry) =>
-                            entry.deprecation === null
-                              ? Option.none()
-                              : Option.some({
-                                  fqn: `${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
-                                  deprecation: entry.deprecation,
-                                  memberPacks: desired.origins.flatMap((origin) =>
-                                    origin.type === "pack" ? [origin.pack.fqn] : [],
-                                  ),
-                                }),
-                          );
-                        }).pipe(Effect.orElseSucceed(() => Option.none()));
-                      }),
-                    ),
-              )).flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
         const evaluations = yield* evaluateAllCatalogs({
           view: selection.input.view,
           contexts: {
@@ -504,7 +463,6 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
                   ? { installRoot: Effect.succeed(installRoot.value) }
                   : {}),
                 authoredPackages: Effect.succeed(authoredPackages),
-                deprecatedInstalled: Effect.succeed(deprecatedInstalled),
                 ...(Option.isSome(userScope) ? { userScope: Effect.succeed(userScope.value) } : {}),
                 ...(Option.isSome(agentContent)
                   ? { agentContent: Effect.succeed(agentContent.value) }

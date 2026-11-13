@@ -603,12 +603,6 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: filesystemView,
   },
   {
-    id: "workspace/deprecated-installed",
-    defaultSeverity: "warning",
-    group: "workspace",
-    views: filesystemView,
-  },
-  {
     id: "workspace/authored-package-declared",
     defaultSeverity: "warning",
     group: "workspace",

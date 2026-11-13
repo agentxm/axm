@@ -208,9 +208,7 @@ const sourceFor = (
 };
 
 /** Project the internal read model explicitly; internal discriminators never reach stdout. */
-export const buildInventoryDocument = Effect.fn("Inspection.buildInventoryDocument")(function* (
-  inventory: ExtensionInventory,
-) {
+export const buildInventoryDocument = Effect.fnUntraced(function* (inventory: ExtensionInventory) {
   const graph = yield* (yield* DesiredStateReader).graph();
   const lockfile = yield* LockfileReader;
   const settings = yield* SettingsReader;

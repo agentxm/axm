@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { createBinaryRunner, createTempDir, runCommand } from "@agentxm/client-e2e-utils";
 import { resolveBinaryPath } from "./distribution-targets.js";
-import { startDeviceAuthServer } from "./e2e/device-auth-server.js";
+import { startDeviceAuthServer } from "@agentxm/test-support/auth-server";
 
 export const executionBinding = {
   requirements: ["cli/credentials/native-keychain-packaging"],
@@ -68,9 +68,8 @@ describe.skipIf(process.platform !== "darwin")("compiled macOS credential storag
           yield* checkedSecurity(["set-keychain-settings", "-lut", "120", keychain]);
           yield* checkedSecurity(["default-keychain", "-d", "user", "-s", keychain]);
           yield* checkedSecurity(["list-keychains", "-d", "user", "-s", keychain]);
-          const auth = yield* Effect.acquireRelease(
-            Effect.tryPromise(() => startDeviceAuthServer("approved")),
-            (server) => Effect.promise(server.close),
+          const auth = yield* Effect.acquireRelease(startDeviceAuthServer("approved"), (server) =>
+            server.close.pipe(Effect.orDie),
           );
           const signature = yield* Effect.tryPromise(() =>
             runCommand("/usr/bin/codesign", ["--verify", "--strict", resolveBinaryPath()], {

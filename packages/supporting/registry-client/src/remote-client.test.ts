@@ -11,6 +11,10 @@ import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
+import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
+import * as Stream from "effect/Stream";
 import * as Tracer from "effect/Tracer";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -226,6 +230,14 @@ const getProblemType = (status: number): string => {
 
 it.effect("sends one repeat-safe resolution metadata batch", () =>
   Effect.gen(function* () {
+    const spans: Tracer.NativeSpan[] = [];
+    const tracer = Tracer.make({
+      span(options) {
+        const span = new Tracer.NativeSpan(options);
+        spans.push(span);
+        return span;
+      },
+    });
     const methods: string[] = [];
     const httpClient = makeMockHttpClient((request) => {
       methods.push(`${request.method} ${new URL(request.url).pathname}`);
@@ -254,10 +266,20 @@ it.effect("sends one repeat-safe resolution metadata batch", () =>
       })),
     });
 
-    const results = yield* client.getResolutionMetadata(request);
+    const results = yield* client
+      .getResolutionMetadata(request)
+      .pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true));
 
     expect(methods).toEqual(["POST /v1/resolutions/metadata"]);
     expect(results.map((result) => result.outcome)).toEqual(["unavailable", "unavailable"]);
+    const requests = spans.filter((span) => span.name === "axm.registry.request");
+    const attempts = spans.filter((span) => span.name === "axm.registry.attempt");
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.attributes.get("axm.registry.batch-size")).toBe(2);
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]?.attributes.get("axm.registry.attempt")).toBe(1);
+    // The independent HttpClient port record above proves one exchange here;
+    // the CLI's physical observer is verified at its owning runtime boundary.
   }),
 );
 
@@ -1123,6 +1145,106 @@ describe("getExtensionPackage", () => {
     }),
   );
 
+  for (const outcome of ["failure", "interrupt", "retry"] as const) {
+    it.effect(`retains received archive bytes through ${outcome}`, () =>
+      Effect.gen(function* () {
+        const release = yield* Deferred.make<void>();
+        const received = yield* Deferred.make<void>();
+        const spans: Tracer.NativeSpan[] = [];
+        const ends = new Map<string, number>();
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            const end = span.end.bind(span);
+            span.end = (time, exit) => {
+              ends.set(span.spanId, (ends.get(span.spanId) ?? 0) + 1);
+              end(time, exit);
+            };
+            spans.push(span);
+            return span;
+          },
+        });
+        const requests: string[] = [];
+        const firstChunk = new Uint8Array([1, 2]);
+        const retriedBody = new Uint8Array([3, 4, 5]);
+        const wire = HttpClient.make((request) =>
+          Effect.sync(() => {
+            requests.push(request.url);
+            const response = HttpClientResponse.fromWeb(request, new Response(retriedBody));
+            if (requests.length > 1) return response;
+            const stream = Stream.concat(
+              Stream.make(firstChunk),
+              Stream.fromEffect(
+                Deferred.await(release).pipe(
+                  Effect.andThen(
+                    Effect.fail(
+                      new HttpClientError.HttpClientError({
+                        reason: new HttpClientError.TransportError({
+                          request,
+                          cause: new Error("fixture transport ended"),
+                        }),
+                      }),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            // Replace only the declared response stream, preserving response metadata.
+            return new Proxy(response, {
+              get(target, key, receiver) {
+                return key === "stream" ? stream : Reflect.get(target, key, receiver);
+              },
+            });
+          }),
+        );
+        const client = createRemoteRegistryClient(BASE_URL, wire, undefined, {
+          ...TEST_REQUEST_POLICY,
+          maxAttempts: outcome === "retry" ? 2 : 1,
+        });
+        const fiber = yield* client
+          .getExtensionPackage({
+            ...makeIndexArgs(),
+            exact: {
+              version: exactVersion("1.0.0"),
+              integrity: "sha512-selected",
+              publisherBindingId: "hbnd_test",
+            },
+            onProgress: (progress) =>
+              progress.done > 0
+                ? Deferred.succeed(received, undefined).pipe(Effect.asVoid)
+                : Effect.void,
+          })
+          .pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true), Effect.forkChild);
+        yield* Deferred.await(received);
+        const first = spans.find((span) => span.name === "axm.registry.archive-body");
+        expect(first?.attributes.get("axm.archive.bytes")).toBe(firstChunk.length);
+        expect(first?.status._tag).toBe("Started");
+        if (outcome === "interrupt") yield* Fiber.interrupt(fiber);
+        else {
+          yield* Deferred.succeed(release, undefined);
+          const exit = yield* Fiber.await(fiber);
+          expect(Exit.isSuccess(exit)).toBe(outcome === "retry");
+          if (Exit.isSuccess(exit)) expect(exit.value.archive).toEqual(retriedBody);
+        }
+        const bodies = spans.filter((span) => span.name === "axm.registry.archive-body");
+        expect(requests).toHaveLength(outcome === "retry" ? 2 : 1);
+        expect(bodies.map((span) => span.attributes.get("axm.archive.bytes"))).toEqual(
+          outcome === "retry" ? [firstChunk.length, retriedBody.length] : [firstChunk.length],
+        );
+        expect(bodies.map((span) => ends.get(span.spanId))).toEqual(
+          outcome === "retry" ? [1, 1] : [1],
+        );
+        expect(
+          bodies.map((span) =>
+            spans
+              .find((parent) => parent.spanId === Option.getOrUndefined(span.parent)?.spanId)
+              ?.attributes.get("axm.registry.attempt"),
+          ),
+        ).toEqual(outcome === "retry" ? [1, 2] : [1]);
+      }),
+    );
+  }
+
   it.effect("downloads an exact selection without fetching its index again", () =>
     Effect.gen(function* () {
       const archive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
@@ -1155,6 +1277,13 @@ describe("getExtensionPackage", () => {
       const body = spans.find((span) => span.name === "axm.registry.archive-body");
       expect(body?.status._tag).toBe("Ended");
       expect(body?.attributes.get("axm.archive.bytes")).toBe(4);
+      const requests = spans.filter((span) => span.name === "axm.registry.request");
+      const attempts = spans.filter((span) => span.name === "axm.registry.attempt");
+      expect(requests).toHaveLength(requestedUrls.length);
+      expect(attempts).toHaveLength(requestedUrls.length);
+      expect(requests[0]?.attributes.get("axm.registry.purpose")).toBe("download");
+      expect(attempts[0]?.attributes.get("axm.registry.attempt")).toBe(1);
+      expect(attempts[0]?.attributes.get("axm.registry.max-attempts")).toBe(3);
       expect(Array.from(result.archive)).toEqual(Array.from(archive));
       expect(requestedUrls).toEqual([
         `${BASE_URL}/v1/extensions/%40acme/skills/test-skill/1.0.0/archive`,

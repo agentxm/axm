@@ -1,9 +1,11 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import { makeObservationReadView } from "./observation-read-view.js";
 import { CanonicalNativePath } from "../../locations/index.js";
 /** Explicitly bounded read views. A view ends before any workspace mutation. */
 
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -21,7 +23,7 @@ import {
   pendingAcceptedResolutions,
   type WorkspaceDocumentsService,
 } from "./documents.js";
-import { CurrentWorkspaceReadPhase } from "./read-phase.js";
+import { CurrentWorkspaceReadPhase, CurrentWorkspaceReadRequest } from "./read-phase.js";
 import { CurrentWorkspaceReadPhaseInvalidation } from "./read-phase-lifetime.js";
 import { DesiredStateReader, makeDesiredStateReader } from "./desired-state-reader.js";
 import { WorkspaceLocation } from "./location.js";
@@ -69,9 +71,14 @@ const withReadView = <A, E, R>(effect: Effect.Effect<A, E, R>, observations: boo
     return yield* effect.pipe(
       Effect.provideContext(readers),
       Effect.ensuring(
-        Effect.sync(() => phase?.close()).pipe(
-          Effect.andThen(Effect.annotateCurrentSpan("axm.work.invalidated", true)),
-        ),
+        Effect.suspend(() => {
+          const reason = phase?.isActive() === false ? "mutation" : "phase-exit";
+          phase?.close();
+          return Effect.annotateCurrentSpan({
+            "axm.work.invalidated": true,
+            "axm.invalidation.reason": reason,
+          });
+        }),
       ),
     );
   }).pipe(Effect.withSpan("axm.observation.phase"));
@@ -170,9 +177,56 @@ export const WorkspaceReadViewsLive = Layer.effect(
               ),
             };
             const base = makeDesiredStateReader(location, capturedDocuments, manifests, path);
-            const evaluation = yield* Effect.cached(
-              base.evaluate().pipe(Effect.withSpan("axm.resolve.desired-state")),
-            );
+            const observeEvaluation = (evaluation: ReturnType<typeof base.evaluate>) =>
+              Effect.annotateCurrentSpan("axm.work.count", 1).pipe(
+                Effect.andThen(evaluation),
+                Effect.withSpan("axm.resolve.desired-state"),
+              );
+            const cacheEvaluation = (evaluation: ReturnType<typeof base.evaluate>) =>
+              Effect.gen(function* () {
+                let outcome: "miss" | "coalesced" | "hit" = "miss";
+                let generation = 0;
+                const work = observeEvaluation(evaluation);
+                const cached = yield* Effect.cached(
+                  Effect.gen(function* () {
+                    const request = yield* CurrentWorkspaceReadRequest;
+                    if (request !== undefined) request.executed = true;
+                    const current = ++generation;
+                    outcome = "coalesced";
+                    return yield* annotateWork({
+                      "axm.cache.outcome": "miss",
+                      "axm.work.executed": 1,
+                    }).pipe(
+                      Effect.andThen(work),
+                      Effect.onExit((exit) =>
+                        Effect.sync(() => {
+                          if (generation === current)
+                            outcome = Exit.hasInterrupts(exit) ? "miss" : "hit";
+                        }),
+                      ),
+                    );
+                  }),
+                );
+                return Effect.gen(function* () {
+                  const request = { executed: false };
+                  const selected = outcome;
+                  yield* annotateWork({
+                    "axm.cache.outcome": selected,
+                    "axm.work.requested": 1,
+                    "axm.work.executed": 0,
+                    "axm.work.reused-count": 0,
+                  });
+                  return yield* cached.pipe(
+                    Effect.provideService(CurrentWorkspaceReadRequest, request),
+                    Effect.onExit((exit) =>
+                      Exit.hasInterrupts(exit) || request.executed
+                        ? Effect.void
+                        : annotateWork({ "axm.work.reused-count": 1 }),
+                    ),
+                  );
+                }).pipe((effect) => withWork("axm.resolve.desired-state-reuse", effect));
+              });
+            const evaluation = yield* cacheEvaluation(base.evaluate());
             const candidates: Array<{
               readonly inputs: NonNullable<Parameters<typeof base.evaluate>[0]>;
               readonly evaluation: ReturnType<typeof base.evaluate>;
@@ -180,7 +234,14 @@ export const WorkspaceReadViewsLive = Layer.effect(
             const evaluate: DesiredStateReaderService["evaluate"] = (options) =>
               Effect.suspend(() =>
                 !active
-                  ? base.evaluate(options)
+                  ? annotateWork({
+                      "axm.cache.outcome": "bypass",
+                      "axm.work.requested": 1,
+                      "axm.work.executed": 1,
+                      "axm.work.reused-count": 0,
+                    }).pipe(Effect.andThen(observeEvaluation(base.evaluate(options))), (effect) =>
+                      withWork("axm.resolve.desired-state-reuse", effect),
+                    )
                   : options === undefined
                     ? evaluation
                     : Effect.gen(function* () {
@@ -195,9 +256,7 @@ export const WorkspaceReadViewsLive = Layer.effect(
                           );
                         const prior = existing();
                         if (prior !== undefined) return yield* prior.evaluation;
-                        const created = yield* Effect.cached(
-                          base.evaluate(options).pipe(Effect.withSpan("axm.resolve.desired-state")),
-                        );
+                        const created = yield* cacheEvaluation(base.evaluate(options));
                         const selected = existing()?.evaluation ?? created;
                         if (existing() === undefined)
                           candidates.push({ inputs: options, evaluation: selected });

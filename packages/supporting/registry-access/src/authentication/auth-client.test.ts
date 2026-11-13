@@ -20,6 +20,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
+import { recordTrace } from "../test-support/test-helpers.js";
 import { expect } from "vitest";
 
 import {
@@ -530,6 +531,7 @@ describe("AuthClient.pollDeviceToken", () => {
   });
 
   it.effect("retries transient poll failures before succeeding", () => {
+    const trace = recordTrace();
     let callCount = 0;
     const expiresAt = "2030-01-01T01:00:00.000Z";
 
@@ -559,7 +561,24 @@ describe("AuthClient.pollDeviceToken", () => {
       const result = yield* Fiber.join(fiber);
       expect(result.access_token).toBe("axm_ses_after_retry");
       expect(callCount).toBe(3);
-    }).pipe(Effect.provide(layer));
+      const requests = trace.spans.filter((span) => span.name === "axm.auth.request");
+      expect(requests).toHaveLength(callCount);
+      expect(requests.map((span) => span.attributes.get("axm.auth.purpose"))).toEqual([
+        "device-token",
+        "device-token",
+        "device-token",
+      ]);
+      const waits = trace.spans.filter((span) => span.name === "axm.auth.retry-wait");
+      expect(waits.map((span) => span.attributes.get("axm.wait.milliseconds"))).toEqual([250, 500]);
+      expect(
+        waits.map((span) =>
+          span.status._tag === "Ended"
+            ? Number(span.status.endTime - span.status.startTime) / 1_000_000
+            : -1,
+        ),
+      ).toEqual([250, 500]);
+      expect(waits.map((span) => trace.endCounts.get(span.spanId))).toEqual([1, 1]);
+    }).pipe(Effect.provide(layer), Effect.withTracer(trace.tracer), Effect.withTracerEnabled(true));
   });
 
   it.effect("fails after exhausting transient poll retries", () => {

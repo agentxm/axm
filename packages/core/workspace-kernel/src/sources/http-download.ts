@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
 import * as Context from "effect/Context";
+import * as Stream from "effect/Stream";
 import { collectBufferedArchive } from "@agentxm/registry-client";
 import {
   ArtifactDigestSchema,
@@ -80,8 +81,15 @@ export const downloadHttpArtifact = (
             detail: `Artifact request returned HTTP ${response.status}`,
           });
         const length = Number(response.headers["content-length"]);
+        let receivedBytes = 0;
         const bytes = yield* collectBufferedArchive(
-          response.stream,
+          response.stream.pipe(
+            Stream.tap((chunk) =>
+              Effect.sync(() => {
+                receivedBytes += chunk.byteLength;
+              }),
+            ),
+          ),
           options.maxBytes,
           Number.isSafeInteger(length) && length >= 0 ? length : undefined,
         ).pipe(
@@ -89,13 +97,24 @@ export const downloadHttpArtifact = (
             (cause) =>
               new SourceNetworkFailure({ detail: "Could not read bounded source artifact", cause }),
           ),
+          Effect.ensuring(
+            Effect.suspend(() => Effect.annotateCurrentSpan("axm.work.bytes", receivedBytes)),
+          ),
+          Effect.withSpan("axm.artifact.body", { attributes: { "axm.work.executed": 1 } }),
         );
-        const actualDigest = httpArtifactDigest(bytes);
-        if (options.digest !== undefined && actualDigest !== options.digest)
-          return yield* new SourceNotResolvable({
-            category: "validation",
-            detail: "Downloaded artifact does not match its accepted SHA-256 digest",
-          });
+        const actualDigest = yield* Effect.gen(function* () {
+          const actual = httpArtifactDigest(bytes);
+          if (options.digest !== undefined && actual !== options.digest)
+            return yield* new SourceNotResolvable({
+              category: "validation",
+              detail: "Downloaded artifact does not match its accepted SHA-256 digest",
+            });
+          return actual;
+        }).pipe(
+          Effect.withSpan("axm.artifact.integrity", {
+            attributes: { "axm.work.executed": 1, "axm.work.bytes": bytes.byteLength },
+          }),
+        );
         return {
           url,
           bytes,

@@ -65,7 +65,7 @@ export const planKnowledgeInstall: (
   Plan<InstallStepRequirements>,
   OperationRefused,
   InstallStepRequirements | KnowledgeManager | RuleManager
-> = Effect.fn("InstallExtensions.planKnowledge")(function* (intent: KnowledgeInstallIntent) {
+> = Effect.fnUntraced(function* (intent: KnowledgeInstallIntent) {
   const manager = yield* KnowledgeManager;
   const location = yield* WorkspaceLocation;
   const path = yield* Path.Path;

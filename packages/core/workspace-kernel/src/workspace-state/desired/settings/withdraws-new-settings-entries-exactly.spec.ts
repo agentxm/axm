@@ -1,4 +1,4 @@
-import { NativePlatformTest } from "../../../locations/testing.js";
+import { NativePlatformTest, withDetailedWork } from "../../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
@@ -6,6 +6,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Tracer from "effect/Tracer";
 import { SettingsSchema, writeSettingsAtPath } from "../../index.js";
 import { WorkspaceFileWriteLocks } from "../../../settlement/index.js";
 import { WorkspaceFileWriteLocksLive } from "../../../settlement/live.js";
@@ -60,9 +61,27 @@ describe("settings intent round trips", () => {
           context,
         );
         expect(yield* fs.exists(path.join(runtimeDir, "projection-containers.json"))).toBe(true);
-        yield* writeSettingsAtPath(settingsPath, { ...original, skills: {} }, context);
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
+        yield* writeSettingsAtPath(settingsPath, { ...original, skills: {} }, context).pipe(
+          withDetailedWork(tracer),
+        );
         expect(yield* fs.readFileString(settingsPath)).toBe(before);
         expect(yield* fs.exists(path.join(runtimeDir, "projection-containers.json"))).toBe(false);
+        const restored = spans.filter(
+          (span) =>
+            span.name === "axm.parse.settings-round-trip" &&
+            span.attributes.get("axm.parse.phase") === "restored",
+        );
+        expect(restored).toHaveLength(1);
+        expect(restored[0]?.status._tag).toBe("Ended");
+        expect(restored[0]?.attributes.get("axm.work.count")).toBe(1);
       }).pipe(Effect.scoped, Effect.provide(platform)),
     );
   }

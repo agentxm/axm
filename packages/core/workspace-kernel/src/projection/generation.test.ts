@@ -1,31 +1,40 @@
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { ProjectionDigestSchema, type RecordedProjectionRow } from "../workspace-state/index.js";
 import { projectionGeneration, projectionIsCurrent, projectionOutputDigest } from "./generation.js";
 
 const isDigest = (value: string): boolean => /^sha256:[0-9a-f]{64}$/u.test(value);
 
 describe("projection digests", () => {
-  it("formats generation and output digests as sha256:<hex>", () => {
-    expect(isDigest(projectionGeneration(["AGENTS.md", "rules"]))).toBe(true);
-    expect(isDigest(projectionOutputDigest("body\r\n"))).toBe(true);
-  });
+  it.effect("formats generation and output digests as sha256:<hex>", () =>
+    Effect.gen(function* () {
+      expect(isDigest(yield* projectionGeneration(["AGENTS.md", "rules"]))).toBe(true);
+      expect(isDigest(yield* projectionOutputDigest("body\r\n"))).toBe(true);
+    }),
+  );
 
-  it("derives the generation from the ordered inputs only", () => {
-    expect(projectionGeneration(["a", "b"])).toBe(projectionGeneration(["a", "b"]));
-    expect(projectionGeneration(["a", "b"])).not.toBe(projectionGeneration(["b", "a"]));
-    expect(projectionGeneration(["ab"])).not.toBe(projectionGeneration(["a", "b"]));
-  });
+  it.effect("derives the generation from the ordered inputs only", () =>
+    Effect.gen(function* () {
+      expect(yield* projectionGeneration(["a", "b"])).toBe(yield* projectionGeneration(["a", "b"]));
+      expect(yield* projectionGeneration(["a", "b"])).not.toBe(
+        yield* projectionGeneration(["b", "a"]),
+      );
+      expect(yield* projectionGeneration(["ab"])).not.toBe(yield* projectionGeneration(["a", "b"]));
+    }),
+  );
 
-  it("distinguishes output bytes, including line endings", () => {
-    expect(projectionOutputDigest("x\n")).not.toBe(projectionOutputDigest("x\r\n"));
-  });
+  it.effect("distinguishes output bytes, including line endings", () =>
+    Effect.gen(function* () {
+      expect(yield* projectionOutputDigest("x\n")).not.toBe(yield* projectionOutputDigest("x\r\n"));
+    }),
+  );
 });
 
 describe("projection currency", () => {
-  const gen = projectionGeneration(["current"]);
-  const other = projectionGeneration(["other"]);
-  const output = projectionOutputDigest("bytes");
+  const gen = ProjectionDigestSchema.make(`sha256:${"a".repeat(64)}`);
+  const other = ProjectionDigestSchema.make(`sha256:${"b".repeat(64)}`);
+  const output = ProjectionDigestSchema.make(`sha256:${"c".repeat(64)}`);
   const recorded = (row: RecordedProjectionRow["row"], stale = false) =>
     Option.some({ row, stale } satisfies RecordedProjectionRow);
 

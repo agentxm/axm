@@ -5,30 +5,47 @@ import * as Schema from "effect/Schema";
 
 // Decode the OTLP fields asserted by these tests using their published wire numbers.
 // Unknown fields remain forward compatible; this is a receiver, not an exporter double.
-const wirePayload = protobuf
-  .parse(
-    `
+// AnyValue's oneof preserves explicit false/zero values instead of dropping scalar defaults.
+const wireRoot = protobuf.parse(
+  `
 syntax = "proto3";
+message LogsData { repeated ResourceLogs resourceLogs = 1; }
+message ResourceLogs { Resource resource = 1; repeated ScopeLogs scopeLogs = 2; }
+message ScopeLogs { repeated LogRecord logRecords = 2; }
+message LogRecord { fixed64 timeUnixNano = 1; AnyValue body = 5; repeated KeyValue attributes = 6; bytes traceId = 9; bytes spanId = 10; }
 message TraceData { repeated ResourceSpans resourceSpans = 1; }
-message ResourceSpans { repeated ScopeSpans scopeSpans = 2; }
+message ResourceSpans { Resource resource = 1; repeated ScopeSpans scopeSpans = 2; }
+message Resource { repeated KeyValue attributes = 1; }
 message ScopeSpans { repeated Span spans = 2; }
 message Span {
   bytes traceId = 1; bytes spanId = 2; bytes parentSpanId = 4; string name = 5;
+  fixed64 startTimeUnixNano = 7; fixed64 endTimeUnixNano = 8;
   repeated KeyValue attributes = 9; repeated Event events = 11;
   repeated Link links = 13; Status status = 15;
 }
 message KeyValue { string key = 1; AnyValue value = 2; }
-message AnyValue { string stringValue = 1; bool boolValue = 2; int64 intValue = 3; double doubleValue = 4; }
+message AnyValue {
+  oneof value { string stringValue = 1; bool boolValue = 2; int64 intValue = 3; double doubleValue = 4; }
+}
 message Event { string name = 2; }
 message Link { bytes traceId = 1; }
 message Status { string message = 2; int32 code = 3; }
 `,
-  )
-  .root.lookupType("TraceData");
+).root;
+const wirePayload = wireRoot.lookupType("TraceData");
+const wireLogs = wireRoot.lookupType("LogsData");
 
 const tracePayload = Schema.Struct({
   resourceSpans: Schema.Array(
     Schema.Struct({
+      resource: Schema.Struct({
+        attributes: Schema.Array(
+          Schema.Struct({
+            key: Schema.String,
+            value: Schema.Record(Schema.String, Schema.Unknown),
+          }),
+        ),
+      }),
       scopeSpans: Schema.Array(
         Schema.Struct({
           spans: Schema.Array(
@@ -36,6 +53,8 @@ const tracePayload = Schema.Struct({
               name: Schema.String,
               spanId: Schema.Uint8Array,
               traceId: Schema.Uint8Array,
+              startTimeUnixNano: Schema.Number,
+              endTimeUnixNano: Schema.Number,
               parentSpanId: Schema.optionalKey(Schema.Uint8Array),
               attributes: Schema.Array(
                 Schema.Struct({
@@ -54,6 +73,30 @@ const tracePayload = Schema.Struct({
   ),
 });
 
+const attributeSchema = Schema.Struct({
+  key: Schema.String,
+  value: Schema.Record(Schema.String, Schema.Unknown),
+});
+const logsPayload = Schema.Struct({
+  resourceLogs: Schema.Array(
+    Schema.Struct({
+      resource: Schema.Struct({ attributes: Schema.Array(attributeSchema) }),
+      scopeLogs: Schema.Array(
+        Schema.Struct({
+          logRecords: Schema.Array(
+            Schema.Struct({
+              body: Schema.Struct({ stringValue: Schema.String }),
+              spanId: Schema.Uint8Array,
+              traceId: Schema.Uint8Array,
+              attributes: Schema.Array(attributeSchema),
+            }),
+          ),
+        }),
+      ),
+    }),
+  ),
+});
+
 /** Real loopback OTLP receiver; it never forwards a request or stores trace files. */
 export const localTracingCollector = (
   behavior: "ok" | "reject" | "stall" | "redirect" = "ok",
@@ -64,8 +107,12 @@ export const localTracingCollector = (
       const bodies: string[] = [];
       const headers: http.IncomingHttpHeaders[] = [];
       const payloads: Uint8Array[] = [];
+      const logPayloads: Uint8Array[] = [];
       const server = http.createServer((request, response) => {
-        if (request.method !== "POST" || request.url !== "/v1/traces") {
+        if (
+          request.method !== "POST" ||
+          (request.url !== "/v1/traces" && request.url !== "/v1/logs")
+        ) {
           response.writeHead(404).end();
           return;
         }
@@ -75,7 +122,7 @@ export const localTracingCollector = (
         });
         request.on("end", () => {
           const body = Buffer.concat(chunks);
-          payloads.push(body);
+          (request.url === "/v1/logs" ? logPayloads : payloads).push(body);
           bodies.push(body.toString("utf8"));
           headers.push(request.headers);
           if (behavior === "stall") return;
@@ -111,11 +158,28 @@ export const localTracingCollector = (
               resource.scopeSpans.flatMap((scope) =>
                 scope.spans.map((span) => ({
                   ...span,
+                  resource: resource.resource.attributes,
                   traceId: Buffer.from(span.traceId).toString("hex"),
                   spanId: Buffer.from(span.spanId).toString("hex"),
                   parentSpanId: span.parentSpanId?.length
                     ? Buffer.from(span.parentSpanId).toString("hex")
                     : undefined,
+                })),
+              ),
+            ),
+          ),
+        logs: () =>
+          logPayloads.flatMap((body) =>
+            Schema.decodeUnknownSync(logsPayload)(
+              wireLogs.toObject(wireLogs.decode(body), { arrays: true, longs: Number }),
+            ).resourceLogs.flatMap((resource) =>
+              resource.scopeLogs.flatMap((scope) =>
+                scope.logRecords.map((record) => ({
+                  name: record.body.stringValue,
+                  traceId: Buffer.from(record.traceId).toString("hex"),
+                  spanId: Buffer.from(record.spanId).toString("hex"),
+                  attributes: record.attributes,
+                  resource: resource.resource.attributes,
                 })),
               ),
             ),

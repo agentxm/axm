@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -172,7 +173,15 @@ export const ScreenLive = (
               ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
             }).join("\n"),
           );
-        });
+        }).pipe((effect) =>
+          withWork("axm.cli.render", effect, {
+            attributes: {
+              "axm.output.channel": stream,
+              "axm.output.format": "text",
+              "axm.work.executed": 1,
+            },
+          }),
+        );
 
       const note = (doc: Doc) => Effect.flatMap(render(doc, "stderr"), frame.stderr);
 
@@ -470,8 +479,8 @@ export const ScreenMachine = (options?: {
           resultOptions?: ResultOptions,
         ) =>
           encodeJson(data, schema).pipe(
-            Effect.flatMap((encoded) =>
-              writeResult(
+            Effect.map(
+              (encoded) =>
                 `${JSON.stringify(
                   makeJsonSuccessEnvelope({
                     payload: encoded,
@@ -487,8 +496,16 @@ export const ScreenMachine = (options?: {
                   null,
                   2,
                 )}\n`,
-              ),
             ),
+            (effect) =>
+              withWork("axm.cli.render", effect, {
+                attributes: {
+                  "axm.output.channel": "stdout",
+                  "axm.output.format": "json",
+                  "axm.work.executed": 1,
+                },
+              }),
+            Effect.flatMap(writeResult),
             Effect.as(true),
           ),
         // The machine writer is lossless: every lifecycle event lands on

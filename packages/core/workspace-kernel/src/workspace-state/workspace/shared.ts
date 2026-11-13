@@ -6,7 +6,9 @@
  */
 
 import * as ServiceMap from "effect/Context";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
@@ -24,6 +26,25 @@ export class WorkspaceStateShared extends ServiceMap.Service<
   WorkspaceStateShared,
   WorkspaceStateSharedService
 >()("@agentxm/workspace-kernel/workspace-state/WorkspaceStateShared") {}
+
+/** Attribute admission separately while leaving permit lifetime and interruption to Effect. */
+export const withWorkspaceStateWrite =
+  (mutex: Semaphore.Semaphore, owner: "settings" | "desired-state" | "accepted-resolution") =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    Effect.uninterruptibleMask((restore) =>
+      Effect.gen(function* () {
+        const span = yield* Effect.makeSpan("axm.wait.document-writer", {
+          attributes: { "axm.wait.owner": owner },
+        });
+        const end = (exit: Exit.Exit<unknown, unknown>) =>
+          Effect.gen(function* () {
+            if (span.status._tag === "Ended") return;
+            span.end(yield* Clock.currentTimeNanos, exit);
+          });
+        const admitted = mutex.withPermits(1)(end(Exit.void).pipe(Effect.andThen(effect)));
+        return yield* Effect.onExit(restore(admitted), end);
+      }),
+    );
 
 export const makeWorkspaceStateShared: Effect.Effect<WorkspaceStateSharedService> = Effect.gen(
   function* () {

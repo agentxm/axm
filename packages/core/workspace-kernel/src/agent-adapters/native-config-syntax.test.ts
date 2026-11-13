@@ -1,3 +1,4 @@
+import { withDetailedWork } from "../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import { TomlDate } from "smol-toml";
 import * as Predicate from "effect/Predicate";
@@ -36,9 +37,9 @@ describe("native config root grammar", () => {
           { concurrency: "unbounded" },
         ),
       );
-      yield* read.pipe(Effect.withTracer(tracer));
+      yield* read.pipe(withDetailedWork(tracer));
       expect(spans.filter((span) => span.name === "axm.parse.native")).toHaveLength(1);
-      yield* read.pipe(Effect.withTracer(tracer));
+      yield* read.pipe(withDetailedWork(tracer));
       expect(spans.filter((span) => span.name === "axm.parse.native")).toHaveLength(2);
     }),
   );

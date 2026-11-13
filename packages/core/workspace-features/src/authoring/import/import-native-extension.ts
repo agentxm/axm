@@ -461,7 +461,7 @@ interface SettledConversion {
  * pinning its content hash, so content that changes between preview and apply
  * refuses instead of landing.
  */
-const nativeConversion = Effect.fn("ImportNativeExtension.nativeConversion")(function* (args: {
+const nativeConversion = Effect.fnUntraced(function* (args: {
   readonly request: ImportNativeSkillRequest | ImportNativeSubagentRequest;
   readonly target: ExtensionFqnParts;
   readonly existingPackagePath?: string;
@@ -538,7 +538,7 @@ const nativeConversion = Effect.fn("ImportNativeExtension.nativeConversion")(fun
  * Convert one discovered native MCP connection into a manifest, and retire
  * every native declaration of it once the managed package validates.
  */
-const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function* (args: {
+const mcpConversion = Effect.fnUntraced(function* (args: {
   readonly request: ImportNativeMcpServerRequest;
   readonly owner: Handle;
   readonly name: ExtensionName;
@@ -608,7 +608,7 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
   } satisfies SettledConversion;
 });
 
-const hookConversion = Effect.fn("ImportNativeExtension.hookConversion")(function* (
+const hookConversion = Effect.fnUntraced(function* (
   request: ImportNativeHookRequest,
   target: ExtensionFqnParts,
 ) {

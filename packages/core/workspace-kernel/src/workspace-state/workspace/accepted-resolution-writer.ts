@@ -34,7 +34,7 @@ import type {
   WorkspaceLockfileMutationFailure,
   WorkspaceLockfileReadFailure,
 } from "./contracts.js";
-import { WorkspaceStateShared } from "./shared.js";
+import { WorkspaceStateShared, withWorkspaceStateWrite } from "./shared.js";
 
 type Write = Effect.Effect<void, WorkspaceLockfileMutationFailure>;
 
@@ -124,7 +124,7 @@ export const makeAcceptedResolutionWriter = (
 ): AcceptedResolutionWriterService => {
   const current = documents.acceptedResolutions;
   const commit = documents.commitAcceptedResolutions;
-  const serialized = mutex.withPermits(1);
+  const serialized = withWorkspaceStateWrite(mutex, "accepted-resolution");
   const removeAcceptedEntries = (
     entries: ReadonlyArray<{ readonly type: InstallableExtensionType; readonly key: string }>,
   ): Write =>

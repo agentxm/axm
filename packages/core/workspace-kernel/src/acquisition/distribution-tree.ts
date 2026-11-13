@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import * as crypto from "node:crypto";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -117,8 +118,16 @@ export const computeDistributionTreeIntegrity = (root: string, selection?: Resol
       if (entry.executable !== undefined) frame(Buffer.from(String(entry.executable)));
       if (entry.bytes !== undefined) frame(entry.bytes);
     }
+    yield* annotateWork({
+      "axm.work.count": entries.size,
+      "axm.work.bytes": [...entries.values()].reduce(
+        (total, entry) => total + (entry.bytes?.byteLength ?? 0),
+        0,
+      ),
+    });
     return `sha256-distribution-v1:${hash.digest("hex")}`;
   }).pipe(
+    (effect) => withWork("axm.hash.distribution-tree", effect),
     Effect.mapError((cause) =>
       cause instanceof DistributionTreeInvalid
         ? cause

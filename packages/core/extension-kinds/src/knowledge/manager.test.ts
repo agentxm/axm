@@ -111,23 +111,26 @@ const localRef = (name: string, root: string): LocalKnowledgeRef => ({
   knowledge: { name: decodeExtensionNameSync(name) },
 });
 
-const workspaceRef = (name: string, root: string): WorkspaceKnowledgeRef => ({
-  type: "knowledge",
-  refType: "workspace",
-  source: {
-    type: "workspace",
-    owner: handle("@acme"),
-    extensionType: "knowledge",
-    name: extensionName(name),
-  },
-  owner: handle("@acme"),
-  name: extensionName(name),
-  version: exactVersion("1.0.0"),
-  scope: "project",
-  location: root,
-  sourceHash: computeSourceHash(name),
-  knowledge: { name: decodeExtensionNameSync(name) },
-});
+const workspaceRef = (name: string, root: string): Effect.Effect<WorkspaceKnowledgeRef> =>
+  Effect.gen(function* () {
+    return {
+      type: "knowledge",
+      refType: "workspace",
+      source: {
+        type: "workspace",
+        owner: handle("@acme"),
+        extensionType: "knowledge",
+        name: extensionName(name),
+      },
+      owner: handle("@acme"),
+      name: extensionName(name),
+      version: exactVersion("1.0.0"),
+      scope: "project",
+      location: root,
+      sourceHash: yield* computeSourceHash(name),
+      knowledge: { name: decodeExtensionNameSync(name) },
+    };
+  });
 
 /** Desired-state and lock overrides for a locally sourced `handbook` bundle. */
 const desiredHandbookReadFacts = (
@@ -259,7 +262,7 @@ describe("KnowledgeManager", () => {
         writeKnowledgePackage(sourceRoot, "handbook", true);
         const written: Array<{ readonly source: string; readonly enabled: boolean }> = [];
 
-        yield* installKnowledge(workspaceRef("handbook", sourceRoot)).pipe(
+        yield* installKnowledge(yield* workspaceRef("handbook", sourceRoot)).pipe(
           Effect.provide(
             managerLayer(workspaceRoot, {
               read: {

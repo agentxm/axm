@@ -52,9 +52,48 @@ describe("Local subprocess traces", () => {
         const root = spans.find((span) => span.name === "axm.cli.invocation");
         const work = spans.filter((span) => span.name === "axm.process.spawn");
         expect(work).toHaveLength(1);
-        expect(work[0]?.parentSpanId).toBe(root?.spanId);
+        const lifetime = spans.find((span) => span.name === "axm.process.run");
+        expect(lifetime?.parentSpanId).toBe(root?.spanId);
+        expect(work[0]?.parentSpanId).toBe(lifetime?.spanId);
         expect(receiver.bodies.join("")).not.toContain(secret);
         expect(receiver.bodies.join("")).not.toContain(process.execPath);
+      }),
+    ),
+  );
+});
+
+describe("Transport trace ownership", () => {
+  it.live("counts one actual exchange through composed client wrappers", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const receiver = yield* localTracingCollector();
+        let exchanges = 0;
+        const fetch = Object.assign(
+          async () => {
+            exchanges += 1;
+            return new Response("payload", { status: 200 });
+          },
+          { preconnect: globalThis.fetch.preconnect },
+        );
+        const program = Effect.gen(function* () {
+          const base = yield* RegistryHttpClient;
+          const composed = withAxmUserAgent(withAxmUserAgent(base, "1.0.0"), "1.0.1");
+          return yield* composed
+            .get("https://private.invalid/package?token=secret")
+            .pipe(Effect.flatMap((response) => response.text));
+        }).pipe(Effect.provide(makeRegistryHttpClientLayer(fetch)));
+        expect(
+          yield* withLocalTracing(program, {
+            AXM_TRACE: "1",
+            AXM_TRACE_ENDPOINT: receiver.endpoint,
+          }),
+        ).toBe("payload");
+        expect(exchanges).toBe(1);
+        expect(receiver.spans().filter((span) => span.name === "axm.http.request")).toHaveLength(
+          exchanges,
+        );
+        expect(receiver.bodies.join("")).not.toContain("private.invalid");
+        expect(receiver.bodies.join("")).not.toContain("secret");
       }),
     ),
   );

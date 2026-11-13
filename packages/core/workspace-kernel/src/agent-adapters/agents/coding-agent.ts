@@ -137,7 +137,7 @@ export interface AddSubagentArgs {
     /** Current bytes at the path; `None` when absent. */
     readonly prior: Option.Option<string>;
     readonly rendered: string;
-  }) => SubagentWriteDecision;
+  }) => Effect.Effect<SubagentWriteDecision>;
   readonly force: boolean;
 }
 
@@ -156,7 +156,7 @@ export interface RemoveSubagentArgs {
     /** Physical path. */
     readonly filePath: string;
     readonly bytes: string;
-  }) => SubagentRemovalDecision;
+  }) => Effect.Effect<SubagentRemovalDecision>;
 }
 
 /**

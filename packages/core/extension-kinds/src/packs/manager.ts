@@ -60,30 +60,33 @@ const buildSetPackArgs = (
   ref: RegistryPackRef,
   versionRange: Option.Option<string>,
   treeIntegrity: TreeIntegrity,
-): SetPackArgs => ({
-  name: ref.pack.name,
-  lockEntry: {
-    ...registrySourceLockFields(
-      ref.source,
-      ref.owner,
-      ref.name,
-      decodeVersionSync(ref.version),
-      Option.getOrElse(ref.integrity, () => ""),
-      ref.publisherBindingId,
-      treeIntegrity,
-    ),
-    manifestVersion: ref.version,
-    manifestContentIdentity: computePackManifestContentIdentity({
-      owner: ref.owner,
-      type: "pack",
+): Effect.Effect<SetPackArgs> =>
+  Effect.gen(function* (): Effect.fn.Return<SetPackArgs> {
+    return {
       name: ref.pack.name,
-      version: ref.version,
-      dependencies: ref.pack.dependencies,
-    }),
-    dependencies: ref.pack.dependencies,
-  },
-  versionRange,
-});
+      lockEntry: {
+        ...registrySourceLockFields(
+          ref.source,
+          ref.owner,
+          ref.name,
+          decodeVersionSync(ref.version),
+          Option.getOrElse(ref.integrity, () => ""),
+          ref.publisherBindingId,
+          treeIntegrity,
+        ),
+        manifestVersion: ref.version,
+        manifestContentIdentity: yield* computePackManifestContentIdentity({
+          owner: ref.owner,
+          type: "pack",
+          name: ref.pack.name,
+          version: ref.version,
+          dependencies: ref.pack.dependencies,
+        }),
+        dependencies: ref.pack.dependencies,
+      },
+      versionRange,
+    };
+  });
 
 const buildExternalSetPackArgs = (args: {
   readonly ref: Exclude<PackRef, { readonly refType: "registry" | "workspace" }>;
@@ -92,73 +95,74 @@ const buildExternalSetPackArgs = (args: {
   readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
   /** The workspace-relative source view a local Pack and its members were discovered under. */
   readonly workspaceRelativeLocalSourceRoot: Option.Option<string>;
-}): SetPackArgs => {
-  const shared = {
-    manifestVersion: args.ref.version,
-    manifestContentIdentity: computePackManifestContentIdentity({
-      owner: args.ref.owner,
-      type: "pack",
-      name: args.ref.pack.name,
-      version: args.ref.version,
+}): Effect.Effect<SetPackArgs> =>
+  Effect.gen(function* (): Effect.fn.Return<SetPackArgs> {
+    const shared = {
+      manifestVersion: args.ref.version,
+      manifestContentIdentity: yield* computePackManifestContentIdentity({
+        owner: args.ref.owner,
+        type: "pack",
+        name: args.ref.pack.name,
+        version: args.ref.version,
+        dependencies: args.ref.pack.dependencies,
+      }),
       dependencies: args.ref.pack.dependencies,
-    }),
-    dependencies: args.ref.pack.dependencies,
-  };
-  if (args.ref.refType === "http")
-    return {
-      name: args.ref.pack.name,
-      lockEntry: {
-        source: { ...args.ref.source, path: args.ref.sourcePath, portable: false },
-        identity: { owner: args.ref.owner, name: args.ref.name },
-        resolved: args.ref.snapshot,
-        treeIntegrity: args.treeIntegrity,
-        ...shared,
-      },
-      versionRange: args.versionRange,
     };
-  if (args.ref.refType === "local") {
-    const localSourcePath = args.ref.source.path;
+    if (args.ref.refType === "http")
+      return {
+        name: args.ref.pack.name,
+        lockEntry: {
+          source: { ...args.ref.source, path: args.ref.sourcePath, portable: false },
+          identity: { owner: args.ref.owner, name: args.ref.name },
+          resolved: args.ref.snapshot,
+          treeIntegrity: args.treeIntegrity,
+          ...shared,
+        },
+        versionRange: args.versionRange,
+      };
+    if (args.ref.refType === "local") {
+      const localSourcePath = args.ref.source.path;
+      return {
+        name: args.ref.pack.name,
+        lockEntry: {
+          ...pathSourceLockFields(
+            args.ref.sourcePath ??
+              Option.getOrElse(args.workspaceRelativeLocalSourcePath, () => localSourcePath),
+            args.ref.name,
+            args.treeIntegrity,
+            args.ref.owner,
+          ),
+          ...shared,
+          sourceRoot: Option.match(args.workspaceRelativeLocalSourceRoot, {
+            onNone: () => localSourcePath,
+            onSome: (relative) =>
+              relative === ".." || relative.startsWith("../") ? localSourcePath : relative,
+          }),
+        },
+        versionRange: args.versionRange,
+      };
+    }
     return {
       name: args.ref.pack.name,
       lockEntry: {
-        ...pathSourceLockFields(
-          args.ref.sourcePath ??
-            Option.getOrElse(args.workspaceRelativeLocalSourcePath, () => localSourcePath),
+        ...gitSourceLockFields(
+          args.ref.source,
+          Option.fromUndefinedOr(args.ref.sourcePath),
+          args.ref.gitCommitSha,
+          args.ref.gitTreeSha,
+          args.ref.owner,
           args.ref.name,
           args.treeIntegrity,
-          args.ref.owner,
         ),
         ...shared,
-        sourceRoot: Option.match(args.workspaceRelativeLocalSourceRoot, {
-          onNone: () => localSourcePath,
-          onSome: (relative) =>
-            relative === ".." || relative.startsWith("../") ? localSourcePath : relative,
+        ...Option.match(args.ref.source.subPath, {
+          onNone: () => ({}),
+          onSome: (sourceRoot) => ({ sourceRoot }),
         }),
       },
       versionRange: args.versionRange,
     };
-  }
-  return {
-    name: args.ref.pack.name,
-    lockEntry: {
-      ...gitSourceLockFields(
-        args.ref.source,
-        Option.fromUndefinedOr(args.ref.sourcePath),
-        args.ref.gitCommitSha,
-        args.ref.gitTreeSha,
-        args.ref.owner,
-        args.ref.name,
-        args.treeIntegrity,
-      ),
-      ...shared,
-      ...Option.match(args.ref.source.subPath, {
-        onNone: () => ({}),
-        onSome: (sourceRoot) => ({ sourceRoot }),
-      }),
-    },
-    versionRange: args.versionRange,
-  };
-};
+  });
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -219,7 +223,7 @@ export const PackManagerLive = Layer.effect(
         return noContent;
       }
       const accepted = yield* lockfile.entry("pack", ref.pack.name);
-      const expected = computePackManifestContentIdentity({
+      const expected = yield* computePackManifestContentIdentity({
         owner: ref.owner,
         type: "pack",
         name: ref.pack.name,
@@ -253,7 +257,7 @@ export const PackManagerLive = Layer.effect(
                   }),
               ),
             );
-            const observed = decodePackManifestDocument(contents);
+            const observed = yield* decodePackManifestDocument(contents);
             if (observed.status !== "decoded") {
               return yield* new PackDefinitionInvalid({
                 detail: `Fetched Pack manifest is ${observed.status}: ${manifestPath}`,
@@ -310,7 +314,7 @@ export const PackManagerLive = Layer.effect(
           return yield* new PackInstallStateMissing({ name: ref.pack.name });
         }
         if (ref.refType === "registry") {
-          return Option.some(buildSetPackArgs(ref, versionRange, treeIntegrity.value));
+          return Option.some(yield* buildSetPackArgs(ref, versionRange, treeIntegrity.value));
         }
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
@@ -321,7 +325,7 @@ export const PackManagerLive = Layer.effect(
             ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
             : Option.none<string>();
         return Option.some(
-          buildExternalSetPackArgs({
+          yield* buildExternalSetPackArgs({
             ref,
             versionRange,
             treeIntegrity: treeIntegrity.value,

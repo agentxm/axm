@@ -40,21 +40,28 @@ const OLD_MARKER_TEXT =
   "<!-- axm:file v=1 ext=@acme/subagents/test src=agent_extensions/@acme/subagents/test -->";
 
 /** A lockfile recording AXM's last write of each Subagent file. */
-const recordedSubagents = (rows: Readonly<Record<string, string>>): Lockfile => ({
-  lockfileVersion: LOCKFILE_VERSION,
-  skills: {},
-  projections: {
-    subagents: {
-      contract: 1,
-      units: Object.fromEntries(
-        Object.entries(rows).map(([unit, bytes]) => [
-          ProjectionUnitPathSchema.make(unit),
-          { output: projectionOutputDigest(bytes) },
-        ]),
-      ),
-    },
-  },
-});
+const recordedSubagents = (rows: Readonly<Record<string, string>>): Effect.Effect<Lockfile> =>
+  Effect.gen(function* () {
+    return {
+      lockfileVersion: LOCKFILE_VERSION,
+      skills: {},
+      projections: {
+        subagents: {
+          contract: 1,
+          units: Object.fromEntries(
+            yield* Effect.forEach(Object.entries(rows), ([unit, bytes]) =>
+              Effect.gen(function* () {
+                return [
+                  ProjectionUnitPathSchema.make(unit),
+                  { output: yield* projectionOutputDigest(bytes) },
+                ] as const;
+              }),
+            ),
+          ),
+        },
+      },
+    };
+  });
 
 const outputAuthority = (overrides: Partial<AgentOutputAuthority>): AgentOutputAuthority => ({
   expectedRegions: { rule: [], knowledge: [] },
@@ -219,7 +226,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
           WorkspaceReadTest({
             baseDir: tempDir,
             runtimeDir: axmDir,
-            lockfile: recordedSubagents({ ".cursor/agents/reviewer.md": "subagent body\n" }),
+            lockfile: yield* recordedSubagents({ ".cursor/agents/reviewer.md": "subagent body\n" }),
           }),
           Layer.succeed(CodingAgentRepository, agentRepo),
         );
@@ -322,7 +329,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
             ...(row.case === "unrecorded"
               ? {}
               : {
-                  lockfile: recordedSubagents({
+                  lockfile: yield* recordedSubagents({
                     ".cursor/agents/reviewer.md": "AXM-written reviewer\n",
                   }),
                 }),

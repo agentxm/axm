@@ -243,6 +243,11 @@ export const MockWorkspaceTransactionScope = (
 /** A provider with no per-type refinement: every outcome stays generic. */
 export const ConfiguredAgentOutcomesProviderTest: Layer.Layer<ConfiguredAgentOutcomesProvider> =
   Layer.succeed(ConfiguredAgentOutcomesProvider, { byExtensionType: {} });
+export {
+  sourceHashFixture,
+  projectionDigestFixture,
+  packIdentityFixture,
+} from "./hash-fixtures.js";
 export { WorkspaceReadModelTest } from "./observed/__fixtures__/test-layer.js";
 export * from "./observed/__fixtures__/builder.js";
 export * from "./observed/__fixtures__/decoders.js";

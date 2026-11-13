@@ -1,6 +1,8 @@
+import { withDetailedWork } from "../../locations/testing.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
@@ -17,9 +19,21 @@ layer(NodeServices.layer)("package content hashing", (it) => {
       yield* fs.writeFileString(path.join(root, "src", "a.txt"), "one\n");
       yield* fs.chmod(path.join(root, "src", "a.txt"), 0o644);
       yield* fs.symlink("src/a.txt", path.join(root, "link.txt"));
-      expect(yield* computePackageContentHash(root)).toBe(
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      });
+      expect(yield* computePackageContentHash(root).pipe(withDetailedWork(tracer))).toBe(
         "034fc2944cc153df71385d1e0f6e1c4e94c517dc17a6b56d2062162199119fc7",
       );
+      const hash = spans.find((span) => span.name === "axm.hash.package");
+      // Two directory frames, one file with four bytes, and one nine-byte link target.
+      expect(hash?.attributes.get("axm.work.count")).toBe(4);
+      expect(hash?.attributes.get("axm.work.bytes")).toBe(13);
     }).pipe(Effect.scoped),
   );
 

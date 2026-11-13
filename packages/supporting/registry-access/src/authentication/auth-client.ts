@@ -19,6 +19,11 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Clock from "effect/Clock";
+import * as Exit from "effect/Exit";
+import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
+import type * as Tracer from "effect/Tracer";
 import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
@@ -59,6 +64,7 @@ import {
   type WorkloadTokenUnavailable,
 } from "./errors.js";
 import { readTokenPermissions, type TokenPermissions } from "./tokens/permissions.js";
+import { observeAuthRequest } from "./observation.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -381,16 +387,42 @@ const retryTransientDevicePollFailure = <A>(
   endpoint: HttpRegistryEndpoint,
   effect: Effect.Effect<A, AuthError | RetryableDevicePollError>,
 ): Effect.Effect<A, AuthError> =>
-  effect.pipe(
-    Effect.retry({
-      times: TRANSIENT_DEVICE_POLL_RETRY_COUNT,
-      schedule: Schedule.exponential(TRANSIENT_DEVICE_POLL_RETRY_BASE_DELAY),
-      while: isRetryableDevicePollError,
-    }),
-    Effect.catchTag("RetryableDevicePollError", (e) =>
-      Effect.fail(registryAccessFailure(endpoint, "Device token exchange failed", e.cause)),
-    ),
-  );
+  Effect.gen(function* () {
+    const waiting = yield* Ref.make(Option.none<Tracer.Span>());
+    const endWait = (exit: Exit.Exit<unknown, unknown>) =>
+      Ref.getAndSet(waiting, Option.none()).pipe(
+        Effect.flatMap((span) =>
+          Option.isNone(span)
+            ? Effect.void
+            : Effect.flatMap(Clock.currentTimeNanos, (now) =>
+                Effect.sync(() => span.value.end(now, exit)),
+              ),
+        ),
+        Effect.uninterruptible,
+      );
+    const schedule = Schedule.exponential(TRANSIENT_DEVICE_POLL_RETRY_BASE_DELAY).pipe(
+      Schedule.upTo({ times: TRANSIENT_DEVICE_POLL_RETRY_COUNT }),
+      Schedule.tap(({ duration }) =>
+        Effect.makeSpan("axm.auth.retry-wait", {
+          attributes: { "axm.wait.milliseconds": Duration.toMillis(duration) },
+        }).pipe(
+          Effect.flatMap((span) => Ref.set(waiting, Option.some(span))),
+          Effect.uninterruptible,
+        ),
+      ),
+    );
+    const executed = endWait(Exit.void).pipe(
+      Effect.andThen(effect),
+      Effect.retry({
+        schedule,
+        while: isRetryableDevicePollError,
+      }),
+      Effect.catchTag("RetryableDevicePollError", (e) =>
+        Effect.fail(registryAccessFailure(endpoint, "Device token exchange failed", e.cause)),
+      ),
+    );
+    return yield* Effect.onExit(executed, endWait);
+  });
 
 // -----------------------------------------------------------------------------
 // Single poll step
@@ -427,6 +459,13 @@ const postTokenForm = (
           ),
     ),
     Effect.map(normalizeTokenResponse),
+    observeAuthRequest(
+      body.grant_type === AUTHORIZATION_CODE_GRANT_TYPE
+        ? "pkce-exchange"
+        : body.grant_type === DEVICE_CODE_GRANT_TYPE
+          ? "device-token"
+          : "session-refresh",
+    ),
   );
 };
 
@@ -565,6 +604,7 @@ export const AuthClientLive = Layer.effect(
           payload: { client_id: CLIENT_ID, scope: LOGIN_SCOPE },
         })
         .pipe(
+          observeAuthRequest("device-authorization"),
           Effect.mapError((error) =>
             mapRegistryAccessError(endpoint, "Could not start sign-in", error),
           ),
@@ -586,7 +626,11 @@ export const AuthClientLive = Layer.effect(
       let currentInterval = interval * 1000;
 
       while (true) {
-        yield* Effect.sleep(currentInterval);
+        yield* Effect.sleep(currentInterval).pipe(
+          Effect.withSpan("axm.auth.poll-wait", {
+            attributes: { "axm.wait.milliseconds": currentInterval },
+          }),
+        );
         const result = yield* retryTransientDevicePollFailure(
           endpoint,
           pollOnceInternal(httpClient, endpoint, deviceCode),
@@ -628,13 +672,12 @@ export const AuthClientLive = Layer.effect(
             ),
           );
 
-        const decoded = yield* authedClient
-          .AuthGetMe(undefined)
-          .pipe(
-            Effect.mapError((error) =>
-              mapRegistryAccessError(endpoint, "Could not read authenticated user", error),
-            ),
-          );
+        const decoded = yield* authedClient.AuthGetMe(undefined).pipe(
+          observeAuthRequest("identity"),
+          Effect.mapError((error) =>
+            mapRegistryAccessError(endpoint, "Could not read authenticated user", error),
+          ),
+        );
 
         return {
           userHandle: normalizeHandle(decoded.user.handle),
@@ -665,6 +708,7 @@ export const AuthClientLive = Layer.effect(
             },
           })
           .pipe(
+            observeAuthRequest("token-create"),
             Effect.mapError((error) =>
               mapRegistryAccessError(endpoint, "Could not create token", error),
             ),
@@ -692,6 +736,7 @@ export const AuthClientLive = Layer.effect(
             },
           })
           .pipe(
+            observeAuthRequest("token-list"),
             Effect.mapError((error) =>
               mapRegistryAccessError(endpoint, "Could not list tokens", error),
             ),
@@ -716,13 +761,12 @@ export const AuthClientLive = Layer.effect(
     const deleteToken: AuthClientService["deleteToken"] = Effect.fn("AuthClient.deleteToken")(
       function* (endpoint, tokenId) {
         const authedClient = yield* authorizedClient(endpoint, "Revoking a token");
-        yield* authedClient
-          .TokensDelete(tokenId, undefined)
-          .pipe(
-            Effect.mapError((error) =>
-              mapRegistryAccessError(endpoint, "Could not revoke token", error),
-            ),
-          );
+        yield* authedClient.TokensDelete(tokenId, undefined).pipe(
+          observeAuthRequest("token-delete"),
+          Effect.mapError((error) =>
+            mapRegistryAccessError(endpoint, "Could not revoke token", error),
+          ),
+        );
       },
     );
 
@@ -904,6 +948,7 @@ export const TokenExchangeLive = Layer.effect(
           },
         })
         .pipe(
+          observeAuthRequest("workload-exchange"),
           Effect.mapError((error) =>
             workloadTokenUnavailable(
               isRegistryClientError("AuthExchangeToken400")(error)
@@ -929,6 +974,7 @@ export const TokenExchangeLive = Layer.effect(
             payload: { token: refreshTokenValue, token_type_hint: "refresh_token" },
           })
           .pipe(
+            observeAuthRequest("token-revoke"),
             Effect.mapError((error) =>
               mapRegistryAccessError(endpoint, "Token revocation failed", error),
             ),

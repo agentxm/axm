@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import * as crypto from "node:crypto";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -115,14 +116,22 @@ export const observeGitIgnoreInputs = (input: {
         });
       });
     }
+    const fingerprint = yield* Effect.gen(function* () {
+      const input = JSON.stringify({ packageDirectory, observed });
+      const digest = yield* Effect.sync(() =>
+        crypto.createHash("sha256").update(input).digest("hex"),
+      );
+      yield* annotateWork({
+        "axm.work.count": 1,
+        "axm.work.bytes": Buffer.byteLength(input),
+      });
+      return digest;
+    }).pipe((effect) => withWork("axm.hash.git-ignore", effect));
     return {
       boundaryRoot,
       packageDirectory,
       rules,
-      fingerprint: crypto
-        .createHash("sha256")
-        .update(JSON.stringify({ packageDirectory, observed }))
-        .digest("hex"),
+      fingerprint,
     } satisfies IgnoreSnapshot;
   }).pipe(
     Effect.mapError((cause) =>

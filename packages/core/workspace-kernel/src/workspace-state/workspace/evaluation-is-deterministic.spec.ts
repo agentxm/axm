@@ -44,10 +44,8 @@ const manifests: PackManifestsPort = {
     return {
       path: `/workspace/${relativePath}`,
       relativePath,
-      manifest: Effect.succeed(
-        observePackManifest(
-          JSON.stringify({ owner: OWNER, type: "pack", name, version: "1.0.0", dependencies }),
-        ),
+      manifest: observePackManifest(
+        JSON.stringify({ owner: OWNER, type: "pack", name, version: "1.0.0", dependencies }),
       ),
     };
   },
@@ -86,7 +84,7 @@ describe("Evaluation is deterministic", () => {
           declared.packMembership.map(({ pack, declared, routes }) => ({ pack, declared, routes })),
         ),
       );
-      expect(desiredStateIdentity(reordered)).toBe(desiredStateIdentity(declared));
+      expect(yield* desiredStateIdentity(reordered)).toBe(yield* desiredStateIdentity(declared));
     }),
   );
 
@@ -108,7 +106,7 @@ describe("Evaluation is deterministic", () => {
         ]);
         expect(second.nodes).toEqual(first.nodes);
         expect(second.problems).toEqual(first.problems);
-        expect(desiredStateIdentity(second)).toBe(desiredStateIdentity(first));
+        expect(yield* desiredStateIdentity(second)).toBe(yield* desiredStateIdentity(first));
       }),
   );
 
@@ -130,8 +128,8 @@ describe("Evaluation is deterministic", () => {
       };
       const stated: DesiredStateGraph = { ...graph, problems: [problem] };
 
-      expect(desiredStateIdentity(reworded)).toBe(desiredStateIdentity(stated));
-      expect(desiredStateIdentity(stated)).not.toBe(desiredStateIdentity(graph));
+      expect(yield* desiredStateIdentity(reworded)).toBe(yield* desiredStateIdentity(stated));
+      expect(yield* desiredStateIdentity(stated)).not.toBe(yield* desiredStateIdentity(graph));
     }),
   );
 });

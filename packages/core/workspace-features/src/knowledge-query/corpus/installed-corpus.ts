@@ -49,62 +49,62 @@ type InstalledKnowledgeCorpus =
  * index snapshot. A corpus that kept changing under the double read is a
  * reported outcome, not a failure: the caller retries rather than recovers.
  */
-export const captureInstalledKnowledgeCorpus = Effect.fn("Knowledge.captureInstalledCorpus")(
-  function* (options?: { readonly bundle?: string }) {
-    const index = yield* KnowledgeIndex;
-    const selected = yield* selectInstalledKnowledgeBundles(
-      options?.bundle === undefined ? undefined : { name: options.bundle },
-    ).pipe(
-      Effect.catchTag("InstalledKnowledgeUnavailable", (failure: InstalledKnowledgeUnavailable) =>
-        Effect.fail(
-          new KnowledgeCorpusUnavailable({
-            reason: failure.reason,
-            detail: failure.detail,
-            ...(failure.bundle === undefined ? {} : { bundle: failure.bundle }),
-          }),
+export const captureInstalledKnowledgeCorpus = Effect.fnUntraced(function* (options?: {
+  readonly bundle?: string;
+}) {
+  const index = yield* KnowledgeIndex;
+  const selected = yield* selectInstalledKnowledgeBundles(
+    options?.bundle === undefined ? undefined : { name: options.bundle },
+  ).pipe(
+    Effect.catchTag("InstalledKnowledgeUnavailable", (failure: InstalledKnowledgeUnavailable) =>
+      Effect.fail(
+        new KnowledgeCorpusUnavailable({
+          reason: failure.reason,
+          detail: failure.detail,
+          ...(failure.bundle === undefined ? {} : { bundle: failure.bundle }),
+        }),
+      ),
+    ),
+  );
+  const prepared = yield* Effect.forEach(
+    selected,
+    (entry) =>
+      readKnowledgePackageManifest(entry.packageRoot).pipe(
+        Effect.flatMap(({ manifest }) =>
+          Schema.decodeUnknownEffect(KnowledgeBundleFqnSchema)(
+            `${manifest.owner}/knowledge/${manifest.name}`,
+          ).pipe(
+            Effect.map((bundle): CapturedInstalledBundle => ({
+              name: entry.name,
+              bundle,
+              version: manifest.version,
+              sourceRoot: entry.sourceRoot,
+            })),
+          ),
+        ),
+        Effect.mapError(
+          (cause) =>
+            new KnowledgeCorpusUnavailable({
+              reason: "source-unreadable",
+              detail: `Failed to read knowledge bundle "${entry.name}" manifest`,
+              bundle: entry.name,
+              cause,
+            }),
         ),
       ),
-    );
-    const prepared = yield* Effect.forEach(
-      selected,
-      (entry) =>
-        readKnowledgePackageManifest(entry.packageRoot).pipe(
-          Effect.flatMap(({ manifest }) =>
-            Schema.decodeUnknownEffect(KnowledgeBundleFqnSchema)(
-              `${manifest.owner}/knowledge/${manifest.name}`,
-            ).pipe(
-              Effect.map((bundle): CapturedInstalledBundle => ({
-                name: entry.name,
-                bundle,
-                version: manifest.version,
-                sourceRoot: entry.sourceRoot,
-              })),
-            ),
-          ),
-          Effect.mapError(
-            (cause) =>
-              new KnowledgeCorpusUnavailable({
-                reason: "source-unreadable",
-                detail: `Failed to read knowledge bundle "${entry.name}" manifest`,
-                bundle: entry.name,
-                cause,
-              }),
-          ),
-        ),
-      { concurrency: 16 },
-    );
-    const capturedResult = yield* Effect.result(captureKnowledgeIndexBundles(prepared));
-    if (Result.isFailure(capturedResult)) {
-      if (capturedResult.failure._tag === "KnowledgeCorpusChangingError") {
-        return { outcome: "corpus-changing" } satisfies InstalledKnowledgeCorpus;
-      }
-      return yield* new KnowledgeCorpusUnavailable({
-        reason: "source-unreadable",
-        detail: "Failed to capture the installed Knowledge corpus",
-        cause: capturedResult.failure,
-      });
+    { concurrency: 16 },
+  );
+  const capturedResult = yield* Effect.result(captureKnowledgeIndexBundles(prepared));
+  if (Result.isFailure(capturedResult)) {
+    if (capturedResult.failure._tag === "KnowledgeCorpusChangingError") {
+      return { outcome: "corpus-changing" } satisfies InstalledKnowledgeCorpus;
     }
-    const snapshot = yield* index.makeSnapshot(capturedResult.success);
-    return { outcome: "ready", snapshot, bundles: prepared } satisfies InstalledKnowledgeCorpus;
-  },
-);
+    return yield* new KnowledgeCorpusUnavailable({
+      reason: "source-unreadable",
+      detail: "Failed to capture the installed Knowledge corpus",
+      cause: capturedResult.failure,
+    });
+  }
+  const snapshot = yield* index.makeSnapshot(capturedResult.success);
+  return { outcome: "ready", snapshot, bundles: prepared } satisfies InstalledKnowledgeCorpus;
+});

@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 /**
  * Settings management for AXM workspace configuration.
  *
@@ -133,33 +134,39 @@ export const renderExistingSettings = (
   target: Schema.Json,
   canonicalContent: () => string,
   applyPatch: typeof applyJsonPatchToText = applyJsonPatchToText,
-): ExistingSettingsRenderResult => {
-  const patch = JsonPatch.get(prior, target);
-  if (patch.length === 0) {
-    return { content: priorText };
-  }
+): Effect.Effect<ExistingSettingsRenderResult> =>
+  Effect.gen(function* (): Effect.fn.Return<ExistingSettingsRenderResult> {
+    const patch = JsonPatch.get(prior, target);
+    if (patch.length === 0) {
+      return { content: priorText };
+    }
 
-  const priorWasCanonical = hasCanonicalTopLevelOrder(prior);
-  const edited = applyPatch(priorText, prior, patch, {
-    preserveInsertionBaseline: true,
-    getInsertionIndex: (path, properties) => insertionIndexFor(priorWasCanonical, path, properties),
+    const priorWasCanonical = hasCanonicalTopLevelOrder(prior);
+    const edited = yield* applyPatch(priorText, prior, patch, {
+      preserveInsertionBaseline: true,
+      getInsertionIndex: (path, properties) =>
+        insertionIndexFor(priorWasCanonical, path, properties),
+    });
+    if (edited._tag === "Failure") {
+      return { content: canonicalContent(), fallbackReason: "edit_failed" };
+    }
+
+    const parsed = yield* Effect.sync(() => parseJson(edited.text)).pipe((effect) =>
+      withWork("axm.parse.settings-round-trip", effect, {
+        attributes: { "axm.work.count": 1, "axm.parse.phase": "rendered" },
+      }),
+    );
+    if (parsed === undefined || JsonPatch.get(parsed, target).length !== 0) {
+      return { content: canonicalContent(), fallbackReason: "edited_content_invalid" };
+    }
+
+    return {
+      content:
+        isJsonObject(target) && Object.keys(target).length === 0
+          ? `{}` + (priorText.match(/\s*$/)?.[0] ?? "")
+          : edited.text,
+    };
   });
-  if (edited._tag === "Failure") {
-    return { content: canonicalContent(), fallbackReason: "edit_failed" };
-  }
-
-  const parsed = parseJson(edited.text);
-  if (parsed === undefined || JsonPatch.get(parsed, target).length !== 0) {
-    return { content: canonicalContent(), fallbackReason: "edited_content_invalid" };
-  }
-
-  return {
-    content:
-      isJsonObject(target) && Object.keys(target).length === 0
-        ? `{}` + (priorText.match(/\s*$/)?.[0] ?? "")
-        : edited.text,
-  };
-};
 
 // -----------------------------------------------------------------------------
 // Core Functions
@@ -231,18 +238,24 @@ export const writeSettingsAtPath = (
           });
         } else if (readResult.success.trim() !== "") {
           priorRaw = readResult.success;
-          const prior = parseJson(readResult.success);
+          const prior = yield* Effect.sync(() => parseJson(readResult.success)).pipe((effect) =>
+            withWork("axm.parse.settings-round-trip", effect, {
+              attributes: { "axm.work.count": 1, "axm.parse.phase": "prior" },
+            }),
+          );
           if (prior === undefined) {
             yield* Effect.logDebug("Falling back to canonical settings serialization", {
               settingsPath,
               reason: "parse_failed",
             });
           } else {
-            const rendered = renderExistingSettings(
+            const rendered = yield* renderExistingSettings(
               readResult.success,
               prior,
               targetResult.success,
               canonicalContent,
+            ).pipe((effect) =>
+              withWork("axm.render.settings", effect, { attributes: { "axm.work.count": 1 } }),
             );
             content = rendered.content;
             if (rendered.fallbackReason !== undefined) {

@@ -261,7 +261,7 @@ export const reconcileNativeManagedRegion = (args: NativeManagedRegionArgs) =>
           rowChange: Option.some<ProjectionRowChange>({
             kind,
             path: args.displayPath,
-            row: { gen: args.gen, output: projectionOutputDigest(state.body) },
+            row: { gen: args.gen, output: yield* projectionOutputDigest(state.body) },
           }),
         };
       }
@@ -307,14 +307,12 @@ export const reconcileNativeManagedRegion = (args: NativeManagedRegionArgs) =>
       const lastWrite =
         state.state === "complete"
           ? Option.some<ProjectionLastWrite>(
-              Option.match(args.recorded, {
-                onNone: () => "unrecorded",
-                onSome: ({ row }) =>
-                  projectionOutputDigest(state.body) === row.output ||
-                  (written.success.state === "complete" && written.success.body === state.body)
-                    ? "matches"
-                    : "modified",
-              }),
+              Option.isNone(args.recorded)
+                ? "unrecorded"
+                : (yield* projectionOutputDigest(state.body)) === args.recorded.value.row.output ||
+                    (written.success.state === "complete" && written.success.body === state.body)
+                  ? "matches"
+                  : "modified",
             )
           : Option.none<ProjectionLastWrite>();
       const rowChange: ProjectionRowChange = {
@@ -322,7 +320,7 @@ export const reconcileNativeManagedRegion = (args: NativeManagedRegionArgs) =>
         path: args.displayPath,
         row:
           written.success.state === "complete"
-            ? { gen: args.gen, output: projectionOutputDigest(written.success.body) }
+            ? { gen: args.gen, output: yield* projectionOutputDigest(written.success.body) }
             : undefined,
       };
       yield* preflightNativeConfigReaders({

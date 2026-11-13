@@ -337,9 +337,7 @@ const desiredNodeForIntent = (graph: DesiredStateGraph, intent: RootUpdateIntent
  * still usable, still the same package, and still inside the requested range.
  * A Pack preserves only when its whole member closure is usable too.
  */
-const preservableRegistryVersion = Effect.fn("UpdateExtensions.preservableVersion")(function* (
-  intent: RootUpdateIntent,
-) {
+const preservableRegistryVersion = Effect.fnUntraced(function* (intent: RootUpdateIntent) {
   const desiredState = yield* DesiredStateReader;
   const graph = yield* desiredState.graph();
   // Preserving the current graph means keeping a graph that is whole.
@@ -377,9 +375,7 @@ const preservableRegistryVersion = Effect.fn("UpdateExtensions.preservableVersio
 });
 
 /** The accepted version a resolution must not fall below, when there is one. */
-const acceptedRegistryFloor = Effect.fn("UpdateExtensions.acceptedFloor")(function* (
-  intent: RootUpdateIntent,
-) {
+const acceptedRegistryFloor = Effect.fnUntraced(function* (intent: RootUpdateIntent) {
   const desiredState = yield* DesiredStateReader;
   const graph = yield* desiredState.graph();
   const desired = desiredNodeForIntent(graph, intent);
@@ -406,7 +402,7 @@ const acceptedRegistryFloor = Effect.fn("UpdateExtensions.acceptedFloor")(functi
  * planner the install routes use: advancing an accepted resolution is
  * installing the version its source now offers.
  */
-const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(function* (args: {
+const planResolvedTarget = Effect.fnUntraced(function* (args: {
   readonly intent: RootUpdateIntent;
   readonly reinstall: boolean;
   readonly ref: ExtensionRef;
@@ -524,7 +520,7 @@ const blockedUndesiredPack = (intent: RootUpdateIntent): BlockedUpdateCandidate 
 });
 
 /** The outcome a held release settles into: preserve, or block with evidence. */
-const heldCandidate = Effect.fn("UpdateExtensions.heldCandidate")(function* (args: {
+const heldCandidate = Effect.fnUntraced(function* (args: {
   readonly intent: RootUpdateIntent;
   readonly evidence: ReleaseAgeEvidence;
   readonly evaluatedAt: string;
@@ -565,9 +561,7 @@ const heldCandidate = Effect.fn("UpdateExtensions.heldCandidate")(function* (arg
 });
 
 /** Settle a request that names one extension by its Registry identity. */
-const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* (
-  request: TargetedUpdateRequest,
-) {
+const prepareTargeted = Effect.fnUntraced(function* (request: TargetedUpdateRequest) {
   const intent = yield* resolveRootUpdateIntent(request.source);
 
   let targetedContext: TargetedUpdateContext | undefined;
@@ -759,7 +753,7 @@ const requirePackMemberRef = (
  * one the request named, or the one the declaration already recorded — a
  * targeted update never widens the intent the workspace expressed.
  */
-const planTargetedDirect = Effect.fn("UpdateExtensions.planTargetedDirect")(function* (args: {
+const planTargetedDirect = Effect.fnUntraced(function* (args: {
   readonly intent: RootUpdateIntent;
   readonly durableRange: Option.Option<VersionRange>;
   readonly reinstall: boolean;
@@ -832,9 +826,7 @@ const configuredAgentOperations = (
   });
 
 /** Settle a request that sweeps the configured entries. */
-const prepareConfigured = Effect.fn("UpdateExtensions.prepareConfigured")(function* (
-  request: ConfiguredUpdateRequest,
-) {
+const prepareConfigured = Effect.fnUntraced(function* (request: ConfiguredUpdateRequest) {
   const nothingToAdvance = (message: string) =>
     ({
       outcome: "nothing-configured",

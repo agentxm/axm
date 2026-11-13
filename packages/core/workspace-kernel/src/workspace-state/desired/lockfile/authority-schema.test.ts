@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect";
 import { storedLockfileFixture } from "../../observed/__fixtures__/decoders.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
@@ -184,82 +185,99 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
   });
 
-  it("stores Registry Pack dependency constraints with a consistent semantic identity", () => {
-    const pack = {
-      source: { type: "registry", url: "https://registry.agentxm.ai" },
-      identity: { owner: "@acme", name: "toolkit" },
-      resolved: {
-        version: "2.0.0",
-        integrity:
-          "sha512-OhNjo51UcYwJWqql34b2DJXARZlVAoOMpyTbYFyPiW4wNc96DqzYa07m2hLjyveJeITiT9jUvBPNiJV+WabyTg==",
-        publisherBindingId: "hbnd_acme",
-      },
-      manifestVersion: "2.0.0",
-      manifestContentIdentity: computePackManifestContentIdentity({
-        owner: "@acme",
-        type: "pack",
-        name: "toolkit",
-        version: "2.0.0",
+  it.effect("stores Registry Pack dependency constraints with a consistent semantic identity", () =>
+    Effect.gen(function* () {
+      const pack = {
+        source: { type: "registry", url: "https://registry.agentxm.ai" },
+        identity: { owner: "@acme", name: "toolkit" },
+        resolved: {
+          version: "2.0.0",
+          integrity:
+            "sha512-OhNjo51UcYwJWqql34b2DJXARZlVAoOMpyTbYFyPiW4wNc96DqzYa07m2hLjyveJeITiT9jUvBPNiJV+WabyTg==",
+          publisherBindingId: "hbnd_acme",
+        },
+        manifestVersion: "2.0.0",
+        manifestContentIdentity: yield* computePackManifestContentIdentity({
+          owner: "@acme",
+          type: "pack",
+          name: "toolkit",
+          version: "2.0.0",
+          dependencies: { "@acme/skills/review": "^1.0.0" },
+        }),
         dependencies: { "@acme/skills/review": "^1.0.0" },
-      }),
-      dependencies: { "@acme/skills/review": "^1.0.0" },
-      treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
-    };
+        treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
+      };
 
-    expect(
-      Schema.decodeUnknownSync(PackLockEntrySchema)(pack, {
-        onExcessProperty: "error",
-      }),
-    ).toEqual({
-      ...pack,
-      source: { ...pack.source, url: decodeRegistryEndpointSync(pack.source.url) },
-    });
-    for (const invalid of [
-      { ...pack, dependencies: undefined },
-      { ...pack, dependencies: { "@acme/packs/nested": "*" } },
-      { ...pack, dependencies: { "@acme/skills/review": "^2.0.0" } },
-      { ...pack, manifestContentIdentity: "inconsistent" },
-      { ...pack, manifestVersion: "1.0.0" },
-      { ...pack, members: ["@acme/skills/review"] },
-    ]) {
-      expect(() =>
-        Schema.decodeUnknownSync(PackLockEntrySchema)(invalid, {
+      expect(
+        Schema.decodeUnknownSync(PackLockEntrySchema)(pack, {
           onExcessProperty: "error",
         }),
+      ).toEqual({
+        ...pack,
+        source: { ...pack.source, url: decodeRegistryEndpointSync(pack.source.url) },
+      });
+      const decodedPack = {
+        ...pack,
+        source: { ...pack.source, url: decodeRegistryEndpointSync(pack.source.url) },
+      };
+      expect(Schema.decodeUnknownSync(Schema.toType(PackLockEntrySchema))(decodedPack)).toEqual(
+        decodedPack,
+      );
+      for (const invalid of [
+        { ...pack, dependencies: undefined },
+        { ...pack, dependencies: { "@acme/packs/nested": "*" } },
+        { ...pack, dependencies: { "@acme/skills/review": "^2.0.0" } },
+        { ...pack, manifestContentIdentity: "inconsistent" },
+        { ...pack, manifestVersion: "1.0.0" },
+        { ...pack, members: ["@acme/skills/review"] },
+      ]) {
+        expect(() =>
+          Schema.decodeUnknownSync(PackLockEntrySchema)(invalid, {
+            onExcessProperty: "error",
+          }),
+        ).toThrow();
+        expect(() =>
+          Schema.decodeUnknownSync(Schema.toType(PackLockEntrySchema))(
+            { ...invalid, source: decodedPack.source },
+            { onExcessProperty: "error" },
+          ),
+        ).toThrow();
+      }
+      expect(() =>
+        Schema.decodeUnknownSync(PackLockEntrySchema)(
+          { ...pack, resolvedSkills: {} },
+          { onExcessProperty: "error" },
+        ),
       ).toThrow();
-    }
-    expect(() =>
-      Schema.decodeUnknownSync(PackLockEntrySchema)(
-        { ...pack, resolvedSkills: {} },
-        { onExcessProperty: "error" },
-      ),
-    ).toThrow();
-  });
+    }),
+  );
 
-  it("round-trips local Pack authority with its dependency declarations", () => {
-    const pack = {
-      source: { type: "path", path: "catalog/packs/toolkit" },
-      sourceRoot: "catalog",
-      identity: { owner: "@acme", name: "toolkit" },
-      resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
-      treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
-      manifestVersion: "2.0.0",
-      manifestContentIdentity: computePackManifestContentIdentity({
-        owner: "@acme",
-        type: "pack",
-        name: "toolkit",
-        version: "2.0.0",
+  it.effect("round-trips local Pack authority with its dependency declarations", () =>
+    Effect.gen(function* () {
+      const pack = {
+        source: { type: "path", path: "catalog/packs/toolkit" },
+        sourceRoot: "catalog",
+        identity: { owner: "@acme", name: "toolkit" },
+        resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
+        treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
+        manifestVersion: "2.0.0",
+        manifestContentIdentity: yield* computePackManifestContentIdentity({
+          owner: "@acme",
+          type: "pack",
+          name: "toolkit",
+          version: "2.0.0",
+          dependencies: { "@acme/skills/review": "^1.0.0", "@acme/rules/house-style": "*" },
+        }),
         dependencies: { "@acme/skills/review": "^1.0.0", "@acme/rules/house-style": "*" },
-      }),
-      dependencies: { "@acme/skills/review": "^1.0.0", "@acme/rules/house-style": "*" },
-    };
+      };
 
-    expect(
-      Schema.decodeUnknownSync(PackLockEntrySchema)(pack, {
-        onExcessProperty: "error",
-      }),
-    ).toEqual(pack);
-  });
+      expect(
+        Schema.decodeUnknownSync(PackLockEntrySchema)(pack, {
+          onExcessProperty: "error",
+        }),
+      ).toEqual(pack);
+    }),
+  );
 
   it("rejects non-canonical lock versions and unknown top-level state", () => {
     expect(() => decodeLockfile({ version: 4 }, { onExcessProperty: "error" })).toThrow();

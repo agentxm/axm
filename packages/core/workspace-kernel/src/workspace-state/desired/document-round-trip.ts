@@ -70,7 +70,7 @@ export const prepareDocumentRoundTrip = <E>(args: {
   readonly unitPrefix: string;
   readonly insertions: ReadonlyArray<string>;
   readonly withdrawals: ReadonlyArray<string>;
-  readonly acceptRestored: (raw: string) => boolean;
+  readonly acceptRestored: (raw: string) => Effect.Effect<boolean>;
   readonly acceptAbsent?: boolean;
   readonly mapFailure: (target: string, cause: unknown) => E;
 }) =>
@@ -130,7 +130,7 @@ export const prepareDocumentRoundTrip = <E>(args: {
           receipt?.inverse !== undefined &&
           (yield* verifyContainerIdentity(receipt.identity, proof))
         ) {
-          const restored = applyStructuralInverse(args.before, receipt.inverse);
+          const restored = yield* applyStructuralInverse(args.before, receipt.inverse);
           if (Option.isSome(restored)) {
             batchBaseline = restored.value;
             batchAbsent = receipt.absentBefore === true;
@@ -142,7 +142,7 @@ export const prepareDocumentRoundTrip = <E>(args: {
     let content = args.after;
     let remove = false;
     if (batch?.mode === "withdraw" && batchProven && batchBaseline !== undefined) {
-      if (args.acceptRestored(batchBaseline)) content = batchBaseline;
+      if (yield* args.acceptRestored(batchBaseline)) content = batchBaseline;
       if (batchAbsent && batchBaseline === "" && args.acceptAbsent === true) remove = true;
     }
     if (
@@ -158,8 +158,8 @@ export const prepareDocumentRoundTrip = <E>(args: {
           !(yield* verifyContainerIdentity(receipt.identity, proof))
         )
           continue;
-        const restored = applyStructuralInverse(args.before, receipt.inverse);
-        if (Option.isSome(restored) && args.acceptRestored(restored.value))
+        const restored = yield* applyStructuralInverse(args.before, receipt.inverse);
+        if (Option.isSome(restored) && (yield* args.acceptRestored(restored.value)))
           content = restored.value;
         if (
           Option.isSome(restored) &&
@@ -263,6 +263,7 @@ export const prepareDocumentRoundTrip = <E>(args: {
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.mapError((cause) => mapFailure(args.target, cause)),
+      Effect.withSpan("axm.publish.conflict-check"),
     );
     const finish = Effect.gen(function* () {
       const receipts: ContainerReceipt[] = [];
@@ -291,7 +292,9 @@ export const prepareDocumentRoundTrip = <E>(args: {
         const baseline = batch === undefined ? (args.before ?? "") : batchBaseline;
         const absentBefore = batch === undefined ? args.before === undefined : batchAbsent;
         const inverse =
-          baseline === undefined ? Option.none() : deriveStructuralInverse(baseline, finalContent);
+          baseline === undefined
+            ? Option.none()
+            : yield* deriveStructuralInverse(baseline, finalContent);
         const unit = batch === undefined ? inserted : batchUnit;
         const eligible =
           batch === undefined
@@ -326,6 +329,10 @@ export const prepareDocumentRoundTrip = <E>(args: {
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
       Effect.mapError((cause) => mapFailure(args.target, cause)),
+      Effect.withSpan("axm.publish.receipts"),
     );
     return { content: finalContent, remove: removeTarget, revalidate, finish };
-  }).pipe(Effect.mapError((cause) => args.mapFailure(args.target, cause)));
+  }).pipe(
+    Effect.mapError((cause) => args.mapFailure(args.target, cause)),
+    Effect.withSpan("axm.publish.prepare-document"),
+  );

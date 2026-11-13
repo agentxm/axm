@@ -148,49 +148,49 @@ const filterByNameFilters = (
  * configured still reports through the sweep's own "no configured …" message
  * rather than a selector no-op.
  */
-export const resolveConfiguredUpdateSelection = Effect.fn("UpdateExtensions.resolveSelection")(
-  function* (selector: ConfiguredUpdateSelector) {
-    if (Option.isNone(selector.source) && selector.nameFilters.length === 0) {
-      return { _tag: "All" } satisfies ConfiguredUpdateSelection;
-    }
+export const resolveConfiguredUpdateSelection = Effect.fnUntraced(function* (
+  selector: ConfiguredUpdateSelector,
+) {
+  if (Option.isNone(selector.source) && selector.nameFilters.length === 0) {
+    return { _tag: "All" } satisfies ConfiguredUpdateSelection;
+  }
 
-    const records = yield* WorkspaceRecords;
-    const configured = yield* records
-      .rows(selector.resourceType)
-      .pipe(Effect.map(configuredRowsByName));
-    const entries: ReadonlyArray<SelectedEntry> = enabledConfiguredEntries(configured).map(
-      ([name, entry]) => [name, entry.source] as const,
-    );
+  const records = yield* WorkspaceRecords;
+  const configured = yield* records
+    .rows(selector.resourceType)
+    .pipe(Effect.map(configuredRowsByName));
+  const entries: ReadonlyArray<SelectedEntry> = enabledConfiguredEntries(configured).map(
+    ([name, entry]) => [name, entry.source] as const,
+  );
 
-    const sourceValue = Option.getOrUndefined(selector.source);
-    const sourceFiltered =
-      sourceValue === undefined ? entries : yield* filterBySource(entries, sourceValue);
+  const sourceValue = Option.getOrUndefined(selector.source);
+  const sourceFiltered =
+    sourceValue === undefined ? entries : yield* filterBySource(entries, sourceValue);
 
-    if (sourceValue !== undefined && sourceFiltered.length === 0) {
-      const label = extensionTypeSentenceLabels[selector.resourceType];
-      return {
-        _tag: "NoMatch",
-        message: `No installed ${label} matched "${sourceValue}" as a source.`,
-      } satisfies ConfiguredUpdateSelection;
-    }
-
-    const nameFiltered = yield* filterByNameFilters(
-      sourceFiltered,
-      selector.nameFilters,
-      selector.resourceType,
-    );
-    if (selector.nameFilters.length > 0 && nameFiltered.length === 0) {
-      const pluralLabel =
-        extensionTypePluralSentenceLabels[toExtensionTypePlural(selector.resourceType)];
-      return {
-        _tag: "NoMatch",
-        message: `No installed ${pluralLabel} match the ${UPDATE_NAME_FILTER_LABEL} filter.`,
-      } satisfies ConfiguredUpdateSelection;
-    }
-
+  if (sourceValue !== undefined && sourceFiltered.length === 0) {
+    const label = extensionTypeSentenceLabels[selector.resourceType];
     return {
-      _tag: "Names",
-      names: nameFiltered.map(([name]) => name),
+      _tag: "NoMatch",
+      message: `No installed ${label} matched "${sourceValue}" as a source.`,
     } satisfies ConfiguredUpdateSelection;
-  },
-);
+  }
+
+  const nameFiltered = yield* filterByNameFilters(
+    sourceFiltered,
+    selector.nameFilters,
+    selector.resourceType,
+  );
+  if (selector.nameFilters.length > 0 && nameFiltered.length === 0) {
+    const pluralLabel =
+      extensionTypePluralSentenceLabels[toExtensionTypePlural(selector.resourceType)];
+    return {
+      _tag: "NoMatch",
+      message: `No installed ${pluralLabel} match the ${UPDATE_NAME_FILTER_LABEL} filter.`,
+    } satisfies ConfiguredUpdateSelection;
+  }
+
+  return {
+    _tag: "Names",
+    names: nameFiltered.map(([name]) => name),
+  } satisfies ConfiguredUpdateSelection;
+});

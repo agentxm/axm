@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 /**
  * Lockfile module for managing the project-root `axm.lock` or the user-scope
  * `axm.lock` (TOML format).
@@ -68,10 +69,16 @@ const ensureLockfileParent = (lockfilePath: string) =>
 
 /** A preservation failure is a write failure, never permission to discard prior tool data. */
 const priorDocument = (path: string, prior: string | undefined) =>
-  Effect.try({
-    try: () => (prior === undefined ? undefined : parseLockfileToml(prior)),
-    catch: (cause) => new LockfileWriteError({ path, step: "read-target", cause }),
-  });
+  prior === undefined
+    ? Effect.succeed(undefined)
+    : Effect.try({
+        try: () => parseLockfileToml(prior),
+        catch: (cause) => new LockfileWriteError({ path, step: "read-target", cause }),
+      }).pipe((effect) =>
+        withWork("axm.parse.lockfile-preservation", effect, {
+          attributes: { "axm.work.count": 1 },
+        }),
+      );
 
 const patchOptionalMap = <T>(
   fresh: Readonly<Record<string, T>> | undefined,

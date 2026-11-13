@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import { validateContainedLink } from "../../locations/index.js";
 import * as crypto from "node:crypto";
 import * as Data from "effect/Data";
@@ -151,25 +152,40 @@ export const computeMaterializedTreeIntegrity = (
     yield* walk(root, "");
     files.sort((left, right) => left.relativePath.localeCompare(right.relativePath, "en"));
     const hash = crypto.createHash("sha256");
+    let payloadBytes = 0;
+    let hashedEntries = 0;
     frame(hash, Buffer.from("agentxm-materialized-tree"));
     frame(hash, Buffer.from("2"));
-    for (const file of files) {
-      frame(hash, Buffer.from(file.kind));
-      frame(hash, Buffer.from(file.relativePath, "utf8"));
-      if (file.kind === "directory") continue;
-      if (file.kind === "symlink") {
-        frame(hash, Buffer.from(file.target, "utf8"));
-        continue;
-      }
-      frame(hash, Buffer.from(String(file.executable)));
-      frame(
-        hash,
-        yield* fs
+    yield* Effect.gen(function* () {
+      for (const file of files) {
+        hashedEntries += 1;
+        frame(hash, Buffer.from(file.kind));
+        frame(hash, Buffer.from(file.relativePath, "utf8"));
+        if (file.kind === "directory") continue;
+        if (file.kind === "symlink") {
+          const target = Buffer.from(file.target, "utf8");
+          payloadBytes += target.byteLength;
+          frame(hash, target);
+          continue;
+        }
+        frame(hash, Buffer.from(String(file.executable)));
+        const content = yield* fs
           .readFile(file.absolutePath)
           .pipe(
             Effect.mapError((cause) => treeError(root, `cannot read ${file.relativePath}`, cause)),
-          ),
-      );
-    }
+          );
+        payloadBytes += content.byteLength;
+        frame(hash, content);
+      }
+    }).pipe(
+      Effect.ensuring(
+        Effect.suspend(() =>
+          annotateWork({
+            "axm.work.count": hashedEntries,
+            "axm.work.bytes": payloadBytes,
+          }),
+        ),
+      ),
+    );
     return decodeTreeIntegrity(`${TREE_INTEGRITY_PREFIX}${hash.digest("hex")}`);
-  });
+  }).pipe((effect) => withWork("axm.hash.materialized-tree", effect));

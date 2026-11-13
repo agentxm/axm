@@ -1,3 +1,4 @@
+import { sourceHashFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 /**
  * Unit tests for the subagents disable handler.
  *
@@ -11,7 +12,6 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { computeSourceHash } from "@agentxm/workspace-kernel/workspace-state";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
@@ -237,7 +237,7 @@ describe("subagents disable.handler", () => {
           integrity: `sha512-${"A".repeat(86)}==`,
           sourceName: "test",
           publisherBindingId: "hbnd_test",
-          sourceHash: computeSourceHash("# pack-subagent"),
+          sourceHash: sourceHashFixture("# pack-subagent"),
         },
       },
     });

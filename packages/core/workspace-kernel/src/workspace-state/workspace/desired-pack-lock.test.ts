@@ -3,13 +3,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
-import { type PackManifest } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type { PackLockEntry } from "../desired/lockfile/index.js";
 import { authorizeExternalPackRoutes } from "./desired-pack-lock.js";
 import { UNCONSTRAINED_DESIRED_NODE, type DesiredExtensionNode } from "./desired-state-graph.js";
 import { TreeIntegritySchema } from "./materialized-tree.js";
-import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 const owner = decodeHandleSync("@acme");
 const name = decodeExtensionNameSync("toolkit");
@@ -17,14 +16,6 @@ const version = decodeVersionSync("1.0.0");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v2:${"0".repeat(64)}`,
 );
-const manifest = {
-  owner,
-  type: "pack",
-  name,
-  version,
-  dependencies: {},
-} satisfies PackManifest;
-
 const externalPackNode: DesiredExtensionNode = {
   type: "pack",
   name: "toolkit",
@@ -43,7 +34,9 @@ const externalPackNode: DesiredExtensionNode = {
 };
 
 const accepted = (
-  manifestContentIdentity = computePackManifestContentIdentity(manifest),
+  manifestContentIdentity = SourceHashSchema.make(
+    "f93dc32081c4078c656232164eb2774fab98c3812faad4a277975815879c69e5",
+  ),
 ): PackLockEntry => ({
   source: { type: "registry", url: decodeRegistryEndpointSync("https://registry.agentxm.ai") },
   identity: { owner, name },

@@ -1,6 +1,8 @@
+import { withDetailedWork } from "./testing.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
@@ -123,4 +125,31 @@ it.effect("agrees with listing admission for physical boundaries and changed ali
       assertNativeMutationWithin(workspace, path.join(alias, "config.json"), "content"),
     );
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
+it.effect("attributes the live canonical adapter without exporting host paths", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* fs.makeTempDirectoryScoped();
+    const canonical = yield* CanonicalNativePath;
+    if (canonical === undefined) return;
+    const target = path.join(root, "private.json");
+    yield* fs.writeFileString(target, "{}");
+    const spans: Tracer.NativeSpan[] = [];
+    const tracer = Tracer.make({
+      span(options) {
+        const span = new Tracer.NativeSpan(options);
+        spans.push(span);
+        return span;
+      },
+    });
+    const result = yield* canonical(target).pipe(withDetailedWork(tracer));
+    expect(result).toBe(yield* fs.realPath(target));
+    const requests = spans.filter((span) => span.name === "axm.native.canonical-path");
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.attributes.get("axm.work.executed")).toBe(1);
+    expect(requests[0]?.status._tag).toBe("Ended");
+    expect(JSON.stringify(requests.map((span) => [...span.attributes]))).not.toContain(target);
+  }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
 );

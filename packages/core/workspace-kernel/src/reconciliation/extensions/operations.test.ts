@@ -1,3 +1,4 @@
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { NativePlatformTest } from "../../locations/testing.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { SkillExtensionTarget } from "../../workspace-state/index.js";
@@ -35,7 +36,6 @@ import {
 import type { CallerStepFailure } from "./operations.js";
 import { SourceAuthorityBlocked } from "../../resolution/index.js";
 import { StepFailure, type ScaffoldedExtensionUnresolved } from "../../operations/index.js";
-import { computeSourceHash } from "../../workspace-state/index.js";
 import {
   recipeWorkspace,
   type RecipeWriteFaults,
@@ -130,7 +130,9 @@ const authoredSkillRef = (): WorkspaceSkillRef => {
     version: exactVersion("1.0.0"),
     scope: "project",
     location: nodePath.join(transactionDir, "agent_extensions/@acme/skills/review"),
-    sourceHash: computeSourceHash("review"),
+    sourceHash: SourceHashSchema.make(
+      "c97ace4c8fef2cee8fa0f3c9f52aab18dbd4f42438afe362ffb8f75ce4c04b84",
+    ),
     skill: { name, description: Option.none(), metadata: Option.none() },
   };
 };
@@ -495,7 +497,9 @@ describe("buildNewExtensionStep", () => {
       version: exactVersion("1.0.0"),
       scope: "project",
       location: nodePath.join(transactionDir, "agent_extensions/@acme/skills/review"),
-      sourceHash: computeSourceHash("review"),
+      sourceHash: SourceHashSchema.make(
+        "c97ace4c8fef2cee8fa0f3c9f52aab18dbd4f42438afe362ffb8f75ce4c04b84",
+      ),
       skill: { name, description: Option.none(), metadata: Option.none() },
     };
   };

@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 import { createHash } from "node:crypto";
 
 import * as Effect from "effect/Effect";
@@ -236,85 +237,96 @@ export const verifyContainerIdentity = (
     Effect.catch(() => Effect.succeed(false)),
   );
 
-const sha256 = (text: string): string => createHash("sha256").update(text).digest("hex");
+const sha256 = (text: string) =>
+  Effect.sync(() => createHash("sha256").update(text).digest("hex")).pipe((effect) =>
+    withWork("axm.hash.receipt", effect, {
+      attributes: { "axm.work.count": 1, "axm.work.bytes": Buffer.byteLength(text) },
+    }),
+  );
 
 /** The complete digest guard deliberately expires when unrelated intent changes the file. */
 export const applyStructuralInverse = (
   raw: string,
   inverse: StructuralInverse,
-): Option.Option<string> => {
-  if (sha256(raw) !== inverse.afterSha256) return Option.none();
-  const edits = [...inverse.edits].sort((left, right) => right.offset - left.offset);
-  let result = raw;
-  let precedingStart = raw.length;
-  for (const edit of edits) {
-    if (
-      !Number.isSafeInteger(edit.offset) ||
-      !Number.isSafeInteger(edit.length) ||
-      edit.offset < 0 ||
-      edit.length < 0 ||
-      edit.offset + edit.length > precedingStart ||
-      !/^[\s{}[\],:]*$/.test(edit.syntax)
-    )
-      return Option.none();
-    result = result.slice(0, edit.offset) + edit.syntax + result.slice(edit.offset + edit.length);
-    precedingStart = edit.offset;
-  }
-  return sha256(result) === inverse.beforeSha256 ? Option.some(result) : Option.none();
-};
+): Effect.Effect<Option.Option<string>> =>
+  Effect.gen(function* () {
+    if ((yield* sha256(raw)) !== inverse.afterSha256) return Option.none();
+    const edits = [...inverse.edits].sort((left, right) => right.offset - left.offset);
+    let result = raw;
+    let precedingStart = raw.length;
+    for (const edit of edits) {
+      if (
+        !Number.isSafeInteger(edit.offset) ||
+        !Number.isSafeInteger(edit.length) ||
+        edit.offset < 0 ||
+        edit.length < 0 ||
+        edit.offset + edit.length > precedingStart ||
+        !/^[\s{}[\],:]*$/.test(edit.syntax)
+      )
+        return Option.none();
+      result = result.slice(0, edit.offset) + edit.syntax + result.slice(edit.offset + edit.length);
+      precedingStart = edit.offset;
+    }
+    return (yield* sha256(result)) === inverse.beforeSha256 ? Option.some(result) : Option.none();
+  });
 
 /** Retain significant preimage characters in place; persist only syntax and edit positions. */
 export const deriveStructuralInverse = (
   before: string,
   after: string,
-): Option.Option<StructuralInverse> => {
-  if (before === after) return Option.none();
-  let prefix = 0;
-  while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix])
-    prefix++;
-  let suffix = 0;
-  while (
-    suffix < before.length - prefix &&
-    suffix < after.length - prefix &&
-    before[before.length - suffix - 1] === after[after.length - suffix - 1]
-  )
-    suffix++;
-  const syntax = before.slice(prefix, before.length - suffix);
-  if (/^[\s{}[\],:]*$/.test(syntax)) {
+): Effect.Effect<Option.Option<StructuralInverse>> =>
+  Effect.gen(function* () {
+    if (before === after) return Option.none();
+    let prefix = 0;
+    while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix])
+      prefix++;
+    let suffix = 0;
+    while (
+      suffix < before.length - prefix &&
+      suffix < after.length - prefix &&
+      before[before.length - suffix - 1] === after[after.length - suffix - 1]
+    )
+      suffix++;
+    const syntax = before.slice(prefix, before.length - suffix);
+    if (/^[\s{}[\],:]*$/.test(syntax)) {
+      return Option.some({
+        beforeSha256: yield* sha256(before),
+        afterSha256: yield* sha256(after),
+        edits: [{ offset: prefix, length: after.length - prefix - suffix, syntax }],
+      });
+    }
+    // A formatter may change several whitespace spans around an insertion.
+    // Every significant original character must still occur in order in the
+    // exact postimage; missing content cannot be reconstructed by this receipt.
+    const edits: Array<{
+      readonly offset: number;
+      readonly length: number;
+      readonly syntax: string;
+    }> = [];
+    let beforeCursor = 0;
+    let afterCursor = 0;
+    for (const match of before.matchAll(/[^\s{}[\],:]/gu)) {
+      const found = after.indexOf(match[0], afterCursor);
+      if (found < 0) return Option.none();
+      const syntax = before.slice(beforeCursor, match.index);
+      if (after.slice(afterCursor, found) !== syntax)
+        edits.push({ offset: afterCursor, length: found - afterCursor, syntax });
+      beforeCursor = match.index + match[0].length;
+      afterCursor = found + match[0].length;
+    }
+    const remainingSyntax = before.slice(beforeCursor);
+    if (after.slice(afterCursor) !== remainingSyntax)
+      edits.push({
+        offset: afterCursor,
+        length: after.length - afterCursor,
+        syntax: remainingSyntax,
+      });
     return Option.some({
-      beforeSha256: sha256(before),
-      afterSha256: sha256(after),
-      edits: [{ offset: prefix, length: after.length - prefix - suffix, syntax }],
+      beforeSha256: yield* sha256(before),
+      afterSha256: yield* sha256(after),
+      edits,
     });
-  }
-  // A formatter may change several whitespace spans around an insertion.
-  // Every significant original character must still occur in order in the
-  // exact postimage; missing content cannot be reconstructed by this receipt.
-  const edits: Array<{
-    readonly offset: number;
-    readonly length: number;
-    readonly syntax: string;
-  }> = [];
-  let beforeCursor = 0;
-  let afterCursor = 0;
-  for (const match of before.matchAll(/[^\s{}[\],:]/gu)) {
-    const found = after.indexOf(match[0], afterCursor);
-    if (found < 0) return Option.none();
-    const syntax = before.slice(beforeCursor, match.index);
-    if (after.slice(afterCursor, found) !== syntax)
-      edits.push({ offset: afterCursor, length: found - afterCursor, syntax });
-    beforeCursor = match.index + match[0].length;
-    afterCursor = found + match[0].length;
-  }
-  const remainingSyntax = before.slice(beforeCursor);
-  if (after.slice(afterCursor) !== remainingSyntax)
-    edits.push({
-      offset: afterCursor,
-      length: after.length - afterCursor,
-      syntax: remainingSyntax,
-    });
-  return Option.some({ beforeSha256: sha256(before), afterSha256: sha256(after), edits });
-};
+  });
 
 /** These callbacks supply the existing transaction and serialization boundaries. */
 export interface ContainerReceiptMutation<E, R> {
@@ -359,6 +371,7 @@ export const readContainerReceipts = (
     return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ContainerReceiptsSchema), {
       onExcessProperty: "error",
     })(text).pipe(
+      (effect) => withWork("axm.parse.receipts", effect, { attributes: { "axm.work.count": 1 } }),
       Effect.mapError(
         () =>
           new NativeLocationError({
@@ -475,6 +488,8 @@ export const updateContainerReceipts = <E, R>(
           const next = yield* Schema.decodeUnknownEffect(ContainerReceiptsSchema, {
             onExcessProperty: "error",
           })({ version: 1, entries, createdDirectories }).pipe(
+            (effect) =>
+              withWork("axm.parse.receipts", effect, { attributes: { "axm.work.count": 1 } }),
             Effect.mapError(
               () =>
                 new NativeLocationError({

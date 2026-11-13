@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 // Host adapter: Effect's realPath retains caller spelling. These OS interfaces
 // return the spelling of resolved directory entries without enumerating ancestors.
 import { open, readlink, realpath, rmdir, stat, unlink } from "node:fs/promises";
@@ -40,6 +41,8 @@ export const NativeEntryRemovalLive = Layer.succeed(NativeEntryRemoval, {
         try: () => unlink(target),
         catch: (cause) => removalFailure("unlink", target, cause),
       }),
+    ).pipe((effect) =>
+      withWork("axm.native.unlink", effect, { attributes: { "axm.work.executed": 1 } }),
     ),
   removeEmptyDirectory: (target) =>
     Effect.uninterruptible(
@@ -47,6 +50,8 @@ export const NativeEntryRemovalLive = Layer.succeed(NativeEntryRemoval, {
         try: () => rmdir(target),
         catch: (cause) => removalFailure("removeEmptyDirectory", target, cause),
       }),
+    ).pipe((effect) =>
+      withWork("axm.native.remove-directory", effect, { attributes: { "axm.work.executed": 1 } }),
     ),
 });
 
@@ -103,6 +108,8 @@ const linuxCanonicalPath = (target: string) => {
         return canonical;
       }),
     (handle) => Effect.tryPromise({ try: () => handle.close(), catch: failure }),
+  ).pipe((effect) =>
+    withWork("axm.native.canonical-path", effect, { attributes: { "axm.work.executed": 1 } }),
   );
 };
 
@@ -113,7 +120,9 @@ export const CanonicalNativePathLive = Layer.succeed(
         Effect.tryPromise({
           try: () => realpath(target),
           catch: (cause) => new NativeLocationError({ target, reason: "unreadable", cause }),
-        })
+        }).pipe((effect) =>
+          withWork("axm.native.canonical-path", effect, { attributes: { "axm.work.executed": 1 } }),
+        )
     : process.platform === "linux"
       ? linuxCanonicalPath
       : undefined,

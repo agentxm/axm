@@ -1,13 +1,11 @@
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { createRequire } from "node:module";
 import { Ajv } from "ajv";
 import * as Schema from "effect/Schema";
 import * as Result from "effect/Result";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import {
-  LockfileSchema,
-  computePackManifestContentIdentity,
-} from "@agentxm/workspace-kernel/workspace-state";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 
 export const specification = defineSpecification({
   requirement: "settings-contract/published-lockfile-schema-agrees-with-accepted-input",
@@ -97,13 +95,9 @@ const packRecord = {
   ...registryRecord,
   id: packId,
   "manifest-version": "1.0.0",
-  "manifest-identity": computePackManifestContentIdentity({
-    owner: "@acme",
-    type: "pack",
-    name: "tools",
-    version: "1.0.0",
-    dependencies: { "@acme/skills/review": "^1.0.0" },
-  }),
+  "manifest-identity": SourceHashSchema.make(
+    "b2ca2c2f857fe96a78e478c58708e7d31991e7637ae5ff782778be656cce1ec3",
+  ),
   dependencies: [dependency],
 };
 const pack = {

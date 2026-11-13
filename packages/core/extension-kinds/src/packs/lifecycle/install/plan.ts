@@ -175,7 +175,7 @@ export const discoverPackRefs: (
   ReadonlyArray<PackRef>,
   OperationRefused | Config.ConfigError,
   ResolveInstallRequirements
-> = Effect.fn("InstallExtensions.discoverPackRefs")(function* (request: PackSourceRequest) {
+> = Effect.fnUntraced(function* (request: PackSourceRequest) {
   if (request.source.type === "registry") {
     return [(yield* discoverPackRef(request)).ref];
   }
@@ -298,7 +298,7 @@ export interface PackInstallArgs {
 export const parsePackInstallRequest: (
   args: PackInstallArgs,
 ) => Effect.Effect<ParsedPackInstallRequest, OperationRefused, ResolveInstallRequirements> =
-  Effect.fn("InstallExtensions.parsePackRequest")(function* (args: PackInstallArgs) {
+  Effect.fnUntraced(function* (args: PackInstallArgs) {
     const settings = yield* SettingsReader;
     const trimmed = args.source.trim();
     const policy = { nonInteractive: args.nonInteractive } as const;
@@ -401,29 +401,28 @@ export const parsePackInstallRequest: (
 /** Resolve the source the parsed pack request names. */
 export const resolvePackSourceRequest: (
   request: ParsedPackInstallRequest,
-) => Effect.Effect<PackSourceRequest, OperationRefused, ResolveInstallRequirements> = Effect.fn(
-  "InstallExtensions.resolvePackSource",
-)(function* (request: ParsedPackInstallRequest) {
-  const source = yield* resolveSource(request.resolvedInput).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "validation",
-        detail: `Invalid source: ${cause.message}`,
-        suggestions: [{ description: "Use @owner/packs/pack-name or just pack-name." }],
-        cause,
-      }),
-    ),
-  );
-  return {
-    source,
-    owner: request.owner,
-    packName: request.packName,
-    versionRange: request.versionRange,
-    ...(request.sourceResolution === undefined
-      ? {}
-      : { sourceResolution: request.sourceResolution }),
-  };
-});
+) => Effect.Effect<PackSourceRequest, OperationRefused, ResolveInstallRequirements> =
+  Effect.fnUntraced(function* (request: ParsedPackInstallRequest) {
+    const source = yield* resolveSource(request.resolvedInput).pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "validation",
+          detail: `Invalid source: ${cause.message}`,
+          suggestions: [{ description: "Use @owner/packs/pack-name or just pack-name." }],
+          cause,
+        }),
+      ),
+    );
+    return {
+      source,
+      owner: request.owner,
+      packName: request.packName,
+      versionRange: request.versionRange,
+      ...(request.sourceResolution === undefined
+        ? {}
+        : { sourceResolution: request.sourceResolution }),
+    };
+  });
 
 /**
  * Find the pack. When the first host cannot answer because remote reads are
@@ -436,7 +435,7 @@ const discoverPackRef: (
   PackDiscovery,
   OperationRefused | Config.ConfigError,
   ResolveInstallRequirements
-> = Effect.fn("InstallExtensions.discoverPack")(function* (request: PackSourceRequest) {
+> = Effect.fnUntraced(function* (request: PackSourceRequest) {
   const settings = yield* SettingsReader;
   const sources = yield* SourceHostProviders;
   if (request.source.type !== "registry") {
@@ -676,7 +675,7 @@ const preparePackInstallGraph = (intent: PackInstallIntent) =>
 export const planPackInstall: (
   intent: PackInstallIntent,
 ) => Effect.Effect<Plan<InstallStepRequirements>, OperationRefused, PackInstallRequirements> =
-  Effect.fn("InstallExtensions.planPack")(function* (intent: PackInstallIntent) {
+  Effect.fnUntraced(function* (intent: PackInstallIntent) {
     const conversion = yield* StepFailureConversion;
     const projectionRefusal = (cause: KernelFailure) => {
       const failure = conversion.toStepFailure(cause);

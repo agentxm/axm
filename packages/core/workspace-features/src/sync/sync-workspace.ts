@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import type { PlanSources } from "@agentxm/workspace-kernel/planning";
 /**
  * Reconciling the workspace with what its settings and lockfile declare.
@@ -180,7 +181,10 @@ const observationsStillCurrent = (observation: {
         if (!(yield* isExecutionCandidateFresh(observation.preflightMaterial))) return false;
         // An uncached evaluation; equal desired state is semantic equality.
         const graph = yield* (yield* DesiredStateReader).graph();
-        if (desiredStateIdentity(graph) !== desiredStateIdentity(observation.graph)) return false;
+        if (
+          (yield* desiredStateIdentity(graph)) !== (yield* desiredStateIdentity(observation.graph))
+        )
+          return false;
         const projectionFacts = yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(
           graph,
         );
@@ -521,17 +525,22 @@ const prepareSyncWorkspace = (
     // The evaluated documents are the plan's materials too, so the candidate
     // that apply revalidates under the lock covers them.
     const plan: Plan<SyncWorkspaceRequirements> = { ...assembled, materialPaths: evaluatedPaths };
-    const observedInputFingerprint = crypto
-      .createHash("sha256")
-      .update(
-        JSON.stringify({
-          preflightMaterial: preflightMaterial.materialFingerprint,
-          graph: desiredStateIdentity(graph),
-          projectionFacts,
-          inventories: collected.inventoryObservations,
-        }),
-      )
-      .digest("hex");
+    const observedInputFingerprint = yield* Effect.gen(function* () {
+      const input = JSON.stringify({
+        preflightMaterial: preflightMaterial.materialFingerprint,
+        graph: yield* desiredStateIdentity(graph),
+        projectionFacts,
+        inventories: collected.inventoryObservations,
+      });
+      const digest = yield* Effect.sync(() =>
+        crypto.createHash("sha256").update(input).digest("hex"),
+      );
+      yield* annotateWork({
+        "axm.work.count": 1,
+        "axm.work.bytes": Buffer.byteLength(input),
+      });
+      return digest;
+    }).pipe((effect) => withWork("axm.hash.sync-observations", effect));
     const execution = yield* prepareExecutionCandidate(plan, { observedInputFingerprint });
     return {
       _tag: "SyncWorkspace",

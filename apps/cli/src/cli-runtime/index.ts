@@ -48,4 +48,28 @@ export {
   type SubjectType,
   type SourceKind,
 } from "./command-summary.js";
-export { localTraceEndpoint, withLocalTracing } from "./local-tracing.js";
+export { localTraceEndpoint, withLocalTracing, LocalTraceExporter } from "./local-tracing.js";
+export {
+  TraceReceiptSchema,
+  TraceReceiptDocumentSchema,
+  TraceCaptureStateSchema,
+  type TraceReceiptDocument,
+  traceSpanIdsSha256,
+  traceAggregateEventsSha256,
+  TraceDetailSelectionSchema,
+  type TraceAggregateAttributes,
+  type TraceReceipt,
+} from "./local-trace-receipt.js";
+export {
+  inspectLocalTrace,
+  traceRetrievalPlan,
+  decodeTraceRetrieval,
+  traceRetrievalColumns,
+  TraceEvidenceFailure,
+  TraceExpectationSchema,
+  type TraceExpectation,
+  type TraceWorkSummary,
+} from "./local-trace-inspection.js";
+export { observedFileSystem } from "./observed-filesystem.js";
+export { observedProcessSpawner } from "./observed-process.js";
+export { observedTransport } from "./observed-transport.js";

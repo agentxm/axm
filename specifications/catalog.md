@@ -745,7 +745,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/local-tracing-identifies-invocations`
 - Owner: `cli`
-- Statement: Explicitly requested local trace receipts shall identify the invocation's exported trace without changing command output or outcome, overwriting existing files, or exposing command inputs.
+- Statement: Explicitly requested local trace receipts shall identify the invocation's exported trace and validated build provenance, distinguish traced execution from runtime startup and export finalization, and preserve command output, outcome, existing files, and private inputs.
 - Class: quality (reliability)
 - Role: experience
 - Product goals: `actionable-diagnostics`
@@ -753,7 +753,22 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary rationale: Concurrent invocations write actual receipt files and export to a loopback OTLP receiver.
 - Methods: example
 - Additional evidence: binary via [`apps/cli-e2e/src/binary-local-tracing.e2e.test.ts`](../apps/cli-e2e/src/binary-local-tracing.e2e.test.ts) — Runs the compiled CLI with a real local collector, checks disabled and enabled export, verifies stdout/stderr/exit equivalence, and proves ambient proxy settings do not redirect diagnostic traffic.
+- Additional evidence: binary via [`apps/cli-e2e/src/local-tracing-seq.e2e.test.ts`](../apps/cli-e2e/src/local-tracing-seq.e2e.test.ts) — Opt-in source and host-binary invocations use real HTTP and Seq; independent protocol records and file hashes verify outcome/work equivalence, and deliberately lost delivery must fail exact receipt inspection. Native keychain and authenticated Seq setup remain separate platform/environment evidence.
 - Source: [`apps/cli/src/cli-runtime/local-tracing-identifies-invocations.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-identifies-invocations.spec.ts)
+
+##### Default summaries preserve work accounting as item counts grow
+
+- Requirement: `cli/local-tracing-summarizes-work`
+- Owner: `cli`
+- Statement: Local tracing shall aggregate completed work by stable operation ownership and bounded semantic dimensions, preserving exact counts, known measured totals and measurement coverage in summary and explicitly selected detail modes without constructing per-occurrence summary spans or allocating a summary group for every repeated item.
+- Class: quality (performance)
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The real exporter sends observed filesystem-port calls to a loopback OTLP receiver; independent adapter records own the expected calls and bytes.
+- Methods: example
+- Additional evidence: binary via [`apps/cli-e2e/src/local-tracing-seq.e2e.test.ts`](../apps/cli-e2e/src/local-tracing-seq.e2e.test.ts) — Opt-in source and host-binary invocations use real HTTP and Seq; independent protocol records and file hashes verify outcome/work equivalence, and deliberately lost delivery must fail exact receipt inspection. Native keychain and authenticated Seq setup remain separate platform/environment evidence.
+- Source: [`apps/cli/src/cli-runtime/local-tracing-summarizes-work.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-summarizes-work.spec.ts)
 
 #### Constraints
 
@@ -3756,6 +3771,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Successful and failing Effects run through the real exporter against rejecting and stalled loopback collectors with the live clock.
 - Methods: example
 - Additional evidence: binary via [`apps/cli-e2e/src/binary-local-tracing.e2e.test.ts`](../apps/cli-e2e/src/binary-local-tracing.e2e.test.ts) — Runs the compiled CLI with a real local collector, checks disabled and enabled export, verifies stdout/stderr/exit equivalence, and proves ambient proxy settings do not redirect diagnostic traffic.
+- Additional evidence: binary via [`apps/cli-e2e/src/local-tracing-seq.e2e.test.ts`](../apps/cli-e2e/src/local-tracing-seq.e2e.test.ts) — Opt-in source and host-binary invocations use real HTTP and Seq; independent protocol records and file hashes verify outcome/work equivalence, and deliberately lost delivery must fail exact receipt inspection. Native keychain and authenticated Seq setup remain separate platform/environment evidence.
 - Source: [`apps/cli/src/cli-runtime/local-tracing-preserves-outcomes.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-preserves-outcomes.spec.ts)
 
 ### Goal: trustworthy-distribution
@@ -5742,7 +5758,49 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary rationale: The real Effect OTLP exporter sends completed spans to a loopback HTTP receiver.
 - Methods: example
 - Additional evidence: binary via [`apps/cli-e2e/src/binary-local-tracing.e2e.test.ts`](../apps/cli-e2e/src/binary-local-tracing.e2e.test.ts) — Runs the compiled CLI with a real local collector, checks disabled and enabled export, verifies stdout/stderr/exit equivalence, and proves ambient proxy settings do not redirect diagnostic traffic.
+- Additional evidence: binary via [`apps/cli-e2e/src/local-tracing-seq.e2e.test.ts`](../apps/cli-e2e/src/local-tracing-seq.e2e.test.ts) — Opt-in source and host-binary invocations use real HTTP and Seq; independent protocol records and file hashes verify outcome/work equivalence, and deliberately lost delivery must fail exact receipt inspection. Native keychain and authenticated Seq setup remain separate platform/environment evidence.
 - Source: [`apps/cli/src/cli-runtime/local-tracing-describes-operation-work.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-describes-operation-work.spec.ts)
+
+##### Local traces identify the dispatched command without its private operands
+
+- Requirement: `cli/local-tracing-identifies-commands`
+- Owner: `cli`
+- Statement: An explicitly traced invocation shall identify the parser-validated command route, execution mode, and semantic outcome using the registered command vocabulary, including built-in and failing dispatch paths, without recording private operands.
+- Class: functional
+- Role: interface
+- Product goals: `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The production parser and dispatcher traverse the real command tree with production runtime services and a recording Screen; the tracer records emitted command facts without asserting OTLP delivery.
+- Methods: decision-table, example
+- Source: [`apps/cli/src/cli-runtime/local-tracing-identifies-commands.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-identifies-commands.spec.ts)
+
+##### Trace inspection verifies diagnostic evidence independently of product success
+
+- Requirement: `cli/local-tracing-inspects-complete-evidence`
+- Owner: `cli`
+- Statement: Local trace inspection shall certify an invocation only when the received command identity, selected span set, and typed aggregate facts agree with completed producer accounting and supplied independent work and ownership expectations, preserving unmeasured counters as unknown, excluding unadmitted receiver fields, and refusing incomplete or inconsistent evidence.
+- Class: functional
+- Role: interface
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The production inspector validates controlled receipt and receiver documents against independent fixture expectations; these cases prove verification decisions, not actual Seq ingestion or complete producer coverage.
+- Methods: example
+- Additional evidence: binary via [`apps/cli-e2e/src/local-tracing-seq.e2e.test.ts`](../apps/cli-e2e/src/local-tracing-seq.e2e.test.ts) — Opt-in source and host-binary invocations use real HTTP and Seq; independent protocol records and file hashes verify outcome/work equivalence, and deliberately lost delivery must fail exact receipt inspection. Native keychain and authenticated Seq setup remain separate platform/environment evidence.
+- Source: [`apps/cli/src/cli-runtime/local-tracing-inspects-complete-evidence.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-inspects-complete-evidence.spec.ts)
+
+##### Diagnostic receipts distinguish completed production from trace identity
+
+- Requirement: `cli/local-tracing-records-producer-completion`
+- Owner: `cli`
+- Statement: An explicitly requested local trace receipt shall identify disabled or incomplete capture and completed production with its admitted command route and exact retained span set, explicit detail selection and complete aggregate payload multiset separately from product success and collector delivery, recording diagnostic losses without changing the product outcome.
+- Class: functional
+- Role: interface
+- Product goals: `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The real OTLP exporter sends to a loopback receiver and the invocation owns a real exclusive receipt file.
+- Methods: example
+- Additional evidence: binary via [`apps/cli-e2e/src/local-tracing-seq.e2e.test.ts`](../apps/cli-e2e/src/local-tracing-seq.e2e.test.ts) — Opt-in source and host-binary invocations use real HTTP and Seq; independent protocol records and file hashes verify outcome/work equivalence, and deliberately lost delivery must fail exact receipt inspection. Native keychain and authenticated Seq setup remain separate platform/environment evidence.
+- Source: [`apps/cli/src/cli-runtime/local-tracing-records-producer-completion.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-records-producer-completion.spec.ts)
 
 ##### Sync identifies the shared output that needs updating
 
@@ -6942,6 +7000,7 @@ Observation of product use stays within the documented data boundary and under t
 - Boundary rationale: The actual exporter is observed at a real loopback HTTP receiver, including rejected and redirected endpoints.
 - Methods: example
 - Additional evidence: binary via [`apps/cli-e2e/src/binary-local-tracing.e2e.test.ts`](../apps/cli-e2e/src/binary-local-tracing.e2e.test.ts) — Runs the compiled CLI with a real local collector, checks disabled and enabled export, verifies stdout/stderr/exit equivalence, and proves ambient proxy settings do not redirect diagnostic traffic.
+- Additional evidence: binary via [`apps/cli-e2e/src/local-tracing-seq.e2e.test.ts`](../apps/cli-e2e/src/local-tracing-seq.e2e.test.ts) — Opt-in source and host-binary invocations use real HTTP and Seq; independent protocol records and file hashes verify outcome/work equivalence, and deliberately lost delivery must fail exact receipt inspection. Native keychain and authenticated Seq setup remain separate platform/environment evidence.
 - Source: [`apps/cli/src/cli-runtime/local-tracing-stays-local-and-private.spec.ts`](../apps/cli/src/cli-runtime/local-tracing-stays-local-and-private.spec.ts)
 
 ##### Skill install telemetry identifies only currently public sources

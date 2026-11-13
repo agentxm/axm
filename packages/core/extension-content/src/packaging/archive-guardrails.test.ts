@@ -3,6 +3,8 @@ import { fc as FastCheck, it as fastCheckIt } from "@fast-check/vitest";
 import * as Effect from "effect/Effect";
 import { crc32 } from "node:zlib";
 import {
+  CurrentArchiveWorkObserver,
+  type ArchiveWorkFact,
   checkForbiddenSourceEntries,
   defaultReadEntry,
   parseZipCentralDirectory,
@@ -110,7 +112,24 @@ describe("parseZipCentralDirectory", () => {
     }),
   );
 
-  it.effect("rejects malformed content", () => expectMalformed(buildMalformedZip(), /too small/));
+  it.effect(
+    "rejects malformed content and records the failed parse without invented entry counts",
+    () =>
+      Effect.gen(function* () {
+        const facts: ArchiveWorkFact[] = [];
+        yield* expectMalformed(buildMalformedZip(), /too small/).pipe(
+          Effect.provideService(CurrentArchiveWorkObserver, {
+            record: (fact) =>
+              Effect.sync(() => {
+                facts.push(fact);
+              }),
+          }),
+        );
+        expect(facts).toHaveLength(1);
+        expect(facts[0]).toMatchObject({ kind: "parse", outcome: "failure" });
+        expect(facts[0]?.entries).toBeUndefined();
+      }),
+  );
 
   it.effect("rejects trailing bytes after the end-of-central-directory record", () =>
     expectMalformed(concat(helloZip(), new Uint8Array([0])), /not found at the archive end/),

@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 /**
  * Rendered files tracking utilities for extension-managed output files.
  *
@@ -7,6 +8,7 @@
  */
 
 import * as crypto from "node:crypto";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { RelativePathSchema } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -34,5 +36,11 @@ const decodeSourceHash = Schema.decodeUnknownSync(SourceHashSchema);
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const computeSourceHash = (content: string): SourceHash =>
-  decodeSourceHash(crypto.createHash("sha256").update(content).digest("hex"));
+export const computeSourceHash = (content: string): Effect.Effect<SourceHash> =>
+  Effect.sync(() =>
+    decodeSourceHash(crypto.createHash("sha256").update(content).digest("hex")),
+  ).pipe((effect) =>
+    withWork("axm.hash.content", effect, {
+      attributes: { "axm.work.count": 1, "axm.work.bytes": Buffer.byteLength(content) },
+    }),
+  );

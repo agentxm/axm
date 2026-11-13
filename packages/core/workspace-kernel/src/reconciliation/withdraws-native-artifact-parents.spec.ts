@@ -64,7 +64,7 @@ describe("native artifact parent withdrawal", () => {
                 contract: 1,
                 units: {
                   [ProjectionUnitPathSchema.make(".claude/agents/review.md")]: {
-                    output: projectionOutputDigest(SUBAGENT_BYTES),
+                    output: yield* projectionOutputDigest(SUBAGENT_BYTES),
                   },
                 },
               },

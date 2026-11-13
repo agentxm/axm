@@ -2,6 +2,8 @@
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Clock from "effect/Clock";
+import * as Exit from "effect/Exit";
 import * as RcMap from "effect/RcMap";
 import * as Semaphore from "effect/Semaphore";
 import type * as Scope from "effect/Scope";
@@ -43,12 +45,37 @@ export const makeOperationRequestBudget = (limits: {
     const origins = yield* RcMap.make({
       lookup: (_origin: string) => Semaphore.make(limits.origin),
     });
+    const admitted = <A, E, R>(
+      semaphore: Semaphore.Semaphore,
+      name: string,
+      capacity: number,
+      effect: Effect.Effect<A, E, R>,
+    ) =>
+      Effect.uninterruptibleMask((restore) =>
+        Effect.gen(function* () {
+          const span = yield* Effect.makeSpan(name, {
+            attributes: { "axm.wait.capacity": capacity },
+          });
+          const end = (exit: Exit.Exit<unknown, unknown>) =>
+            Effect.gen(function* () {
+              if (span.status._tag === "Ended") return;
+              span.end(yield* Clock.currentTimeNanos, exit);
+            });
+          const admitted = semaphore.withPermits(1)(end(Exit.void).pipe(Effect.andThen(effect)));
+          return yield* Effect.onExit(restore(admitted), end);
+        }),
+      );
     return {
       capacity: limits.invocation,
       withAttempt: (origin, effect) =>
         Effect.scoped(
           Effect.flatMap(RcMap.get(origins, origin), (originSemaphore) =>
-            originSemaphore.withPermit(invocation.withPermit(effect)),
+            admitted(
+              originSemaphore,
+              "axm.wait.request-origin",
+              limits.origin,
+              admitted(invocation, "axm.wait.request-invocation", limits.invocation, effect),
+            ),
           ),
         ),
     } satisfies OperationRequestBudgetService;

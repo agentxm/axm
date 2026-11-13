@@ -22,6 +22,15 @@ const productionTypeScriptFiles = (directory: string): ReadonlyArray<string> =>
   });
 
 describe("command capability declarations", () => {
+  it("requires explicit benchmark support when a declared flag changes an operation effect", () => {
+    // The process harness discovers preview/fix through existing public help.
+    // A new switching flag must receive its own fixture before this inventory expands.
+    const modes = registeredCommandCapabilities(rootCommand).flatMap(({ path, capabilities }) =>
+      (capabilities?.modes ?? []).map((mode) => ({ route: path.join(" "), ...mode })),
+    );
+    expect(modes).toEqual([{ route: "lint", flag: "--fix", effect: "workspace" }]);
+  });
+
   it("keeps every named mutation policy reachable as one override flag", () => {
     const policyFlags = Object.keys(NAMED_OVERRIDE_POLICIES);
     for (const policy of PlanPolicyIds) {

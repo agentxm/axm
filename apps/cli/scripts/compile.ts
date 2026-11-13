@@ -106,17 +106,20 @@ export const compile = Effect.gen(function* () {
       ),
     );
   let version = manifest.version;
+  const git = (args: ReadonlyArray<string>) =>
+    processes.string(ChildProcess.make("git", args, { cwd: packageDir, stderr: "ignore" })).pipe(
+      Effect.map((value) => value.trim()),
+      Effect.option,
+    );
+  const revision = yield* git(["rev-parse", "HEAD"]);
+  const status = yield* git(["status", "--porcelain"]);
+  const buildRevision =
+    Option.isSome(revision) && /^[0-9a-f]{40}$/.test(revision.value) ? revision.value : "unknown";
+  const buildDirty = Option.isSome(status) && status.value.length > 0;
   if (request.devBuild) {
-    const git = (args: ReadonlyArray<string>) =>
-      processes.string(ChildProcess.make("git", args, { cwd: packageDir, stderr: "ignore" })).pipe(
-        Effect.map((value) => value.trim()),
-        Effect.option,
-      );
-    const sha = yield* git(["rev-parse", "--short", "HEAD"]);
-    const dirty = yield* git(["status", "--porcelain"]);
     version +=
-      Option.isSome(sha) && sha.value.length > 0
-        ? `-dev+${sha.value}${Option.isSome(dirty) && dirty.value.length > 0 ? ".dirty" : ""}`
+      buildRevision !== "unknown"
+        ? `-dev+${buildRevision.slice(0, 9)}${buildDirty ? ".dirty" : ""}`
         : "-dev";
   }
   if (!(yield* fs.exists(entrypoint)))
@@ -172,6 +175,10 @@ export const compile = Effect.gen(function* () {
           `--target=${target}`,
           "--define",
           `__AXM_VERSION__=${Schema.encodeSync(Schema.fromJsonString(Schema.String))(version)}`,
+          "--define",
+          `__AXM_BUILD_REVISION__=${Schema.encodeSync(Schema.fromJsonString(Schema.String))(buildRevision)}`,
+          "--define",
+          `__AXM_BUILD_DIRTY__=${buildDirty}`,
           "--define",
           `__AXM_BUILD_ROOT__=${Schema.encodeSync(Schema.fromJsonString(Schema.String))(path.resolve(packageDir, "../.."))}`,
           sourceEntrypoint,

@@ -1,6 +1,3 @@
-import { computePackManifestContentIdentity } from "../../../workspace/pack-manifest-content-identity.js";
-import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 /**
  * Scenario: Resilient projections degrade through diagnostics.
  *
@@ -416,13 +413,8 @@ describe("projection: packs are not installed as pack members", () => {
                     publisherBindingId: "hbnd_test",
                   },
                   manifestVersion: "1.0.0",
-                  manifestContentIdentity: computePackManifestContentIdentity({
-                    type: "pack",
-                    owner: decodeHandleSync("@team"),
-                    name: "nested-pack",
-                    version: decodeVersionSync("1.0.0"),
-                    dependencies: {},
-                  }),
+                  manifestContentIdentity:
+                    "afa25b7d372c8e05e3f0fe0021d44a4ba554b97ad8b8f949cad991a5041d1599",
                   dependencies: {},
                   treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
                 },

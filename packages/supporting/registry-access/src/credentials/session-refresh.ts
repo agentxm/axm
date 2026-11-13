@@ -13,6 +13,8 @@
 
 import * as ServiceMap from "effect/Context";
 import * as DateTime from "effect/DateTime";
+import * as Clock from "effect/Clock";
+import * as Exit from "effect/Exit";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -179,7 +181,13 @@ export const SessionRefresherLive = Layer.effect(
     const renewUnderLock = (credential: CredentialStoreTokenSource) =>
       Effect.gen(function* () {
         const memoized = yield* recall(credential);
-        if (Option.isSome(memoized)) return yield* settle(memoized.value, credential.endpoint);
+        if (Option.isSome(memoized)) {
+          yield* Effect.annotateCurrentSpan({
+            "axm.work.reused-count": 1,
+            "axm.work.reused": true,
+          });
+          return yield* settle(memoized.value, credential.endpoint);
+        }
 
         const stored = yield* store.reload(keyOf(credential));
         if (Option.isNone(stored)) {
@@ -187,23 +195,52 @@ export const SessionRefresherLive = Layer.effect(
           return yield* new SessionEnded({ registryUrl: credential.endpoint.href });
         }
         if (stored.value.access_token !== credential.token) {
+          yield* Effect.annotateCurrentSpan({
+            "axm.work.reused-count": 1,
+            "axm.work.reused": true,
+          });
           return asTokenSource(credential.endpoint, stored.value);
         }
 
+        yield* Effect.annotateCurrentSpan("axm.work.executed", 1);
         const renewed = yield* exchangeAndSave(credential, stored.value);
         const result = asTokenSource(credential.endpoint, renewed);
         yield* remember(credential, { _tag: "Renewed", credential: result });
         return result;
       });
 
-    const renew: SessionRefresherService["renew"] = Effect.fn("SessionRefresher.renew")(
+    const renew: SessionRefresherService["renew"] = Effect.fn("axm.auth.session-refresh")(
       function* (credential) {
+        yield* Effect.annotateCurrentSpan("axm.work.requested", 1);
         const memoized = yield* recall(credential);
-        if (Option.isSome(memoized)) return yield* settle(memoized.value, credential.endpoint);
+        if (Option.isSome(memoized)) {
+          yield* Effect.annotateCurrentSpan({
+            "axm.work.reused-count": 1,
+            "axm.work.reused": true,
+          });
+          return yield* settle(memoized.value, credential.endpoint);
+        }
 
         return yield* Effect.scoped(
           Effect.flatMap(RcMap.get(locks, keyOf(credential)), (lock) =>
-            lock.withPermits(1)(store.withRefreshLock(renewUnderLock(credential))),
+            Effect.uninterruptibleMask((restore) =>
+              Effect.gen(function* () {
+                const span = yield* Effect.makeSpan("axm.wait.session-refresh", {
+                  attributes: { "axm.wait.capacity": 1 },
+                });
+                const end = (exit: Exit.Exit<unknown, unknown>) =>
+                  Effect.gen(function* () {
+                    if (span.status._tag === "Ended") return;
+                    span.end(yield* Clock.currentTimeNanos, exit);
+                  });
+                const admitted = lock.withPermits(1)(
+                  end(Exit.void).pipe(
+                    Effect.andThen(store.withRefreshLock(renewUnderLock(credential))),
+                  ),
+                );
+                return yield* Effect.onExit(restore(admitted), end);
+              }),
+            ),
           ),
         );
       },

@@ -498,6 +498,14 @@
         "cwd": "."
       }
     },
+    "trace:inspect": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "bun --conditions=axm-source scripts/trace-inspect.ts",
+        "cwd": "."
+      }
+    },
     "seq:verify": {
       "executor": "nx:run-commands",
       "cache": false,

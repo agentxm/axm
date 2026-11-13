@@ -199,7 +199,7 @@ const observeRetention = (
       !unit.policyReasons.includes("instruction-propagation")
         ? [address.kind, address.device, address.inode]
         : undefined;
-    return computeSourceHash(
+    return yield* computeSourceHash(
       JSON.stringify([
         address.entryPath,
         address.referentPath,

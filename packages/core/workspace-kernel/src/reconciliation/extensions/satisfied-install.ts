@@ -87,7 +87,8 @@ export const observeSatisfiedInstall = (args: {
             version: ref.version,
             dependencies: ref.pack.dependencies,
           });
-        if (manifestIdentity(accepted.value) !== manifestIdentity(args.ref)) return Option.none();
+        if ((yield* manifestIdentity(accepted.value)) !== (yield* manifestIdentity(args.ref)))
+          return Option.none();
       }
       const canonical = yield* observeDesiredCanonical(node);
       if (canonical.observation.status !== "usable") return Option.none();

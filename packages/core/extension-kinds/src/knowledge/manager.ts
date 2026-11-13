@@ -640,7 +640,7 @@ export const KnowledgeManagerLive = Layer.effect(
         instructionsTarget.enabled,
       );
       const target = yield* projectionUnitPath(baseDir, instructionsTarget.declaredPath);
-      return knowledgeRegionGeneration({
+      return yield* knowledgeRegionGeneration({
         target,
         scopeRoot: baseDir,
         path,

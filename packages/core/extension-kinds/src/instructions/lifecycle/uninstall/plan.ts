@@ -36,7 +36,7 @@ export interface RuleUninstallIntent {
 export const parseRuleUninstallRequest: (
   selector: string,
 ) => Effect.Effect<RuleUninstallIntent, OperationRefused, InstallStepRequirements | RuleManager> =
-  Effect.fn("UninstallExtensions.parseRuleRequest")(function* (selector: string) {
+  Effect.fnUntraced(function* (selector: string) {
     const ruleManager = yield* RuleManager;
     const target: RuleExtensionTarget = { type: "rule", name: selector.trim() };
     return yield* Effect.gen(function* () {
@@ -66,7 +66,7 @@ export const planRuleUninstall: (
   Plan<InstallStepRequirements>,
   OperationRefused,
   InstallStepRequirements | RuleManager
-> = Effect.fn("UninstallExtensions.planRules")(function* (intent: RuleUninstallIntent) {
+> = Effect.fnUntraced(function* (intent: RuleUninstallIntent) {
   const desiredState = yield* DesiredStateReader;
   const ruleManager = yield* RuleManager;
   const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);

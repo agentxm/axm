@@ -59,9 +59,7 @@ export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Ef
   >,
   ConfiguredInstallFailure,
   ResolveInstallRequirements
-> = Effect.fn("InstallExtensions.prepareConfiguredPackIntent")(function* (
-  args: ConfiguredPackIntentArgs,
-) {
+> = Effect.fnUntraced(function* (args: ConfiguredPackIntentArgs) {
   const accepted = yield* acceptedConfiguredResolution({
     type: "pack",
     name: args.name,

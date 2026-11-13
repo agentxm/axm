@@ -1,3 +1,4 @@
+import { packIdentityFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 /**
  * The reconciliation witness for `cli/lock-state-never-creates-reachability`.
  *
@@ -12,7 +13,6 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import { computePackManifestContentIdentity } from "@agentxm/workspace-kernel/workspace-state";
 
 import { makeSyncFixture, previewSync, applySync } from "../testing/sync-fixture.js";
 
@@ -32,7 +32,7 @@ const acceptedRegistryRow = (
   ...(extensionType === "pack"
     ? {
         manifestVersion: "1.0.0",
-        manifestContentIdentity: computePackManifestContentIdentity({
+        manifestContentIdentity: packIdentityFixture({
           owner: "@acme",
           type: "pack",
           name,

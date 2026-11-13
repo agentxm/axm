@@ -184,7 +184,7 @@ export const knowledgeRegionGeneration = (args: {
   readonly path: Path.Path;
   readonly config: ResolvedKnowledgeDiscoveryConfig;
   readonly bundles: ReadonlyArray<KnowledgeDiscoveryBundle>;
-}): ProjectionDigest =>
+}): Effect.Effect<ProjectionDigest> =>
   projectionGeneration([
     args.target,
     stableJson(args.config),
@@ -255,7 +255,7 @@ export const reconcileKnowledgeDiscovery = (args: {
       displayPath: instructionRelative,
       region: KNOWLEDGE_REGION,
       body: renderedRegion,
-      gen: knowledgeRegionGeneration({
+      gen: yield* knowledgeRegionGeneration({
         target: instructionRelative,
         scopeRoot: args.scopeRoot,
         path,

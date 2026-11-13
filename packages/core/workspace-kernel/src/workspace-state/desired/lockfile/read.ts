@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 /** The strict `axm.lock` read: raw bytes, then TOML parse, version gate, and schema decode. */
 
 import * as Effect from "effect/Effect";
@@ -79,11 +80,14 @@ export const parseLockfileBytes = (path: string, bytes: string) =>
             raw: "[Lockfile input withheld]",
           })
         : new LockfileParseError({ path, raw: bytes, cause }),
-  }).pipe(Effect.withSpan("axm.parse.lockfile", { attributes: { "axm.work.count": 1 } }));
+  }).pipe((effect) =>
+    withWork("axm.parse.lockfile", effect, { attributes: { "axm.work.count": 1 } }),
+  );
 
 /** Decode the admitted document without parsing the same bytes a second time. */
-export const decodeLockfileDocument = Effect.fn("workspace.read-model.state.lockfile.decode")(
+export const decodeLockfileDocument = Effect.fnUntraced(
   function* (path: string, document: ParsedLockfileToml) {
+    yield* annotateWork({ "axm.work.count": 1 });
     const parsed = document.document;
     if (Predicate.isObject(parsed) && Object.hasOwn(parsed, "version")) {
       const observedVersion: unknown = Reflect.get(parsed, "version");
@@ -115,6 +119,7 @@ export const decodeLockfileDocument = Effect.fn("workspace.read-model.state.lock
       ),
     );
   },
+  (effect) => withWork("axm.parse.lockfile-decode", effect),
 );
 
 /** Strict raw-byte entry point used by ordinary readers. */

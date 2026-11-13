@@ -253,11 +253,8 @@ export const SourceHostProvidersLive: Layer.Layer<
           Effect.tap((selection) =>
             "ref" in selection ? validatePlacement(selection.ref) : Effect.void,
           ),
-          Effect.withSpan("SourceHostProviders.resolveNamedRegistry"),
         ),
-      acquireForTransition: Effect.fn("SourceHostProviders.acquireForTransition")(function* (
-        ref: ExtensionRef,
-      ) {
+      acquireForTransition: Effect.fnUntraced(function* (ref: ExtensionRef) {
         yield* validatePlacement(ref);
         const retained =
           ref.refType !== "http" && ref.refType !== "git-hosted"

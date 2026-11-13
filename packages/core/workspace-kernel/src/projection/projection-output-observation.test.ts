@@ -4,7 +4,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { ProjectionUnitPathSchema, type Projections } from "../workspace-state/index.js";
+import {
+  ProjectionDigestSchema,
+  ProjectionUnitPathSchema,
+  type Projections,
+} from "../workspace-state/index.js";
 import { projectionOutputDigest } from "./generation.js";
 import {
   observeProjectionOutput,
@@ -13,19 +17,45 @@ import {
 } from "./projection-output-observation.js";
 
 const unitPath = (value: string) => ProjectionUnitPathSchema.make(value);
-const row = (recordedBytes: string) => ({ output: projectionOutputDigest(recordedBytes) });
+const row = (digest: string) => ({ output: ProjectionDigestSchema.make(`sha256:${digest}`) });
 
 const projections: Projections = {
   rules: {
     contract: 1,
-    units: { [unitPath("AGENTS.md")]: row("Rule body.\n"), [unitPath("OLD.md")]: row("x") },
+    units: {
+      [unitPath("AGENTS.md")]: row(
+        "729bdb50305fd5065521069fe546b44e333d179dc27b4262097f7cb94f99863a",
+      ),
+      [unitPath("OLD.md")]: row("2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"),
+    },
   },
-  knowledge: { contract: 1, units: { [unitPath("AGENTS.md")]: row("Knowledge.\n") } },
+  knowledge: {
+    contract: 1,
+    units: {
+      [unitPath("AGENTS.md")]: row(
+        "dc3a09947f850662555e322be56953637eb965f16d61eecaabbf06f450f2d399",
+      ),
+    },
+  },
   instructions: {
     contract: 1,
-    units: { [unitPath("CLAUDE.md")]: row("# Shared\n"), [unitPath(".gitignore")]: row("x") },
+    units: {
+      [unitPath("CLAUDE.md")]: row(
+        "78b2119065eebb2a0306bce4244e4990707e525589f7a3337bd19555fc350944",
+      ),
+      [unitPath(".gitignore")]: row(
+        "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+      ),
+    },
   },
-  subagents: { contract: 1, units: { [unitPath(".claude/agents/reviewer.md")]: row("Agent\n") } },
+  subagents: {
+    contract: 1,
+    units: {
+      [unitPath(".claude/agents/reviewer.md")]: row(
+        "528bed45f21fc40ad60191a9d9525d067d537d0808f4b39f1eff2a374cfedbe3",
+      ),
+    },
+  },
 };
 
 const makeUnit = (
@@ -33,7 +63,9 @@ const makeUnit = (
 ): ProjectionOutputUnit => ({
   kind: "rules",
   path: ProjectionUnitPathSchema.make("AGENTS.md"),
-  recorded: projectionOutputDigest("Rule body.\n"),
+  recorded: ProjectionDigestSchema.make(
+    "sha256:729bdb50305fd5065521069fe546b44e333d179dc27b4262097f7cb94f99863a",
+  ),
   ...overrides,
 });
 
@@ -98,7 +130,7 @@ describe("observeProjectionOutput", () => {
         { _tag: "region", region: "rules" },
       );
       expect(Option.map(observed, ({ observed }) => observed)).toEqual(
-        Option.some(projectionOutputDigest("Edited.\n")),
+        Option.some(yield* projectionOutputDigest("Edited.\n")),
       );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
@@ -107,7 +139,7 @@ describe("observeProjectionOutput", () => {
     Effect.gen(function* () {
       const observed = yield* withFile("CLAUDE.md", "Whole file.\n", { _tag: "file" });
       expect(Option.map(observed, ({ observed }) => observed)).toEqual(
-        Option.some(projectionOutputDigest("Whole file.\n")),
+        Option.some(yield* projectionOutputDigest("Whole file.\n")),
       );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );

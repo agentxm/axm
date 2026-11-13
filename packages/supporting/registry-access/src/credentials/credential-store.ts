@@ -14,6 +14,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Cache from "effect/Cache";
+import * as Cause from "effect/Cause";
 import * as Data from "effect/Data";
 import type * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -48,6 +49,7 @@ import type {
 } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
 import type { CredentialKey } from "./credential-key.js";
+import { credentialCacheLookupStarted, observeCredentialCache } from "./cache-observation.js";
 
 const decodeCredentialFileFromJsonString = Schema.decodeUnknownEffect(
   Schema.fromJsonString(CredentialFileSchema),
@@ -124,6 +126,56 @@ type KeyringEntryConstructor = new (service: string, account: string) => Keyring
 export class KeyringUnavailable extends Data.TaggedError("KeyringUnavailable")<{
   readonly reason: "module-load-failed" | "keychain-access-failed";
 }> {}
+
+type CredentialOperation = "read" | "write" | "delete";
+
+const credentialOutcome = <A, E>(operation: CredentialOperation, exit: Exit.Exit<A, E>) => {
+  if (Exit.isSuccess(exit))
+    return operation === "read" && Option.isOption(exit.value)
+      ? Option.isSome(exit.value)
+        ? "found"
+        : "missing"
+      : "success";
+  if (Exit.hasInterrupts(exit)) return "interrupted";
+  const error = Cause.findErrorOption(exit.cause);
+  return Option.isSome(error) && error.value instanceof KeyringUnavailable
+    ? "unavailable"
+    : "failure";
+};
+
+/** Counts backend operations; underlying file primitives remain a separate unit of work. */
+const observeCredentialBackend =
+  (backend: "keychain" | "restricted-file", operation: CredentialOperation) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.onExit((exit) =>
+        Effect.annotateCurrentSpan("axm.credential.outcome", credentialOutcome(operation, exit)),
+      ),
+      Effect.withSpan("axm.auth.credential-backend", {
+        attributes: {
+          "axm.credential.backend": backend,
+          "axm.credential.operation": operation,
+          "axm.work.requested": 1,
+          "axm.work.executed": 1,
+        },
+      }),
+    );
+
+const observeCredentialFallback =
+  (operation: "read" | "write", reason: "missing" | "unavailable") =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.onExit((exit) =>
+        Effect.annotateCurrentSpan("axm.credential.outcome", credentialOutcome(operation, exit)),
+      ),
+      Effect.withSpan("axm.auth.credential-fallback", {
+        attributes: {
+          "axm.credential.backend": "restricted-file",
+          "axm.credential.operation": operation,
+          "axm.credential.fallback-reason": reason,
+        },
+      }),
+    );
 
 const nativeKeyringEntry = Effect.tryPromise({
   try: async () => {
@@ -241,12 +293,14 @@ export const withFileLock = <A, E, R>(
     // restored to the caller's interruptibility. The hand-over from a granted
     // lock to its release registration is not.
     return yield* Effect.uninterruptibleMask((restore) =>
-      Effect.flatMap(restore(acquire), (release) =>
-        restore(Effect.raceFirst(effect, Deferred.await(compromised))).pipe(
-          // Releasing a lock that was compromised rejects; there is nothing
-          // left to give back, so release is complete either way.
-          Effect.ensuring(Effect.ignore(Effect.tryPromise(() => release()))),
-        ),
+      Effect.flatMap(
+        restore(acquire).pipe(Effect.withSpan("axm.wait.credential-file-lock")),
+        (release) =>
+          restore(Effect.raceFirst(effect, Deferred.await(compromised))).pipe(
+            // Releasing a lock that was compromised rejects; there is nothing
+            // left to give back, so release is complete either way.
+            Effect.ensuring(Effect.ignore(Effect.tryPromise(() => release()))),
+          ),
       ),
     );
   });
@@ -443,7 +497,7 @@ const readKeychainCredentialFile = (
           }),
       ),
     );
-  });
+  }).pipe(observeCredentialBackend("keychain", "read"));
 
 const writeKeychainCredentialFile = (
   registryUrl: string,
@@ -470,7 +524,7 @@ const writeKeychainCredentialFile = (
       },
       catch: () => new KeyringUnavailable({ reason: "keychain-access-failed" }),
     });
-  });
+  }).pipe(observeCredentialBackend("keychain", "write"));
 
 const deleteKeychainCredentialFile = (
   registryUrl: string,
@@ -499,7 +553,7 @@ const deleteKeychainCredentialFile = (
           cause: new KeyringUnavailable({ reason: "keychain-access-failed" }),
         }),
     });
-  });
+  }).pipe(observeCredentialBackend("keychain", "delete"));
 
 // -----------------------------------------------------------------------------
 // Tier selection based on environment
@@ -572,8 +626,14 @@ export const CredentialStoreLive = Layer.effect(
     const storageTier = selectTier(env);
     const persistedCredentialsAllowed = canUsePersistedCredentials(env);
     // Callers own one lock around the complete operation, including its read.
-    const readStoredFile = () => readCredentialFile(fs, path, homeDir);
-    const writeStoredFile = (data: CredentialFile) => writeCredentialFile(fs, path, homeDir, data);
+    const readStoredFile = () =>
+      readCredentialFile(fs, path, homeDir).pipe(
+        observeCredentialBackend("restricted-file", "read"),
+      );
+    const writeStoredFile = (data: CredentialFile) =>
+      writeCredentialFile(fs, path, homeDir, data).pipe(
+        observeCredentialBackend("restricted-file", "write"),
+      );
     const locked = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       withCredentialFileLock(fs, path, homeDir, effect);
     const removeStoredRegistry = (registryUrl: string) =>
@@ -582,7 +642,9 @@ export const CredentialStoreLive = Layer.effect(
         if (Option.isNone(existing) || existing.value.registries[registryUrl] === undefined) return;
         const { [registryUrl]: _, ...registries } = existing.value.registries;
         if (Object.keys(registries).length === 0) {
-          yield* deleteCredentialFile(fs, path, homeDir);
+          yield* deleteCredentialFile(fs, path, homeDir).pipe(
+            observeCredentialBackend("restricted-file", "delete"),
+          );
         } else {
           yield* writeStoredFile({ ...existing.value, registries });
         }
@@ -600,12 +662,14 @@ export const CredentialStoreLive = Layer.effect(
       storageTier === "keychain"
         ? readKeychainCredentialFile(registryUrl, keyringEntry).pipe(
             Effect.flatMap((existing) =>
-              Option.isSome(existing) ? Effect.succeed(existing) : readFile(),
+              Option.isSome(existing)
+                ? Effect.succeed(existing)
+                : readFile().pipe(observeCredentialFallback("read", "missing")),
             ),
             Effect.catchTag("KeyringUnavailable", ({ reason }) =>
               Effect.logDebug(
                 `OS keychain unavailable (${reason}); reading the restricted credential file.`,
-              ).pipe(Effect.flatMap(readFile)),
+              ).pipe(Effect.flatMap(readFile), observeCredentialFallback("read", "unavailable")),
             ),
           )
         : readFile();
@@ -650,6 +714,7 @@ export const CredentialStoreLive = Layer.effect(
               noteKeychainFallback(reason).pipe(
                 Effect.andThen(writeFallback),
                 Effect.as("file" as const),
+                observeCredentialFallback("write", "unavailable"),
               ),
             ),
           )
@@ -782,7 +847,10 @@ export const CredentialStoreSessionLive = Layer.effect(
     const store = yield* CredentialStore;
     const cache = yield* Cache.makeWith(
       (registryUrl: CredentialKey) =>
-        Effect.andThen(Effect.yieldNow, () => store.load(registryUrl)),
+        credentialCacheLookupStarted.pipe(
+          Effect.andThen(Effect.yieldNow),
+          Effect.andThen(() => store.load(registryUrl)),
+        ),
       {
         capacity: Number.POSITIVE_INFINITY,
         timeToLive: (exit: Exit.Exit<Option.Option<StoredCredentials>, RegistryAccessFailed>) =>
@@ -794,7 +862,7 @@ export const CredentialStoreSessionLive = Layer.effect(
       tier: store.tier,
       allowsPersistedCredentials: store.allowsPersistedCredentials,
       load: (registryUrl) =>
-        Cache.get(cache, registryUrl).pipe(
+        observeCredentialCache("stored-session", cache, registryUrl).pipe(
           Effect.onInterrupt(() => Cache.invalidate(cache, registryUrl)),
         ),
       // Drop the memo first, so a caller reading past it also leaves the next

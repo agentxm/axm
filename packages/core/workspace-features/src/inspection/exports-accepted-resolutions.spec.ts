@@ -130,7 +130,7 @@ describe("Accepted-resolution SBOM", () => {
           treeIntegrity: `sha256-tree-v2:${"2".repeat(64)}`,
           manifestVersion: "1.0.0",
           dependencies,
-          manifestContentIdentity: computePackManifestContentIdentity({
+          manifestContentIdentity: yield* computePackManifestContentIdentity({
             owner: "@acme",
             type: "pack",
             name: "toolkit",
@@ -262,7 +262,7 @@ describe("Accepted-resolution SBOM", () => {
               treeIntegrity: tree,
               manifestVersion: "1.0.0",
               dependencies,
-              manifestContentIdentity: computePackManifestContentIdentity({
+              manifestContentIdentity: yield* computePackManifestContentIdentity({
                 owner: "@acme",
                 type: "pack",
                 name: "toolkit",

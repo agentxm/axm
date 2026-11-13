@@ -64,7 +64,7 @@ export interface TypeListResult<Row, Document = ExtensionInventoryDocument> {
   readonly rows: ReadonlyArray<Row>;
 }
 
-const withListDocument = Effect.fn("Inspection.withListDocument")(function* <Row>(result: {
+const withListDocument = Effect.fnUntraced(function* <Row>(result: {
   readonly inventory: ExtensionInventory;
   readonly rows: ReadonlyArray<Row>;
 }) {

@@ -8,6 +8,23 @@ export {
 } from "./cli-runtime/machine-output-document.js";
 export { MachineEventSchema, type MachineEvent } from "./screen/machine-events.js";
 export {
+  TraceReceiptSchema,
+  TraceReceiptDocumentSchema,
+  TraceCaptureStateSchema,
+  type TraceReceipt,
+  type TraceReceiptDocument,
+} from "./cli-runtime/local-trace-receipt.js";
+export {
+  inspectLocalTrace,
+  traceRetrievalPlan,
+  decodeTraceRetrieval,
+  traceRetrievalColumns,
+  TraceEvidenceFailure,
+  TraceExpectationSchema,
+  type TraceExpectation,
+  type TraceWorkSummary,
+} from "./cli-runtime/local-trace-inspection.js";
+export {
   ConfiguredAgentOutcomeSchema,
   ConfiguredAgentReasonCodeSchema,
   type ConfiguredAgentOutcome,

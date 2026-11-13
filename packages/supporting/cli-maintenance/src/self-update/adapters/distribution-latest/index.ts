@@ -69,6 +69,9 @@ export const resolveLatestReleaseVersion = (httpClient: HttpClient.HttpClient) =
 
     const content = yield* response.text.pipe(
       Effect.mapError((cause) => new LatestReleaseError({ reason: "transport", cause })),
+      Effect.withSpan("axm.update.body", {
+        attributes: { "axm.update.purpose": "latest-version", "axm.work.executed": 1 },
+      }),
     );
     const version = parseLatestReleaseVersion(content);
     if (version === null) {
@@ -79,5 +82,12 @@ export const resolveLatestReleaseVersion = (httpClient: HttpClient.HttpClient) =
     Effect.timeoutOrElse({
       duration: REQUEST_TIMEOUT,
       orElse: () => Effect.fail(new LatestReleaseError({ reason: "timeout" })),
+    }),
+    Effect.withSpan("axm.update.request", {
+      attributes: {
+        "axm.update.purpose": "latest-version",
+        "axm.work.requested": 1,
+        "axm.work.executed": 1,
+      },
     }),
   );

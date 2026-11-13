@@ -99,7 +99,7 @@ export const parseSkillUninstallRequest: (
   SkillUninstallIntent,
   OperationRefused,
   InstallStepRequirements | ResolveInstallRequirements
-> = Effect.fn("UninstallExtensions.parseSkillRequest")(function* (selector: string) {
+> = Effect.fnUntraced(function* (selector: string) {
   const records = yield* WorkspaceRecords;
   const installedSkills = yield* records.rows("skill").pipe(
     Effect.mapError((cause) =>
@@ -148,7 +148,7 @@ export const planSkillUninstall: (
   Plan<InstallStepRequirements>,
   OperationRefused,
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path
-> = Effect.fn("UninstallExtensions.planSkills")(function* (intent: SkillUninstallIntent) {
+> = Effect.fnUntraced(function* (intent: SkillUninstallIntent) {
   const location = yield* WorkspaceLocation;
   const layout = yield* Ref.get(location.layout);
   const desiredState = yield* DesiredStateReader;

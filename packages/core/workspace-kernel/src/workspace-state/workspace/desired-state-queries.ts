@@ -1,3 +1,5 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
+import * as Effect from "effect/Effect";
 /**
  * Evidence-bearing queries over one desired-state evaluation.
  *
@@ -167,18 +169,23 @@ export const desiredStateSettled = (graph: Pick<DesiredStateGraph, "problems">):
  * sentences are excluded, so rewording a diagnostic does not read as a
  * change in desired state.
  */
-export const desiredStateIdentity = (graph: DesiredStateGraph): string =>
-  crypto
-    .createHash("sha256")
-    .update(
-      JSON.stringify(
-        {
-          nodes: graph.nodes,
-          mcpSourceClosures: graph.mcpSourceClosures,
-          problems: graph.problems,
-          packMembership: graph.packMembership,
-        },
-        (key, value: unknown) => (key === "detail" ? undefined : value),
-      ),
-    )
-    .digest("hex");
+export const desiredStateIdentity = (graph: DesiredStateGraph): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const input = JSON.stringify(
+      {
+        nodes: graph.nodes,
+        mcpSourceClosures: graph.mcpSourceClosures,
+        problems: graph.problems,
+        packMembership: graph.packMembership,
+      },
+      (key, value: unknown) => (key === "detail" ? undefined : value),
+    );
+    const digest = yield* Effect.sync(() =>
+      crypto.createHash("sha256").update(input).digest("hex"),
+    );
+    yield* annotateWork({
+      "axm.work.count": 1,
+      "axm.work.bytes": Buffer.byteLength(input),
+    });
+    return digest;
+  }).pipe((effect) => withWork("axm.hash.desired-state", effect));

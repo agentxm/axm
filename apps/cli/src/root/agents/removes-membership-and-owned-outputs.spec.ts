@@ -1,3 +1,4 @@
+import { projectionDigestFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -13,7 +14,6 @@ import {
 } from "../../test-support/agent-membership-fixture.js";
 import { handleAgentsAdd } from "./add.js";
 import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
-import { projectionOutputDigest } from "@agentxm/workspace-kernel/projection";
 import { handleAgentsRemove } from "./remove.js";
 import { handleSync } from "../sync/handler.js";
 import { withProjectionOutputPosture } from "../../runtime.js";
@@ -106,8 +106,10 @@ describe("Removing a coding agent", () => {
             subagents: {
               contract: 1,
               units: {
-                [nativePath]: { output: projectionOutputDigest(content) },
-                ".claude/agents/planner.md": { output: projectionOutputDigest(content) },
+                [nativePath]: { output: projectionDigestFixture(content) },
+                ".claude/agents/planner.md": {
+                  output: projectionDigestFixture(content),
+                },
               },
             },
           },

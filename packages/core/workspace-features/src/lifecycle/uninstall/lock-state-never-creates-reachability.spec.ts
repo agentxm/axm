@@ -1,3 +1,4 @@
+import { packIdentityFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -18,7 +19,6 @@ import * as Option from "effect/Option";
 import {
   acceptedRowKey,
   acceptedRowReachability,
-  computePackManifestContentIdentity,
   desiredReachesAcceptedRow,
   DesiredStateReader,
   emitLockfileToml,
@@ -66,7 +66,7 @@ const acceptedRegistryRow = (
   ...(extensionType === "pack"
     ? {
         manifestVersion: "1.0.0",
-        manifestContentIdentity: computePackManifestContentIdentity({
+        manifestContentIdentity: packIdentityFixture({
           owner: "@acme",
           type: "pack",
           name,

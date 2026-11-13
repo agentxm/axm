@@ -240,7 +240,7 @@ export const parseRegistryQualifiedInstallRequest = (
           : Option.none<VersionRange>(),
       resolutionProbes: [],
     } satisfies ParsedInstallRequest;
-  }).pipe(Effect.withSpan("InstallExtensions.parseRequest", { attributes: { type } }));
+  });
 
 export const parseLocatorInstallRequest = (
   type: LocatorInstallType,
@@ -298,7 +298,7 @@ export const parseLocatorInstallRequest = (
           : Option.none<VersionRange>(),
       resolutionProbes,
     } satisfies ParsedInstallRequest;
-  }).pipe(Effect.withSpan("InstallExtensions.parseRequest", { attributes: { type } }));
+  });
 
 export const discoverInstallRefs = <T extends SourceInstallType>(
   type: T,
@@ -344,7 +344,7 @@ export const discoverInstallRefs = <T extends SourceInstallType>(
       });
     }
     return refs;
-  }).pipe(Effect.withSpan("InstallExtensions.discoverRefs", { attributes: { type } }));
+  });
 
 export const finalizeInstallRefs = <TRef extends SourceInstallRef<SourceInstallType>>(
   request: ParsedInstallRequest,

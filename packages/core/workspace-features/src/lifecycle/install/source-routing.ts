@@ -40,7 +40,7 @@ export const resolveInstallSource: (
   parseResult: InputParseResult,
   options?: RegistryResolutionOptions,
 ) => Effect.Effect<Source, OperationRefused | SourceResolutionFailure, ResolveInstallRequirements> =
-  Effect.fn("InstallExtensions.resolveSource")(function* (
+  Effect.fnUntraced(function* (
     type: LocatorInstallType,
     parseResult: InputParseResult,
     options?: RegistryResolutionOptions,

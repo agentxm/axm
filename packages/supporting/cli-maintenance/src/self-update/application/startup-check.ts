@@ -1,6 +1,7 @@
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import {
   availableStartupUpdate,
   isReleaseCacheStale,
@@ -52,13 +53,18 @@ export const checkStartupUpdate = Effect.fn("StartupUpdateCheck.run")(function* 
   }
 
   const cache = yield* UpdateCheckCache;
-  const snapshot = yield* cache
-    .read()
-    .pipe(
-      Effect.catchTag("UpdateCheckUnavailable", () =>
-        Effect.succeed(Option.none<CachedLatestRelease>()),
-      ),
-    );
+  const snapshot = yield* cache.read().pipe(
+    Effect.tap((snapshot) =>
+      annotateWork({ "axm.cache.outcome": Option.isSome(snapshot) ? "hit" : "miss" }),
+    ),
+    (effect) =>
+      withWork("axm.update.cache", effect, {
+        attributes: { "axm.work.requested": 1, "axm.work.executed": 1 },
+      }),
+    Effect.catchTag("UpdateCheckUnavailable", () =>
+      Effect.succeed(Option.none<CachedLatestRelease>()),
+    ),
+  );
   const now = yield* DateTime.now;
   const notification = Option.flatMap(snapshot, (value) =>
     availableStartupUpdate(options.localVersion, value, now),

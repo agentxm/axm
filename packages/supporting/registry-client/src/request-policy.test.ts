@@ -501,6 +501,20 @@ describe("executeRegistryRequest", () => {
 
   it.effect("preserves cancellation during retry backoff", () =>
     Effect.gen(function* () {
+      const spans: Tracer.NativeSpan[] = [];
+      const endCounts = new Map<string, number>();
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          const end = span.end.bind(span);
+          span.end = (time, exit) => {
+            endCounts.set(span.spanId, (endCounts.get(span.spanId) ?? 0) + 1);
+            end(time, exit);
+          };
+          spans.push(span);
+          return span;
+        },
+      });
       const attempted = yield* Deferred.make<void>();
       const waiting = yield* Deferred.make<void>();
       const attempts = yield* Ref.make(0);
@@ -515,6 +529,8 @@ describe("executeRegistryRequest", () => {
           waiting: () => Deferred.succeed(waiting, undefined),
           ended: () => Ref.update(ended, (count) => count + 1),
         }),
+        Effect.withTracer(tracer),
+        Effect.withTracerEnabled(true),
         Effect.forkChild,
       );
 
@@ -525,6 +541,12 @@ describe("executeRegistryRequest", () => {
 
       expect(yield* Ref.get(attempts)).toBe(1);
       expect(yield* Ref.get(ended)).toBe(1);
+      const wait = spans.find((span) => span.name === "axm.registry.retry-wait");
+      expect(wait?.status._tag).toBe("Ended");
+      if (wait?.status._tag === "Ended") {
+        expect(wait.status.exit._tag).toBe("Failure");
+        expect(endCounts.get(wait.spanId)).toBe(1);
+      }
     }),
   );
 });
@@ -649,3 +671,92 @@ describe("complete registry request tracing", () => {
     );
   }
 });
+
+it.effect("traces the scheduled backoff independently of both attempts", () =>
+  Effect.gen(function* () {
+    const spans: Tracer.NativeSpan[] = [];
+    const tracer = Tracer.make({
+      span(options) {
+        const span = new Tracer.NativeSpan(options);
+        spans.push(span);
+        return span;
+      },
+    });
+    const announced = yield* Deferred.make<void>();
+    let attempts = 0;
+    const fiber = yield* executeRegistryRequest(
+      Effect.suspend(() => {
+        attempts += 1;
+        return attempts === 1
+          ? Effect.fail(responseError(429, { bodyDelay: 2 }))
+          : Effect.succeed("ok");
+      }),
+      {
+        operation: "a private operation label must not enter attributes",
+        purpose: "metadata",
+        batchSize: 7,
+        request: requestMetadata,
+        replaySafety: { kind: "safe" },
+        mapError,
+        policy: policy(),
+      },
+    ).pipe(
+      Effect.provideService(RegistryRetryObservation, {
+        waiting: () => Deferred.succeed(announced, undefined),
+        ended: () => Effect.void,
+      }),
+      Effect.withTracer(tracer),
+      Effect.withTracerEnabled(true),
+      Effect.forkChild,
+    );
+    yield* Deferred.await(announced);
+    const wait = spans.find((span) => span.name === "axm.registry.retry-wait");
+    expect(wait?.status._tag).toBe("Started");
+    expect(wait?.attributes.get("axm.wait.milliseconds")).toBe(2000);
+    expect(spans.filter((span) => span.name === "axm.registry.attempt")).toHaveLength(1);
+    yield* TestClock.adjust("2 seconds");
+    expect(yield* Fiber.join(fiber)).toBe("ok");
+    expect(attempts).toBe(2);
+    expect(wait?.status._tag).toBe("Ended");
+    const attemptsTraced = spans.filter((span) => span.name === "axm.registry.attempt");
+    expect(attemptsTraced.map((span) => span.attributes.get("axm.registry.attempt"))).toEqual([
+      1, 2,
+    ]);
+    const request = spans.find((span) => span.name === "axm.registry.request");
+    expect(request?.attributes.get("axm.registry.purpose")).toBe("metadata");
+    expect(request?.attributes.get("axm.registry.batch-size")).toBe(7);
+    expect(spans.flatMap((span) => [...span.attributes.values()])).not.toContain(
+      "a private operation label must not enter attributes",
+    );
+    if (wait?.status._tag === "Ended" && attemptsTraced[1]?.status._tag === "Ended") {
+      expect(wait.status.endTime).toBeLessThanOrEqual(attemptsTraced[1].status.startTime);
+    }
+  }),
+);
+
+it.effect("records only the bounded mapped failure category", () =>
+  Effect.gen(function* () {
+    const spans: Tracer.NativeSpan[] = [];
+    const tracer = Tracer.make({
+      span(options) {
+        const span = new Tracer.NativeSpan(options);
+        spans.push(span);
+        return span;
+      },
+    });
+    const result = yield* executeRegistryRequest(Effect.fail("private denial"), {
+      operation: "private operation",
+      purpose: "eligibility",
+      request: requestMetadata,
+      replaySafety: { kind: "safe" },
+      mapError: () =>
+        new RegistryRequestFailed({ category: "forbidden", detail: "private denial" }),
+      policy: policy(),
+    }).pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true), Effect.exit);
+    expect(result._tag).toBe("Failure");
+    const request = spans.find((span) => span.name === "axm.registry.request");
+    expect(request?.attributes.get("axm.failure.category")).toBe("forbidden");
+    expect(request?.attributes.get("axm.registry.purpose")).toBe("eligibility");
+    expect(spans.flatMap((span) => [...span.attributes.values()])).not.toContain("private denial");
+  }),
+);

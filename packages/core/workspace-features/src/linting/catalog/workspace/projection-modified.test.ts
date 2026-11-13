@@ -20,12 +20,15 @@ import { projectionModifiedRule } from "./projection-modified.js";
 const modified = (
   kind: ProjectionOutputObservation["kind"],
   path: string,
-): ProjectionOutputObservation => ({
-  kind,
-  path: ProjectionUnitPathSchema.make(path),
-  recorded: projectionOutputDigest("written"),
-  observed: projectionOutputDigest("edited"),
-});
+): Effect.Effect<ProjectionOutputObservation> =>
+  Effect.gen(function* () {
+    return {
+      kind,
+      path: ProjectionUnitPathSchema.make(path),
+      recorded: yield* projectionOutputDigest("written"),
+      observed: yield* projectionOutputDigest("edited"),
+    };
+  });
 
 const node = (
   type: ExtensionType,
@@ -88,7 +91,7 @@ describe("workspace/projection-modified", () => {
   it.effect("names every Rule contributor, forking acquired ones and editing authored ones", () =>
     Effect.gen(function* () {
       const context = yield* contextWith({
-        observations: [modified("rules", "AGENTS.md")],
+        observations: [yield* modified("rules", "AGENTS.md")],
         nodes: [node("rule", "style", "bundled"), node("rule", "local", "workspace")],
         canonicalPaths: { local: "/workspace/rules/local" },
       });
@@ -101,7 +104,7 @@ describe("workspace/projection-modified", () => {
   it.effect("lists at most five contributors, then counts the rest", () =>
     Effect.gen(function* () {
       const context = yield* contextWith({
-        observations: [modified("knowledge", "AGENTS.md")],
+        observations: [yield* modified("knowledge", "AGENTS.md")],
         nodes: ["a", "b", "c", "d", "e", "f", "g"].map((name) =>
           node("knowledge", name, "workspace"),
         ),
@@ -115,7 +118,7 @@ describe("workspace/projection-modified", () => {
   it.effect("names the declared Subagent a projected file comes from", () =>
     Effect.gen(function* () {
       const context = yield* contextWith({
-        observations: [modified("subagents", ".claude/agents/reviewer.md")],
+        observations: [yield* modified("subagents", ".claude/agents/reviewer.md")],
         nodes: [node("subagent", "reviewer", "bundled")],
       });
       expect(yield* messages(context)).toEqual([
@@ -127,7 +130,7 @@ describe("workspace/projection-modified", () => {
   it.effect("names the settings behind the .gitignore alias region", () =>
     Effect.gen(function* () {
       const context = yield* contextWith({
-        observations: [modified("instructions", ".gitignore")],
+        observations: [yield* modified("instructions", ".gitignore")],
         settings: { instructionFiles: { fileName: "AGENTS.md" } },
       });
       expect(yield* messages(context)).toEqual([
@@ -140,10 +143,10 @@ describe("workspace/projection-modified", () => {
     Effect.gen(function* () {
       const context = yield* contextWith({
         observations: [
-          modified("subagents", ".claude/agents/gone.md"),
-          modified("rules", "AGENTS.md"),
-          modified("instructions", "CLAUDE.md"),
-          modified("instructions", ".gitignore"),
+          yield* modified("subagents", ".claude/agents/gone.md"),
+          yield* modified("rules", "AGENTS.md"),
+          yield* modified("instructions", "CLAUDE.md"),
+          yield* modified("instructions", ".gitignore"),
         ],
       });
       expect(yield* messages(context)).toEqual([
@@ -160,8 +163,8 @@ describe("workspace/projection-modified", () => {
       const context = yield* contextWith({
         observations: [
           {
-            ...modified("instructions", "CLAUDE.md"),
-            observed: projectionOutputDigest("written"),
+            ...(yield* modified("instructions", "CLAUDE.md")),
+            observed: yield* projectionOutputDigest("written"),
           },
         ],
       });
@@ -176,7 +179,7 @@ describe("workspace/projection-modified", () => {
         ...base,
         projectionOutputs: Effect.succeed([
           Result.fail(new ProjectionIoFailed({ path: "CLAUDE.md", step: "read", cause: "EACCES" })),
-          Result.succeed(modified("subagents", ".claude/agents/gone.md")),
+          Result.succeed(yield* modified("subagents", ".claude/agents/gone.md")),
         ]),
       };
       expect(yield* projectionModifiedRule.check(context)).toEqual([

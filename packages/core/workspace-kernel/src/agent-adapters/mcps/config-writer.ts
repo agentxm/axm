@@ -165,7 +165,7 @@ const upsertJsonLike = (args: {
         formattingOptions: jsonFormatting(initial),
       }),
     );
-    return Option.isSome(deriveStructuralInverse(initial, formatted))
+    return Option.isSome(yield* deriveStructuralInverse(initial, formatted))
       ? formatted
       : applyEdits(
           initial,
@@ -427,7 +427,7 @@ export const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: strin
     });
     if (
       !Object.hasOwn(values, args.serverName) &&
-      Option.isNone(deriveStructuralInverse(raw, next))
+      Option.isNone(yield* deriveStructuralInverse(raw, next))
     ) {
       return yield* new McpConfigInvalid({
         detail: `Cannot insert MCP server ${args.serverName} without changing unrelated content at ${configPath}`,

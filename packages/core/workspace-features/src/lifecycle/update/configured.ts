@@ -1309,7 +1309,7 @@ export const buildWorkspaceUpdatePlan: (
   WorkspaceUpdatePlanResult,
   ConfiguredUpdateFailure,
   WorkspaceUpdateCollectorContext | ReleaseAgePosture
-> = Effect.fn("UpdateExtensions.sweepConfigured")(function* (args) {
+> = Effect.fnUntraced(function* (args) {
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgePolicy();
   const accepted = retainedPackageBindings(yield* (yield* LockfileReader).lockfile);
   const priorGraph = yield* (yield* DesiredStateReader).graph();

@@ -255,7 +255,7 @@ export const parsePackUninstallSelectors: (
   ReadonlyArray<PackUninstallSelector>,
   OperationRefused,
   InstallStepRequirements
-> = Effect.fn("UninstallExtensions.parsePackSelectors")(function* (selector: string) {
+> = Effect.fnUntraced(function* (selector: string) {
   const requested = parseExtensionFqnParts(selector);
   if (requested?.type === "pack") {
     return [
@@ -278,34 +278,33 @@ export const parsePackUninstallSelectors: (
 /** Resolve the selectors against the desired graph. */
 export const finalizePackUninstallIntent: (
   selectors: ReadonlyArray<PackUninstallSelector>,
-) => Effect.Effect<PackUninstallIntent, OperationRefused, InstallStepRequirements> = Effect.fn(
-  "UninstallExtensions.finalizePackIntent",
-)(function* (selectors: ReadonlyArray<PackUninstallSelector>) {
-  const graph = yield* readDesiredGraph;
-  const targets = new Map<string, ResolvedPackUninstallTarget>();
-  for (const selector of selectors) {
-    const name = selector._tag === "ExactFqn" ? selector.identity.name : selector.name;
-    const candidates = graph.nodes.filter(
-      (candidate) => candidate.type === "pack" && candidate.name === name,
-    );
-    for (const node of candidates) {
-      const identity = parseExtensionFqnParts(desiredPackageKey(node.identity));
-      if (identity === undefined || identity.type !== "pack") {
-        return yield* identityValidationError(formatDesiredIdentity(node.identity));
+) => Effect.Effect<PackUninstallIntent, OperationRefused, InstallStepRequirements> =
+  Effect.fnUntraced(function* (selectors: ReadonlyArray<PackUninstallSelector>) {
+    const graph = yield* readDesiredGraph;
+    const targets = new Map<string, ResolvedPackUninstallTarget>();
+    for (const selector of selectors) {
+      const name = selector._tag === "ExactFqn" ? selector.identity.name : selector.name;
+      const candidates = graph.nodes.filter(
+        (candidate) => candidate.type === "pack" && candidate.name === name,
+      );
+      for (const node of candidates) {
+        const identity = parseExtensionFqnParts(desiredPackageKey(node.identity));
+        if (identity === undefined || identity.type !== "pack") {
+          return yield* identityValidationError(formatDesiredIdentity(node.identity));
+        }
+        if (selector._tag === "ExactFqn" && identity.owner !== selector.identity.owner) continue;
+        // One target per desired node, however many selectors name it.
+        targets.set(`${node.type}:${node.name}`, {
+          type: "pack",
+          name: identity.name,
+          owner: identity.owner,
+          authority: node.identity.authority,
+          desiredIdentity: node.identity,
+        });
       }
-      if (selector._tag === "ExactFqn" && identity.owner !== selector.identity.owner) continue;
-      // One target per desired node, however many selectors name it.
-      targets.set(`${node.type}:${node.name}`, {
-        type: "pack",
-        name: identity.name,
-        owner: identity.owner,
-        authority: node.identity.authority,
-        desiredIdentity: node.identity,
-      });
     }
-  }
-  return { packsToUninstall: [...targets.values()] };
-});
+    return { packsToUninstall: [...targets.values()] };
+  });
 
 /** Everything the pack removal reads and writes through. */
 export type PackUninstallRequirements =
@@ -326,7 +325,7 @@ export type PackUninstallRequirements =
 export const planPackUninstall: (
   intent: PackUninstallIntent,
 ) => Effect.Effect<Plan<PackUninstallRequirements>, OperationRefused, PackUninstallRequirements> =
-  Effect.fn("UninstallExtensions.planPacks")(function* (intent: PackUninstallIntent) {
+  Effect.fnUntraced(function* (intent: PackUninstallIntent) {
     const conversion = yield* StepFailureConversion;
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);

@@ -52,7 +52,7 @@ import type {
   SetSubagentArgs,
   WorkspaceStateMutationFailure,
 } from "./contracts.js";
-import { WorkspaceStateShared } from "./shared.js";
+import { WorkspaceStateShared, withWorkspaceStateWrite } from "./shared.js";
 import { acceptedRowKey } from "./accepted-reachability.js";
 import { desiredReachability } from "./desired-state-queries.js";
 
@@ -129,7 +129,7 @@ const makeDesiredStateWriter = (
   const lockfile = documents.acceptedResolutions;
   const writeSettings = documents.writeSettings;
   const commit = documents.commitAcceptedResolutions;
-  const serialized = mutex.withPermits(1);
+  const serialized = withWorkspaceStateWrite(mutex, "desired-state");
   const sourceFor = (
     type: InstallableExtensionType,
     lockEntry: LockEntry,

@@ -130,46 +130,64 @@ describe("container receipt continuity", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
-  it("preserves compact, CRLF, and missing-final-newline baselines without storing foreign values", () => {
-    for (const before of ["{}", "{ }", "{\r\n}\r\n", '{"foreign":"keep"}']) {
-      const after = before.replace(
-        /}\s*$/,
-        `${before.includes("foreign") ? "," : ""}"owned":{"value":1}}`,
-      );
-      const inverse = deriveStructuralInverse(before, after);
-      expect(Option.isSome(inverse)).toBe(true);
-      if (Option.isNone(inverse)) continue;
-      expect(Option.getOrUndefined(applyStructuralInverse(after, inverse.value))).toBe(before);
-      expect(JSON.stringify(inverse.value)).not.toContain("foreign");
-      expect(JSON.stringify(inverse.value)).not.toContain("keep");
-      expect(Option.isNone(applyStructuralInverse(`${after}\n`, inverse.value))).toBe(true);
-    }
-    expect(Option.isNone(deriveStructuralInverse('{"foreign":1}', '{"foreign":2}'))).toBe(true);
-  });
+  it.effect(
+    "preserves compact, CRLF, and missing-final-newline baselines without storing foreign values",
+    () =>
+      Effect.gen(function* () {
+        for (const before of ["{}", "{ }", "{\r\n}\r\n", '{"foreign":"keep"}']) {
+          const after = before.replace(
+            /}\s*$/,
+            `${before.includes("foreign") ? "," : ""}"owned":{"value":1}}`,
+          );
+          const inverse = yield* deriveStructuralInverse(before, after);
+          expect(Option.isSome(inverse)).toBe(true);
+          if (Option.isNone(inverse)) continue;
+          expect(Option.getOrUndefined(yield* applyStructuralInverse(after, inverse.value))).toBe(
+            before,
+          );
+          expect(JSON.stringify(inverse.value)).not.toContain("foreign");
+          expect(JSON.stringify(inverse.value)).not.toContain("keep");
+          expect(Option.isNone(yield* applyStructuralInverse(`${after}\n`, inverse.value))).toBe(
+            true,
+          );
+        }
+        expect(
+          Option.isNone(yield* deriveStructuralInverse('{"foreign":1}', '{"foreign":2}')),
+        ).toBe(true);
+      }),
+  );
 
-  it("restores separated formatting spans without persisting comments, keys, or values", () => {
-    for (const [before, after] of [
-      [
-        '{\r\n    "token": "private-token",\r\n    "empty": {}\r\n}',
-        '{\n  "token": "private-token",\n  "empty": {"managed":true}\n}\n',
-      ],
-      [
-        "# authored\r\nlockfileVersion: 12\r\npackages: {}\r\nskills: {}",
-        "# authored\nlockfileVersion: 12\npackages: {}\nskills:\n  owned:\n    value: true\n",
-      ],
-      ['{"token":"α😀","list":[]}', '{\n  "token": "α😀",\n  "list": ["managed"]\n}\n'],
-    ]) {
-      if (before === undefined || after === undefined) continue;
-      const inverse = deriveStructuralInverse(before, after);
-      expect(Option.isSome(inverse)).toBe(true);
-      if (Option.isNone(inverse)) continue;
-      expect(Option.getOrUndefined(applyStructuralInverse(after, inverse.value))).toBe(before);
-      for (const edit of inverse.value.edits) expect(edit.syntax).toMatch(/^[\s{}[\],:]*$/);
-      expect(JSON.stringify(inverse.value)).not.toContain("private-token");
-      expect(JSON.stringify(inverse.value)).not.toContain("authored");
-      expect(Option.isNone(applyStructuralInverse(`${after} `, inverse.value))).toBe(true);
-    }
-  });
+  it.effect(
+    "restores separated formatting spans without persisting comments, keys, or values",
+    () =>
+      Effect.gen(function* () {
+        for (const [before, after] of [
+          [
+            '{\r\n    "token": "private-token",\r\n    "empty": {}\r\n}',
+            '{\n  "token": "private-token",\n  "empty": {"managed":true}\n}\n',
+          ],
+          [
+            "# authored\r\nlockfileVersion: 12\r\npackages: {}\r\nskills: {}",
+            "# authored\nlockfileVersion: 12\npackages: {}\nskills:\n  owned:\n    value: true\n",
+          ],
+          ['{"token":"α😀","list":[]}', '{\n  "token": "α😀",\n  "list": ["managed"]\n}\n'],
+        ]) {
+          if (before === undefined || after === undefined) continue;
+          const inverse = yield* deriveStructuralInverse(before, after);
+          expect(Option.isSome(inverse)).toBe(true);
+          if (Option.isNone(inverse)) continue;
+          expect(Option.getOrUndefined(yield* applyStructuralInverse(after, inverse.value))).toBe(
+            before,
+          );
+          for (const edit of inverse.value.edits) expect(edit.syntax).toMatch(/^[\s{}[\],:]*$/);
+          expect(JSON.stringify(inverse.value)).not.toContain("private-token");
+          expect(JSON.stringify(inverse.value)).not.toContain("authored");
+          expect(Option.isNone(yield* applyStructuralInverse(`${after} `, inverse.value))).toBe(
+            true,
+          );
+        }
+      }),
+  );
 
   it.effect("serializes receipt deltas, retires the last row, and refuses corrupt metadata", () =>
     Effect.gen(function* () {

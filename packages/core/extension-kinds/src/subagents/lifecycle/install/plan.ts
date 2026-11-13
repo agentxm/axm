@@ -46,7 +46,7 @@ export const planSubagentInstall: (
   Plan<InstallStepRequirements>,
   OperationRefused,
   InstallStepRequirements | SubagentManager
-> = Effect.fn("InstallExtensions.planSubagents")(function* (intent: SubagentInstallIntent) {
+> = Effect.fnUntraced(function* (intent: SubagentInstallIntent) {
   const subagentManager = yield* SubagentManager;
   const location = yield* WorkspaceLocation;
   const prior = yield* (yield* DesiredStateReader).graph().pipe(

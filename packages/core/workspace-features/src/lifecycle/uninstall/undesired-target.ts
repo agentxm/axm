@@ -86,9 +86,9 @@ const readFailed = (cause: unknown) =>
  * Fail when no desired route reaches the subject while an installed package
  * for it sits in the install root.
  */
-export const refuseUndesiredInstalledTarget = Effect.fn(
-  "UninstallExtensions.refuseUndesiredInstalledTarget",
-)(function* (subject: UninstallSubject) {
+export const refuseUndesiredInstalledTarget = Effect.fnUntraced(function* (
+  subject: UninstallSubject,
+) {
   const location = yield* WorkspaceLocation;
   const layout = yield* Ref.get(location.layout);
   const desiredState = yield* DesiredStateReader;

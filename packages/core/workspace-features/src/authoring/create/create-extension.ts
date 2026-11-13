@@ -380,7 +380,7 @@ const canonicalLocation = (
  * configured agent that can represent one. Preview and apply read the same
  * function, so a preview lists exactly the locations an apply writes.
  */
-const skillTargetLocations = Effect.fn("CreateExtension.skillTargetLocations")(function* () {
+const skillTargetLocations = Effect.fnUntraced(function* () {
   const location = yield* WorkspaceLocation;
   const path = yield* Path.Path;
   const agents = yield* (yield* CodingAgentRepository).getMaterializationAgents();
@@ -410,7 +410,7 @@ const skillTargetLocations = Effect.fn("CreateExtension.skillTargetLocations")(f
  * every configured agent reads for the selected scope. Preview and apply read
  * the same forecast, so a preview lists exactly the files an apply writes.
  */
-const mcpAgentConfigTargets = Effect.fn("CreateExtension.mcpAgentConfigTargets")(function* () {
+const mcpAgentConfigTargets = Effect.fnUntraced(function* () {
   const location = yield* WorkspaceLocation;
   const settings = yield* SettingsReader;
   const path = yield* Path.Path;
@@ -683,7 +683,7 @@ const prepareCreateExtension: (
     owner,
     name,
     version: scaffold.version,
-    sourceHash: computeSourceHash("scaffold"),
+    sourceHash: yield* computeSourceHash("scaffold"),
     location,
   } as const;
 

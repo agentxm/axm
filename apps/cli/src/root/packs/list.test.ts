@@ -1,3 +1,4 @@
+import { packIdentityFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 /**
  * Unit tests for the packs list command handler.
@@ -13,10 +14,7 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import {
-  computePackManifestContentIdentity,
-  type WorkspaceStateOptions,
-} from "@agentxm/workspace-kernel/workspace-state";
+import { type WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
@@ -47,7 +45,7 @@ const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = 
     lockedPacks[name] = {
       ...value,
       manifestVersion: version,
-      manifestContentIdentity: computePackManifestContentIdentity(manifest),
+      manifestContentIdentity: packIdentityFixture(manifest),
       dependencies: manifest.dependencies,
       treeIntegrity: computeMaterializedTreeIntegritySync(packDir),
     };

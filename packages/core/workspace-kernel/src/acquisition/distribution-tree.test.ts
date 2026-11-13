@@ -1,4 +1,6 @@
+import { withDetailedWork } from "../locations/testing.js";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -67,7 +69,21 @@ describe("selected distribution identity", () => {
           manifest: "skill.json",
         });
         const expected = yield* computeDistributionTreeIntegrity(registry);
-        expect(yield* computeDistributionTreeIntegrity(source, selection)).toBe(expected);
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
+        expect(
+          yield* computeDistributionTreeIntegrity(source, selection).pipe(withDetailedWork(tracer)),
+        ).toBe(expected);
+        const hashes = spans.filter((span) => span.name === "axm.hash.distribution-tree");
+        expect(hashes).toHaveLength(1);
+        expect(hashes[0]?.attributes.get("axm.work.bytes")).toBe(9);
+        expect(hashes[0]?.attributes.get("axm.work.count")).toBe(5);
         yield* fs.remove(path.join(registry, "empty"), { recursive: true });
         expect(yield* computeDistributionTreeIntegrity(registry)).not.toBe(expected);
         yield* fs.makeDirectory(path.join(registry, "empty"));

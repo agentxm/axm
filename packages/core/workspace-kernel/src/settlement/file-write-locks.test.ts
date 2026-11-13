@@ -8,10 +8,40 @@ import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Ref from "effect/Ref";
 import * as Scope from "effect/Scope";
+import * as Tracer from "effect/Tracer";
 
 import { makeWorkspaceFileWriteLocks } from "./file-write-locks.js";
 
 describe("workspace file write locks", () => {
+  it.effect("releases the file permit when cancellation arrives at diagnostic admission", () =>
+    Effect.gen(function* () {
+      const locks = yield* makeWorkspaceFileWriteLocks;
+      const changed = yield* Ref.make(false);
+      const pending = yield* Effect.withFiber((fiber) =>
+        locks.service.withLock("/workspace/config.json", Ref.set(changed, true)).pipe(
+          Effect.withTracer(
+            Tracer.make({
+              span(options) {
+                const span = new Tracer.NativeSpan(options);
+                const end = span.end.bind(span);
+                span.end = (time, exit) => {
+                  end(time, exit);
+                  if (span.name === "axm.wait.file-lock") fiber.interruptUnsafe();
+                };
+                return span;
+              },
+            }),
+          ),
+        ),
+      ).pipe(Effect.forkChild);
+      expect(Exit.hasInterrupts(yield* Fiber.await(pending))).toBe(true);
+      expect(yield* Ref.get(changed)).toBe(false);
+      expect(Array.from(yield* locks.retainedPaths)).toEqual([]);
+      yield* locks.service.withLock("/workspace/config.json", Ref.set(changed, true));
+      expect(yield* Ref.get(changed)).toBe(true);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("keeps same-path waiters exclusive while other paths proceed", () =>
     Effect.gen(function* () {
       const locks = yield* makeWorkspaceFileWriteLocks;
@@ -119,6 +149,16 @@ describe("workspace file write locks", () => {
 
   it.effect("cancels a waiting writer without executing its mutation or evicting its owner", () =>
     Effect.gen(function* () {
+      const waiting = yield* Deferred.make<void>();
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          if (span.name === "axm.wait.file-lock") Deferred.doneUnsafe(waiting, Effect.void);
+          return span;
+        },
+      });
       const locks = yield* makeWorkspaceFileWriteLocks;
       const entered = yield* Deferred.make<void>();
       const changed = yield* Ref.make(false);
@@ -131,8 +171,13 @@ describe("workspace file write locks", () => {
       yield* Deferred.await(entered);
       const waiter = yield* locks.service
         .withLock("/workspace/config.json", Ref.set(changed, true))
-        .pipe(Effect.forkChild({ startImmediately: true }));
+        .pipe(Effect.withTracer(tracer), Effect.forkChild({ startImmediately: true }));
+      yield* Deferred.await(waiting);
+      const wait = spans.find((span) => span.name === "axm.wait.file-lock");
+      expect(wait?.status._tag).toBe("Started");
       yield* Fiber.interrupt(waiter);
+      expect(wait?.status._tag).toBe("Ended");
+      if (wait?.status._tag === "Ended") expect(Exit.hasInterrupts(wait.status.exit)).toBe(true);
       expect(yield* Ref.get(changed)).toBe(false);
       expect(Array.from(yield* locks.retainedPaths)).toEqual(["/workspace/config.json"]);
       yield* Fiber.interrupt(owner);

@@ -1,9 +1,9 @@
+import { projectionDigestFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { projectionOutputDigest } from "@agentxm/workspace-kernel/projection";
 import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 
 import { lintProject, lintServices } from "../../test-helpers.js";
@@ -45,13 +45,15 @@ const lockfile = emitLockfileToml(
     projections: {
       rules: {
         contract: 1,
-        units: { "AGENTS.md": { output: projectionOutputDigest("Written rule.\n") } },
+        units: {
+          "AGENTS.md": { output: projectionDigestFixture("Written rule.\n") },
+        },
       },
       instructions: {
         contract: 1,
         units: {
-          ".gitignore": { output: projectionOutputDigest("CLAUDE.md\n") },
-          "CLAUDE.md": { output: projectionOutputDigest("# Copy\n") },
+          ".gitignore": { output: projectionDigestFixture("CLAUDE.md\n") },
+          "CLAUDE.md": { output: projectionDigestFixture("# Copy\n") },
         },
       },
     },

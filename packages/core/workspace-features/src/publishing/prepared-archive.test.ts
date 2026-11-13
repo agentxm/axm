@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Tracer from "effect/Tracer";
+import { CurrentArchiveWorkObserver, type ArchiveWorkFact } from "@agentxm/extension-content";
 import { applyPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { prepare, previewOrApply } from "./index.js";
 import { makePublishWorld, publishDocument, requestFor } from "./test-helpers.js";
@@ -15,6 +16,7 @@ describe("prepared archive ownership", () => {
             settings: { [type === "hook" ? "hooks" : "knowledge"]: { review: "workspace" } },
           });
           const spans: Tracer.NativeSpan[] = [];
+          const facts: ArchiveWorkFact[] = [];
           const tracer = Tracer.make({
             span(options) {
               const span = new Tracer.NativeSpan(options);
@@ -23,11 +25,22 @@ describe("prepared archive ownership", () => {
             },
           });
           const count = (name: string) => spans.filter((span) => span.name === name).length;
+          const observe = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+            effect.pipe(
+              Effect.provideService(CurrentArchiveWorkObserver, {
+                record: (fact) =>
+                  Effect.sync(() => {
+                    facts.push(fact);
+                  }),
+              }),
+              Effect.withTracer(tracer),
+              Effect.withTracerEnabled(true),
+            );
           try {
             world.write(type, { name: "review" });
             const ready = yield* world
               .provide(prepare(requestFor(world, { preview: false })))
-              .pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true));
+              .pipe(observe);
             expect(ready._tag).toBe("Ready");
             if (ready._tag !== "Ready") return;
             const candidate = ready.candidate.uploadCandidates[0];
@@ -35,7 +48,8 @@ describe("prepared archive ownership", () => {
             if (candidate === undefined) return;
             const original = candidate.archive.copyBytes();
             candidate.archive.copyBytes().fill(0);
-            expect(count("axm.archive.parse")).toBe(1);
+            expect(facts.filter((fact) => fact.kind === "parse")).toHaveLength(1);
+            expect(count("axm.archive.parse")).toBe(0);
             expect(count("axm.archive.admit")).toBe(1);
             expect(count("axm.archive.decode-manifest")).toBe(1);
             const result = yield* world
@@ -49,14 +63,15 @@ describe("prepared archive ownership", () => {
                   }),
                 ),
               )
-              .pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true));
+              .pipe(observe);
             expect(publishDocument(result).counts.published).toBe(1);
             expect(
               new Uint8Array(
                 world.archive("review", "1.0.0", type === "hook" ? "hooks" : "knowledge"),
               ),
             ).toEqual(original);
-            expect(count("axm.archive.parse")).toBe(2);
+            expect(facts.filter((fact) => fact.kind === "parse")).toHaveLength(2);
+            expect(count("axm.archive.parse")).toBe(0);
             expect(count("axm.archive.admit")).toBe(2);
             expect(count("axm.publish.validate-source")).toBe(1);
           } finally {

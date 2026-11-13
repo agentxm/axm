@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
 import { ExitCode, makeAppError } from "../app-error/index.js";
 import { processOutcome } from "./process-outcome.js";
 import { runCliMain } from "./run-cli-main.js";
+import { localTracingCollector } from "../test-support/local-tracing-collector.js";
 
 class ExitCalled extends Error {
   readonly code: number;
@@ -44,6 +45,7 @@ describe("runCliMain", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it("leaves successful Screen-owned output untouched", async () => {
@@ -132,4 +134,42 @@ describe("runCliMain", () => {
     expect(stdoutWrites).toEqual([]);
     expect(stderrWrites).toEqual([]);
   });
+
+  it.live(
+    "flushes the identifiable failed invocation after acknowledged error rendering and before exit",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const receiver = yield* localTracingCollector();
+          vi.stubEnv("AXM_TRACE", "1");
+          vi.stubEnv("AXM_TRACE_ENDPOINT", receiver.endpoint);
+          yield* Effect.promise(() =>
+            expect(
+              runCliMain(
+                () =>
+                  Effect.fail(makeAppError({ code: "usage", detail: "private-bootstrap-detail" })),
+                { args: ["private-operand", "--json"] },
+              ),
+            ).rejects.toMatchObject({ code: ExitCode.Usage }),
+          );
+          const spans = receiver.spans();
+          const root = spans.find((span) => span.name === "axm.cli.invocation");
+          const render = spans.find((span) => span.name === "axm.cli.error-render");
+          expect(root?.attributes).toEqual(
+            expect.arrayContaining([
+              { key: "axm.command.route", value: { stringValue: "unresolved" } },
+              { key: "axm.operation.mode", value: { stringValue: "unresolved" } },
+              { key: "axm.exit.code", value: { intValue: ExitCode.Usage } },
+              { key: "axm.outcome", value: { stringValue: "failure" } },
+              { key: "axm.failure.category", value: { stringValue: "usage" } },
+              { key: "axm.failure.kind", value: { stringValue: "failure" } },
+            ]),
+          );
+          expect(render?.parentSpanId).toBe(root?.spanId);
+          expect(stdoutWrites.join("")).toContain("private-bootstrap-detail");
+          expect(receiver.bodies.join("")).not.toContain("private-bootstrap-detail");
+          expect(receiver.bodies.join("")).not.toContain("private-operand");
+        }),
+      ),
+  );
 });

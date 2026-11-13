@@ -1,3 +1,4 @@
+import { sourceHashFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 /**
  * Unit tests for the disable command handler.
  *
@@ -11,11 +12,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
-import {
-  computeSourceHash,
-  LockfileSchema,
-  parseLockfileToml,
-} from "@agentxm/workspace-kernel/workspace-state";
+import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
@@ -242,7 +239,7 @@ describe("disable.handler", () => {
             integrity: `sha512-${"A".repeat(86)}==`,
             sourceName: "test",
             publisherBindingId: "hbnd_test",
-            sourceHash: computeSourceHash("SKILL.md\n# code-review"),
+            sourceHash: sourceHashFixture("SKILL.md\n# code-review"),
             agents: ["claude-code"],
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

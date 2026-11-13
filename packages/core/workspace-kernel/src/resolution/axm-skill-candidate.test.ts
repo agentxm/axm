@@ -1,3 +1,4 @@
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -6,7 +7,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { computeSourceHash } from "../workspace-state/index.js";
 import { exactVersion, extensionName, handle } from "./test-helpers.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
@@ -43,7 +43,9 @@ describe("validateAxmSkillCandidate", () => {
       version: exactVersion(VERSION),
       scope: "project",
       location: packageRoot,
-      sourceHash: computeSourceHash("candidate"),
+      sourceHash: SourceHashSchema.make(
+        "dda18a0e21ae47c53b4309434cbc02ae8bf764fa83a6defbb719431242722aa7",
+      ),
       skill: { name: decodedName, description: Option.none(), metadata: Option.none() },
     };
   };

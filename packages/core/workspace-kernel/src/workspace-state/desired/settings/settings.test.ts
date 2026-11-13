@@ -586,25 +586,27 @@ ${lintBlock}
       ),
     );
 
-    it("falls back to canonical output when an edit produces invalid content", () => {
-      const canonicalContent = `{
+    it.effect("falls back to canonical output when an edit produces invalid content", () =>
+      Effect.gen(function* () {
+        const canonicalContent = `{
   "agents": [
     "claude-code"
   ]
 }\n`;
-      const result = renderExistingSettings(
-        "{}\n",
-        {},
-        { agents: ["claude-code"] },
-        () => canonicalContent,
-        () => ({ _tag: "Success", text: "{ invalid" }),
-      );
+        const result = yield* renderExistingSettings(
+          "{}\n",
+          {},
+          { agents: ["claude-code"] },
+          () => canonicalContent,
+          () => Effect.succeed({ _tag: "Success", text: "{ invalid" }),
+        );
 
-      expect(result).toEqual({
-        content: canonicalContent,
-        fallbackReason: "edited_content_invalid",
-      });
-    });
+        expect(result).toEqual({
+          content: canonicalContent,
+          fallbackReason: "edited_content_invalid",
+        });
+      }),
+    );
 
     it.effect("creates directory if it does not exist", () =>
       withContext(

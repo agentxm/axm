@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 /** Typed MCP manifest reads shared by projection and connection lifecycle. */
 
 import * as Effect from "effect/Effect";
@@ -26,21 +27,27 @@ export const decodeMcpServerManifestAt = (
           }),
       ),
     );
-    const parsed = yield* Effect.try({
-      try: () => {
-        const value: unknown = JSON.parse(raw);
-        return value;
-      },
-      catch: () =>
-        new McpConfigInvalid({ detail: `Invalid JSON in MCP server manifest: ${manifestPath}` }),
-    });
-    return yield* Schema.decodeUnknownEffect(McpServerManifestSchema)(parsed).pipe(
-      Effect.mapError(
-        () =>
-          new McpConfigInvalid({
-            detail: `Invalid MCP server manifest: ${manifestPath}; input values are withheld`,
-          }),
-      ),
+    return yield* Effect.gen(function* () {
+      const parsed = yield* Effect.try({
+        try: () => {
+          const value: unknown = JSON.parse(raw);
+          return value;
+        },
+        catch: () =>
+          new McpConfigInvalid({ detail: `Invalid JSON in MCP server manifest: ${manifestPath}` }),
+      });
+      return yield* Schema.decodeUnknownEffect(McpServerManifestSchema)(parsed).pipe(
+        Effect.mapError(
+          () =>
+            new McpConfigInvalid({
+              detail: `Invalid MCP server manifest: ${manifestPath}; input values are withheld`,
+            }),
+        ),
+      );
+    }).pipe((effect) =>
+      withWork("axm.parse.manifest", effect, {
+        attributes: { "axm.manifest.kind": "mcp", "axm.work.count": 1 },
+      }),
     );
   });
 

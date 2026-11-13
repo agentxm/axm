@@ -65,6 +65,8 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 
 import { OperationInvocation } from "./cli-runtime/operation-invocation.js";
+import { observeLifecycleForTracing } from "./cli-runtime/lifecycle-tracing.js";
+import { annotateInvocationTrace } from "./cli-runtime/trace-invocation.js";
 import { CurrentScreenOperationId, Screen } from "./screen/index.js";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -116,6 +118,7 @@ const settledOutcomeForExit = (
 export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect.Effect<A, E, R>) =>
   Effect.scoped(
     Effect.gen(function* () {
+      yield* annotateInvocationTrace({ "axm.operation.mode": args.mode });
       const screen = yield* Screen;
       if (args.mode === "apply" && args.productActivity !== undefined) {
         yield* startProductActivity(args.productActivity);
@@ -129,6 +132,7 @@ export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect
       const scratchBudget = yield* makeOperationScratchBudget(MAX_OPERATION_SCRATCH_BYTES);
       yield* screen.observe(lifecycle);
       yield* observeLifecycleForTelemetry(lifecycle);
+      yield* observeLifecycleForTracing(lifecycle);
       yield* lifecycle.publish((seq, atMs) => ({
         _tag: "OperationStarted",
         seq,
@@ -166,7 +170,7 @@ export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect
         ),
       );
     }),
-  );
+  ).pipe(Effect.withSpan("axm.cli.operation", {}, { captureStackTrace: false }));
 
 /**
  * Run a plan-family handler body under the operation lifecycle. The body owns
@@ -196,6 +200,9 @@ export const withOperationLifecycle = <A, E, R>(
                   ? {}
                   : { productActivity: args.productActivity }),
               },
+              // This initial lifecycle fact describes the operation's state.
+              // The body also contains later phases, whose actual producers
+              // own their trace intervals; it is not one resolution interval.
               publishPhaseStarted("resolution").pipe(
                 Effect.andThen(body),
                 Effect.provideService(OperationJournal, journal),

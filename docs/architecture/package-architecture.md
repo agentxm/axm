@@ -482,6 +482,12 @@ packages; every strategic tier may import them subject to the role matrix.
 | -------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@agentxm/host-primitives` | `role:capability` | Atomic single-file replacement and stale temporary-file sweep, filesystem absence reads, SRI digests, credential redaction, the file-location codec, lexical path containment, process-environment readers, loopback host recognition, per-operation request admission, and user-home / AXM-home and cache-root resolution; private and bundled into `axm.sh` |
 
+The `@agentxm/host-primitives/work-observation` entry is a shared application
+API for reporting bounded work facts and selecting diagnostic detail. It owns
+no filesystem, network exporter, or product lifecycle. Application producers
+can consume this port; the root entry remains a host-adapter API. CLI composition
+provides the invocation observer and owns aggregate admission, privacy and delivery.
+
 ## Engineering libraries
 
 `tools/` — engineering support. No `domain:*` tag, `role:tooling`, and barred

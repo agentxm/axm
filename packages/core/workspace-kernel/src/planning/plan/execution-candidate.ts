@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import * as crypto from "node:crypto";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -94,16 +95,33 @@ const fingerprintMaterials = (
 ): Effect.Effect<string, CandidateFingerprintFailed> =>
   Effect.gen(function* () {
     const hash = crypto.createHash("sha256");
-    for (const target of materialPaths) {
-      const parts = yield* fingerprintPath(target, path.relative(baseDir, target), fs, path);
-      for (const part of parts) {
-        hash.update(`${typeof part === "string" ? Buffer.byteLength(part) : part.byteLength}\0`);
-        hash.update(part);
-        hash.update("\0");
+    let bytes = 0;
+    let partsHashed = 0;
+    return yield* Effect.gen(function* () {
+      for (const target of materialPaths) {
+        const parts = yield* fingerprintPath(target, path.relative(baseDir, target), fs, path);
+        for (const part of parts) {
+          const size = typeof part === "string" ? Buffer.byteLength(part) : part.byteLength;
+          const frame = `${size}\0`;
+          hash.update(frame);
+          hash.update(part);
+          hash.update("\0");
+          bytes += Buffer.byteLength(frame) + size + 1;
+          partsHashed++;
+        }
       }
-    }
-    return hash.digest("hex");
-  });
+      return hash.digest("hex");
+    }).pipe(
+      Effect.ensuring(
+        Effect.suspend(() =>
+          annotateWork({
+            "axm.work.bytes": bytes,
+            "axm.work.count": partsHashed,
+          }),
+        ),
+      ),
+    );
+  }).pipe((effect) => withWork("axm.hash.execution-materials", effect));
 
 // Absolute paths inside plan metadata relativize before hashing: candidate
 // identity is a property of workspace content, not of where it sits on disk.
@@ -162,15 +180,30 @@ export const makeExecutionCandidate = <Requirements, Output>(
       path,
     );
     const materialFingerprint = yield* fingerprintMaterials(materialPaths, paths.baseDir, fs, path);
-    const identity = crypto
-      .createHash("sha256")
-      .update(planIdentity(plan, paths.baseDir, path))
-      .update("\0")
-      .update(materialFingerprint);
-    if (paths.observedInputFingerprint !== undefined) {
-      identity.update("\0observed-input\0").update(paths.observedInputFingerprint);
-    }
-    const id = identity.digest("hex");
+    const id = yield* Effect.gen(function* () {
+      const serialized = planIdentity(plan, paths.baseDir, path);
+      const observed = paths.observedInputFingerprint;
+      const digest = yield* Effect.sync(() => {
+        const identity = crypto
+          .createHash("sha256")
+          .update(serialized)
+          .update("\0")
+          .update(materialFingerprint);
+        if (observed !== undefined) identity.update("\0observed-input\0").update(observed);
+        return identity.digest("hex");
+      });
+      yield* annotateWork({
+        "axm.work.count": 1,
+        "axm.work.bytes":
+          Buffer.byteLength(serialized) +
+          1 +
+          Buffer.byteLength(materialFingerprint) +
+          (observed === undefined
+            ? 0
+            : Buffer.byteLength("\0observed-input\0") + Buffer.byteLength(observed)),
+      });
+      return digest;
+    }).pipe((effect) => withWork("axm.hash.execution-candidate", effect));
     return {
       id,
       plan,

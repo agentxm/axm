@@ -1,6 +1,8 @@
+import { withDetailedWork } from "../../locations/testing.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Tracer from "effect/Tracer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { observeGitIgnoreInputs } from "../index.js";
@@ -17,7 +19,19 @@ describe("publication ignore discovery", () => {
       yield* fs.writeFileString(path.join(root, ".gitignore"), "# comment\n*.log\n");
       yield* fs.writeFileString(path.join(root, "skills", ".gitignore"), "dist/\n");
       yield* fs.writeFileString(path.join(packageRoot, "src", ".gitignore"), "!keep.log\n");
-      const before = yield* observeGitIgnoreInputs({ packageRoot });
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      });
+      const observe = observeGitIgnoreInputs({ packageRoot }).pipe(withDetailedWork(tracer));
+      const before = yield* observe;
+      expect(before.fingerprint).toBe(
+        "6bfbb4801cf1f2b5cf5152ca4742e22b876c9beab21c18104f06d28cc01b8285",
+      );
       expect(before.boundaryRoot).toBe(root);
       expect(before.packageDirectory).toBe("skills/review");
       expect(before.rules.map(({ origin }) => origin)).toEqual([
@@ -26,14 +40,21 @@ describe("publication ignore discovery", () => {
         { kind: "gitignore", file: "skills/review/src/.gitignore", line: 1 },
       ]);
       yield* fs.writeFileString(path.join(packageRoot, ".gitignore"), "*.map\n");
-      const added = yield* observeGitIgnoreInputs({ packageRoot });
+      const added = yield* observe;
       expect(added.fingerprint).not.toBe(before.fingerprint);
       yield* fs.remove(path.join(packageRoot, ".gitignore"));
-      expect((yield* observeGitIgnoreInputs({ packageRoot })).fingerprint).toBe(before.fingerprint);
+      expect((yield* observe).fingerprint).toBe(before.fingerprint);
       yield* fs.writeFileString(path.join(root, ".gitignore"), "*.txt\n");
-      expect((yield* observeGitIgnoreInputs({ packageRoot })).fingerprint).not.toBe(
-        before.fingerprint,
+      expect((yield* observe).fingerprint).toBe(
+        "ad714ce53d4aa2b1ec3e296baba62fb58a2fba9e73474b6ec0ce2adc7e358b73",
       );
+      const hashes = spans.filter((span) => span.name === "axm.hash.git-ignore");
+      expect(hashes.map((span) => span.attributes.get("axm.work.count"))).toEqual([1, 1, 1, 1]);
+      // Fixed UTF-8 sizes of the four independently enumerated ignore snapshots.
+      expect(hashes.map((span) => span.attributes.get("axm.work.bytes"))).toEqual([
+        218, 275, 218, 207,
+      ]);
+      expect(hashes.every((span) => span.status._tag === "Ended")).toBe(true);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

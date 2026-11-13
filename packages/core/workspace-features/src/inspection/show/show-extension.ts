@@ -120,41 +120,39 @@ export const EXTENSION_SHOW_ITEM_FIELDS = Object.keys(ShowItemSchema.fields);
  * The version a physically present extension declares, read from its own
  * manifest. Used only when nothing is accepted for it in the lockfile.
  */
-const canonicalManifestVersion = Effect.fn("ShowExtension.canonicalManifestVersion")(
-  function* (args: {
-    readonly baseDir: string;
-    readonly type: InstallableExtensionType;
-    readonly name: string;
-    readonly paths: ReadonlyArray<string>;
-  }) {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const manifestFilename = manifestFilenameForType(args.type);
-    const versions = yield* Effect.forEach(
-      args.paths,
-      (root) =>
-        fs.readFileString(path.resolve(args.baseDir, root, manifestFilename)).pipe(
-          Effect.flatMap((content) =>
-            Effect.try({
-              try: () => JSON.parse(content),
-              catch: () => null,
-            }),
-          ),
-          Effect.map((value) => Schema.decodeUnknownResult(ManifestIdentitySchema)(value)),
-          Effect.map((decoded) =>
-            Result.isSuccess(decoded) &&
-            decoded.success.type === args.type &&
-            decoded.success.name === args.name
-              ? decoded.success.version
-              : null,
-          ),
-          Effect.orElseSucceed(() => null),
+const canonicalManifestVersion = Effect.fnUntraced(function* (args: {
+  readonly baseDir: string;
+  readonly type: InstallableExtensionType;
+  readonly name: string;
+  readonly paths: ReadonlyArray<string>;
+}) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const manifestFilename = manifestFilenameForType(args.type);
+  const versions = yield* Effect.forEach(
+    args.paths,
+    (root) =>
+      fs.readFileString(path.resolve(args.baseDir, root, manifestFilename)).pipe(
+        Effect.flatMap((content) =>
+          Effect.try({
+            try: () => JSON.parse(content),
+            catch: () => null,
+          }),
         ),
-      { concurrency: 4 },
-    );
-    return versions.find((version) => version !== null) ?? null;
-  },
-);
+        Effect.map((value) => Schema.decodeUnknownResult(ManifestIdentitySchema)(value)),
+        Effect.map((decoded) =>
+          Result.isSuccess(decoded) &&
+          decoded.success.type === args.type &&
+          decoded.success.name === args.name
+            ? decoded.success.version
+            : null,
+        ),
+        Effect.orElseSucceed(() => null),
+      ),
+    { concurrency: 4 },
+  );
+  return versions.find((version) => version !== null) ?? null;
+});
 
 export interface ShowExtensionRequest {
   readonly type: InstallableExtensionType;

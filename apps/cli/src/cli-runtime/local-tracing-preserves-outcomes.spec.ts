@@ -42,7 +42,7 @@ describe("Local trace failure isolation", () => {
               reads += 1;
               output.push("product output");
               return fail ? yield* failure : { exitCode: 0, value: "result" };
-            });
+            }).pipe(Effect.withSpan("axm.cli.operation"));
             const baseline = yield* Effect.exit(withLocalTracing(program, {}));
             const start = performance.now();
             const traced = yield* Effect.exit(
@@ -57,6 +57,8 @@ describe("Local trace failure isolation", () => {
             expect(reads).toBe(2);
             expect(output).toEqual(["product output", "product output"]);
             expect(receiver.bodies.length).toBeGreaterThan(0);
+            expect(receiver.spans().length).toBeGreaterThan(0);
+            expect(receiver.logs().length).toBeGreaterThan(0);
           }),
         ),
       );

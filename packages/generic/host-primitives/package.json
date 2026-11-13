@@ -20,6 +20,11 @@
       "types": "./dist/src/index.d.ts",
       "axm-source": "./src/index.ts",
       "default": "./dist/src/index.js"
+    },
+    "./work-observation": {
+      "types": "./dist/src/work-observation.d.ts",
+      "axm-source": "./src/work-observation.ts",
+      "default": "./dist/src/work-observation.js"
     }
   },
   "files": [

@@ -93,7 +93,7 @@ interface RuleRegionContributor {
 const rulesRegionGeneration = (
   target: string,
   contributors: ReadonlyArray<RuleRegionContributor>,
-): ProjectionDigest =>
+): Effect.Effect<ProjectionDigest> =>
   projectionGeneration([
     target,
     ...contributors.map((contributor) =>
@@ -340,7 +340,7 @@ export const RuleManagerLive = Layer.effect(
           displayPath,
           region: RULES_REGION,
           body: contributors.map(renderRuleBlock).join("\n\n"),
-          gen: rulesRegionGeneration(displayPath, contributors),
+          gen: yield* rulesRegionGeneration(displayPath, contributors),
           recorded: Option.fromUndefinedOr(rows.get(displayPath)),
           contributors: contributors.map(({ name, marker, root }) => ({
             name,
@@ -475,7 +475,7 @@ export const RuleManagerLive = Layer.effect(
         graph: yield* desiredState.graph(),
         locked: yield* lockfile.entries("rule"),
       });
-      return rulesRegionGeneration(
+      return yield* rulesRegionGeneration(
         yield* projectionUnitPath(baseDir, path.resolve(baseDir, target.relative)),
         contributors,
       );

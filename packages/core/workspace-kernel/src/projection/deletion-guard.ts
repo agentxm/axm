@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect";
 /**
  * The deletion guard for whole-file projections. AXM deletes a projected file
  * only when it can show the bytes are its own last write, or the render it
@@ -21,15 +22,17 @@ export const decideOutputDeletion = (args: {
   readonly expectedRender: Option.Option<string>;
   /** Delete recorded files even when they were modified since the last write. */
   readonly discardModified: boolean;
-}): DeletionDecision => {
-  if (Option.isNone(args.bytes)) return { _tag: "delete" };
-  if (Option.isNone(args.recorded)) return { _tag: "retain", reason: "unrecorded" };
-  const bytes = args.bytes.value;
-  if (projectionOutputDigest(bytes) === args.recorded.value.row.output) return { _tag: "delete" };
-  if (Option.contains(args.expectedRender, bytes)) return { _tag: "delete" };
-  if (args.discardModified) return { _tag: "delete" };
-  return { _tag: "retain", reason: "modified" };
-};
+}): Effect.Effect<DeletionDecision> =>
+  Effect.gen(function* (): Effect.fn.Return<DeletionDecision> {
+    if (Option.isNone(args.bytes)) return { _tag: "delete" };
+    if (Option.isNone(args.recorded)) return { _tag: "retain", reason: "unrecorded" };
+    const bytes = args.bytes.value;
+    if ((yield* projectionOutputDigest(bytes)) === args.recorded.value.row.output)
+      return { _tag: "delete" };
+    if (Option.contains(args.expectedRender, bytes)) return { _tag: "delete" };
+    if (args.discardModified) return { _tag: "delete" };
+    return { _tag: "retain", reason: "modified" };
+  });
 
 /**
  * The warning a retained projected file reports. It names `--discard-modified`

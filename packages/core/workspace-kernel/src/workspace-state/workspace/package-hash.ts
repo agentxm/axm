@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 /**
  * Content hashing for installed extension packages.
  *
@@ -33,7 +34,11 @@ export const computePackageContentHash = (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const hash = crypto.createHash("sha256");
+    let byteCount = 0;
+    let entryCount = 0;
     const frame = (kind: string, relative: string, bytes: Uint8Array): void => {
+      byteCount += bytes.byteLength;
+      entryCount += 1;
       hash.update(kind);
       hash.update("\0");
       hash.update(relative);
@@ -61,6 +66,18 @@ export const computePackageContentHash = (
           }
         }
       });
-    yield* walk(packageDir, "");
-    return computeSourceHash(hash.digest("hex"));
-  }).pipe(Effect.mapError((cause) => new PackageContentHashFailed({ packageDir, cause })));
+    yield* walk(packageDir, "").pipe(
+      Effect.ensuring(
+        Effect.suspend(() =>
+          annotateWork({
+            "axm.work.bytes": byteCount,
+            "axm.work.count": entryCount,
+          }),
+        ),
+      ),
+    );
+    return yield* computeSourceHash(hash.digest("hex"));
+  }).pipe(
+    Effect.mapError((cause) => new PackageContentHashFailed({ packageDir, cause })),
+    (effect) => withWork("axm.hash.package", effect),
+  );

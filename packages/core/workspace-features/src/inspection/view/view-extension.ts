@@ -119,9 +119,7 @@ const installCommandFor = (type: ExtensionType, handle: string): string =>
  * otherwise the named source or http(s) origin — through the invocation's
  * one Registry selection.
  */
-export const resolveViewRegistry = Effect.fn("ViewExtension.resolveRegistry")(function* (
-  registry: Option.Option<string>,
-) {
+export const resolveViewRegistry = Effect.fnUntraced(function* (registry: Option.Option<string>) {
   const context = yield* RegistryContext;
   const selected = yield* context.target(registry);
   const defaultBound = yield* context.defaultBound;
@@ -133,7 +131,7 @@ export const resolveViewRegistry = Effect.fn("ViewExtension.resolveRegistry")(fu
 });
 
 /** The published identity a handle names, resolving a bare name if needed. */
-export const resolveViewHandle = Effect.fn("ViewExtension.resolveHandle")(function* (request: {
+export const resolveViewHandle = Effect.fnUntraced(function* (request: {
   readonly handle: string;
   readonly type: Option.Option<IdentifierResourceType>;
 }) {

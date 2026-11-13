@@ -89,14 +89,14 @@ const stale = { type: "skill", name: "stale" } as const;
 const observations = [
   {
     case: "absent document",
-    observation: { status: "absent" } as const,
+    observation: Effect.succeed({ status: "absent" } as const),
     problem: { type: "pack-manifest-unavailable", reason: "absent" },
     membership: { status: "unknown", reason: "absent" },
     decision: "unknown",
   },
   {
     case: "unreadable document",
-    observation: { status: "unreadable", reason: "PermissionDenied" } as const,
+    observation: Effect.succeed({ status: "unreadable", reason: "PermissionDenied" } as const),
     problem: { type: "pack-manifest-unavailable", reason: "unreadable", cause: "PermissionDenied" },
     membership: { status: "unknown", reason: "unreadable" },
     decision: "unknown",
@@ -133,7 +133,7 @@ describe("Uncertainty never proves absence", () => {
     Effect.gen(function* () {
       const graph = yield* evaluate({
         settings: { owner: OWNER, packs: { toolkit: "workspace" } },
-        documents: { toolkit: row.observation },
+        documents: { toolkit: yield* row.observation },
       });
 
       expect(graph.problems).toEqual(
@@ -163,7 +163,7 @@ describe("Uncertainty never proves absence", () => {
     "an acquired Pack needs accepted dependency authority and does not infer membership from installed files",
     () =>
       Effect.gen(function* () {
-        const manifest = decoded("toolkit", { "@acme/skills/review": "^1.0.0" });
+        const manifest = yield* decoded("toolkit", { "@acme/skills/review": "^1.0.0" });
         const settings = { packs: { toolkit: "@acme/packs/toolkit" } };
 
         const withoutResolution = yield* evaluate({ settings, documents: { toolkit: manifest } });
@@ -192,11 +192,11 @@ describe("Uncertainty never proves absence", () => {
             lockfileVersion: 1,
             skills: {},
             packs: {
-              toolkit: makeRegistryPackLockEntry({
+              toolkit: yield* makeRegistryPackLockEntry({
                 owner,
                 name: "toolkit",
                 dependencies: manifest.manifest.dependencies,
-                sourceHash: computePackManifestContentIdentity(manifest.manifest),
+                sourceHash: yield* computePackManifestContentIdentity(manifest.manifest),
               }),
             },
           },
@@ -204,8 +204,8 @@ describe("Uncertainty never proves absence", () => {
 
         for (const observation of [
           { status: "absent" } as const,
-          observePackManifest("{ invalid"),
-          decoded("toolkit", { "@evil/skills/injected": "*" }),
+          yield* observePackManifest("{ invalid"),
+          yield* decoded("toolkit", { "@evil/skills/injected": "*" }),
         ]) {
           const independentOfInstalledContent = yield* evaluate({
             settings,
@@ -214,7 +214,7 @@ describe("Uncertainty never proves absence", () => {
               lockfileVersion: 1,
               skills: {},
               packs: {
-                toolkit: makeRegistryPackLockEntry({
+                toolkit: yield* makeRegistryPackLockEntry({
                   owner,
                   name: "toolkit",
                   dependencies: manifest.manifest.dependencies,
@@ -239,7 +239,7 @@ describe("Uncertainty never proves absence", () => {
     "a disabled Pack proves its membership without routing it, so a member preference stays bound and dormant",
     () =>
       Effect.gen(function* () {
-        const toolkit = decoded("toolkit", { "@acme/rules/guard": "^1.0.0" });
+        const toolkit = yield* decoded("toolkit", { "@acme/rules/guard": "^1.0.0" });
         const preference = { rules: { guard: { enabled: true } } };
 
         const dormant = yield* evaluate({
@@ -295,7 +295,7 @@ describe("Uncertainty never proves absence", () => {
           },
           documents: {
             toolkit: { status: "absent" },
-            platform: decoded("platform", { "@acme/rules/guard": "^1.0.0" }),
+            platform: yield* decoded("platform", { "@acme/rules/guard": "^1.0.0" }),
           },
         });
         const [toolkit] = graph.packMembership.filter((pack) => pack.settingsName === "toolkit");
@@ -319,7 +319,7 @@ describe("Uncertainty never proves absence", () => {
 
         const settled = yield* evaluate({
           settings: { owner: OWNER, packs: { platform: "workspace" } },
-          documents: { platform: decoded("platform", { "@acme/rules/guard": "^1.0.0" }) },
+          documents: { platform: yield* decoded("platform", { "@acme/rules/guard": "^1.0.0" }) },
         });
         expect(acceptedRowReachability(settled, { type: "skill", key: "stale" })).toEqual({
           decision: "not-reached",
@@ -332,8 +332,8 @@ describe("Uncertainty never proves absence", () => {
       const graph = yield* evaluate({
         settings: { owner: OWNER, packs: { one: "workspace", two: "workspace" } },
         documents: {
-          one: decoded("one", { "@one/skills/review": "^1.0.0" }),
-          two: decoded("two", { "@two/skills/review": "^1.0.0" }),
+          one: yield* decoded("one", { "@one/skills/review": "^1.0.0" }),
+          two: yield* decoded("two", { "@two/skills/review": "^1.0.0" }),
         },
       });
 
@@ -366,7 +366,7 @@ describe("Uncertainty never proves absence", () => {
             skills: { review: "@acme/skills/review@2.0.0" },
             packs: { toolkit: "workspace" },
           },
-          documents: { toolkit: decoded("toolkit", { "@acme/skills/review": "^1.0.0" }) },
+          documents: { toolkit: yield* decoded("toolkit", { "@acme/skills/review": "^1.0.0" }) },
         });
 
         expect(graph.problems).toEqual([

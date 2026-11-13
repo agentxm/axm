@@ -232,8 +232,8 @@ export const classifyError = (
 /**
  * Error routing based on output mode.
  *
- * Classifies the error, writes its stderr lines and optional stdout document,
- * and exits.
+ * Classifies the error and acknowledges its output before returning the exit
+ * code. The process owner exits only after diagnostic finalizers have drained.
  */
 export const handleError = (
   error: unknown,
@@ -292,10 +292,6 @@ export const handleError = (
   return output.pipe(
     Effect.provide(format === "json" ? MachineScreen() : InteractiveScreen()),
     Effect.catchTag("OutputWriteFailed", () => Effect.void),
-    Effect.andThen(
-      Effect.sync(() => {
-        process.exit(exitCode);
-      }),
-    ),
+    Effect.as(exitCode),
   );
 };

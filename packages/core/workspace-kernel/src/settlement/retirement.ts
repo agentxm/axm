@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as SynchronizedRef from "effect/SynchronizedRef";
+import { updateTransactionLedger } from "./ledger-admission.js";
 
 import { assertNativeMutationWithinRoots, resolveNativeReferent } from "../locations/index.js";
 import {
@@ -48,7 +48,7 @@ export const retireWorkspacePath = Effect.fnUntraced(function* (
   }
   const context = current.value;
   yield* protectInContext(context, target, closure);
-  yield* SynchronizedRef.updateEffect(context.ledger, (ledger) =>
+  yield* updateTransactionLedger(context.ledger, (ledger) =>
     Effect.gen(function* () {
       const selected = yield* assertNativeMutationWithinRoots(
         context.nativeRoots,

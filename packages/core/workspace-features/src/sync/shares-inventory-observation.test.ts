@@ -1,4 +1,6 @@
+import { CurrentWorkObserver, type WorkFact } from "@agentxm/host-primitives/work-observation";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 import * as Context from "effect/Context";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
@@ -83,9 +85,38 @@ describe("Sync inventory observation", () => {
       .provide(
         Effect.gen(function* () {
           const counts = { skillInventoryReads: 0, graphReads: 0 };
-          yield* countPhaseReads(SyncWorkspace.prepare(syncRequest()), counts);
+          const spans: Tracer.NativeSpan[] = [];
+          const tracer = Tracer.make({
+            span(options) {
+              const span = new Tracer.NativeSpan(options);
+              spans.push(span);
+              return span;
+            },
+          });
+          const facts: WorkFact[] = [];
+          const before = workspace.snapshot();
+          const candidate = yield* countPhaseReads(
+            SyncWorkspace.prepare(syncRequest()),
+            counts,
+          ).pipe(
+            Effect.withTracer(tracer),
+            Effect.provideService(CurrentWorkObserver, {
+              record: (fact) => {
+                facts.push(fact);
+              },
+              detailSelected: () => false,
+            }),
+          );
+          expect(candidate._tag).toBe("SyncWorkspace");
           expect(counts.skillInventoryReads).toBe(2);
           expect(counts.graphReads).toBe(2);
+          expect(workspace.snapshot()).toEqual(before);
+          expect(spans.filter((span) => span.name === "axm.hash.sync-observations")).toEqual([]);
+          const observations = facts.filter((fact) => fact.kind === "axm.hash.sync-observations");
+          expect(observations).toHaveLength(1);
+          expect(observations[0]?.attributes["axm.work.count"]).toBe(1);
+          expect(observations[0]?.attributes["axm.work.bytes"]).toBeGreaterThan(69);
+          expect(observations[0]?.outcome).toBe("success");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

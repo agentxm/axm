@@ -37,10 +37,11 @@ it.effect("refuses unreadable existing prepared output before deciding or writin
         filePath,
         content: "Replacement\n",
         bindings: [{ path: filePath, directory: root }],
-        decideWrite: () => {
-          decisions++;
-          return { _tag: "write" };
-        },
+        decideWrite: () =>
+          Effect.sync<Effect.Success<ReturnType<AddSubagentArgs["decideWrite"]>>>(() => {
+            decisions++;
+            return { _tag: "write" };
+          }),
       }).pipe(
         Effect.provideService(FileSystem.FileSystem, {
           ...fs,
@@ -85,7 +86,10 @@ it.effect("refuses a prepared file after any reader alias changes physical desti
           { path: filePath, directory: first },
           { path: nodePath.join(alias, "review.md"), directory: alias },
         ],
-        decideWrite: () => ({ _tag: "write" as const }),
+        decideWrite: () =>
+          Effect.sync<Effect.Success<ReturnType<AddSubagentArgs["decideWrite"]>>>(() => ({
+            _tag: "write" as const,
+          })),
       };
       expect(yield* writePreparedSubagentFile(args)).toMatchObject({
         _tag: "written",
@@ -114,14 +118,16 @@ const windsurfCodingAgent = codingAgentForId("windsurf");
  * decision it is handed.
  */
 const decideWrite: AddSubagentArgs["decideWrite"] = ({ filePath, prior, rendered }) =>
-  Option.isNone(prior)
-    ? { _tag: "write" }
-    : prior.value === rendered
-      ? { _tag: "record" }
-      : {
-          _tag: "conflict",
-          reason: `Existing Subagent file has no recorded projection: ${filePath}`,
-        };
+  Effect.sync<Effect.Success<ReturnType<AddSubagentArgs["decideWrite"]>>>(() =>
+    Option.isNone(prior)
+      ? { _tag: "write" }
+      : prior.value === rendered
+        ? { _tag: "record" }
+        : {
+            _tag: "conflict",
+            reason: `Existing Subagent file has no recorded projection: ${filePath}`,
+          },
+  );
 
 const makeRenderInput = (name = "test-subagent"): SubagentRenderInput => ({
   agentId: "claude-code",
@@ -154,7 +160,8 @@ const makeRemoveArgs = (
   workspaceRoot,
   scope: "project",
   subagentName: name,
-  decideRemoval: () => decision,
+  decideRemoval: () =>
+    Effect.sync<Effect.Success<ReturnType<RemoveSubagentArgs["decideRemoval"]>>>(() => decision),
   renderedFilePaths: renderedFilePaths.map((p) =>
     nodePath.isAbsolute(p) ? nodePath.relative(workspaceRoot, p) : p,
   ),
@@ -566,7 +573,10 @@ describe("overwrite behavior", () => {
         yield* fs.writeFileString(file, "Repository-formatted body.\n");
         const outcome = yield* claudeCodeCodingAgent.addSubagent({
           ...makeAddArgs(root, "claude-code"),
-          decideWrite: () => ({ _tag: decision }),
+          decideWrite: () =>
+            Effect.sync<Effect.Success<ReturnType<AddSubagentArgs["decideWrite"]>>>(() => ({
+              _tag: decision,
+            })),
         });
         expect(outcome).toMatchObject({ _tag: "success", nativeTargets: [{ change, decision }] });
         const bytes = yield* fs.readFileString(file);

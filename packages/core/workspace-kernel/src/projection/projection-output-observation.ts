@@ -113,18 +113,20 @@ export const observeProjectionOutput = (args: {
       Effect.mapError((cause) => new ProjectionIoFailed({ path: unit.path, step: "read", cause })),
     );
     if (Option.isNone(content)) return Option.none();
-    const observed = (bytes: string): Option.Option<ProjectionOutputObservation> =>
-      Option.some({
-        kind: unit.kind,
-        path: unit.path,
-        recorded: unit.recorded,
-        observed: projectionOutputDigest(bytes),
-      });
-    if (unit.read._tag === "file") return observed(content.value);
+    const observed = (bytes: string): Effect.Effect<Option.Option<ProjectionOutputObservation>> =>
+      Effect.map(projectionOutputDigest(bytes), (digest) =>
+        Option.some({
+          kind: unit.kind,
+          path: unit.path,
+          recorded: unit.recorded,
+          observed: digest,
+        }),
+      );
+    if (unit.read._tag === "file") return yield* observed(content.value);
     const body = yield* observedNativeManagedRegionBody({
       displayPath: unit.path,
       region: unit.read.region,
       raw: content.value,
     });
-    return Option.flatMap(body, observed);
+    return Option.isNone(body) ? Option.none() : yield* observed(body.value);
   });

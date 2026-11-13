@@ -16,8 +16,21 @@ const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(scriptsRoot, "..");
 const benchmarksRoot = path.join(repoRoot, "benchmarks");
 const suite = process.env["AXM_BENCHMARK_SUITE"] ?? "all";
-if (suite !== "all" && suite !== "startup" && suite !== "lifecycle" && suite !== "discovery") {
-  throw new Error("AXM_BENCHMARK_SUITE must be all, startup, lifecycle, or discovery.");
+if (
+  suite !== "all" &&
+  suite !== "startup" &&
+  suite !== "lifecycle" &&
+  suite !== "discovery" &&
+  suite !== "observability"
+) {
+  throw new Error(
+    "AXM_BENCHMARK_SUITE must be all, startup, lifecycle, discovery, or observability.",
+  );
+}
+if (suite === "observability") {
+  const observabilityBenchmark = await import("../benchmarks/observability.js");
+  await observabilityBenchmark.runObservabilityBenchmark(repoRoot);
+  process.exit(0);
 }
 if (suite === "discovery" || suite === "all") {
   const discoveryBenchmark = await import("../benchmarks/discovery.js");

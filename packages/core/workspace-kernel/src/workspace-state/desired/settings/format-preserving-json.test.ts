@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import * as Effect from "effect/Effect";
+import { describe, expect, it } from "@effect/vitest";
 import * as JsonPatch from "effect/JsonPatch";
 import { applyJsonPatchToText, jsonPointerToJsonPath } from "./format-preserving-json.js";
 
@@ -40,94 +41,102 @@ describe("jsonPointerToJsonPath", () => {
 });
 
 describe("applyJsonPatchToText", () => {
-  it("applies escaped object-key paths", () => {
-    const prior = { "a/b": { "c~d": 1 } };
-    const target = { "a/b": { "c~d": 2 } };
-    const result = applyJsonPatchToText(
-      `{
+  it.effect("applies escaped object-key paths", () =>
+    Effect.gen(function* () {
+      const prior = { "a/b": { "c~d": 1 } };
+      const target = { "a/b": { "c~d": 2 } };
+      const result = yield* applyJsonPatchToText(
+        `{
   "a/b": {
     "c~d": 1
   }
 }`,
-      prior,
-      JsonPatch.get(prior, target),
-    );
+        prior,
+        JsonPatch.get(prior, target),
+      );
 
-    if (result._tag === "Failure") throw new Error(result.reason);
-    expect(result.text).toBe(`{
+      if (result._tag === "Failure") throw new Error(result.reason);
+      expect(result.text).toBe(`{
   "a/b": {
     "c~d": 2
   }
 }`);
-  });
+    }),
+  );
 
-  it("applies a multi-operation array patch sequentially", () => {
-    const prior = { agents: ["claude-code", "codex", "cursor"] };
-    const target = { agents: ["claude-code", "cursor"] };
-    const result = applyJsonPatchToText(
-      `{
+  it.effect("applies a multi-operation array patch sequentially", () =>
+    Effect.gen(function* () {
+      const prior = { agents: ["claude-code", "codex", "cursor"] };
+      const target = { agents: ["claude-code", "cursor"] };
+      const result = yield* applyJsonPatchToText(
+        `{
   "agents": [
     "claude-code",
     "codex",
     "cursor"
   ]
 }`,
-      prior,
-      JsonPatch.get(prior, target),
-    );
+        prior,
+        JsonPatch.get(prior, target),
+      );
 
-    if (result._tag === "Failure") throw new Error(result.reason);
-    expect(result.text).toBe(`{
+      if (result._tag === "Failure") throw new Error(result.reason);
+      expect(result.text).toBe(`{
   "agents": [
     "claude-code",
     "cursor"
   ]
 }`);
-  });
+    }),
+  );
 
-  it("passes the translated path to the insertion-index policy", () => {
-    const prior = { agents: ["claude-code"], futureKey: true };
-    const target = { agents: ["claude-code"], lint: {}, futureKey: true };
-    const result = applyJsonPatchToText(
-      `{
+  it.effect("passes the translated path to the insertion-index policy", () =>
+    Effect.gen(function* () {
+      const prior = { agents: ["claude-code"], futureKey: true };
+      const target = { agents: ["claude-code"], lint: {}, futureKey: true };
+      const result = yield* applyJsonPatchToText(
+        `{
   "agents": [
     "claude-code"
   ],
   "futureKey": true
 }`,
-      prior,
-      JsonPatch.get(prior, target),
-      {
-        getInsertionIndex: (path, properties) =>
-          path.length === 1 && path[0] === "lint" ? properties.indexOf("futureKey") : -1,
-      },
-    );
+        prior,
+        JsonPatch.get(prior, target),
+        {
+          getInsertionIndex: (path, properties) =>
+            path.length === 1 && path[0] === "lint" ? properties.indexOf("futureKey") : -1,
+        },
+      );
 
-    if (result._tag === "Failure") throw new Error(result.reason);
-    expect(result.text).toBe(`{
+      if (result._tag === "Failure") throw new Error(result.reason);
+      expect(result.text).toBe(`{
   "agents": [
     "claude-code"
   ],
   "lint": {},
   "futureKey": true
 }`);
-  });
+    }),
+  );
 
-  it("replaces the root document", () => {
-    const prior = [1, 2];
-    const target = { value: true };
-    const result = applyJsonPatchToText(
-      `[
+  it.effect("replaces the root document", () =>
+    Effect.gen(function* () {
+      const prior = [1, 2];
+      const target = { value: true };
+      const result = yield* applyJsonPatchToText(
+        `[
   1,
   2
 ]`,
-      prior,
-      JsonPatch.get(prior, target),
-    );
+        prior,
+        JsonPatch.get(prior, target),
+      );
 
-    if (result._tag === "Failure") throw new Error(result.reason);
-    expect(result.text).toBe(`{
+      if (result._tag === "Failure") throw new Error(result.reason);
+      expect(result.text).toBe(`{
   "value": true
 }`);
-  });
+    }),
+  );
 });

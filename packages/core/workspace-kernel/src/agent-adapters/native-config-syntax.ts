@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 /** Whole-file grammar shared by every structured native reader. */
 import * as Context from "effect/Context";
 import * as Option from "effect/Option";
@@ -54,8 +55,8 @@ const parseDocument = (
         if (!Predicate.isObject(root))
           return yield* Effect.fail<NativeConfigRootFailure>({ reason: "shape" });
         return root;
-      }).pipe(
-        Effect.withSpan("axm.parse.native", {
+      }).pipe((effect) =>
+        withWork("axm.parse.native", effect, {
           attributes: { "axm.format": format, "axm.work.count": 1 },
         }),
       );

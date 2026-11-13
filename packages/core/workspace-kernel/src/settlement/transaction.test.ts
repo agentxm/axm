@@ -5,11 +5,14 @@ import * as nodePath from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as PlatformError from "effect/PlatformError";
 import * as Ref from "effect/Ref";
+import * as Tracer from "effect/Tracer";
 
 import * as Data from "effect/Data";
 
@@ -148,6 +151,14 @@ describe("runWorkspaceTransaction", () => {
         families,
         ({ family, target }) => {
           const before = nodeFs.readFileSync(target, "utf8");
+          const spans: Tracer.NativeSpan[] = [];
+          const tracer = Tracer.make({
+            span(options) {
+              const span = new Tracer.NativeSpan(options);
+              spans.push(span);
+              return span;
+            },
+          });
           return runWorkspaceTransaction({
             workspaceDir,
             targets: [target],
@@ -159,11 +170,21 @@ describe("runWorkspaceTransaction", () => {
             ),
             validate: () => Effect.void,
           }).pipe(
+            Effect.withTracer(tracer),
             Effect.flip,
             Effect.tap((error) =>
               Effect.sync(() => {
                 expect(detailOf(error)).toBe(`${family} failure`);
                 expect(nodeFs.readFileSync(target, "utf8"), family).toBe(before);
+                for (const name of ["axm.rollback.restore", "axm.rollback.verify"]) {
+                  const observed = spans.filter((span) => span.name === name);
+                  expect(observed, family).toHaveLength(1);
+                  expect(
+                    observed[0]?.status._tag === "Ended" && observed[0].status.exit._tag,
+                    family,
+                  ).toBe("Success");
+                  expect(observed[0]?.attributes.get("axm.work.count"), family).toBe(1);
+                }
               }),
             ),
           );
@@ -548,9 +569,53 @@ describe("runWorkspaceTransaction", () => {
     );
   });
 
+  it.effect("releases workspace admission when cancellation arrives at diagnostic admission", () =>
+    withContext(
+      Effect.gen(function* () {
+        const executed = yield* Ref.make(0);
+        const transition = runWorkspaceTransactionInScope({
+          claimDefaultTargets: false,
+          targets: [settingsPath],
+          transition: Ref.update(executed, (value) => value + 1),
+          validate: () => Effect.void,
+        });
+        const pending = yield* Effect.withFiber((fiber) =>
+          transition.pipe(
+            Effect.withTracer(
+              Tracer.make({
+                span(options) {
+                  const span = new Tracer.NativeSpan(options);
+                  const end = span.end.bind(span);
+                  span.end = (time, exit) => {
+                    end(time, exit);
+                    if (span.name === "axm.wait.workspace-admission") fiber.interruptUnsafe();
+                  };
+                  return span;
+                },
+              }),
+            ),
+          ),
+        ).pipe(Effect.forkChild);
+        expect(Exit.hasInterrupts(yield* Fiber.await(pending))).toBe(true);
+        expect(yield* Ref.get(executed)).toBe(0);
+        yield* transition;
+        expect(yield* Ref.get(executed)).toBe(1);
+        expect(nodeFs.readFileSync(settingsPath, "utf8")).toBe('{"future":{"value":1}}\n');
+      }).pipe(Effect.provide(scopeFor(workspaceDir))),
+    ),
+  );
+
   it.effect("serializes concurrent transitions for one workspace", () =>
     withContext(
       Effect.gen(function* () {
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
         const active = yield* Ref.make(0);
         const maximum = yield* Ref.make(0);
         // Both transitions share one scope: its admission permit serializes
@@ -566,8 +631,13 @@ describe("runWorkspaceTransaction", () => {
           }),
           validate: () => Effect.void,
         });
-        yield* Effect.all([transition, transition], { concurrency: "unbounded" });
+        yield* Effect.all([transition, transition], { concurrency: "unbounded" }).pipe(
+          Effect.withTracer(tracer),
+        );
         expect(yield* Ref.get(maximum)).toBe(1);
+        const waits = spans.filter((span) => span.name === "axm.wait.workspace-admission");
+        expect(waits).toHaveLength(2);
+        expect(waits.every((span) => span.status._tag === "Ended")).toBe(true);
       }).pipe(Effect.provide(scopeFor(workspaceDir))),
     ),
   );

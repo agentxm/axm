@@ -298,16 +298,20 @@ export const SubagentManagerLive = Layer.effect(
           }
         }
         return new Map(
-          [...files].map(([destination, file]) => [
-            destination,
-            {
-              unit: file.unit,
-              content: file.content,
-              agentIds: [...new Set(file.agentIds)],
-              bindings: file.bindings,
-              gen: subagentProjectionGeneration(file.claimants),
-            },
-          ]),
+          yield* Effect.forEach([...files], ([destination, file]) =>
+            Effect.gen(function* () {
+              return [
+                destination,
+                {
+                  unit: file.unit,
+                  content: file.content,
+                  agentIds: [...new Set(file.agentIds)],
+                  bindings: file.bindings,
+                  gen: yield* subagentProjectionGeneration(file.claimants),
+                },
+              ] as const;
+            }),
+          ),
         );
       });
     type PlannedFiles = Effect.Success<ReturnType<typeof plannedFiles>>;
@@ -317,33 +321,34 @@ export const SubagentManagerLive = Layer.effect(
       readonly destination: string;
       readonly bytes: Option.Option<string>;
       readonly posture: ProjectionOutputPostureValue;
-    }): SubagentWriteDecision => {
-      const file = args.planned.get(args.destination);
-      if (file === undefined)
-        return {
-          _tag: "conflict",
-          reason: `Subagent file is not a planned destination: ${args.destination}`,
-        };
-      const decision = decideWholeFileWrite({
-        recorded: Option.fromUndefinedOr(args.rows.get(file.unit)),
-        gen: file.gen,
-        bytes: args.bytes,
-        rendered: file.content,
-        replaceUnrecorded: args.posture.replaceUnrecorded === true,
-      });
-      // Name the override only when the invocation's command offers it.
-      return decision._tag === "conflict"
-        ? {
+    }): Effect.Effect<SubagentWriteDecision> =>
+      Effect.gen(function* (): Effect.fn.Return<SubagentWriteDecision> {
+        const file = args.planned.get(args.destination);
+        if (file === undefined)
+          return {
             _tag: "conflict",
-            reason:
-              args.posture.replaceUnrecorded === false
-                ? `Existing Subagent file has no recorded projection: ${args.destination}; rerun with ${REPLACE_UNRECORDED_FLAG} to overwrite it`
-                : `Existing Subagent file has no recorded projection: ${args.destination}; move it aside to let AXM write it`,
-          }
-        : decision._tag === "write"
-          ? { _tag: "write" }
-          : decision;
-    };
+            reason: `Subagent file is not a planned destination: ${args.destination}`,
+          };
+        const decision = yield* decideWholeFileWrite({
+          recorded: Option.fromUndefinedOr(args.rows.get(file.unit)),
+          gen: file.gen,
+          bytes: args.bytes,
+          rendered: file.content,
+          replaceUnrecorded: args.posture.replaceUnrecorded === true,
+        });
+        // Name the override only when the invocation's command offers it.
+        return decision._tag === "conflict"
+          ? {
+              _tag: "conflict",
+              reason:
+                args.posture.replaceUnrecorded === false
+                  ? `Existing Subagent file has no recorded projection: ${args.destination}; rerun with ${REPLACE_UNRECORDED_FLAG} to overwrite it`
+                  : `Existing Subagent file has no recorded projection: ${args.destination}; move it aside to let AXM write it`,
+            }
+          : decision._tag === "write"
+            ? { _tag: "write" }
+            : decision;
+      });
     const readPackageForRef = (
       ref: SubagentExtensionRef,
       state: "projected" | "current",
@@ -550,20 +555,21 @@ export const SubagentManagerLive = Layer.effect(
             scope: location.scope,
             subagentName: output.entryName,
             renderedFilePaths: [path.relative(baseDir, output.path)],
-            decideRemoval: ({ filePath, bytes }) => {
-              const decision = decideOutputDeletion({
-                bytes: Option.some(bytes),
-                recorded: Option.some(recorded),
-                expectedRender: Option.none(),
-                discardModified: posture.discardModified === true,
-              });
-              return decision._tag === "delete"
-                ? decision
-                : {
-                    _tag: "retain",
-                    reason: retainedOutputDetail(filePath, decision.reason, posture),
-                  };
-            },
+            decideRemoval: ({ filePath, bytes }) =>
+              Effect.gen(function* () {
+                const decision = yield* decideOutputDeletion({
+                  bytes: Option.some(bytes),
+                  recorded: Option.some(recorded),
+                  expectedRender: Option.none(),
+                  discardModified: posture.discardModified === true,
+                });
+                return decision._tag === "delete"
+                  ? decision
+                  : {
+                      _tag: "retain" as const,
+                      reason: retainedOutputDetail(filePath, decision.reason, posture),
+                    };
+              }),
           });
           rowChanges.push({ kind: "subagents", path: unit, row: undefined });
           if (result._tag !== "success") continue;
@@ -610,7 +616,7 @@ export const SubagentManagerLive = Layer.effect(
         const planned = yield* plannedFiles(ref, targets);
         if (unrecorded === "report") return { targets, planned };
         for (const destination of planned.keys()) {
-          const decision = decideAt({
+          const decision = yield* decideAt({
             planned,
             rows,
             destination,
@@ -755,17 +761,19 @@ export const SubagentManagerLive = Layer.effect(
         ),
       );
       const keep = new Set(results.map(({ destination }) => destination));
-      const written = results.flatMap(({ file, outcome }): ReadonlyArray<ProjectionRowChange> =>
-        outcome.decision === "current"
-          ? []
-          : [
-              {
-                kind: "subagents",
-                path: file.unit,
-                row: { gen: file.gen, output: projectionOutputDigest(file.content) },
-              },
-            ],
-      );
+      const written = (yield* Effect.forEach(results, ({ file, outcome }) =>
+        Effect.gen(function* (): Effect.fn.Return<ReadonlyArray<ProjectionRowChange>> {
+          return outcome.decision === "current"
+            ? []
+            : [
+                {
+                  kind: "subagents",
+                  path: file.unit,
+                  row: { gen: file.gen, output: yield* projectionOutputDigest(file.content) },
+                },
+              ];
+        }),
+      )).flat();
       const retired = yield* retireOutputs({
         names: nativeNames(ref, targets),
         authority,
@@ -952,7 +960,7 @@ export const SubagentManagerLive = Layer.effect(
             )
           )
             continue;
-          const decision = decideWholeFileWrite({
+          const decision = yield* decideWholeFileWrite({
             recorded,
             gen: file.gen,
             bytes: yield* fs.readFileString(destination).pipe(Effect.option),

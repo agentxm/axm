@@ -55,9 +55,9 @@ const rootUninstallRegistryOnlyHowToFix = (source: string): string => {
  */
 export const resolveRootUninstallIntent: (
   input: string,
-) => Effect.Effect<RootUninstallIntent, OperationRefused> = Effect.fn(
-  "UninstallExtensions.resolveRootIntent",
-)(function* (input: string) {
+) => Effect.Effect<RootUninstallIntent, OperationRefused> = Effect.fnUntraced(function* (
+  input: string,
+) {
   const source = input.trim();
 
   if (!source.startsWith("@")) {

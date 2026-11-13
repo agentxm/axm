@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "measurement": {
+    "repetitions": 5,
+    "warmups": 1,
+    "comparison": "rotated-shared-baseline-block",
+    "elapsedStatistic": "median",
+    "host": "isolated Linux x64 reference host",
+    "maximumRepetitions": 10,
+    "noiseFraction": 0.2,
+    "driftFraction": 0.1,
+    "headroomFraction": 0.2
+  },
+  "elapsedBudgets": {
+    "disabled": {
+      "relative": 0.1,
+      "absoluteMillis": 25
+    },
+    "summary": {
+      "relative": 0.2,
+      "absoluteMillis": 50
+    },
+    "detail": {
+      "relative": 0.75,
+      "absoluteMillis": 150
+    }
+  },
+  "maximumAdditionalRssBytes": {
+    "disabled": 16777216,
+    "summary": 33554432,
+    "detail": 67108864
+  },
+  "maximumRetainedSpans": {
+    "summary": 2048,
+    "detail": 16384
+  },
+  "maximumSummaryGroups": 512,
+  "maximumDiagnosticShutdownMillis": 500,
+  "interpretation": "Candidate median may exceed its matched uninstrumented baseline by at most baseline * relative + absoluteMillis. Reject incomplete collection, contention, missing scenarios, or exceeded bounds; do not revise limits to fit observations. Retained-span caps exclude the invocation root and bounded summaries; hitting a cap makes detailed evidence incomplete."
+}

@@ -9,6 +9,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Tracer from "effect/Tracer";
 import { NativePlatformTest } from "../../../locations/testing.js";
 import { recordFootprint, runWorkspaceTransaction } from "../../../settlement/index.js";
 import { WorkspaceTransactionScopeTest } from "../../../settlement/testing.js";
@@ -36,6 +37,14 @@ it.effect.each(["content", "entry"] as const)(
         futureCapability: { enabled: true },
       });
       let injected = false;
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      });
       let foreignInfo: FileSystem.File.Info | undefined;
       const forwarding: FileSystem.FileSystem = {
         ...real,
@@ -75,6 +84,7 @@ it.effect.each(["content", "entry"] as const)(
           }),
         ),
         Effect.provideService(FileSystem.FileSystem, forwarding),
+        Effect.withTracer(tracer),
         Effect.result,
       );
       const cleanup =
@@ -89,6 +99,14 @@ it.effect.each(["content", "entry"] as const)(
         expect(yield* real.readFileString(settingsPath)).toBe(foreign);
         expect((yield* real.stat(settingsPath)).ino).toEqual(foreignInfo?.ino);
         expect(yield* real.readFileString(independent)).toBe("original independent content");
+        const publications = spans.filter((span) => span.name === "axm.verify.publication");
+        expect(
+          publications.map((span) => span.status._tag === "Ended" && span.status.exit._tag),
+        ).toEqual(["Failure"]);
+        const restores = spans.filter((span) => span.name === "axm.rollback.restore");
+        expect(
+          restores.map((span) => span.status._tag === "Ended" && span.status.exit._tag).sort(),
+        ).toEqual(["Failure", "Success"]);
         if (
           result._tag !== "Failure" ||
           typeof result.failure === "string" ||

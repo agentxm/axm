@@ -1,7 +1,9 @@
 /** In-process exclusion for file mutations shared by one invocation. */
 
 import * as Context from "effect/Context";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as RcMap from "effect/RcMap";
@@ -44,16 +46,31 @@ export const makeWorkspaceFileWriteLocks = Effect.gen(function* () {
         );
         const physical = yield* resolve;
         const semaphore = yield* RcMap.get(locks, physical);
-        return yield* semaphore.withPermits(1)(
+        return yield* Effect.uninterruptibleMask((restore) =>
           Effect.gen(function* () {
-            yield* claimWorkspaceContent(target);
-            if ((yield* resolve) !== physical)
-              return yield* new WorkspaceSnapshotError({
-                target,
-                step: "inspect-target",
-                cause: "native-alias-changed",
+            const span = yield* Effect.makeSpan("axm.wait.file-lock");
+            const end = (exit: Exit.Exit<unknown, unknown>) =>
+              Effect.gen(function* () {
+                if (span.status._tag === "Ended") return;
+                span.end(yield* Clock.currentTimeNanos, exit);
               });
-            return yield* effect;
+            const admitted = semaphore.withPermits(1)(
+              end(Exit.void).pipe(
+                Effect.andThen(
+                  Effect.gen(function* () {
+                    yield* claimWorkspaceContent(target);
+                    if ((yield* resolve) !== physical)
+                      return yield* new WorkspaceSnapshotError({
+                        target,
+                        step: "inspect-target",
+                        cause: "native-alias-changed",
+                      });
+                    return yield* effect;
+                  }),
+                ),
+              ),
+            );
+            return yield* Effect.onExit(restore(admitted), end);
           }),
         );
       }),

@@ -67,7 +67,7 @@ const hookUninstallArtifactTargets = (
 export const parseHookUninstallRequest: (
   selector: string,
 ) => Effect.Effect<HookUninstallIntent, OperationRefused, InstallStepRequirements | HookManager> =
-  Effect.fn("UninstallExtensions.parseHookRequest")(function* (selector: string) {
+  Effect.fnUntraced(function* (selector: string) {
     const hookManager = yield* HookManager;
     const target: HookExtensionTarget = { type: "hook", name: selector.trim() };
     return yield* Effect.gen(function* () {
@@ -97,7 +97,7 @@ export const planHookUninstall: (
   Plan<InstallStepRequirements>,
   OperationRefused,
   InstallStepRequirements | HookManager
-> = Effect.fn("UninstallExtensions.planHooks")(function* (intent: HookUninstallIntent) {
+> = Effect.fnUntraced(function* (intent: HookUninstallIntent) {
   const location = yield* WorkspaceLocation;
   const desiredState = yield* DesiredStateReader;
   const lockfile = yield* LockfileReader;

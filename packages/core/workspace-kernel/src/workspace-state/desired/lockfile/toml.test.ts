@@ -1,8 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { McpSourceKey } from "../../workspace/mcp-source-identity.js";
-import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
 import {
   LOCKFILE_VERSION,
   LockfileSchema,
@@ -16,14 +14,6 @@ import { parseLockfileToml } from "./toml-values.js";
 
 const tree = (character: string) => `sha256-tree-v2:${character.repeat(64)}`;
 const digest = (character: string) => `sha256:${character.repeat(64)}`;
-
-const packDependencies = {
-  "@acme/skills/docs": "^0.4.0",
-  "@acme/knowledge/docs": {
-    source: { type: "registry", url: decodeRegistryEndpointSync("https://registry.example.com") },
-    versionRange: ">=0.11.0",
-  },
-} as const;
 
 const mcpEntries = [
   {
@@ -159,13 +149,7 @@ const fixture: Lockfile = Schema.decodeUnknownSync(LockfileViewSchema)({
       },
       treeIntegrity: tree("9"),
       manifestVersion: "0.7.0",
-      manifestContentIdentity: computePackManifestContentIdentity({
-        owner: "@acme",
-        type: "pack",
-        name: "docs",
-        version: "0.7.0",
-        dependencies: packDependencies,
-      }),
+      manifestContentIdentity: "2250fc5fbce96d2394923209c6bd42da0829f10bb6d15e09ef50de477e196066",
       dependencies: {
         "@acme/skills/docs": "^0.4.0",
         "@acme/knowledge/docs": {

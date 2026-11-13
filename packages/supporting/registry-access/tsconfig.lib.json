@@ -30,6 +30,9 @@
       "path": "../../core/extension-model/tsconfig.lib.json"
     },
     {
+      "path": "../../../tools/test-support/tsconfig.lib.json"
+    },
+    {
       "path": "../../../tools/test-reporting/tsconfig.lib.json"
     },
     {

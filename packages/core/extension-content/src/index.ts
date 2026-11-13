@@ -50,6 +50,11 @@ export {
   selectSubagentImplementation,
 } from "./content/subagent-content.js";
 export {
+  CurrentArchiveWorkObserver,
+  type ArchiveWorkFact,
+  type ArchiveWorkObserver,
+} from "./packaging/archive-observation.js";
+export {
   ArchiveGuardrailError,
   type ArchiveGuardrailLimits,
   type ValidatedArchive,

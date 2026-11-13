@@ -13,13 +13,16 @@ import * as Clock from "effect/Clock";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import * as Tracer from "effect/Tracer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { computeIntegrity } from "@agentxm/host-primitives";
+import { CurrentWorkObserver, type WorkFact } from "@agentxm/host-primitives/work-observation";
 import { makeArchiveCache } from "./archive-cache.js";
 import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import { RegistryOperationFailed } from "./errors.js";
@@ -400,3 +403,152 @@ describe("ArchiveCache", () => {
     ),
   );
 });
+
+it.effect(
+  "reports delivered reuse separately from cancelled followers against real cache work",
+  () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
+        const archive = new Uint8Array([1, 2, 3]);
+        const integrity = yield* computeIntegrity(archive);
+        const spans: Tracer.NativeSpan[] = [];
+        const facts: WorkFact[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
+        let fetches = 0;
+        let validations = 0;
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const fetch = Effect.sync(() => {
+          fetches += 1;
+        }).pipe(
+          Effect.andThen(Deferred.succeed(started, undefined)),
+          Effect.andThen(Deferred.await(release)),
+          Effect.as(archive),
+        );
+        yield* Effect.gen(function* () {
+          const first = yield* cache
+            .load("same", integrity, fetch)
+            .pipe(Effect.forkChild({ startImmediately: true }));
+          yield* Deferred.await(started);
+          const cancelled = yield* cache
+            .load("same", integrity, fetch)
+            .pipe(Effect.forkChild({ startImmediately: true }));
+          yield* Fiber.interrupt(cancelled);
+          expect(Exit.hasInterrupts(yield* Fiber.await(cancelled))).toBe(true);
+          const second = yield* cache
+            .load("same", integrity, fetch)
+            .pipe(Effect.forkChild({ startImmediately: true }));
+          yield* Deferred.succeed(release, undefined);
+          yield* Fiber.join(first);
+          yield* Fiber.join(second);
+          yield* cache.load(
+            "same",
+            integrity,
+            Effect.die("unexpected download"),
+            Effect.sync(() => {
+              validations += 1;
+            }),
+          );
+          const [entry] = yield* fs.readDirectory(cacheRoot);
+          if (entry === undefined) throw new Error("Expected one actual cache entry");
+          yield* fs.writeFile(path.join(cacheRoot, entry), new Uint8Array([9]));
+          expect(yield* cache.read(integrity)).toEqual(Option.none());
+          expect(yield* fs.readDirectory(cacheRoot)).toEqual([]);
+        }).pipe(
+          Effect.provideService(CurrentWorkObserver, {
+            record: (fact) => {
+              facts.push(fact);
+            },
+            detailSelected: () => false,
+          }),
+          Effect.withTracer(tracer),
+          Effect.withTracerEnabled(true),
+        );
+        expect(fetches).toBe(1);
+        expect(validations).toBe(1);
+        const loads = facts.filter((fact) => fact.kind === "axm.archive.cache-load");
+        expect(loads).toHaveLength(4);
+        expect(loads.map((fact) => fact.attributes["axm.work.requested"])).toEqual([1, 1, 1, 1]);
+        expect(
+          loads.reduce((total, fact) => total + (fact.attributes["axm.work.executed"] ?? 0), 0),
+        ).toBe(2);
+        expect(
+          loads.reduce((total, fact) => total + (fact.attributes["axm.work.reused-count"] ?? 0), 0),
+        ).toBe(1);
+        expect(loads.find((fact) => fact.outcome === "interrupted")?.attributes).toMatchObject({
+          "axm.cache.outcome": "coalesced",
+          "axm.work.executed": 0,
+          "axm.work.reused-count": 0,
+        });
+        expect(
+          facts
+            .filter((fact) => fact.kind === "axm.archive.cache-read")
+            .map((fact) => fact.attributes["axm.cache.outcome"]),
+        ).toEqual(["miss", "hit", "corrupt"]);
+        expect(
+          facts
+            .filter((fact) => fact.kind === "axm.archive.integrity")
+            .map((fact) => fact.attributes["axm.archive.bytes"]),
+        ).toEqual([3, 3, 1]);
+        expect(spans.filter((span) => span.name.startsWith("axm.archive."))).toEqual([]);
+      }),
+    ),
+);
+
+it.effect("counts a delivered coalesced failure as reuse without storing failed bytes", () =>
+  withCache((cacheRoot) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const cache = yield* makeArchiveCache(fs, path, cacheRoot);
+      const integrity = yield* computeIntegrity(new Uint8Array([1]));
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      let fetches = 0;
+      const failure = new RegistryOperationFailed({
+        category: "network",
+        detail: "Controlled unavailable archive",
+      });
+      const fetch = Effect.sync(() => {
+        fetches += 1;
+      }).pipe(
+        Effect.andThen(Deferred.succeed(started, undefined)),
+        Effect.andThen(Deferred.await(release)),
+        Effect.andThen(Effect.fail(failure)),
+      );
+      const facts: WorkFact[] = [];
+      yield* Effect.gen(function* () {
+        const first = yield* cache.load("same", integrity, fetch).pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        const follower = yield* cache
+          .load("same", integrity, fetch)
+          .pipe(Effect.forkChild({ startImmediately: true }));
+        yield* Deferred.succeed(release, undefined);
+        expect(yield* Fiber.join(first).pipe(Effect.flip)).toBe(failure);
+        expect(yield* Fiber.join(follower).pipe(Effect.flip)).toBe(failure);
+      }).pipe(
+        Effect.provideService(CurrentWorkObserver, {
+          record: (fact) => {
+            facts.push(fact);
+          },
+          detailSelected: () => false,
+        }),
+      );
+      expect(fetches).toBe(1);
+      expect(yield* fs.exists(cacheRoot)).toBe(false);
+      const loads = facts.filter((fact) => fact.kind === "axm.archive.cache-load");
+      expect(loads.map((fact) => fact.attributes["axm.work.executed"]).sort()).toEqual([0, 1]);
+      expect(loads.map((fact) => fact.attributes["axm.work.reused-count"]).sort()).toEqual([0, 1]);
+      expect(loads.map((fact) => fact.outcome)).toEqual(["failure", "failure"]);
+    }),
+  ),
+);

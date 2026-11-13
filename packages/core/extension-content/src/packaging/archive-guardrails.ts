@@ -1,6 +1,7 @@
 import { inflateRawSync } from "node:zlib";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import { observeArchiveWork } from "./archive-observation.js";
 
 export class ArchiveGuardrailError extends Data.TaggedError("ArchiveGuardrailError")<{
   readonly code:
@@ -260,9 +261,8 @@ export const parseZipCentralDirectory = (
       );
     }
 
-    yield* Effect.annotateCurrentSpan("axm.archive.entries", entries.length);
     return entries;
-  }).pipe(Effect.withSpan("axm.archive.parse"));
+  }).pipe((effect) => observeArchiveWork("parse", effect, (entries) => entries.length));
 
 const INFLATE_CHUNK_SIZE = 16 * 1024;
 
@@ -336,7 +336,7 @@ export const defaultReadEntry = (
       message: `Unsupported compression method ${compressionMethod} for entry "${fileName}".`,
       entry: fileName,
     });
-  }).pipe(Effect.withSpan("axm.archive.read-member"));
+  }).pipe((effect) => observeArchiveWork("read-member", effect));
 
 const checkPathTraversal = (
   entries: readonly ZipEntry[],

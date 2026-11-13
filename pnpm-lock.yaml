@@ -205,6 +205,9 @@ importers:
       '@agentxm/test-reporting':
         specifier: workspace:*
         version: link:tools/test-reporting
+      '@agentxm/test-support':
+        specifier: workspace:*
+        version: link:tools/test-support
       '@agentxm/workspace-conventions':
         specifier: workspace:*
         version: link:tools/workspace-conventions
@@ -280,6 +283,9 @@ importers:
       allure:
         specifier: 'catalog:'
         version: 3.33.0(debug@4.4.3(supports-color@7.2.0))(preact@10.29.8)(supports-color@7.2.0)
+      axm.sh:
+        specifier: workspace:*
+        version: link:apps/cli
       dependency-cruiser:
         specifier: 'catalog:'
         version: 18.6.0
@@ -337,6 +343,9 @@ importers:
       '@agentxm/cli-maintenance':
         specifier: workspace:^
         version: link:../../packages/supporting/cli-maintenance
+      '@agentxm/extension-content':
+        specifier: workspace:^
+        version: link:../../packages/core/extension-content
       '@agentxm/extension-kinds':
         specifier: workspace:^
         version: link:../../packages/core/extension-kinds
@@ -374,9 +383,6 @@ importers:
         specifier: 'catalog:'
         version: 4.1.3
     devDependencies:
-      '@agentxm/extension-content':
-        specifier: workspace:^
-        version: link:../../packages/core/extension-content
       '@agentxm/extension-type-parity':
         specifier: workspace:*
         version: link:../../tools/extension-type-parity
@@ -926,6 +932,9 @@ importers:
       '@agentxm/test-reporting':
         specifier: workspace:*
         version: link:../../../tools/test-reporting
+      '@agentxm/test-support':
+        specifier: workspace:*
+        version: link:../../../tools/test-support
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.3(effect@4.1.3)(redis@6.2.1(@node-rs/xxhash@1.7.8))

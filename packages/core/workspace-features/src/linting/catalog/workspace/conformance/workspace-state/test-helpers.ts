@@ -254,19 +254,22 @@ const projectionOutputsContext = (modified: boolean) =>
     }),
     lockfile: validLockfile,
   }).pipe(
-    Effect.map(
-      (context) =>
-        ({
+    Effect.flatMap((context) =>
+      Effect.gen(function* () {
+        return {
           ...context,
           projectionOutputs: Effect.succeed([
             Result.succeed({
               kind: "instructions",
               path: ProjectionUnitPathSchema.make("CLAUDE.md"),
-              recorded: projectionOutputDigest("# Shared\n"),
-              observed: projectionOutputDigest(modified ? "# Shared, edited\n" : "# Shared\n"),
+              recorded: yield* projectionOutputDigest("# Shared\n"),
+              observed: yield* projectionOutputDigest(
+                modified ? "# Shared, edited\n" : "# Shared\n",
+              ),
             }),
           ]),
-        }) satisfies WorkspaceRuleContext,
+        } satisfies WorkspaceRuleContext;
+      }),
     ),
   );
 

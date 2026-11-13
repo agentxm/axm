@@ -143,7 +143,7 @@ interface PackMemberCandidate {
 }
 
 /** Every managed, versioned extension in the workspace a pack may depend on. */
-const memberCandidates = Effect.fn("ChangePackMembership.memberCandidates")(function* () {
+const memberCandidates = Effect.fnUntraced(function* () {
   const location = yield* WorkspaceLocation;
   const layout = yield* Ref.get(location.layout);
   const graph = yield* (yield* DesiredStateReader).graph();
@@ -345,7 +345,7 @@ interface ResolvedMember {
   readonly range: string;
 }
 
-const additions = Effect.fn("ChangePackMembership.additions")(function* (args: {
+const additions = Effect.fnUntraced(function* (args: {
   readonly pack: string;
   readonly packOwner: Handle;
   readonly request: PackMembershipRequest;
@@ -412,7 +412,7 @@ const additions = Effect.fn("ChangePackMembership.additions")(function* (args: {
   return resolved;
 });
 
-const removals = Effect.fn("ChangePackMembership.removals")(function* (args: {
+const removals = Effect.fnUntraced(function* (args: {
   readonly manifest: { readonly dependencies: PackMemberConstraintMap };
   readonly request: PackMembershipRequest;
   readonly pattern: boolean;

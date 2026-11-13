@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Schema from "effect/Schema";
-import { LockfileSchema, computePackManifestContentIdentity } from "../../index.js";
+import { LockfileSchema } from "../../index.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/lockfile/refuses-ambiguous-declarations",
@@ -22,17 +22,11 @@ const decode = Schema.decodeUnknownSync(LockfileSchema);
 const encode = Schema.encodeSync(LockfileSchema);
 const archive = `sha512-${"A".repeat(86)}==`;
 const tree = `sha256-tree-v2:${"0".repeat(64)}`;
-const declaration = (range: string) => ({
+const declaration = {
   "manifest-version": "1.0.0",
-  "manifest-identity": computePackManifestContentIdentity({
-    owner: "@acme",
-    type: "pack",
-    name: "review",
-    version: "1.0.0",
-    dependencies: { "@acme/skills/review": range },
-  }),
-  dependencies: [{ name: "@acme/skills/review", range }],
-});
+  "manifest-identity": "6cf3a7397ce5f1ffc9d3a34e710e5af91705184ae1e984e3dbdd7deb545a29fd",
+  dependencies: [{ name: "@acme/skills/review", range: "^2.0.0" }],
+};
 const document = (kind: string, alias: string) => {
   const id = `registry.example.com/@acme/${kind}/review`;
   return {
@@ -45,7 +39,7 @@ const document = (kind: string, alias: string) => {
         archive,
         publisher: "hbnd_example",
         tree,
-        ...(kind === "packs" ? declaration("^2.0.0") : {}),
+        ...(kind === "packs" ? declaration : {}),
       },
     ],
     [kind]: { [alias]: { package: id, name: `@acme/${kind}/review` } },
@@ -74,7 +68,7 @@ describe("unambiguous lockfile declarations", () => {
     const encoded = encode(decode(original));
     expect(encoded.package).toHaveLength(2);
     for (const record of encoded.package ?? [])
-      expect(record).toMatchObject({ dependencies: declaration("^2.0.0").dependencies });
+      expect(record).toMatchObject({ dependencies: declaration.dependencies });
   });
 
   it.each(["^1.0.0", "^2.0.0"])("rejects a duplicate even when the first range is %s", (range) => {
@@ -84,10 +78,7 @@ describe("unambiguous lockfile declarations", () => {
         ...original,
         package: original.package.map((record) => ({
           ...record,
-          dependencies: [
-            { name: "@acme/skills/review", range },
-            ...declaration("^2.0.0").dependencies,
-          ],
+          dependencies: [{ name: "@acme/skills/review", range }, ...declaration.dependencies],
         })),
       }),
     ).toThrow(/Duplicate dependency.*first declared at dependencies\[0\]\.name/u);

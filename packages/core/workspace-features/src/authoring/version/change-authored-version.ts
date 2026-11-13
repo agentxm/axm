@@ -166,7 +166,7 @@ const decodeExactVersion = (
   );
 
 /** Read one authored manifest as its raw text and its decoded object. */
-const readManifest = Effect.fn("ChangeAuthoredVersion.readManifest")(function* (args: {
+const readManifest = Effect.fnUntraced(function* (args: {
   readonly absolutePath: string;
   readonly manifestPath: string;
   readonly createCommand: string;

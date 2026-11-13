@@ -26,7 +26,7 @@ import { InvalidAgentId, SettingsEntryMissing } from "./errors.js";
 import { withLayoutOwner, type WorkspaceLayout } from "./layout.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import type { WorkspaceSettingsMutationFailure } from "./contracts.js";
-import { WorkspaceStateShared } from "./shared.js";
+import { WorkspaceStateShared, withWorkspaceStateWrite } from "./shared.js";
 
 type Write<A = void, E = never> = Effect.Effect<A, WorkspaceSettingsMutationFailure | E>;
 
@@ -82,7 +82,7 @@ const makeSettingsWriter = (
 ): SettingsWriterService => {
   const current = documents.settings();
   const write = documents.writeSettings;
-  const serialized = mutex.withPermits(1);
+  const serialized = withWorkspaceStateWrite(mutex, "settings");
   const validAgentId = (agentId: string) =>
     Schema.decodeUnknownEffect(ConfigurableAgentIdSchema)(agentId).pipe(
       Effect.mapError((cause) => new InvalidAgentId({ agentId, cause })),

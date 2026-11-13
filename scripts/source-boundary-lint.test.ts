@@ -279,6 +279,18 @@ describe("module boundary constraints", () => {
   const HANDLER = "apps/cli/src/root/list/command.ts";
   const E2E = "apps/cli-e2e/src/utils.ts";
 
+  it("limits diagnostic tooling to the published runtime entry at its declared consumers", async () => {
+    for (const filePath of ["scripts/trace-inspect.ts", "benchmarks/observability.ts"]) {
+      expect(await boundaryViolations('import "axm.sh/runtime";', filePath)).toEqual([]);
+      expect(
+        await boundaryViolations('import "axm.sh/src/cli-runtime/local-tracing.js";', filePath),
+      ).not.toEqual([]);
+    }
+    for (const filePath of [CORE_CAPABILITY, "scripts/bench.ts"]) {
+      expect(await boundaryViolations('import "axm.sh/runtime";', filePath)).not.toEqual([]);
+    }
+  });
+
   it("lets core depend on supporting and supporting depend on the contract seams", async () => {
     expect(
       await boundaryViolations(

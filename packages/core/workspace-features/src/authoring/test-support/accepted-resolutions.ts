@@ -108,7 +108,7 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
         return yield* accepted.setAccepted("pack", resolution.name, {
           ...shared,
           manifestVersion: shared.resolved.version,
-          manifestContentIdentity: computePackManifestContentIdentity(manifest),
+          manifestContentIdentity: yield* computePackManifestContentIdentity(manifest),
           dependencies: manifest.dependencies,
         });
       }

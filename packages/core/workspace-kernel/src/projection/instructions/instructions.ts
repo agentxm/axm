@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import { NativeEntryRemoval } from "../../locations/index.js";
 import type {
   InstructionMechanism,
@@ -220,9 +221,9 @@ const copyGeneration = (
   unit: ProjectionUnitPath,
   sourceFileName: string,
   sourceContent: string,
-): ProjectionDigest => projectionGeneration([unit, sourceFileName, sourceContent]);
+): Effect.Effect<ProjectionDigest> => projectionGeneration([unit, sourceFileName, sourceContent]);
 
-const gitignoreGeneration = (patterns: ReadonlyArray<string>): ProjectionDigest =>
+const gitignoreGeneration = (patterns: ReadonlyArray<string>): Effect.Effect<ProjectionDigest> =>
   projectionGeneration([GITIGNORE_UNIT, ...patterns]);
 
 export const resolveInstructionsConfig = (
@@ -745,16 +746,35 @@ const instructionWitness = (
       address.kind === "directory" || address.kind === "absent"
         ? Option.none<string>()
         : yield* readFileOption(target, workspaceRoot, nativeRoots);
-    const fingerprint = createHash("sha256")
-      .update(
-        JSON.stringify({
-          address,
-          parentIdentity,
-          identity,
-          content: Option.map(content, (raw) => createHash("sha256").update(raw).digest("hex")),
-        }),
-      )
-      .digest("hex");
+    const fingerprint = yield* Effect.gen(function* () {
+      let bytes = 0;
+      let count = 0;
+      const digest = (input: string) => {
+        const result = createHash("sha256").update(input).digest("hex");
+        bytes += Buffer.byteLength(input);
+        count++;
+        return result;
+      };
+      return yield* Effect.sync(() =>
+        digest(
+          JSON.stringify({
+            address,
+            parentIdentity,
+            identity,
+            content: Option.map(content, digest),
+          }),
+        ),
+      ).pipe(
+        Effect.ensuring(
+          Effect.suspend(() =>
+            annotateWork({
+              "axm.work.bytes": bytes,
+              "axm.work.count": count,
+            }),
+          ),
+        ),
+      );
+    }).pipe((effect) => withWork("axm.hash.instruction-witness", effect));
     return { anchor, fingerprint };
   }).pipe(
     Effect.catch(() =>
@@ -1015,14 +1035,14 @@ const observeTargetPath = (args: {
         ? {
             ...observed("owned-drift", "copy"),
             lastWrite:
-              projectionOutputDigest(targetContent.value) === recorded.value.row.output
+              (yield* projectionOutputDigest(targetContent.value)) === recorded.value.row.output
                 ? "matches"
                 : "modified",
           }
         : observed("unowned", "file");
-    const decision = decideWholeFileWrite({
+    const decision = yield* decideWholeFileWrite({
       recorded,
-      gen: copyGeneration(unit.value, args.sourceFileName, args.sourceContent.value),
+      gen: yield* copyGeneration(unit.value, args.sourceFileName, args.sourceContent.value),
       bytes: targetContent,
       rendered: args.sourceContent.value,
       replaceUnrecorded: false,
@@ -1034,7 +1054,7 @@ const observeTargetPath = (args: {
         return Option.isSome(recorded)
           ? {
               ...observed("owned-current", "copy"),
-              lastWrite: recordedOutputComparison(
+              lastWrite: yield* recordedOutputComparison(
                 recorded.value,
                 targetContent.value,
                 args.sourceContent.value,
@@ -1218,7 +1238,7 @@ const observeStaleCandidate = (
     );
     if (Option.isNone(recorded)) return Option.none();
     const sourceFile = path.join(candidate.root, sourceFileName);
-    const decision = decideOutputDeletion({
+    const decision = yield* decideOutputDeletion({
       bytes: content,
       recorded,
       expectedRender: yield* readFileOption(sourceFile, workspaceRoot, nativeRoots),
@@ -1254,22 +1274,20 @@ const gitignoreLastWrite = (args: {
   readonly content: string;
   readonly patterns: ReadonlyArray<string>;
   readonly recorded: Option.Option<RecordedProjectionRow>;
-}): Option.Option<"matches" | "modified" | "unrecorded"> =>
-  Option.flatMap(
-    reconcilePatternList({ content: args.content, patterns: args.patterns }),
-    ({ state, writtenBody }) =>
-      state.state === "complete"
-        ? Option.some(
-            Option.match(args.recorded, {
-              onNone: () => "unrecorded" as const,
-              onSome: ({ row }) =>
-                projectionOutputDigest(state.body) === row.output || writtenBody === state.body
-                  ? ("matches" as const)
-                  : ("modified" as const),
-            }),
-          )
-        : Option.none(),
-  );
+}): Effect.Effect<Option.Option<"matches" | "modified" | "unrecorded">> =>
+  Effect.gen(function* () {
+    const reconciled = reconcilePatternList({ content: args.content, patterns: args.patterns });
+    if (Option.isNone(reconciled) || reconciled.value.state.state !== "complete")
+      return Option.none();
+    if (Option.isNone(args.recorded)) return Option.some("unrecorded");
+    const { state, writtenBody } = reconciled.value;
+    return Option.some(
+      (yield* projectionOutputDigest(state.body)) === args.recorded.value.row.output ||
+        writtenBody === state.body
+        ? "matches"
+        : "modified",
+    );
+  });
 
 /** The `.gitignore` with the alias region rendered as `patterns`; `None` when it cannot be. */
 const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) =>
@@ -1280,19 +1298,20 @@ const gitignoreRowChange = (args: {
   readonly raw: string;
   readonly patterns: ReadonlyArray<string>;
   readonly recorded: Option.Option<RecordedProjectionRow>;
-}): Option.Option<ProjectionRowChange> => {
-  const region = gitignoreRegion(args.raw);
-  if (Option.isSome(region) && region.value.state === "complete")
-    return Option.some({
-      kind: INSTRUCTIONS_KIND,
-      path: GITIGNORE_UNIT,
-      row: {
-        gen: gitignoreGeneration(args.patterns),
-        output: projectionOutputDigest(region.value.body),
-      },
-    });
-  return Option.isSome(args.recorded) ? Option.some(withdrawRow(GITIGNORE_UNIT)) : Option.none();
-};
+}): Effect.Effect<Option.Option<ProjectionRowChange>> =>
+  Effect.gen(function* () {
+    const region = gitignoreRegion(args.raw);
+    if (Option.isSome(region) && region.value.state === "complete")
+      return Option.some({
+        kind: INSTRUCTIONS_KIND,
+        path: GITIGNORE_UNIT,
+        row: {
+          gen: yield* gitignoreGeneration(args.patterns),
+          output: yield* projectionOutputDigest(region.value.body),
+        },
+      });
+    return Option.isSome(args.recorded) ? Option.some(withdrawRow(GITIGNORE_UNIT)) : Option.none();
+  });
 
 const instructionGitignorePath = (workspaceRoot: string) =>
   Effect.gen(function* () {
@@ -1441,12 +1460,12 @@ const observeInstructionsGitignore = (args: {
     const current =
       currentRegionState !== "malformed" &&
       (desired
-        ? projectionIsCurrent(recorded, gitignoreGeneration(patterns), complete)
+        ? projectionIsCurrent(recorded, yield* gitignoreGeneration(patterns), complete)
         : currentRegionState === "absent");
     const lastWrite =
       current || Option.isNone(currentContent)
         ? Option.none()
-        : gitignoreLastWrite({ content: currentContent.value, patterns, recorded });
+        : yield* gitignoreLastWrite({ content: currentContent.value, patterns, recorded });
     return {
       file,
       present: Option.isSome(currentContent),
@@ -2228,7 +2247,7 @@ const decideTargetRemoval = (
       snapshot.workspaceRoot,
       snapshot.nativeRoots,
     );
-    return decideOutputDeletion({
+    return yield* decideOutputDeletion({
       bytes,
       recorded: recordedRow(snapshot.rows, item.unit),
       expectedRender: yield* readFileOption(
@@ -2324,12 +2343,12 @@ const writeOneTarget = (args: {
       kind: INSTRUCTIONS_KIND,
       path: item.unit.value,
       row: {
-        gen: copyGeneration(
+        gen: yield* copyGeneration(
           item.unit.value,
           args.snapshot.status.sourceFileName,
           args.sourceContent,
         ),
-        output: projectionOutputDigest(args.sourceContent),
+        output: yield* projectionOutputDigest(args.sourceContent),
       },
     });
   });
@@ -2380,7 +2399,7 @@ const writeGitignoreRegion = (args: {
       const written = () => Option.some<WrittenGitignore>({ path: filePath, raw });
       const publish = (next: string, pattern: string, eligible: boolean) =>
         Effect.gen(function* () {
-          if (eligible && Option.isNone(deriveStructuralInverse(raw, next)))
+          if (eligible && Option.isNone(yield* deriveStructuralInverse(raw, next)))
             return yield* new InstructionMaintenanceFailed({
               category: "conflict",
               detail: `Instruction ignore insertion cannot preserve the authored container: ${lexical}`,
@@ -2507,7 +2526,7 @@ export const removeInstructionsGitignore = (args: {
     return {
       path: Option.map(written, ({ path }) => path),
       rowChange: Option.isSome(written)
-        ? gitignoreRowChange({ raw: written.value.raw, patterns: [], recorded })
+        ? yield* gitignoreRowChange({ raw: written.value.raw, patterns: [], recorded })
         : unchanged.rowChange,
     };
   });
@@ -2532,12 +2551,12 @@ const recordPreparedCopies = (
           kind: INSTRUCTIONS_KIND,
           path: item.unit.value,
           row: {
-            gen: copyGeneration(
+            gen: yield* copyGeneration(
               item.unit.value,
               snapshot.status.sourceFileName,
               sourceContent.value,
             ),
-            output: projectionOutputDigest(sourceContent.value),
+            output: yield* projectionOutputDigest(sourceContent.value),
           },
         } satisfies ProjectionRowChange;
       }),
@@ -2701,13 +2720,13 @@ export const applyInstructionProjection = (args: {
         patterns,
         eligiblePatterns,
       });
-      gitignoreRow = Option.flatMap(writtenIgnore, ({ raw }) =>
-        gitignoreRowChange({
-          raw,
-          patterns,
-          recorded: Option.fromNullishOr(snapshot.rows.get(GITIGNORE_UNIT)),
-        }),
-      );
+      gitignoreRow = Option.isNone(writtenIgnore)
+        ? Option.none()
+        : yield* gitignoreRowChange({
+            raw: writtenIgnore.value.raw,
+            patterns,
+            recorded: Option.fromNullishOr(snapshot.rows.get(GITIGNORE_UNIT)),
+          });
     }
     return {
       written,

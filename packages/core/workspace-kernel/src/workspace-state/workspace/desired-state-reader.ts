@@ -180,7 +180,7 @@ export const captureDesiredStateInputs = Effect.fnUntraced(function* (
         observation: {
           status: "decoded",
           manifest,
-          contentIdentity: computePackManifestContentIdentity(manifest),
+          contentIdentity: yield* computePackManifestContentIdentity(manifest),
         },
         provenance: { kind: "proposed", ref: proposal },
       });

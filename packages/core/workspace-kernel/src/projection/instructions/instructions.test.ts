@@ -1,6 +1,6 @@
 import type * as NodeServices from "@effect/platform-node/NodeServices";
 import type { NativeEntryRemoval } from "../../locations/index.js";
-import { NativePlatformTest } from "../../locations/testing.js";
+import { NativePlatformTest, withDetailedWork } from "../../locations/testing.js";
 import { CanonicalNativePathLive } from "../../locations/live.js";
 import type { InstructionStatusItem } from "./instruction-status.js";
 import { spawnSync } from "node:child_process";
@@ -13,6 +13,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Tracer from "effect/Tracer";
 import { afterEach, beforeEach } from "vitest";
 import {
   assertInstructionTargetsSafe,
@@ -1179,6 +1180,56 @@ describe("agent instructions", () => {
         // The refusal happens before any write: the other alias is not created either.
         expect(fs.existsSync(path.join(tempDir, "GEMINI.md"))).toBe(false);
         expect(fs.existsSync(path.join(tempDir, ".gitignore"))).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("attributes instruction witness hashes to metadata and actual UTF-8 content", () =>
+    run(
+      Effect.gen(function* () {
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
+        for (const name of ["AGENTS.md", "CLAUDE.md"]) {
+          fs.writeFileSync(path.join(tempDir, name), "# Workspace\n");
+        }
+        const before = yield* observe({ configuredAgents: ["claude-code"] }).pipe(
+          withDetailedWork(tracer),
+        );
+        const first = spans.filter((span) => span.name === "axm.hash.instruction-witness");
+        expect(before.witnesses.map((witness) => path.basename(witness.path))).toEqual([
+          ".gitignore",
+          "AGENTS.md",
+          "CLAUDE.md",
+        ]);
+        expect(first.map((span) => span.attributes.get("axm.work.count"))).toEqual([1, 2, 2]);
+        spans.length = 0;
+        // In-place writes preserve inode/birth identity. Each new body is four UTF-8 bytes longer;
+        // the metadata hashes contain fixed-length content digests, never the body itself.
+        for (const name of ["AGENTS.md", "CLAUDE.md"]) {
+          fs.appendFileSync(path.join(tempDir, name), "éé");
+        }
+        const after = yield* observe({ configuredAgents: ["claude-code"] }).pipe(
+          withDetailedWork(tracer),
+        );
+        const second = spans.filter((span) => span.name === "axm.hash.instruction-witness");
+        expect(second.map((span) => span.attributes.get("axm.work.count"))).toEqual([1, 2, 2]);
+        expect(
+          second.map(
+            (span, index) =>
+              Number(span.attributes.get("axm.work.bytes")) -
+              Number(first[index]?.attributes.get("axm.work.bytes")),
+          ),
+        ).toEqual([0, 4, 4]);
+        expect(after.witnesses[0]?.fingerprint).toBe(before.witnesses[0]?.fingerprint);
+        expect(after.witnesses[1]?.fingerprint).not.toBe(before.witnesses[1]?.fingerprint);
+        expect(after.witnesses[2]?.fingerprint).not.toBe(before.witnesses[2]?.fingerprint);
+        expect([...first, ...second].every((span) => span.status._tag === "Ended")).toBe(true);
       }),
     ),
   );

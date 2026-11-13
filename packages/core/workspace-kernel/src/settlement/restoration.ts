@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 /**
  * Snapshot restoration and verification: the mechanics that put a protected
  * path back to its preimage through validated staging and atomic publication,
@@ -53,8 +54,15 @@ export const workspaceRelative = (
   return isRelativeWithin(path, relative) ? relative : target;
 };
 
-const sha256 = (input: string | Uint8Array): string =>
-  createHash("sha256").update(input).digest("hex");
+const sha256 = (input: string | Uint8Array) =>
+  Effect.sync(() => createHash("sha256").update(input).digest("hex")).pipe((effect) =>
+    withWork("axm.hash.preimage", effect, {
+      attributes: {
+        "axm.work.count": 1,
+        "axm.work.bytes": typeof input === "string" ? Buffer.byteLength(input) : input.byteLength,
+      },
+    }),
+  );
 
 /**
  * Deterministic content hash of a path's current state: file bytes, symlink
@@ -68,7 +76,7 @@ const hashPathState = Effect.fnUntraced(
     target: string,
   ): Effect.fn.Return<string, PlatformError> {
     const link = yield* fs.readLink(target).pipe(Effect.option);
-    if (Option.isSome(link)) return sha256(`symlink:${link.value}`);
+    if (Option.isSome(link)) return yield* sha256(`symlink:${link.value}`);
     const exists = yield* fs.exists(target);
     if (!exists) return "absent";
     const info = yield* fs.stat(target);
@@ -79,10 +87,10 @@ const hashPathState = Effect.fnUntraced(
         const child = yield* hashPathState(fs, path, path.join(target, entry));
         parts.push(`${entry}:${child}`);
       }
-      return sha256(`dir:${parts.join("\n")}`);
+      return yield* sha256(`dir:${parts.join("\n")}`);
     }
     const bytes = yield* fs.readFile(target);
-    return sha256(bytes);
+    return yield* sha256(bytes);
   },
   Effect.catch(() => Effect.succeed("unhashable")),
 );
@@ -133,7 +141,7 @@ const reconcilePreimage = Effect.fnUntraced(function* (
       yield* fs.remove(target, { recursive: true, force: true });
     const bytes = yield* fs.readFile(source);
     const current = yield* fs.readFile(target).pipe(Effect.option);
-    if (Option.isNone(current) || sha256(current.value) !== sha256(bytes))
+    if (Option.isNone(current) || (yield* sha256(current.value)) !== (yield* sha256(bytes)))
       yield* fs.writeFile(target, bytes);
   }
   yield* fs.chmod(target, sourceInfo.mode);
@@ -339,7 +347,11 @@ export const restoreAll = Effect.fnUntraced(function* (
           )
         : restoreSnapshot(fs, path, snapshot).pipe(
             Effect.withSpan("axm.rollback.restore", {
-              attributes: { "axm.snapshot.kind": snapshot.state, "axm.work.count": 1 },
+              attributes: {
+                "axm.snapshot.kind": snapshot.state,
+                "axm.work.count": 1,
+                "axm.operation.phase": "restoration",
+              },
             }),
             Effect.andThen(recordFootprint({ path: snapshot.target, change: "restored" })),
           )
@@ -402,7 +414,11 @@ export const verifySnapshots = (
         }
       }).pipe(
         Effect.withSpan("axm.rollback.verify", {
-          attributes: { "axm.snapshot.kind": snapshot.state, "axm.work.count": 1 },
+          attributes: {
+            "axm.snapshot.kind": snapshot.state,
+            "axm.work.count": 1,
+            "axm.operation.phase": "restoration",
+          },
         }),
       ),
     { discard: true },

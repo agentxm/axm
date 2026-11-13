@@ -1,6 +1,13 @@
+import {
+  annotateWork,
+  withWork,
+  type WorkAttributes,
+} from "@agentxm/host-primitives/work-observation";
 /** Read sharing for a single stable phase. Never retain this context across writes. */
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import { CurrentWorkspaceReadRequest } from "./read-phase.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Sink from "effect/Sink";
 import { CanonicalNativePath } from "../../locations/index.js";
@@ -16,37 +23,111 @@ export const makeObservationReadView = (
     valid = false;
     invalidate();
   };
+  const invalidateMutation = Effect.suspend(() => {
+    const first = valid;
+    close();
+    return first
+      ? Effect.void.pipe((effect) =>
+          withWork("axm.observation.invalidate", effect, {
+            attributes: { "axm.invalidation.reason": "mutation", "axm.work.count": 1 },
+          }),
+        )
+      : Effect.void;
+  });
   const mutation =
     <Args extends ReadonlyArray<unknown>, A, E, R>(
       write: (...args: Args) => Effect.Effect<A, E, R>,
     ) =>
     (...args: Args) =>
-      Effect.sync(close).pipe(Effect.andThen(Effect.suspend(() => write(...args))));
+      invalidateMutation.pipe(Effect.andThen(Effect.suspend(() => write(...args))));
   const share = <Args extends ReadonlyArray<unknown>, A, E>(
-    operation: string,
+    operation: NonNullable<WorkAttributes["axm.observation.operation"]>,
     read: (...args: Args) => Effect.Effect<A, E>,
   ) => {
-    const cells = new Map<string, Effect.Effect<A, E>>();
+    const cells = new Map<
+      string,
+      { readonly value: Effect.Effect<A, E>; readonly completed: () => boolean }
+    >();
     return (...args: Args) =>
       Effect.gen(function* () {
         // Prepared closures can outlive preparation. They may retain this port,
         // but never its observations after the owning phase has returned.
-        if (!valid || !isActive()) return yield* read(...args);
+        if (!valid || !isActive()) {
+          yield* annotateWork({
+            "axm.cache.outcome": "bypass",
+            "axm.invalidation.reason": !valid ? "mutation" : "phase-exit",
+            "axm.work.executed": 1,
+            "axm.work.reused-count": 0,
+          });
+          return yield* read(...args);
+        }
         // Preserve spelling: resolving .. can change traversal through a symlink.
         const key = JSON.stringify(args);
+        const request = { executed: false };
         const previous = cells.get(key);
-        if (previous !== undefined) return yield* previous;
-        const created = yield* Effect.cached(
-          read(...args).pipe(
-            Effect.withSpan(`axm.observation.${operation}`, {
-              attributes: { "axm.work.count": 1 },
+        if (previous !== undefined) {
+          yield* annotateWork({
+            "axm.cache.outcome": previous.completed() ? "hit" : "coalesced",
+            "axm.work.executed": 0,
+            "axm.work.reused-count": 0,
+          });
+          return yield* previous.value.pipe(
+            Effect.provideService(CurrentWorkspaceReadRequest, request),
+            Effect.onExit((exit) =>
+              Exit.hasInterrupts(exit) || request.executed
+                ? Effect.void
+                : annotateWork({ "axm.work.reused-count": 1 }),
+            ),
+          );
+        }
+        let completed = false;
+        let generation = 0;
+        const work = read(...args);
+        const created = {
+          value: yield* Effect.cached(
+            Effect.gen(function* () {
+              const request = yield* CurrentWorkspaceReadRequest;
+              if (request !== undefined) request.executed = true;
+              const current = ++generation;
+              completed = false;
+              return yield* annotateWork({
+                "axm.cache.outcome": "miss",
+                "axm.work.executed": 1,
+              }).pipe(
+                Effect.andThen(work),
+                Effect.onExit((exit) =>
+                  Effect.sync(() => {
+                    // An abandoned run must not overwrite a retry's observation state.
+                    if (generation === current) completed = !Exit.hasInterrupts(exit);
+                  }),
+                ),
+              );
             }),
           ),
-        );
-        const selected = cells.get(key) ?? created;
+          completed: () => completed,
+        };
+        const raced = cells.get(key);
+        const selected = raced ?? created;
         cells.set(key, selected);
-        return yield* selected;
-      });
+        yield* annotateWork({
+          "axm.cache.outcome":
+            raced === undefined ? "miss" : raced.completed() ? "hit" : "coalesced",
+          "axm.work.executed": 0,
+          "axm.work.reused-count": 0,
+        });
+        return yield* selected.value.pipe(
+          Effect.provideService(CurrentWorkspaceReadRequest, request),
+          Effect.onExit((exit) =>
+            Exit.hasInterrupts(exit) || request.executed
+              ? Effect.void
+              : annotateWork({ "axm.work.reused-count": 1 }),
+          ),
+        );
+      }).pipe((effect) =>
+        withWork("axm.observation.reuse", effect, {
+          attributes: { "axm.observation.operation": operation, "axm.work.requested": 1 },
+        }),
+      );
   };
   const readFile = share("read-file", (target: string) => fs.readFile(target));
   const readDirectory = share("read-directory", (target: string, recursive: boolean) =>
@@ -91,7 +172,7 @@ export const makeObservationReadView = (
         ? fs.open(target, options)
         : mutation(fs.open)(target, options),
     sink: (target, options) =>
-      Sink.unwrap(Effect.sync(close).pipe(Effect.map(() => fs.sink(target, options)))),
+      Sink.unwrap(invalidateMutation.pipe(Effect.map(() => fs.sink(target, options)))),
     access: io.access,
     exists: io.exists,
     stat: io.stat,

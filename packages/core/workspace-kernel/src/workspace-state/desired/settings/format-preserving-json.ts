@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect";
 /**
  * Format-preserving JSON modification utilities.
  *
@@ -94,54 +95,55 @@ export const applyJsonPatchToText = (
   document: Schema.Json,
   patch: JsonPatch.JsonPatch,
   options: ApplyJsonPatchOptions = {},
-): JsonPatchTextResult => {
-  let currentText = text;
-  let currentDocument = document;
+): Effect.Effect<JsonPatchTextResult> =>
+  Effect.gen(function* (): Effect.fn.Return<JsonPatchTextResult> {
+    let currentText = text;
+    let currentDocument = document;
 
-  for (const operation of patch) {
-    const translated = jsonPointerToJsonPath(operation.path, currentDocument);
-    if (translated._tag === "Failure") return translated;
+    for (const operation of patch) {
+      const translated = jsonPointerToJsonPath(operation.path, currentDocument);
+      if (translated._tag === "Failure") return translated;
 
-    const value = operation.op === "remove" ? undefined : operation.value;
-    const modificationOptions: ModificationOptions = {
-      formattingOptions: {
-        insertSpaces: true,
-        tabSize: 2,
-        eol: text.includes("\r\n") ? "\r\n" : "\n",
-      },
-      ...(options.getInsertionIndex === undefined
-        ? {}
-        : {
-            getInsertionIndex: (properties: string[]) =>
-              options.getInsertionIndex?.(translated.path, properties) ?? -1,
-          }),
-    };
+      const value = operation.op === "remove" ? undefined : operation.value;
+      const modificationOptions: ModificationOptions = {
+        formattingOptions: {
+          insertSpaces: true,
+          tabSize: 2,
+          eol: text.includes("\r\n") ? "\r\n" : "\n",
+        },
+        ...(options.getInsertionIndex === undefined
+          ? {}
+          : {
+              getInsertionIndex: (properties: string[]) =>
+                options.getInsertionIndex?.(translated.path, properties) ?? -1,
+            }),
+      };
 
-    try {
-      const formatted = applyEdits(
-        currentText,
-        modify(currentText, [...translated.path], value, modificationOptions),
-      );
-      // Formatting an insertion can rewrite a neighboring authored value. Keep
-      // the formatted edit only when its inverse contains syntax alone.
-      currentText =
-        options.preserveInsertionBaseline === true &&
-        operation.op === "add" &&
-        Option.isNone(deriveStructuralInverse(currentText, formatted))
-          ? applyEdits(
-              currentText,
-              modify(currentText, [...translated.path], value, {
-                ...(modificationOptions.getInsertionIndex === undefined
-                  ? {}
-                  : { getInsertionIndex: modificationOptions.getInsertionIndex }),
-              }),
-            )
-          : formatted;
-      currentDocument = JsonPatch.apply([operation], currentDocument);
-    } catch {
-      return { _tag: "Failure", reason: "edit_failed" };
+      try {
+        const formatted = applyEdits(
+          currentText,
+          modify(currentText, [...translated.path], value, modificationOptions),
+        );
+        // Formatting an insertion can rewrite a neighboring authored value. Keep
+        // the formatted edit only when its inverse contains syntax alone.
+        currentText =
+          options.preserveInsertionBaseline === true &&
+          operation.op === "add" &&
+          Option.isNone(yield* deriveStructuralInverse(currentText, formatted))
+            ? applyEdits(
+                currentText,
+                modify(currentText, [...translated.path], value, {
+                  ...(modificationOptions.getInsertionIndex === undefined
+                    ? {}
+                    : { getInsertionIndex: modificationOptions.getInsertionIndex }),
+                }),
+              )
+            : formatted;
+        currentDocument = JsonPatch.apply([operation], currentDocument);
+      } catch {
+        return { _tag: "Failure", reason: "edit_failed" };
+      }
     }
-  }
 
-  return { _tag: "Success", text: currentText };
-};
+    return { _tag: "Success", text: currentText };
+  });

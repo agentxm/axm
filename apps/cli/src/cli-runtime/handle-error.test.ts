@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import { CliError } from "effect/cli";
 import { classifyError } from "./handle-error.js";
@@ -254,18 +253,7 @@ describe("classifyError — generic errors", () => {
 // ---------------------------------------------------------------------------
 
 describe("handleError — integration", () => {
-  class ExitCalled extends Error {
-    readonly code: number;
-    constructor(code: number) {
-      super(`process.exit(${code})`);
-      this.code = code;
-    }
-  }
-
   beforeEach(() => {
-    vi.spyOn(process, "exit").mockImplementation((code) => {
-      throw new ExitCalled(typeof code === "number" ? code : 0);
-    });
     vi.spyOn(process.stdout, "write").mockImplementation((...args: Array<unknown>) => {
       const callback = args.find(
         (arg): arg is (error?: Error | null) => void => typeof arg === "function",
@@ -287,18 +275,10 @@ describe("handleError — integration", () => {
     vi.restoreAllMocks();
   });
 
-  it.effect("calls process.exit with the classified exit code", () =>
+  it.effect("acknowledges error output and returns the classified process exit code", () =>
     Effect.gen(function* () {
-      const failure = yield* handleError(new Error("boom"), "text").pipe(
-        Effect.matchCause({
-          onFailure: Cause.squash,
-          onSuccess: () => undefined,
-        }),
-      );
-      if (!(failure instanceof ExitCalled)) {
-        return yield* Effect.die(new Error("handleError did not call process.exit"));
-      }
-      expect(failure.code).toBe(ExitCode.Internal);
+      expect(yield* handleError(new Error("boom"), "text")).toBe(ExitCode.Internal);
+      expect(process.stderr.write).toHaveBeenCalled();
     }),
   );
 });

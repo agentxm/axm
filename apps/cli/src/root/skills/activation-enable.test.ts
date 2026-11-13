@@ -1,3 +1,4 @@
+import { sourceHashFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 /**
  * Unit tests for the enable command handler.
  *
@@ -22,10 +23,7 @@ import {
   handle,
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
-import {
-  acquiredPackageRelativePath,
-  computeSourceHash,
-} from "@agentxm/workspace-kernel/workspace-state";
+import { acquiredPackageRelativePath } from "@agentxm/workspace-kernel/workspace-state";
 import {
   expectNoOpPlanResult,
   getAppError,
@@ -123,7 +121,7 @@ describe("enable.handler", () => {
         path.join(tempDir, ".axm"),
         { "my-skill": "local" },
         {
-          "my-skill": makeLockEntry(["claude-code"], computeSourceHash("SKILL.md\n# my-skill")),
+          "my-skill": makeLockEntry(["claude-code"], sourceHashFixture("SKILL.md\n# my-skill")),
         },
       );
 
@@ -328,7 +326,7 @@ describe("enable.handler", () => {
         path.join(tempDir, ".axm"),
         { "my-skill": { source: "./installed", enabled: false } },
         {
-          "my-skill": makeLockEntry(["claude-code"], computeSourceHash("SKILL.md\n# my-skill")),
+          "my-skill": makeLockEntry(["claude-code"], sourceHashFixture("SKILL.md\n# my-skill")),
         },
       );
       // Create canonical skill directory

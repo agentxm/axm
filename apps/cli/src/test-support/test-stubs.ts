@@ -1,3 +1,4 @@
+import { packIdentityFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 /** @internal Test-only CLI workspace fixtures. */
 
 import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
@@ -10,7 +11,6 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
   computePackageContentHash,
-  computePackManifestContentIdentity,
   emitLockfileToml,
   type SkillLockEntry,
   type TreeIntegrity,
@@ -182,7 +182,7 @@ const normalizeTestLockMap = (
                     manifestVersion: value["manifestVersion"] ?? value["resolvedVersion"],
                     manifestContentIdentity:
                       value["manifestContentIdentity"] ??
-                      computePackManifestContentIdentity({
+                      packIdentityFixture({
                         owner: String(value["owner"]),
                         type: "pack",
                         name: String(value["workspaceName"] ?? name),

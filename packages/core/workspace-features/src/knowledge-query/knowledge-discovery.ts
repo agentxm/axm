@@ -69,7 +69,7 @@ const conceptDocument = (
   };
 };
 
-const runPage = Effect.fn("Knowledge.runPage")(function* (args: {
+const runPage = Effect.fnUntraced(function* (args: {
   readonly query: KnowledgeQuery;
   readonly bundle?: string;
 }) {

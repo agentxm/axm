@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 /** The strict `axm.json` read: raw bytes, then JSON parse and schema decode. */
 
 import * as Effect from "effect/Effect";
@@ -26,8 +27,9 @@ export const readSettingsBytes = Effect.fn("workspace.read-model.state.settings.
 );
 
 /** Decode settings bytes with the same strict schema policy for every caller. */
-export const decodeSettingsBytes = Effect.fn("workspace.read-model.state.settings.decode")(
+export const decodeSettingsBytes = Effect.fnUntraced(
   function* (path: string, bytes: string) {
+    yield* annotateWork({ "axm.work.count": 1 });
     const parsed = yield* Effect.try({
       try: (): unknown => JSON.parse(bytes),
       catch: (): SettingsParseError =>
@@ -61,4 +63,5 @@ export const decodeSettingsBytes = Effect.fn("workspace.read-model.state.setting
       ),
     );
   },
+  (effect) => withWork("axm.parse.settings", effect),
 );

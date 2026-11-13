@@ -94,7 +94,12 @@ describe("compiled local tracing", () => {
         const receipt = Schema.decodeUnknownSync(
           Schema.fromJsonString(
             Schema.Struct({
+              schemaVersion: Schema.Literal(2),
               service: Schema.Literal("axm"),
+              producerComplete: Schema.Literal(true),
+              aggregateEventCount: Schema.Int,
+              aggregateEventsSha256: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/)),
+              droppedAggregateEventCount: Schema.Literal(0),
               traceId: Schema.String,
               spanId: Schema.String,
             }),

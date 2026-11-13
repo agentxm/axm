@@ -223,7 +223,7 @@ export interface McpServerInstallArgs {
 export const parseMcpServerInstallRequest: (
   args: McpServerInstallArgs,
 ) => Effect.Effect<ParsedMcpServerInstallRequest, OperationRefused, ResolveInstallRequirements> =
-  Effect.fn("InstallExtensions.parseMcpRequest")(function* (args: McpServerInstallArgs) {
+  Effect.fnUntraced(function* (args: McpServerInstallArgs) {
     const settings = yield* SettingsReader;
     const trimmed = args.source.trim();
     const bindingRequests = yield* parseMcpBindingRequests(args);
@@ -367,9 +367,7 @@ const selectMcpSourceConstraint = (
 export const resolveMcpServerSourceRequest: (
   request: ParsedMcpServerInstallRequest,
 ) => Effect.Effect<McpServerInstallSourceRequest, OperationRefused, ResolveInstallRequirements> =
-  Effect.fn("InstallExtensions.resolveMcpSource")(function* (
-    request: ParsedMcpServerInstallRequest,
-  ) {
+  Effect.fnUntraced(function* (request: ParsedMcpServerInstallRequest) {
     const source = yield* resolveSource(request.resolvedInput, { expectedType: "mcp-server" }).pipe(
       Effect.mapError((cause) =>
         installRefused({
@@ -450,9 +448,7 @@ export const discoverMcpServerRefs: (
   ReadonlyArray<McpServerExtensionRef>,
   OperationRefused,
   ResolveInstallRequirements
-> = Effect.fn("InstallExtensions.discoverMcpServers")(function* (
-  request: McpServerInstallSourceRequest,
-) {
+> = Effect.fnUntraced(function* (request: McpServerInstallSourceRequest) {
   const sources = yield* SourceHostProviders;
   const refs = yield* sources
     .find(request.source, {
@@ -475,7 +471,7 @@ export const finalizeMcpServerInstallIntent: (
   sourceRequest: McpServerInstallSourceRequest,
   refs: ReadonlyArray<McpServerExtensionRef>,
 ) => Effect.Effect<McpServerInstallIntent, OperationRefused, ResolveInstallRequirements> =
-  Effect.fn("InstallExtensions.finalizeMcpIntent")(function* (
+  Effect.fnUntraced(function* (
     request: ParsedMcpServerInstallRequest,
     sourceRequest: McpServerInstallSourceRequest,
     refs: ReadonlyArray<McpServerExtensionRef>,
@@ -562,7 +558,7 @@ export const finalizeMcpServerInstallIntent: (
 export const planMcpServerInstall: (
   intent: McpServerInstallIntent,
 ) => Effect.Effect<Plan<InstallStepRequirements>, OperationRefused, InstallStepRequirements> =
-  Effect.fn("InstallExtensions.planMcpServer")(function* (intent: McpServerInstallIntent) {
+  Effect.fnUntraced(function* (intent: McpServerInstallIntent) {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
     // A user-scope workspace can only hold an MCP configuration when every

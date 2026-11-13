@@ -13,12 +13,15 @@ import type * as Context from "effect/Context";
  */
 
 import * as Cause from "effect/Cause";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as Semaphore from "effect/Semaphore";
 import * as SynchronizedRef from "effect/SynchronizedRef";
+import { updateTransactionLedger } from "./ledger-admission.js";
 
 import {
   CurrentWorkspaceClosure,
@@ -89,7 +92,7 @@ export const settleWorkspaceClosure = (closureId: string): Effect.Effect<void> =
       Option.match({
         onNone: () => Effect.void,
         onSome: (context) =>
-          SynchronizedRef.updateEffect(context.ledger, (ledger) =>
+          updateTransactionLedger(context.ledger, (ledger) =>
             cleanupRetirements(context.fs, context.path, closureSnapshots(ledger, closureId)).pipe(
               Effect.matchEffect({
                 onSuccess: () => Effect.succeed(withoutClosure(ledger, closureId)),
@@ -124,7 +127,7 @@ export const rollbackWorkspaceClosure = (closureId: string): Effect.Effect<void>
       Option.match({
         onNone: () => Effect.void,
         onSome: (context) =>
-          SynchronizedRef.updateEffect(context.ledger, (ledger) =>
+          updateTransactionLedger(context.ledger, (ledger) =>
             Effect.gen(function* () {
               const { fs, path } = context;
               const owned = closureSnapshots(ledger, closureId);
@@ -234,7 +237,24 @@ export const runFilesystemTransaction = Effect.fnUntraced(function* <A, E, R>(
       (cause) => new WorkspaceDirectoryError({ path: workspaceDir, step: "inspect", cause }),
     ),
   );
-  return yield* scope.admission.withPermits(1)(
+  const withAdmission = <Value, Error, Requirements>(
+    effect: Effect.Effect<Value, Error, Requirements>,
+  ) =>
+    Effect.uninterruptibleMask((restore) =>
+      Effect.gen(function* () {
+        const span = yield* Effect.makeSpan("axm.wait.workspace-admission");
+        const end = (exit: Exit.Exit<unknown, unknown>) =>
+          Effect.gen(function* () {
+            if (span.status._tag === "Ended") return;
+            span.end(yield* Clock.currentTimeNanos, exit);
+          });
+        const admitted = scope.admission.withPermits(1)(
+          end(Exit.void).pipe(Effect.andThen(effect)),
+        );
+        return yield* Effect.onExit(restore(admitted), end);
+      }),
+    );
+  return yield* withAdmission(
     Effect.gen(function* () {
       return yield* Effect.scoped(
         Effect.gen(function* () {

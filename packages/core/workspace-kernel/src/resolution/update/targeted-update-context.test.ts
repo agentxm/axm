@@ -1,5 +1,7 @@
+import { withDetailedWork } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 
 import { UNCONSTRAINED_DESIRED_NODE } from "../../workspace-state/index.js";
 import {
@@ -80,395 +82,447 @@ const expectRangeMembership = (
 };
 
 describe("classifyTargetedUpdate", () => {
-  it("blocks an inline MCP target as configuration authority", () => {
-    const inlineTarget = {
-      type: "mcp-server" as const,
-      name: "linear",
-      fqn: "@workspace/mcps/linear",
-    };
-    const context = classifyTargetedUpdate({
-      target: inlineTarget,
-      graph: graph([
-        {
-          type: "mcp-server",
-          name: "linear",
-          identity: { authority: "inline", name: "linear" },
-          authority: "inline",
-          enabled: true,
-          constraint: UNCONSTRAINED_DESIRED_NODE,
-          origins: [{ type: "settings", authority: "inline", enabled: true }],
+  it.effect("blocks an inline MCP target as configuration authority", () =>
+    Effect.gen(function* () {
+      const inlineTarget = {
+        type: "mcp-server" as const,
+        name: "linear",
+        fqn: "@workspace/mcps/linear",
+      };
+      const context = yield* classifyTargetedUpdate({
+        target: inlineTarget,
+        graph: graph([
+          {
+            type: "mcp-server",
+            name: "linear",
+            identity: { authority: "inline", name: "linear" },
+            authority: "inline",
+            enabled: true,
+            constraint: UNCONSTRAINED_DESIRED_NODE,
+            origins: [{ type: "settings", authority: "inline", enabled: true }],
+          },
+        ]),
+        configuredPacks: [],
+      });
+
+      expect(context.public).toMatchObject({
+        ownership: "direct-only",
+        activation: "enabled",
+        authority: "blocked",
+        blocker: "source-authority",
+        direct: { source: "inline", enabled: true },
+      });
+    }),
+  );
+
+  it.effect("blocks a target with no desired origin", () =>
+    Effect.gen(function* () {
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
         },
-      ]),
-      configuredPacks: [],
-    });
+      });
+      const context = yield* classifyTargetedUpdate({
+        target,
+        graph: graph([]),
+        configuredPacks: [],
+      }).pipe(withDetailedWork(tracer));
+      expect(context.fingerprint).toBe(
+        "c16711b4b37d973eda476052c41ee82e616daebd0f2c32369302172faf1dde6e",
+      );
+      expect(context.bindingFingerprint).toBe(
+        "b08d3a68307205c021cee58282f63ff545c7b8468301c2e10d9bea7954ae7e3b",
+      );
+      expect(context.packEvidenceFingerprint).toBe(
+        "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      );
+      const hashes = spans.filter((span) => span.name === "axm.hash.targeted-update");
+      expect(hashes.map((span) => span.attributes.get("axm.work.count"))).toEqual([1, 1, 1]);
+      expect(hashes.map((span) => span.attributes.get("axm.work.bytes"))).toEqual([447, 18, 2]);
 
-    expect(context.public).toMatchObject({
-      ownership: "direct-only",
-      activation: "enabled",
-      authority: "blocked",
-      blocker: "source-authority",
-      direct: { source: "inline", enabled: true },
-    });
-  });
+      expect(context.public).toMatchObject({
+        ownership: "absent",
+        activation: "disabled",
+        authority: "blocked",
+        blocker: "not-desired",
+      });
+    }),
+  );
 
-  it("blocks a target with no desired origin", () => {
-    const context = classifyTargetedUpdate({ target, graph: graph([]), configuredPacks: [] });
-
-    expect(context.public).toMatchObject({
-      ownership: "absent",
-      activation: "disabled",
-      authority: "blocked",
-      blocker: "not-desired",
-    });
-  });
-
-  it("classifies direct-only ownership and preserves its durable constraint", () => {
-    const context = classifyTargetedUpdate({
-      target,
-      graph: graph([
-        node([
-          {
-            type: "settings",
-            source: "@acme/skills/review@^1.0.0",
-            enabled: true,
-            constraint: "^1.0.0",
-          },
-        ]),
-      ]),
-      configuredPacks: [],
-    });
-
-    expect(context.public).toMatchObject({
-      ownership: "direct-only",
-      activation: "enabled",
-      authority: "direct",
-      direct: { source: "registry", enabled: true, constraint: "^1.0.0" },
-      effects: { settings: "unchanged", acceptedResolution: "may-update" },
-    });
-    expectRangeMembership(
-      context.public.effectiveConstraint,
-      ["1.0.0", "1.5.0", "1.999.999"],
-      ["0.999.999", "1.0.0-alpha", "1.5.0-beta", "2.0.0-0", "2.0.0"],
-    );
-  });
-
-  it("matches a bundled official skill and blocks Registry-oriented update truthfully", () => {
-    const bundledTarget = {
-      type: "skill" as const,
-      name: "axm",
-      fqn: "@agentxm/skills/axm",
-    };
-    const context = classifyTargetedUpdate({
-      target: bundledTarget,
-      graph: graph([
-        {
-          type: "skill",
-          name: "axm",
-          identity: { authority: "bundled", fqn: "@agentxm/skills/axm" },
-          authority: "sourced",
-          source: "workspace",
-          enabled: true,
-          constraint: UNCONSTRAINED_DESIRED_NODE,
-          origins: [
-            {
-              type: "settings",
-              authority: "sourced",
-              source: "workspace",
-              enabled: true,
-            },
-          ],
-        },
-      ]),
-      configuredPacks: [],
-    });
-
-    expect(context.public).toMatchObject({
-      target: bundledTarget,
-      ownership: "direct-only",
-      activation: "enabled",
-      authority: "blocked",
-      direct: { source: "bundled", enabled: true },
-      blocker: "bundled-source",
-      effects: {
-        settings: "unchanged",
-        acceptedResolution: "unchanged",
-        canonical: "unchanged",
-        projection: "unchanged",
-        packRoot: "unchanged",
-        packManifest: "unchanged",
-      },
-    });
-  });
-
-  it("classifies one pack as member-scoped pack authority", () => {
-    const context = classifyTargetedUpdate({
-      target,
-      graph: graph([
-        node([
-          {
-            type: "pack",
-            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
-            source: target.fqn,
-            constraint: "^1.0.0",
-            enabled: true,
-          },
-        ]),
-      ]),
-      configuredPacks: [configuredPack("toolkit", "workspace")],
-      configuredOwner: "@acme",
-    });
-
-    expect(context.public).toMatchObject({
-      ownership: "pack-only",
-      activation: "enabled",
-      authority: "pack-aware",
-      packs: [
-        {
-          fqn: "@acme/packs/toolkit",
-          configuredName: "toolkit",
-          constraint: "^1.0.0",
-        },
-      ],
-      memberClosure: [target],
-      effects: { settings: "unchanged", packManifest: "unchanged" },
-    });
-  });
-
-  it("intersects multiple owning pack constraints", () => {
-    const context = classifyTargetedUpdate({
-      target,
-      graph: graph([
-        node([
-          {
-            type: "pack",
-            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
-            source: target.fqn,
-            constraint: "^1.0.0",
-            enabled: true,
-          },
-          {
-            type: "pack",
-            pack: { authority: "registry", fqn: "@acme/packs/reviewers" },
-            source: target.fqn,
-            constraint: ">=1.4.0 <1.8.0",
-            enabled: true,
-          },
-        ]),
-      ]),
-      configuredPacks: [
-        configuredPack("toolkit", "agentxm:@acme/packs/toolkit@^1.0.0"),
-        configuredPack("reviewers", "agentxm:@acme/packs/reviewers@^1.0.0"),
-      ],
-    });
-
-    expectRangeMembership(
-      context.public.effectiveConstraint,
-      ["1.4.0", "1.5.0", "1.7.999"],
-      ["1.3.999", "1.4.0-alpha", "1.5.0-beta", "1.8.0-0", "1.8.0", "2.0.0"],
-    );
-    expect(context.public.packs.map(({ fqn, constraint }) => ({ fqn, constraint }))).toEqual([
-      { fqn: "@acme/packs/reviewers", constraint: ">=1.4.0 <1.8.0" },
-      { fqn: "@acme/packs/toolkit", constraint: "^1.0.0" },
-    ]);
-  });
-
-  it("uses direct authority with pack guards for combined ownership", () => {
-    const context = classifyTargetedUpdate({
-      target,
-      explicitRange: "^1.5.0",
-      graph: graph([
-        node([
-          {
-            type: "settings",
-            source: "@acme/skills/review@^1.0.0",
-            enabled: true,
-            constraint: "^1.0.0",
-          },
-          {
-            type: "pack",
-            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
-            source: target.fqn,
-            constraint: "<1.9.0",
-            enabled: true,
-          },
-        ]),
-      ]),
-      configuredPacks: [configuredPack("toolkit", "workspace")],
-    });
-
-    expect(context.public).toMatchObject({
-      ownership: "combined",
-      authority: "direct",
-      effects: { settings: "may-update", packManifest: "unchanged" },
-    });
-    expectRangeMembership(
-      context.public.effectiveConstraint,
-      ["1.5.0", "1.6.0", "1.8.999"],
-      ["1.4.999", "1.5.0-alpha", "1.6.0-beta", "1.9.0-0", "1.9.0", "2.0.0"],
-    );
-  });
-
-  it("blocks an effectively disabled target", () => {
-    const disabled = node([
-      { type: "settings", source: target.fqn, enabled: false },
-      {
-        type: "pack",
-        pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
-        source: target.fqn,
-        constraint: "^1.0.0",
-        enabled: true,
-      },
-    ]);
-    const context = classifyTargetedUpdate({
-      target,
-      graph: graph([{ ...disabled, enabled: false }]),
-      configuredPacks: [],
-    });
-
-    expect(context.public.blocker).toBe("disabled");
-  });
-
-  it("blocks an explicit range on a pack-only target", () => {
-    const context = classifyTargetedUpdate({
-      target,
-      explicitRange: "^2.0.0",
-      graph: graph([
-        node([
-          {
-            type: "pack",
-            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
-            source: target.fqn,
-            constraint: "^1.0.0",
-            enabled: true,
-          },
-        ]),
-      ]),
-      configuredPacks: [],
-    });
-
-    expect(context.public.blocker).toBe("pack-owned-constraint");
-  });
-
-  it("blocks a pack member whose source authority is workspace-authored", () => {
-    const context = classifyTargetedUpdate({
-      target,
-      graph: graph([
-        node([
-          {
-            type: "pack",
-            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
-            source: "workspace",
-            constraint: "^1.0.0",
-            enabled: true,
-          },
-        ]),
-      ]),
-      configuredPacks: [configuredPack("toolkit", "workspace")],
-      configuredOwner: "@acme",
-    });
-
-    expect(context.public).toMatchObject({
-      authority: "blocked",
-      blocker: "source-authority",
-      packs: [{ memberSource: "workspace" }],
-    });
-  });
-
-  it("treats unreadable configured pack membership as globally relevant", () => {
-    const context = classifyTargetedUpdate({
-      target,
-      graph: graph(
-        [],
-        [
-          {
-            type: "pack-manifest-unavailable",
-            pack: "@acme/packs/toolkit",
-            path: "/secret/workspace/pack.json",
-            reason: "absent",
-          },
-        ],
-      ),
-      configuredPacks: [],
-    });
-
-    expect(context.public.blocker).toBe("incomplete-graph");
-    expect(context.public.relevantProblems).toEqual([
-      "pack-manifest-unavailable: @acme/packs/toolkit: authored Pack manifest is absent",
-    ]);
-    expect(JSON.stringify(context.public)).not.toContain("/secret/workspace");
-  });
-
-  it("reports an unrelated constraint conflict that makes the desired graph incomplete", () => {
-    const context = classifyTargetedUpdate({
-      target,
-      graph: graph(
-        [
+  it.effect("classifies direct-only ownership and preserves its durable constraint", () =>
+    Effect.gen(function* () {
+      const context = yield* classifyTargetedUpdate({
+        target,
+        graph: graph([
           node([
             {
               type: "settings",
-              source: target.fqn,
+              source: "@acme/skills/review@^1.0.0",
               enabled: true,
               constraint: "^1.0.0",
             },
           ]),
-        ],
-        [
+        ]),
+        configuredPacks: [],
+      });
+
+      expect(context.public).toMatchObject({
+        ownership: "direct-only",
+        activation: "enabled",
+        authority: "direct",
+        direct: { source: "registry", enabled: true, constraint: "^1.0.0" },
+        effects: { settings: "unchanged", acceptedResolution: "may-update" },
+      });
+      expectRangeMembership(
+        context.public.effectiveConstraint,
+        ["1.0.0", "1.5.0", "1.999.999"],
+        ["0.999.999", "1.0.0-alpha", "1.5.0-beta", "2.0.0-0", "2.0.0"],
+      );
+    }),
+  );
+
+  it.effect("matches a bundled official skill and blocks Registry-oriented update truthfully", () =>
+    Effect.gen(function* () {
+      const bundledTarget = {
+        type: "skill" as const,
+        name: "axm",
+        fqn: "@agentxm/skills/axm",
+      };
+      const context = yield* classifyTargetedUpdate({
+        target: bundledTarget,
+        graph: graph([
           {
-            type: "constraint-conflict",
-            extensionType: "skill",
-            name: "commit",
-            constraints: ["^1.0.0", "^2.0.0"],
-            contributors: [
+            type: "skill",
+            name: "axm",
+            identity: { authority: "bundled", fqn: "@agentxm/skills/axm" },
+            authority: "sourced",
+            source: "workspace",
+            enabled: true,
+            constraint: UNCONSTRAINED_DESIRED_NODE,
+            origins: [
               {
-                source: "pack",
-                dependingPack: "@acme/packs/legacy",
-                range: "^1.0.0",
-                location: "agent_extensions/acme/packs/legacy/pack.json",
-              },
-              {
-                source: "pack",
-                dependingPack: "@acme/packs/current",
-                range: "^2.0.0",
-                location: "agent_extensions/acme/packs/current/pack.json",
+                type: "settings",
+                authority: "sourced",
+                source: "workspace",
+                enabled: true,
               },
             ],
           },
-        ],
-      ),
-      configuredPacks: [],
-    });
+        ]),
+        configuredPacks: [],
+      });
 
-    expect(context.public.blocker).toBe("incomplete-graph");
-    expect(context.public.relevantProblems).toEqual([
-      "constraint-conflict: skill commit: incompatible constraints @acme/packs/legacy range=^1.0.0 location=agent_extensions/acme/packs/legacy/pack.json, @acme/packs/current range=^2.0.0 location=agent_extensions/acme/packs/current/pack.json; decision=blocked; reason=no-satisfying-version",
-    ]);
-  });
+      expect(context.public).toMatchObject({
+        target: bundledTarget,
+        ownership: "direct-only",
+        activation: "enabled",
+        authority: "blocked",
+        direct: { source: "bundled", enabled: true },
+        blocker: "bundled-source",
+        effects: {
+          settings: "unchanged",
+          acceptedResolution: "unchanged",
+          canonical: "unchanged",
+          projection: "unchanged",
+          packRoot: "unchanged",
+          packManifest: "unchanged",
+        },
+      });
+    }),
+  );
 
-  it("blocks an empty direct-and-pack constraint intersection", () => {
-    const context = classifyTargetedUpdate({
-      target,
-      graph: graph([
-        node([
+  it.effect("classifies one pack as member-scoped pack authority", () =>
+    Effect.gen(function* () {
+      const context = yield* classifyTargetedUpdate({
+        target,
+        graph: graph([
+          node([
+            {
+              type: "pack",
+              pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
+              source: target.fqn,
+              constraint: "^1.0.0",
+              enabled: true,
+            },
+          ]),
+        ]),
+        configuredPacks: [configuredPack("toolkit", "workspace")],
+        configuredOwner: "@acme",
+      });
+
+      expect(context.public).toMatchObject({
+        ownership: "pack-only",
+        activation: "enabled",
+        authority: "pack-aware",
+        packs: [
           {
-            type: "settings",
-            source: "@acme/skills/review@^1.0.0",
-            enabled: true,
+            fqn: "@acme/packs/toolkit",
+            configuredName: "toolkit",
             constraint: "^1.0.0",
           },
-          {
-            type: "pack",
-            pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
-            source: target.fqn,
-            constraint: "^2.0.0",
-            enabled: true,
-          },
-        ]),
-      ]),
-      configuredPacks: [],
-    });
+        ],
+        memberClosure: [target],
+        effects: { settings: "unchanged", packManifest: "unchanged" },
+      });
+    }),
+  );
 
-    expect(context.public.blocker).toBe("constraint-conflict");
-  });
+  it.effect("intersects multiple owning pack constraints", () =>
+    Effect.gen(function* () {
+      const context = yield* classifyTargetedUpdate({
+        target,
+        graph: graph([
+          node([
+            {
+              type: "pack",
+              pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
+              source: target.fqn,
+              constraint: "^1.0.0",
+              enabled: true,
+            },
+            {
+              type: "pack",
+              pack: { authority: "registry", fqn: "@acme/packs/reviewers" },
+              source: target.fqn,
+              constraint: ">=1.4.0 <1.8.0",
+              enabled: true,
+            },
+          ]),
+        ]),
+        configuredPacks: [
+          configuredPack("toolkit", "agentxm:@acme/packs/toolkit@^1.0.0"),
+          configuredPack("reviewers", "agentxm:@acme/packs/reviewers@^1.0.0"),
+        ],
+      });
+
+      expectRangeMembership(
+        context.public.effectiveConstraint,
+        ["1.4.0", "1.5.0", "1.7.999"],
+        ["1.3.999", "1.4.0-alpha", "1.5.0-beta", "1.8.0-0", "1.8.0", "2.0.0"],
+      );
+      expect(context.public.packs.map(({ fqn, constraint }) => ({ fqn, constraint }))).toEqual([
+        { fqn: "@acme/packs/reviewers", constraint: ">=1.4.0 <1.8.0" },
+        { fqn: "@acme/packs/toolkit", constraint: "^1.0.0" },
+      ]);
+    }),
+  );
+
+  it.effect("uses direct authority with pack guards for combined ownership", () =>
+    Effect.gen(function* () {
+      const context = yield* classifyTargetedUpdate({
+        target,
+        explicitRange: "^1.5.0",
+        graph: graph([
+          node([
+            {
+              type: "settings",
+              source: "@acme/skills/review@^1.0.0",
+              enabled: true,
+              constraint: "^1.0.0",
+            },
+            {
+              type: "pack",
+              pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
+              source: target.fqn,
+              constraint: "<1.9.0",
+              enabled: true,
+            },
+          ]),
+        ]),
+        configuredPacks: [configuredPack("toolkit", "workspace")],
+      });
+
+      expect(context.public).toMatchObject({
+        ownership: "combined",
+        authority: "direct",
+        effects: { settings: "may-update", packManifest: "unchanged" },
+      });
+      expectRangeMembership(
+        context.public.effectiveConstraint,
+        ["1.5.0", "1.6.0", "1.8.999"],
+        ["1.4.999", "1.5.0-alpha", "1.6.0-beta", "1.9.0-0", "1.9.0", "2.0.0"],
+      );
+    }),
+  );
+
+  it.effect("blocks an effectively disabled target", () =>
+    Effect.gen(function* () {
+      const disabled = node([
+        { type: "settings", source: target.fqn, enabled: false },
+        {
+          type: "pack",
+          pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
+          source: target.fqn,
+          constraint: "^1.0.0",
+          enabled: true,
+        },
+      ]);
+      const context = yield* classifyTargetedUpdate({
+        target,
+        graph: graph([{ ...disabled, enabled: false }]),
+        configuredPacks: [],
+      });
+
+      expect(context.public.blocker).toBe("disabled");
+    }),
+  );
+
+  it.effect("blocks an explicit range on a pack-only target", () =>
+    Effect.gen(function* () {
+      const context = yield* classifyTargetedUpdate({
+        target,
+        explicitRange: "^2.0.0",
+        graph: graph([
+          node([
+            {
+              type: "pack",
+              pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
+              source: target.fqn,
+              constraint: "^1.0.0",
+              enabled: true,
+            },
+          ]),
+        ]),
+        configuredPacks: [],
+      });
+
+      expect(context.public.blocker).toBe("pack-owned-constraint");
+    }),
+  );
+
+  it.effect("blocks a pack member whose source authority is workspace-authored", () =>
+    Effect.gen(function* () {
+      const context = yield* classifyTargetedUpdate({
+        target,
+        graph: graph([
+          node([
+            {
+              type: "pack",
+              pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
+              source: "workspace",
+              constraint: "^1.0.0",
+              enabled: true,
+            },
+          ]),
+        ]),
+        configuredPacks: [configuredPack("toolkit", "workspace")],
+        configuredOwner: "@acme",
+      });
+
+      expect(context.public).toMatchObject({
+        authority: "blocked",
+        blocker: "source-authority",
+        packs: [{ memberSource: "workspace" }],
+      });
+    }),
+  );
+
+  it.effect("treats unreadable configured pack membership as globally relevant", () =>
+    Effect.gen(function* () {
+      const context = yield* classifyTargetedUpdate({
+        target,
+        graph: graph(
+          [],
+          [
+            {
+              type: "pack-manifest-unavailable",
+              pack: "@acme/packs/toolkit",
+              path: "/secret/workspace/pack.json",
+              reason: "absent",
+            },
+          ],
+        ),
+        configuredPacks: [],
+      });
+
+      expect(context.public.blocker).toBe("incomplete-graph");
+      expect(context.public.relevantProblems).toEqual([
+        "pack-manifest-unavailable: @acme/packs/toolkit: authored Pack manifest is absent",
+      ]);
+      expect(JSON.stringify(context.public)).not.toContain("/secret/workspace");
+    }),
+  );
+
+  it.effect(
+    "reports an unrelated constraint conflict that makes the desired graph incomplete",
+    () =>
+      Effect.gen(function* () {
+        const context = yield* classifyTargetedUpdate({
+          target,
+          graph: graph(
+            [
+              node([
+                {
+                  type: "settings",
+                  source: target.fqn,
+                  enabled: true,
+                  constraint: "^1.0.0",
+                },
+              ]),
+            ],
+            [
+              {
+                type: "constraint-conflict",
+                extensionType: "skill",
+                name: "commit",
+                constraints: ["^1.0.0", "^2.0.0"],
+                contributors: [
+                  {
+                    source: "pack",
+                    dependingPack: "@acme/packs/legacy",
+                    range: "^1.0.0",
+                    location: "agent_extensions/acme/packs/legacy/pack.json",
+                  },
+                  {
+                    source: "pack",
+                    dependingPack: "@acme/packs/current",
+                    range: "^2.0.0",
+                    location: "agent_extensions/acme/packs/current/pack.json",
+                  },
+                ],
+              },
+            ],
+          ),
+          configuredPacks: [],
+        });
+
+        expect(context.public.blocker).toBe("incomplete-graph");
+        expect(context.public.relevantProblems).toEqual([
+          "constraint-conflict: skill commit: incompatible constraints @acme/packs/legacy range=^1.0.0 location=agent_extensions/acme/packs/legacy/pack.json, @acme/packs/current range=^2.0.0 location=agent_extensions/acme/packs/current/pack.json; decision=blocked; reason=no-satisfying-version",
+        ]);
+      }),
+  );
+
+  it.effect("blocks an empty direct-and-pack constraint intersection", () =>
+    Effect.gen(function* () {
+      const context = yield* classifyTargetedUpdate({
+        target,
+        graph: graph([
+          node([
+            {
+              type: "settings",
+              source: "@acme/skills/review@^1.0.0",
+              enabled: true,
+              constraint: "^1.0.0",
+            },
+            {
+              type: "pack",
+              pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
+              source: target.fqn,
+              constraint: "^2.0.0",
+              enabled: true,
+            },
+          ]),
+        ]),
+        configuredPacks: [],
+      });
+
+      expect(context.public.blocker).toBe("constraint-conflict");
+    }),
+  );
 });
 
 describe("targeted update fingerprints", () => {
@@ -486,7 +540,7 @@ describe("targeted update fingerprints", () => {
       defaultRegistry: "primary",
       skills: { [SHARED_MEMBER.name]: declared },
     }).pipe(
-      Effect.map((graph) =>
+      Effect.flatMap((graph) =>
         classifyTargetedUpdate({
           target: { type: "skill", name: SHARED_MEMBER.name, fqn: SHARED_MEMBER.fqn },
           graph,

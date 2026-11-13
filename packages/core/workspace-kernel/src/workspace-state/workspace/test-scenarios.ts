@@ -22,7 +22,6 @@ import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { LOCKFILE_VERSION, type Lockfile } from "../desired/lockfile/index.js";
 import { SettingsSchema } from "../desired/settings/index.js";
-import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import { makeRegistryPackLockEntry } from "./test-stubs.js";
 import { evaluateDesiredState } from "./desired-state-evaluation.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
@@ -196,39 +195,34 @@ const scenarioPackManifests: PackManifestsPort = {
     return {
       path: `/workspace/${relativePath}`,
       relativePath,
-      manifest: Effect.succeed(
-        observePackManifest(
-          pack === undefined || owner !== SHARED_MEMBER.owner
-            ? undefined
-            : scenarioManifestText(name, pack.range),
-        ),
+      manifest: observePackManifest(
+        pack === undefined || owner !== SHARED_MEMBER.owner
+          ? undefined
+          : scenarioManifestText(name, pack.range),
       ),
     };
   },
 };
 
 /** The accepted resolutions that authorize each scenario Pack's materialized manifest. */
-const scenarioAcceptedResolutions: Lockfile = {
-  lockfileVersion: LOCKFILE_VERSION,
-  skills: {},
-  packs: Object.fromEntries(
-    SHARED_MEMBER_PACKS.map((pack) => [
-      pack.name,
-      makeRegistryPackLockEntry({
-        owner: decodeHandleSync(SHARED_MEMBER.owner),
-        name: pack.name,
-        dependencies: Schema.decodeUnknownSync(PackManifestSchema)(
-          JSON.parse(scenarioManifestText(pack.name, pack.range)),
-        ).dependencies,
-        sourceHash: computePackManifestContentIdentity(
-          Schema.decodeUnknownSync(PackManifestSchema)(
-            JSON.parse(scenarioManifestText(pack.name, pack.range)),
-          ),
-        ),
-      }),
-    ]),
-  ),
-};
+const scenarioAcceptedResolutions = Effect.gen(function* (): Effect.fn.Return<Lockfile> {
+  const packs = yield* Effect.forEach(SHARED_MEMBER_PACKS, (pack) =>
+    Effect.gen(function* () {
+      const manifest = Schema.decodeUnknownSync(PackManifestSchema)(
+        JSON.parse(scenarioManifestText(pack.name, pack.range)),
+      );
+      return [
+        pack.name,
+        yield* makeRegistryPackLockEntry({
+          owner: decodeHandleSync(SHARED_MEMBER.owner),
+          name: pack.name,
+          dependencies: manifest.dependencies,
+        }),
+      ] as const;
+    }),
+  );
+  return { lockfileVersion: LOCKFILE_VERSION, skills: {}, packs: Object.fromEntries(packs) };
+});
 
 /**
  * The scenario's desired-state graph with the given direct pin, evaluated in
@@ -239,20 +233,22 @@ export const sharedMemberGraph = (
   pin: string,
   overrides: Readonly<Record<string, unknown>> = {},
 ): Effect.Effect<DesiredStateGraph> =>
-  captureDesiredStateInputs({
-    manifests: scenarioPackManifests,
-    baseDir: "/workspace",
-    settings: Schema.decodeUnknownSync(SettingsSchema)({
-      owner: SHARED_MEMBER.owner,
-      ...sharedMemberSettings(pin),
-      ...overrides,
-    }),
-    acceptedResolutions: scenarioAcceptedResolutions,
-    builtInSources: [
-      {
-        name: "agentxm",
-        type: "registry",
-        location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
-      },
-    ],
-  }).pipe(Effect.map(evaluateDesiredState));
+  Effect.gen(function* () {
+    return yield* captureDesiredStateInputs({
+      manifests: scenarioPackManifests,
+      baseDir: "/workspace",
+      settings: Schema.decodeUnknownSync(SettingsSchema)({
+        owner: SHARED_MEMBER.owner,
+        ...sharedMemberSettings(pin),
+        ...overrides,
+      }),
+      acceptedResolutions: yield* scenarioAcceptedResolutions,
+      builtInSources: [
+        {
+          name: "agentxm",
+          type: "registry",
+          location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+        },
+      ],
+    }).pipe(Effect.map(evaluateDesiredState));
+  });

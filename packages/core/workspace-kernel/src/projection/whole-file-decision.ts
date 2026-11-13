@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect";
 /**
  * The one write decision every whole-file projection shares. Instruction
  * copies and Subagent files reach the same answer for the same recorded row,
@@ -30,10 +31,12 @@ export const recordedOutputComparison = (
   recorded: RecordedProjectionRow,
   bytes: string,
   rendered: string,
-): "matches" | "modified" =>
-  projectionOutputDigest(bytes) === recorded.row.output || bytes === rendered
-    ? "matches"
-    : "modified";
+): Effect.Effect<"matches" | "modified"> =>
+  Effect.gen(function* (): Effect.fn.Return<"matches" | "modified"> {
+    return (yield* projectionOutputDigest(bytes)) === recorded.row.output || bytes === rendered
+      ? "matches"
+      : "modified";
+  });
 
 /**
  * Decide what to do at one planned whole-file path.
@@ -50,17 +53,20 @@ export const decideWholeFileWrite = (args: {
   readonly bytes: Option.Option<string>;
   readonly rendered: string;
   readonly replaceUnrecorded: boolean;
-}): WholeFileDecision => {
-  if (projectionIsCurrent(args.recorded, args.gen, Option.isSome(args.bytes)))
-    return { _tag: "current" };
-  if (Option.isNone(args.bytes)) return { _tag: "write", lastWrite: "absent" };
-  const bytes = args.bytes.value;
-  if (Option.isSome(args.recorded)) {
-    return {
-      _tag: "write",
-      lastWrite: recordedOutputComparison(args.recorded.value, bytes, args.rendered),
-    };
-  }
-  if (bytes === args.rendered) return { _tag: "record" };
-  return args.replaceUnrecorded ? { _tag: "write", lastWrite: "unrecorded" } : { _tag: "conflict" };
-};
+}): Effect.Effect<WholeFileDecision> =>
+  Effect.gen(function* (): Effect.fn.Return<WholeFileDecision> {
+    if (projectionIsCurrent(args.recorded, args.gen, Option.isSome(args.bytes)))
+      return { _tag: "current" };
+    if (Option.isNone(args.bytes)) return { _tag: "write", lastWrite: "absent" };
+    const bytes = args.bytes.value;
+    if (Option.isSome(args.recorded)) {
+      return {
+        _tag: "write",
+        lastWrite: yield* recordedOutputComparison(args.recorded.value, bytes, args.rendered),
+      };
+    }
+    if (bytes === args.rendered) return { _tag: "record" };
+    return args.replaceUnrecorded
+      ? { _tag: "write", lastWrite: "unrecorded" }
+      : { _tag: "conflict" };
+  });

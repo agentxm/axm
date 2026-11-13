@@ -1,3 +1,4 @@
+import type * as Effect from "effect/Effect";
 /**
  * Currency inputs of one agent-native Subagent file projection.
  *
@@ -27,5 +28,5 @@ export interface SubagentGenerationArgs {
  */
 export const subagentProjectionGeneration = (
   claimants: ReadonlyArray<SubagentGenerationArgs>,
-): ProjectionDigest =>
+): Effect.Effect<ProjectionDigest> =>
   projectionGeneration([...new Set(claimants.map((claimant) => stableJson(claimant)))].sort());

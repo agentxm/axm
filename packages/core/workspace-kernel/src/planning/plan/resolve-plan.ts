@@ -23,6 +23,7 @@ import {
   redactCredentialText,
   OperationRequestBudget,
 } from "@agentxm/host-primitives";
+import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
 import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
 import * as Path from "effect/Path";
@@ -145,6 +146,20 @@ import {
 /** Publish a phase transition to the lifecycle stream and the journal. */
 const enterPhase = (phase: OperationPhase): Effect.Effect<void, never, OperationJournal> =>
   publishPhaseStarted(phase).pipe(Effect.andThen(recordJournalPhase(phase)));
+
+/** The executing effect owns the phase interval; lifecycle events remain projections. */
+const withPhaseSpan = <A, E, R>(phase: OperationPhase, effect: Effect.Effect<A, E, R>) =>
+  Effect.flatMap(CurrentWorkObserver, (observer) =>
+    observer === undefined
+      ? effect
+      : effect.pipe(
+          Effect.withSpan(
+            "axm.operation.phase",
+            { attributes: { "axm.operation.phase": phase } },
+            { captureStackTrace: false },
+          ),
+        ),
+  );
 
 interface PlanApplyFailure<Output> {
   readonly error: StepFailure | StaleExecutionCandidate;
@@ -431,10 +446,10 @@ export interface PrepareExecutionCandidateOptions {
  * risk conditions, and fingerprint every material preimage. Preview,
  * confirmation, and apply all refer to the candidate this returns.
  */
-export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(function* <
-  Requirements,
-  Output,
->(plan: Plan<Requirements, Output>, options?: PrepareExecutionCandidateOptions) {
+const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  options?: PrepareExecutionCandidateOptions,
+) {
   const location = yield* WorkspaceLocation;
   const lockfile = yield* LockfileReader;
   const settings = yield* SettingsReader;
@@ -593,6 +608,11 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
   return candidate;
 });
 
+export const prepareExecutionCandidate = <Requirements, Output>(
+  plan: Plan<Requirements, Output>,
+  options?: PrepareExecutionCandidateOptions,
+) => withPhaseSpan("planning", prepareExecutionCandidateInPlanning(plan, options));
+
 export interface ResolveExecutionCandidateOptions<Requirements, Output> {
   /** Additional observations to re-read under the transition before applying. */
   readonly additionalFreshness?: (
@@ -697,7 +717,8 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     yield* enterPhase("preview");
   }
   const hasConfirmableRisk = riskConditions.some((condition) => condition.level === "confirmable");
-  yield* interaction.presentPlan(candidatePlan, { mode });
+  const present = interaction.presentPlan(candidatePlan, { mode });
+  yield* mode === "preview" ? withPhaseSpan("preview", present) : present;
 
   // Hard blockers dominate preview, overrides, and confirmation.
   if (readiness.hasErrors) {
@@ -778,7 +799,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     });
   }
 
-  const eligibility = yield* validateRegistryExposure(candidatePlan);
+  const eligibility = yield* validateRegistryExposure(candidatePlan, "before-acquisition");
   const eligibilityFailureForStep = (step: PlannedJobStep<Requirements, Output>) =>
     registryExposureRefsForStep(step)
       .map((ref) => eligibility.get(sourceRefContentKey(ref)))
@@ -883,6 +904,8 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
           ? budget.value.capacity
           : 1,
     },
+  ).pipe((effect) =>
+    uniqueSourceRefs.length === 0 ? effect : withPhaseSpan("acquisition", effect),
   );
   const acquiredContent = {
     materializedPackages: yield* Ref.make<ReadonlyMap<string, TreeIntegrity>>(new Map()),
@@ -938,7 +961,11 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
         });
       }
       yield* enterPhase("confirmation");
-      const confirmation = yield* interaction.confirmApplyChanges(applyExecution.approvalRecovery);
+      const confirmation = yield* interaction
+        .confirmApplyChanges(applyExecution.approvalRecovery)
+        .pipe(Effect.withSpan("axm.wait.confirmation"), (effect) =>
+          withPhaseSpan("confirmation", effect),
+        );
       if (confirmation !== "approved") {
         return notExecuted({ declined: true });
       }
@@ -946,7 +973,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
   }
 
   // A prompt or acquisition may outlive the earlier check. Refresh exact access before writes.
-  const currentEligibility = yield* validateRegistryExposure(candidatePlan);
+  const currentEligibility = yield* validateRegistryExposure(candidatePlan, "after-confirmation");
   for (const [key, failure] of currentEligibility) eligibility.set(key, failure);
   const currentDenial = eligibility.values().next().value;
   if (
@@ -988,103 +1015,113 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
   const startedUnits = yield* Ref.make(0);
   const resolvedUnits = yield* Ref.make(0);
   const applyFreshCandidate = Effect.gen(function* () {
-    yield* enterPhase("validation");
-    if (!(yield* isExecutionCandidateFresh(candidate))) {
-      return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-    }
-    if (
-      options?.additionalFreshness !== undefined &&
-      !(yield* options.additionalFreshness(candidate))
-    ) {
-      return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-    }
-    if (options?.beforeApply !== undefined) {
-      yield* options.beforeApply(candidate);
-      if (!(yield* isExecutionCandidateFresh(candidate))) {
-        return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-      }
-      if (
-        options.additionalFreshness !== undefined &&
-        !(yield* options.additionalFreshness(candidate))
-      ) {
-        return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-      }
-    }
-    yield* enterPhase("apply");
-    const acquired = yield* Effect.serviceOption(AcquiredContent);
-    // Each unit is one semantic closure: its run executes under its closure
-    // identity so the transaction attributes every snapshot to it, and its
-    // settlement (below) either commits or rolls back exactly that closure.
-    const closureScopedPlan: Plan<Requirements, Output> = {
-      ...candidate.plan,
-      jobs: candidate.plan.jobs.map((job) => ({
-        ...job,
-        steps: job.steps.map((step) => {
-          if (step.readiness === "error") return step;
-          const acquisitionFailure = Option.isSome(acquired)
-            ? acquisitionRefsForStep(step)
-                .map((ref) => acquired.value.failuresByKey.get(sourceRefContentKey(ref)))
-                .find((failure) => failure !== undefined)
-            : undefined;
-          const admissionFailure = eligibilityFailureForStep(step) ?? acquisitionFailure;
-          return {
-            ...step,
-            run: withWorkspaceClosure(unitIdOf(step))(
-              admissionFailure === undefined ? step.run : Effect.fail(admissionFailure),
-            ).pipe(Effect.provideService(CurrentOperationUnit, { unitId: unitIdOf(step) })),
-          };
-        }),
-      })),
-    };
-    return yield* applyPlan(closureScopedPlan, {
-      // The started fact is journaled before the run's first effect, so an
-      // interruption mid-run reports the unit in flight, never not attempted.
-      onStepStarted: (step) =>
-        appendStartedUnit(unitIdOf(step)).pipe(
-          Effect.provideService(OperationJournal, journal),
-          Effect.andThen(Ref.getAndUpdate(startedUnits, (index) => index + 1)),
-          Effect.flatMap((index) =>
-            publishOperationEvent((seq, atMs) => ({
-              _tag: "UnitStarted",
-              seq,
-              atMs,
-              unitId: unitIdOf(step),
-              label: step.label,
-              index,
-              total: totalUnits,
-            })),
-          ),
-        ),
-      // Settlement runs before the next interruptible boundary: the journal
-      // fact and the closure's snapshot disposition are recorded together —
-      // a settled closure's commits stand, a failed closure restores only
-      // itself, and later ready closures continue.
-      onStepCompleted: (step) =>
-        appendResolvedUnit(step).pipe(
-          Effect.provideService(OperationJournal, journal),
-          Effect.andThen(
-            step.result.result === "error"
-              ? rollbackWorkspaceClosure(unitIdOf(step))
-              : settleWorkspaceClosure(unitIdOf(step)),
-          ),
-          Effect.andThen(Ref.getAndUpdate(resolvedUnits, (index) => index + 1)),
-          Effect.flatMap((index) =>
-            publishOperationEvent((seq, atMs) => ({
-              _tag: "UnitResolved",
-              seq,
-              atMs,
-              unitId: unitIdOf(step),
-              label: step.label,
-              state: resolvedUnitState(step),
-              index,
-              total: totalUnits,
-              ...(publishedUnitFailure(step) === undefined
-                ? {}
-                : { failure: publishedUnitFailure(step) }),
-            })),
-          ),
-        ),
-    });
+    yield* withPhaseSpan(
+      "validation",
+      Effect.gen(function* () {
+        yield* enterPhase("validation");
+        if (!(yield* isExecutionCandidateFresh(candidate))) {
+          return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+        }
+        if (
+          options?.additionalFreshness !== undefined &&
+          !(yield* options.additionalFreshness(candidate))
+        ) {
+          return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+        }
+        if (options?.beforeApply !== undefined) {
+          yield* options.beforeApply(candidate);
+          if (!(yield* isExecutionCandidateFresh(candidate))) {
+            return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+          }
+          if (
+            options.additionalFreshness !== undefined &&
+            !(yield* options.additionalFreshness(candidate))
+          ) {
+            return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+          }
+        }
+      }),
+    );
+    return yield* withPhaseSpan(
+      "apply",
+      Effect.gen(function* () {
+        yield* enterPhase("apply");
+        const acquired = yield* Effect.serviceOption(AcquiredContent);
+        // Each unit is one semantic closure: its run executes under its closure
+        // identity so the transaction attributes every snapshot to it, and its
+        // settlement (below) either commits or rolls back exactly that closure.
+        const closureScopedPlan: Plan<Requirements, Output> = {
+          ...candidate.plan,
+          jobs: candidate.plan.jobs.map((job) => ({
+            ...job,
+            steps: job.steps.map((step) => {
+              if (step.readiness === "error") return step;
+              const acquisitionFailure = Option.isSome(acquired)
+                ? acquisitionRefsForStep(step)
+                    .map((ref) => acquired.value.failuresByKey.get(sourceRefContentKey(ref)))
+                    .find((failure) => failure !== undefined)
+                : undefined;
+              const admissionFailure = eligibilityFailureForStep(step) ?? acquisitionFailure;
+              return {
+                ...step,
+                run: withWorkspaceClosure(unitIdOf(step))(
+                  admissionFailure === undefined ? step.run : Effect.fail(admissionFailure),
+                ).pipe(Effect.provideService(CurrentOperationUnit, { unitId: unitIdOf(step) })),
+              };
+            }),
+          })),
+        };
+        return yield* applyPlan(closureScopedPlan, {
+          // The started fact is journaled before the run's first effect, so an
+          // interruption mid-run reports the unit in flight, never not attempted.
+          onStepStarted: (step) =>
+            appendStartedUnit(unitIdOf(step)).pipe(
+              Effect.provideService(OperationJournal, journal),
+              Effect.andThen(Ref.getAndUpdate(startedUnits, (index) => index + 1)),
+              Effect.flatMap((index) =>
+                publishOperationEvent((seq, atMs) => ({
+                  _tag: "UnitStarted",
+                  seq,
+                  atMs,
+                  unitId: unitIdOf(step),
+                  label: step.label,
+                  index,
+                  total: totalUnits,
+                })),
+              ),
+            ),
+          // Settlement runs before the next interruptible boundary: the journal
+          // fact and the closure's snapshot disposition are recorded together —
+          // a settled closure's commits stand, a failed closure restores only
+          // itself, and later ready closures continue.
+          onStepCompleted: (step) =>
+            appendResolvedUnit(step).pipe(
+              Effect.provideService(OperationJournal, journal),
+              Effect.andThen(
+                step.result.result === "error"
+                  ? rollbackWorkspaceClosure(unitIdOf(step))
+                  : settleWorkspaceClosure(unitIdOf(step)),
+              ),
+              Effect.andThen(Ref.getAndUpdate(resolvedUnits, (index) => index + 1)),
+              Effect.flatMap((index) =>
+                publishOperationEvent((seq, atMs) => ({
+                  _tag: "UnitResolved",
+                  seq,
+                  atMs,
+                  unitId: unitIdOf(step),
+                  label: step.label,
+                  state: resolvedUnitState(step),
+                  index,
+                  total: totalUnits,
+                  ...(publishedUnitFailure(step) === undefined
+                    ? {}
+                    : { failure: publishedUnitFailure(step) }),
+                })),
+              ),
+            ),
+        });
+      }),
+    );
   });
   const applyCandidate = Effect.gen(function* () {
     const result = yield* applyFreshCandidate.pipe(
@@ -1139,77 +1176,86 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     if (operations.length === 0) {
       return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
     }
-    yield* enterPhase("verification");
-    const readbacks = yield* withFreshWorkspaceObservationReadView(
-      withMcpInspectionReadView(
-        observeConfiguredTargets(
-          operations
-            .filter((operation) => operation.plannedState === "enabled")
-            .map((operation) => ({
+    return yield* withPhaseSpan(
+      "verification",
+      Effect.gen(function* () {
+        yield* enterPhase("verification");
+        const readbacks = yield* withFreshWorkspaceObservationReadView(
+          withMcpInspectionReadView(
+            observeConfiguredTargets(
+              operations
+                .filter((operation) => operation.plannedState === "enabled")
+                .map((operation) => ({
+                  type: operation.extensionType,
+                  name: operation.name,
+                })),
+              configuredAgents,
+            ),
+          ),
+        ).pipe(
+          Effect.mapError((failure) =>
+            failure._tag === "ConfiguredAgentOutcomesUnavailable"
+              ? new StepFailure({
+                  category: failure.category,
+                  detail: failure.detail,
+                  ...(failure.suggestions === undefined
+                    ? {}
+                    : { suggestions: failure.suggestions }),
+                  ...(failure.cause === undefined ? {} : { cause: failure.cause }),
+                })
+              : workspaceStateReadFailureToStepFailure(failure),
+          ),
+        );
+        const currentOutcomes = operations.flatMap((operation) => {
+          if (operation.plannedState !== "enabled") {
+            return configuredAgentLifecycleOutcomes({
               type: operation.extensionType,
               name: operation.name,
-            })),
-          configuredAgents,
-        ),
-      ),
-    ).pipe(
-      Effect.mapError((failure) =>
-        failure._tag === "ConfiguredAgentOutcomesUnavailable"
-          ? new StepFailure({
-              category: failure.category,
-              detail: failure.detail,
-              ...(failure.suggestions === undefined ? {} : { suggestions: failure.suggestions }),
-              ...(failure.cause === undefined ? {} : { cause: failure.cause }),
+              agentIds: configuredAgents,
+              scope: location.scope,
+              state: "current",
+              targetState: operation.plannedState,
+              installed: false,
+            });
+          }
+          const observed = readbacks.get(
+            `${operation.extensionType}:${operation.name}`,
+          )?.agentOutcomes;
+          return (
+            observed ??
+            configuredAgentLifecycleOutcomes({
+              type: operation.extensionType,
+              name: operation.name,
+              agentIds: configuredAgents,
+              scope: location.scope,
+              state: "current",
+              targetState: "enabled",
+              installed: false,
             })
-          : workspaceStateReadFailureToStepFailure(failure),
-      ),
-    );
-    const currentOutcomes = operations.flatMap((operation) => {
-      if (operation.plannedState !== "enabled") {
-        return configuredAgentLifecycleOutcomes({
-          type: operation.extensionType,
-          name: operation.name,
-          agentIds: configuredAgents,
-          scope: location.scope,
-          state: "current",
-          targetState: operation.plannedState,
-          installed: false,
+          );
         });
-      }
-      const observed = readbacks.get(`${operation.extensionType}:${operation.name}`)?.agentOutcomes;
-      return (
-        observed ??
-        configuredAgentLifecycleOutcomes({
-          type: operation.extensionType,
-          name: operation.name,
-          agentIds: configuredAgents,
-          scope: location.scope,
-          state: "current",
-          targetState: "enabled",
-          installed: false,
-        })
-      );
-    });
-    const incomplete = currentOutcomes.find(
-      ({ outcome }) => outcome === "blocked" || outcome === "failed",
+        const incomplete = currentOutcomes.find(
+          ({ outcome }) => outcome === "blocked" || outcome === "failed",
+        );
+        const executedWithOutcomes = withExecutedAgentOutcomes(result, currentOutcomes);
+        // A failed closure already states why its requested output was not realized.
+        // Keep fresh per-agent evidence, including for committed siblings, without
+        // replacing that typed failure and its recovery with a convergence symptom.
+        if (incomplete !== undefined && failedStep === undefined) {
+          return yield* Effect.fail({
+            error: new StepFailure({
+              category: "conflict",
+              detail: `${incomplete.extensionType} ${incomplete.name} did not converge for ${incomplete.agentId}: ${incomplete.reason}`,
+            }),
+            attemptedExecution: executedWithOutcomes,
+          });
+        }
+        return {
+          ...executedWithOutcomes,
+          candidateId: candidate.id,
+        } satisfies ExecutedPlan<Output>;
+      }),
     );
-    const executedWithOutcomes = withExecutedAgentOutcomes(result, currentOutcomes);
-    // A failed closure already states why its requested output was not realized.
-    // Keep fresh per-agent evidence, including for committed siblings, without
-    // replacing that typed failure and its recovery with a convergence symptom.
-    if (incomplete !== undefined && failedStep === undefined) {
-      return yield* Effect.fail({
-        error: new StepFailure({
-          category: "conflict",
-          detail: `${incomplete.extensionType} ${incomplete.name} did not converge for ${incomplete.agentId}: ${incomplete.reason}`,
-        }),
-        attemptedExecution: executedWithOutcomes,
-      });
-    }
-    return {
-      ...executedWithOutcomes,
-      candidateId: candidate.id,
-    } satisfies ExecutedPlan<Output>;
   });
   const isPlanApplyFailureShape = (value: unknown): value is PlanApplyFailure<Output> =>
     typeof value === "object" &&

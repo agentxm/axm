@@ -12,7 +12,7 @@ export const specification = defineSpecification({
   requirement: "cli/local-tracing-identifies-invocations",
   title: "Local trace receipts identify the exact invocation",
   statement:
-    "Explicitly requested local trace receipts shall identify the invocation's exported trace without changing command output or outcome, overwriting existing files, or exposing command inputs.",
+    "Explicitly requested local trace receipts shall identify the invocation's exported trace and validated build provenance, distinguish traced execution from runtime startup and export finalization, and preserve command output, outcome, existing files, and private inputs.",
   class: "quality",
   characteristic: "reliability",
   role: "experience",

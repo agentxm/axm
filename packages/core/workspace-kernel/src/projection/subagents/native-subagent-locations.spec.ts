@@ -75,13 +75,14 @@ const projection = (
   options: { readonly replaceUnrecorded?: boolean } = {},
 ) => {
   const rows = new Map<ProjectionUnitPath, RecordedProjectionRow>();
-  // Adapter write decisions are synchronous, so this in-memory owner keys
-  // lexically; every path it sees is spelled from the same root.
+  // Every path this in-memory owner sees is spelled from the same root.
   const unit = (filePath: string) =>
     ProjectionUnitPathSchema.make(
       path.relative(root, path.resolve(root, filePath)).split(path.sep).join("/"),
     );
-  const generation = (claimants: ReadonlyArray<SubagentRenderInput>): ProjectionDigest =>
+  const generation = (
+    claimants: ReadonlyArray<SubagentRenderInput>,
+  ): Effect.Effect<ProjectionDigest> =>
     subagentProjectionGeneration(
       claimants.map((claimant): SubagentGenerationArgs => ({ provenance, input: claimant })),
     );
@@ -92,36 +93,39 @@ const projection = (
     },
   ) =>
     Effect.gen(function* () {
-      const gen = generation(args.claimants ?? [args.input]);
+      const gen = yield* generation(args.claimants ?? [args.input]);
       const rendered = new Map<string, string>();
       const outcome = yield* agent.addSubagent({
         ...args,
         force: true,
-        decideWrite: ({ filePath, prior, rendered: bytes }) => {
-          rendered.set(filePath, bytes);
-          const decision = decideWholeFileWrite({
-            recorded: Option.fromUndefinedOr(rows.get(unit(filePath))),
-            gen,
-            bytes: prior,
-            rendered: bytes,
-            replaceUnrecorded: options.replaceUnrecorded === true,
-          });
-          return decision._tag === "conflict"
-            ? {
-                _tag: "conflict",
-                reason: `Existing Subagent file has no recorded projection: ${filePath}`,
-              }
-            : decision._tag === "write"
-              ? { _tag: "write" }
-              : decision;
-        },
+        decideWrite: ({ filePath, prior, rendered: bytes }) =>
+          Effect.gen(function* (): Effect.fn.Return<
+            Effect.Success<ReturnType<AddSubagentArgs["decideWrite"]>>
+          > {
+            rendered.set(filePath, bytes);
+            const decision = yield* decideWholeFileWrite({
+              recorded: Option.fromUndefinedOr(rows.get(unit(filePath))),
+              gen,
+              bytes: prior,
+              rendered: bytes,
+              replaceUnrecorded: options.replaceUnrecorded === true,
+            });
+            return decision._tag === "conflict"
+              ? {
+                  _tag: "conflict",
+                  reason: `Existing Subagent file has no recorded projection: ${filePath}`,
+                }
+              : decision._tag === "write"
+                ? { _tag: "write" }
+                : decision;
+          }),
       });
       if (outcome._tag === "success")
         for (const target of outcome.nativeTargets ?? []) {
           const bytes = rendered.get(target.path);
           if (bytes !== undefined && (target.decision === "write" || target.decision === "record"))
             rows.set(unit(target.path), {
-              row: { gen, output: projectionOutputDigest(bytes) },
+              row: { gen, output: yield* projectionOutputDigest(bytes) },
               stale: false,
             });
         }
@@ -135,17 +139,20 @@ const projection = (
     Effect.gen(function* () {
       const outcome = yield* agent.removeSubagent({
         ...args,
-        decideRemoval: ({ filePath, bytes }) => {
-          const decision = decideOutputDeletion({
-            bytes: Option.some(bytes),
-            recorded: Option.fromUndefinedOr(rows.get(unit(filePath))),
-            expectedRender: Option.none(),
-            discardModified,
-          });
-          return decision._tag === "delete"
-            ? decision
-            : { _tag: "retain", reason: decision.reason };
-        },
+        decideRemoval: ({ filePath, bytes }) =>
+          Effect.gen(function* (): Effect.fn.Return<
+            Effect.Success<ReturnType<RemoveSubagentArgs["decideRemoval"]>>
+          > {
+            const decision = yield* decideOutputDeletion({
+              bytes: Option.some(bytes),
+              recorded: Option.fromUndefinedOr(rows.get(unit(filePath))),
+              expectedRender: Option.none(),
+              discardModified,
+            });
+            return decision._tag === "delete"
+              ? decision
+              : { _tag: "retain", reason: decision.reason };
+          }),
       });
       for (const file of args.renderedFilePaths) rows.delete(unit(file));
       return outcome;
@@ -175,7 +182,7 @@ describe("Native Subagent location contracts", () => {
         "qoder-cn",
         "mimo-code",
       ]) {
-        const compiled = compileSubagentImplementation({ package: pkg, agentId });
+        const compiled = yield* compileSubagentImplementation({ package: pkg, agentId });
         expect(compiled._tag).toBe("Compiled");
         if (compiled._tag !== "Compiled") continue;
         expect(compiled.mode).toBe("portable");
@@ -185,12 +192,12 @@ describe("Native Subagent location contracts", () => {
         );
         expect(compiled.sourceDependencies).toEqual(["subagent.json", "prompts/review.md"]);
       }
-      expect(compileSubagentImplementation({ package: pkg, agentId: "kiro-cli" })._tag).toBe(
-        "Unsupported",
-      );
-      expect(compileSubagentImplementation({ package: pkg, agentId: "unknown" })._tag).toBe(
-        "Unsupported",
-      );
+      expect(
+        (yield* compileSubagentImplementation({ package: pkg, agentId: "kiro-cli" }))._tag,
+      ).toBe("Unsupported");
+      expect(
+        (yield* compileSubagentImplementation({ package: pkg, agentId: "unknown" }))._tag,
+      ).toBe("Unsupported");
     }),
   );
 
@@ -213,7 +220,7 @@ describe("Native Subagent location contracts", () => {
           readFile: (source) =>
             Effect.succeed(source.endsWith("toml") ? native : "Unused portable instructions"),
         });
-        const compiled = compileSubagentImplementation({ package: pkg, agentId: "codex" });
+        const compiled = yield* compileSubagentImplementation({ package: pkg, agentId: "codex" });
         expect(compiled._tag).toBe("Compiled");
         if (compiled._tag !== "Compiled") return;
         expect(compiled.mode).toBe("native");
@@ -250,11 +257,13 @@ describe("Native Subagent location contracts", () => {
           },
           readFile: () => Effect.succeed("Review."),
         });
-        expect(compileSubagentImplementation({ package: pkg, agentId: "codex" })).toMatchObject({
+        expect(
+          yield* compileSubagentImplementation({ package: pkg, agentId: "codex" }),
+        ).toMatchObject({
           _tag: "Unsupported",
           reasonCode: "subagent-runtime-reference-unresolved",
         });
-        const cursor = compileSubagentImplementation({ package: pkg, agentId: "cursor" });
+        const cursor = yield* compileSubagentImplementation({ package: pkg, agentId: "cursor" });
         expect(cursor._tag).toBe("Compiled");
         if (cursor._tag !== "Compiled") return;
         expect(cursor.outputs[0]?.content).toContain("custom_field: ./label");
@@ -288,7 +297,9 @@ describe("Native Subagent location contracts", () => {
           },
           readFile: () => Effect.succeed("Review."),
         });
-        expect(compileSubagentImplementation({ package: pkg, agentId: "codex" })).toMatchObject({
+        expect(
+          yield* compileSubagentImplementation({ package: pkg, agentId: "codex" }),
+        ).toMatchObject({
           _tag: "Unsupported",
           reasonCode: "subagent-runtime-reference-unresolved",
         });
@@ -316,11 +327,11 @@ describe("Native Subagent location contracts", () => {
           },
           readFile: (source) => Effect.succeed(source.includes("cursor") ? dormant : "Review."),
         });
-      const first = compileSubagentImplementation({
+      const first = yield* compileSubagentImplementation({
         package: yield* makePackage("One"),
         agentId: "claude-code",
       });
-      const second = compileSubagentImplementation({
+      const second = yield* compileSubagentImplementation({
         package: yield* makePackage("Two"),
         agentId: "claude-code",
       });
@@ -328,8 +339,8 @@ describe("Native Subagent location contracts", () => {
       expect(second._tag).toBe("Compiled");
       if (first._tag !== "Compiled" || second._tag !== "Compiled") return;
       expect(first.outputs).toEqual(second.outputs);
-      expect(subagentProjectionGeneration([{ provenance, input: first.input }])).toBe(
-        subagentProjectionGeneration([{ provenance, input: second.input }]),
+      expect(yield* subagentProjectionGeneration([{ provenance, input: first.input }])).toBe(
+        yield* subagentProjectionGeneration([{ provenance, input: second.input }]),
       );
     }),
   );
@@ -460,20 +471,22 @@ describe("Native Subagent location contracts", () => {
     }).pipe(Effect.scoped, Effect.provide(services)),
   );
 
-  it("shares one order-independent generation among readers of one file", () => {
-    const first = renderSubagent(input("claude-code"));
-    const second = renderSubagent(input("cursor"));
-    expect(first?._tag).toBe("Rendered");
-    expect(second?._tag).toBe("Rendered");
-    if (first?._tag !== "Rendered" || second?._tag !== "Rendered") return;
-    expect(first.outputs).toEqual(second.outputs);
-    expect(first.outputs[0]?.path).toBe("review.md");
-    const claude = { provenance, input: input("claude-code") };
-    const cursor = { provenance, input: input("cursor") };
-    expect(subagentProjectionGeneration([claude, cursor])).toBe(
-      subagentProjectionGeneration([cursor, claude]),
-    );
-  });
+  it.effect("shares one order-independent generation among readers of one file", () =>
+    Effect.gen(function* () {
+      const first = renderSubagent(input("claude-code"));
+      const second = renderSubagent(input("cursor"));
+      expect(first?._tag).toBe("Rendered");
+      expect(second?._tag).toBe("Rendered");
+      if (first?._tag !== "Rendered" || second?._tag !== "Rendered") return;
+      expect(first.outputs).toEqual(second.outputs);
+      expect(first.outputs[0]?.path).toBe("review.md");
+      const claude = { provenance, input: input("claude-code") };
+      const cursor = { provenance, input: input("cursor") };
+      expect(yield* subagentProjectionGeneration([claude, cursor])).toBe(
+        yield* subagentProjectionGeneration([cursor, claude]),
+      );
+    }),
+  );
 
   it.effect.each(["project", "user"] as const)(
     "projects Antigravity desktop and CLI into their shared %s directory with repeatable ownership",

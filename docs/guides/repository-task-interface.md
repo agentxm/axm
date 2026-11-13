@@ -354,6 +354,27 @@ disagreement fails before mutation; a later invocation reads the channel again.
 First-channel creation and retaining an already newer channel do not update an
 existing object and keep their existing conditional-create and no-op paths.
 
+## Local tracing workflows
+
+`pnpm -s trace:inspect --receipt <file>` is the published read-only trace
+diagnostic. It uses the repository's pinned Seq client and the CLI's public
+runtime inspection contract, writes one JSON result to stdout, and fails when
+producer/receiver identity or independently supplied work expectations cannot
+be established. It does not build, start Seq, or establish integration
+acceptance. [Local tracing](../../contributing/guides/local-tracing.md) owns
+capture, inspection options, receipt interpretation, and contributor setup.
+
+`cli-e2e:e2e-tracing` is an opt-in, uncached external-service check against a
+running loopback Seq instance. It depends on `cli:compile-host`, disables
+parallel task execution, and owns `test-results/cli-e2e-tracing`, including raw
+receiver trees, producer receipts and independent protocol/state evidence.
+It exercises source and compiled invocation through its separate Vitest
+configuration. Invoke it explicitly; `test:spec` does not select this
+external-service target. It is not a dependency of the ordinary `e2e` aggregate or the
+main-only integration gate; ordinary host-compatible E2E selection and CI's
+platform assurance remain unchanged. Passing this target establishes only its
+declared tracing boundary on the observed host, not a performance budget.
+
 ## Edit-loop targets
 
 Some targets exist to shorten the loop while a change is being made. They are

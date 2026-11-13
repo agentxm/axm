@@ -1,4 +1,5 @@
 import { computeSourceHash } from "./rendered-files.js";
+import type * as Effect from "effect/Effect";
 import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 
@@ -31,7 +32,7 @@ const normalize = (value: unknown): unknown => {
 /** Identity of the decoded Pack manifest semantics used to authorize reachability. */
 export const computePackManifestContentIdentity = (
   manifest: PackManifestIdentityInput,
-): SourceHash =>
+): Effect.Effect<SourceHash> =>
   computeSourceHash(
     JSON.stringify(
       normalize({

@@ -44,7 +44,7 @@ const flatten = (bundles: ReadonlyArray<InspectedBundle>) =>
     inspection.diagnostics.map((item) => ({ bundle: name, ...item })),
   );
 
-const inspectAuthored = Effect.fn("Knowledge.lintAuthored")(function* (packagePath: string) {
+const inspectAuthored = Effect.fnUntraced(function* (packagePath: string) {
   const location = yield* WorkspaceLocation;
   const path = yield* Path.Path;
   const inspected = yield* inspectKnowledgePackage(
@@ -62,7 +62,7 @@ const inspectAuthored = Effect.fn("Knowledge.lintAuthored")(function* (packagePa
   return [inspected];
 });
 
-const inspectInstalled = Effect.fn("Knowledge.lintInstalled")(function* (bundle?: string) {
+const inspectInstalled = Effect.fnUntraced(function* (bundle?: string) {
   const selected = yield* selectInstalledKnowledgeBundles(
     bundle === undefined ? undefined : { name: bundle },
   ).pipe(

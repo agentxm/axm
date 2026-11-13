@@ -379,29 +379,41 @@ const packLockFields = {
   dependencies: PackMemberConstraintMapSchema,
 } satisfies Schema.Struct.Fields;
 
-const consistentPackDeclaration = Schema.makeFilter(
-  (entry: {
+const consistentPackDeclaration = <
+  T extends {
     readonly identity: { readonly owner: string; readonly name: string };
     readonly manifestVersion: string;
     readonly manifestContentIdentity: string;
     readonly dependencies: Schema.Schema.Type<typeof PackMemberConstraintMapSchema>;
     readonly resolved:
       { readonly version: string } | { readonly tree: string } | { readonly format: string };
-  }) => {
+  },
+>(
+  entry: T,
+): Effect.Effect<T, SchemaIssue.InvalidValue> =>
+  Effect.gen(function* () {
     if ("version" in entry.resolved && entry.resolved.version !== entry.manifestVersion) {
-      return "Pack manifestVersion must match the accepted Registry version";
+      return yield* Effect.fail(
+        new SchemaIssue.InvalidValue({
+          message: "Pack manifestVersion must match the accepted Registry version",
+        }),
+      );
     }
-    const identity = computePackManifestContentIdentity({
+    const identity = yield* computePackManifestContentIdentity({
       ...entry.identity,
       type: "pack",
       version: entry.manifestVersion,
       dependencies: entry.dependencies,
     });
-    return identity === entry.manifestContentIdentity
-      ? undefined
-      : "Pack manifestContentIdentity must match its accepted identity, version, and dependencies";
-  },
-);
+    if (identity !== entry.manifestContentIdentity)
+      return yield* Effect.fail(
+        new SchemaIssue.InvalidValue({
+          message:
+            "Pack manifestContentIdentity must match its accepted identity, version, and dependencies",
+        }),
+      );
+    return entry;
+  });
 
 /**
  * Lock entry for a Pack from any external source family. @experimental
@@ -413,7 +425,7 @@ const consistentPackDeclaration = Schema.makeFilter(
  * source it is the workspace-relative directory the locator named. Pack member
  * source authority is derived from it.
  */
-export const PackLockEntrySchema = Schema.Union([
+const PackLockEntryFields = Schema.Union([
   Schema.Struct({
     source: HttpSourceLocatorSchema,
     identity: makeExtensionIdentitySchema(HandleSchema),
@@ -444,13 +456,36 @@ export const PackLockEntrySchema = Schema.Union([
     ...packLockFields,
     sourceRoot: LocalSourceLockPathSchema,
   }),
-])
-  .check(consistentPackDeclaration)
-  .annotate({
-    identifier: "PackLockEntry",
-    title: "Pack Lock Entry",
-    description: "Accepted immutable resolution and dependency constraints for a Pack.",
-  });
+]);
+
+const PackLockEntryType = Schema.toType(PackLockEntryFields);
+const ConsistentPackLockEntryType = Schema.declareConstructor<
+  Schema.Schema.Type<typeof PackLockEntryType>
+>()(
+  [PackLockEntryType],
+  ([fields]) =>
+    (input, _ast, options) =>
+      Schema.decodeUnknownEffect(fields)(input, options).pipe(
+        Effect.mapError((error) => error.issue),
+        Effect.flatMap(consistentPackDeclaration),
+      ),
+  {
+    toCodec: ([fields]) =>
+      Schema.link<Schema.Schema.Type<typeof PackLockEntryType>>()(
+        fields,
+        SchemaTransformation.passthrough(),
+      ),
+  },
+);
+
+// The consistency check belongs to the type parser too: toType consumers must retain it.
+export const PackLockEntrySchema = PackLockEntryFields.pipe(
+  Schema.decodeTo(ConsistentPackLockEntryType),
+).annotate({
+  identifier: "PackLockEntry",
+  title: "Pack Lock Entry",
+  description: "Accepted immutable resolution and dependency constraints for a Pack.",
+});
 
 /**
  * Inferred type for RegistryPackLockEntry schema.

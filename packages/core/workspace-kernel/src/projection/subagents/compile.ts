@@ -99,128 +99,134 @@ export const compileSubagentImplementation = (args: {
   readonly package: DecodedSubagentPackage;
   readonly agentId: string;
   readonly resources?: Effect.Success<ReturnType<typeof bindSubagentResources>>;
-}): CompiledSubagentImplementation => {
-  const selected = selectSubagentImplementation(args.package, args.agentId);
-  if (selected.kind === "unsupported")
-    return {
+}): Effect.Effect<CompiledSubagentImplementation> =>
+  Effect.gen(function* (): Effect.fn.Return<CompiledSubagentImplementation> {
+    const selected = selectSubagentImplementation(args.package, args.agentId);
+    if (selected.kind === "unsupported")
+      return {
+        _tag: "Unsupported",
+        reasonCode: "subagent-implementation-unavailable",
+        reason: selected.reason,
+        sourceDependencies: selected.sourceDependencies,
+      };
+    const mode = selected.kind === "core" ? "portable" : selected.kind;
+    const unsupported = (
+      reasonCode: ConfiguredAgentReasonCode,
+      reason: string,
+    ): CompiledSubagentImplementation => ({
       _tag: "Unsupported",
-      reasonCode: "subagent-implementation-unavailable",
-      reason: selected.reason,
+      mode,
+      reasonCode,
+      reason,
       sourceDependencies: selected.sourceDependencies,
+    });
+    const descriptor = isConfigurableAgentId(args.agentId)
+      ? AGENT_DESCRIPTORS[args.agentId].subagents
+      : undefined;
+    if (
+      descriptor?.writerSupported !== true ||
+      args.agentId === "kiro-cli" ||
+      args.agentId === "kiro" ||
+      descriptor.locations.some((location) => location.shape === "file")
+    ) {
+      return unsupported(
+        "subagent-native-writer-unavailable",
+        `Native Subagent ownership proof is not supported for ${args.agentId}`,
+      );
+    }
+    if (args.agentId === "devin")
+      return unsupported(
+        "subagent-native-layout-unavailable",
+        "Nested AGENT.md ownership is not supported for Devin",
+      );
+    if (args.agentId === "mistral-vibe" && selected.kind !== "native")
+      return unsupported(
+        "subagent-portable-instructions-unavailable",
+        "Mistral Vibe requires a complete native definition; portable inline instructions are not supported",
+      );
+    const configuration =
+      args.resources?.configuration ??
+      (selected.kind === "native" ? selected.native.configuration : selected.configuration);
+    const unresolved = unresolvedRuntimeReference(args.agentId, configuration);
+    if (unresolved !== undefined)
+      return unsupported(
+        "subagent-runtime-reference-unresolved",
+        `Native runtime reference requires a preserved resource base; AXM does not relocate runtime assets (${unresolved})`,
+      );
+    if (selected.kind === "native" && selected.native.format === "json") {
+      return unsupported(
+        "subagent-native-proof-unavailable",
+        "Native JSON Subagent ownership is not supported",
+      );
+    }
+    const nativeName = selected.kind === "native" ? selected.native.name : selected.name;
+    const sourceDependencies = [
+      ...new Set([
+        ...selected.sourceDependencies,
+        ...(args.resources?.resources.map((resource) => resource.path) ?? []),
+      ]),
+    ];
+    const resourceInputs =
+      args.resources === undefined
+        ? undefined
+        : yield* Effect.forEach(args.resources.resources, (resource) =>
+            Effect.map(computeSourceHash(resource.content), (digest) => ({
+              path: resource.path,
+              digest,
+            })),
+          );
+    const common = {
+      agentId: args.agentId,
+      name: nativeName,
+      sourceDependencies,
+      ...(resourceInputs === undefined || resourceInputs.length === 0 ? {} : { resourceInputs }),
     };
-  const mode = selected.kind === "core" ? "portable" : selected.kind;
-  const unsupported = (
-    reasonCode: ConfiguredAgentReasonCode,
-    reason: string,
-  ): CompiledSubagentImplementation => ({
-    _tag: "Unsupported",
-    mode,
-    reasonCode,
-    reason,
-    sourceDependencies: selected.sourceDependencies,
+    const input: SubagentRenderInput =
+      selected.kind === "native" && selected.native.format !== "json"
+        ? {
+            ...common,
+            body: args.resources?.body ?? selected.native.instructions,
+            frontmatter: configuration,
+            native: args.resources?.native ?? {
+              format: selected.native.format,
+              content: selected.native.content,
+            },
+          }
+        : {
+            ...common,
+            body:
+              args.resources?.body ??
+              (selected.kind === "native" ? selected.native.instructions : selected.instructions),
+            frontmatter:
+              selected.kind === "native"
+                ? configuration
+                : {
+                    ...configuration,
+                    name: nativeName,
+                    description: selected.description,
+                  },
+          };
+    const rendered = renderSubagent(input);
+    if (rendered === undefined || rendered._tag === "Skipped")
+      return unsupported(
+        "subagent-native-render-unavailable",
+        rendered?.reason ?? `No Subagent renderer for ${args.agentId}`,
+      );
+    return {
+      _tag: "Compiled",
+      mode,
+      nativeName,
+      sourceDependencies,
+      input,
+      outputs: rendered.outputs,
+      qualifications:
+        mode === "portable"
+          ? []
+          : [
+              "Native settings are preserved; runtime behavior remains governed by the host and its policy.",
+            ],
+    };
   });
-  const descriptor = isConfigurableAgentId(args.agentId)
-    ? AGENT_DESCRIPTORS[args.agentId].subagents
-    : undefined;
-  if (
-    descriptor?.writerSupported !== true ||
-    args.agentId === "kiro-cli" ||
-    args.agentId === "kiro" ||
-    descriptor.locations.some((location) => location.shape === "file")
-  ) {
-    return unsupported(
-      "subagent-native-writer-unavailable",
-      `Native Subagent ownership proof is not supported for ${args.agentId}`,
-    );
-  }
-  if (args.agentId === "devin")
-    return unsupported(
-      "subagent-native-layout-unavailable",
-      "Nested AGENT.md ownership is not supported for Devin",
-    );
-  if (args.agentId === "mistral-vibe" && selected.kind !== "native")
-    return unsupported(
-      "subagent-portable-instructions-unavailable",
-      "Mistral Vibe requires a complete native definition; portable inline instructions are not supported",
-    );
-  const configuration =
-    args.resources?.configuration ??
-    (selected.kind === "native" ? selected.native.configuration : selected.configuration);
-  const unresolved = unresolvedRuntimeReference(args.agentId, configuration);
-  if (unresolved !== undefined)
-    return unsupported(
-      "subagent-runtime-reference-unresolved",
-      `Native runtime reference requires a preserved resource base; AXM does not relocate runtime assets (${unresolved})`,
-    );
-  if (selected.kind === "native" && selected.native.format === "json") {
-    return unsupported(
-      "subagent-native-proof-unavailable",
-      "Native JSON Subagent ownership is not supported",
-    );
-  }
-  const nativeName = selected.kind === "native" ? selected.native.name : selected.name;
-  const sourceDependencies = [
-    ...new Set([
-      ...selected.sourceDependencies,
-      ...(args.resources?.resources.map((resource) => resource.path) ?? []),
-    ]),
-  ];
-  const resourceInputs = args.resources?.resources.map((resource) => ({
-    path: resource.path,
-    digest: computeSourceHash(resource.content),
-  }));
-  const common = {
-    agentId: args.agentId,
-    name: nativeName,
-    sourceDependencies,
-    ...(resourceInputs === undefined || resourceInputs.length === 0 ? {} : { resourceInputs }),
-  };
-  const input: SubagentRenderInput =
-    selected.kind === "native" && selected.native.format !== "json"
-      ? {
-          ...common,
-          body: args.resources?.body ?? selected.native.instructions,
-          frontmatter: configuration,
-          native: args.resources?.native ?? {
-            format: selected.native.format,
-            content: selected.native.content,
-          },
-        }
-      : {
-          ...common,
-          body:
-            args.resources?.body ??
-            (selected.kind === "native" ? selected.native.instructions : selected.instructions),
-          frontmatter:
-            selected.kind === "native"
-              ? configuration
-              : {
-                  ...configuration,
-                  name: nativeName,
-                  description: selected.description,
-                },
-        };
-  const rendered = renderSubagent(input);
-  if (rendered === undefined || rendered._tag === "Skipped")
-    return unsupported(
-      "subagent-native-render-unavailable",
-      rendered?.reason ?? `No Subagent renderer for ${args.agentId}`,
-    );
-  return {
-    _tag: "Compiled",
-    mode,
-    nativeName,
-    sourceDependencies,
-    input,
-    outputs: rendered.outputs,
-    qualifications:
-      mode === "portable"
-        ? []
-        : [
-            "Native settings are preserved; runtime behavior remains governed by the host and its policy.",
-          ],
-  };
-};
 
 /** Bind selected runtime inputs while the candidate source tree is still alive. */
 export const prepareSubagentImplementation = Effect.fn("axm.subagent.prepare")(function* (args: {
@@ -234,9 +240,7 @@ export const prepareSubagentImplementation = Effect.fn("axm.subagent.prepare")(f
     selected.kind === "unsupported" ||
     (selected.kind === "native" && selected.native.format === "json")
   )
-    return yield* Effect.sync(() => compileSubagentImplementation(args)).pipe(
-      Effect.withSpan("axm.subagent.compile"),
-    );
+    return yield* compileSubagentImplementation(args).pipe(Effect.withSpan("axm.subagent.compile"));
   const path = yield* Path.Path;
   return yield* bindSubagentResources({
     agentId: args.agentId,
@@ -251,7 +255,7 @@ export const prepareSubagentImplementation = Effect.fn("axm.subagent.prepare")(f
     retainedRoot: args.retainedRoot,
   }).pipe(
     Effect.flatMap((resources) =>
-      Effect.sync(() => compileSubagentImplementation({ ...args, resources })).pipe(
+      compileSubagentImplementation({ ...args, resources }).pipe(
         Effect.withSpan("axm.subagent.compile"),
       ),
     ),

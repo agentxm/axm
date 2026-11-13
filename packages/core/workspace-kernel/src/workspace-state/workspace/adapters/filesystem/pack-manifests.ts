@@ -1,4 +1,6 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
@@ -10,7 +12,7 @@ import {
   type PackManifestObservation,
 } from "../../pack-manifests.js";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
-import { CurrentWorkspaceReadPhase } from "../../read-phase.js";
+import { CurrentWorkspaceReadPhase, CurrentWorkspaceReadRequest } from "../../read-phase.js";
 
 export const FilesystemPackManifests = Layer.effect(
   PackManifests,
@@ -41,25 +43,98 @@ export const FilesystemPackManifests = Layer.effect(
           manifest: Effect.gen(function* () {
             const phase = yield* CurrentWorkspaceReadPhase;
             const read = (phase?.fileSystem ?? fs).readFileString(manifestPath).pipe(
-              Effect.match({
-                onSuccess: decodePackManifestDocument,
-                onFailure: (error): PackManifestObservation =>
-                  error.reason._tag === "NotFound"
-                    ? { status: "absent" }
-                    : { status: "unreadable", reason: error.reason._tag },
+              Effect.matchEffect({
+                onSuccess: (text) =>
+                  decodePackManifestDocument(text).pipe((effect) =>
+                    withWork("axm.parse.manifest", effect, {
+                      attributes: { "axm.manifest.kind": "pack", "axm.work.count": 1 },
+                    }),
+                  ),
+                onFailure: (error) =>
+                  Effect.succeed<PackManifestObservation>(
+                    error.reason._tag === "NotFound"
+                      ? { status: "absent" }
+                      : { status: "unreadable", reason: error.reason._tag },
+                  ),
               }),
-              Effect.withSpan("axm.observation.pack-document", {
-                attributes: { "axm.work.count": 1 },
-              }),
+              (effect) =>
+                withWork("axm.observation.pack-document", effect, {
+                  attributes: { "axm.work.count": 1 },
+                }),
             );
-            if (phase === undefined || !phase.isActive()) return yield* read;
+            if (phase === undefined || !phase.isActive()) {
+              yield* annotateWork({
+                "axm.cache.outcome": "bypass",
+                "axm.work.executed": 1,
+                "axm.work.reused-count": 0,
+              });
+              return yield* read;
+            }
+            const request = { executed: false };
             const previous = phase.packDocuments.get(manifestPath);
-            if (previous !== undefined) return yield* previous;
-            const created = yield* Effect.cached(read);
-            const selected = phase.packDocuments.get(manifestPath) ?? created;
+            if (previous !== undefined) {
+              yield* annotateWork({
+                "axm.cache.outcome": previous.completed() ? "hit" : "coalesced",
+                "axm.work.executed": 0,
+                "axm.work.reused-count": 0,
+              });
+              return yield* previous.value.pipe(
+                Effect.provideService(CurrentWorkspaceReadRequest, request),
+                Effect.onExit((exit) =>
+                  Exit.hasInterrupts(exit) || request.executed
+                    ? Effect.void
+                    : annotateWork({ "axm.work.reused-count": 1 }),
+                ),
+              );
+            }
+            let completed = false;
+            let generation = 0;
+            const work = read;
+            const created = {
+              value: yield* Effect.cached(
+                Effect.gen(function* () {
+                  const request = yield* CurrentWorkspaceReadRequest;
+                  if (request !== undefined) request.executed = true;
+                  const current = ++generation;
+                  completed = false;
+                  return yield* annotateWork({
+                    "axm.cache.outcome": "miss",
+                    "axm.work.executed": 1,
+                  }).pipe(
+                    Effect.andThen(work),
+                    Effect.onExit((exit) =>
+                      Effect.sync(() => {
+                        // An abandoned run must not overwrite a retry's observation state.
+                        if (generation === current) completed = !Exit.hasInterrupts(exit);
+                      }),
+                    ),
+                  );
+                }),
+              ),
+              completed: () => completed,
+            };
+            const raced = phase.packDocuments.get(manifestPath);
+            const selected = raced ?? created;
             phase.packDocuments.set(manifestPath, selected);
-            return yield* selected;
-          }),
+            yield* annotateWork({
+              "axm.cache.outcome":
+                raced === undefined ? "miss" : raced.completed() ? "hit" : "coalesced",
+              "axm.work.executed": 0,
+              "axm.work.reused-count": 0,
+            });
+            return yield* selected.value.pipe(
+              Effect.provideService(CurrentWorkspaceReadRequest, request),
+              Effect.onExit((exit) =>
+                Exit.hasInterrupts(exit) || request.executed
+                  ? Effect.void
+                  : annotateWork({ "axm.work.reused-count": 1 }),
+              ),
+            );
+          }).pipe((effect) =>
+            withWork("axm.observation.pack-reuse", effect, {
+              attributes: { "axm.work.requested": 1 },
+            }),
+          ),
         };
       },
     });

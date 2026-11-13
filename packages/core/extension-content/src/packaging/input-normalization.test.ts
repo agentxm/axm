@@ -3,6 +3,8 @@ import * as Effect from "effect/Effect";
 import * as Tracer from "effect/Tracer";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
+  CurrentArchiveWorkObserver,
+  type ArchiveWorkFact,
   normalizePublishInput,
   type DeclaredPublishIdentity,
   type PublishArchiveInput,
@@ -122,41 +124,60 @@ describe("normalizePublishInput", () => {
     }),
   );
 
-  it.effect("reuses structural admission and reads each Knowledge member once per inspection", () =>
-    Effect.gen(function* () {
-      const spans: Tracer.NativeSpan[] = [];
-      const tracer = Tracer.make({
-        span(options) {
-          const span = new Tracer.NativeSpan(options);
-          spans.push(span);
-          return span;
-        },
-      });
-      const observe = <A, E>(effect: Effect.Effect<A, E>) =>
-        effect.pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true));
-      const admitted = yield* observe(validateArchive(knowledgeArchive()));
-      for (let inspection = 0; inspection < 2; inspection++) {
-        const result = yield* observe(
-          normalizePublishInput({
-            declaredIdentity: makeDeclaredIdentity({ type: "knowledge" }),
-            archive: { content: admitted, archiveContentType: "application/zip" },
-          }),
-        );
-        expect(result.archive).toBe(admitted);
-        expect(result.manifest.validated.type).toBe("knowledge");
-      }
-      const count = (name: string) => spans.filter((span) => span.name === name).length;
-      expect(count("axm.archive.parse")).toBe(1);
-      expect(count("axm.archive.admit")).toBe(1);
-      expect(count("axm.archive.read-member")).toBe(6);
-      expect(count("axm.archive.decode-manifest")).toBe(2);
-      expect(
-        spans
-          .filter((span) => span.name === "axm.archive.normalize")
-          .map((span) => span.attributes.get("axm.work.reused")),
-      ).toEqual([true, true]);
-      expect(spans.every((span) => span.status._tag === "Ended")).toBe(true);
-    }),
+  it.effect(
+    "reuses structural admission and records each Knowledge member once per inspection without primitive spans",
+    () =>
+      Effect.gen(function* () {
+        const spans: Tracer.NativeSpan[] = [];
+        const facts: ArchiveWorkFact[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
+        const observe = <A, E>(effect: Effect.Effect<A, E>) =>
+          effect.pipe(
+            Effect.provideService(CurrentArchiveWorkObserver, {
+              record: (fact) =>
+                Effect.sync(() => {
+                  facts.push(fact);
+                }),
+            }),
+            Effect.withTracer(tracer),
+            Effect.withTracerEnabled(true),
+          );
+        const admitted = yield* observe(validateArchive(knowledgeArchive()));
+        for (let inspection = 0; inspection < 2; inspection++) {
+          const result = yield* observe(
+            normalizePublishInput({
+              declaredIdentity: makeDeclaredIdentity({ type: "knowledge" }),
+              archive: { content: admitted, archiveContentType: "application/zip" },
+            }),
+          );
+          expect(result.archive).toBe(admitted);
+          expect(result.manifest.validated.type).toBe("knowledge");
+        }
+        const count = (name: string) => spans.filter((span) => span.name === name).length;
+        expect(facts.filter((fact) => fact.kind === "parse")).toMatchObject([
+          { outcome: "success", entries: 3 },
+        ]);
+        expect(facts.filter((fact) => fact.kind === "read-member")).toHaveLength(6);
+        expect(facts.filter((fact) => fact.kind === "parse-manifest")).toHaveLength(2);
+        expect(facts.every((fact) => fact.outcome === "success")).toBe(true);
+        expect(count("axm.archive.parse")).toBe(0);
+        expect(count("axm.archive.admit")).toBe(1);
+        expect(count("axm.archive.read-member")).toBe(0);
+        expect(count("axm.archive.parse-manifest")).toBe(0);
+        expect(count("axm.archive.decode-manifest")).toBe(2);
+        expect(
+          spans
+            .filter((span) => span.name === "axm.archive.normalize")
+            .map((span) => span.attributes.get("axm.work.reused")),
+        ).toEqual([true, true]);
+        expect(spans.every((span) => span.status._tag === "Ended")).toBe(true);
+      }),
   );
 
   it.effect("keeps custom reader calls fresh and isolated from the owned archive", () =>

@@ -1,3 +1,4 @@
+import { withDetailedWork } from "../../locations/testing.js";
 /**
  * Unit tests for git module.
  *
@@ -11,6 +12,7 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 import {
   compareDirectoryToHead,
   getCommitSha,
@@ -172,14 +174,21 @@ exec sleep 30
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+const Tracer = await import("effect/Tracer");
+const spans = [];
+const tracer = Tracer.make({ span(options) { const span = new Tracer.NativeSpan(options); spans.push(span); return span; } });
 const { listRemoteRefs, withGitOperationDeadline } = await import(process.argv[1]);
 const failure = await Effect.runPromise(
   listRemoteRefs("probe").pipe(
     withGitOperationDeadline("list-remote-refs", Duration.seconds(1)),
     Effect.flip,
+    Effect.provideService(Tracer.Tracer, tracer),
     Effect.provide(NodeServices.layer),
   ),
 );
+const observed = spans.filter((span) => span.name === "axm.git.operation");
+if (observed.length < 1 || observed.some((span) => span.status._tag !== "Ended") ||
+    !observed.some((span) => span.status._tag === "Ended" && span.status.exit._tag === "Failure")) process.exitCode = 3;
 if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadline")) {
   process.exitCode = 2;
 }
@@ -218,10 +227,30 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         const repoPath = path.join(tempDir, "repo");
         yield* Effect.promise(() => createLocalRepo(repoPath));
 
-        const treeSha = yield* getTreeSha(repoPath);
-
-        // Tree SHA is a 40-character hex string
-        expect(treeSha).toMatch(/^[a-f0-9]{40}$/);
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
+        const treeSha = yield* getTreeSha(repoPath).pipe(withDetailedWork(tracer));
+        expect(treeSha).toBe(
+          execFileSync("git", ["rev-parse", "HEAD^{tree}"], {
+            cwd: repoPath,
+            env: isolatedGitEnv(process.env),
+            encoding: "utf8",
+          }).trim(),
+        );
+        const requests = spans.filter((span) => span.name === "axm.git.operation");
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.attributes.get("axm.git.operation")).toBe("get-tree-sha");
+        expect(requests[0]?.attributes.get("axm.work.executed")).toBe(1);
+        expect(requests[0]?.status._tag).toBe("Ended");
+        expect(JSON.stringify(requests.map((span) => [...span.attributes]))).not.toContain(
+          repoPath,
+        );
       }),
     );
 
@@ -485,11 +514,31 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         fs.writeFileSync(path.join(packagePath, "notes.md"), "untracked notes\n");
         fs.rmSync(path.join(packagePath, "old.md"));
 
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
         const comparison = yield* compareDirectoryToHead(repoPath, packagePath, [
           "notes.md",
           "skill.json",
           "src/SKILL.md",
-        ]).pipe(Effect.provide(NodeServices.layer));
+        ]).pipe(Effect.provide(NodeServices.layer), withDetailedWork(tracer));
+        // Independent Git blob vectors include the byte-count header and NUL.
+        expect(comparison.differences.find(({ path }) => path === "notes.md")?.workingObject).toBe(
+          "401ecdef02c57ddf68be73a902b6585946344d01",
+        );
+        expect(
+          comparison.differences.find(({ path }) => path === "src/SKILL.md")?.workingObject,
+        ).toBe("8cb6d19e0285efca51a4e6ea0b576dc5c3dc0c56");
+        const hashes = spans.filter((span) => span.name === "axm.hash.git-payload");
+        expect(hashes).toHaveLength(1);
+        expect(hashes[0]?.attributes.get("axm.work.count")).toBe(3);
+        expect(hashes[0]?.attributes.get("axm.work.bytes")).toBe(72);
+        expect(hashes[0]?.status._tag).toBe("Ended");
 
         expect(comparison.repositoryDirectory).toBe("packages/review");
         expect(comparison.headRevision).toMatch(/^[a-f0-9]{40}$/);

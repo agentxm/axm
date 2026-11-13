@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 import { createHash } from "node:crypto";
 
 import * as Effect from "effect/Effect";
@@ -39,7 +40,12 @@ import {
 } from "../settlement/index.js";
 import { WorkspaceLocation } from "../workspace-state/index.js";
 
-const digest = (raw: string): string => createHash("sha256").update(raw).digest("hex");
+const digest = (raw: string) =>
+  Effect.sync(() => createHash("sha256").update(raw).digest("hex")).pipe((effect) =>
+    withWork("axm.hash.receipt", effect, {
+      attributes: { "axm.work.count": 1, "axm.work.bytes": Buffer.byteLength(raw) },
+    }),
+  );
 const sameRoute = (before: ContainerIdentity, after: ContainerIdentity): boolean => {
   return JSON.stringify(before) === JSON.stringify(after);
 };
@@ -185,7 +191,10 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
       const entries = (yield* readContainerReceipts(location.runtimeDir)).entries;
       const valid: Array<ContainerReceipt> = [];
       for (const receipt of entries) {
-        if (receipt.identity.physicalPath !== physicalPath || receipt.contentSha256 !== digest(raw))
+        if (
+          receipt.identity.physicalPath !== physicalPath ||
+          receipt.contentSha256 !== (yield* digest(raw))
+        )
           continue;
         if (yield* currentIdentity(receipt.identity)) valid.push(receipt);
       }
@@ -277,10 +286,14 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
               path: capture.target.path,
               cause: "native-alias-changed-during-write",
             });
-          refreshed.push({ ...prior, identity: nextIdentity, contentSha256: digest(afterRaw) });
+          refreshed.push({
+            ...prior,
+            identity: nextIdentity,
+            contentSha256: yield* digest(afterRaw),
+          });
         }
         if (capture.eligible) {
-          const inverse = deriveStructuralInverse(
+          const inverse = yield* deriveStructuralInverse(
             Option.getOrElse(capture.beforeRaw, () => ""),
             afterRaw,
           );
@@ -289,7 +302,7 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
               unit: capture.target.unit,
               kind: "inserted-key",
               identity,
-              contentSha256: digest(afterRaw),
+              contentSha256: yield* digest(afterRaw),
               absentBefore: Option.isNone(capture.beforeRaw),
               inverse: inverse.value,
             });
@@ -298,7 +311,7 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
               unit: capture.target.unit,
               kind: "created-file",
               identity,
-              contentSha256: digest(afterRaw),
+              contentSha256: yield* digest(afterRaw),
             });
             for (const directory of createdDirectories) {
               if (
@@ -354,11 +367,13 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
         let raw = args.raw;
         let absent = false;
         while (remaining.size > 0) {
-          const applicable = receipts.flatMap((receipt) => {
-            if (!remaining.has(receipt.unit) || receipt.inverse === undefined) return [];
-            const restored = applyStructuralInverse(raw, receipt.inverse);
-            return Option.isSome(restored) ? [{ receipt, raw: restored.value }] : [];
-          });
+          const applicable: Array<{ readonly receipt: ContainerReceipt; readonly raw: string }> =
+            [];
+          for (const receipt of receipts) {
+            if (!remaining.has(receipt.unit) || receipt.inverse === undefined) continue;
+            const restored = yield* applyStructuralInverse(raw, receipt.inverse);
+            if (Option.isSome(restored)) applicable.push({ receipt, raw: restored.value });
+          }
           const next = applicable[0];
           if (next === undefined || applicable.length !== 1 || absent) return Option.none();
           remaining.delete(next.receipt.unit);

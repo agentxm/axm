@@ -428,40 +428,41 @@ export const makeAuthoredPackFixture = (
 /** A Registry pack the workspace has accepted at an exact version. */
 export const makeAcceptedPackFixture = (
   options: { readonly name?: string; readonly version?: string } = {},
-) => {
-  const name = options.name ?? "toolkit";
-  const version = options.version ?? "2.3.4";
-  const manifest = {
-    owner: "@acme",
-    type: "pack",
-    name,
-    version,
-    description: "Fixture pack",
-    dependencies: {},
-  };
-  return makeInspectionFixture({
-    settings: {
-      agents: [],
-      defaultRegistry: "test",
-      sources: [{ name: "test", type: "registry", location: inspectionRegistryUrl }],
-      packs: { [name]: { source: `@acme/packs/${name}@${version}`, enabled: true } },
-    },
-    lockfile: {
-      packs: {
-        [name]: makeRegistryPackLockEntry({
-          owner: decodeHandleSync("@acme"),
-          name,
-          resolvedVersion: decodeVersionSync(version),
-          endpoint: decodeRegistryEndpointSync(inspectionRegistryUrl),
-        }),
+) =>
+  Effect.gen(function* () {
+    const name = options.name ?? "toolkit";
+    const version = options.version ?? "2.3.4";
+    const manifest = {
+      owner: "@acme",
+      type: "pack",
+      name,
+      version,
+      description: "Fixture pack",
+      dependencies: {},
+    };
+    return makeInspectionFixture({
+      settings: {
+        agents: [],
+        defaultRegistry: "test",
+        sources: [{ name: "test", type: "registry", location: inspectionRegistryUrl }],
+        packs: { [name]: { source: `@acme/packs/${name}@${version}`, enabled: true } },
       },
-    },
-    files: {
-      [`agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/packs/${name}/pack.json`]:
-        JSON.stringify(manifest, null, 2),
-    },
+      lockfile: {
+        packs: {
+          [name]: yield* makeRegistryPackLockEntry({
+            owner: decodeHandleSync("@acme"),
+            name,
+            resolvedVersion: decodeVersionSync(version),
+            endpoint: decodeRegistryEndpointSync(inspectionRegistryUrl),
+          }),
+        },
+      },
+      files: {
+        [`agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/packs/${name}/pack.json`]:
+          JSON.stringify(manifest, null, 2),
+      },
+    });
   });
-};
 
 /**
  * Every extension type a person can author in a workspace. Packs are members

@@ -4,8 +4,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { startDeviceAuthServer } from "../../../e2e/device-auth-server.js";
-import { describe, expect, it } from "vitest";
+import { startDeviceAuthServer } from "@agentxm/test-support/auth-server";
+import * as Effect from "effect/Effect";
+import { describe, expect, it } from "@effect/vitest";
 import { createTempDir, runCli, writeUserDefaultRegistry } from "../../../e2e/utils.js";
 
 export const executionBinding = {
@@ -20,38 +21,52 @@ export const executionBinding = {
     "Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.",
 } as const;
 
+const invoke = (...args: Parameters<typeof runCli>) => Effect.tryPromise(() => runCli(...args));
+const fixture = (outcome: Parameters<typeof startDeviceAuthServer>[0] = "pending") =>
+  Effect.gen(function* () {
+    const auth = yield* Effect.acquireRelease(startDeviceAuthServer(outcome), (server) =>
+      server.close.pipe(Effect.orDie),
+    );
+    const home = yield* Effect.acquireRelease(Effect.sync(createTempDir), (directory) =>
+      Effect.sync(directory.cleanup),
+    );
+    writeUserDefaultRegistry(home.path, auth.url);
+    return { auth, env: { HOME: home.path, AXM_USER_HOME: home.path } };
+  });
+
 describe("axm login", () => {
-  it("shows the device-code login flags and examples", async () => {
-    const result = await runCli(["login", "--help"]);
+  it.live("shows the device-code login flags and examples", () =>
+    Effect.gen(function* () {
+      const result = yield* invoke(["login", "--help"]);
 
-    expect(result.exitCode).toBe(0);
-    const output = result.stdout + result.stderr;
-    expect(output).toContain("Sign in with a code; recommended for SSH");
-    expect(output).toContain("headless environments");
-    expect(output).toContain("Replace an existing pending device sign-in intentionally");
-    expect(output).toContain("axm login");
-    expect(output).toContain("axm login --device-code");
-    expect(output).toContain("--wait-for-human");
-    expect(output).toContain("axm login --device-code --wait-for-human 300 --json");
-    expect(output).toContain("--restart");
-    expect(output).not.toContain("--timeout");
-    expect(output).not.toContain("--device-auth");
-  });
+      expect(result.exitCode).toBe(0);
+      const output = result.stdout + result.stderr;
+      expect(output).toContain("Sign in with a code; recommended for SSH");
+      expect(output).toContain("headless environments");
+      expect(output).toContain("Replace an existing pending device sign-in intentionally");
+      expect(output).toContain("axm login");
+      expect(output).toContain("axm login --device-code");
+      expect(output).toContain("--wait-for-human");
+      expect(output).toContain("axm login --device-code --wait-for-human 300 --json");
+      expect(output).toContain("--restart");
+      expect(output).not.toContain("--timeout");
+      expect(output).not.toContain("--device-auth");
+    }),
+  );
 
-  it("rejects the unsupported --device-auth spelling", async () => {
-    const result = await runCli(["login", "--device-auth"]);
+  it.live("rejects the unsupported --device-auth spelling", () =>
+    Effect.gen(function* () {
+      const result = yield* invoke(["login", "--device-auth"]);
 
-    expect(result.exitCode).toBe(2);
-    expect(result.stdout + result.stderr).toContain("device-auth");
-  });
+      expect(result.exitCode).toBe(2);
+      expect(result.stdout + result.stderr).toContain("device-auth");
+    }),
+  );
 
-  it("starts, persists, and resumes device login across processes", async () => {
-    const auth = await startDeviceAuthServer();
-    const home = createTempDir();
-    try {
-      writeUserDefaultRegistry(home.path, auth.url);
-      const env = { HOME: home.path, AXM_USER_HOME: home.path };
-      const started = await runCli(["login", "--device-code", "--json", "--non-interactive"], {
+  it.live("starts, persists, and resumes device login across processes", () =>
+    Effect.gen(function* () {
+      const { auth, env } = yield* fixture();
+      const started = yield* invoke(["login", "--device-code", "--json", "--non-interactive"], {
         env,
       });
       expect(started.exitCode).toBe(0);
@@ -64,7 +79,7 @@ describe("axm login", () => {
       expect(started.stdout).toContain(auth.url + "/device?user_code=ABCD-1234");
 
       auth.setOutcome("approved");
-      const resumed = await runCli(
+      const resumed = yield* invoke(
         ["login", "--device-code", "--wait-for-human", "5", "--json", "--non-interactive"],
         { env, timeout: 10_000 },
       );
@@ -72,21 +87,15 @@ describe("axm login", () => {
       expect(JSON.parse(resumed.stdout)).toMatchObject({
         result: { status: "logged-in", handle: "@alice" },
       });
-    } finally {
-      home.cleanup();
-      await auth.close();
-    }
-  });
+    }).pipe(Effect.scoped),
+  );
 
-  it("starts, waits for, and saves a device sign-in in one invocation", async () => {
-    const auth = await startDeviceAuthServer();
-    const home = createTempDir();
-    try {
-      writeUserDefaultRegistry(home.path, auth.url);
-      const env = { HOME: home.path, AXM_USER_HOME: home.path };
+  it.live("starts, waits for, and saves a device sign-in in one invocation", () =>
+    Effect.gen(function* () {
+      const { auth, env } = yield* fixture();
       auth.setOutcome("approved");
       // A bounded wait selects device sign-in without --device-code.
-      const signedIn = await runCli(
+      const signedIn = yield* invoke(
         ["login", "--wait-for-human", "5", "--json", "--non-interactive"],
         { env, timeout: 10_000 },
       );
@@ -99,29 +108,21 @@ describe("axm login", () => {
       });
       expect(signedIn.stderr).toContain("ABCD-1234");
 
-      const whoami = await runCli(["whoami", "--json"], { env });
+      const whoami = yield* invoke(["whoami", "--json"], { env });
       expect(whoami.exitCode).toBe(0);
       expect(whoami.stdout).toContain("@alice");
-    } finally {
-      home.cleanup();
-      await auth.close();
-    }
-  });
+    }).pipe(Effect.scoped),
+  );
 
-  it("returns the dedicated expired code and clears the pending flow", async () => {
-    const auth = await startDeviceAuthServer("expired");
-    const home = createTempDir();
-    try {
-      writeUserDefaultRegistry(home.path, auth.url);
-      const env = { HOME: home.path, AXM_USER_HOME: home.path };
+  it.live("returns the dedicated expired code and clears the pending flow", () =>
+    Effect.gen(function* () {
+      const { env } = yield* fixture("expired");
       expect(
-        (
-          await runCli(["login", "--device-code", "--json", "--non-interactive"], {
-            env,
-          })
-        ).exitCode,
+        (yield* invoke(["login", "--device-code", "--json", "--non-interactive"], {
+          env,
+        })).exitCode,
       ).toBe(0);
-      const expired = await runCli(
+      const expired = yield* invoke(
         ["login", "--device-code", "--wait-for-human", "5", "--json", "--non-interactive"],
         { env, timeout: 10_000 },
       );
@@ -129,14 +130,11 @@ describe("axm login", () => {
       expect(expired.stdout).toContain('"code": "auth_expired"');
 
       // The expired flow was cleared, so the next sign-in starts a new one.
-      const restarted = await runCli(["login", "--device-code", "--json", "--non-interactive"], {
+      const restarted = yield* invoke(["login", "--device-code", "--json", "--non-interactive"], {
         env,
       });
       expect(restarted.exitCode).toBe(0);
       expect(restarted.stdout).toContain('"flow": "started"');
-    } finally {
-      home.cleanup();
-      await auth.close();
-    }
-  });
+    }).pipe(Effect.scoped),
+  );
 });

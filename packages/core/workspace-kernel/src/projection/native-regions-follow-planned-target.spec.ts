@@ -7,7 +7,6 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
 import {
-  projectionGeneration,
   projectionOutputDigest,
   reconcileNativeManagedRegion,
   retargetedRegionRows,
@@ -18,6 +17,7 @@ import { NativeWriteAuthorityLive } from "./live.js";
 import { NativeWriteAuthority, NativeWriteRefused } from "../agent-adapters/index.js";
 import { makeRecordingNativeWriteAuthority } from "../agent-adapters/testing.js";
 import {
+  ProjectionDigestSchema,
   ProjectionUnitPathSchema,
   type ProjectionRowChange,
   type RecordedProjectionRow,
@@ -44,8 +44,8 @@ export const specification = defineSpecification({
 });
 
 const AGENTS_MD = ProjectionUnitPathSchema.make("AGENTS.md");
-const GEN_A = projectionGeneration(["inputs a"]);
-const GEN_B = projectionGeneration(["inputs b"]);
+const GEN_A = ProjectionDigestSchema.make(`sha256:${"a".repeat(64)}`);
+const GEN_B = ProjectionDigestSchema.make(`sha256:${"b".repeat(64)}`);
 
 /** The row a change records, as the next reconciliation reads it back. */
 const recordedAfter = (change: Option.Option<ProjectionRowChange>) =>
@@ -107,7 +107,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         expect(Option.getOrUndefined(applied.rowChange)).toEqual({
           kind,
           path: AGENTS_MD,
-          row: { gen: GEN_A, output: projectionOutputDigest("Managed body\n") },
+          row: { gen: GEN_A, output: yield* projectionOutputDigest("Managed body\n") },
         });
         const current = yield* reconcileNativeManagedRegion({
           ...args,
@@ -195,7 +195,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         expect(Option.getOrUndefined(adopted.rowChange)).toEqual({
           kind,
           path: AGENTS_MD,
-          row: { gen: GEN_B, output: projectionOutputDigest(body) },
+          row: { gen: GEN_B, output: yield* projectionOutputDigest(body) },
         });
         expect(yield* fs.readFileString(file)).toBe(before);
         expect((yield* authority.observed).protectedPaths).toEqual([]);
@@ -483,7 +483,7 @@ for (const kind of ["rules", "knowledge"] as const) {
         yield* fs.writeFileString(file, "# Hand-cleaned\n");
         const authority = yield* makeRecordingNativeWriteAuthority;
         const recorded = Option.some<RecordedProjectionRow>({
-          row: { gen: GEN_A, output: projectionOutputDigest("Managed body\n") },
+          row: { gen: GEN_A, output: yield* projectionOutputDigest("Managed body\n") },
           stale: false,
         });
         const withdrawn = yield* reconcileNativeManagedRegion({

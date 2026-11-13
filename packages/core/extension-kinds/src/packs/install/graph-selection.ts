@@ -123,7 +123,7 @@ export const readProposedGraph = (prospectivePacks: ReadonlyArray<PackRef>) =>
             version: pack.version,
             dependencies: pack.pack.dependencies,
           });
-        return identity(accepted.value) !== identity(ref);
+        return (yield* identity(accepted.value)) !== (yield* identity(ref));
       }),
     );
     // Replaying an accepted declaration retains its lock provenance. Only a
@@ -177,7 +177,7 @@ type WorkspaceAuthorityRequirements =
 export const scanWorkspaceAuthority: (
   pack: PackRef,
 ) => Effect.Effect<WorkspaceAuthorityScan, OperationRefused, WorkspaceAuthorityRequirements> =
-  Effect.fn("InstallExtensions.scanWorkspaceAuthority")(function* (pack: PackRef) {
+  Effect.fnUntraced(function* (pack: PackRef) {
     const graph = yield* readDesiredGraph;
     const path = yield* Path.Path;
     const { baseDir } = yield* WorkspaceLocation;
@@ -400,57 +400,57 @@ export const packMemberConflicts = (
  */
 const heldPackGraphPreservable: (
   intent: Pick<PackGraphSelectionRequest, "packToInstall" | "versionRange">,
-) => Effect.Effect<boolean, OperationRefused, WorkspaceAuthorityRequirements> = Effect.fn(
-  "InstallExtensions.heldPackGraphPreservable",
-)(function* (intent: Pick<PackGraphSelectionRequest, "packToInstall" | "versionRange">) {
-  const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
-  const graph = yield* readDesiredGraph;
-  // Nothing is preservable while the graph reports any problem: preserving
-  // the current graph means keeping a graph that is whole.
-  if (!desiredStateSettled(graph)) return false;
-  const currentPack = yield* usableAcceptedCanonical({
-    type: "pack",
-    name: intent.packToInstall.pack.name,
-  }).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: "Accepted pack content could not be inspected",
-        cause,
-      }),
-    ),
-  );
-  if (
-    Option.isNone(currentPack) ||
-    currentPack.value.ref.refType !== "registry" ||
-    currentPack.value.ref.owner !== intent.packToInstall.owner ||
-    currentPack.value.ref.name !== intent.packToInstall.name ||
-    !versionSatisfiesRequest(
-      currentPack.value.ref.version,
-      normalizeVersionRequest(intent.versionRange),
-    )
-  ) {
-    return false;
-  }
-  const nodes = graph.nodes.filter(
-    (node) =>
-      (node.type === "pack" && node.name === intent.packToInstall.pack.name) ||
-      node.origins.some((origin) => origin.type === "pack" && origin.pack.fqn === packIdentity),
-  );
-  const usable = yield* Effect.forEach(nodes, (node) =>
-    usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(
-      Effect.map(Option.isSome),
+) => Effect.Effect<boolean, OperationRefused, WorkspaceAuthorityRequirements> = Effect.fnUntraced(
+  function* (intent: Pick<PackGraphSelectionRequest, "packToInstall" | "versionRange">) {
+    const packIdentity = `${intent.packToInstall.owner}/packs/${intent.packToInstall.name}`;
+    const graph = yield* readDesiredGraph;
+    // Nothing is preservable while the graph reports any problem: preserving
+    // the current graph means keeping a graph that is whole.
+    if (!desiredStateSettled(graph)) return false;
+    const currentPack = yield* usableAcceptedCanonical({
+      type: "pack",
+      name: intent.packToInstall.pack.name,
+    }).pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",
-          detail: `Accepted content for ${node.name} could not be inspected`,
+          detail: "Accepted pack content could not be inspected",
           cause,
         }),
       ),
-    ),
-  );
-  return usable.every((value) => value);
-});
+    );
+    if (
+      Option.isNone(currentPack) ||
+      currentPack.value.ref.refType !== "registry" ||
+      currentPack.value.ref.owner !== intent.packToInstall.owner ||
+      currentPack.value.ref.name !== intent.packToInstall.name ||
+      !versionSatisfiesRequest(
+        currentPack.value.ref.version,
+        normalizeVersionRequest(intent.versionRange),
+      )
+    ) {
+      return false;
+    }
+    const nodes = graph.nodes.filter(
+      (node) =>
+        (node.type === "pack" && node.name === intent.packToInstall.pack.name) ||
+        node.origins.some((origin) => origin.type === "pack" && origin.pack.fqn === packIdentity),
+    );
+    const usable = yield* Effect.forEach(nodes, (node) =>
+      usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(
+        Effect.map(Option.isSome),
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "internal",
+            detail: `Accepted content for ${node.name} could not be inspected`,
+            cause,
+          }),
+        ),
+      ),
+    );
+    return usable.every((value) => value);
+  },
+);
 
 /** Every member type a Pack may declare; a Pack never depends on another Pack. */
 const PACK_MEMBER_TYPES = ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge"] as const;
@@ -496,9 +496,7 @@ export type PackGraphSelection =
  * Install, update, and sync recovery render this one decision; none of them
  * re-implements a step of it.
  */
-export const selectPackGraph = Effect.fn("InstallExtensions.selectPackGraph")(function* (
-  intent: PackGraphSelectionRequest,
-) {
+export const selectPackGraph = Effect.fnUntraced(function* (intent: PackGraphSelectionRequest) {
   const sources = yield* SourceHostProviders;
   const authority = yield* scanWorkspaceAuthority(intent.packToInstall);
   if (authority.blockers.length > 0) {

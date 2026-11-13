@@ -1,9 +1,12 @@
 import * as ServiceMap from "effect/Context";
+import * as Clock from "effect/Clock";
 import * as Data from "effect/Data";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";
+import type * as Tracer from "effect/Tracer";
 
 /** Four maximum-size acquired trees may be active together. */
 export const MAX_OPERATION_SCRATCH_BYTES = 1024 * 1024 * 1024;
@@ -77,86 +80,106 @@ export const makeOperationScratchBudget = (
     return {
       capacity,
       reserve: (maxBytes) =>
-        Effect.gen(function* () {
-          if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > capacity) {
-            return yield* new OperationScratchLimitExceeded({
-              capacity,
-              requested: maxBytes,
+        Effect.suspend(() => {
+          let waiting: Tracer.Span | undefined;
+          const end = (exit: Exit.Exit<unknown, unknown>) =>
+            Effect.gen(function* () {
+              if (waiting === undefined || waiting.status._tag === "Ended") return;
+              waiting.end(yield* Clock.currentTimeNanos, exit);
             });
-          }
-          const held = yield* Ref.make<HeldState>({ bytes: maxBytes, settled: false });
-          while (true) {
-            const decision = yield* Effect.uninterruptible(
-              Ref.modify(used, (current): readonly [Admission, ScratchState] => {
-                if (current.bytes + maxBytes <= capacity) {
-                  return [
-                    { _tag: "admitted" },
-                    {
-                      ...current,
-                      bytes: current.bytes + maxBytes,
-                      unsettled: current.unsettled + 1,
-                    },
-                  ];
-                }
-                return current.unsettled > 0
-                  ? [{ _tag: "wait", changed: current.changed }, current]
-                  : [{ _tag: "exhausted" }, current];
-              }).pipe(
-                Effect.tap((outcome) =>
-                  outcome._tag === "admitted"
-                    ? Effect.addFinalizer(() =>
-                        Ref.get(held).pipe(
-                          Effect.flatMap((state) =>
-                            releaseCapacity(state.bytes, state.settled ? 0 : 1),
-                          ),
-                        ),
-                      )
-                    : Effect.void,
-                ),
-              ),
-            );
-            if (decision._tag === "admitted") break;
-            if (decision._tag === "exhausted") {
+          const reservation = Effect.gen(function* () {
+            if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > capacity) {
               return yield* new OperationScratchLimitExceeded({
                 capacity,
                 requested: maxBytes,
               });
             }
-            yield* Deferred.await(decision.changed);
-          }
-          return {
-            settle: (actualBytes) =>
-              Effect.uninterruptible(
-                Effect.gen(function* () {
-                  if (
-                    !Number.isSafeInteger(actualBytes) ||
-                    actualBytes < 0 ||
-                    actualBytes > maxBytes
-                  ) {
-                    return yield* new OperationScratchLimitExceeded({
-                      capacity: maxBytes,
-                      requested: actualBytes,
-                    });
+            const held = yield* Ref.make<HeldState>({ bytes: maxBytes, settled: false });
+            while (true) {
+              const decision = yield* Effect.uninterruptible(
+                Ref.modify(used, (current): readonly [Admission, ScratchState] => {
+                  if (current.bytes + maxBytes <= capacity) {
+                    return [
+                      { _tag: "admitted" },
+                      {
+                        ...current,
+                        bytes: current.bytes + maxBytes,
+                        unsettled: current.unsettled + 1,
+                      },
+                    ];
                   }
-                  const result = yield* Ref.modify(
-                    held,
-                    (
-                      state,
-                    ): readonly [
-                      { readonly first: boolean; readonly released: number },
-                      HeldState,
-                    ] =>
-                      state.settled
-                        ? [{ first: false, released: 0 }, state]
-                        : [
-                            { first: true, released: state.bytes - actualBytes },
-                            { bytes: actualBytes, settled: true },
-                          ],
-                  );
-                  if (result.first) yield* releaseCapacity(result.released, 1);
+                  return current.unsettled > 0
+                    ? [{ _tag: "wait", changed: current.changed }, current]
+                    : [{ _tag: "exhausted" }, current];
+                }).pipe(
+                  Effect.tap((outcome) =>
+                    outcome._tag === "admitted"
+                      ? Effect.addFinalizer(() =>
+                          Ref.get(held).pipe(
+                            Effect.flatMap((state) =>
+                              releaseCapacity(state.bytes, state.settled ? 0 : 1),
+                            ),
+                          ),
+                        )
+                      : Effect.void,
+                  ),
+                ),
+              );
+              if (decision._tag === "admitted") {
+                yield* end(Exit.void);
+                break;
+              }
+              if (decision._tag === "exhausted") {
+                return yield* new OperationScratchLimitExceeded({
+                  capacity,
+                  requested: maxBytes,
+                });
+              }
+              yield* Effect.uninterruptible(
+                Effect.gen(function* () {
+                  if (waiting === undefined)
+                    waiting = yield* Effect.makeSpan("axm.wait.scratch-budget", {
+                      attributes: { "axm.wait.requested-bytes": maxBytes },
+                    });
                 }),
-              ),
-          } satisfies OperationScratchReservation;
+              );
+              yield* Deferred.await(decision.changed);
+            }
+            return {
+              settle: (actualBytes) =>
+                Effect.uninterruptible(
+                  Effect.gen(function* () {
+                    if (
+                      !Number.isSafeInteger(actualBytes) ||
+                      actualBytes < 0 ||
+                      actualBytes > maxBytes
+                    ) {
+                      return yield* new OperationScratchLimitExceeded({
+                        capacity: maxBytes,
+                        requested: actualBytes,
+                      });
+                    }
+                    const result = yield* Ref.modify(
+                      held,
+                      (
+                        state,
+                      ): readonly [
+                        { readonly first: boolean; readonly released: number },
+                        HeldState,
+                      ] =>
+                        state.settled
+                          ? [{ first: false, released: 0 }, state]
+                          : [
+                              { first: true, released: state.bytes - actualBytes },
+                              { bytes: actualBytes, settled: true },
+                            ],
+                    );
+                    if (result.first) yield* releaseCapacity(result.released, 1);
+                  }),
+                ),
+            } satisfies OperationScratchReservation;
+          });
+          return Effect.onExit(reservation, end);
         }),
     } satisfies OperationScratchBudgetService;
   });

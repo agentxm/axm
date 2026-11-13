@@ -17,6 +17,7 @@ import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
+import * as Stream from "effect/Stream";
 import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
@@ -103,6 +104,7 @@ import {
   executeRegistryRequest,
   PUBLISH_REGISTRY_REQUEST_POLICY,
   type RegistryRequestPolicy,
+  type RegistryRequestPurpose,
   type RegistryRequestReplaySafety,
 } from "./request-policy.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
@@ -429,16 +431,22 @@ const downloadArchive = Effect.fnUntraced(function* (
       detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
     });
   }
-  return yield* collectBufferedArchive(response.stream, MAX_BUFFERED_ARCHIVE_BYTES, total, (done) =>
+  let received = 0;
+  const observedBody = response.stream.pipe(
+    Stream.tap((chunk) =>
+      Effect.suspend(() => {
+        received += chunk.byteLength;
+        return Effect.annotateCurrentSpan("axm.archive.bytes", received);
+      }),
+    ),
+  );
+  return yield* collectBufferedArchive(observedBody, MAX_BUFFERED_ARCHIVE_BYTES, total, (done) =>
     report({
       done,
       ...(total === undefined ? {} : { total }),
       ...(Option.isNone(attempt) ? {} : { attempt: attempt.value }),
     }),
-  ).pipe(
-    Effect.tap((bytes) => Effect.annotateCurrentSpan("axm.archive.bytes", bytes.byteLength)),
-    Effect.withSpan("axm.registry.archive-body"),
-  );
+  ).pipe(Effect.withSpan("axm.registry.archive-body", { attributes: { "axm.archive.bytes": 0 } }));
 });
 
 const registryRequestMetadata = (method: string, url: string): RegistryRequestMetadata => ({
@@ -476,6 +484,8 @@ export const createRemoteRegistryClient = (
     effect: Effect.Effect<A, E>,
     args: {
       readonly operation: string;
+      readonly purpose: RegistryRequestPurpose;
+      readonly batchSize?: number;
       readonly method: string;
       readonly path: string;
       readonly replaySafety: RegistryRequestReplaySafety;
@@ -485,6 +495,8 @@ export const createRemoteRegistryClient = (
   ) =>
     executeRegistryRequest(effect, {
       operation: args.operation,
+      purpose: args.purpose,
+      ...(args.batchSize === undefined ? {} : { batchSize: args.batchSize }),
       request: {
         ...registryRequestMetadata(args.method, registryRequestUrl(endpoint, args.path)),
         operation: args.operation,
@@ -532,6 +544,7 @@ export const createRemoteRegistryClient = (
       ),
       {
         operation: "get extension index",
+        purpose: "index",
         method: "GET",
         path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`,
         replaySafety: safe,
@@ -596,6 +609,7 @@ export const createRemoteRegistryClient = (
         ),
       {
         operation: "get exact extension version",
+        purpose: "exact-version",
         method: "GET",
         path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}/${args.version}`,
         replaySafety: safe,
@@ -648,6 +662,8 @@ export const createRemoteRegistryClient = (
           }),
           {
             operation: "read resolution metadata",
+            purpose: "metadata",
+            batchSize: pageRequest.items.length,
             method: "POST",
             path: "/v1/resolutions/metadata",
             replaySafety: safe,
@@ -792,6 +808,7 @@ export const createRemoteRegistryClient = (
         }),
         {
           operation: "list owner extensions",
+          purpose: "listing",
           method: "GET",
           path: `/v1/extensions/${owner}`,
           replaySafety: safe,
@@ -817,6 +834,7 @@ export const createRemoteRegistryClient = (
         }),
         {
           operation: "list owner extensions by type",
+          purpose: "listing",
           method: "GET",
           path: `/v1/extensions/${owner}/${toExtensionTypePlural(type)}`,
           replaySafety: safe,
@@ -843,6 +861,7 @@ export const createRemoteRegistryClient = (
       ),
       {
         operation: "get owner",
+        purpose: "owner",
         method: "GET",
         path: `/v1/owners/${owner}`,
         replaySafety: safe,
@@ -921,6 +940,7 @@ export const createRemoteRegistryClient = (
       }),
       {
         operation: "validate exact package access",
+        purpose: "eligibility",
         method: "HEAD",
         path: archivePath,
         replaySafety: safe,
@@ -938,6 +958,7 @@ export const createRemoteRegistryClient = (
         client.ExtensionsGet(args.owner, toExtensionTypePlural(args.type), args.name, undefined),
         {
           operation: "get package index",
+          purpose: "index",
           method: "GET",
           path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`,
           replaySafety: safe,
@@ -981,6 +1002,7 @@ export const createRemoteRegistryClient = (
       downloadArchive(archiveHttpClient, archivePath, args.onProgress),
       {
         operation: "download package archive",
+        purpose: "download",
         method: "GET",
         path: archivePath,
         replaySafety: safe,
@@ -1080,6 +1102,7 @@ export const createRemoteRegistryClient = (
         ),
       {
         operation: "check extension",
+        purpose: "existence",
         method: "HEAD",
         path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}`,
         replaySafety: safe,
@@ -1182,6 +1205,7 @@ export const createRemoteRegistryClient = (
         ),
       {
         operation: "publish extension version",
+        purpose: "publish",
         method: "PUT",
         path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}/${args.version}`,
         replaySafety: mutation,
@@ -1227,6 +1251,8 @@ export const createRemoteRegistryClient = (
         ),
       {
         operation: "preview extension publishes",
+        purpose: "preview",
+        batchSize: args.candidates.length,
         method: "POST",
         path: "/v1/publish-previews",
         replaySafety: safe,
@@ -1276,6 +1302,7 @@ export const createRemoteRegistryClient = (
       ),
       {
         operation: "update extension visibility",
+        purpose: "visibility",
         method: "PATCH",
         path: `/v1/extensions/${target.owner}/${toExtensionTypePlural(target.type)}/${target.name}`,
         replaySafety: mutation,
@@ -1310,6 +1337,7 @@ export const createRemoteRegistryClient = (
       }),
       {
         operation: "get extension visibility",
+        purpose: "visibility",
         method: "GET",
         path: `/v1/extensions/${args.owner}/${toExtensionTypePlural(args.type)}/${args.name}/visibility`,
         replaySafety: safe,
@@ -1412,6 +1440,7 @@ export const createRemoteRegistryClient = (
               .pipe(Effect.flatMap(refineDiscoveryResponse)),
             {
               operation: "discover packages",
+              purpose: "discovery",
               method: "POST",
               path: "/v1/discovery",
               replaySafety: safe,

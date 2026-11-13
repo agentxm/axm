@@ -12,6 +12,7 @@ import {
 } from "../../acquisition/index.js";
 import { WorkspaceTransactionScopeLive } from "../../settlement/live.js";
 import { describe, expect, it } from "@effect/vitest";
+import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
 import * as Deferred from "effect/Deferred";
 import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
@@ -20,6 +21,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
+import * as Tracer from "effect/Tracer";
 
 import {
   type ConfigurableAgentId,
@@ -446,6 +448,26 @@ describe("previewOrApply", () => {
 
   it.effect("publishes the planning and apply lifecycle as typed events", () => {
     const context = makeTestContext();
+    const spans: Array<Tracer.Span> = [];
+    const executingPhases: Array<{ boundary: string; phase: unknown }> = [];
+    const nearestPhase = Effect.gen(function* () {
+      let span = Option.getOrUndefined(yield* Effect.serviceOption(Tracer.ParentSpan));
+      while (span?._tag === "Span") {
+        const phase = span.attributes.get("axm.operation.phase");
+        if (phase !== undefined) return phase;
+        span = Option.getOrUndefined(span.parent);
+      }
+      return undefined;
+    });
+    const recordPhase = (boundary: string) =>
+      nearestPhase.pipe(Effect.map((phase) => void executingPhases.push({ boundary, phase })));
+    const tracer = Tracer.make({
+      span(options) {
+        const span = new Tracer.NativeSpan(options);
+        spans.push(span);
+        return span;
+      },
+    });
     const plan: Plan = {
       _tag: "Plan",
       name: "Install skill",
@@ -458,7 +480,9 @@ describe("previewOrApply", () => {
             {
               readiness: "ready",
               label: "code-review",
-              run: Effect.succeed({ result: "success", message: "installed" }),
+              run: recordPhase("step").pipe(
+                Effect.as({ result: "success" as const, message: "installed" }),
+              ),
             },
           ],
         },
@@ -471,6 +495,7 @@ describe("previewOrApply", () => {
       yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void events.push(event)));
       yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
+        beforeApply: () => recordPhase("before-apply"),
       }).pipe(Effect.provideService(OperationLifecycle, lifecycle));
       yield* lifecycle.settle("applied");
       yield* lifecycle.drained.await;
@@ -495,7 +520,27 @@ describe("previewOrApply", () => {
       ]);
       expect(events.map((event) => event.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
-    }).pipe(Effect.provide(context.layer), Effect.scoped);
+      const phases = spans.filter((span) => span.name === "axm.operation.phase");
+      expect(phases.map((span) => span.attributes.get("axm.operation.phase"))).toEqual([
+        "planning",
+        "validation",
+        "apply",
+      ]);
+      expect(phases.every((span) => span.status._tag === "Ended")).toBe(true);
+      expect(executingPhases).toEqual([
+        { boundary: "before-apply", phase: "validation" },
+        { boundary: "step", phase: "apply" },
+      ]);
+    }).pipe(
+      Effect.provide(context.layer),
+      Effect.provideService(CurrentWorkObserver, {
+        record: () => undefined,
+        detailSelected: () => false,
+      }),
+      Effect.withTracer(tracer),
+      Effect.withTracerEnabled(true),
+      Effect.scoped,
+    );
   });
 
   it.effect("presents the candidate to the interaction for an apply without risk", () => {

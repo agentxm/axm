@@ -1,3 +1,4 @@
+import { withWork, annotateWork } from "@agentxm/host-primitives/work-observation";
 import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as Layer from "effect/Layer";
@@ -98,7 +99,13 @@ export const writeOutput = (
       settled = true;
       cleanup();
     });
-  });
+  }).pipe(
+    Effect.tap(() => annotateWork({ "axm.io.bytes": Buffer.byteLength(content) })),
+    (effect) =>
+      withWork("axm.cli.output", effect, {
+        attributes: { "axm.output.channel": channel, "axm.work.executed": 1 },
+      }),
+  );
 
 interface OutputStreamFacts extends TerminalSize {
   /** Result layout follows stdout even when it is a different terminal. */

@@ -21,6 +21,7 @@ import * as Ref from "effect/Ref";
 
 import { RegistryAccessFailed } from "../authentication/errors.js";
 import { CredentialStore, CredentialStoreLive, withFileLock } from "./credential-store.js";
+import { recordTrace } from "../test-support/test-helpers.js";
 
 /**
  * One invocation's store over `home`. `SSH_TTY` selects the restricted-file
@@ -82,6 +83,7 @@ describe("the credential home's refresh lock", () => {
 
   it.live("is given back by a waiter that stopped waiting", () =>
     Effect.gen(function* () {
+      const trace = recordTrace();
       const home = yield* temporaryHome;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -101,9 +103,14 @@ describe("the credential home's refresh lock", () => {
           options,
           failure,
           Deferred.succeed(held, undefined).pipe(Effect.andThen(Deferred.await(release))),
-        ),
+        ).pipe(Effect.withTracer(trace.tracer), Effect.withTracerEnabled(true)),
       );
       yield* Deferred.await(held);
+      expect(
+        trace.spans
+          .filter((span) => span.name === "axm.wait.credential-file-lock")
+          .map((span) => span.status._tag),
+      ).toEqual(["Ended"]);
 
       // Exercise the real lock library and filesystem. Observe its failed grant
       // and eventual abandoned release through its native filesystem port.
@@ -128,7 +135,7 @@ describe("the credential home's refresh lock", () => {
           },
           failure,
           Ref.set(entered, true),
-        ),
+        ).pipe(Effect.withTracer(trace.tracer), Effect.withTracerEnabled(true)),
       );
       yield* Deferred.await(attempted);
       // The waiter finishes while the holder remains parked, then a late grant
@@ -138,6 +145,10 @@ describe("the credential home's refresh lock", () => {
       yield* Fiber.join(holder);
       yield* Deferred.await(lateRelease).pipe(Effect.timeout("2 seconds"));
       expect(yield* Ref.get(entered)).toBe(false);
+      const waits = trace.spans.filter((span) => span.name === "axm.wait.credential-file-lock");
+      expect(waits).toHaveLength(2);
+      expect(waits.map((span) => span.status._tag)).toEqual(["Ended", "Ended"]);
+      expect(waits.map((span) => trace.endCounts.get(span.spanId))).toEqual([1, 1]);
       yield* withFileLock(target, options, failure, Effect.void);
     }).pipe(Effect.provide(NodeServices.layer)),
   );

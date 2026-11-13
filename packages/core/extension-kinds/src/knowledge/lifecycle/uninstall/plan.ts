@@ -58,7 +58,7 @@ export const parseKnowledgeUninstallRequest: (
   KnowledgeUninstallIntent,
   OperationRefused,
   InstallStepRequirements | KnowledgeManager | FileSystem.FileSystem | Path.Path
-> = Effect.fn("UninstallExtensions.parseKnowledgeRequest")(function* (selector: string) {
+> = Effect.fnUntraced(function* (selector: string) {
   const location = yield* WorkspaceLocation;
   const layout = yield* Ref.get(location.layout);
   const manager = yield* KnowledgeManager;
@@ -103,9 +103,7 @@ const inspectOwnership: (
   KnowledgeUninstallOwnership,
   OperationRefused,
   InstallStepRequirements | FileSystem.FileSystem | Path.Path
-> = Effect.fn("UninstallExtensions.inspectKnowledgeOwnership")(function* (
-  target: KnowledgeExtensionTarget,
-) {
+> = Effect.fnUntraced(function* (target: KnowledgeExtensionTarget) {
   const location = yield* WorkspaceLocation;
   const settings = yield* SettingsReader;
   const records = yield* WorkspaceRecords;
@@ -180,7 +178,7 @@ export const planKnowledgeUninstall: (
   Plan<InstallStepRequirements>,
   OperationRefused,
   InstallStepRequirements | KnowledgeManager | FileSystem.FileSystem | Path.Path
-> = Effect.fn("UninstallExtensions.planKnowledge")(function* (intent: KnowledgeUninstallIntent) {
+> = Effect.fnUntraced(function* (intent: KnowledgeUninstallIntent) {
   const desiredState = yield* DesiredStateReader;
   const manager = yield* KnowledgeManager;
   const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);

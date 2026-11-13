@@ -327,31 +327,33 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly publisherBindingId?: string;
   readonly sourceHash?: string;
   readonly dependencies?: PackManifest["dependencies"];
-}): RegistryPackLockEntry =>
-  buildRegistryPackLockEntry({
-    source: {
-      type: "registry",
-      url: opts.endpoint ?? decodeRegistryEndpointSync("https://registry.agentxm.ai"),
-    },
-    identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
-    resolved: {
-      version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-      integrity: opts.integrity ?? `sha512-${"A".repeat(86)}==`,
-      publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
-    },
-    manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-    manifestContentIdentity:
-      opts.sourceHash === undefined
-        ? computePackManifestContentIdentity({
-            owner: opts.owner,
-            type: "pack",
-            name: opts.name,
-            version: opts.resolvedVersion ?? "1.0.0",
-            dependencies: opts.dependencies ?? {},
-          })
-        : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
-    dependencies: opts.dependencies ?? {},
-    treeIntegrity: TEST_TREE_INTEGRITY,
+}): Effect.Effect<RegistryPackLockEntry> =>
+  Effect.gen(function* () {
+    return buildRegistryPackLockEntry({
+      source: {
+        type: "registry",
+        url: opts.endpoint ?? decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+      },
+      identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
+      resolved: {
+        version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
+        integrity: opts.integrity ?? `sha512-${"A".repeat(86)}==`,
+        publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+      },
+      manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
+      manifestContentIdentity:
+        opts.sourceHash === undefined
+          ? yield* computePackManifestContentIdentity({
+              owner: opts.owner,
+              type: "pack",
+              name: opts.name,
+              version: opts.resolvedVersion ?? "1.0.0",
+              dependencies: opts.dependencies ?? {},
+            })
+          : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
+      dependencies: opts.dependencies ?? {},
+      treeIntegrity: TEST_TREE_INTEGRITY,
+    });
   });
 
 /**

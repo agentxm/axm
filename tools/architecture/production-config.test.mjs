@@ -167,6 +167,34 @@ test("self-update adapters use the public generic host entry point", async () =>
   assert.ok(privateImport.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
 });
 
+test("self-update application observes work through its narrow public port", async () => {
+  const filePath =
+    "packages/supporting/cli-maintenance/src/self-update/application/startup-check.ts";
+  const [publicImport] = await eslint.lintText(
+    'import { withWork } from "@agentxm/host-primitives/work-observation"; export { withWork };',
+    { filePath },
+  );
+  assert.equal(publicImport.fatalErrorCount, 0, JSON.stringify(publicImport.messages));
+  assert.deepEqual(
+    publicImport.messages.filter(({ ruleId }) => ruleId?.startsWith("boundaries/")),
+    [],
+  );
+  const [adapterImport] = await eslint.lintText(
+    'import { writeFileAtomic } from "@agentxm/host-primitives"; export { writeFileAtomic };',
+    { filePath },
+  );
+  assert.ok(adapterImport.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+});
+
+test("domain policy cannot acquire the work-observation application port", async () => {
+  const [result] = await eslint.lintText(
+    'import { withWork } from "@agentxm/host-primitives/work-observation"; export { withWork };',
+    { filePath: domainFile },
+  );
+  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+  assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+});
+
 for (const [name, code, rule] of [
   [
     "the composed root config rejects filesystem barrel imports in published policy",
@@ -232,6 +260,18 @@ test("workspace aliases resolve to the published source condition without a buil
   );
   assert.equal(result.found, true);
   assert.equal(result.path, resolve(root, domainFile));
+  const workObservation = resolver.resolve(
+    "@agentxm/host-primitives/work-observation",
+    resolve(
+      root,
+      "packages/supporting/cli-maintenance/src/self-update/application/startup-check.ts",
+    ),
+  );
+  assert.equal(workObservation.found, true);
+  assert.equal(
+    workObservation.path,
+    resolve(root, "packages/generic/host-primitives/src/work-observation.ts"),
+  );
 });
 
 test("official-skill domain policy cannot acquire candidate bytes", async () => {

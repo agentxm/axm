@@ -112,7 +112,7 @@ export const planHookInstall: (
   Plan<InstallStepRequirements>,
   OperationRefused,
   InstallStepRequirements | HookManager | RuleManager | KnowledgeManager
-> = Effect.fn("InstallExtensions.planHooks")(function* (intent: HookInstallIntent) {
+> = Effect.fnUntraced(function* (intent: HookInstallIntent) {
   const configuredRef = intent.refs[0];
   if (
     intent.configuration !== undefined &&

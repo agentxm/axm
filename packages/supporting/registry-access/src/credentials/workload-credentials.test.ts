@@ -10,6 +10,7 @@ import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstabl
 import { RegistryHttpClient } from "@agentxm/registry-client";
 
 import { TokenExchangeTest } from "../authentication/auth-client.js";
+import { recordTrace } from "../test-support/test-helpers.js";
 import {
   GitHubActionsIdentity,
   WorkloadCredentials,
@@ -59,13 +60,24 @@ const makeLayer = (expiresIn: (exchange: number) => { readonly seconds: number }
 describe("WorkloadCredentialsLive", () => {
   it.effect("keeps a workload token with time left for the rest of the invocation", () => {
     const { counts, layer } = makeLayer(() => ({ seconds: 900 }));
+    const trace = recordTrace();
     return Effect.gen(function* () {
       const workload = yield* WorkloadCredentials;
       const first = yield* workload.tokenFor(identity, registry);
       const second = yield* workload.tokenFor(identity, registry);
       expect(second.token).toBe(first.token);
       expect(counts).toEqual({ idTokens: 1, exchanges: 1 });
-    }).pipe(Effect.provide(layer));
+      const caches = trace.spans.filter((span) => span.name === "axm.auth.cache");
+      expect(caches.map((span) => span.attributes.get("axm.cache.outcome"))).toEqual([
+        "miss",
+        "hit",
+      ]);
+      expect(caches.map((span) => span.attributes.get("axm.work.executed"))).toEqual([1, 0]);
+      expect(caches.map((span) => span.attributes.get("axm.work.reused-count"))).toEqual([0, 1]);
+      expect(
+        trace.spans.filter((span) => span.attributes.get("axm.auth.purpose") === "id-token"),
+      ).toHaveLength(counts.idTokens);
+    }).pipe(Effect.provide(layer), Effect.withTracer(trace.tracer), Effect.withTracerEnabled(true));
   });
 
   it.effect("exchanges a fresh identity token when the held workload token is lapsing", () => {

@@ -44,9 +44,7 @@ const crossScopeCollisions = Effect.gen(function* () {
 });
 
 /** Capture the selected corpus before reporting its capabilities and identity. */
-export const reportKnowledgeDiscoveryCapabilities = Effect.fn(
-  "Knowledge.reportDiscoveryCapabilities",
-)(function* () {
+export const reportKnowledgeDiscoveryCapabilities = Effect.fnUntraced(function* () {
   const captured = yield* captureInstalledKnowledgeCorpus();
   if (captured.outcome === "corpus-changing") return captured;
   const scopeCollisions = yield* crossScopeCollisions;

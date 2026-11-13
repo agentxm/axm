@@ -1,3 +1,4 @@
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -7,7 +8,6 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { evaluateSourceAuthority } from "./source-authority.js";
-import { computeSourceHash } from "../workspace-state/index.js";
 import {
   ReleaseAgeExcludePatternSchema,
   type PackMemberConstraintMap,
@@ -121,7 +121,9 @@ const workspacePackRef = (dependencies: Readonly<Record<string, string>>): Works
     version: exactVersion("1.0.0"),
     scope: "project",
     location: "file:///workspace/agent_extensions/@acme/packs/toolkit",
-    sourceHash: computeSourceHash("workspace-toolkit"),
+    sourceHash: SourceHashSchema.make(
+      "1fb85b1204d0c4864280fd5264fa1285dc433ce3a3690cba77aa6c6e3f9e4bce",
+    ),
   };
 };
 
@@ -141,7 +143,9 @@ const workspaceSkill = (version: string): ExtensionRef => {
     version: exactVersion(version),
     scope: "project",
     location: "file:///workspace/agent_extensions/@acme/skills/review",
-    sourceHash: computeSourceHash("workspace-review"),
+    sourceHash: SourceHashSchema.make(
+      "45cb6f3a225784d5e31ec1e249efa69b3491d68b07720c4abf0a630fdf60cc19",
+    ),
     skill: { name, description: Option.none(), metadata: Option.none() },
   };
 };

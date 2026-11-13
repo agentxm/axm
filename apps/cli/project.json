@@ -445,6 +445,12 @@
         {
           "dependentTasksOutputFiles": "**/*",
           "transitive": true
+        },
+        {
+          "runtime": "git rev-parse HEAD"
+        },
+        {
+          "runtime": "git status --porcelain"
         }
       ],
       "outputs": ["{projectRoot}/dist/bin/axm-darwin-arm64"],
@@ -469,6 +475,12 @@
         {
           "dependentTasksOutputFiles": "**/*",
           "transitive": true
+        },
+        {
+          "runtime": "git rev-parse HEAD"
+        },
+        {
+          "runtime": "git status --porcelain"
         }
       ],
       "outputs": ["{projectRoot}/dist/bin/axm-darwin-x64"],
@@ -493,6 +505,12 @@
         {
           "dependentTasksOutputFiles": "**/*",
           "transitive": true
+        },
+        {
+          "runtime": "git rev-parse HEAD"
+        },
+        {
+          "runtime": "git status --porcelain"
         }
       ],
       "outputs": ["{projectRoot}/dist/bin/axm-linux-arm64"],
@@ -517,6 +535,12 @@
         {
           "dependentTasksOutputFiles": "**/*",
           "transitive": true
+        },
+        {
+          "runtime": "git rev-parse HEAD"
+        },
+        {
+          "runtime": "git status --porcelain"
         }
       ],
       "outputs": ["{projectRoot}/dist/bin/axm-linux-x64"],
@@ -541,6 +565,12 @@
         {
           "dependentTasksOutputFiles": "**/*",
           "transitive": true
+        },
+        {
+          "runtime": "git rev-parse HEAD"
+        },
+        {
+          "runtime": "git status --porcelain"
         }
       ],
       "outputs": ["{projectRoot}/dist/bin/axm-windows-x64.exe"],

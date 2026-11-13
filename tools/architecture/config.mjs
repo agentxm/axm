@@ -119,5 +119,9 @@ export const capabilityFileDescriptors = [
     category: "domain-api",
   },
   { pattern: "packages/core/extension-model/src/**/*", category: "domain" },
+  {
+    pattern: "packages/generic/host-primitives/src/work-observation.ts",
+    category: "application-api",
+  },
   { pattern: "packages/generic/host-primitives/src/**/*", category: "adapter" },
 ];

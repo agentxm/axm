@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 /**
  * The ambient transaction context and the write registration primitives
  * every workspace writer calls.
@@ -16,7 +17,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as SynchronizedRef from "effect/SynchronizedRef";
+import type * as SynchronizedRef from "effect/SynchronizedRef";
+import { updateTransactionLedger } from "./ledger-admission.js";
 
 import {
   assertNativeMutationWithinRoots,
@@ -115,7 +117,7 @@ export const protectInContext = (
   target: string,
   closure: string | undefined,
 ): Effect.Effect<void, WorkspaceSnapshotError> =>
-  SynchronizedRef.updateEffect(context.ledger, (ledger) =>
+  updateTransactionLedger(context.ledger, (ledger) =>
     Effect.gen(function* () {
       const { fs, path } = context;
       const workspaceRoot = path.dirname(context.workspaceDir);
@@ -195,8 +197,11 @@ export const protectInContext = (
           (snapshot) =>
             snapshot.closure === closure && normalized.startsWith(`${snapshot.target}${path.sep}`),
         )
-      )
+      ) {
+        yield* Effect.annotateCurrentSpan("axm.cache.outcome", "hit");
         return observedLedger;
+      }
+      yield* Effect.annotateCurrentSpan("axm.cache.outcome", "miss");
       const expected = yield* observePathState(fs, path, normalized);
       if ([...expected.values()].includes("unreadable")) {
         return yield* new WorkspaceSnapshotError({
@@ -355,7 +360,7 @@ export const protectInContext = (
         { snapshotDir, snapshotSequence: ledger.snapshotSequence + 1 },
       );
     }),
-  );
+  ).pipe(Effect.withSpan("axm.publish.snapshot"));
 
 /** Capture a completed AXM mutation, independently of whether output recording is enabled. */
 const recordPostimage = <E>(
@@ -378,7 +383,7 @@ const recordPostimage = <E>(
       yield* validate(undefined);
       return;
     }
-    yield* SynchronizedRef.updateEffect(context.ledger, (ledger) =>
+    yield* updateTransactionLedger(context.ledger, (ledger) =>
       Effect.gen(function* () {
         const actual = yield* observePathState(fs, path, address.value.entryPath);
         yield* validate(actual);
@@ -421,7 +426,17 @@ export const recordWorkspacePostimage = (target: string): Effect.Effect<void> =>
 export const recordWorkspaceFilePostimage = (target: string, publication: FilePublication) =>
   recordPostimage(target, (actual) =>
     Effect.gen(function* () {
-      const expected = publicationPathState(publication);
+      const expected = yield* Effect.sync(() => publicationPathState(publication)).pipe((effect) =>
+        withWork("axm.hash.preimage", effect, {
+          attributes: {
+            "axm.work.count": 1,
+            "axm.work.bytes":
+              typeof publication.content === "string"
+                ? Buffer.byteLength(publication.content)
+                : publication.content.byteLength,
+          },
+        }),
+      );
       if (actual === undefined || !equalPathStates(actual, expected))
         return yield* new WorkspaceSnapshotError({
           target,

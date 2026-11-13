@@ -1,11 +1,13 @@
 import type * as NodeServices from "@effect/platform-node/NodeServices";
 import type { NativeEntryRemoval } from "../../../locations/index.js";
-import { NativePlatformTest } from "../../../locations/testing.js";
+import { NativePlatformTest, withDetailedWork } from "../../../locations/testing.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Tracer from "effect/Tracer";
 import * as Context from "effect/Context";
 import * as Ref from "effect/Ref";
 import * as Layer from "effect/Layer";
@@ -259,6 +261,80 @@ describe("lockfile", () => {
         ).toEqual(["review"]);
       }),
     ),
+  );
+
+  it.effect(
+    "distinguishes replacement, no-op preservation reads, and corrupt prior documents",
+    () =>
+      run(
+        Effect.gen(function* () {
+          const real = yield* FileSystem.FileSystem;
+          const target = path.join(root, "axm.lock");
+          yield* real.writeFileString(target, 'version = 1\n[tool.keep]\nvalue = "retained"\n');
+          let publications = 0;
+          let priorReads = 0;
+          const observed: FileSystem.FileSystem = {
+            ...real,
+            readFileString: (file, options) =>
+              real.readFileString(file, options).pipe(
+                Effect.tap(() =>
+                  Effect.sync(() => {
+                    if (file === target) priorReads++;
+                  }),
+                ),
+              ),
+            rename: (from, to) =>
+              real.rename(from, to).pipe(
+                Effect.tap(() =>
+                  Effect.sync(() => {
+                    if (to === target) publications++;
+                  }),
+                ),
+              ),
+          };
+          const spans: Tracer.NativeSpan[] = [];
+          const tracer = Tracer.make({
+            span(options) {
+              const span = new Tracer.NativeSpan(options);
+              spans.push(span);
+              return span;
+            },
+          });
+          const next: Lockfile = {
+            lockfileVersion: LOCKFILE_VERSION,
+            skills: { review: localEntry("/sources/review") },
+          };
+          const write = writeLockfileAtPath(target, next).pipe(
+            Effect.provideService(FileSystem.FileSystem, observed),
+            withDetailedWork(tracer),
+          );
+          yield* write;
+          expect(publications).toBe(1);
+          const published = yield* real.readFileString(target);
+          expect(published).toContain('value = "retained"');
+          const identity = String((yield* real.stat(target)).ino);
+          const readsBeforeNoop = priorReads;
+          yield* write;
+          expect(priorReads).toBeGreaterThan(readsBeforeNoop);
+          expect(publications).toBe(1);
+          expect(yield* real.readFileString(target)).toBe(published);
+          expect(String((yield* real.stat(target)).ino)).toBe(identity);
+          yield* real.writeFileString(target, "version = 1\n[tool.keep\n");
+          expect((yield* write.pipe(Effect.result))._tag).toBe("Failure");
+          expect(publications).toBe(1);
+          expect(yield* real.readFileString(target)).toBe("version = 1\n[tool.keep\n");
+          const parses = spans.filter((span) => span.name === "axm.parse.lockfile-preservation");
+          expect(
+            parses.map((span) => span.status._tag === "Ended" && span.status.exit._tag),
+          ).toEqual(["Success", "Success", "Failure"]);
+          expect(parses.map((span) => span.attributes.get("axm.work.count"))).toEqual([1, 1, 1]);
+          expect(
+            spans
+              .filter((span) => span.name === "axm.publish.document")
+              .map((span) => span.attributes.get("axm.changed")),
+          ).toEqual([true, false]);
+        }),
+      ),
   );
 
   it.effect("shares one file coordinator across independently built workspace graphs", () =>

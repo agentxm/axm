@@ -23,6 +23,7 @@ import {
 } from "./credential-store.js";
 import { RegistryAccessFailed } from "../authentication/errors.js";
 import type { StoredCredentials } from "./schema.js";
+import { recordTrace } from "../test-support/test-helpers.js";
 
 describe("CredentialStore", () => {
   describe("CredentialStoreTest (in-memory)", () => {
@@ -224,6 +225,7 @@ describe("CredentialStore", () => {
     });
 
     it.effect("shares one in-flight lookup across concurrent misses on one origin", () => {
+      const trace = recordTrace();
       const backing = makeRecordingStore();
       backing.seed(originA, "axm_ses_shared");
       return Effect.gen(function* () {
@@ -244,7 +246,7 @@ describe("CredentialStore", () => {
         const readers = yield* Effect.forkChild(
           Effect.all([store.load(originA), store.load(originA), store.load(originA)], {
             concurrency: "unbounded",
-          }),
+          }).pipe(Effect.withTracer(trace.tracer), Effect.withTracerEnabled(true)),
         );
 
         yield* Deferred.await(started);
@@ -253,6 +255,25 @@ describe("CredentialStore", () => {
 
         expect(results._tag).toBe("Success");
         expect(backing.loadCount(originA)).toBe(1);
+        const reads = trace.spans.filter((span) => span.name === "axm.auth.cache");
+        expect(reads).toHaveLength(3);
+        expect(reads.map((span) => span.attributes.get("axm.cache.outcome"))).toEqual([
+          "miss",
+          "coalesced",
+          "coalesced",
+        ]);
+        expect(
+          reads.reduce(
+            (total, span) => total + Number(span.attributes.get("axm.work.executed")),
+            0,
+          ),
+        ).toBe(backing.loadCount(originA));
+        expect(
+          reads.reduce(
+            (total, span) => total + Number(span.attributes.get("axm.work.reused-count")),
+            0,
+          ),
+        ).toBe(2);
       }).pipe(Effect.provide(backing.layer));
     });
 

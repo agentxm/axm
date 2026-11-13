@@ -69,6 +69,7 @@
   },
   "dependencies": {
     "@agentxm/cli-maintenance": "workspace:^",
+    "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-kinds": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/host-primitives": "workspace:^",
@@ -83,7 +84,6 @@
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-type-parity": "workspace:*",
     "@agentxm/test-reporting": "workspace:*",
     "@agentxm/test-support": "workspace:^",

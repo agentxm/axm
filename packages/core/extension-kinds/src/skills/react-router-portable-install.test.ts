@@ -107,7 +107,7 @@ describe("portable React Router skill acquisition", () => {
       const resolution = yield* acceptedResolutionFor({
         ref,
         acquired: Option.some({
-          sourceHash: computeSourceHash("react-router-content"),
+          sourceHash: yield* computeSourceHash("react-router-content"),
           treeIntegrity: materialized.treeIntegrity,
           workspaceRelativeLocalSourcePath: Option.none(),
         }),

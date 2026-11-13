@@ -3,6 +3,7 @@ import { SourceHostProvidersTest } from "../../sources/testing.js";
 import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/http/HttpClient";
@@ -158,6 +159,14 @@ describe("Registry eligibility at exposure", () => {
         const candidate = yield* prepareExecutionCandidate(plan).pipe(
           Effect.provide(context.layer),
         );
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
         const result = yield* resolveExecutionCandidate(
           candidate,
           applyPlanExecution({
@@ -165,6 +174,7 @@ describe("Registry eligibility at exposure", () => {
             recovery: { command: ["sync"], arguments: [] },
           }),
         ).pipe(
+          Effect.withTracer(tracer),
           Effect.provide(
             Layer.merge(
               context.layer,
@@ -178,6 +188,21 @@ describe("Registry eligibility at exposure", () => {
               ),
             ),
           ),
+        );
+        const eligibility = spans.filter((span) => span.name === "axm.registry.eligibility");
+        expect(eligibility.map((span) => span.attributes.get("axm.eligibility.phase"))).toEqual([
+          "before-acquisition",
+          "after-confirmation",
+        ]);
+        expect(eligibility.map((span) => span.attributes.get("axm.work.executed"))).toEqual(
+          scenario === "no-registry-exposure" ? [0, 0] : [1, 1],
+        );
+        expect(eligibility.map((span) => span.attributes.get("axm.registry.denied"))).toEqual(
+          scenario === "denied"
+            ? [1, 1]
+            : scenario === "revoked-during-confirmation"
+              ? [0, 1]
+              : [0, 0],
         );
         expect(independent).toBe(1);
         expect(exposed).toBe(denied ? 0 : 2);

@@ -221,7 +221,7 @@ export const reconcileAgentOutputs = (
         const recorded = Option.flatMap(unit, (key) => Option.fromUndefinedOr(rows.get(key)));
         if (Option.isNone(unit) || Option.isNone(recorded))
           return { _tag: "unrecorded" } satisfies SubagentResidueDecision;
-        const decision = decideOutputDeletion({
+        const decision = yield* decideOutputDeletion({
           bytes: yield* fs.readFileString(output.path).pipe(Effect.option),
           recorded,
           expectedRender: Option.none(),

@@ -111,13 +111,55 @@ inferring attribution from development stacks.
 
 ## Local diagnostics
 
-Opt-in local tracing is a separate process-owned observer. The CLI runtime
-installs the existing Effect OTLP tracer only for explicit local activation;
-product telemetry consent and workspace settings cannot enable it. Owner spans
-describe meaningful phases and actual work. The export boundary admits stable
-names and bounded attributes, omits raw inputs and automatic exception details,
-and permits only loopback destinations without proxying or redirects. Its
-bounded shutdown and export failures cannot change the command outcome.
+Opt-in local tracing is a separate process-owned observer. Product telemetry
+consent and workspace settings cannot enable it. The CLI runtime owns its
+bounded aggregation, privacy admission, exporters and receipt. The existing
+`@agentxm/host-primitives/work-observation` entry exposes only a finite work-fact vocabulary and Effect
+context helpers; production owners neither import CLI policy nor create a
+second lifecycle, global metric registry or general event bus.
+
+The independently published content package retains its leaf dependency budget.
+Its archive parser reports three completed facts through an optional,
+archive-specific Effect callback: directory parsing, member reads, and manifest
+parsing. CLI composition maps them into the same recorder. This callback owns no
+span lifecycle or exporter and does not import private host code. Those tiny
+archive primitives remain aggregate-only in every capture mode; extraction and
+its consequential intervals retain their spans.
+
+Spans describe consequential operation and phase intervals, network exchanges
+and bodies, blocked waits, subprocess lifetimes, publication, verification and
+recovery. Frequent I/O, parsing, hashing, canonical resolution and reuse update
+direct aggregates at their existing owner. Summary capture does not construct
+a span for each occurrence. Detailed capture selects bounded work categories
+and an optional phase before creating individual spans. Helpers with no useful
+independent fact need no instrumentation. Recording uses already available
+facts and never performs an enrichment-only product read.
+
+Each occurrence has one direct owner, resolved from the executing Effect
+context. Native callbacks capture that context before leaving Effect. An
+asynchronous lifecycle projection cannot assign causal ownership from its
+current phase. Phase spans therefore enclose actual executing work; where
+only operation ownership is known, the evidence does not claim phase precision.
+Inspection derives parent rollups without counting the same physical action
+twice. Known totals retain measurement coverage: a missing byte measurement is
+unknown, while a measured zero remains zero. Summed work duration is not elapsed
+time when work overlaps.
+
+The runtime emits bounded aggregate records as typed, span-correlated OTLP logs
+through an isolated logger, separate from ordinary application logging. This
+follows [OpenTelemetry's event guidance](https://opentelemetry.io/blog/2026/deprecating-span-events/).
+No application messages, automatic causes, fiber metadata, raw inputs or paths
+cross the diagnostic export boundary. Both exporters use explicit loopback
+destinations without proxying or redirects and share a bounded shutdown.
+Exporter failures cannot change product output, state or exit semantics.
+
+Receipts distinguish exact invocation identity, producer completion, selected
+detail, the retained span set and the complete aggregate payload multiset.
+Receiver inspection validates both identities and aggregate values. Producer
+completion, successful product execution, an OTLP acknowledgement and a complete
+receiver query are separate facts; none alone proves delivery. Loss, missing
+measurements and uninspected delivery remain explicit. Representation changes
+do not increase the established span, aggregate-group, memory or shutdown limits.
 [Local tracing](../../../contributing/guides/local-tracing.md) owns activation,
 endpoint rules, interpretation, and delivery limits.
 

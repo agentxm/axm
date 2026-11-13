@@ -154,8 +154,8 @@ describe("Subagent package resource binding", () => {
         const generation = (input: typeof first.input) =>
           subagentProjectionGeneration([{ provenance, input }]);
         expect(first.outputs).toEqual(second.outputs);
-        expect(generation(first.input)).toBe(generation(dormant.input));
-        expect(generation(first.input)).not.toBe(generation(second.input));
+        expect(yield* generation(first.input)).toBe(yield* generation(dormant.input));
+        expect(yield* generation(first.input)).not.toBe(yield* generation(second.input));
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 

@@ -40,6 +40,8 @@ import {
 } from "../authentication/errors.js";
 import { WorkloadTokenSource } from "./schema.js";
 import { credentialKey, type CredentialKey } from "./credential-key.js";
+import { credentialCacheLookupStarted, observeCredentialCache } from "./cache-observation.js";
+import { observeAuthRequest } from "../authentication/observation.js";
 
 /** Where this job asks GitHub for its ID token, and the token it asks with. */
 export class GitHubActionsIdentity extends Data.Class<{
@@ -181,6 +183,7 @@ const requestIdToken = (httpClient: HttpClient.HttpClient, key: ExchangeKey) =>
           workloadTokenUnavailable("id_token_request_failed", credentialKey(key.endpoint)),
         ),
     }),
+    observeAuthRequest("id-token"),
   );
 
 /**
@@ -204,6 +207,7 @@ export const WorkloadCredentialsLive = Layer.effect(
     const cache = yield* Cache.makeWith(
       (key: ExchangeKey) =>
         Effect.gen(function* () {
+          yield* credentialCacheLookupStarted;
           const idToken = yield* requestIdToken(httpClient, key);
           const grant = yield* exchange.exchangeWorkloadToken(idToken, key.endpoint);
           return new WorkloadTokenSource({
@@ -218,7 +222,7 @@ export const WorkloadCredentialsLive = Layer.effect(
     const holdings = yield* Ref.make<ReadonlyMap<CredentialKey, WorkloadTokenSource>>(new Map());
 
     const lookup = (key: ExchangeKey) =>
-      Cache.get(cache, key).pipe(
+      observeCredentialCache("workload", cache, key).pipe(
         Effect.onInterrupt(() => Cache.invalidate(cache, key)),
         Effect.tap((token) =>
           Ref.update(

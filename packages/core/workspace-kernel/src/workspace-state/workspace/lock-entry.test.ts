@@ -156,7 +156,7 @@ describe("lock entry source authority", () => {
       const packFields = {
         identity: { owner: "@acme", name: "toolkit" },
         manifestVersion: "1.0.0",
-        manifestContentIdentity: computePackManifestContentIdentity({
+        manifestContentIdentity: yield* computePackManifestContentIdentity({
           owner: "@acme",
           type: "pack",
           name: "toolkit",

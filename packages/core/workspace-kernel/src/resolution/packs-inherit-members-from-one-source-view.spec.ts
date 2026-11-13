@@ -153,7 +153,7 @@ describe("source-inherited Pack members", () => {
             resolved: { commit: gitPack.gitCommitSha, tree: gitPack.gitTreeSha },
             treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
             manifestVersion: "1.0.0",
-            manifestContentIdentity: computePackManifestContentIdentity({
+            manifestContentIdentity: yield* computePackManifestContentIdentity({
               ...gitPack.pack,
               owner: gitPack.owner,
               type: "pack",

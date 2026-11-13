@@ -1,6 +1,8 @@
+import { withDetailedWork } from "../../locations/testing.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -172,7 +174,16 @@ describe("External execution review facts", () => {
             },
           ],
         };
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
         const risks = yield* executionExposureRisks(plan).pipe(
+          withDetailedWork(tracer),
           Effect.provide(
             WorkspaceReadTest({
               baseDir: directory,
@@ -191,9 +202,19 @@ describe("External execution review facts", () => {
           ),
         );
         expect(risks.length).toBe(scenario.review ? 1 : 0);
+        const hashes = spans.filter((span) => span.name === "axm.hash.execution-configuration");
+        expect(hashes.map((span) => span.attributes.get("axm.work.count"))).toEqual(
+          scenario.review ? [1] : [],
+        );
+        expect(hashes.map((span) => span.attributes.get("axm.work.bytes"))).toEqual(
+          scenario.review ? [29] : [],
+        );
         if (scenario.review) {
           const change = risks[0]?.executionChanges?.[0];
           expect(change?.name).toBe("audit");
+          expect(change?.contentIdentity).toContain(
+            `configuration-sha256:${scenario.changedConfiguration ? "8fa066aa9d8402caca6b9c80cfb85e17e93c15475e746fcf76f9d9c484523b78" : "02a0ea1a61e4af875878916e2414d623fd375fa5c461bfa5672fb77e9dbad96a"}`,
+          );
           expect(change?.targets).toEqual(["claude-code"]);
           expect(change?.details).toContain("claude-code: Stop, bash src/hook.sh");
           expect(change?.secretReferences).toEqual([

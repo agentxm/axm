@@ -12,9 +12,7 @@ import {
   type ConfiguredAgentOutcomesProviderService,
 } from "@agentxm/workspace-kernel/workspace-state";
 
-export const inspectInventory = Effect.fn("Inspection.inspectInventory")(function* (
-  inventory: ExtensionInventory,
-) {
+export const inspectInventory = Effect.fnUntraced(function* (inventory: ExtensionInventory) {
   const location = yield* WorkspaceLocation;
   const readers = {
     desired: yield* DesiredStateReader,

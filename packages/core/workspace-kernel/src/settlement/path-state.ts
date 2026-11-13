@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 import { createHash } from "node:crypto";
 
 import * as Effect from "effect/Effect";
@@ -67,9 +68,14 @@ export const observePathState = Effect.fnUntraced(
     const identity = `${info.success.dev}:${inode.value}:${info.success.birthtime.value.getTime()}:${info.success.mode}`;
     if (info.success.type !== "Directory") {
       const bytes = yield* fs.readFile(target);
-      return new Map([
-        ["", `file:${identity}:${createHash("sha256").update(bytes).digest("hex")}`],
-      ]);
+      const digest = yield* Effect.sync(() =>
+        createHash("sha256").update(bytes).digest("hex"),
+      ).pipe((effect) =>
+        withWork("axm.hash.preimage", effect, {
+          attributes: { "axm.work.count": 1, "axm.work.bytes": bytes.byteLength },
+        }),
+      );
+      return new Map([["", `file:${identity}:${digest}`]]);
     }
     const entries = yield* fs.readDirectory(target);
     const state = new Map([["", `directory:${identity}`]]);

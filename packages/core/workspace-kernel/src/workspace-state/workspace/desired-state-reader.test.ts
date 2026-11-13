@@ -1,6 +1,8 @@
+import { withDetailedWork } from "../../locations/testing.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import * as Tracer from "effect/Tracer";
 import { describe, expect, it } from "@effect/vitest";
 
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
@@ -11,6 +13,7 @@ import {
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { SettingsSchema } from "../desired/settings/index.js";
 import { evaluateDesiredState } from "./desired-state-evaluation.js";
+import { desiredStateIdentity } from "./desired-state-queries.js";
 import { captureDesiredStateInputs } from "./desired-state-reader.js";
 import { makeRegistryPackLockEntry } from "./test-stubs.js";
 import { observePackManifest, type PackManifestsPort } from "./pack-manifests.js";
@@ -26,9 +29,9 @@ const countingManifests = () => {
       return {
         path: `/workspace/${relativePath}`,
         relativePath,
-        manifest: Effect.sync(() => {
+        manifest: Effect.gen(function* () {
           reads.push(name);
-          return observePackManifest(
+          return yield* observePackManifest(
             JSON.stringify({
               owner: OWNER,
               type: "pack",
@@ -47,6 +50,30 @@ const countingManifests = () => {
 const settings = (value: unknown) => Schema.decodeUnknownSync(SettingsSchema)(value);
 
 describe("desired-state collection", () => {
+  it.effect("measures the completed graph digest against a fixed canonical vector", () =>
+    Effect.gen(function* () {
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      });
+      const identity = yield* desiredStateIdentity({
+        nodes: [],
+        mcpSourceClosures: [],
+        problems: [],
+        packMembership: [],
+      }).pipe(withDetailedWork(tracer));
+      expect(identity).toBe("24c3f1543a4c362ba2f6ae1dfc250885f0d114dfd92afde07537a879941491ce");
+      const hashes = spans.filter((span) => span.name === "axm.hash.desired-state");
+      expect(hashes).toHaveLength(1);
+      expect(hashes[0]?.attributes.get("axm.work.count")).toBe(1);
+      expect(hashes[0]?.attributes.get("axm.work.bytes")).toBe(69);
+    }),
+  );
+
   it.effect(
     "reads each configured Pack document once per collection and never during evaluation",
     () =>
@@ -115,7 +142,7 @@ describe("desired-state collection", () => {
     () =>
       Effect.gen(function* () {
         const { manifests, reads } = countingManifests();
-        const accepted = makeRegistryPackLockEntry({
+        const accepted = yield* makeRegistryPackLockEntry({
           owner: decodeHandleSync(OWNER),
           name: "alpha",
           dependencies: Schema.decodeUnknownSync(PackMemberConstraintMapSchema)({

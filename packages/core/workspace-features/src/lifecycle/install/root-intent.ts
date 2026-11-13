@@ -47,9 +47,9 @@ const rootInstallRegistryOnlyHowToFix = (source: string): string => {
  */
 export const resolveRootInstallIntent: (
   input: string,
-) => Effect.Effect<RootInstallIntent, OperationRefused> = Effect.fn(
-  "InstallExtensions.resolveRootIntent",
-)(function* (input: string) {
+) => Effect.Effect<RootInstallIntent, OperationRefused> = Effect.fnUntraced(function* (
+  input: string,
+) {
   const source = input.trim();
   const sourceQualifiedRegistry = parseSourceQualifiedRegistrySourcePatternParts(source);
 

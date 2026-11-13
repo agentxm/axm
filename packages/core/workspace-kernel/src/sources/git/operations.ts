@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 /**
  * Git operations for cloning repositories at specific refs.
  *
@@ -135,6 +136,12 @@ export const withGitOperationDeadline =
               detail: `Git ${operation} exceeded its operation deadline`,
             }),
           ),
+      }),
+      Effect.withSpan("axm.git.operation", {
+        attributes: {
+          "axm.git.operation": operation,
+          "axm.work.executed": 1,
+        },
       }),
     );
 
@@ -439,38 +446,54 @@ export const compareDirectoryToHead = Effect.fn("Git.compareDirectoryToHead")(
 
     // Git hashes a link's raw target, not its referent. Read payload entries
     // without following links so dangling links and cycles remain comparable.
-    const workingBlobs = new Map<string, { readonly mode: string; readonly objectId?: string }>();
-    for (const currentPath of currentPaths) {
-      const absolute = path.join(directory, currentPath);
-      const target = yield* fs.readLink(absolute).pipe(Effect.option);
-      let bytes: Uint8Array;
-      let mode: string;
-      if (Option.isSome(target)) {
-        bytes = new TextEncoder().encode(target.value);
-        mode = "120000";
-      } else {
-        const info = yield* fs.stat(absolute);
-        if (info.type === "Directory") {
-          // Git cannot represent an empty directory; report it as added without
-          // inventing a Git blob identity for it.
-          workingBlobs.set(currentPath, { mode: "040000" });
-          continue;
+    const workingBlobs = yield* Effect.gen(function* () {
+      const blobs = new Map<string, { readonly mode: string; readonly objectId?: string }>();
+      let count = 0;
+      let byteCount = 0;
+      return yield* Effect.gen(function* () {
+        for (const currentPath of currentPaths) {
+          const absolute = path.join(directory, currentPath);
+          const target = yield* fs.readLink(absolute).pipe(Effect.option);
+          let bytes: Uint8Array;
+          let mode: string;
+          if (Option.isSome(target)) {
+            bytes = new TextEncoder().encode(target.value);
+            mode = "120000";
+          } else {
+            const info = yield* fs.stat(absolute);
+            if (info.type === "Directory") {
+              // Git cannot represent an empty directory; report it as added without
+              // inventing a Git blob identity for it.
+              blobs.set(currentPath, { mode: "040000" });
+              continue;
+            }
+            if (info.type !== "File") {
+              return yield* new GitOperationFailed({
+                operation: "compare-directory-to-head",
+                detail: `Unsupported payload entry: ${currentPath}`,
+              });
+            }
+            bytes = yield* fs.readFile(absolute);
+            mode = (info.mode & 0o111) === 0 ? "100644" : "100755";
+          }
+          const frame = `blob ${bytes.byteLength}\0`;
+          const objectId = createHash(head.objectFormat).update(frame).update(bytes).digest("hex");
+          count++;
+          byteCount += Buffer.byteLength(frame) + bytes.byteLength;
+          blobs.set(currentPath, { mode, objectId });
         }
-        if (info.type !== "File") {
-          return yield* new GitOperationFailed({
-            operation: "compare-directory-to-head",
-            detail: `Unsupported payload entry: ${currentPath}`,
-          });
-        }
-        bytes = yield* fs.readFile(absolute);
-        mode = (info.mode & 0o111) === 0 ? "100644" : "100755";
-      }
-      const objectId = createHash(head.objectFormat)
-        .update(`blob ${bytes.byteLength}\0`)
-        .update(bytes)
-        .digest("hex");
-      workingBlobs.set(currentPath, { mode, objectId });
-    }
+        return blobs;
+      }).pipe(
+        Effect.ensuring(
+          Effect.suspend(() =>
+            annotateWork({
+              "axm.work.count": count,
+              "axm.work.bytes": byteCount,
+            }),
+          ),
+        ),
+      );
+    }).pipe((effect) => withWork("axm.hash.git-payload", effect));
     const allPaths = [...new Set([...head.blobs.keys(), ...workingBlobs.keys()])].sort((a, b) =>
       a.localeCompare(b),
     );

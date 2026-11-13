@@ -93,7 +93,7 @@ export const writePreparedSubagentFile = Effect.fn("axm.subagent.apply")(functio
             }),
         ),
       );
-      const decision = args.decideWrite({ filePath, prior, rendered: args.content });
+      const decision = yield* args.decideWrite({ filePath, prior, rendered: args.content });
       if (decision._tag === "conflict") return decision;
       if (decision._tag !== "write")
         return { _tag: "written", change: "unchanged", decision: decision._tag } as const;
@@ -294,7 +294,7 @@ export const removeSubagentFiles = (
           if (current.kind !== "file") return { _tag: "absent" } as const;
           const raw = yield* fs.readFileString(filePath).pipe(Effect.option);
           if (Option.isNone(raw)) return { _tag: "absent" } as const;
-          const decision = args.decideRemoval({ filePath, bytes: raw.value });
+          const decision = yield* args.decideRemoval({ filePath, bytes: raw.value });
           if (decision._tag === "retain") return decision;
           yield* authority.protect(filePath);
           yield* fs.remove(filePath).pipe(

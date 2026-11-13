@@ -177,7 +177,7 @@ export const planSkillInstall: (
   Plan<InstallStepRequirements>,
   OperationRefused | Config.ConfigError,
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | RegistryClientFactory
-> = Effect.fn("InstallExtensions.planSkills")(function* (intent: SkillInstallIntent) {
+> = Effect.fnUntraced(function* (intent: SkillInstallIntent) {
   const steps = yield* Effect.forEach(
     intent.skillsToInstall,
     (entry) => planSkillInstallationStep({ ...entry, force: intent.force === true }),

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import * as HttpClient from "effect/http/HttpClient";
+import { withWork } from "@agentxm/host-primitives/work-observation";
 import {
   UpgradeFailed,
   type ScriptReleaseAssets,
@@ -20,6 +21,7 @@ const declaredContentLength = (headers: Readonly<Record<string, string>>): numbe
 const fetchAsset = (
   httpClient: HttpClient.HttpClient,
   url: string,
+  purpose: "binary" | "checksums",
   report?: (received: number, total: number | undefined) => Effect.Effect<void>,
 ) =>
   Effect.gen(function* () {
@@ -62,7 +64,13 @@ const fetchAsset = (
         cause,
       });
     if (report === undefined) {
-      const body = yield* response.arrayBuffer.pipe(Effect.mapError(readFailed));
+      const body = yield* response.arrayBuffer.pipe(
+        Effect.tap((value) => Effect.annotateCurrentSpan("axm.work.bytes", value.byteLength)),
+        Effect.mapError(readFailed),
+        Effect.withSpan("axm.update.body", {
+          attributes: { "axm.update.purpose": purpose, "axm.work.executed": 1 },
+        }),
+      );
       return new Uint8Array(body);
     }
 
@@ -75,12 +83,26 @@ const fetchAsset = (
           return [next, [{ received: next, chunk }]] as const;
         },
       ),
+      Stream.tap((observation) =>
+        Effect.annotateCurrentSpan("axm.work.bytes", observation.received),
+      ),
       Stream.tap((observation) => report(observation.received, total)),
       Stream.map((observation) => observation.chunk),
       Stream.mkUint8Array,
       Effect.mapError(readFailed),
+      Effect.withSpan("axm.update.body", {
+        attributes: { "axm.update.purpose": purpose, "axm.work.executed": 1 },
+      }),
     );
-  });
+  }).pipe(
+    Effect.withSpan("axm.update.request", {
+      attributes: {
+        "axm.update.purpose": purpose,
+        "axm.work.requested": 1,
+        "axm.work.executed": 1,
+      },
+    }),
+  );
 
 export const makeScriptReleaseAssets = (
   client: HttpClient.HttpClient,
@@ -89,12 +111,21 @@ export const makeScriptReleaseAssets = (
   read: (source, binaryName) =>
     Effect.gen(function* () {
       const [bytes, manifest] = yield* Effect.all([
-        observeDownload(binaryName, (report) => fetchAsset(client, source.binaryAssetUrl, report)),
-        fetchAsset(client, source.checksumAssetUrl),
+        observeDownload(binaryName, (report) =>
+          fetchAsset(client, source.binaryAssetUrl, "binary", report),
+        ),
+        fetchAsset(client, source.checksumAssetUrl, "checksums"),
       ]);
+      const sha256Hex = yield* Effect.sync(() =>
+        createHash("sha256").update(bytes).digest("hex"),
+      ).pipe((effect) =>
+        withWork("axm.update.integrity", effect, {
+          attributes: { "axm.work.bytes": bytes.byteLength, "axm.work.executed": 1 },
+        }),
+      );
       return {
         bytes,
-        sha256Hex: createHash("sha256").update(bytes).digest("hex"),
+        sha256Hex,
         checksumManifest: new TextDecoder("utf-8", { fatal: false }).decode(manifest),
       };
     }),

@@ -8,4 +8,6 @@ export type {
   /** @public */
   CliResult,
   RunCliOptions,
+  /** @public */
+  TempDirContext,
 } from "./types.js";

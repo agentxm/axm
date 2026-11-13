@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 /**
  * Ownership, authority, and blocker classification for a targeted update.
  *
@@ -227,165 +228,182 @@ const canonicalSourceAuthority = (authority: DesiredSourceAuthority) => {
   }
 };
 
-const publicFingerprint = (value: unknown): string =>
-  crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
-
-export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): TargetedUpdateContext => {
-  const node = args.graph.nodes.find(
-    (candidate) =>
-      candidate.type === args.target.type &&
-      (desiredPackageKey(candidate.identity) === args.target.fqn ||
-        (candidate.type === "mcp-server" &&
-          (candidate.identity.authority === "inline"
-            ? candidate.name === args.target.name
-            : registryFqnFromSource(candidate.source) === args.target.fqn))),
-  );
-  const targetProblems = args.graph.problems.filter(
-    (problem) =>
-      (problem.type === "projection-collision" || problem.type === "constraint-conflict") &&
-      problem.extensionType === args.target.type &&
-      problem.name === args.target.name,
-  );
-  const relevantProblems = args.graph.problems.filter(
-    (problem) =>
-      problem.type.startsWith("pack-") ||
-      problem.type === "constraint-conflict" ||
-      targetProblems.includes(problem),
-  );
-  const directOrigin = node?.origins.find((origin) => origin.type === "settings");
-  const bundled = node?.identity.authority === "bundled";
-  const packOrigins = (node?.origins ?? [])
-    .filter(
-      (origin): origin is Extract<DesiredExtensionOrigin, { readonly type: "pack" }> =>
-        origin.type === "pack",
-    )
-    .sort((left, right) => left.pack.fqn.localeCompare(right.pack.fqn));
-  const ownership: TargetedUpdateOwnership =
-    directOrigin === undefined
-      ? packOrigins.length === 0
-        ? "absent"
-        : "pack-only"
-      : packOrigins.length === 0
-        ? "direct-only"
-        : "combined";
-  const packs = packOrigins.map((origin) => {
-    const configured = args.configuredPacks.find(
-      (entry) => configuredPackFqn(entry, args.configuredOwner) === origin.pack.fqn,
+const publicFingerprint = (value: unknown): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const input = JSON.stringify(value);
+    const digest = yield* Effect.sync(() =>
+      crypto.createHash("sha256").update(input).digest("hex"),
     );
-    return {
-      fqn: origin.pack.fqn,
-      ...(configured === undefined ? {} : { configuredName: configured.name }),
-      ...(configured?.source === undefined
-        ? {}
+    yield* annotateWork({
+      "axm.work.count": 1,
+      "axm.work.bytes": Buffer.byteLength(input),
+    });
+    return digest;
+  }).pipe((effect) => withWork("axm.hash.targeted-update", effect));
+
+export const classifyTargetedUpdate = (
+  args: ClassifyTargetedUpdateArgs,
+): Effect.Effect<TargetedUpdateContext> =>
+  Effect.gen(function* () {
+    const node = args.graph.nodes.find(
+      (candidate) =>
+        candidate.type === args.target.type &&
+        (desiredPackageKey(candidate.identity) === args.target.fqn ||
+          (candidate.type === "mcp-server" &&
+            (candidate.identity.authority === "inline"
+              ? candidate.name === args.target.name
+              : registryFqnFromSource(candidate.source) === args.target.fqn))),
+    );
+    const targetProblems = args.graph.problems.filter(
+      (problem) =>
+        (problem.type === "projection-collision" || problem.type === "constraint-conflict") &&
+        problem.extensionType === args.target.type &&
+        problem.name === args.target.name,
+    );
+    const relevantProblems = args.graph.problems.filter(
+      (problem) =>
+        problem.type.startsWith("pack-") ||
+        problem.type === "constraint-conflict" ||
+        targetProblems.includes(problem),
+    );
+    const directOrigin = node?.origins.find((origin) => origin.type === "settings");
+    const bundled = node?.identity.authority === "bundled";
+    const packOrigins = (node?.origins ?? [])
+      .filter(
+        (origin): origin is Extract<DesiredExtensionOrigin, { readonly type: "pack" }> =>
+          origin.type === "pack",
+      )
+      .sort((left, right) => left.pack.fqn.localeCompare(right.pack.fqn));
+    const ownership: TargetedUpdateOwnership =
+      directOrigin === undefined
+        ? packOrigins.length === 0
+          ? "absent"
+          : "pack-only"
+        : packOrigins.length === 0
+          ? "direct-only"
+          : "combined";
+    const packs = packOrigins.map((origin) => {
+      const configured = args.configuredPacks.find(
+        (entry) => configuredPackFqn(entry, args.configuredOwner) === origin.pack.fqn,
+      );
+      return {
+        fqn: origin.pack.fqn,
+        ...(configured === undefined ? {} : { configuredName: configured.name }),
+        ...(configured?.source === undefined
+          ? {}
+          : {
+              source: sourceAuthority(configured.source),
+            }),
+        memberSource: sourceAuthority(origin.source),
+        constraint: origin.constraint,
+        enabled: origin.enabled,
+      };
+    });
+    const direct: TargetedUpdatePublicContext["direct"] =
+      directOrigin === undefined
+        ? undefined
         : {
-            source: sourceAuthority(configured.source),
-          }),
-      memberSource: sourceAuthority(origin.source),
-      constraint: origin.constraint,
-      enabled: origin.enabled,
+            source:
+              directOrigin.source === undefined
+                ? "inline"
+                : bundled
+                  ? "bundled"
+                  : sourceAuthority(directOrigin.source),
+            enabled: directOrigin.enabled,
+            ...(directOrigin.constraint === undefined
+              ? {}
+              : { constraint: directOrigin.constraint }),
+          };
+    // A range the request names replaces the direct declaration's contribution;
+    // every Pack that requires the target still contributes its own.
+    const effective = effectiveDesiredConstraint(
+      args.graph,
+      { type: args.target.type, name: node?.name ?? args.target.name },
+      directOrigin === undefined || args.explicitRange === undefined
+        ? []
+        : [
+            {
+              source: "settings",
+              range: args.explicitRange,
+              location: SETTINGS_FILENAME,
+              ...(directOrigin.localName === undefined
+                ? {}
+                : { localName: directOrigin.localName }),
+            },
+          ],
+    );
+    const intersection = Result.isSuccess(effective)
+      ? Option.getOrUndefined(effective.success.range)
+      : undefined;
+    const activation = node?.enabled === true ? "enabled" : "disabled";
+    let blocker: TargetedUpdateBlocker | undefined;
+    if (relevantProblems.length > 0) {
+      blocker = targetProblems.some((problem) => problem.type === "constraint-conflict")
+        ? "constraint-conflict"
+        : "incomplete-graph";
+    } else if (node === undefined) {
+      blocker = "not-desired";
+    } else if (!node.enabled) {
+      blocker = "disabled";
+    } else if (direct?.source === "bundled") {
+      blocker = "bundled-source";
+    } else if (
+      direct?.source === "inline" ||
+      direct?.source === "workspace" ||
+      packOrigins.some((origin) => isWorkspaceSourceLocator(origin.source))
+    ) {
+      blocker = "source-authority";
+    } else if (ownership === "pack-only" && args.explicitRange !== undefined) {
+      blocker = "pack-owned-constraint";
+    } else if (Result.isFailure(effective)) {
+      blocker = "constraint-conflict";
+    }
+
+    const authority: TargetedUpdateAuthority =
+      blocker !== undefined ? "blocked" : directOrigin === undefined ? "pack-aware" : "direct";
+    const publicContext: TargetedUpdatePublicContext = {
+      target: args.target,
+      ownership,
+      activation,
+      authority,
+      ...(direct === undefined ? {} : { direct }),
+      packs,
+      ...(intersection === undefined ? {} : { effectiveConstraint: intersection }),
+      memberClosure: node === undefined ? [] : [args.target],
+      effects:
+        authority === "blocked" ? blockedEffects : plannedEffects(authority, args.explicitRange),
+      relevantProblems: relevantProblems
+        .map((problem) => `${problem.type}: ${desiredStateProblemText(problem)}`)
+        .sort((left, right) => left.localeCompare(right)),
+      ...(blocker === undefined ? {} : { blocker }),
+    };
+
+    // Canonical facts, never the settings text: a bare FQN, a default-qualified
+    // locator, and one qualified by any alias of the same endpoint are one
+    // binding. A Pack route whose source is not resolved stays unresolved.
+    const bindings = {
+      identity: node === undefined ? undefined : canonicalIdentity(node.identity),
+      localName: directOrigin?.localName,
+      packSources: packOrigins.map((origin) => ({
+        pack: origin.pack,
+        sourceAuthority:
+          origin.sourceAuthority === undefined
+            ? UNRESOLVED
+            : canonicalSourceAuthority(origin.sourceAuthority),
+      })),
+    };
+
+    return {
+      public: publicContext,
+      fingerprint: yield* publicFingerprint({
+        publicContext,
+        bindings,
+        packEvidence: args.packEvidence ?? [],
+      }),
+      bindingFingerprint: yield* publicFingerprint(bindings),
+      packEvidenceFingerprint: yield* publicFingerprint(args.packEvidence ?? []),
     };
   });
-  const direct: TargetedUpdatePublicContext["direct"] =
-    directOrigin === undefined
-      ? undefined
-      : {
-          source:
-            directOrigin.source === undefined
-              ? "inline"
-              : bundled
-                ? "bundled"
-                : sourceAuthority(directOrigin.source),
-          enabled: directOrigin.enabled,
-          ...(directOrigin.constraint === undefined ? {} : { constraint: directOrigin.constraint }),
-        };
-  // A range the request names replaces the direct declaration's contribution;
-  // every Pack that requires the target still contributes its own.
-  const effective = effectiveDesiredConstraint(
-    args.graph,
-    { type: args.target.type, name: node?.name ?? args.target.name },
-    directOrigin === undefined || args.explicitRange === undefined
-      ? []
-      : [
-          {
-            source: "settings",
-            range: args.explicitRange,
-            location: SETTINGS_FILENAME,
-            ...(directOrigin.localName === undefined ? {} : { localName: directOrigin.localName }),
-          },
-        ],
-  );
-  const intersection = Result.isSuccess(effective)
-    ? Option.getOrUndefined(effective.success.range)
-    : undefined;
-  const activation = node?.enabled === true ? "enabled" : "disabled";
-  let blocker: TargetedUpdateBlocker | undefined;
-  if (relevantProblems.length > 0) {
-    blocker = targetProblems.some((problem) => problem.type === "constraint-conflict")
-      ? "constraint-conflict"
-      : "incomplete-graph";
-  } else if (node === undefined) {
-    blocker = "not-desired";
-  } else if (!node.enabled) {
-    blocker = "disabled";
-  } else if (direct?.source === "bundled") {
-    blocker = "bundled-source";
-  } else if (
-    direct?.source === "inline" ||
-    direct?.source === "workspace" ||
-    packOrigins.some((origin) => isWorkspaceSourceLocator(origin.source))
-  ) {
-    blocker = "source-authority";
-  } else if (ownership === "pack-only" && args.explicitRange !== undefined) {
-    blocker = "pack-owned-constraint";
-  } else if (Result.isFailure(effective)) {
-    blocker = "constraint-conflict";
-  }
-
-  const authority: TargetedUpdateAuthority =
-    blocker !== undefined ? "blocked" : directOrigin === undefined ? "pack-aware" : "direct";
-  const publicContext: TargetedUpdatePublicContext = {
-    target: args.target,
-    ownership,
-    activation,
-    authority,
-    ...(direct === undefined ? {} : { direct }),
-    packs,
-    ...(intersection === undefined ? {} : { effectiveConstraint: intersection }),
-    memberClosure: node === undefined ? [] : [args.target],
-    effects:
-      authority === "blocked" ? blockedEffects : plannedEffects(authority, args.explicitRange),
-    relevantProblems: relevantProblems
-      .map((problem) => `${problem.type}: ${desiredStateProblemText(problem)}`)
-      .sort((left, right) => left.localeCompare(right)),
-    ...(blocker === undefined ? {} : { blocker }),
-  };
-
-  // Canonical facts, never the settings text: a bare FQN, a default-qualified
-  // locator, and one qualified by any alias of the same endpoint are one
-  // binding. A Pack route whose source is not resolved stays unresolved.
-  const bindings = {
-    identity: node === undefined ? undefined : canonicalIdentity(node.identity),
-    localName: directOrigin?.localName,
-    packSources: packOrigins.map((origin) => ({
-      pack: origin.pack,
-      sourceAuthority:
-        origin.sourceAuthority === undefined
-          ? UNRESOLVED
-          : canonicalSourceAuthority(origin.sourceAuthority),
-    })),
-  };
-
-  return {
-    public: publicContext,
-    fingerprint: publicFingerprint({
-      publicContext,
-      bindings,
-      packEvidence: args.packEvidence ?? [],
-    }),
-    bindingFingerprint: publicFingerprint(bindings),
-    packEvidenceFingerprint: publicFingerprint(args.packEvidence ?? []),
-  };
-};
 
 /** Everything the classifier reads before it can answer. */
 export type TargetedUpdateContextFailure =
@@ -425,7 +443,7 @@ export const resolveTargetedUpdateContext: (args: {
     configuredPacks,
     ...(Option.isNone(configuredOwner) ? {} : { configuredOwner: configuredOwner.value }),
   };
-  const preliminary = classifyTargetedUpdate(baseArgs);
+  const preliminary = yield* classifyTargetedUpdate(baseArgs);
   const packEvidence = yield* Effect.all(
     preliminary.public.packs.map((pack) =>
       Effect.gen(function* () {
@@ -442,5 +460,5 @@ export const resolveTargetedUpdateContext: (args: {
       }),
     ),
   );
-  return classifyTargetedUpdate({ ...baseArgs, packEvidence });
+  return yield* classifyTargetedUpdate({ ...baseArgs, packEvidence });
 });

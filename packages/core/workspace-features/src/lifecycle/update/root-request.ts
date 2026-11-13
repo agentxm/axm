@@ -63,9 +63,9 @@ const rootUpdateRegistryOnlyHowToFix = (source: string): string => {
  */
 export const resolveRootUpdateIntent: (
   input: string,
-) => Effect.Effect<RootUpdateIntent, OperationRefused> = Effect.fn(
-  "UpdateExtensions.readRootRequest",
-)(function* (input: string) {
+) => Effect.Effect<RootUpdateIntent, OperationRefused> = Effect.fnUntraced(function* (
+  input: string,
+) {
   const source = input.trim();
 
   if (!source.startsWith("@")) {

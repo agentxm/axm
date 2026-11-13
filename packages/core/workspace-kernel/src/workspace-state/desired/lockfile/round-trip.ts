@@ -1,4 +1,6 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 import * as Equal from "effect/Equal";
+import * as Effect from "effect/Effect";
 import * as Predicate from "effect/Predicate";
 import { emitToolTables } from "./toml.js";
 import { prepareDocumentRoundTrip, type DocumentRoundTripContext } from "../document-round-trip.js";
@@ -58,64 +60,78 @@ export const prepareLockfileRoundTrip = (args: {
   readonly target: string;
   readonly before: string | undefined;
   readonly after: string;
-}) => {
-  const before =
-    args.before === undefined
-      ? { document: { version: LOCKFILE_VERSION }, tool: undefined }
-      : parse(args.before);
-  const after = parse(args.after);
-  const insertions: string[] = [];
-  const withdrawals: string[] = [];
-  // Package records are derived from bindings; eligibility belongs to the selected units.
-  if (before !== undefined && after !== undefined) {
-    const prior = bindingUnits(before.document);
-    const next = bindingUnits(after.document);
-    for (const unit of next) if (!prior.has(unit)) insertions.push(unit);
-    for (const unit of prior) if (!next.has(unit)) withdrawals.push(unit);
-  }
-  // Projection rows follow the extension resolutions that render them, as
-  // package records do: a write that introduces or withdraws a resolution is
-  // that one unit, rows included. Only a write that changes rows alone treats
-  // each introduced or withdrawn row as a unit. A changed row is neither;
-  // exact restoration still requires the restored document to equal the
-  // computed one.
-  if (
-    before !== undefined &&
-    after !== undefined &&
-    insertions.length === 0 &&
-    withdrawals.length === 0
-  )
-    for (const kind of PROJECTION_KINDS) {
-      const prior = projectionUnits(before.document, kind);
-      const next = projectionUnits(after.document, kind);
-      for (const path of Object.keys(next))
-        if (!Object.hasOwn(prior, path))
-          insertions.push(JSON.stringify(["lockfile", "projections", kind, path]));
-      for (const path of Object.keys(prior))
-        if (!Object.hasOwn(next, path))
-          withdrawals.push(JSON.stringify(["lockfile", "projections", kind, path]));
+}) =>
+  Effect.gen(function* () {
+    const before =
+      args.before === undefined
+        ? { document: { version: LOCKFILE_VERSION }, tool: undefined }
+        : yield* Effect.sync(() => parse(args.before ?? "")).pipe((effect) =>
+            withWork("axm.parse.lockfile-round-trip", effect, {
+              attributes: { "axm.work.count": 1, "axm.parse.phase": "before" },
+            }),
+          );
+    const after = yield* Effect.sync(() => parse(args.after)).pipe((effect) =>
+      withWork("axm.parse.lockfile-round-trip", effect, {
+        attributes: { "axm.work.count": 1, "axm.parse.phase": "after" },
+      }),
+    );
+    const insertions: string[] = [];
+    const withdrawals: string[] = [];
+    // Package records are derived from bindings; eligibility belongs to the selected units.
+    if (before !== undefined && after !== undefined) {
+      const prior = bindingUnits(before.document);
+      const next = bindingUnits(after.document);
+      for (const unit of next) if (!prior.has(unit)) insertions.push(unit);
+      for (const unit of prior) if (!next.has(unit)) withdrawals.push(unit);
     }
-  return prepareDocumentRoundTrip({
-    ...args,
-    unitPrefix: '["lockfile",',
-    insertions,
-    withdrawals,
-    acceptAbsent:
+    // Projection rows follow the extension resolutions that render them, as
+    // package records do: a write that introduces or withdraws a resolution is
+    // that one unit, rows included. Only a write that changes rows alone treats
+    // each introduced or withdrawn row as a unit. A changed row is neither;
+    // exact restoration still requires the restored document to equal the
+    // computed one.
+    if (
+      before !== undefined &&
       after !== undefined &&
-      after.tool === undefined &&
-      Equal.equals(normalize(after.document), { version: LOCKFILE_VERSION }),
-    acceptRestored: (raw) => {
-      const restored = parse(raw);
-      return (
-        restored !== undefined &&
+      insertions.length === 0 &&
+      withdrawals.length === 0
+    )
+      for (const kind of PROJECTION_KINDS) {
+        const prior = projectionUnits(before.document, kind);
+        const next = projectionUnits(after.document, kind);
+        for (const path of Object.keys(next))
+          if (!Object.hasOwn(prior, path))
+            insertions.push(JSON.stringify(["lockfile", "projections", kind, path]));
+        for (const path of Object.keys(prior))
+          if (!Object.hasOwn(next, path))
+            withdrawals.push(JSON.stringify(["lockfile", "projections", kind, path]));
+      }
+    return yield* prepareDocumentRoundTrip({
+      ...args,
+      unitPrefix: '["lockfile",',
+      insertions,
+      withdrawals,
+      acceptAbsent:
         after !== undefined &&
-        Equal.equals(normalize(restored.document), normalize(after.document)) &&
-        Equal.equals(emitToolTables(restored.tool), emitToolTables(after.tool))
-      );
-    },
-    mapFailure: (target, cause) =>
-      cause instanceof LockfileWriteError
-        ? cause
-        : new LockfileWriteError({ path: target, step: "write-temp", cause }),
+        after.tool === undefined &&
+        Equal.equals(normalize(after.document), { version: LOCKFILE_VERSION }),
+      acceptRestored: (raw) =>
+        Effect.gen(function* () {
+          const restored = yield* Effect.sync(() => parse(raw)).pipe((effect) =>
+            withWork("axm.parse.lockfile-round-trip", effect, {
+              attributes: { "axm.work.count": 1, "axm.parse.phase": "restored" },
+            }),
+          );
+          return (
+            restored !== undefined &&
+            after !== undefined &&
+            Equal.equals(normalize(restored.document), normalize(after.document)) &&
+            Equal.equals(emitToolTables(restored.tool), emitToolTables(after.tool))
+          );
+        }),
+      mapFailure: (target, cause) =>
+        cause instanceof LockfileWriteError
+          ? cause
+          : new LockfileWriteError({ path: target, step: "write-temp", cause }),
+    });
   });
-};

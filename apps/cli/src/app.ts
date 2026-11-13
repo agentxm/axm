@@ -50,6 +50,8 @@ import {
 import { loadVersion } from "./version.js";
 import { validateCommandPath } from "./validate-command-path.js";
 import { CommandRoute } from "./cli-runtime/command-route.js";
+import { annotateInvocationTrace } from "./cli-runtime/trace-invocation.js";
+import { makeCommandTraceIdentity } from "./command-tracing.js";
 import { groupCapabilities, withCommandCapabilities } from "./root/shared/command-capabilities.js";
 import { ScopedRoutesLive } from "./root/shared/scoped-command.js";
 
@@ -206,6 +208,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
 );
 
 const usesRetiredAuthCommand = (args: ReadonlyArray<string>): boolean => args[0] === "auth";
+const commandTraceIdentity = makeCommandTraceIdentity(rootCommand);
 
 /**
  * Raw credential output is decided before the parser runs, so nothing that
@@ -229,11 +232,15 @@ const rejectsTokenOutputAtStartup = (args: ReadonlyArray<string>): AppError | un
  */
 export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
   Effect.gen(function* () {
+    yield* annotateInvocationTrace({ "axm.command.route": "unresolved" });
     const events = yield* Queue.unbounded<CliOutput.Presenter.Event>();
     const exit = yield* Effect.exit(
       validateCommandPath(rootCommand, argv).pipe(
         Effect.catchTag("ShowHelp", (error) =>
           Effect.gen(function* () {
+            yield* annotateInvocationTrace(
+              commandTraceIdentity.resolve(error.commandPath.slice(1), argv),
+            );
             const { builtIns } = yield* CliConfig.CliConfig;
             yield* GlobalFlag.Help.run(true, {
               command: rootCommand,
@@ -245,8 +252,12 @@ export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
           }),
         ),
         Effect.flatMap((route) =>
-          Command.runWith(rootCommand, { version, renderErrors: false })(argv).pipe(
-            Effect.provideService(CommandRoute, route),
+          annotateInvocationTrace(commandTraceIdentity.resolve(route, argv)).pipe(
+            Effect.andThen(
+              Command.runWith(rootCommand, { version, renderErrors: false })(argv).pipe(
+                Effect.provideService(CommandRoute, route),
+              ),
+            ),
           ),
         ),
         Effect.provideService(CliOutput.Presenter, {
@@ -271,12 +282,32 @@ export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
 
     if (Exit.isFailure(exit)) return yield* Effect.failCause(exit.cause);
     const exitCode = yield* getOperationExitCode;
-    yield* Effect.annotateCurrentSpan({
+    yield* annotateInvocationTrace({
       "axm.exit.code": Option.getOrElse(exitCode, () => 0),
       "axm.outcome": Option.getOrElse(exitCode, () => 0) === 0 ? "success" : "failure",
     });
     return processOutcome(Option.getOrElse(exitCode, () => 0));
-  });
+  }).pipe(
+    Effect.exit,
+    Effect.tap((exit) => {
+      if (Exit.isSuccess(exit)) return Effect.void;
+      const failure = Cause.squash(exit.cause);
+      const help =
+        CliError.isCliError(failure) && failure._tag === "ShowHelp" && failure.errors.length === 0;
+      return annotateInvocationTrace({
+        "axm.outcome": help
+          ? "success"
+          : Cause.hasInterruptsOnly(exit.cause)
+            ? "interrupted"
+            : "failure",
+        ...(help ? { "axm.exit.code": 0 } : {}),
+      });
+    }),
+    Effect.withSpan("axm.cli.command", {}, { captureStackTrace: false }),
+    Effect.flatMap((exit) =>
+      Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause),
+    ),
+  );
 
 /**
  * Run AXM as a process entry point.
@@ -357,7 +388,12 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
         Effect.catchCause((cause) => {
           if (Cause.hasInterruptsOnly(cause)) return Effect.failCause(cause);
           return Effect.gen(function* () {
-            yield* Effect.annotateCurrentSpan("axm.outcome", "failure");
+            const failure = Cause.squash(cause);
+            const help =
+              CliError.isCliError(failure) &&
+              failure._tag === "ShowHelp" &&
+              failure.errors.length === 0;
+            yield* annotateInvocationTrace({ "axm.outcome": help ? "success" : "failure" });
             const diagnostics = yield* TerminalDiagnostics;
             const record = yield* diagnostics.current;
             return {
@@ -377,6 +413,6 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
         ),
       );
     },
-    { args },
+    { args, traceCommandRoutes: commandTraceIdentity.routes, version },
   );
 };

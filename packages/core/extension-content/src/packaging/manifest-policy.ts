@@ -4,6 +4,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as Predicate from "effect/Predicate";
+import { observeArchiveWork } from "./archive-observation.js";
 import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
@@ -219,7 +220,7 @@ export const resolveManifest = (
     const parsed = yield* Effect.suspend(() =>
       Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(text),
     ).pipe(
-      Effect.withSpan("axm.archive.parse-manifest"),
+      (effect) => observeArchiveWork("parse-manifest", effect),
       Effect.mapError(
         () =>
           new ManifestError({

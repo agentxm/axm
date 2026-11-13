@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import {
   parseRegistryEndpoint,
   type RegistryEndpoint,
@@ -8,6 +9,7 @@ import * as ServiceMap from "effect/Context";
 import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as MutableHashMap from "effect/MutableHashMap";
 import * as Exit from "effect/Exit";
 import * as Result from "effect/Result";
 import * as Request from "effect/Request";
@@ -29,6 +31,12 @@ import * as Option from "effect/Option";
 
 /** Planning can inspect the same identity under several independent constraints. */
 const MAX_PACK_INDEX_MEMO_ENTRIES = 256;
+
+/** Diagnostic state belongs to the requester that actually starts a cache lookup. */
+const CurrentRegistryIndexRequest = ServiceMap.Reference<{ executed: boolean } | undefined>(
+  "@agentxm/workspace-kernel/sources/registry-index-memo/CurrentRegistryIndexRequest",
+  { defaultValue: () => undefined },
+);
 
 class RegistryIndexKey extends Data.Class<
   GetExtensionIndexArgs & { readonly location: string; readonly sourceName: string }
@@ -91,17 +99,65 @@ export const makeRegistryIndexMemo = <R>(
     key: RegistryIndexKey,
   ) => Effect.Effect<Option.Option<ExtensionIndex>, RegistryClientFailure | Config.ConfigError, R>,
 ): Effect.Effect<RegistryIndexMemoService, never, R> =>
-  Cache.makeWith(lookup, {
-    capacity: MAX_PACK_INDEX_MEMO_ENTRIES,
-    timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
-  }).pipe(
+  Cache.makeWith(
+    (key: RegistryIndexKey) => {
+      const work = lookup(key);
+      return Effect.contextWith((context: ServiceMap.Context<never>) => {
+        const request = ServiceMap.get(context, CurrentRegistryIndexRequest);
+        if (request !== undefined) request.executed = true;
+        return work;
+      });
+    },
+    {
+      capacity: MAX_PACK_INDEX_MEMO_ENTRIES,
+      timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
+    },
+  ).pipe(
     Effect.map(
       (cache) =>
         ({
           get: (endpoint, sourceName, args) =>
-            Cache.get(
-              cache,
-              new RegistryIndexKey({ location: endpoint.href, sourceName, ...args }),
+            Effect.gen(function* () {
+              const key = new RegistryIndexKey({ location: endpoint.href, sourceName, ...args });
+              return yield* Effect.gen(function* () {
+                // This cache retains only successful results indefinitely. Failed
+                // lookups are removed immediately; observing its public entry map
+                // neither performs another lookup nor changes the sharing policy.
+                const entry = MutableHashMap.get(cache.map, key);
+                const outcome = Option.isNone(entry)
+                  ? "miss"
+                  : entry.value.fiber.pollUnsafe() === undefined
+                    ? "coalesced"
+                    : "hit";
+                const request = { executed: false };
+                yield* annotateWork({
+                  "axm.cache.outcome": outcome,
+                  "axm.work.executed": 0,
+                  "axm.work.reused-count": 0,
+                });
+                return yield* Cache.get(cache, key).pipe(
+                  Effect.provideService(CurrentRegistryIndexRequest, request),
+                  Effect.onExit((exit) =>
+                    // The map snapshot can become stale before Cache.get runs.
+                    // Only the source actually started by this requester is work;
+                    // only a delivered result from another source is reuse.
+                    annotateWork({
+                      "axm.cache.outcome": request.executed
+                        ? "miss"
+                        : outcome === "miss"
+                          ? "coalesced"
+                          : outcome,
+                      "axm.work.executed": request.executed ? 1 : 0,
+                      "axm.work.reused-count":
+                        !request.executed && !Exit.hasInterrupts(exit) ? 1 : 0,
+                    }),
+                  ),
+                );
+              });
+            }).pipe((effect) =>
+              withWork("axm.registry.metadata-reuse", effect, {
+                attributes: { "axm.work.requested": 1 },
+              }),
             ),
         }) satisfies RegistryIndexMemoService,
     ),
@@ -120,6 +176,7 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
       collectWhile: (entries) => entries.size < 100,
       runAll: (entries) =>
         Effect.gen(function* () {
+          yield* Effect.annotateCurrentSpan("axm.batch.count", entries.length);
           const first = entries[0].request.key;
           const run = Effect.gen(function* () {
             // The key holds the canonical endpoint text, which decodes back to
@@ -166,6 +223,7 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
             });
           });
           const result = yield* Effect.exit(run);
+          if (Exit.isFailure(result)) yield* Effect.annotateCurrentSpan("axm.outcome", "failure");
           for (const [index, entry] of entries.entries()) {
             if (Exit.isFailure(result)) {
               entry.completeUnsafe(Exit.failCause(result.cause));
@@ -183,7 +241,7 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
                 : Exit.succeed(value),
             );
           }
-        }),
+        }).pipe(Effect.withSpan("axm.registry.metadata-batch")),
     });
     return yield* makeRegistryIndexMemo((key) =>
       Effect.request(RegistryIndexRequest({ key }), resolver),

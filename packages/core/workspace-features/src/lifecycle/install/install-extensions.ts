@@ -385,7 +385,7 @@ const openSourceInstall = <T extends SourceInstallType>(
               : resolved.refs.filter((entry) =>
                   selected.some((ref) => extensionRefName(ref) === extensionRefName(entry.ref)),
                 ),
-          ).pipe(Effect.withSpan("InstallExtensions.finalizeIntent", { attributes: { type } }));
+          );
           return {
             refs: entries,
             foundCount: discovered.length,

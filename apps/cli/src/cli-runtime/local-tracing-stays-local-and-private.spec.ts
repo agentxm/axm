@@ -7,7 +7,7 @@ import * as Tracer from "effect/Tracer";
 import * as HttpClient from "effect/http/HttpClient";
 import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { localTraceEndpoint, withLocalTracing } from "./index.js";
+import { localTraceEndpoint, withLocalTracing, observedTransport } from "./index.js";
 import { localTracingCollector } from "../test-support/local-tracing-collector.js";
 
 class PrivateFailure extends Data.TaggedError("PrivateFailure")<{ message: string }> {}
@@ -39,9 +39,11 @@ describe("Private local tracing", () => {
         Effect.gen(function* () {
           const receiver = yield* localTracingCollector();
           const secret = "PRIVATE-http-token";
-          const request = HttpClient.get(`${receiver.endpoint}?token=${secret}`, {
-            headers: { authorization: `Bearer ${secret}` },
-          }).pipe(
+          const request = Effect.flatMap(HttpClient.HttpClient, (client) =>
+            observedTransport(client).get(`${receiver.endpoint}?token=${secret}`, {
+              headers: { authorization: `Bearer ${secret}` },
+            }),
+          ).pipe(
             Effect.flatMap((response) => response.text),
             Effect.provide(NodeHttpClient.layerNodeHttpOptions({ proxyEnv: {} })),
           );
@@ -91,6 +93,7 @@ describe("Private local tracing", () => {
       "http://user:secret@127.0.0.1/v1/traces",
       "http://127.0.0.1/v1/traces?token=secret",
       "http://127.0.0.1/v1/traces#secret",
+      "http://127.0.0.1/v1/unknown",
       "invalid",
     ])
       expect(localTraceEndpoint({ AXM_TRACE: "1", AXM_TRACE_ENDPOINT: endpoint })).toBeUndefined();
@@ -115,6 +118,7 @@ describe("Private local tracing", () => {
             yield* Effect.annotateCurrentSpan({ "unsafe.path": secret, "axm.work.count": secret });
             const span = yield* Effect.currentSpan;
             span.event(secret, 0n, { contents: secret });
+            yield* Effect.logInfo(secret).pipe(Effect.annotateLogs({ private: secret }));
             return yield* new PrivateFailure({ message: secret });
           }).pipe(Effect.withSpan("axm.archive.admit"), Effect.withSpan(secret));
           const result = yield* Effect.exit(
@@ -139,6 +143,17 @@ describe("Private local tracing", () => {
           expect(receiver.bodies.length).toBeGreaterThan(0);
           expect(receiver.headers[0]?.["content-type"]).toBe("application/x-protobuf");
           expect(receiver.bodies.join("")).not.toContain(secret);
+          expect(receiver.logs().length).toBeGreaterThan(0);
+          expect(
+            receiver
+              .logs()
+              .every((record) =>
+                record.attributes.every(
+                  (attribute) =>
+                    !attribute.key.startsWith("effect.") && !attribute.key.startsWith("exception."),
+                ),
+              ),
+          ).toBe(true);
           expect(
             receiver.spans().every((span) => span.events.length === 0 && span.links.length === 0),
           ).toBe(true);

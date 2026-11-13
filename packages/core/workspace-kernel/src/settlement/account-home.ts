@@ -1,3 +1,4 @@
+import { withWork } from "@agentxm/host-primitives/work-observation";
 // @effect-diagnostics nodeBuiltinImport:off — bounded OS account lookup adapter for Bun's environment-based userInfo implementation
 import { execFile } from "node:child_process";
 import { userInfo } from "node:os";
@@ -23,7 +24,9 @@ export const accountHome = Effect.gen(function* () {
         new Error("Operating-system account home is unavailable", {
           cause: { reason: "account-home-unavailable" },
         }),
-    });
+    }).pipe((effect) =>
+      withWork("axm.native.account-home", effect, { attributes: { "axm.work.executed": 1 } }),
+    );
   }
 
   // Bun documents BUN_BE_BUN for standalone executables. Use this runtime's
@@ -79,7 +82,7 @@ export const accountHome = Effect.gen(function* () {
         },
       });
     },
-  });
+  }).pipe(Effect.withSpan("axm.process.account-home", { attributes: { "axm.work.executed": 1 } }));
   const home = yield* Effect.try({
     try: (): unknown => JSON.parse(stdout),
     catch: () =>

@@ -250,22 +250,40 @@ const extractArchive = (
       return yield* invalid("Archive download-byte limit exceeded");
     if ((yield* fs.readDirectory(directory)).length !== 0)
       return yield* invalid("Archive staging directory must be empty");
-    let entries: ReadonlyArray<ArchiveEntry>;
-    if (format === "zip") entries = yield* decodeZip(bytes, limits);
-    else {
-      const expanded =
-        format === "tar.gz"
-          ? yield* Effect.try({
-              try: () =>
-                gunzipSync(bytes, {
-                  maxOutputLength: limits.maxExpandedBytes + limits.maxEntries * 1024,
-                }),
-              catch: (cause) => invalid("Invalid or oversized gzip archive", cause),
-            })
-          : bytes;
-      entries = yield* decodeTar(expanded, limits);
-      yield* validateEntries(entries, limits.maxEntries);
-    }
+    const entries = yield* Effect.gen(function* () {
+      if (format === "zip") return yield* decodeZip(bytes, limits);
+      else {
+        const expanded =
+          format === "tar.gz"
+            ? yield* Effect.try({
+                try: () =>
+                  gunzipSync(bytes, {
+                    maxOutputLength: limits.maxExpandedBytes + limits.maxEntries * 1024,
+                  }),
+                catch: (cause) => invalid("Invalid or oversized gzip archive", cause),
+              })
+            : bytes;
+        const entries = yield* decodeTar(expanded, limits);
+        yield* validateEntries(entries, limits.maxEntries);
+        return entries;
+      }
+    }).pipe(
+      Effect.tap((decoded) =>
+        Effect.annotateCurrentSpan({
+          "axm.work.count": decoded.length,
+          "axm.work.bytes": decoded.reduce(
+            (total, entry) => total + (entry.bytes?.byteLength ?? 0),
+            0,
+          ),
+        }),
+      ),
+      Effect.withSpan("axm.archive.external-decode", {
+        attributes: {
+          "axm.archive.format": format,
+          "axm.archive.bytes": bytes.byteLength,
+        },
+      }),
+    );
     // Every entry is decoded and checked before the first write.
     for (const entry of entries) {
       const target = path.join(directory, entry.name);
@@ -306,7 +324,14 @@ export const extractExternalArchive = (
 ) =>
   Effect.gen(function* () {
     const budget = yield* Effect.serviceOption(OperationExtractionBudget);
-    const extraction = extractArchive(bytes, format, directory, options);
+    const extraction = extractArchive(bytes, format, directory, options).pipe(
+      Effect.withSpan("axm.archive.external-extract", {
+        attributes: {
+          "axm.archive.format": format,
+          "axm.work.executed": 1,
+        },
+      }),
+    );
     return yield* Option.isSome(budget) ? budget.value.withExtraction(extraction) : extraction;
   }).pipe(
     Effect.mapError((cause) =>

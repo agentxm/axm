@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { CurrentArchiveWorkObserver, type ArchiveWorkFact } from "../index.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { ArchiveGuardrailError, type ZipEntry } from "./archive-guardrails.js";
 import {
@@ -41,6 +42,34 @@ const makeReadEntry =
   };
 
 describe("resolveManifest", () => {
+  it.effect("keeps invalid JSON as the manifest failure while recording one failed parse", () =>
+    Effect.gen(function* () {
+      const facts: ArchiveWorkFact[] = [];
+      let reads = 0;
+      const failure = yield* resolveManifest({
+        type: "skill",
+        entries: [makeEntry("skill.json")],
+        readEntry: () =>
+          Effect.sync(() => {
+            reads += 1;
+            return textEncoder.encode("{");
+          }),
+      }).pipe(
+        Effect.provideService(CurrentArchiveWorkObserver, {
+          record: (fact) =>
+            Effect.sync(() => {
+              facts.push(fact);
+            }),
+        }),
+        Effect.flip,
+      );
+      expect(reads).toBe(1);
+      expect(failure).toMatchObject({ _tag: "ManifestError", code: "manifest_invalid_json" });
+      expect(facts).toHaveLength(1);
+      expect(facts[0]).toMatchObject({ kind: "parse-manifest", outcome: "failure" });
+    }),
+  );
+
   it.effect("resolves a valid skill manifest", () =>
     Effect.gen(function* () {
       const manifest = JSON.stringify({

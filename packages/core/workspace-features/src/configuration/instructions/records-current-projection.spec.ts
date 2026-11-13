@@ -95,7 +95,7 @@ describe("Explicit instruction region adoption", () => {
           expect(world.readFile("AGENTS.md")).toBe(raw);
           const lockfile = world.readFile("axm.lock");
           expect(lockfile).toContain("[projections.");
-          expect(lockfile).toContain(`output = "${projectionOutputDigest(BODY)}"`);
+          expect(lockfile).toContain(`output = "${yield* projectionOutputDigest(BODY)}"`);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -117,7 +117,7 @@ describe("Explicit instruction region adoption", () => {
           expect(world.readFile("axm.json")).toBe(settings);
           expect(world.readFile("rules/guide/src/RULE.md")).toBe("Canonical guide body.\n");
           expect(world.readFile("axm.lock")).toContain(
-            `output = "${projectionOutputDigest(BODY)}"`,
+            `output = "${yield* projectionOutputDigest(BODY)}"`,
           );
           const [observed] = yield* (yield* RuleManager)
             .projectionPlans()

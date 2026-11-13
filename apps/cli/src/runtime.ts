@@ -1,3 +1,7 @@
+import { observedProcessSpawner } from "./cli-runtime/observed-process.js";
+import { observedFileSystem } from "./cli-runtime/observed-filesystem.js";
+import { observedTransport } from "./cli-runtime/observed-transport.js";
+import { LocalTraceEnabled } from "./cli-runtime/local-trace-enabled.js";
 import { PlanSources, makePlanSources } from "@agentxm/workspace-kernel/planning";
 import { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 import { axmBooleanEnabled } from "@agentxm/host-primitives";
@@ -164,7 +168,9 @@ const AxmFetchLayer = Layer.succeed(FetchHttpClient.Fetch, withAxmFetchPolicy(gl
 const AxmHttpClientLayer = Layer.provide(
   Layer.effect(
     HttpClient.HttpClient,
-    Effect.map(HttpClient.HttpClient, (httpClient) => withAxmUserAgent(httpClient, loadVersion())),
+    Effect.map(Effect.all([HttpClient.HttpClient, LocalTraceEnabled]), ([httpClient, enabled]) =>
+      withAxmUserAgent(enabled ? observedTransport(httpClient) : httpClient, loadVersion()),
+    ),
   ),
   FetchHttpClient.layer.pipe(Layer.provide(AxmFetchLayer)),
 );
@@ -176,7 +182,9 @@ const AxmHttpClientLayer = Layer.provide(
 export const makeArtifactHttpClientLayer = (fetchImplementation: typeof globalThis.fetch) =>
   Layer.effect(
     ArtifactHttpClient,
-    Effect.map(HttpClient.HttpClient, (client) => withAxmUserAgent(client, loadVersion())),
+    Effect.map(Effect.all([HttpClient.HttpClient, LocalTraceEnabled]), ([client, enabled]) =>
+      withAxmUserAgent(enabled ? observedTransport(client) : client, loadVersion()),
+    ),
   ).pipe(
     Layer.provide(
       FetchHttpClient.layer.pipe(
@@ -199,7 +207,9 @@ export const makeArtifactHttpClientLayer = (fetchImplementation: typeof globalTh
 export const makeRegistryHttpClientLayer = (fetchImplementation: typeof globalThis.fetch) =>
   Layer.effect(
     RegistryHttpClient,
-    Effect.map(HttpClient.HttpClient, (client) => withAxmUserAgent(client, loadVersion())),
+    Effect.map(Effect.all([HttpClient.HttpClient, LocalTraceEnabled]), ([client, enabled]) =>
+      withAxmUserAgent(enabled ? observedTransport(client) : client, loadVersion()),
+    ),
   ).pipe(
     Layer.provide(
       FetchHttpClient.layer.pipe(
@@ -209,20 +219,20 @@ export const makeRegistryHttpClientLayer = (fetchImplementation: typeof globalTh
     ),
   );
 
-const nodeServicesWithProcessSpans = Layer.provideMerge(
-  Layer.effect(
-    ChildProcessSpawner.ChildProcessSpawner,
-    Effect.map(ChildProcessSpawner.ChildProcessSpawner, (spawner) =>
-      ChildProcessSpawner.make((command) =>
-        spawner.spawn(command).pipe(
-          Effect.withSpan(
-            "axm.process.spawn",
-            {
-              attributes: { "axm.work.count": 1 },
-            },
-            { captureStackTrace: false },
-          ),
-        ),
+const observedNodeServices = Layer.provideMerge(
+  Layer.merge(
+    Layer.effect(
+      FileSystem.FileSystem,
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        return (yield* LocalTraceEnabled) ? observedFileSystem(fs) : fs;
+      }),
+    ),
+    Layer.effect(
+      ChildProcessSpawner.ChildProcessSpawner,
+      Effect.map(
+        Effect.all([ChildProcessSpawner.ChildProcessSpawner, LocalTraceEnabled]),
+        ([spawner, enabled]) => (enabled ? observedProcessSpawner(spawner) : spawner),
       ),
     ),
   ),
@@ -230,7 +240,7 @@ const nodeServicesWithProcessSpans = Layer.provideMerge(
 );
 
 export const PlatformLayer = Layer.mergeAll(
-  nodeServicesWithProcessSpans,
+  observedNodeServices,
   CanonicalNativePathLive,
   NativeEntryRemovalLive,
   AxmHttpClientLayer,
@@ -343,13 +353,12 @@ export const makeRegistryContextLayer = (
   );
 
 const runtimeBaseLayer = Layer.mergeAll(
-  NodeServices.layer,
+  observedNodeServices,
   CanonicalNativePathLive,
   NativeEntryRemovalLive,
   makeAxmSkillCompatibilityPolicyLayer(loadVersion()),
-  // AuthLoginInteractionLive spawns platform commands via ChildProcessSpawner,
-  // provided by NodeServices (memoized with the merged instance above).
-  Layer.provide(AuthLoginInteractionLive, NodeServices.layer),
+  // Browser and clipboard work use the same invocation-owned process observer.
+  Layer.provide(AuthLoginInteractionLive, observedNodeServices),
   Logger.layer([], { mergeWithExisting: false }),
 );
 

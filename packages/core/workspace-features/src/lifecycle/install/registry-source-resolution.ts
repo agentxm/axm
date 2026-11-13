@@ -83,9 +83,7 @@ export const resolveConfiguredRegistrySource: (
   RegistrySource,
   OperationRefused | Config.ConfigError,
   RegistrySourceProbeRequirements
-> = Effect.fn("InstallExtensions.resolveConfiguredRegistrySource")(function* (
-  args: ConfiguredRegistryLookup,
-) {
+> = Effect.fnUntraced(function* (args: ConfiguredRegistryLookup) {
   const settings = yield* SettingsReader;
   const { sourceName } = yield* settings.bindRegistrySource(args).pipe(
     Effect.mapError((cause) =>
@@ -198,9 +196,7 @@ type ConfiguredDefaultRegistrySourceByNameResolver = (
 
 /** Resolve a bare name against the effective default registry and configured owner. */
 export const resolveDefaultRegistrySourceByName: ConfiguredDefaultRegistrySourceByNameResolver =
-  Effect.fn("InstallExtensions.resolveDefaultRegistrySourceByName")(function* (
-    args: DefaultRegistryLookup,
-  ) {
+  Effect.fnUntraced(function* (args: DefaultRegistryLookup) {
     const settings = yield* SettingsReader;
     const label = extensionLabel(args.extensionType);
     const defaultRegistryName = yield* settings.defaultRegistry.pipe(

@@ -688,6 +688,27 @@ export default [
     },
   },
   {
+    // These diagnostic consumers inspect the CLI's published automation
+    // contract. Runtime packages still cannot depend on an application, and
+    // these tooling consumers may not reach an internal CLI module.
+    files: [
+      "scripts/trace-inspect.ts",
+      "benchmarks/observability.ts",
+      "benchmarks/observability-process.ts",
+    ],
+    rules: {
+      "@nx/enforce-module-boundaries": [
+        "error",
+        {
+          ...moduleBoundaryOptions,
+          allow: [...moduleBoundaryOptions.allow, "^axm\\.sh/runtime$"],
+          enforceBuildableLibDependency: true,
+          depConstraints: moduleBoundaryConstraints({ production: true }),
+        },
+      ],
+    },
+  },
+  {
     // Configuration composes source-only tooling projects. A rule module needs
     // no npm package or compiler alias merely because Nx gives its tests a task.
     files: ["eslint.config.mjs"],
@@ -717,6 +738,22 @@ export default [
         "error",
         {
           ...moduleBoundaryOptions,
+          enforceBuildableLibDependency: false,
+          depConstraints: moduleBoundaryConstraints({ production: false }),
+        },
+      ],
+    },
+  },
+  {
+    // Progress-comparison evidence uses the same published machine schema as
+    // its diagnostic consumer, without admitting internal application imports.
+    files: ["scripts/observability-benchmark.test.ts"],
+    rules: {
+      "@nx/enforce-module-boundaries": [
+        "error",
+        {
+          ...moduleBoundaryOptions,
+          allow: [...moduleBoundaryOptions.allow, "^axm\\.sh/runtime$"],
           enforceBuildableLibDependency: false,
           depConstraints: moduleBoundaryConstraints({ production: false }),
         },

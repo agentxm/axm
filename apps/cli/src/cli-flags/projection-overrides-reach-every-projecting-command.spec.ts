@@ -1,3 +1,4 @@
+import { projectionDigestFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -7,7 +8,6 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { projectionOutputDigest } from "@agentxm/workspace-kernel/projection";
 
 import { collectHelpFiles } from "../test-support/command-tree-test-helpers.js";
 import { makeAgentMembershipFixture } from "../test-support/agent-membership-fixture.js";
@@ -253,7 +253,7 @@ describe("Whole-file projection overrides", () => {
         projections: {
           subagents: {
             contract: 1,
-            units: { [PROJECTED]: { output: projectionOutputDigest(RECORDED) } },
+            units: { [PROJECTED]: { output: projectionDigestFixture(RECORDED) } },
           },
         },
       },

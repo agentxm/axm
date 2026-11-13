@@ -1,3 +1,4 @@
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import { createHash } from "node:crypto";
 import { platform } from "node:os";
 import * as Effect from "effect/Effect";
@@ -323,9 +324,17 @@ export const executionExposureRisks = Effect.fn("executionExposureRisks")(functi
             sameSource &&
             configurationJson(configured) === configurationJson(previousConfiguration);
           if (unchangedRegistration && unchangedExecution) return undefined;
-          const configurationIdentity = createHash("sha256")
-            .update(configurationJson(configured))
-            .digest("hex");
+          const configurationIdentity = yield* Effect.gen(function* () {
+            const input = configurationJson(configured);
+            const digest = yield* Effect.sync(() =>
+              createHash("sha256").update(input).digest("hex"),
+            );
+            yield* annotateWork({
+              "axm.work.count": 1,
+              "axm.work.bytes": Buffer.byteLength(input),
+            });
+            return digest;
+          }).pipe((effect) => withWork("axm.hash.execution-configuration", effect));
           const previousReferences = yield* Effect.gen(function* () {
             if (
               native.length > 0 &&

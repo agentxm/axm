@@ -52,7 +52,7 @@ export const planMcpServerUninstall: (
   Plan<InstallStepRequirements>,
   OperationRefused,
   InstallStepRequirements | McpServerManager | FileSystem.FileSystem | Path.Path
-> = Effect.fn("UninstallExtensions.planMcpServers")(function* (intent: McpServerUninstallIntent) {
+> = Effect.fnUntraced(function* (intent: McpServerUninstallIntent) {
   const location = yield* WorkspaceLocation;
   const desiredState = yield* DesiredStateReader;
   const lockfile = yield* LockfileReader;

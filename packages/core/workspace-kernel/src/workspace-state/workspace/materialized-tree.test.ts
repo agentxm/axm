@@ -1,3 +1,4 @@
+import { withDetailedWork } from "../../locations/testing.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
@@ -5,6 +6,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodePath from "@effect/platform-node/NodePath";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Tracer from "effect/Tracer";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -24,9 +26,21 @@ describe("computeMaterializedTreeIntegrity", () => {
       yield* fs.writeFileString(path.join(root, "src", "a.txt"), "one\n");
       yield* fs.chmod(path.join(root, "src", "a.txt"), 0o644);
       yield* fs.symlink("src/a.txt", path.join(root, "link.txt"));
-      expect(yield* computeMaterializedTreeIntegrity(root)).toBe(
+      const spans: Tracer.NativeSpan[] = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      });
+      expect(yield* computeMaterializedTreeIntegrity(root).pipe(withDetailedWork(tracer))).toBe(
         "sha256-tree-v2:42310023912ae6c902e6d85f3181c2b6d615edd8b018f59e8c9707303be9d903",
       );
+      const hashes = spans.filter((span) => span.name === "axm.hash.materialized-tree");
+      expect(hashes).toHaveLength(1);
+      expect(hashes[0]?.attributes.get("axm.work.bytes")).toBe(13);
+      expect(hashes[0]?.attributes.get("axm.work.count")).toBe(4);
     }).pipe(Effect.scoped, Effect.provide(layer)),
   );
 

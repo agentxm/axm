@@ -1,3 +1,5 @@
+import { packIdentityFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
+import { projectionDigestFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Schema from "effect/Schema";
 import {
@@ -19,11 +21,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { afterEach, beforeEach } from "vitest";
-import { projectionOutputDigest } from "@agentxm/workspace-kernel/projection";
-import {
-  acquiredPackageRelativePath,
-  computePackManifestContentIdentity,
-} from "@agentxm/workspace-kernel/workspace-state";
+import { acquiredPackageRelativePath } from "@agentxm/workspace-kernel/workspace-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
@@ -233,7 +231,7 @@ const writeRenderedSubagent = (
   const lockPath = path.join(baseDir, "axm.lock");
   const lockfile: unknown = parseLockfileToml(fs.readFileSync(lockPath, "utf8")).document;
   const document = typeof lockfile === "object" && lockfile !== null ? lockfile : {};
-  const output = projectionOutputDigest(bytes);
+  const output = projectionDigestFixture(bytes);
   const withProjection = Schema.decodeUnknownSync(LockfileSchema)({
     ...document,
     projections: { subagents: { contract: 1, units: { [relative]: { output } } } },
@@ -286,16 +284,16 @@ const makePackRollbackFixture = (
     name: "toolkit",
     version: "1.0.0",
     dependencies: withMemberDependency ? { "@acme/skills/review": "^1.0.0" } : {},
-  } satisfies Parameters<typeof computePackManifestContentIdentity>[0];
+  } satisfies Parameters<typeof packIdentityFixture>[0];
   const availablePackManifest = {
     ...acceptedPackManifest,
     version: "2.0.0",
     dependencies: withMemberDependency ? { "@acme/skills/review": "^2.0.0" } : {},
-  } satisfies Parameters<typeof computePackManifestContentIdentity>[0];
+  } satisfies Parameters<typeof packIdentityFixture>[0];
   const divergentPackManifest = {
     ...acceptedPackManifest,
     version: "0.3.0",
-  } satisfies Parameters<typeof computePackManifestContentIdentity>[0];
+  } satisfies Parameters<typeof packIdentityFixture>[0];
   const acceptedPackSource = path.join(baseDir, "registry-fixtures", "toolkit-1");
   const availablePackSource = path.join(baseDir, "registry-fixtures", "toolkit-2");
   const acceptedSkillSource = path.join(baseDir, "registry-fixtures", "review-1");
@@ -458,7 +456,7 @@ const makePackRollbackFixture = (
         integrity: acceptedIntegrities.get("pack"),
         sourceName: "test",
         publisherBindingId: "hbnd_test",
-        manifestContentIdentity: computePackManifestContentIdentity(acceptedPackManifest),
+        manifestContentIdentity: packIdentityFixture(acceptedPackManifest),
         dependencies: acceptedPackManifest.dependencies,
         treeIntegrity: computeMaterializedTreeIntegritySync(acceptedPackSource),
       },
@@ -637,7 +635,7 @@ const makeConstraintMismatchFixture = (
         integrity: `sha512-${"A".repeat(86)}==`,
         sourceName: "test",
         publisherBindingId: "hbnd_test",
-        manifestContentIdentity: computePackManifestContentIdentity(manifests[0]),
+        manifestContentIdentity: packIdentityFixture(manifests[0]),
         dependencies: manifests[0].dependencies,
       },
       beta: {
@@ -648,7 +646,7 @@ const makeConstraintMismatchFixture = (
         integrity: `sha512-${"A".repeat(86)}==`,
         sourceName: "test",
         publisherBindingId: "hbnd_test",
-        manifestContentIdentity: computePackManifestContentIdentity(manifests[1]),
+        manifestContentIdentity: packIdentityFixture(manifests[1]),
         dependencies: manifests[1].dependencies,
       },
     },

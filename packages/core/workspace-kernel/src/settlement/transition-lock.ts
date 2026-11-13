@@ -1,4 +1,3 @@
-// @effect-diagnostics nodeBuiltinImport:off — proper-lockfile requires a callback-style fs; the adapter is confined to the lock path
 /**
  * Workspace transition lock.
  *
@@ -32,12 +31,14 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as nodeFs from "node:fs";
 import { randomBytes } from "node:crypto";
 
 import * as Deferred from "effect/Deferred";
+import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import type * as Tracer from "effect/Tracer";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -45,6 +46,7 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import * as lockfile from "proper-lockfile";
+import { makeObservedLockFileSystem } from "./native-lock-filesystem.js";
 
 import {
   NativeEntryRemoval,
@@ -135,70 +137,6 @@ export const transitionLockPath = (path: Path.Path, workspaceDir: string): strin
   path.join(workspaceDir, "tmp", TRANSITION_LOCK_FILENAME);
 
 /**
- * The filesystem handed to `proper-lockfile`. Identical to the platform fs
- * except for the transition-lock directory itself:
- *
- * - acquisition creates an empty holder file before `proper-lockfile` probes
- *   and records the directory mtime;
- * - removal clears that owned holder file before the library's non-recursive
- *   `rmdir`.
- *
- * Recording holder metadata therefore overwrites an existing file instead of
- * adding a directory entry, so it cannot change the lock directory mtime and
- * compromise the first heartbeat. The empty placeholder is also safe during
- * the narrow acquisition window: it is unreadable as holder metadata, so an
- * old finalizer can never mistake a successor's acquisition for its own.
- * Stale reclamation can remove crashed holders, while foreign content still
- * blocks removal as it always did.
- */
-const lockDirectoryFs = {
-  ...nodeFs,
-  mkdir: (target: nodeFs.PathLike, callback: nodeFs.NoParamCallback): void => {
-    if (typeof target !== "string" || !target.endsWith(TRANSITION_LOCK_FILENAME)) {
-      nodeFs.mkdir(target, callback);
-      return;
-    }
-    nodeFs.mkdir(target, (directoryError) => {
-      if (directoryError !== null) {
-        callback(directoryError);
-        return;
-      }
-      const holderPath = `${target}/holder.json`;
-      nodeFs.writeFile(holderPath, "", { flag: "wx" }, (holderError) => {
-        if (holderError === null) {
-          callback(null);
-          return;
-        }
-        // Surface the original placeholder failure after best-effort cleanup;
-        // leaving a half-created directory would turn it into false contention.
-        nodeFs.unlink(holderPath, () => {
-          nodeFs.rmdir(target, () => callback(holderError));
-        });
-      });
-    });
-  },
-  rmdir: (target: nodeFs.PathLike, callback: nodeFs.NoParamCallback): void => {
-    if (typeof target === "string" && target.endsWith(TRANSITION_LOCK_FILENAME)) {
-      nodeFs.unlink(`${target}/holder.json`, () => {
-        nodeFs.rmdir(target, callback);
-      });
-      return;
-    }
-    nodeFs.rmdir(target, callback);
-  },
-  rmdirSync: (target: nodeFs.PathLike): void => {
-    if (typeof target === "string" && target.endsWith(TRANSITION_LOCK_FILENAME)) {
-      try {
-        nodeFs.unlinkSync(`${target}/holder.json`);
-      } catch {
-        // Absent metadata blocks nothing; foreign content still blocks rmdir.
-      }
-    }
-    nodeFs.rmdirSync(target);
-  },
-};
-
-/**
  * Acquisition-error classes the bounded contention wait absorbs: the lock is
  * held (`ELOCKED`), or the attempt raced the holder's own acquire, release,
  * or staleness sweep (`ENOENT`/`EEXIST` from proper-lockfile's internal
@@ -273,9 +211,15 @@ const withoutHeld = (registry: HeldRegistry, workspaceDir: string): HeldRegistry
  * another invocation holds it. Resolves `None` when acquired (the release is
  * a scope finalizer) and `Some(contention)` when the bound elapsed.
  */
-const acquireWorkspaceTransitionLock = Effect.fnUntraced(function* (
+const acquireWorkspaceTransitionLockBody = Effect.fnUntraced(function* (
   registry: Ref.Ref<HeldRegistry>,
   args: AcquireWorkspaceTransitionArgs,
+  diagnostic: {
+    readonly attempt: Effect.Effect<void>;
+    readonly contended: Effect.Effect<void>;
+    readonly acquired: Effect.Effect<void>;
+    readonly timedOut: Effect.Effect<void>;
+  },
 ): Effect.fn.Return<
   Option.Option<TransitionContention>,
   WorkspaceTransitionAcquireFailure,
@@ -324,13 +268,15 @@ const acquireWorkspaceTransitionLock = Effect.fnUntraced(function* (
     // and the contention wait below remains interruptible.
     const attempt = yield* Effect.uninterruptible(
       Effect.gen(function* () {
+        yield* diagnostic.attempt;
+        const native = yield* makeObservedLockFileSystem;
         const granted = yield* Effect.tryPromise({
           try: () =>
             lockfile.lock(workspaceDir, {
               lockfilePath: lockPath,
               realpath: false,
               retries: 0,
-              fs: lockDirectoryFs,
+              fs: native.fs,
               stale: args.timingMillis?.stale ?? LOCK_STALE_MILLIS,
               update: args.timingMillis?.update ?? LOCK_UPDATE_MILLIS,
               // The default handler throws inside a timer: an uncatchable
@@ -348,7 +294,7 @@ const acquireWorkspaceTransitionLock = Effect.fnUntraced(function* (
               },
             }),
           catch: (cause) => ({ cause, code: errorCode(cause) }),
-        }).pipe(Effect.result);
+        }).pipe((effect) => native.during("acquire", effect), Effect.result);
         if (granted._tag === "Failure") {
           if (isContentionErrorCode(granted.failure.code)) {
             return { _tag: "held" } as const;
@@ -362,6 +308,7 @@ const acquireWorkspaceTransitionLock = Effect.fnUntraced(function* (
             }),
           } as const;
         }
+        yield* diagnostic.acquired;
         const release = granted.success;
         const token = randomBytes(16).toString("hex");
         const holderStamped = yield* writeHolder(fs, path, lockPath, {
@@ -376,7 +323,7 @@ const acquireWorkspaceTransitionLock = Effect.fnUntraced(function* (
           yield* Effect.tryPromise({
             try: () => release(),
             catch: (cause) => new TransitionLockError({ path: lockPath, step: "release", cause }),
-          }).pipe(Effect.ignore);
+          }).pipe((effect) => native.during("release", effect), Effect.ignore);
           return { _tag: "failed", error: holderStamped.failure } as const;
         }
         yield* Ref.update(registry, (current) =>
@@ -406,7 +353,7 @@ const acquireWorkspaceTransitionLock = Effect.fnUntraced(function* (
                 try: () => release(),
                 catch: (cause) =>
                   new TransitionLockError({ path: lockPath, step: "release", cause }),
-              }).pipe(Effect.result);
+              }).pipe((effect) => native.during("release", effect), Effect.result);
               // A compromised hold makes release() refuse; the directory is
               // removable only if the same token is still observable. A
               // successful release may already have admitted a successor.
@@ -420,11 +367,11 @@ const acquireWorkspaceTransitionLock = Effect.fnUntraced(function* (
                 yield* Effect.tryPromise(
                   () =>
                     new Promise<void>((resolve, reject) =>
-                      lockDirectoryFs.rmdir(lockPath, (cause) =>
+                      native.fs.rmdir(lockPath, (cause) =>
                         cause === null ? resolve() : reject(cause),
                       ),
                     ),
-                ).pipe(Effect.ignore);
+                ).pipe((effect) => native.during("cleanup", effect), Effect.ignore);
               }
             }
           }),
@@ -473,12 +420,14 @@ const acquireWorkspaceTransitionLock = Effect.fnUntraced(function* (
     // The lock is held: serialize behind the holder with a visible reason,
     // up to the bound — the loser serializes or times out into a
     // categorized blocked, never an internal crash.
+    yield* diagnostic.contended;
     const holder = yield* readHolder(fs, path, lockPath);
     if (!reportedWaiting && args.onWaiting !== undefined) {
       reportedWaiting = true;
       yield* args.onWaiting(holder);
     }
     if (waitedMillis >= waitBound) {
+      yield* diagnostic.timedOut;
       yield* removeCreatedDirectories;
       return Option.some({ holder, waitedMillis });
     }
@@ -486,6 +435,41 @@ const acquireWorkspaceTransitionLock = Effect.fnUntraced(function* (
     waitedMillis += Duration.toMillis(WAIT_INTERVAL);
   }
 });
+
+const acquireWorkspaceTransitionLock = (
+  registry: Ref.Ref<HeldRegistry>,
+  args: AcquireWorkspaceTransitionArgs,
+) =>
+  Effect.uninterruptibleMask((restore) =>
+    Effect.gen(function* () {
+      let waiting: Tracer.Span | undefined;
+      let attempts = 0;
+      const end = (
+        outcome: "acquired" | "timed-out" | "interrupted" | "failed",
+        exit: Exit.Exit<unknown, unknown>,
+      ) =>
+        Effect.gen(function* () {
+          if (waiting === undefined || waiting.status._tag === "Ended") return;
+          waiting.attribute("axm.wait.attempts", attempts);
+          waiting.attribute("axm.wait.outcome", outcome);
+          waiting.end(yield* Clock.currentTimeNanos, exit);
+        });
+      const acquisition = acquireWorkspaceTransitionLockBody(registry, args, {
+        attempt: Effect.sync(() => {
+          attempts++;
+        }),
+        contended: Effect.gen(function* () {
+          if (waiting === undefined) waiting = yield* Effect.makeSpan("axm.wait.workspace-lock");
+        }).pipe(Effect.uninterruptible),
+        acquired: end("acquired", Exit.void),
+        timedOut: end("timed-out", Exit.void),
+      });
+      // A single caller-blocked interval; native attempt spans describe adapter work inside it.
+      return yield* Effect.onExit(restore(acquisition), (exit) =>
+        end(Exit.hasInterrupts(exit) ? "interrupted" : "failed", exit),
+      );
+    }),
+  );
 
 /**
  * One process-lock instance over `proper-lockfile`, with its own registry of

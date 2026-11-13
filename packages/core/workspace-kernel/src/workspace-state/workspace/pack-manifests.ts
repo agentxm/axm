@@ -1,6 +1,6 @@
 /** Materialized Pack documents observed by desired-state evaluation. */
 import * as Context from "effect/Context";
-import type * as Effect from "effect/Effect";
+import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
@@ -70,27 +70,34 @@ const schemaIssuesOf = (issue: SchemaIssue.Issue): ReadonlyArray<PackManifestSch
 /** Interpret one Pack document's text with the same schema policy for every consumer. */
 export const decodePackManifestDocument = (
   contents: string,
-): Exclude<PackManifestObservation, { readonly status: "absent" | "unreadable" }> => {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(contents);
-  } catch {
-    return { status: "malformed" };
-  }
-  const decoded = Schema.decodeUnknownResult(PackManifestSchema)(parsed);
-  if (Result.isFailure(decoded)) {
-    return { status: "schema-invalid", issues: schemaIssuesOf(decoded.failure.issue) };
-  }
-  return {
-    status: "decoded",
-    manifest: decoded.success,
-    contentIdentity: computePackManifestContentIdentity(decoded.success),
-  };
-};
+): Effect.Effect<Exclude<PackManifestObservation, { readonly status: "absent" | "unreadable" }>> =>
+  Effect.gen(function* (): Effect.fn.Return<
+    Exclude<PackManifestObservation, { readonly status: "absent" | "unreadable" }>
+  > {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(contents);
+    } catch {
+      return { status: "malformed" };
+    }
+    const decoded = Schema.decodeUnknownResult(PackManifestSchema)(parsed);
+    if (Result.isFailure(decoded)) {
+      return { status: "schema-invalid", issues: schemaIssuesOf(decoded.failure.issue) };
+    }
+    return {
+      status: "decoded",
+      manifest: decoded.success,
+      contentIdentity: yield* computePackManifestContentIdentity(decoded.success),
+    };
+  });
 
 /** Observe a document that is absent, or whose text was read. */
-export const observePackManifest = (contents: string | undefined): PackManifestObservation =>
-  contents === undefined ? { status: "absent" } : decodePackManifestDocument(contents);
+export const observePackManifest = (
+  contents: string | undefined,
+): Effect.Effect<PackManifestObservation> =>
+  contents === undefined
+    ? Effect.succeed({ status: "absent" })
+    : decodePackManifestDocument(contents);
 
 interface LocatedPackManifest {
   readonly path: string;

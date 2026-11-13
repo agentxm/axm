@@ -5,6 +5,8 @@ import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import type * as Tracer from "effect/Tracer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
@@ -25,6 +27,22 @@ import {
 } from "./errors.js";
 import { registryRetryAfterSeconds } from "./retry-after.js";
 import { RegistryRequestAttempt } from "./request-attempt.js";
+
+/** Stable operation categories; never derived from request URLs or user input. */
+export type RegistryRequestPurpose =
+  | "index"
+  | "exact-version"
+  | "metadata"
+  | "listing"
+  | "owner"
+  | "eligibility"
+  | "download"
+  | "existence"
+  | "publish"
+  | "preview"
+  | "visibility"
+  | "discovery"
+  | "other";
 
 export interface RegistryRequestPolicy {
   readonly requestTimeout: Duration.Input;
@@ -266,6 +284,8 @@ export const executeRegistryRequest = Effect.fnUntraced(function* <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   args: {
     readonly operation: string;
+    readonly purpose?: RegistryRequestPurpose;
+    readonly batchSize?: number;
     readonly request: RegistryRequestMetadata;
     readonly replaySafety: RegistryRequestReplaySafety;
     readonly mapError: (error: E, nowMillis: number) => RegistryClientFailure;
@@ -286,13 +306,20 @@ export const executeRegistryRequest = Effect.fnUntraced(function* <A, E, R>(
     Option.none<{ readonly status: number; readonly requestId?: string }>(),
   );
   const waiting = yield* Ref.make(false);
+  const retrySpan = yield* Ref.make(Option.none<Tracer.Span>());
   const budget = yield* Effect.serviceOption(OperationRequestBudget);
   // The governed effect includes response decoding/body consumption. HTTP transport
   // spans alone end when headers arrive. Keep the permit through the full attempt.
-  const completeAttempt = effect.pipe(
-    Effect.timeout(policy.requestTimeout),
-    Effect.withSpan("axm.registry.attempt"),
-  );
+  const completeAttempt = Effect.gen(function* () {
+    const active = yield* RegistryRequestAttempt;
+    yield* Effect.annotateCurrentSpan({
+      "axm.registry.attempt": active.n,
+      "axm.registry.max-attempts": active.of,
+      "axm.registry.purpose": args.purpose ?? "other",
+      "axm.work.executed": 1,
+    });
+    return yield* effect;
+  }).pipe(Effect.timeout(policy.requestTimeout), Effect.withSpan("axm.registry.attempt"));
   const attempt = Option.match(budget, {
     onNone: () => completeAttempt,
     onSome: (service) => service.withAttempt(new URL(args.request.url).origin, completeAttempt),
@@ -301,22 +328,26 @@ export const executeRegistryRequest = Effect.fnUntraced(function* <A, E, R>(
     onNone: () => undefined,
     onSome: (observer) => ({ observer, requestId: globalThis.crypto.randomUUID() }),
   });
-  const endRetryWait = Effect.uninterruptible(
-    Ref.getAndSet(waiting, false).pipe(
-      Effect.flatMap((wasWaiting) =>
-        wasWaiting && retrySession !== undefined
-          ? retrySession.observer.ended(retrySession.requestId)
-          : Effect.void,
-      ),
-    ),
-  );
+  const endRetryWait = (exit: Exit.Exit<unknown, unknown> = Exit.void) =>
+    Effect.uninterruptible(
+      Effect.gen(function* () {
+        const span = yield* Ref.getAndSet(retrySpan, Option.none());
+        if (Option.isSome(span)) {
+          const now = yield* Clock.currentTimeNanos;
+          span.value.end(now, exit);
+        }
+        const wasWaiting = yield* Ref.getAndSet(waiting, false);
+        if (wasWaiting && retrySession !== undefined)
+          yield* retrySession.observer.ended(retrySession.requestId);
+      }),
+    );
   const countedAttempt = Ref.updateAndGet(attempts, (count) => count + 1).pipe(
     Effect.flatMap((n) =>
       Effect.gen(function* () {
         const requestId = globalThis.crypto.randomUUID();
         yield* Ref.set(lastRequestId, Option.some(requestId));
         yield* Ref.set(lastResponse, Option.none());
-        yield* endRetryWait;
+        yield* endRetryWait();
         return yield* Effect.provideService(attempt, RegistryRequestAttempt, {
           n,
           of: attemptLimit,
@@ -326,21 +357,36 @@ export const executeRegistryRequest = Effect.fnUntraced(function* <A, E, R>(
       }),
     ),
   );
-  const onRetryWaiting =
-    retrySession === undefined
-      ? undefined
-      : (retry: Pick<RegistryRetryWait, "nextAttempt" | "maxAttempts" | "delayMillis">) =>
-          Effect.uninterruptible(
-            retrySession.observer
-              .waiting({ ...retry, requestId: retrySession.requestId, operation: args.operation })
-              .pipe(Effect.andThen(Ref.set(waiting, true))),
-          );
+  const onRetryWaiting = (
+    retry: Pick<RegistryRetryWait, "nextAttempt" | "maxAttempts" | "delayMillis">,
+  ) =>
+    Effect.uninterruptible(
+      Effect.gen(function* () {
+        const span = yield* Effect.makeSpan("axm.registry.retry-wait", {
+          attributes: {
+            "axm.registry.attempt": retry.nextAttempt,
+            "axm.registry.max-attempts": retry.maxAttempts,
+            "axm.registry.purpose": args.purpose ?? "other",
+            "axm.wait.milliseconds": retry.delayMillis,
+          },
+        });
+        yield* Ref.set(retrySpan, Option.some(span));
+        if (retrySession !== undefined) {
+          yield* retrySession.observer.waiting({
+            ...retry,
+            requestId: retrySession.requestId,
+            operation: args.operation,
+          });
+          yield* Ref.set(waiting, true);
+        }
+      }),
+    );
   const executed = replaySafe
     ? countedAttempt.pipe(Effect.retry(retrySchedule(policy, args.operation, onRetryWaiting)))
     : countedAttempt;
 
   return yield* executed.pipe(
-    Effect.ensuring(endRetryWait),
+    Effect.onExit((exit) => endRetryWait(exit)),
     Effect.timeout(policy.totalDeadline),
     Effect.catch((error) =>
       Ref.get(attempts).pipe(
@@ -384,6 +430,7 @@ export const executeRegistryRequest = Effect.fnUntraced(function* <A, E, R>(
                   deadlineExpired,
                   ...(response === undefined ? {} : { response }),
                 });
+                yield* Effect.annotateCurrentSpan("axm.failure.category", finalFailure.category);
                 const observer = yield* Effect.serviceOption(RegistryFailureObservation);
                 if (Option.isSome(observer))
                   yield* observer.value
@@ -396,6 +443,12 @@ export const executeRegistryRequest = Effect.fnUntraced(function* <A, E, R>(
         ),
       ),
     ),
-    Effect.withSpan("axm.registry.request"),
+    Effect.withSpan("axm.registry.request", {
+      attributes: {
+        "axm.registry.purpose": args.purpose ?? "other",
+        "axm.registry.batch-size": args.batchSize ?? 1,
+        "axm.work.requested": 1,
+      },
+    }),
   );
 });

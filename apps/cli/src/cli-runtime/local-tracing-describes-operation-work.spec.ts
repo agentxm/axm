@@ -48,11 +48,12 @@ describe("Local operation traces", () => {
         ).toEqual(["prepared", "prepared"]);
         expect(executions).toBe(1);
         const spans = receiver.spans();
-        expect(spans.map((span) => span.name).sort()).toEqual([
-          "axm.archive.admit",
-          "axm.cli.invocation",
-          "axm.publish.prepare",
-        ]);
+        expect(
+          spans
+            .filter((span) => span.name !== "axm.work.summary")
+            .map((span) => span.name)
+            .sort(),
+        ).toEqual(["axm.archive.admit", "axm.cli.invocation", "axm.publish.prepare"]);
         const root = spans.find((span) => span.name === "axm.cli.invocation");
         const phase = spans.find((span) => span.name === "axm.publish.prepare");
         const actual = spans.find((span) => span.name === "axm.archive.admit");

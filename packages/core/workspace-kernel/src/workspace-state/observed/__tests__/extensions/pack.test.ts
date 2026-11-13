@@ -47,32 +47,34 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
   // Run the lockfile through the canonical decoder so branded fields
   // (HandleSchema, ExtensionNameSchema, VersionSchema,
   // ExtensionFqnSchema) carry the correct brands.
-  decodedLockfile({
-    lockfileVersion: 1,
-    skills: {},
-    packs: {
-      [packName]: {
-        source: { type: "registry", url: "https://registry.agentxm.ai" },
-        identity: { owner: "@team", name: packName },
-        resolved: {
-          version: "1.0.0",
-          integrity:
-            "sha512-cXXgA8uxZoZ1YvFr4QA4ILzGJ9UU6EolC4va8HH0srfUPnxWGuxYGzGHab+JZxbFzWYClfvO2FHzcxhZ7HhXTA==",
-          publisherBindingId: "hbnd_test",
-        },
-        manifestVersion: "1.0.0",
-        manifestContentIdentity: computePackManifestContentIdentity({
-          type: "pack",
-          owner: decodeHandleSync("@team"),
-          name: packName,
-          version: decodeVersionSync("1.0.0"),
+  Effect.gen(function* () {
+    return yield* decodedLockfile({
+      lockfileVersion: 1,
+      skills: {},
+      packs: {
+        [packName]: {
+          source: { type: "registry", url: "https://registry.agentxm.ai" },
+          identity: { owner: "@team", name: packName },
+          resolved: {
+            version: "1.0.0",
+            integrity:
+              "sha512-cXXgA8uxZoZ1YvFr4QA4ILzGJ9UU6EolC4va8HH0srfUPnxWGuxYGzGHab+JZxbFzWYClfvO2FHzcxhZ7HhXTA==",
+            publisherBindingId: "hbnd_test",
+          },
+          manifestVersion: "1.0.0",
+          manifestContentIdentity: yield* computePackManifestContentIdentity({
+            type: "pack",
+            owner: decodeHandleSync("@team"),
+            name: packName,
+            version: decodeVersionSync("1.0.0"),
+            dependencies: {},
+          }),
           dependencies: {},
-        }),
-        dependencies: {},
-        treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
+          treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
+        },
       },
-    },
-  }).pipe(Effect.orDie);
+    }).pipe(Effect.orDie);
+  });
 
 describe("makePackExtensionsApi", () => {
   it.effect("declared parses packs from settings", () =>

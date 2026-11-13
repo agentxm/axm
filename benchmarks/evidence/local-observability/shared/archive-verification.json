@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "archive": "/tmp/axm-shared-observability-evidence-knfv1c0t/shared-observability-evidence.tar.gz",
+  "sha256": "52be229a5f75879bf639037b6f7bda7062e965432d3ec648aff0ff812d3658d5",
+  "bytes": 246187,
+  "members": 143,
+  "deterministicRebuildEqual": true,
+  "everyMemberReadbackMatched": true,
+  "sha256SumsMatched": true,
+  "finalAllMemberPrivacyPatternAudit": "passed",
+  "privateOriginalsExcluded": true,
+  "rawCiDirectory": "/tmp/axm-shared-observability-evidence-knfv1c0t/private-originals",
+  "limits": [
+    "Readiness temporary raw receipt/retrieval intentionally removed by its workflow; successful parsed inspection retained.",
+    "Owner logs do not independently identify tested source by hash; clean checkpoint association and immutable source snapshots retained without inventing provenance.",
+    "macOS/ARM64 individual raw stdout logs not supplied; original job/step status metadata retained."
+  ]
+}

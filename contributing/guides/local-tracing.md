@@ -548,7 +548,10 @@ other output, input and state field remains strict. This output-only check also
 runs in timing without a native filesystem audit.
 
 The enabled-native adoption refusal fixture retains its generated diagnostic
-record before comparison. Preflight binds the printed UUID to the single
+record before comparison. It uses the existing Codex configuration and checks
+one exact native symlink before execution, avoiding competing first failures
+from separate projection targets. Successful adoption fixtures keep their own
+configuration. Preflight binds the printed UUID to the single
 restricted diagnostic file and expected refusal, validates occurrence/history
 times against the invocation, then projects only those UUID/time fields and
 the exact diagnostic filename. Failure semantics, causes, history order and

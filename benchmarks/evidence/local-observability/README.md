@@ -32,6 +32,9 @@ identities, exact receipt/receiver payloads and independent fixture observations
 Readable manifests record every payload hash and the omission of unrelated host
 process snapshots. Original failed reports stay failed; fixture-only reports do
 not claim complete timing campaigns. Additional replay evidence remains separate.
+The [shared verification archive](shared/README.md) retains the applicable Seq,
+authenticated-capture, shutdown, platform and owner evidence, with explicit
+source-attestation and log-projection limits.
 
 ### Current verification checkpoint
 

@@ -1,0 +1,996 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "f880000accce050c062c1b0000700599600b6147bc95b0c6e394c119c8d1b8e0",
+      "bytes": 8223,
+      "source": "generated bounded evidence index",
+      "kind": "index-or-audit"
+    },
+    {
+      "path": "authenticated-readiness/exit-status",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2,
+      "source": "/tmp/axm-seq-auth-final-readiness-oNT2m9o8/exit-status",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "authenticated-readiness/health.log",
+      "sha256": "e04f45c64d4f4c6983e84d0799bc6c09df449a3891526e8097531984c639bd82",
+      "bytes": 40,
+      "source": "/tmp/axm-seq-auth-final-readiness-oNT2m9o8/health.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "authenticated-readiness/identity-e2e.log",
+      "sha256": "1058da0ed791b5cd89beb72daf0f62f1198c8bd249e8df184026c19a3af3054a",
+      "bytes": 10609,
+      "source": "/tmp/axm-seq-auth-final-readiness-oNT2m9o8/identity-e2e.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "authenticated-readiness/readiness.log",
+      "sha256": "6bff39d3272aef4971f81d679f157d9c0a2a7621fa827e40338c72829b2f7a17",
+      "bytes": 3914,
+      "source": "/tmp/axm-seq-auth-final-readiness-oNT2m9o8/readiness.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "authenticated-readiness/remove.log",
+      "sha256": "9e0b256ac7334ee1037ce841c5fd2656829d983c07b831b76371eadaa5318ec6",
+      "bytes": 27,
+      "source": "/tmp/axm-seq-auth-final-readiness-oNT2m9o8/remove.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "authenticated-readiness/source-revision",
+      "sha256": "6d10c46a26e48b5dcdaa8f3bd261670bf526dd49ec05f8ab4744b97a44eb9c36",
+      "bytes": 41,
+      "source": "/tmp/axm-seq-auth-final-readiness-oNT2m9o8/source-revision",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "authenticated-readiness/stop.log",
+      "sha256": "9e0b256ac7334ee1037ce841c5fd2656829d983c07b831b76371eadaa5318ec6",
+      "bytes": 27,
+      "source": "/tmp/axm-seq-auth-final-readiness-oNT2m9o8/stop.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "claim-index.json",
+      "sha256": "c48588f4cfba529c45836bc699fcb002bf914783e2d0804f254824c7dc3d7204",
+      "bytes": 27129,
+      "source": "assembled from explicitly listed retained evidence",
+      "kind": "claim-index"
+    },
+    {
+      "path": "logs/observability-final-seq-suite.log",
+      "sha256": "e4feb64060980e1ee83d1168b87f674f952491ab06e7ffbea9ba09a22d64eb68",
+      "bytes": 10979,
+      "source": "/tmp/observability-final-seq-suite.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "metadata/seq-suite-candidate.json",
+      "sha256": "34298274d2371154f6541cef8eee1c742596a375d98955945f55466feb986d1a",
+      "bytes": 248,
+      "source": "/tmp/axm-observability-final-mdkja07w/candidate.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "metadata/shutdown-evaluation.json",
+      "sha256": "6af03b5a1747dd597939d2e5048ec63457424de67681ee125987dd1e06f8ac75",
+      "bytes": 914,
+      "source": "/tmp/axm-observability-final-mdkja07w/shutdown-evaluation.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "owners/observability-cache-prune-bridge.log",
+      "sha256": "1eda96aeb0af00270eb2ed71b274868314639011ded380ab50880e0859db7db1",
+      "bytes": 7237,
+      "source": "/tmp/observability-cache-prune-bridge.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "owners/observability-cache-prune-checks.log",
+      "sha256": "1b10803a8969e0e6423ad562b1ce06f90c2bb106e2c798e6ddacca90eb095fc9",
+      "bytes": 12131,
+      "source": "/tmp/observability-cache-prune-checks.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "owners/observability-cache-prune-method.log",
+      "sha256": "53b380faba8be71dcf749641881b5629c0648935b2e70457228dbfae85e2d879",
+      "bytes": 11766,
+      "source": "/tmp/observability-cache-prune-method.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "owners/observability-cache-prune-owner3.log",
+      "sha256": "f46a3e1dd938fa9f9b33b418bcee736e8c115697fa50df00dd044e0bf244ed02",
+      "bytes": 3561,
+      "source": "/tmp/observability-cache-prune-owner3.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "owners/observability-knowledge-and-byte-owner.log",
+      "sha256": "6347e1483e82b73c7f49e2ae1d4befa3ea5f12116273050d2b577d0ad7e17624",
+      "bytes": 7331,
+      "source": "/tmp/observability-knowledge-and-byte-owner.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "owners/observability-knowledge-handler2.log",
+      "sha256": "6f4a8c39e8633bc824344eb0e514016c40799f3a77260223e1a2ac4a98bfa5cb",
+      "bytes": 7041,
+      "source": "/tmp/observability-knowledge-handler2.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "owners/observability-knowledge-typecheck2.log",
+      "sha256": "2671df56e2046cf9a808b4f53b2670fe5cee0bc53b48479b5b3f93289bf7865f",
+      "bytes": 11487,
+      "source": "/tmp/observability-knowledge-typecheck2.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "owners/observability-prepared-receipt-tests.log",
+      "sha256": "9d7586d8c707eda55f6433fb6719492c6d9fc491619e1241e31962172b4d816e",
+      "bytes": 11782,
+      "source": "/tmp/observability-prepared-receipt-tests.log",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "platform/axm-linux-x64-ci-43364797814-job131687353495.public-projection.log",
+      "sha256": "ef0efbbe2b78beaaffdc98ee3b2a71d50e61f54c1a3e76bed33a78c58236245f",
+      "bytes": 91414,
+      "source": "/tmp/axm-linux-x64-ci-43364797814-job131687353495.log",
+      "kind": "explicit-public-projection"
+    },
+    {
+      "path": "platform/axm-windows-ci-43364797814-job131687353524.public-projection.log",
+      "sha256": "2d82c0a507d0731b5574ec91e26378d2970d46ed2ffd4dcf2b2e44b98e8676f0",
+      "bytes": 117213,
+      "source": "/tmp/axm-windows-ci-43364797814-job131687353524.log",
+      "kind": "explicit-public-projection"
+    },
+    {
+      "path": "platform/native-platform-steps.json",
+      "sha256": "c8ccd5e7a1a19d82022e8d4b0b1032c3160f4f18f56569e5e2aa1852c8a00643",
+      "bytes": 3617,
+      "source": "/tmp/axm-native-platform-ci-43364797814-steps.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "privacy-audit.json",
+      "sha256": "af6ee2a02112a8966a6370719a0bf69f3910869dcb34139445523d99698c22cb",
+      "bytes": 2020,
+      "source": "generated bounded evidence index",
+      "kind": "index-or-audit"
+    },
+    {
+      "path": "redaction-manifest.json",
+      "sha256": "46e96d91fb3e50194677cb239bc07a01ee9492db2c4faeff2097c5b4461b0b9f",
+      "bytes": 4654,
+      "source": "exact raw CI inputs listed per record",
+      "kind": "redaction-manifest"
+    },
+    {
+      "path": "seq/body-hold-WACoyj/expected.json",
+      "sha256": "166957dcecf2b5695736ff165bc60a3ca1ba5d5aedd67a6c763f623055f24c8a",
+      "bytes": 238,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/body-hold-WACoyj/expected.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/body-hold-WACoyj/inspection.json",
+      "sha256": "aef116cd875eb52ac31fad6e1b2258daaeb2c1073ee1c9e2ea5b5d9b8594e4a4",
+      "bytes": 17308,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/body-hold-WACoyj/inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/body-hold-WACoyj/oracle.json",
+      "sha256": "1439f2d1c2078e00215a0398e0f8c091517e68ddc71ab46699df002d3afe8ab9",
+      "bytes": 1758,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/body-hold-WACoyj/oracle.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/body-hold-WACoyj/output.json",
+      "sha256": "af77d7ff7c0341f57c36e5be2dc940ceefc96e20a5b386828e599091c1f97762",
+      "bytes": 2268,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/body-hold-WACoyj/output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/body-hold-WACoyj/receipt.json",
+      "sha256": "ef9f1ed569850f54c8ecb6a2732e90e1ab4078f7e4789dd5158e83f02e28e14c",
+      "bytes": 896,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/body-hold-WACoyj/receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/body-hold-WACoyj/receipt.json.inspection.json",
+      "sha256": "16d376a3a3f7ac9de7f61cb395630c27ebbefff3d63f8ca0272cbb4326a8a9c5",
+      "bytes": 17675,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/body-hold-WACoyj/receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/body-hold-WACoyj/tree.json",
+      "sha256": "e452608bf5c1262b6bb859ade3166b772c3b2643893457ccecd2b7507ae84da2",
+      "bytes": 29310,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/body-hold-WACoyj/tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/collector-failure-SZKIwR/reject.inspection.json",
+      "sha256": "85001798d3b56793191551474a14a5fa4a7d19d7e4bd9d7cad959adc1bc5e4ae",
+      "bytes": 124,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/collector-failure-SZKIwR/reject.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/collector-failure-SZKIwR/reject.oracle.json",
+      "sha256": "b38d2374289dcf8f7ac5d743e394d751122d7d9dd473f96f448a50d429488372",
+      "bytes": 2071,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/collector-failure-SZKIwR/reject.oracle.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/collector-failure-SZKIwR/reject.output.json",
+      "sha256": "3b1fc12300467f496321a1972198cbf725e7eb1194ce2473aed4da1b2e4988f5",
+      "bytes": 2265,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/collector-failure-SZKIwR/reject.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/collector-failure-SZKIwR/reject.receipt.json",
+      "sha256": "b591fdcaa85b1fafbbdd1a63ada781c7e4942dd279c2c87c20a7ea9c747dcd5e",
+      "bytes": 895,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/collector-failure-SZKIwR/reject.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/collector-failure-SZKIwR/stall.inspection.json",
+      "sha256": "85001798d3b56793191551474a14a5fa4a7d19d7e4bd9d7cad959adc1bc5e4ae",
+      "bytes": 124,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/collector-failure-SZKIwR/stall.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/collector-failure-SZKIwR/stall.oracle.json",
+      "sha256": "a53dbc63c6b89d0fcbcdba156aca5b724034f9b31487dfee199a299e05bb527a",
+      "bytes": 2074,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/collector-failure-SZKIwR/stall.oracle.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/collector-failure-SZKIwR/stall.output.json",
+      "sha256": "963b2d45e38558e2e3939980bd4a1455103b19f299a08394bb0ee61a1bd737a4",
+      "bytes": 2265,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/collector-failure-SZKIwR/stall.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/collector-failure-SZKIwR/stall.receipt.json",
+      "sha256": "a8ebf76ced6bd2e34ff16fc1595ffc31d6b09ea00c55458092675f897297fe96",
+      "bytes": 897,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/collector-failure-SZKIwR/stall.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/batch-0.otlp",
+      "sha256": "4b9af955f1030048392e96a8c7e4513b51737b65e77baa1264b1eab842f1bdb6",
+      "bytes": 2058,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/batch-0.otlp",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/batch-1.otlp",
+      "sha256": "90b04d5ffc738b52c89d4b8a841f19a35d33f70ebd3e9191ae57be97024337e4",
+      "bytes": 25206,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/batch-1.otlp",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/batch-2.otlp",
+      "sha256": "313a8e0631743385e78efc5eca423962ee43f48afe25b77e6b4176bf7cc26776",
+      "bytes": 3859,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/batch-2.otlp",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/complete.inspection.json",
+      "sha256": "9832e74462e6b226a40115f44195e586b7b0ae1868a620131bc46ae2f1eb4966",
+      "bytes": 33150,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/complete.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/complete.receipt.json",
+      "sha256": "ac7346dca771477aa2edadd32ede08d355952d22b77956a159e2f79b83638c8f",
+      "bytes": 895,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/complete.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/complete.receipt.json.inspection.json",
+      "sha256": "aaed1959720523ec17b270d8c422eef192ae3cc102c46f79a9a672a58a5dc38d",
+      "bytes": 33885,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/complete.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/complete.tree.json",
+      "sha256": "14bdb9385ea292971e253bd47939e33ef024a6194393c2b426a364f66395751d",
+      "bytes": 59577,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/complete.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/dropped.receipt.json",
+      "sha256": "3495c79e45e2f4d18a4d58bfde3516a7c1b112f6b10d5d3360c04ef757d30bb2",
+      "bytes": 897,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/dropped.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/dropped.tree.json",
+      "sha256": "ff30ebecb5a0da5ac073cbf657b964165ca14b6e682e8f0d9bb087f6f97f6c2e",
+      "bytes": 53388,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/dropped.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/duplicate-wait.json",
+      "sha256": "91686cec6aa66642754873de5ec450b69016438c7e693a973e481905a372a6b9",
+      "bytes": 51,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/duplicate-wait.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/expected.json",
+      "sha256": "7c3f1758c5d0e9f2181bf8673aaaa3b24e6ded079433fca501f8d052e4aafe2e",
+      "bytes": 111,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/expected.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/inspection.json",
+      "sha256": "5e9ccea90516b5ccf719ade610f8fcc8f5bc16149f9a7221f20f0e35818256ea",
+      "bytes": 147,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/dropped-batch-LVeQr5/oracle.json",
+      "sha256": "2f8236a9e4a61d503a1d5086942e65ef5411aec283f575bf59cb0ebac2d225b5",
+      "bytes": 596,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/dropped-batch-LVeQr5/oracle.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/forced-kill-RWN96b/inspection.json",
+      "sha256": "3bade5585c7fa3420b33c3954ff884902936901a53d3acc20c95ebb76c576c07",
+      "bytes": 127,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/forced-kill-RWN96b/inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/forced-kill-RWN96b/oracle.json",
+      "sha256": "73339c69230d5ec4c220a24b385c721ca6b5186a01e0455e0cfcd38af0a60fc7",
+      "bytes": 440,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/forced-kill-RWN96b/oracle.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/forced-kill-RWN96b/unfinished.receipt.json",
+      "sha256": "894572ab02459ce7700775ddc6d3c22b169afdafa202716e06fea073a15b7abb",
+      "bytes": 753,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/forced-kill-RWN96b/unfinished.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/baselines.json",
+      "sha256": "ba102011dc76acc6f6e36dbb67c3f0f3e2d92574e851bbdfd2218215c15b2fe3",
+      "bytes": 2245,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/baselines.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/compiled-detail.inspection.json",
+      "sha256": "23d54457dbe03cbc99ddcad437fe6123143c8a8d7fc8ddbc614b3f444b4aff8e",
+      "bytes": 17276,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/compiled-detail.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/compiled-detail.output.json",
+      "sha256": "fd4f11fdf0c1d5ce3b05bd8022617f2b437b45387baaa16bd8f3280d08d290b0",
+      "bytes": 1121,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/compiled-detail.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/compiled-detail.receipt.json",
+      "sha256": "99f3f3b6bf31cdec89eb04bc6bace0cc48bd6bd0bd0dcce203bddff465bfad9e",
+      "bytes": 899,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/compiled-detail.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/compiled-detail.receipt.json.inspection.json",
+      "sha256": "b6f9a6c33b673cbcb7ffe0a106d7846aac8f3ef27a80a39532014cbb399f94f8",
+      "bytes": 17643,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/compiled-detail.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/compiled-detail.tree.json",
+      "sha256": "2a3f57954d548f34f88c68e5f0e15e181dcc5162d58f4faf050482bbeb04511d",
+      "bytes": 44240,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/compiled-detail.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/compiled-summary.inspection.json",
+      "sha256": "bd9ca64ff2a1cc97aeed3efac6d1739e5f952b4b7e2c2ba3fb7e14188871efb4",
+      "bytes": 17273,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/compiled-summary.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/compiled-summary.output.json",
+      "sha256": "5b349a41570ee4ae252ce0287bf852a63da22fd32d9f9251ac4f02917928098c",
+      "bytes": 1121,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/compiled-summary.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/compiled-summary.receipt.json",
+      "sha256": "3dfadafd27bf6e0db2c6b06770d48c34f8379439b894d4b3a35025361bfaac0c",
+      "bytes": 895,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/compiled-summary.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/compiled-summary.receipt.json.inspection.json",
+      "sha256": "a0ca18951a6406e63733bae47ee98052d4e770d59891b4a0c76ff7b8a832fc1e",
+      "bytes": 17639,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/compiled-summary.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/compiled-summary.tree.json",
+      "sha256": "2413a9be1dcdeba12293c8b877328e8ea48dae5b6258a14d381e86e401a35e97",
+      "bytes": 29281,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/compiled-summary.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/duplicate-work.json",
+      "sha256": "91686cec6aa66642754873de5ec450b69016438c7e693a973e481905a372a6b9",
+      "bytes": 51,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/duplicate-work.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/expected.json",
+      "sha256": "166957dcecf2b5695736ff165bc60a3ca1ba5d5aedd67a6c763f623055f24c8a",
+      "bytes": 238,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/expected.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/missing-owner.json",
+      "sha256": "c4a9e97c7265f0024796166ca6994073845132bdbf1669622327549a237b6509",
+      "bytes": 46,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/missing-owner.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/oracle.json",
+      "sha256": "29e5d839f5efc6d247fb29ce3718a5ab3aff0aca666fd0cd13bda9a7170099a7",
+      "bytes": 52738,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/oracle.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/relay.json",
+      "sha256": "8286883814fe82b4c1e10e4195431978afdb1fc580c5fd5a0b23e8e6c00c7c85",
+      "bytes": 630,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/relay.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/source-detail.inspection.json",
+      "sha256": "ccf9429ac6f26f72afb6f844c4411abd7974422904e2f0892892f84ecf8ac154",
+      "bytes": 17281,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/source-detail.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/source-detail.output.json",
+      "sha256": "758f6b0a31af328d221b7b148bbd741f01f769fff252914c3a5df19a905d7db6",
+      "bytes": 1121,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/source-detail.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/source-detail.receipt.json",
+      "sha256": "b9e0f7d850bf1e5f781a266c9376ad1a0a8f52a60513ef59b7b0fe2e0abb959e",
+      "bytes": 904,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/source-detail.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/source-detail.receipt.json.inspection.json",
+      "sha256": "074050ec247f3d2904ce4700f6558fcbe67a8f628d1a52b5a3821c8df8c13e95",
+      "bytes": 17655,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/source-detail.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/source-detail.tree.json",
+      "sha256": "4a756ce4c39c506f20b9f9bb9b60ce278c0f9c26d6cf70ea7146c6f3e4503d5d",
+      "bytes": 44112,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/source-detail.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/source-summary.inspection.json",
+      "sha256": "c03951df6f4251ad1e0a6367fe786db7c9dff904efb9824b0f4389d4da9811d7",
+      "bytes": 17280,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/source-summary.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/source-summary.output.json",
+      "sha256": "a2b5f05e68e9c41a45d40630819e4988b54f000cab347a8deae406392324205e",
+      "bytes": 1121,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/source-summary.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/source-summary.receipt.json",
+      "sha256": "e0d453d385937e4996624b8f88a75a11549c052fc8cdeac0010067ab4fca3991",
+      "bytes": 901,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/source-summary.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/source-summary.receipt.json.inspection.json",
+      "sha256": "bd8a008d570e8581e71842ebb6b95252027672979751d154040c40a306d147f5",
+      "bytes": 17654,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/source-summary.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/source-summary.tree.json",
+      "sha256": "0a51450b99e1caf75a5f81f74ba44acf1a38efb538ed78b3816d66863e781001",
+      "bytes": 29201,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/source-summary.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/truncate.json",
+      "sha256": "3272306f1c9d4d370c90c4cc30d49574f79210410a6f6e53c6479e2f1079d8f5",
+      "bytes": 48,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/truncate.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-joOdNf/wrong-owner.json",
+      "sha256": "91686cec6aa66642754873de5ec450b69016438c7e693a973e481905a372a6b9",
+      "bytes": 51,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-joOdNf/wrong-owner.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/baselines.json",
+      "sha256": "fe465766995cec9582a969d6a92e3c79df7e31275cc9a0af6b72b85a6a17b79e",
+      "bytes": 2245,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/baselines.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/compiled-detail.inspection.json",
+      "sha256": "c8d56f71359963e7fd04a473ca7a47691c18b952707e61dce0dfd1110281417f",
+      "bytes": 17283,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/compiled-detail.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/compiled-detail.output.json",
+      "sha256": "0784b417dcc9940deefc196973a0a8887a9e4350f0132c8c346888020d648796",
+      "bytes": 1121,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/compiled-detail.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/compiled-detail.receipt.json",
+      "sha256": "70e134ec49ef464893e333e3b5a6e5727fe7db88958a86a88d8999d6e9605627",
+      "bytes": 907,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/compiled-detail.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/compiled-detail.receipt.json.inspection.json",
+      "sha256": "de5dab4876f74063dea5d799aa7fcaa0b565ced507fd4c1cefadc4bae064a6de",
+      "bytes": 17658,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/compiled-detail.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/compiled-detail.tree.json",
+      "sha256": "b845673c1d452f68adcfdd7f56cc296658377dd035385b98e2be8e360fb2502a",
+      "bytes": 44243,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/compiled-detail.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/compiled-summary.inspection.json",
+      "sha256": "25b0a45bd802d6a6c402cbaba75e7d79215870332bee0b0d757ec461451ba85a",
+      "bytes": 17269,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/compiled-summary.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/compiled-summary.output.json",
+      "sha256": "e742b305b83759dbd2767d3eda59add82cdf1d23e7961723fffa7e23844e5e30",
+      "bytes": 1121,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/compiled-summary.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/compiled-summary.receipt.json",
+      "sha256": "240a5a793d02cbc4d61a506ffc67b6ba3b65bfc6dcc537e87676d0614199bb3f",
+      "bytes": 886,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/compiled-summary.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/compiled-summary.receipt.json.inspection.json",
+      "sha256": "94e7d0125b051bab79d2d62c752a5b14f77154eb4c7c95be1aa411d7670e9f4f",
+      "bytes": 17626,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/compiled-summary.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/compiled-summary.tree.json",
+      "sha256": "be132b980563c9fcd3841e43867a9d5b5e6f68623f254b9bc9df31a301a1feca",
+      "bytes": 29275,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/compiled-summary.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/duplicate-work.json",
+      "sha256": "91686cec6aa66642754873de5ec450b69016438c7e693a973e481905a372a6b9",
+      "bytes": 51,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/duplicate-work.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/expected.json",
+      "sha256": "166957dcecf2b5695736ff165bc60a3ca1ba5d5aedd67a6c763f623055f24c8a",
+      "bytes": 238,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/expected.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/missing-owner.json",
+      "sha256": "c4a9e97c7265f0024796166ca6994073845132bdbf1669622327549a237b6509",
+      "bytes": 46,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/missing-owner.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/oracle.json",
+      "sha256": "28d63a2525f0fc6b4fd3388f8d661f9e384f76bac79c37b6e73f4ba4b9a1f9dd",
+      "bytes": 52738,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/oracle.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/relay.json",
+      "sha256": "ab1efa4e90a384c8a9e0c21f81ab22e2df15739792323761c3325aac21359397",
+      "bytes": 630,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/relay.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/source-detail.inspection.json",
+      "sha256": "0043dd0a66190dc1d00715ac0af81a807543c0a272d40b15a207a9634d1df616",
+      "bytes": 17301,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/source-detail.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/source-detail.output.json",
+      "sha256": "30e9de88e0a7ddaf0c63fa3a5674f12007b31000d458b278045526c710f166e3",
+      "bytes": 1121,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/source-detail.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/source-detail.receipt.json",
+      "sha256": "0a7d93c0939243cda2865ae7607f49843b8f9004a2765611cf5eff238f3ce5b7",
+      "bytes": 897,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/source-detail.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/source-detail.receipt.json.inspection.json",
+      "sha256": "5c2695151cdcd4959c430449605b4d9a6e83fa7220151c9d72a820a4b2ec3bf8",
+      "bytes": 17668,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/source-detail.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/source-detail.tree.json",
+      "sha256": "f8933d1a3a310c5cf9ac75664d318bf524bff3c44259bfacc57095255a542e07",
+      "bytes": 44119,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/source-detail.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/source-summary.inspection.json",
+      "sha256": "425c521df7a7aec2a8562716402d0d37677b0a7aa4c85ad76d08b8cc671d9874",
+      "bytes": 17278,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/source-summary.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/source-summary.output.json",
+      "sha256": "a9ad70613aad015e0e21cf663ceb838bd4c46e5137c2d9b9bd1f5025c3ea8c3e",
+      "bytes": 1121,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/source-summary.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/source-summary.receipt.json",
+      "sha256": "5bad041a1193d1a5d702d6275bdf2714708cb09c7581f54b3eaf9f39ff9f28c9",
+      "bytes": 902,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/source-summary.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/source-summary.receipt.json.inspection.json",
+      "sha256": "9f7a583aa7b3f21341725968851ea0da7d715b994c46555fee86471f1d956174",
+      "bytes": 17653,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/source-summary.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/source-summary.tree.json",
+      "sha256": "97ed964c72060ff29873cdfa9f42c01e0cb69ece114607dbf90ccbc70f217425",
+      "bytes": 29199,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/source-summary.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/truncate.json",
+      "sha256": "3272306f1c9d4d370c90c4cc30d49574f79210410a6f6e53c6479e2f1079d8f5",
+      "bytes": 48,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/truncate.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/identity-kU7byI/wrong-owner.json",
+      "sha256": "91686cec6aa66642754873de5ec450b69016438c7e693a973e481905a372a6b9",
+      "bytes": 51,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/identity-kU7byI/wrong-owner.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/compiled.inspection.json",
+      "sha256": "8999484d46010cec7d22cc42752c9ba3032d0e6df8a7d9df7f7f5fdf5c217052",
+      "bytes": 47271,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/compiled.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/compiled.output.json",
+      "sha256": "8226270f2fcded61ee0a6e813d297ecdab6779816eab32d8583cc815854bccbe",
+      "bytes": 8795,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/compiled.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/compiled.receipt.json",
+      "sha256": "349243c67a91c2ff8a4e2903559ca13817903383aa222eeb0dd48dcf496f44b2",
+      "bytes": 900,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/compiled.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/compiled.receipt.json.inspection.json",
+      "sha256": "a9738f219956315ced3dd13389a5096b35cda0e3e746ec352c114f959eeb4446",
+      "bytes": 47789,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/compiled.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/compiled.tree.json",
+      "sha256": "942cfa8065f24f754287e685269458a0312b3dcc5572ea9d173d1f795f28ffe4",
+      "bytes": 61351,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/compiled.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/expected.json",
+      "sha256": "f82a43986bdedfcf4707a54bd75c20d6fc656e57166c58d347b783fe3b463e70",
+      "bytes": 48,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/expected.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/oracle.json",
+      "sha256": "44e57b0e4e1c24ff8ecaeef90622d9790a7478ce2ee747841ab592a331f9b826",
+      "bytes": 17749,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/oracle.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/source.inspection.json",
+      "sha256": "923714903b39bcda81fde811240b8e6f04e9a931b386205474edbb487f36ed61",
+      "bytes": 47299,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/source.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/source.output.json",
+      "sha256": "6535a12010c1ae208c548b2c57ec4e66ee6ff17d6f499d3e2eb891c42885baee",
+      "bytes": 8787,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/source.output.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/source.receipt.json",
+      "sha256": "29ff6338d56eaedf0af8575f4021f9098b9f4cb8b6fba31f347b327277ec037c",
+      "bytes": 892,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/source.receipt.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/source.receipt.json.inspection.json",
+      "sha256": "469a58ed24d6047cdd97c9bb1bad4a13f8897540f62d2d32be0526630c52db56",
+      "bytes": 47811,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/source.receipt.json.inspection.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "seq/worktree-isolation-NurZvD/source.tree.json",
+      "sha256": "c8b940f91f5f9a4f43b4782fcb9e2e451e3fcfe0148581d9aa2312cc1ad4ab85",
+      "bytes": 61214,
+      "source": "/home/exedev/Code/agentxm/axm.axm-list/test-results/cli-e2e-tracing/evidence/worktree-isolation-NurZvD/source.tree.json",
+      "kind": "raw-retained"
+    },
+    {
+      "path": "sources/08befbe1662033dc2faab44bc2ace3c900a23578/apps/cli-e2e/project.json",
+      "sha256": "04f95ac1ce8a246e389f21ecadcbb245c58d3ef4646df1b83bf92486222f8980",
+      "bytes": 3744,
+      "source": "git:08befbe1662033dc2faab44bc2ace3c900a23578:apps/cli-e2e/project.json",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/08befbe1662033dc2faab44bc2ace3c900a23578/apps/cli-e2e/src/e2e/local-tracing-seq.ts",
+      "sha256": "05796346d9736704cb5bb8454930cf2964f98c3b1e496d755580778f0dec85b1",
+      "bytes": 19118,
+      "source": "git:08befbe1662033dc2faab44bc2ace3c900a23578:apps/cli-e2e/src/e2e/local-tracing-seq.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/08befbe1662033dc2faab44bc2ace3c900a23578/apps/cli-e2e/src/fixtures/local-trace-inspection.mjs",
+      "sha256": "be0713e853a65ceb2df044502678c59395d021d602aa83727950a1a829dcde83",
+      "bytes": 4803,
+      "source": "git:08befbe1662033dc2faab44bc2ace3c900a23578:apps/cli-e2e/src/fixtures/local-trace-inspection.mjs",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/08befbe1662033dc2faab44bc2ace3c900a23578/apps/cli-e2e/src/local-tracing-seq.e2e.test.ts",
+      "sha256": "836d91a475817f625eddeac68ebf9462256b30e399d2308e754a3cc8acf1d300",
+      "bytes": 35177,
+      "source": "git:08befbe1662033dc2faab44bc2ace3c900a23578:apps/cli-e2e/src/local-tracing-seq.e2e.test.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/08befbe1662033dc2faab44bc2ace3c900a23578/tools/test-support/src/device-auth-server.ts",
+      "sha256": "6be7edd8348b8f7fcc1ad5b18875aee2a169802fbe0ee29ed1a4541c7abc3dd7",
+      "bytes": 8909,
+      "source": "git:08befbe1662033dc2faab44bc2ace3c900a23578:tools/test-support/src/device-auth-server.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/2cf3580d33c4a676697a80d222677f8ad59e3579/apps/cli/src/cli-runtime/local-tracing-reconciles-work.test.ts",
+      "sha256": "5641fc215255104b55ced7e892e5b28a8ede236b5690b45baefe059edbc128be",
+      "bytes": 23156,
+      "source": "git:2cf3580d33c4a676697a80d222677f8ad59e3579:apps/cli/src/cli-runtime/local-tracing-reconciles-work.test.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/2cf3580d33c4a676697a80d222677f8ad59e3579/packages/supporting/registry-client/src/archive-cache.test.ts",
+      "sha256": "dd97e177d73fabcf88a3736f5f624daab18def5f17242109392dc41ef114f7b4",
+      "bytes": 33369,
+      "source": "git:2cf3580d33c4a676697a80d222677f8ad59e3579:packages/supporting/registry-client/src/archive-cache.test.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/2cf3580d33c4a676697a80d222677f8ad59e3579/packages/supporting/registry-client/src/archive-cache.ts",
+      "sha256": "ade2d97cd69a60a41f3c8ddf1f8f149b312d5c8246d5b7ce97699b159c05205e",
+      "bytes": 16493,
+      "source": "git:2cf3580d33c4a676697a80d222677f8ad59e3579:packages/supporting/registry-client/src/archive-cache.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/2cf3580d33c4a676697a80d222677f8ad59e3579/scripts/observability-benchmark.test.ts",
+      "sha256": "31470149f7cf65f04828aa464b95a4688ac43c445323e0e4732e67e002310127",
+      "bytes": 43522,
+      "source": "git:2cf3580d33c4a676697a80d222677f8ad59e3579:scripts/observability-benchmark.test.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/4d8344c40f581cce18626e77299abf090dba96ee/apps/cli/src/cli-runtime/local-tracing-reconciles-work.test.ts",
+      "sha256": "83f2d292b856424221059e9a444be5ee67427adfce78d9af6f77134c585c3d96",
+      "bytes": 31381,
+      "source": "git:4d8344c40f581cce18626e77299abf090dba96ee:apps/cli/src/cli-runtime/local-tracing-reconciles-work.test.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/4d8344c40f581cce18626e77299abf090dba96ee/apps/cli/src/root/knowledge/concepts/capabilities.ts",
+      "sha256": "8c545dcdfd9f5d3a2854802a72847731a81ca2d2b23f9e27fe9958cabb859cd6",
+      "bytes": 2231,
+      "source": "git:4d8344c40f581cce18626e77299abf090dba96ee:apps/cli/src/root/knowledge/concepts/capabilities.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/4d8344c40f581cce18626e77299abf090dba96ee/apps/cli/src/root/knowledge/json-output.test.ts",
+      "sha256": "7afec72950eda7320055a89dd2435cdbb6d951c77bbd80e1e00ba14856aff816",
+      "bytes": 17878,
+      "source": "git:4d8344c40f581cce18626e77299abf090dba96ee:apps/cli/src/root/knowledge/json-output.test.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/4d8344c40f581cce18626e77299abf090dba96ee/benchmarks/observability-fixtures.ts",
+      "sha256": "76ddc1beb526a9be3e572bd67d7c57a94c1c5cb643fad1158491dbd9ba01be74",
+      "bytes": 48826,
+      "source": "git:4d8344c40f581cce18626e77299abf090dba96ee:benchmarks/observability-fixtures.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/4d8344c40f581cce18626e77299abf090dba96ee/scripts/observability-receipt-fixture.test.ts",
+      "sha256": "a3ea9b794903b896e4085fec10c7691788e680fef8e0e0a1a2ee02649329fe92",
+      "bytes": 24708,
+      "source": "git:4d8344c40f581cce18626e77299abf090dba96ee:scripts/observability-receipt-fixture.test.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/b95373deb7742c3da164c9a4c3b6057e6757306f/apps/cli-e2e/src/local-tracing-seq.e2e.test.ts",
+      "sha256": "836d91a475817f625eddeac68ebf9462256b30e399d2308e754a3cc8acf1d300",
+      "bytes": 35177,
+      "source": "git:b95373deb7742c3da164c9a4c3b6057e6757306f:apps/cli-e2e/src/local-tracing-seq.e2e.test.ts",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/b95373deb7742c3da164c9a4c3b6057e6757306f/scripts/seq-verify.sh",
+      "sha256": "64261e8aaa592cd020158d06de4e8511c7293e6894450384dd43cea47540e787",
+      "bytes": 2003,
+      "source": "git:b95373deb7742c3da164c9a4c3b6057e6757306f:scripts/seq-verify.sh",
+      "kind": "immutable-source-snapshot"
+    },
+    {
+      "path": "sources/b95373deb7742c3da164c9a4c3b6057e6757306f/tools/test-support/src/device-auth-server.ts",
+      "sha256": "6be7edd8348b8f7fcc1ad5b18875aee2a169802fbe0ee29ed1a4541c7abc3dd7",
+      "bytes": 8909,
+      "source": "git:b95373deb7742c3da164c9a4c3b6057e6757306f:tools/test-support/src/device-auth-server.ts",
+      "kind": "immutable-source-snapshot"
+    }
+  ],
+  "excludedFromOwnListing": [
+    "file-manifest.json",
+    "SHA256SUMS"
+  ]
+}

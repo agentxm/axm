@@ -121,6 +121,57 @@ export interface ObservabilityScenario {
   >;
 }
 
+/** The refusal fixture has one native entry even though shared and Codex policy both select it. */
+export const observeAdoptionNativePreparation = (
+  fixture: WorkspaceTemplate,
+  acquiredRelative: string,
+) =>
+  Effect.try(() => {
+    const configuration = Schema.decodeUnknownSync(
+      Schema.fromJsonString(Schema.Struct({ agents: Schema.Array(Schema.String) })),
+    )(fs.readFileSync(path.join(fixture.workspace, "axm.json"), "utf8"));
+    const source = path.join(fixture.workspace, acquiredRelative, "src");
+    const sourceReferent = fs.realpathSync(source);
+    const projections = fs
+      .readdirSync(fixture.workspace, { withFileTypes: true })
+      .filter(
+        (entry) => entry.name.startsWith(".") && (entry.isDirectory() || entry.isSymbolicLink()),
+      )
+      .map((entry) => entry.name)
+      .sort()
+      .flatMap((name) => {
+        const relative = path.join(name, "skills", "bench-001");
+        const absolute = path.join(fixture.workspace, relative);
+        const info = fs.lstatSync(absolute, { throwIfNoEntry: false });
+        if (info === undefined) return [];
+        return [
+          {
+            path: relative,
+            kind: info.isSymbolicLink() ? "symlink" : info.isDirectory() ? "directory" : "file",
+            mode: info.mode & 0o777,
+            target: info.isSymbolicLink() ? fs.readlinkSync(absolute) : null,
+            referent: fs.realpathSync(absolute),
+          },
+        ];
+      });
+    const target = path.join(".agents", "skills", "bench-001");
+    const projection = projections[0];
+    if (
+      JSON.stringify(configuration.agents) !== JSON.stringify(["codex"]) ||
+      !fs.lstatSync(source).isDirectory() ||
+      projections.length !== 1 ||
+      projection?.path !== target ||
+      projection.kind !== "symlink" ||
+      projection.target !==
+        path.relative(path.dirname(path.join(fixture.workspace, target)), source) ||
+      projection.referent !== sourceReferent
+    )
+      throw fixtureFailure(
+        "Enabled adoption requires Codex and exactly one native bench-001 symlink to its acquired source.",
+      );
+    return { configuredAgents: configuration.agents, source, sourceReferent, projections };
+  });
+
 /** The expected adoption refusal creates one fresh, invocation-bound diagnostic. */
 export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario["verify"]> = ({
   fixture,
@@ -172,7 +223,7 @@ export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario[
     )(raw);
     const expectedMessage =
       "Preserved unowned skill artifact at " +
-      path.join(fixture.workspace, ".claude", "skills", "bench-001");
+      path.join(fixture.workspace, ".agents", "skills", "bench-001");
     if (output.result.failure.message !== expectedMessage + " (internal)")
       return yield* fixtureFailure(
         "Adoption diagnostic must remain bound to the expected native refusal.",
@@ -779,16 +830,21 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
     );
     for (const name of names)
       fixture.writeSkill(name, [{ version: "1.0.0", body: "Baseline " + name + "." }]);
-    const configured = emptyTemplate(path.join(root, "registry-" + count, "configured"));
-    yield* invoke(configured, ["setup", "--yes", "--scope", "project", "--agent", "claude-code"]);
-    settings(configured, {
-      owner: "@acme",
-      agents: ["claude-code"],
-      defaultRegistry: "test",
-      minimumReleaseAge: "0s",
-      sources: [{ name: "test", type: "registry", location: registryOrigin }],
-      skills: Object.fromEntries(names.map((name) => [name, "@acme/skills/" + name])),
-    });
+    const configure = (directory: string, agent: "claude-code" | "codex") =>
+      Effect.gen(function* () {
+        const configured = emptyTemplate(path.join(root, "registry-" + count, directory));
+        yield* invoke(configured, ["setup", "--yes", "--scope", "project", "--agent", agent]);
+        settings(configured, {
+          owner: "@acme",
+          agents: [agent],
+          defaultRegistry: "test",
+          minimumReleaseAge: "0s",
+          sources: [{ name: "test", type: "registry", location: registryOrigin }],
+          skills: Object.fromEntries(names.map((name) => [name, "@acme/skills/" + name])),
+        });
+        return configured;
+      });
+    const configured = yield* configure("configured", "claude-code");
     const installed = copyTemplate(configured, path.join(root, "registry-" + count, "installed"));
     yield* invoke(installed, ["sync"]);
     const restore = copyTemplate(installed, path.join(root, "registry-" + count, "restore"));
@@ -884,15 +940,20 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
           },
         });
       for (const enabled of [false, true]) {
+        const template = enabled
+          ? yield* configure("adoption-native-refusal", "codex")
+          : configured;
         let acquiredRelative = "";
         let acquiredDigest = "";
         let settingsDigest = "";
         let lockDigest = "";
+        let nativePreparation:
+          Effect.Success<ReturnType<typeof observeAdoptionNativePreparation>> | undefined;
         scenarios.push({
           id: "installed/adopt-" + (enabled ? "enabled-native-refusal" : "disabled"),
           command: "adopt",
           args: ["adopt", "@acme/skills/bench-001"],
-          template: configured,
+          template,
           registry,
           ...(enabled ? { expectedExitCode: 10 } : {}),
           condition: {
@@ -917,6 +978,11 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
                   "Adoption fixture requires one independently acquired package.",
                 );
               acquiredRelative = path.join("agent_extensions", path.dirname(manifest));
+              if (enabled)
+                nativePreparation = yield* observeAdoptionNativePreparation(
+                  fixture,
+                  acquiredRelative,
+                );
               acquiredDigest = snapshotDigest(
                 snapshotTree(path.join(fixture.workspace, acquiredRelative), []),
               );
@@ -926,6 +992,23 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
           verify: (observation) =>
             Effect.gen(function* () {
               const { fixture, stdout } = observation;
+              if (enabled) {
+                if (nativePreparation === undefined)
+                  return yield* fixtureFailure(
+                    "The enabled adoption native preparation proof is missing.",
+                  );
+                if (observation.phase === "preflight") {
+                  const retained = path.join(
+                    observation.artifacts,
+                    "retained",
+                    "adoption-native-preparation.json",
+                  );
+                  fs.mkdirSync(path.dirname(retained), { recursive: true });
+                  fs.writeFileSync(retained, JSON.stringify(nativePreparation) + "\n", {
+                    flag: "wx",
+                  });
+                }
+              }
               const raw = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
                 stdout,
               );
@@ -973,6 +1056,11 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
                   settingsDigest &&
                   digest(fs.readFileSync(path.join(fixture.workspace, "axm.lock"))) ===
                     lockDigest, "Refused adoption did not restore settings and lockfile.");
+                const nativeTarget = path.join(fixture.workspace, ".agents", "skills", "bench-001");
+                yield* require(fs.lstatSync(nativeTarget).isSymbolicLink() &&
+                  fs.readlinkSync(nativeTarget) ===
+                    nativePreparation?.projections[0]
+                      ?.target, "Refused adoption did not preserve its independently recorded native link.");
                 const recovery = document.result.recovery;
                 if (
                   recovery === undefined ||
@@ -1034,6 +1122,7 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
                   return yield* fixtureFailure("Adoption diagnostic comparison is missing.");
                 return {
                   assertions: [
+                    "Preparation independently verified Codex's single shared native symlink and exact acquired-source target before adoption.",
                     "Known enabled-native baseline failure retains moved authored bytes, restores settings/lock, and keeps independently verified original recovery snapshots.",
                     "The original acquired path remains absent; this records existing partial restoration and does not establish successful or atomic adoption.",
                     ...diagnostic.assertions,

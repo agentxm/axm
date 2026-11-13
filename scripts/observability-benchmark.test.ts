@@ -31,7 +31,10 @@ import {
   snapshotTree,
   applyFileComparison,
 } from "../benchmarks/observability-process.js";
-import { verifyAdoptionFailureDiagnostic } from "../benchmarks/observability-fixtures.js";
+import {
+  observeAdoptionNativePreparation,
+  verifyAdoptionFailureDiagnostic,
+} from "../benchmarks/observability-fixtures.js";
 import { harnessProvenance } from "../benchmarks/observability-provenance.js";
 import { verifyStagedNativeImport } from "../benchmarks/observability-typed-fixtures.js";
 import {
@@ -1022,8 +1025,54 @@ describe("independent comparison artifacts", () => {
     expect(raw.result.canonical.validatedAt).toBe("2026-01-01");
   });
 
+  it.effect("requires one Codex native link to the independently acquired adoption source", () =>
+    Effect.gen(function* () {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-adoption-native-"));
+      try {
+        const fixture = { workspace: path.join(root, "workspace"), home: path.join(root, "home") };
+        const acquired = path.join("agent_extensions", "test", "@acme", "skills", "bench-001");
+        const source = path.join(fixture.workspace, acquired, "src");
+        const target = path.join(fixture.workspace, ".agents", "skills", "bench-001");
+        const claude = path.join(fixture.workspace, ".claude", "skills", "bench-001");
+        const relative = path.relative(path.dirname(target), source);
+        fs.mkdirSync(source, { recursive: true });
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(path.join(fixture.workspace, "axm.json"), '{"agents":["codex"]}');
+        fs.writeFileSync(path.join(fixture.workspace, ".gitignore"), "agent_extensions/\n");
+        fs.symlinkSync(relative, target);
+        const proof = yield* observeAdoptionNativePreparation(fixture, acquired);
+        expect(proof.configuredAgents).toEqual(["codex"]);
+        expect(proof.projections).toHaveLength(1);
+        expect(proof.projections[0]).toMatchObject({
+          path: path.join(".agents", "skills", "bench-001"),
+          kind: "symlink",
+          target: relative,
+          referent: fs.realpathSync(source),
+        });
+        fs.mkdirSync(path.dirname(claude), { recursive: true });
+        fs.symlinkSync(path.relative(path.dirname(claude), source), claude);
+        expect(
+          (yield* observeAdoptionNativePreparation(fixture, acquired).pipe(Effect.exit))._tag,
+        ).toBe("Failure");
+        fs.unlinkSync(claude);
+        fs.writeFileSync(path.join(fixture.workspace, "axm.json"), '{"agents":["claude-code"]}');
+        expect(
+          (yield* observeAdoptionNativePreparation(fixture, acquired).pipe(Effect.exit))._tag,
+        ).toBe("Failure");
+        fs.writeFileSync(path.join(fixture.workspace, "axm.json"), '{"agents":["codex"]}');
+        fs.unlinkSync(target);
+        fs.symlinkSync(path.relative(path.dirname(target), path.dirname(source)), target);
+        expect(
+          (yield* observeAdoptionNativePreparation(fixture, acquired).pipe(Effect.exit))._tag,
+        ).toBe("Failure");
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    }),
+  );
+
   it.effect(
-    "binds adoption diagnostic UUID/time projection to the retained record and preserves other facts",
+    "binds the retained refusal diagnostic shape to the Codex target and preserves other facts",
     () =>
       Effect.gen(function* () {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-adoption-diagnostic-"));
@@ -1036,7 +1085,7 @@ describe("independent comparison artifacts", () => {
           fs.mkdirSync(directory, { recursive: true });
           const message =
             "Preserved unowned skill artifact at " +
-            path.join(fixture.workspace, ".claude", "skills", "bench-001");
+            path.join(fixture.workspace, ".agents", "skills", "bench-001");
           const hashes: string[] = [];
           const outputs: string[] = [];
           for (const [index, id] of [
@@ -1048,19 +1097,44 @@ describe("independent comparison artifacts", () => {
             const record = {
               eventId: id,
               invocationId: "10000000-0000-4000-8000-00000000000" + index,
-              occurredAt: new Date(1200 + index * 10).toISOString(),
+              occurredAt: new Date(1400 + index * 10).toISOString(),
               failure: {
-                kind: "skill-materialization-failed",
+                // Fields observed in the retained real refusal, including repeated cause wrappers.
+                kind: "extension.kind-failure",
                 operation: "workspace.operation",
                 category: "internal",
                 errorClass: "internal",
                 phase: "command",
                 handled: true,
+                command: "adopt",
                 history: [
-                  { operation: "workspace.apply", outcome: "started", elapsedMs: 10 + index },
+                  { operation: "workspace.planning", outcome: "started", elapsedMs: 0 },
+                  { operation: "workspace.validation", outcome: "started", elapsedMs: 100 + index },
+                  { operation: "workspace.apply", outcome: "started", elapsedMs: 102 + index },
+                  {
+                    operation: "workspace.restoration",
+                    outcome: "started",
+                    elapsedMs: 298 + index,
+                  },
+                  { operation: "workspace.operation", outcome: "failed", elapsedMs: 306 + index },
+                ],
+                frames: [
+                  {
+                    module: "@agentxm/extension-kinds",
+                    filename: "src/skills/materialization.ts",
+                    line: 280,
+                    column: 26,
+                  },
                 ],
               },
-              causes: [{ _tag: "SkillMaterializationFailed", message, stack: "unchanged stack" }],
+              causes: [
+                { _tag: "StepFailure", code: "internal", message: message + " (internal)" },
+                { _tag: "StepFailure", code: "internal", message },
+                { _tag: "SkillMaterializationFailed", message, stack: "unchanged stack" },
+                { _tag: "StepFailure", code: "internal", message },
+                { _tag: "SkillMaterializationFailed", message, stack: "unchanged stack" },
+              ],
+              truncated: false,
               futureProductField: index === 2 ? "changed" : "preserved",
             };
             const bytes = JSON.stringify(record) + "\n";
@@ -1070,8 +1144,18 @@ describe("independent comparison artifacts", () => {
               ok: false,
               diagnosticId: id,
               result: {
+                contract: "plan-result-v4",
                 outcome: "failed",
                 failure: { code: "internal", message: message + " (internal)" },
+                units: [
+                  {
+                    id: "skill:bench-001",
+                    state: "failed",
+                    disposition: "retained",
+                    message: message + " (internal)",
+                    code: "internal",
+                  },
+                ],
                 recovery: { retained: ["skills"] },
               },
               suggestions: [{ description: "Keep recovery bytes" }],
@@ -1129,7 +1213,7 @@ describe("independent comparison artifacts", () => {
           const id = "00000000-0000-4000-8000-000000000001";
           const message =
             "Preserved unowned skill artifact at " +
-            path.join(fixture.workspace, ".claude", "skills", "bench-001");
+            path.join(fixture.workspace, ".agents", "skills", "bench-001");
           for (const fault of [
             "event",
             "time",
@@ -1146,7 +1230,7 @@ describe("independent comparison artifacts", () => {
               invocationId: "10000000-0000-4000-8000-000000000001",
               occurredAt: new Date(fault === "time" ? 900 : 1200).toISOString(),
               failure: {
-                kind: "skill-materialization-failed",
+                kind: "extension.kind-failure",
                 operation: "workspace.operation",
                 category: fault === "category" ? "network" : "internal",
                 errorClass: "internal",
@@ -1184,7 +1268,7 @@ describe("independent comparison artifacts", () => {
                     message:
                       (fault === "message"
                         ? "Preserved unowned skill artifact at " +
-                          path.join(fixture.workspace, ".agents", "skills", "bench-001")
+                          path.join(fixture.workspace, ".claude", "skills", "bench-001")
                         : message) + " (internal)",
                   },
                 },

@@ -1,0 +1,573 @@
+{
+  "schemaVersion": 1,
+  "claims": [
+    {
+      "id": "seq-six-case",
+      "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+      "command": "pnpm exec nx run cli-e2e:e2e-tracing",
+      "host": "Linux x86_64; Bun 1.4.4; suite UTC window 2026-11-13 03:47:24\u201303:48:06",
+      "result": "6/6 tests passed",
+      "artifacts": [
+        "logs/observability-final-seq-suite.log",
+        "seq/worktree-isolation-NurZvD",
+        "seq/identity-joOdNf",
+        "seq/body-hold-WACoyj",
+        "seq/dropped-batch-LVeQr5",
+        "seq/collector-failure-SZKIwR",
+        "seq/forced-kill-RWN96b"
+      ],
+      "proves": "Actual source/compiled identity, concurrent linked worktrees, body hold, polling/acknowledged lost batch, rejecting/stalled collector isolation, killed unfinished process; exact receipts, retrievals, independent oracles and negative inspection outputs retained.",
+      "limits": "Executed historical clean revision; no claim of final integration or repeated overhead. Failure scenarios intentionally lack complete delivery. Suite reused 24/29 input-bound prerequisite tasks."
+    },
+    {
+      "id": "authenticated-seq",
+      "revision": "b95373deb7742c3da164c9a4c3b6057e6757306f",
+      "command": "pnpm run seq:verify; pnpm exec nx run cli-e2e:e2e-tracing with authenticated identity case selected (exact forwarded filter in log)",
+      "host": "Same Linux VM; separately authenticated pinned Seq instance",
+      "result": "Readiness passed; selected source/compiled summary/detail identity case passed",
+      "artifacts": [
+        "authenticated-readiness",
+        "seq/identity-kU7byI"
+      ],
+      "proves": "Authenticated query readiness and four actual source/compiled captures with exact raw receipt/retrieval/work expectations.",
+      "limits": "Readiness standalone temporary receipt/raw retrieval were deleted by the published workflow EXIT trap; readiness.log retains successful parsed inspection and trace ID. Raw four-capture identity evidence remains available. Container data, process snapshots and credentials excluded."
+    },
+    {
+      "id": "shutdown",
+      "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+      "command": "Same six-case suite; independent relay cleanup observations",
+      "result": "Reject 290.053388ms; stall 289.222285ms; both below existing 500ms bound",
+      "artifacts": [
+        "metadata/shutdown-evaluation.json",
+        "seq/collector-failure-SZKIwR"
+      ],
+      "proves": "Observed conservative cleanup upper bounds and product outcome preservation under rejection/stall.",
+      "limits": "Contended VM; not isolated repeated elapsed/RSS qualification."
+    },
+    {
+      "id": "native-platforms",
+      "revision": "99856a289d1f416d4f59a7e6b26d18d76250b4f5",
+      "command": "GitHub CI 43364797814; job commands retained in public-projection logs and step metadata",
+      "result": "Linux x64 actual casefold and Windows owner/E2E checks passed; retained metadata records ARM64 and both macOS host-step success",
+      "artifacts": [
+        "platform"
+      ],
+      "proves": "Actual hosted Linux/Windows command assertions plus original GitHub job/step metadata for supported native hosts.",
+      "limits": "Linux/Windows log projections explicitly omit unrelated remote inventory and replace coordination branch labels. Original hashes/line maps retained; exact raw logs remain local outside archive. macOS/ARM64 individual stdout logs were not supplied; step status metadata is retained. Two Windows platform-inapplicable skips remain skips."
+    },
+    {
+      "id": "cache-prune-owners",
+      "revision": "2cf3580d33c4a676697a80d222677f8ad59e3579",
+      "command": "pnpm exec nx run registry-client:test --args=archive-cache; pnpm exec nx run cli:test --args=\"local-tracing-reconciles-work.test.ts local-tracing-describes-operation-work.spec.ts\"; pnpm exec nx run axm:test --args=observability-benchmark.test.ts; affected type/lint checkpoint",
+      "result": "17 cache-owner, 11 serialized bridge, 28 method checks passed; type/lint passed",
+      "artifacts": [
+        "owners/observability-cache-prune-owner3.log",
+        "owners/observability-cache-prune-bridge.log",
+        "owners/observability-cache-prune-method.log",
+        "owners/observability-cache-prune-checks.log"
+      ],
+      "proves": "Real scan inventory/stat ownership, bounded serializer/privacy/owner admission and strict automatic-maintenance comparison controls.",
+      "limits": "Owner logs record command/output but do not independently embed a source manifest; revision association follows the recorded clean checkpoint and retained immutable source. Not an assembled scaling capture."
+    },
+    {
+      "id": "knowledge-receipt-byte-owners",
+      "revision": "4d8344c40f581cce18626e77299abf090dba96ee",
+      "command": "pnpm exec nx run cli:test --args=\"src/cli-runtime/local-tracing-reconciles-work.test.ts src/root/knowledge/json-output.test.ts\"; pnpm exec nx run cli:test --args=src/root/knowledge/json-output.test.ts; pnpm exec nx run axm:test --args=observability-receipt-fixture.test.ts; corrected cli typecheck",
+      "result": "21 combined owner/handler checks, 12 final handler checks, 8 receipt fixture checks passed; corrected typecheck passed",
+      "artifacts": [
+        "owners/observability-prepared-receipt-tests.log",
+        "owners/observability-knowledge-and-byte-owner.log",
+        "owners/observability-knowledge-handler2.log",
+        "owners/observability-knowledge-typecheck2.log"
+      ],
+      "proves": "Native receipt-byte work reconciles independently, Knowledge construction/handlers preserve meaningful observations, and only exact independently validated preparation identities carry into comparison. The receipt target also reuses 16 passing integration-hook controls including a real blocked main push.",
+      "limits": "Counts overlap; do not add them as unique tests. Logs predate the coherent commit and lack embedded per-run source manifests; immutable source is retained for matching, not falsely called contemporaneous source attestation. Does not certify four unresolved cross-run byte-parity cases."
+    }
+  ],
+  "seqDirectorySelection": [
+    {
+      "directory": "worktree-isolation-NurZvD",
+      "modifiedAtUtc": "2026-11-13T03:47:33.426680+00:00",
+      "receipts": [
+        {
+          "file": "compiled.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "compiled",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "00f345acde2c4492f2950f206d4ceefd",
+          "spanId": "0db09613202eab71",
+          "producerComplete": true
+        },
+        {
+          "file": "source.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "source",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "f5cec9146149ccb9d53dd775d807cc58",
+          "spanId": "3a8dd17946e0bc5d",
+          "producerComplete": true
+        }
+      ],
+      "association": "Receipt clean build revision; raw Seq root timestamp inside successful suite window where delivered, plus independent oracle source/binary hashes. Reject/stall/kill association uses exact receipt revision, suite case, completion timing and artifact timestamp because delivery is intentionally unavailable.",
+      "retrievalTimes": [
+        {
+          "file": "compiled.tree.json",
+          "rootSpanId": "0db09613202eab71",
+          "rootStartedAt": "2026-11-13T03:47:29.5390000Z"
+        },
+        {
+          "file": "source.tree.json",
+          "rootSpanId": "3a8dd17946e0bc5d",
+          "rootStartedAt": "2026-11-13T03:47:30.3480000Z"
+        }
+      ]
+    },
+    {
+      "directory": "identity-joOdNf",
+      "modifiedAtUtc": "2026-11-13T03:47:46.170649+00:00",
+      "receipts": [
+        {
+          "file": "compiled-detail.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "compiled",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "bb3fe748bf062c0add09be0319abda9d",
+          "spanId": "3c23cd4dcf11029c",
+          "producerComplete": true
+        },
+        {
+          "file": "compiled-summary.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "compiled",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "43212762b90ff601456a090a8ae3e072",
+          "spanId": "c6d69bce71d04bed",
+          "producerComplete": true
+        },
+        {
+          "file": "source-detail.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "source",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "a35bf3accc75b397b17f03fc912cf4c8",
+          "spanId": "d9b204139bb95439",
+          "producerComplete": true
+        },
+        {
+          "file": "source-summary.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "source",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "43f947ec0cdc089ecf97b6b8132f8a39",
+          "spanId": "2273ce6a32645dfb",
+          "producerComplete": true
+        }
+      ],
+      "association": "Receipt clean build revision; raw Seq root timestamp inside successful suite window where delivered, plus independent oracle source/binary hashes. Reject/stall/kill association uses exact receipt revision, suite case, completion timing and artifact timestamp because delivery is intentionally unavailable.",
+      "retrievalTimes": [
+        {
+          "file": "compiled-detail.tree.json",
+          "rootSpanId": "3c23cd4dcf11029c",
+          "rootStartedAt": "2026-11-13T03:47:42.4800000Z"
+        },
+        {
+          "file": "compiled-summary.tree.json",
+          "rootSpanId": "c6d69bce71d04bed",
+          "rootStartedAt": "2026-11-13T03:47:36.2490000Z"
+        },
+        {
+          "file": "source-detail.tree.json",
+          "rootSpanId": "d9b204139bb95439",
+          "rootStartedAt": "2026-11-13T03:47:43.2340000Z"
+        },
+        {
+          "file": "source-summary.tree.json",
+          "rootSpanId": "2273ce6a32645dfb",
+          "rootStartedAt": "2026-11-13T03:47:37.0260000Z"
+        }
+      ]
+    },
+    {
+      "directory": "body-hold-WACoyj",
+      "modifiedAtUtc": "2026-11-13T03:47:51.154637+00:00",
+      "receipts": [
+        {
+          "file": "receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "compiled",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "9cb15c329ea78e022cd160b88f3914c7",
+          "spanId": "fc7ffefe12b0396d",
+          "producerComplete": true
+        }
+      ],
+      "association": "Receipt clean build revision; raw Seq root timestamp inside successful suite window where delivered, plus independent oracle source/binary hashes. Reject/stall/kill association uses exact receipt revision, suite case, completion timing and artifact timestamp because delivery is intentionally unavailable.",
+      "retrievalTimes": [
+        {
+          "file": "tree.json",
+          "rootSpanId": "fc7ffefe12b0396d",
+          "rootStartedAt": "2026-11-13T03:47:47.7680000Z"
+        }
+      ]
+    },
+    {
+      "directory": "dropped-batch-LVeQr5",
+      "modifiedAtUtc": "2026-11-13T03:47:59.566617+00:00",
+      "receipts": [
+        {
+          "file": "complete.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "source",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "17911c82b03b1577d5b8d32681b0bc06",
+          "spanId": "19990eb8977133aa",
+          "producerComplete": true
+        },
+        {
+          "file": "dropped.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "compiled",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "00df8932a3b4fa17bc77483502c19ea9",
+          "spanId": "627176b7f3bb3cca",
+          "producerComplete": true
+        }
+      ],
+      "association": "Receipt clean build revision; raw Seq root timestamp inside successful suite window where delivered, plus independent oracle source/binary hashes. Reject/stall/kill association uses exact receipt revision, suite case, completion timing and artifact timestamp because delivery is intentionally unavailable.",
+      "retrievalTimes": [
+        {
+          "file": "complete.tree.json",
+          "rootSpanId": "19990eb8977133aa",
+          "rootStartedAt": "2026-11-13T03:47:55.7260000Z"
+        },
+        {
+          "file": "dropped.tree.json",
+          "rootSpanId": "627176b7f3bb3cca",
+          "rootStartedAt": "2026-11-13T03:47:51.3390000Z"
+        }
+      ]
+    },
+    {
+      "directory": "collector-failure-SZKIwR",
+      "modifiedAtUtc": "2026-11-13T03:48:04.846605+00:00",
+      "receipts": [
+        {
+          "file": "reject.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "compiled",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "ec1221be6cea565ea0374f37435d322d",
+          "spanId": "0144be6da3458273",
+          "producerComplete": true
+        },
+        {
+          "file": "stall.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "compiled",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "32e2062c7d3ad6b7383314f4de314588",
+          "spanId": "1fc488b1fd470a4f",
+          "producerComplete": true
+        }
+      ],
+      "association": "Receipt clean build revision; raw Seq root timestamp inside successful suite window where delivered, plus independent oracle source/binary hashes. Reject/stall/kill association uses exact receipt revision, suite case, completion timing and artifact timestamp because delivery is intentionally unavailable.",
+      "retrievalTimes": []
+    },
+    {
+      "directory": "forced-kill-RWN96b",
+      "modifiedAtUtc": "2026-11-13T03:48:06.674601+00:00",
+      "receipts": [
+        {
+          "file": "unfinished.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+            "dirty": false,
+            "execution": "compiled",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "16a9d787d8cb143b7df701c98c7f19f6",
+          "spanId": "30ee521aa54bb6c2",
+          "producerComplete": false
+        }
+      ],
+      "association": "Receipt clean build revision; raw Seq root timestamp inside successful suite window where delivered, plus independent oracle source/binary hashes. Reject/stall/kill association uses exact receipt revision, suite case, completion timing and artifact timestamp because delivery is intentionally unavailable.",
+      "retrievalTimes": []
+    },
+    {
+      "directory": "identity-kU7byI",
+      "modifiedAtUtc": "2026-11-13T03:40:09.983274+00:00",
+      "receipts": [
+        {
+          "file": "compiled-detail.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "b95373deb7742c3da164c9a4c3b6057e6757306f",
+            "dirty": false,
+            "execution": "compiled",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "af0e5127d8976fe6bb53bfb1d47c2efa",
+          "spanId": "fe870b25aa01320b",
+          "producerComplete": true
+        },
+        {
+          "file": "compiled-summary.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "b95373deb7742c3da164c9a4c3b6057e6757306f",
+            "dirty": false,
+            "execution": "compiled",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "b8a39f758945567e8d707207448c0dc1",
+          "spanId": "b8df069d53e62ed1",
+          "producerComplete": true
+        },
+        {
+          "file": "source-detail.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "b95373deb7742c3da164c9a4c3b6057e6757306f",
+            "dirty": false,
+            "execution": "source",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "6191b43ed33273819072c453fb0ddb57",
+          "spanId": "42284a76148e425c",
+          "producerComplete": true
+        },
+        {
+          "file": "source-summary.receipt.json",
+          "build": {
+            "version": "0.51.0",
+            "revision": "b95373deb7742c3da164c9a4c3b6057e6757306f",
+            "dirty": false,
+            "execution": "source",
+            "runtime": "bun",
+            "runtimeVersion": "1.4.4"
+          },
+          "traceId": "7493db417bff141468d96990f751d13e",
+          "spanId": "5419dd273dba4b82",
+          "producerComplete": true
+        }
+      ],
+      "association": "Receipt clean build revision; raw Seq root timestamp inside successful suite window where delivered, plus independent oracle source/binary hashes. Reject/stall/kill association uses exact receipt revision, suite case, completion timing and artifact timestamp because delivery is intentionally unavailable.",
+      "retrievalTimes": [
+        {
+          "file": "compiled-detail.tree.json",
+          "rootSpanId": "fe870b25aa01320b",
+          "rootStartedAt": "2026-11-13T03:40:06.2500000Z"
+        },
+        {
+          "file": "compiled-summary.tree.json",
+          "rootSpanId": "b8df069d53e62ed1",
+          "rootStartedAt": "2026-11-13T03:39:59.6890000Z"
+        },
+        {
+          "file": "source-detail.tree.json",
+          "rootSpanId": "42284a76148e425c",
+          "rootStartedAt": "2026-11-13T03:40:06.9880000Z"
+        },
+        {
+          "file": "source-summary.tree.json",
+          "rootSpanId": "5419dd273dba4b82",
+          "rootStartedAt": "2026-11-13T03:40:00.3910000Z"
+        }
+      ]
+    }
+  ],
+  "sourceSnapshots": [
+    {
+      "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+      "sourcePath": "apps/cli-e2e/src/local-tracing-seq.e2e.test.ts",
+      "gitBlob": "91928102c8042aadec40f85e245345c7222a2f87",
+      "sha256": "836d91a475817f625eddeac68ebf9462256b30e399d2308e754a3cc8acf1d300",
+      "retainedPath": "sources/08befbe1662033dc2faab44bc2ace3c900a23578/apps/cli-e2e/src/local-tracing-seq.e2e.test.ts"
+    },
+    {
+      "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+      "sourcePath": "apps/cli-e2e/src/e2e/local-tracing-seq.ts",
+      "gitBlob": "53187532f046197db2a8227ab6a04f61fb9bdb13",
+      "sha256": "05796346d9736704cb5bb8454930cf2964f98c3b1e496d755580778f0dec85b1",
+      "retainedPath": "sources/08befbe1662033dc2faab44bc2ace3c900a23578/apps/cli-e2e/src/e2e/local-tracing-seq.ts"
+    },
+    {
+      "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+      "sourcePath": "apps/cli-e2e/src/fixtures/local-trace-inspection.mjs",
+      "gitBlob": "d0c3587a2b0262b68ff86693972d4ec96ec25340",
+      "sha256": "be0713e853a65ceb2df044502678c59395d021d602aa83727950a1a829dcde83",
+      "retainedPath": "sources/08befbe1662033dc2faab44bc2ace3c900a23578/apps/cli-e2e/src/fixtures/local-trace-inspection.mjs"
+    },
+    {
+      "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+      "sourcePath": "tools/test-support/src/device-auth-server.ts",
+      "gitBlob": "e08e7f231142675a832bd1982f16d660bc9d0ec1",
+      "sha256": "6be7edd8348b8f7fcc1ad5b18875aee2a169802fbe0ee29ed1a4541c7abc3dd7",
+      "retainedPath": "sources/08befbe1662033dc2faab44bc2ace3c900a23578/tools/test-support/src/device-auth-server.ts"
+    },
+    {
+      "revision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+      "sourcePath": "apps/cli-e2e/project.json",
+      "gitBlob": "f594561f78891799e4ce66ef5bf6d2389e1a6780",
+      "sha256": "04f95ac1ce8a246e389f21ecadcbb245c58d3ef4646df1b83bf92486222f8980",
+      "retainedPath": "sources/08befbe1662033dc2faab44bc2ace3c900a23578/apps/cli-e2e/project.json"
+    },
+    {
+      "revision": "b95373deb7742c3da164c9a4c3b6057e6757306f",
+      "sourcePath": "scripts/seq-verify.sh",
+      "gitBlob": "f1f8c622a9ae5a3e70dc571909bd0390c0549c64",
+      "sha256": "64261e8aaa592cd020158d06de4e8511c7293e6894450384dd43cea47540e787",
+      "retainedPath": "sources/b95373deb7742c3da164c9a4c3b6057e6757306f/scripts/seq-verify.sh"
+    },
+    {
+      "revision": "b95373deb7742c3da164c9a4c3b6057e6757306f",
+      "sourcePath": "apps/cli-e2e/src/local-tracing-seq.e2e.test.ts",
+      "gitBlob": "91928102c8042aadec40f85e245345c7222a2f87",
+      "sha256": "836d91a475817f625eddeac68ebf9462256b30e399d2308e754a3cc8acf1d300",
+      "retainedPath": "sources/b95373deb7742c3da164c9a4c3b6057e6757306f/apps/cli-e2e/src/local-tracing-seq.e2e.test.ts"
+    },
+    {
+      "revision": "b95373deb7742c3da164c9a4c3b6057e6757306f",
+      "sourcePath": "tools/test-support/src/device-auth-server.ts",
+      "gitBlob": "e08e7f231142675a832bd1982f16d660bc9d0ec1",
+      "sha256": "6be7edd8348b8f7fcc1ad5b18875aee2a169802fbe0ee29ed1a4541c7abc3dd7",
+      "retainedPath": "sources/b95373deb7742c3da164c9a4c3b6057e6757306f/tools/test-support/src/device-auth-server.ts"
+    },
+    {
+      "revision": "2cf3580d33c4a676697a80d222677f8ad59e3579",
+      "sourcePath": "packages/supporting/registry-client/src/archive-cache.ts",
+      "gitBlob": "b0e99bd6ef66337872e04fcecb57b51b8a3f7f3d",
+      "sha256": "ade2d97cd69a60a41f3c8ddf1f8f149b312d5c8246d5b7ce97699b159c05205e",
+      "retainedPath": "sources/2cf3580d33c4a676697a80d222677f8ad59e3579/packages/supporting/registry-client/src/archive-cache.ts"
+    },
+    {
+      "revision": "2cf3580d33c4a676697a80d222677f8ad59e3579",
+      "sourcePath": "packages/supporting/registry-client/src/archive-cache.test.ts",
+      "gitBlob": "05aec787f9c7dcc289d5cc3151b9475bf762cfa4",
+      "sha256": "dd97e177d73fabcf88a3736f5f624daab18def5f17242109392dc41ef114f7b4",
+      "retainedPath": "sources/2cf3580d33c4a676697a80d222677f8ad59e3579/packages/supporting/registry-client/src/archive-cache.test.ts"
+    },
+    {
+      "revision": "2cf3580d33c4a676697a80d222677f8ad59e3579",
+      "sourcePath": "apps/cli/src/cli-runtime/local-tracing-reconciles-work.test.ts",
+      "gitBlob": "06cd4c21625482c8854ed9baa74720130e3b28fc",
+      "sha256": "5641fc215255104b55ced7e892e5b28a8ede236b5690b45baefe059edbc128be",
+      "retainedPath": "sources/2cf3580d33c4a676697a80d222677f8ad59e3579/apps/cli/src/cli-runtime/local-tracing-reconciles-work.test.ts"
+    },
+    {
+      "revision": "2cf3580d33c4a676697a80d222677f8ad59e3579",
+      "sourcePath": "scripts/observability-benchmark.test.ts",
+      "gitBlob": "89ce9a164a7fedb6e79e50fcf9c04d1ee6338abe",
+      "sha256": "31470149f7cf65f04828aa464b95a4688ac43c445323e0e4732e67e002310127",
+      "retainedPath": "sources/2cf3580d33c4a676697a80d222677f8ad59e3579/scripts/observability-benchmark.test.ts"
+    },
+    {
+      "revision": "4d8344c40f581cce18626e77299abf090dba96ee",
+      "sourcePath": "apps/cli/src/cli-runtime/local-tracing-reconciles-work.test.ts",
+      "gitBlob": "bd2817725bd9721fe14e59a0937eba4217a8a4e5",
+      "sha256": "83f2d292b856424221059e9a444be5ee67427adfce78d9af6f77134c585c3d96",
+      "retainedPath": "sources/4d8344c40f581cce18626e77299abf090dba96ee/apps/cli/src/cli-runtime/local-tracing-reconciles-work.test.ts"
+    },
+    {
+      "revision": "4d8344c40f581cce18626e77299abf090dba96ee",
+      "sourcePath": "apps/cli/src/root/knowledge/json-output.test.ts",
+      "gitBlob": "358964578e09adabcead4ea744120444b0340180",
+      "sha256": "7afec72950eda7320055a89dd2435cdbb6d951c77bbd80e1e00ba14856aff816",
+      "retainedPath": "sources/4d8344c40f581cce18626e77299abf090dba96ee/apps/cli/src/root/knowledge/json-output.test.ts"
+    },
+    {
+      "revision": "4d8344c40f581cce18626e77299abf090dba96ee",
+      "sourcePath": "scripts/observability-receipt-fixture.test.ts",
+      "gitBlob": "8dde1240e206613024051a2fc4dcc6f7cf4244e0",
+      "sha256": "a3ea9b794903b896e4085fec10c7691788e680fef8e0e0a1a2ee02649329fe92",
+      "retainedPath": "sources/4d8344c40f581cce18626e77299abf090dba96ee/scripts/observability-receipt-fixture.test.ts"
+    },
+    {
+      "revision": "4d8344c40f581cce18626e77299abf090dba96ee",
+      "sourcePath": "benchmarks/observability-fixtures.ts",
+      "gitBlob": "d8e7734c2217f3daf6421478e44303361d9e6735",
+      "sha256": "76ddc1beb526a9be3e572bd67d7c57a94c1c5cb643fad1158491dbd9ba01be74",
+      "retainedPath": "sources/4d8344c40f581cce18626e77299abf090dba96ee/benchmarks/observability-fixtures.ts"
+    },
+    {
+      "revision": "4d8344c40f581cce18626e77299abf090dba96ee",
+      "sourcePath": "apps/cli/src/root/knowledge/concepts/capabilities.ts",
+      "gitBlob": "8514e7cc840edb319205fd8fd194936307ce9419",
+      "sha256": "8c545dcdfd9f5d3a2854802a72847731a81ca2d2b23f9e27fe9958cabb859cd6",
+      "retainedPath": "sources/4d8344c40f581cce18626e77299abf090dba96ee/apps/cli/src/root/knowledge/concepts/capabilities.ts"
+    }
+  ],
+  "excluded": [
+    "Whole fixture homes/workspaces",
+    "Host/process snapshots and container-state PID snapshot",
+    "Seq container databases, logs and bootstrap secrets",
+    "Unrelated historical or failed runs",
+    "Compiled binary payloads (identities retained, binaries remain at original evidence locations)",
+    "Raw CI originals containing coordination context"
+  ],
+  "gaps": [
+    "Readiness temporary raw receipt/retrieval intentionally removed by its workflow; successful parsed inspection retained.",
+    "Owner logs do not independently identify tested source by hash; clean checkpoint association and immutable source snapshots retained without inventing provenance.",
+    "macOS/ARM64 individual raw stdout logs not supplied; original job/step status metadata retained."
+  ]
+}

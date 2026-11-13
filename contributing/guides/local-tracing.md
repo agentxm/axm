@@ -556,7 +556,8 @@ successful publication/preimage byte fields can be marked inconclusive, after
 both native receipt audits pass, projected receipts match, and the raw receipt
 length difference reconciles exactly with the approved scalar widths. Owners,
 dimensions, counts, outcomes, measurement coverage, non-byte quantities and all
-other rows remain strict. Fixed-byte inputs and every other fixture remain strict.
+other rows remain strict. Fixed-byte inputs remain strict; the separately described
+adoption diagnostic is the only additional serialization case.
 The comparator retains each differing row and reports
 `byteEquivalence: "unproven"` and `completeAttribution: "unproven"`.
 The ordinary `recorded-equal` result compares recorded facts, including their
@@ -570,6 +571,21 @@ behavior and per-invocation accounting claims, without claiming identical byte
 work or efficiency. Original failed equality reports remain failed; a separate
 reconciliation records their disposition under this clarified method. Existing
 independent byte-owner controls and all numeric limits remain required.
+
+The `installed/adopt-enabled-native-refusal` fixture separately audits its
+invocation-bound diagnostic, including canonical JSON bytes, UUID binding,
+expected failure, ordered history and bounded elapsed times. Decimal widths of
+validated `failure.history[*].elapsedMs` values can differ across runs. The same
+serialized-document comparator admits only two fully measured successful
+`axm.io.write-file` aggregates: `axm.cli.command` with one write and
+`axm.cli.operation` with six. Both byte deltas must equal the final diagnostic's
+raw length delta, which must exactly reconcile with the paired elapsed-time
+scalar widths; the command's sole write must equal the final record size.
+All other work, counts, coverage and projected diagnostic semantics remain strict.
+The report retains raw digests, records and differing rows and labels this
+`diagnostic-serialization-bytes-inconclusive`. Final records do not prove every
+intermediate write, so byte equivalence and complete attribution remain unproven.
+This disposition changes neither per-invocation byte accounting nor any budget.
 
 Native skill/subagent imports include an independently allocated temporary
 staging path in the candidate fingerprint. For those two fixtures and their

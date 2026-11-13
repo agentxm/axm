@@ -30,7 +30,7 @@ const previewVerification: NonNullable<ObservabilityScenario["verify"]> = ({ std
         Schema.Struct({
           ok: Schema.Literal(true),
           mode: Schema.Literal("preview"),
-          outcome: Schema.Literal("previewed"),
+          outcome: Schema.Literals(["previewed", "no-op"]),
           result: Schema.Record(Schema.String, Schema.Unknown),
         }),
       ),

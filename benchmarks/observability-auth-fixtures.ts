@@ -30,11 +30,6 @@ export const prepareAuthObservabilityFixtures = Effect.fnUntraced(function* (opt
       sources: [{ name: "auth", type: "registry", location: server.url }],
     }) + "\n",
   );
-  const authenticated = options.copy(anonymous, path.join(options.root, "authenticated"));
-  // These are contributor session operations; CI deliberately refuses persisted credentials.
-  yield* options.invoke(authenticated, ["login", "--device-code", "--wait-for-human", "5"], {
-    environment: { CI: "0" },
-  });
   const condition = {
     source: "local",
     extensions: 0,
@@ -48,12 +43,12 @@ export const prepareAuthObservabilityFixtures = Effect.fnUntraced(function* (opt
       args: ["login", "--device-code", "--wait-for-human", "5"],
       template: anonymous,
     },
-    { command: "whoami", args: ["whoami"], template: authenticated },
+    { command: "whoami", args: ["whoami"], template: anonymous },
     {
       command: "token show",
       args: ["token", "show", "--plain"],
       json: false,
-      template: authenticated,
+      template: anonymous,
     },
     {
       command: "token create",
@@ -68,32 +63,36 @@ export const prepareAuthObservabilityFixtures = Effect.fnUntraced(function* (opt
         "--plain",
       ],
       json: false,
-      template: authenticated,
+      template: anonymous,
     },
-    { command: "token list", args: ["token", "list"], template: authenticated },
+    { command: "token list", args: ["token", "list"], template: anonymous },
     {
       command: "token revoke",
       args: ["token", "revoke", server.seededTokenId],
-      template: authenticated,
+      template: anonymous,
     },
-    { command: "logout", args: ["logout"], template: authenticated },
+    { command: "logout", args: ["logout"], template: anonymous },
   ];
   return cases.map((item): ObservabilityScenario => ({
     ...item,
     id: "auth/" + item.command.replaceAll(" ", "-"),
     condition,
     environment: { CI: "0" },
-    // A native keychain is shared across fixture homes. Establish each sample's
-    // session through the CLI instead of treating a copied home as isolation.
-    // Preparation is outside the measured interval and its requests are reset.
+    // A copied home does not isolate a native keychain. Clear only this
+    // ephemeral Registry's session, then restore the owned sample home so
+    // sign-out's refresh-lock file cannot change the measured starting state.
+    // Preparation is outside timing and the server request reset below.
     prepare: (fixture, invoke) =>
       Effect.gen(function* () {
-        // A real sign-out also establishes the same refresh-lock file on every
-        // sample. Logging out an already empty keychain would skip that state.
-        yield* invoke(fixture, ["login", "--yes", "--device-code", "--wait-for-human", "5"], {
-          environment: { CI: "0" },
-        });
         yield* invoke(fixture, ["logout"], { environment: { CI: "0" } });
+        yield* Effect.sync(() => {
+          fs.rmSync(fixture.home, { recursive: true, force: true });
+          fs.cpSync(anonymous.home, fixture.home, {
+            recursive: true,
+            verbatimSymlinks: true,
+            preserveTimestamps: true,
+          });
+        });
         if (item.command !== "login")
           yield* invoke(fixture, ["login", "--device-code", "--wait-for-human", "5"], {
             environment: { CI: "0" },

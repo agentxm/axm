@@ -1,0 +1,3321 @@
+{
+  "schemaVersion": 1,
+  "status": "reviewed-and-readback-verified",
+  "preparedAt": "2026-11-13T07:13:20.323201+00:00",
+  "sourceArchiveDirectory": "benchmarks/evidence/local-observability/captures",
+  "sourceStaging": "/tmp/axm-observability-public-proof-adoption-mpm8lr70",
+  "destinationArchiveDirectory": "/tmp/axm-observability-public-archives-adoption-_h_8r_1l",
+  "runs": [
+    {
+      "runId": "run-08-adoption-diagnostic-4d8344c40",
+      "name": "adoption-diagnostic",
+      "classification": "historical-failed-verifier-attempt",
+      "scenario": "installed/adopt-enabled-native-refusal",
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-knowledge-final-5jaosdfd/axm-linux-x64",
+        "binarySha256": "2cd081d5e32eb72900992edbc26eb18c71934cc279c997771a5f84b8c054c3e9",
+        "sourceRevision": "4d8344c40f581cce18626e77299abf090dba96ee",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessRevision": "268bcbe987013910b5f663af1dfa32aa09bad8df",
+      "harnessSha256": "c0fa14bce4cad26731f64d96c5bae3322182d648c3e7df2a1774d15632df28d6",
+      "dependencyLockSha256": "f14e8531eabc3f5fa0e16d820a13fe4b9b4776cbbab94c7be02e93fb5140e7d1",
+      "budgetsSha256": "c2bd287fb786a6294507465201cfad8f499217bcbab4174ab08f0afa05fb9dbf",
+      "originalReportPath": "runs/run-08-adoption-diagnostic-4d8344c40/report.json",
+      "originalReportSha256": "f1af0eb8d077133f936eacbf23dabe7aa3ce21a96b0339b625e47a17ae68937c",
+      "originalComplete": false,
+      "originalError": "ObservabilityBenchmarkFailure: Adoption diagnostic must remain bound to the expected native refusal.",
+      "checks": [],
+      "actualReceiverInspections": 0,
+      "actualSubjectArtifactDirectories": 1,
+      "verificationLogs": [
+        {
+          "sourceLog": "runs/run-08-adoption-diagnostic-4d8344c40/verification/observability-adoption-diagnostic-tests.public-projection.log",
+          "originalSha256": "c4a758b271db54ce412826b21b9d70471417f94155ad115ebc518ffa89b094d2",
+          "scope": "Exact task command lines and result lines printed by the existing log; top-level shell invocation and environment are not independently captured here.",
+          "commandLines": [
+            {
+              "line": 6,
+              "text": "> nx run specification-metadata:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 13,
+              "text": "> nx run registry-client:\"generate:registry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 15,
+              "text": "> bun scripts/generate-registry-client.ts"
+            },
+            {
+              "line": 22,
+              "text": "> nx run cli:\"generate:telemetry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 24,
+              "text": "> bun scripts/generate-telemetry-client.ts"
+            },
+            {
+              "line": 28,
+              "text": "> nx run cli:\"build:diagnostic-sources\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 30,
+              "text": "> bun scripts/generate-diagnostic-sources.ts"
+            },
+            {
+              "line": 34,
+              "text": "> nx run axm:\"test:integration-hook\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 36,
+              "text": "> node --test scripts/verify-integration.test.mjs"
+            },
+            {
+              "line": 67,
+              "text": "> nx run test-reporting:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 74,
+              "text": "> nx run extension-model:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 81,
+              "text": "> nx run host-primitives:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 88,
+              "text": "> nx run test-support:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 95,
+              "text": "> nx run registry-protocol:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 102,
+              "text": "> nx run extension-content:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 109,
+              "text": "> nx run cli-maintenance:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 116,
+              "text": "> nx run registry-client:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 123,
+              "text": "> nx run registry-access:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 130,
+              "text": "> nx run workspace-kernel:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 137,
+              "text": "> nx run extension-kinds:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 144,
+              "text": "> nx run extension-type-parity:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 151,
+              "text": "> nx run workspace-features:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 158,
+              "text": "> nx run cli:\"generate:schemas\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 160,
+              "text": "> bun --conditions=axm-source scripts/generate-schemas.ts"
+            },
+            {
+              "line": 176,
+              "text": "> nx run cli:\"generate:type-enumerations\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 178,
+              "text": "> bun --conditions=axm-source scripts/generate-type-enumerations.ts"
+            },
+            {
+              "line": 182,
+              "text": "> nx run cli:\"generate:cli-reference\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 184,
+              "text": "> bun --conditions=axm-source scripts/generate-cli-reference.ts"
+            },
+            {
+              "line": 189,
+              "text": "> nx run cli:\"generate:agent-catalog\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 191,
+              "text": "> bun --conditions=axm-source scripts/generate-agent-catalog.ts"
+            },
+            {
+              "line": 195,
+              "text": "> nx run cli:\"generate:bundled-axm-skill\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 197,
+              "text": "> bun scripts/generate-bundled-axm-skill.ts"
+            },
+            {
+              "line": 201,
+              "text": "> nx run cli:\"generate:help-topics\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 203,
+              "text": "> bun scripts/generate-help-topics.ts"
+            },
+            {
+              "line": 207,
+              "text": "> nx run cli:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 214,
+              "text": "> nx run axm:test observability-benchmark"
+            },
+            {
+              "line": 216,
+              "text": "> pnpm exec vitest run --config scripts/vitest.config.ts observability-benchmark"
+            }
+          ],
+          "resultLines": [
+            {
+              "line": 227,
+              "text": " Test Files  1 passed (1)"
+            },
+            {
+              "line": 228,
+              "text": "      Tests  35 passed (35)"
+            },
+            {
+              "line": 236,
+              "text": " NX   Successfully ran target test for project axm and 27 tasks it depends on"
+            }
+          ]
+        },
+        {
+          "sourceLog": "runs/run-08-adoption-diagnostic-4d8344c40/verification/observability-adoption-diagnostic-checks.log",
+          "originalSha256": "6dc420c347ac778c022ec470db31769913b35138928100dbb1050b8feeb10237",
+          "scope": "Exact task command lines and result lines printed by the existing log; top-level shell invocation and environment are not independently captured here.",
+          "commandLines": [
+            {
+              "line": 8,
+              "text": "> nx run specification-metadata:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 15,
+              "text": "> nx run registry-client:\"generate:registry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 17,
+              "text": "> bun scripts/generate-registry-client.ts"
+            },
+            {
+              "line": 24,
+              "text": "> nx run cli:\"generate:telemetry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 26,
+              "text": "> bun scripts/generate-telemetry-client.ts"
+            },
+            {
+              "line": 30,
+              "text": "> nx run cli:\"build:diagnostic-sources\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 32,
+              "text": "> bun scripts/generate-diagnostic-sources.ts"
+            },
+            {
+              "line": 36,
+              "text": "> nx run test-reporting:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 43,
+              "text": "> nx run extension-model:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 50,
+              "text": "> nx run host-primitives:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 57,
+              "text": "> nx run test-support:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 64,
+              "text": "> nx run registry-protocol:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 71,
+              "text": "> nx run extension-content:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 78,
+              "text": "> nx run cli-maintenance:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 85,
+              "text": "> nx run registry-client:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 92,
+              "text": "> nx run registry-access:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 99,
+              "text": "> nx run workspace-kernel:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 106,
+              "text": "> nx run extension-kinds:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 113,
+              "text": "> nx run extension-type-parity:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 120,
+              "text": "> nx run workspace-features:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 127,
+              "text": "> nx run cli:\"generate:schemas\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 129,
+              "text": "> bun --conditions=axm-source scripts/generate-schemas.ts"
+            },
+            {
+              "line": 145,
+              "text": "> nx run cli:\"generate:type-enumerations\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 147,
+              "text": "> bun --conditions=axm-source scripts/generate-type-enumerations.ts"
+            },
+            {
+              "line": 151,
+              "text": "> nx run cli:\"generate:cli-reference\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 153,
+              "text": "> bun --conditions=axm-source scripts/generate-cli-reference.ts"
+            },
+            {
+              "line": 158,
+              "text": "> nx run cli:\"generate:agent-catalog\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 160,
+              "text": "> bun --conditions=axm-source scripts/generate-agent-catalog.ts"
+            },
+            {
+              "line": 164,
+              "text": "> nx run cli:\"generate:bundled-axm-skill\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 166,
+              "text": "> bun scripts/generate-bundled-axm-skill.ts"
+            },
+            {
+              "line": 170,
+              "text": "> nx run cli:\"generate:help-topics\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 172,
+              "text": "> bun scripts/generate-help-topics.ts"
+            },
+            {
+              "line": 176,
+              "text": "> nx run cli:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 183,
+              "text": "> nx run axm:typecheck"
+            },
+            {
+              "line": 185,
+              "text": "> tsc -p scripts/tsconfig.json --noEmit"
+            },
+            {
+              "line": 188,
+              "text": "> nx run axm:lint"
+            },
+            {
+              "line": 190,
+              "text": "> eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts benchmarks scripts --max-warnings=0"
+            }
+          ],
+          "resultLines": [
+            {
+              "line": 197,
+              "text": " NX   Successfully ran targets typecheck, lint for project axm and 26 tasks it depends on"
+            }
+          ]
+        },
+        {
+          "sourceLog": "runs/run-08-adoption-diagnostic-4d8344c40/verification/observability-adoption-diagnostic-preflight.public-projection.log",
+          "originalSha256": "34952ad6f7767ea9be51cc80f6ccbaf04bc64fea71f1c2909adee9dbd17378a4",
+          "scope": "Exact task command lines and result lines printed by the existing log; top-level shell invocation and environment are not independently captured here.",
+          "commandLines": [
+            {
+              "line": 7,
+              "text": "> nx run specification-metadata:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 14,
+              "text": "> nx run registry-client:\"generate:registry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 16,
+              "text": "> bun scripts/generate-registry-client.ts"
+            },
+            {
+              "line": 23,
+              "text": "> nx run cli:\"generate:telemetry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 25,
+              "text": "> bun scripts/generate-telemetry-client.ts"
+            },
+            {
+              "line": 29,
+              "text": "> nx run cli:\"build:diagnostic-sources\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 31,
+              "text": "> bun scripts/generate-diagnostic-sources.ts"
+            },
+            {
+              "line": 35,
+              "text": "> nx run test-reporting:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 42,
+              "text": "> nx run extension-model:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 49,
+              "text": "> nx run host-primitives:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 56,
+              "text": "> nx run test-support:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 63,
+              "text": "> nx run registry-protocol:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 70,
+              "text": "> nx run extension-content:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 77,
+              "text": "> nx run cli-maintenance:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 84,
+              "text": "> nx run registry-client:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 91,
+              "text": "> nx run registry-access:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 98,
+              "text": "> nx run workspace-kernel:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 105,
+              "text": "> nx run extension-kinds:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 112,
+              "text": "> nx run extension-type-parity:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 119,
+              "text": "> nx run workspace-features:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 126,
+              "text": "> nx run cli:\"generate:schemas\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 128,
+              "text": "> bun --conditions=axm-source scripts/generate-schemas.ts"
+            },
+            {
+              "line": 144,
+              "text": "> nx run cli:\"generate:type-enumerations\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 146,
+              "text": "> bun --conditions=axm-source scripts/generate-type-enumerations.ts"
+            },
+            {
+              "line": 150,
+              "text": "> nx run cli:\"generate:cli-reference\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 152,
+              "text": "> bun --conditions=axm-source scripts/generate-cli-reference.ts"
+            },
+            {
+              "line": 157,
+              "text": "> nx run cli:\"generate:agent-catalog\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 159,
+              "text": "> bun --conditions=axm-source scripts/generate-agent-catalog.ts"
+            },
+            {
+              "line": 163,
+              "text": "> nx run cli:\"generate:bundled-axm-skill\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 165,
+              "text": "> bun scripts/generate-bundled-axm-skill.ts"
+            },
+            {
+              "line": 169,
+              "text": "> nx run cli:\"generate:help-topics\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 171,
+              "text": "> bun scripts/generate-help-topics.ts"
+            },
+            {
+              "line": 175,
+              "text": "> nx run cli:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 182,
+              "text": "> nx run cli:compile-linux-x64"
+            },
+            {
+              "line": 184,
+              "text": "> bun scripts/compile.ts --target=bun-linux-x64"
+            },
+            {
+              "line": 191,
+              "text": "> nx run cli:compile-host"
+            },
+            {
+              "line": 193,
+              "text": "> bun scripts/compile.ts --host-only"
+            },
+            {
+              "line": 198,
+              "text": "> nx run axm:bench"
+            },
+            {
+              "line": 200,
+              "text": "> bun scripts/bench.ts"
+            }
+          ],
+          "resultLines": [
+            {
+              "line": 228,
+              "text": "Failed tasks:"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runId": "run-09-adoption-diagnostic2-4d8344c40",
+      "name": "adoption-diagnostic2",
+      "classification": "historical-failed-verifier-attempt",
+      "scenario": "installed/adopt-enabled-native-refusal",
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-knowledge-final-5jaosdfd/axm-linux-x64",
+        "binarySha256": "2cd081d5e32eb72900992edbc26eb18c71934cc279c997771a5f84b8c054c3e9",
+        "sourceRevision": "4d8344c40f581cce18626e77299abf090dba96ee",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessRevision": "408bc7abbfb095a8e499380d6fdcb84619779854",
+      "harnessSha256": "2ff9322932782df9d0188921370aa3bcad699fed84f920c73b43b4e1df386aee",
+      "dependencyLockSha256": "f14e8531eabc3f5fa0e16d820a13fe4b9b4776cbbab94c7be02e93fb5140e7d1",
+      "budgetsSha256": "c2bd287fb786a6294507465201cfad8f499217bcbab4174ab08f0afa05fb9dbf",
+      "originalReportPath": "runs/run-09-adoption-diagnostic2-4d8344c40/report.json",
+      "originalReportSha256": "bc993a28ec2ac9a03c0cbb5f6f940420e5de019064915574ba9a1223ed9fb121",
+      "originalComplete": false,
+      "originalError": "ObservabilityBenchmarkFailure: Adoption diagnostic must remain bound to the expected native refusal.",
+      "checks": [],
+      "actualReceiverInspections": 0,
+      "actualSubjectArtifactDirectories": 1,
+      "verificationLogs": [
+        {
+          "sourceLog": "runs/run-09-adoption-diagnostic2-4d8344c40/verification/observability-adoption-diagnostic-tests2.public-projection.log",
+          "originalSha256": "a2dd73ec5e5e486cece7210ed7b7018afadef5c31b91cf61e4effd82482e5000",
+          "scope": "Exact task command lines and result lines printed by the existing log; top-level shell invocation and environment are not independently captured here.",
+          "commandLines": [
+            {
+              "line": 6,
+              "text": "> nx run specification-metadata:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 13,
+              "text": "> nx run registry-client:\"generate:registry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 15,
+              "text": "> bun scripts/generate-registry-client.ts"
+            },
+            {
+              "line": 22,
+              "text": "> nx run cli:\"generate:telemetry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 24,
+              "text": "> bun scripts/generate-telemetry-client.ts"
+            },
+            {
+              "line": 28,
+              "text": "> nx run cli:\"build:diagnostic-sources\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 30,
+              "text": "> bun scripts/generate-diagnostic-sources.ts"
+            },
+            {
+              "line": 34,
+              "text": "> nx run axm:\"test:integration-hook\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 36,
+              "text": "> node --test scripts/verify-integration.test.mjs"
+            },
+            {
+              "line": 67,
+              "text": "> nx run test-reporting:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 74,
+              "text": "> nx run extension-model:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 81,
+              "text": "> nx run host-primitives:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 88,
+              "text": "> nx run test-support:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 95,
+              "text": "> nx run registry-protocol:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 102,
+              "text": "> nx run extension-content:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 109,
+              "text": "> nx run cli-maintenance:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 116,
+              "text": "> nx run registry-client:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 123,
+              "text": "> nx run registry-access:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 130,
+              "text": "> nx run workspace-kernel:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 137,
+              "text": "> nx run extension-kinds:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 144,
+              "text": "> nx run extension-type-parity:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 151,
+              "text": "> nx run workspace-features:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 158,
+              "text": "> nx run cli:\"generate:schemas\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 160,
+              "text": "> bun --conditions=axm-source scripts/generate-schemas.ts"
+            },
+            {
+              "line": 176,
+              "text": "> nx run cli:\"generate:type-enumerations\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 178,
+              "text": "> bun --conditions=axm-source scripts/generate-type-enumerations.ts"
+            },
+            {
+              "line": 182,
+              "text": "> nx run cli:\"generate:cli-reference\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 184,
+              "text": "> bun --conditions=axm-source scripts/generate-cli-reference.ts"
+            },
+            {
+              "line": 189,
+              "text": "> nx run cli:\"generate:agent-catalog\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 191,
+              "text": "> bun --conditions=axm-source scripts/generate-agent-catalog.ts"
+            },
+            {
+              "line": 195,
+              "text": "> nx run cli:\"generate:bundled-axm-skill\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 197,
+              "text": "> bun scripts/generate-bundled-axm-skill.ts"
+            },
+            {
+              "line": 201,
+              "text": "> nx run cli:\"generate:help-topics\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 203,
+              "text": "> bun scripts/generate-help-topics.ts"
+            },
+            {
+              "line": 207,
+              "text": "> nx run cli:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 214,
+              "text": "> nx run axm:test observability-benchmark"
+            },
+            {
+              "line": 216,
+              "text": "> pnpm exec vitest run --config scripts/vitest.config.ts observability-benchmark"
+            }
+          ],
+          "resultLines": [
+            {
+              "line": 227,
+              "text": " Test Files  1 passed (1)"
+            },
+            {
+              "line": 228,
+              "text": "      Tests  35 passed (35)"
+            },
+            {
+              "line": 236,
+              "text": " NX   Successfully ran target test for project axm and 27 tasks it depends on"
+            }
+          ]
+        },
+        {
+          "sourceLog": "runs/run-09-adoption-diagnostic2-4d8344c40/verification/observability-adoption-diagnostic-checks2.log",
+          "originalSha256": "14894f2a3b7406fadcb5baf9a6b029b8c8e47b3fe13d95f552805c39c0ca463c",
+          "scope": "Exact task command lines and result lines printed by the existing log; top-level shell invocation and environment are not independently captured here.",
+          "commandLines": [
+            {
+              "line": 8,
+              "text": "> nx run specification-metadata:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 15,
+              "text": "> nx run registry-client:\"generate:registry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 17,
+              "text": "> bun scripts/generate-registry-client.ts"
+            },
+            {
+              "line": 24,
+              "text": "> nx run cli:\"generate:telemetry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 26,
+              "text": "> bun scripts/generate-telemetry-client.ts"
+            },
+            {
+              "line": 30,
+              "text": "> nx run cli:\"build:diagnostic-sources\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 32,
+              "text": "> bun scripts/generate-diagnostic-sources.ts"
+            },
+            {
+              "line": 36,
+              "text": "> nx run test-reporting:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 43,
+              "text": "> nx run extension-model:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 50,
+              "text": "> nx run host-primitives:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 57,
+              "text": "> nx run test-support:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 64,
+              "text": "> nx run registry-protocol:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 71,
+              "text": "> nx run extension-content:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 78,
+              "text": "> nx run cli-maintenance:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 85,
+              "text": "> nx run registry-client:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 92,
+              "text": "> nx run registry-access:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 99,
+              "text": "> nx run workspace-kernel:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 106,
+              "text": "> nx run extension-kinds:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 113,
+              "text": "> nx run extension-type-parity:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 120,
+              "text": "> nx run workspace-features:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 127,
+              "text": "> nx run cli:\"generate:schemas\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 129,
+              "text": "> bun --conditions=axm-source scripts/generate-schemas.ts"
+            },
+            {
+              "line": 145,
+              "text": "> nx run cli:\"generate:type-enumerations\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 147,
+              "text": "> bun --conditions=axm-source scripts/generate-type-enumerations.ts"
+            },
+            {
+              "line": 151,
+              "text": "> nx run cli:\"generate:cli-reference\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 153,
+              "text": "> bun --conditions=axm-source scripts/generate-cli-reference.ts"
+            },
+            {
+              "line": 158,
+              "text": "> nx run cli:\"generate:agent-catalog\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 160,
+              "text": "> bun --conditions=axm-source scripts/generate-agent-catalog.ts"
+            },
+            {
+              "line": 164,
+              "text": "> nx run cli:\"generate:bundled-axm-skill\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 166,
+              "text": "> bun scripts/generate-bundled-axm-skill.ts"
+            },
+            {
+              "line": 170,
+              "text": "> nx run cli:\"generate:help-topics\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 172,
+              "text": "> bun scripts/generate-help-topics.ts"
+            },
+            {
+              "line": 176,
+              "text": "> nx run cli:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 183,
+              "text": "> nx run axm:typecheck"
+            },
+            {
+              "line": 185,
+              "text": "> tsc -p scripts/tsconfig.json --noEmit"
+            },
+            {
+              "line": 188,
+              "text": "> nx run axm:lint"
+            },
+            {
+              "line": 190,
+              "text": "> eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts benchmarks scripts --max-warnings=0"
+            }
+          ],
+          "resultLines": [
+            {
+              "line": 197,
+              "text": " NX   Successfully ran targets typecheck, lint for project axm and 26 tasks it depends on"
+            }
+          ]
+        },
+        {
+          "sourceLog": "runs/run-09-adoption-diagnostic2-4d8344c40/verification/observability-adoption-diagnostic-preflight2.public-projection.log",
+          "originalSha256": "0b30dcdf86c415af8fbaed0023809e8934d0f184bf0e5bf0a34a2b0aa97aa152",
+          "scope": "Exact task command lines and result lines printed by the existing log; top-level shell invocation and environment are not independently captured here.",
+          "commandLines": [
+            {
+              "line": 7,
+              "text": "> nx run specification-metadata:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 14,
+              "text": "> nx run registry-client:\"generate:registry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 16,
+              "text": "> bun scripts/generate-registry-client.ts"
+            },
+            {
+              "line": 23,
+              "text": "> nx run cli:\"generate:telemetry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 25,
+              "text": "> bun scripts/generate-telemetry-client.ts"
+            },
+            {
+              "line": 29,
+              "text": "> nx run cli:\"build:diagnostic-sources\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 31,
+              "text": "> bun scripts/generate-diagnostic-sources.ts"
+            },
+            {
+              "line": 35,
+              "text": "> nx run test-reporting:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 42,
+              "text": "> nx run extension-model:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 49,
+              "text": "> nx run host-primitives:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 56,
+              "text": "> nx run test-support:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 63,
+              "text": "> nx run registry-protocol:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 70,
+              "text": "> nx run extension-content:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 77,
+              "text": "> nx run cli-maintenance:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 84,
+              "text": "> nx run registry-client:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 91,
+              "text": "> nx run registry-access:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 98,
+              "text": "> nx run workspace-kernel:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 105,
+              "text": "> nx run extension-kinds:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 112,
+              "text": "> nx run extension-type-parity:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 119,
+              "text": "> nx run workspace-features:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 126,
+              "text": "> nx run cli:\"generate:schemas\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 128,
+              "text": "> bun --conditions=axm-source scripts/generate-schemas.ts"
+            },
+            {
+              "line": 144,
+              "text": "> nx run cli:\"generate:type-enumerations\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 146,
+              "text": "> bun --conditions=axm-source scripts/generate-type-enumerations.ts"
+            },
+            {
+              "line": 150,
+              "text": "> nx run cli:\"generate:cli-reference\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 152,
+              "text": "> bun --conditions=axm-source scripts/generate-cli-reference.ts"
+            },
+            {
+              "line": 157,
+              "text": "> nx run cli:\"generate:agent-catalog\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 159,
+              "text": "> bun --conditions=axm-source scripts/generate-agent-catalog.ts"
+            },
+            {
+              "line": 163,
+              "text": "> nx run cli:\"generate:bundled-axm-skill\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 165,
+              "text": "> bun scripts/generate-bundled-axm-skill.ts"
+            },
+            {
+              "line": 169,
+              "text": "> nx run cli:\"generate:help-topics\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 171,
+              "text": "> bun scripts/generate-help-topics.ts"
+            },
+            {
+              "line": 175,
+              "text": "> nx run cli:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 182,
+              "text": "> nx run cli:compile-linux-x64"
+            },
+            {
+              "line": 184,
+              "text": "> bun scripts/compile.ts --target=bun-linux-x64"
+            },
+            {
+              "line": 191,
+              "text": "> nx run cli:compile-host"
+            },
+            {
+              "line": 193,
+              "text": "> bun scripts/compile.ts --host-only"
+            },
+            {
+              "line": 198,
+              "text": "> nx run axm:bench"
+            },
+            {
+              "line": 200,
+              "text": "> bun scripts/bench.ts"
+            }
+          ],
+          "resultLines": [
+            {
+              "line": 228,
+              "text": "Failed tasks:"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runId": "run-10-adoption-single-target-4d8344c40",
+      "name": "adoption-single-target",
+      "classification": "completed",
+      "scenario": "installed/adopt-enabled-native-refusal",
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-knowledge-final-5jaosdfd/axm-linux-x64",
+        "binarySha256": "2cd081d5e32eb72900992edbc26eb18c71934cc279c997771a5f84b8c054c3e9",
+        "sourceRevision": "4d8344c40f581cce18626e77299abf090dba96ee",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessRevision": "290c531ab72ef99a48abbd09dd2408a2bbd4c224",
+      "harnessSha256": "8252ec0cf4488d443cc6de257fc2537911875e4bbcd052e4322a330ab295c4e5",
+      "dependencyLockSha256": "f14e8531eabc3f5fa0e16d820a13fe4b9b4776cbbab94c7be02e93fb5140e7d1",
+      "budgetsSha256": "c2bd287fb786a6294507465201cfad8f499217bcbab4174ab08f0afa05fb9dbf",
+      "originalReportPath": "runs/run-10-adoption-single-target-4d8344c40/report.json",
+      "originalReportSha256": "dc5abeb138cc6126ce966db3c20088dd5ae4f79937ad7cec8a7009dd0342dd02",
+      "originalComplete": false,
+      "originalError": null,
+      "checks": [
+        {
+          "scenario": "installed/adopt-enabled-native-refusal",
+          "mode": "disabled",
+          "exitCode": 10,
+          "artifacts": "samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0",
+          "baselineArtifacts": "samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0",
+          "comparisonVerified": true,
+          "comparisonIssues": []
+        },
+        {
+          "scenario": "installed/adopt-enabled-native-refusal",
+          "mode": "summary",
+          "exitCode": 10,
+          "artifacts": "samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0",
+          "baselineArtifacts": "samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0",
+          "comparisonVerified": true,
+          "comparisonIssues": [],
+          "trace": {
+            "complete": true,
+            "delivery": "inspected",
+            "periodicMaintenance": [],
+            "automaticCacheMaintenance": [],
+            "retainedSpanCount": 55,
+            "retainedDetailSpanCount": 0,
+            "summaryGroups": 229,
+            "diagnosticShutdownMillis": 100.85854400000096,
+            "exportFinalizationMillis": 63.07066099999997,
+            "traceId": "f7e75a8dbb6d7385ec5f906573e3fc91",
+            "rootSpanId": "3c843d911181b0a2",
+            "workDigest": "c3fc036c00c641c66303d40cf32093da0358550d4f23328041334c47220229a5",
+            "retrievalBytes": 199726
+          }
+        },
+        {
+          "scenario": "installed/adopt-enabled-native-refusal",
+          "mode": "detail",
+          "exitCode": 10,
+          "artifacts": "samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0",
+          "baselineArtifacts": "samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0",
+          "comparisonVerified": true,
+          "comparisonIssues": [],
+          "trace": {
+            "complete": true,
+            "delivery": "inspected",
+            "periodicMaintenance": [],
+            "automaticCacheMaintenance": [],
+            "retainedSpanCount": 2507,
+            "retainedDetailSpanCount": 2452,
+            "summaryGroups": 229,
+            "diagnosticShutdownMillis": 54.303467000007686,
+            "exportFinalizationMillis": 30.193364000000088,
+            "traceId": "981037df133d062b684490d48b4b8296",
+            "rootSpanId": "b00b3ce6791362fb",
+            "workDigest": "c3fc036c00c641c66303d40cf32093da0358550d4f23328041334c47220229a5",
+            "retrievalBytes": 1606957
+          }
+        }
+      ],
+      "actualReceiverInspections": 2,
+      "actualSubjectArtifactDirectories": 4,
+      "verificationLogs": [
+        {
+          "sourceLog": "runs/run-10-adoption-single-target-4d8344c40/verification/observability-adoption-single-target-tests.public-projection.log",
+          "originalSha256": "2b4c730d77819370b3eb4e7e36a8ab119c2630a416fa65c24fafb5f3089ba1f9",
+          "scope": "Exact task command lines and result lines printed by the existing log; top-level shell invocation and environment are not independently captured here.",
+          "commandLines": [
+            {
+              "line": 6,
+              "text": "> nx run specification-metadata:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 13,
+              "text": "> nx run registry-client:\"generate:registry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 15,
+              "text": "> bun scripts/generate-registry-client.ts"
+            },
+            {
+              "line": 22,
+              "text": "> nx run cli:\"generate:telemetry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 24,
+              "text": "> bun scripts/generate-telemetry-client.ts"
+            },
+            {
+              "line": 28,
+              "text": "> nx run cli:\"build:diagnostic-sources\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 30,
+              "text": "> bun scripts/generate-diagnostic-sources.ts"
+            },
+            {
+              "line": 34,
+              "text": "> nx run axm:\"test:integration-hook\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 36,
+              "text": "> node --test scripts/verify-integration.test.mjs"
+            },
+            {
+              "line": 67,
+              "text": "> nx run test-reporting:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 74,
+              "text": "> nx run extension-model:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 81,
+              "text": "> nx run host-primitives:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 88,
+              "text": "> nx run test-support:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 95,
+              "text": "> nx run registry-protocol:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 102,
+              "text": "> nx run extension-content:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 109,
+              "text": "> nx run cli-maintenance:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 116,
+              "text": "> nx run registry-client:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 123,
+              "text": "> nx run registry-access:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 130,
+              "text": "> nx run workspace-kernel:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 137,
+              "text": "> nx run extension-kinds:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 144,
+              "text": "> nx run extension-type-parity:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 151,
+              "text": "> nx run workspace-features:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 158,
+              "text": "> nx run cli:\"generate:schemas\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 160,
+              "text": "> bun --conditions=axm-source scripts/generate-schemas.ts"
+            },
+            {
+              "line": 176,
+              "text": "> nx run cli:\"generate:type-enumerations\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 178,
+              "text": "> bun --conditions=axm-source scripts/generate-type-enumerations.ts"
+            },
+            {
+              "line": 182,
+              "text": "> nx run cli:\"generate:cli-reference\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 184,
+              "text": "> bun --conditions=axm-source scripts/generate-cli-reference.ts"
+            },
+            {
+              "line": 189,
+              "text": "> nx run cli:\"generate:agent-catalog\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 191,
+              "text": "> bun --conditions=axm-source scripts/generate-agent-catalog.ts"
+            },
+            {
+              "line": 195,
+              "text": "> nx run cli:\"generate:bundled-axm-skill\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 197,
+              "text": "> bun scripts/generate-bundled-axm-skill.ts"
+            },
+            {
+              "line": 201,
+              "text": "> nx run cli:\"generate:help-topics\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 203,
+              "text": "> bun scripts/generate-help-topics.ts"
+            },
+            {
+              "line": 207,
+              "text": "> nx run cli:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 214,
+              "text": "> nx run axm:test observability-benchmark"
+            },
+            {
+              "line": 216,
+              "text": "> pnpm exec vitest run --config scripts/vitest.config.ts observability-benchmark"
+            }
+          ],
+          "resultLines": [
+            {
+              "line": 227,
+              "text": " Test Files  1 passed (1)"
+            },
+            {
+              "line": 228,
+              "text": "      Tests  36 passed (36)"
+            },
+            {
+              "line": 236,
+              "text": " NX   Successfully ran target test for project axm and 27 tasks it depends on"
+            }
+          ]
+        },
+        {
+          "sourceLog": "runs/run-10-adoption-single-target-4d8344c40/verification/observability-adoption-single-target-checks.log",
+          "originalSha256": "0596b0e1710998ee90eb90e33f3927e73d50959e57aeef6dbe29118b5cdb7936",
+          "scope": "Exact task command lines and result lines printed by the existing log; top-level shell invocation and environment are not independently captured here.",
+          "commandLines": [
+            {
+              "line": 8,
+              "text": "> nx run specification-metadata:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 15,
+              "text": "> nx run registry-client:\"generate:registry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 17,
+              "text": "> bun scripts/generate-registry-client.ts"
+            },
+            {
+              "line": 24,
+              "text": "> nx run cli:\"generate:telemetry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 26,
+              "text": "> bun scripts/generate-telemetry-client.ts"
+            },
+            {
+              "line": 30,
+              "text": "> nx run cli:\"build:diagnostic-sources\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 32,
+              "text": "> bun scripts/generate-diagnostic-sources.ts"
+            },
+            {
+              "line": 36,
+              "text": "> nx run test-reporting:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 43,
+              "text": "> nx run extension-model:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 50,
+              "text": "> nx run host-primitives:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 57,
+              "text": "> nx run test-support:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 64,
+              "text": "> nx run registry-protocol:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 71,
+              "text": "> nx run extension-content:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 78,
+              "text": "> nx run cli-maintenance:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 85,
+              "text": "> nx run registry-client:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 92,
+              "text": "> nx run registry-access:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 99,
+              "text": "> nx run workspace-kernel:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 106,
+              "text": "> nx run extension-kinds:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 113,
+              "text": "> nx run extension-type-parity:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 120,
+              "text": "> nx run workspace-features:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 127,
+              "text": "> nx run cli:\"generate:schemas\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 129,
+              "text": "> bun --conditions=axm-source scripts/generate-schemas.ts"
+            },
+            {
+              "line": 145,
+              "text": "> nx run cli:\"generate:type-enumerations\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 147,
+              "text": "> bun --conditions=axm-source scripts/generate-type-enumerations.ts"
+            },
+            {
+              "line": 151,
+              "text": "> nx run cli:\"generate:cli-reference\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 153,
+              "text": "> bun --conditions=axm-source scripts/generate-cli-reference.ts"
+            },
+            {
+              "line": 158,
+              "text": "> nx run cli:\"generate:agent-catalog\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 160,
+              "text": "> bun --conditions=axm-source scripts/generate-agent-catalog.ts"
+            },
+            {
+              "line": 164,
+              "text": "> nx run cli:\"generate:bundled-axm-skill\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 166,
+              "text": "> bun scripts/generate-bundled-axm-skill.ts"
+            },
+            {
+              "line": 170,
+              "text": "> nx run cli:\"generate:help-topics\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 172,
+              "text": "> bun scripts/generate-help-topics.ts"
+            },
+            {
+              "line": 176,
+              "text": "> nx run cli:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 183,
+              "text": "> nx run axm:typecheck"
+            },
+            {
+              "line": 185,
+              "text": "> tsc -p scripts/tsconfig.json --noEmit"
+            },
+            {
+              "line": 188,
+              "text": "> nx run axm:lint"
+            },
+            {
+              "line": 190,
+              "text": "> eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts benchmarks scripts --max-warnings=0"
+            }
+          ],
+          "resultLines": [
+            {
+              "line": 197,
+              "text": " NX   Successfully ran targets typecheck, lint for project axm and 26 tasks it depends on"
+            }
+          ]
+        },
+        {
+          "sourceLog": "runs/run-10-adoption-single-target-4d8344c40/verification/observability-adoption-single-target-preflight.public-projection.log",
+          "originalSha256": "4d20fbe20c78b33de26e292bfa3f6c8a958410f711f6e9d5ed5168691bf62343",
+          "scope": "Exact task command lines and result lines printed by the existing log; top-level shell invocation and environment are not independently captured here.",
+          "commandLines": [
+            {
+              "line": 7,
+              "text": "> nx run specification-metadata:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 14,
+              "text": "> nx run registry-client:\"generate:registry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 16,
+              "text": "> bun scripts/generate-registry-client.ts"
+            },
+            {
+              "line": 23,
+              "text": "> nx run cli:\"generate:telemetry-client\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 25,
+              "text": "> bun scripts/generate-telemetry-client.ts"
+            },
+            {
+              "line": 29,
+              "text": "> nx run cli:\"build:diagnostic-sources\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 31,
+              "text": "> bun scripts/generate-diagnostic-sources.ts"
+            },
+            {
+              "line": 35,
+              "text": "> nx run test-reporting:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 42,
+              "text": "> nx run extension-model:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 49,
+              "text": "> nx run host-primitives:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 56,
+              "text": "> nx run test-support:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 63,
+              "text": "> nx run registry-protocol:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 70,
+              "text": "> nx run extension-content:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 77,
+              "text": "> nx run cli-maintenance:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 84,
+              "text": "> nx run registry-client:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 91,
+              "text": "> nx run registry-access:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 98,
+              "text": "> nx run workspace-kernel:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 105,
+              "text": "> nx run extension-kinds:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 112,
+              "text": "> nx run extension-type-parity:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 119,
+              "text": "> nx run workspace-features:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 126,
+              "text": "> nx run cli:\"generate:schemas\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 128,
+              "text": "> bun --conditions=axm-source scripts/generate-schemas.ts"
+            },
+            {
+              "line": 144,
+              "text": "> nx run cli:\"generate:type-enumerations\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 146,
+              "text": "> bun --conditions=axm-source scripts/generate-type-enumerations.ts"
+            },
+            {
+              "line": 150,
+              "text": "> nx run cli:\"generate:cli-reference\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 152,
+              "text": "> bun --conditions=axm-source scripts/generate-cli-reference.ts"
+            },
+            {
+              "line": 157,
+              "text": "> nx run cli:\"generate:agent-catalog\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 159,
+              "text": "> bun --conditions=axm-source scripts/generate-agent-catalog.ts"
+            },
+            {
+              "line": 163,
+              "text": "> nx run cli:\"generate:bundled-axm-skill\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 165,
+              "text": "> bun scripts/generate-bundled-axm-skill.ts"
+            },
+            {
+              "line": 169,
+              "text": "> nx run cli:\"generate:help-topics\"  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 171,
+              "text": "> bun scripts/generate-help-topics.ts"
+            },
+            {
+              "line": 175,
+              "text": "> nx run cli:build  [existing outputs match the cache, left as is]"
+            },
+            {
+              "line": 182,
+              "text": "> nx run cli:compile-linux-x64"
+            },
+            {
+              "line": 184,
+              "text": "> bun scripts/compile.ts --target=bun-linux-x64"
+            },
+            {
+              "line": 191,
+              "text": "> nx run cli:compile-host"
+            },
+            {
+              "line": 193,
+              "text": "> bun scripts/compile.ts --host-only"
+            },
+            {
+              "line": 198,
+              "text": "> nx run axm:bench"
+            },
+            {
+              "line": 200,
+              "text": "> bun scripts/bench.ts"
+            }
+          ],
+          "resultLines": [
+            {
+              "line": 205,
+              "text": " NX   Successfully ran target bench for project axm and 28 tasks it depends on"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "files": [
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/report.json",
+      "bytes": 595626,
+      "sha256": "f1af0eb8d077133f936eacbf23dabe7aa3ce21a96b0339b625e47a17ae68937c",
+      "rawBytes": 595626,
+      "rawSha256": "f1af0eb8d077133f936eacbf23dabe7aa3ce21a96b0339b625e47a17ae68937c",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/report.json",
+      "kind": "original-report",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/harness-modules.json",
+      "bytes": 204173,
+      "sha256": "14c167a621fddadc3740e1e19ec43e28fee9cb0d2d1276bac32998a4c67ce637",
+      "rawBytes": 204173,
+      "rawSha256": "14c167a621fddadc3740e1e19ec43e28fee9cb0d2d1276bac32998a4c67ce637",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/harness-modules.json",
+      "kind": "run-provenance",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/scenarios.json",
+      "bytes": 131975,
+      "sha256": "e8a5cc906891d85f4b680a636e0aa714f30ccb1004d80c0ba8f75b161749716f",
+      "rawBytes": 131975,
+      "rawSha256": "e8a5cc906891d85f4b680a636e0aa714f30ccb1004d80c0ba8f75b161749716f",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/scenarios.json",
+      "kind": "run-provenance",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/commands.json",
+      "bytes": 14496,
+      "sha256": "69590ea763f0dec5464ed1ec4f76527cafc0441b6c741bc2ec1c71a984d3ca95",
+      "rawBytes": 14496,
+      "rawSha256": "69590ea763f0dec5464ed1ec4f76527cafc0441b6c741bc2ec1c71a984d3ca95",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/commands.json",
+      "kind": "run-provenance",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/seq-version/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/seq-version/stderr.txt",
+      "kind": "receiver-version",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/seq-version/stdout.txt",
+      "bytes": 54,
+      "sha256": "a828a07cd17de7fa6b3eec701ae49b7755459ab48daa94e55c4fd01a3d07b7d3",
+      "rawBytes": 54,
+      "rawSha256": "a828a07cd17de7fa6b3eec701ae49b7755459ab48daa94e55c4fd01a3d07b7d3",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/seq-version/stdout.txt",
+      "kind": "receiver-version",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic-selection.json",
+      "bytes": 587,
+      "sha256": "198178308d3ed23abc51a4f96a0a89140d032b359414ccb497dd20b40caff827",
+      "rawBytes": 587,
+      "rawSha256": "198178308d3ed23abc51a4f96a0a89140d032b359414ccb497dd20b40caff827",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/adoption-diagnostic-selection.json",
+      "kind": "original-selection",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/candidate.json",
+      "bytes": 258,
+      "sha256": "2ee12a75d43c47dd5acfb0529ef1b98a6a268440a0e68c3b293e8bb1e36de7f1",
+      "rawBytes": 258,
+      "rawSha256": "2ee12a75d43c47dd5acfb0529ef1b98a6a268440a0e68c3b293e8bb1e36de7f1",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/candidate.json",
+      "kind": "binary-manifest",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/baseline.json",
+      "bytes": 242,
+      "sha256": "2f1ee5ade33c514169deb59ee5a80f50fb01c3dd05ecba14f0a90b5d9e4eea30",
+      "rawBytes": 242,
+      "rawSha256": "2f1ee5ade33c514169deb59ee5a80f50fb01c3dd05ecba14f0a90b5d9e4eea30",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/baseline.json",
+      "kind": "binary-manifest",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/after.json",
+      "bytes": 6989,
+      "sha256": "1ee3b282237bc8b286c5db3c21091175a4ae06d88bb6b42bc41a7540c51e1fea",
+      "rawBytes": 6989,
+      "rawSha256": "1ee3b282237bc8b286c5db3c21091175a4ae06d88bb6b42bc41a7540c51e1fea",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/after.json",
+      "kind": "original-case-artifact",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/before.json",
+      "bytes": 6571,
+      "sha256": "c98102eeb116795dade24b78ced9a3aec55cf4f6b536ad357c96b083bd1a5a1a",
+      "rawBytes": 6571,
+      "rawSha256": "c98102eeb116795dade24b78ced9a3aec55cf4f6b536ad357c96b083bd1a5a1a",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/before.json",
+      "kind": "original-case-artifact",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/oracle.json",
+      "bytes": 438,
+      "sha256": "b8e29c009fcc7edf3bd2e9681c52555db2d901c0338daf78e682c6b875fa9517",
+      "rawBytes": 438,
+      "rawSha256": "b8e29c009fcc7edf3bd2e9681c52555db2d901c0338daf78e682c6b875fa9517",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/oracle.json",
+      "kind": "original-case-artifact",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-after/presence.json",
+      "bytes": 18,
+      "sha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-after/presence.json",
+      "kind": "original-case-artifact",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-before/presence.json",
+      "bytes": 18,
+      "sha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-before/presence.json",
+      "kind": "original-case-artifact",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/rss-kib.txt",
+      "bytes": 46,
+      "sha256": "e01bf22d411517502416fa6832fabebb49a05d47ca9238e72810fd6f9042c34c",
+      "rawBytes": 46,
+      "rawSha256": "e01bf22d411517502416fa6832fabebb49a05d47ca9238e72810fd6f9042c34c",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/rss-kib.txt",
+      "kind": "original-case-artifact",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stderr.txt",
+      "bytes": 1615,
+      "sha256": "6ac251898a60cea4a39432a7e792d9adf0675e7842967c7a3d4e804eb5141fa3",
+      "rawBytes": 1615,
+      "rawSha256": "6ac251898a60cea4a39432a7e792d9adf0675e7842967c7a3d4e804eb5141fa3",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stderr.txt",
+      "kind": "original-case-artifact",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stdout.txt",
+      "bytes": 3032,
+      "sha256": "7ae2e49f424e5bd28d8ef8615a560c6e8842316004aaa3f53b4142547ea14a99",
+      "rawBytes": 3032,
+      "rawSha256": "7ae2e49f424e5bd28d8ef8615a560c6e8842316004aaa3f53b4142547ea14a99",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stdout.txt",
+      "kind": "original-case-artifact",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-diagnostic-tests.log",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/verification/observability-adoption-diagnostic-tests.public-projection.log",
+      "bytes": 11890,
+      "sha256": "47a466305702b5863a95420f35ba2ca2c078ba33cdfdb3d2aa7cc5ca7243c64f",
+      "rawBytes": 11890,
+      "rawSha256": "47a466305702b5863a95420f35ba2ca2c078ba33cdfdb3d2aa7cc5ca7243c64f",
+      "kind": "verification-log-public-projection",
+      "runId": "run-08-adoption-diagnostic-4d8344c40",
+      "originalBytes": 11932,
+      "originalSha256": "c4a758b271db54ce412826b21b9d70471417f94155ad115ebc518ffa89b094d2"
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-diagnostic-checks.log",
+      "bytes": 9156,
+      "sha256": "6dc420c347ac778c022ec470db31769913b35138928100dbb1050b8feeb10237",
+      "rawBytes": 9156,
+      "rawSha256": "6dc420c347ac778c022ec470db31769913b35138928100dbb1050b8feeb10237",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/verification/observability-adoption-diagnostic-checks.log",
+      "kind": "original-verification-log",
+      "runId": "run-08-adoption-diagnostic-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-diagnostic-preflight.log",
+      "stagedPath": "runs/run-08-adoption-diagnostic-4d8344c40/verification/observability-adoption-diagnostic-preflight.public-projection.log",
+      "bytes": 12043,
+      "sha256": "fa4c9b4b12f52b915267905de52704288933fd230c73686f81ea454e7dd01ab8",
+      "rawBytes": 12043,
+      "rawSha256": "fa4c9b4b12f52b915267905de52704288933fd230c73686f81ea454e7dd01ab8",
+      "kind": "verification-log-public-projection",
+      "runId": "run-08-adoption-diagnostic-4d8344c40",
+      "originalBytes": 12211,
+      "originalSha256": "34952ad6f7767ea9be51cc80f6ccbaf04bc64fea71f1c2909adee9dbd17378a4"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/report.json",
+      "bytes": 595626,
+      "sha256": "bc993a28ec2ac9a03c0cbb5f6f940420e5de019064915574ba9a1223ed9fb121",
+      "rawBytes": 595626,
+      "rawSha256": "bc993a28ec2ac9a03c0cbb5f6f940420e5de019064915574ba9a1223ed9fb121",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/report.json",
+      "kind": "original-report",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/harness-modules.json",
+      "bytes": 204173,
+      "sha256": "37bb0e5fc780d55ba23f676456db0cf72cf154a3c4f21ac960c099f31d9ad026",
+      "rawBytes": 204173,
+      "rawSha256": "37bb0e5fc780d55ba23f676456db0cf72cf154a3c4f21ac960c099f31d9ad026",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/harness-modules.json",
+      "kind": "run-provenance",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/scenarios.json",
+      "bytes": 131975,
+      "sha256": "6d166d254d00d9a5579c3c89f680a205160462d63eba8c639cd53477e928a2b2",
+      "rawBytes": 131975,
+      "rawSha256": "6d166d254d00d9a5579c3c89f680a205160462d63eba8c639cd53477e928a2b2",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/scenarios.json",
+      "kind": "run-provenance",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/commands.json",
+      "bytes": 14496,
+      "sha256": "69590ea763f0dec5464ed1ec4f76527cafc0441b6c741bc2ec1c71a984d3ca95",
+      "rawBytes": 14496,
+      "rawSha256": "69590ea763f0dec5464ed1ec4f76527cafc0441b6c741bc2ec1c71a984d3ca95",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/commands.json",
+      "kind": "run-provenance",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/seq-version/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/seq-version/stderr.txt",
+      "kind": "receiver-version",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/seq-version/stdout.txt",
+      "bytes": 54,
+      "sha256": "a828a07cd17de7fa6b3eec701ae49b7755459ab48daa94e55c4fd01a3d07b7d3",
+      "rawBytes": 54,
+      "rawSha256": "a828a07cd17de7fa6b3eec701ae49b7755459ab48daa94e55c4fd01a3d07b7d3",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/seq-version/stdout.txt",
+      "kind": "receiver-version",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2-selection.json",
+      "bytes": 626,
+      "sha256": "5d635cbfc6f20beb46ecdbe6fe91399f89e8d816f152fce3db7d22beae6e11dd",
+      "rawBytes": 626,
+      "rawSha256": "5d635cbfc6f20beb46ecdbe6fe91399f89e8d816f152fce3db7d22beae6e11dd",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/adoption-diagnostic2-selection.json",
+      "kind": "original-selection",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/candidate.json",
+      "bytes": 258,
+      "sha256": "2ee12a75d43c47dd5acfb0529ef1b98a6a268440a0e68c3b293e8bb1e36de7f1",
+      "rawBytes": 258,
+      "rawSha256": "2ee12a75d43c47dd5acfb0529ef1b98a6a268440a0e68c3b293e8bb1e36de7f1",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/candidate.json",
+      "kind": "binary-manifest",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/baseline.json",
+      "bytes": 242,
+      "sha256": "2f1ee5ade33c514169deb59ee5a80f50fb01c3dd05ecba14f0a90b5d9e4eea30",
+      "rawBytes": 242,
+      "rawSha256": "2f1ee5ade33c514169deb59ee5a80f50fb01c3dd05ecba14f0a90b5d9e4eea30",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/baseline.json",
+      "kind": "binary-manifest",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/after.json",
+      "bytes": 6989,
+      "sha256": "aa7253cd7df88f547ac52021bcd9ea3235e0baccd6222020e81050621605f407",
+      "rawBytes": 6989,
+      "rawSha256": "aa7253cd7df88f547ac52021bcd9ea3235e0baccd6222020e81050621605f407",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/after.json",
+      "kind": "original-case-artifact",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/before.json",
+      "bytes": 6571,
+      "sha256": "c98102eeb116795dade24b78ced9a3aec55cf4f6b536ad357c96b083bd1a5a1a",
+      "rawBytes": 6571,
+      "rawSha256": "c98102eeb116795dade24b78ced9a3aec55cf4f6b536ad357c96b083bd1a5a1a",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/before.json",
+      "kind": "original-case-artifact",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/oracle.json",
+      "bytes": 438,
+      "sha256": "b8e29c009fcc7edf3bd2e9681c52555db2d901c0338daf78e682c6b875fa9517",
+      "rawBytes": 438,
+      "rawSha256": "b8e29c009fcc7edf3bd2e9681c52555db2d901c0338daf78e682c6b875fa9517",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/oracle.json",
+      "kind": "original-case-artifact",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-diagnostic.json",
+      "bytes": 3371,
+      "sha256": "59c49f8b6c2facf788d05256065fbea6663f188aa64d1a10e963fa0fb8c0b1e2",
+      "rawBytes": 3371,
+      "rawSha256": "59c49f8b6c2facf788d05256065fbea6663f188aa64d1a10e963fa0fb8c0b1e2",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-diagnostic.json",
+      "kind": "original-case-artifact",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-after/presence.json",
+      "bytes": 18,
+      "sha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-after/presence.json",
+      "kind": "original-case-artifact",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-before/presence.json",
+      "bytes": 18,
+      "sha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-before/presence.json",
+      "kind": "original-case-artifact",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/rss-kib.txt",
+      "bytes": 46,
+      "sha256": "a945e74934665f04ac25d69d65633d335b54f1a06b322c5b8e224ca0c64b510b",
+      "rawBytes": 46,
+      "rawSha256": "a945e74934665f04ac25d69d65633d335b54f1a06b322c5b8e224ca0c64b510b",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/rss-kib.txt",
+      "kind": "original-case-artifact",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stderr.txt",
+      "bytes": 1615,
+      "sha256": "c5794809a392357908ee909fcd29304ac19867e3cc515a8f93c04264640a5a35",
+      "rawBytes": 1615,
+      "rawSha256": "c5794809a392357908ee909fcd29304ac19867e3cc515a8f93c04264640a5a35",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stderr.txt",
+      "kind": "original-case-artifact",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stdout.txt",
+      "bytes": 3032,
+      "sha256": "f0db0319e9f0b03d823002a3be86115963407fbec178ce72562256b324eaa0e1",
+      "rawBytes": 3032,
+      "rawSha256": "f0db0319e9f0b03d823002a3be86115963407fbec178ce72562256b324eaa0e1",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stdout.txt",
+      "kind": "original-case-artifact",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-diagnostic-tests2.log",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/verification/observability-adoption-diagnostic-tests2.public-projection.log",
+      "bytes": 11890,
+      "sha256": "adda1546e7e585ba77e2834d1a412c53ab3653490edcac83114d77b71c813f59",
+      "rawBytes": 11890,
+      "rawSha256": "adda1546e7e585ba77e2834d1a412c53ab3653490edcac83114d77b71c813f59",
+      "kind": "verification-log-public-projection",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40",
+      "originalBytes": 11932,
+      "originalSha256": "a2dd73ec5e5e486cece7210ed7b7018afadef5c31b91cf61e4effd82482e5000"
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-diagnostic-checks2.log",
+      "bytes": 9156,
+      "sha256": "14894f2a3b7406fadcb5baf9a6b029b8c8e47b3fe13d95f552805c39c0ca463c",
+      "rawBytes": 9156,
+      "rawSha256": "14894f2a3b7406fadcb5baf9a6b029b8c8e47b3fe13d95f552805c39c0ca463c",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/verification/observability-adoption-diagnostic-checks2.log",
+      "kind": "original-verification-log",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-diagnostic-preflight2.log",
+      "stagedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/verification/observability-adoption-diagnostic-preflight2.public-projection.log",
+      "bytes": 12044,
+      "sha256": "9c53db0c550314a637b638b55728ef75ee8ecc3174f4b71b771c15cefcbd321c",
+      "rawBytes": 12044,
+      "rawSha256": "9c53db0c550314a637b638b55728ef75ee8ecc3174f4b71b771c15cefcbd321c",
+      "kind": "verification-log-public-projection",
+      "runId": "run-09-adoption-diagnostic2-4d8344c40",
+      "originalBytes": 12212,
+      "originalSha256": "0b30dcdf86c415af8fbaed0023809e8934d0f184bf0e5bf0a34a2b0aa97aa152"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/report.json",
+      "bytes": 597699,
+      "sha256": "dc5abeb138cc6126ce966db3c20088dd5ae4f79937ad7cec8a7009dd0342dd02",
+      "rawBytes": 597699,
+      "rawSha256": "dc5abeb138cc6126ce966db3c20088dd5ae4f79937ad7cec8a7009dd0342dd02",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/report.json",
+      "kind": "original-report",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/harness-modules.json",
+      "bytes": 204173,
+      "sha256": "1302f1e00c4d3ca13aca22a729c7fbe0197de33324e9bd969b29156496d253d5",
+      "rawBytes": 204173,
+      "rawSha256": "1302f1e00c4d3ca13aca22a729c7fbe0197de33324e9bd969b29156496d253d5",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/harness-modules.json",
+      "kind": "run-provenance",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/scenarios.json",
+      "bytes": 131975,
+      "sha256": "58d44426eafe9eff7395da67c80a5ebb6df63322bf1065457e54fa88b75b2a75",
+      "rawBytes": 131975,
+      "rawSha256": "58d44426eafe9eff7395da67c80a5ebb6df63322bf1065457e54fa88b75b2a75",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/scenarios.json",
+      "kind": "run-provenance",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/commands.json",
+      "bytes": 14496,
+      "sha256": "69590ea763f0dec5464ed1ec4f76527cafc0441b6c741bc2ec1c71a984d3ca95",
+      "rawBytes": 14496,
+      "rawSha256": "69590ea763f0dec5464ed1ec4f76527cafc0441b6c741bc2ec1c71a984d3ca95",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/commands.json",
+      "kind": "run-provenance",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/seq-version/stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/seq-version/stderr.txt",
+      "kind": "receiver-version",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/seq-version/stdout.txt",
+      "bytes": 54,
+      "sha256": "a828a07cd17de7fa6b3eec701ae49b7755459ab48daa94e55c4fd01a3d07b7d3",
+      "rawBytes": 54,
+      "rawSha256": "a828a07cd17de7fa6b3eec701ae49b7755459ab48daa94e55c4fd01a3d07b7d3",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/seq-version/stdout.txt",
+      "kind": "receiver-version",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target-selection.json",
+      "bytes": 759,
+      "sha256": "2a74cf05a70b77003f497eb5fd007e655a9fe303bb2383cc9f08ca61fec847db",
+      "rawBytes": 759,
+      "rawSha256": "2a74cf05a70b77003f497eb5fd007e655a9fe303bb2383cc9f08ca61fec847db",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/adoption-single-target-selection.json",
+      "kind": "original-selection",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/candidate.json",
+      "bytes": 258,
+      "sha256": "2ee12a75d43c47dd5acfb0529ef1b98a6a268440a0e68c3b293e8bb1e36de7f1",
+      "rawBytes": 258,
+      "rawSha256": "2ee12a75d43c47dd5acfb0529ef1b98a6a268440a0e68c3b293e8bb1e36de7f1",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/candidate.json",
+      "kind": "binary-manifest",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/baseline.json",
+      "bytes": 242,
+      "sha256": "2f1ee5ade33c514169deb59ee5a80f50fb01c3dd05ecba14f0a90b5d9e4eea30",
+      "rawBytes": 242,
+      "rawSha256": "2f1ee5ade33c514169deb59ee5a80f50fb01c3dd05ecba14f0a90b5d9e4eea30",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/baseline.json",
+      "kind": "binary-manifest",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/after.json.gz",
+      "bytes": 1218,
+      "sha256": "5250b8fab347dc4841a0863d29a178ca3d79a73fbeba3a233a7e9c110a995e0a",
+      "rawBytes": 6453,
+      "rawSha256": "5a0c17b4a55ccc4dc0eaae9ae2821d33851fc76aa55744ef3aaffa3ac7474574",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/after.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/before.json.gz",
+      "bytes": 1084,
+      "sha256": "d2f5d70328e6b4b4a36932ff73e8a6a14350b3628023948d26516cc753935879",
+      "rawBytes": 6035,
+      "rawSha256": "1c6d1939d9bba2718b17c6ec192edbcf312913c216cd5b9df4542c0e3b20c0f2",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/before.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/compression.json",
+      "bytes": 3998,
+      "sha256": "4f7452e5d6dd0ae1466f6c48219ee9c8c822c6d5d9e3c5a15898f21d5d1f3072",
+      "rawBytes": 3998,
+      "rawSha256": "4f7452e5d6dd0ae1466f6c48219ee9c8c822c6d5d9e3c5a15898f21d5d1f3072",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/compression.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/expectations.json",
+      "bytes": 282,
+      "sha256": "4d65289ab1a945cef65c3eeedc682be2fe96249eaa61ce9c624ca9289730df5f",
+      "rawBytes": 282,
+      "rawSha256": "4d65289ab1a945cef65c3eeedc682be2fe96249eaa61ce9c624ca9289730df5f",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/expectations.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/inspection.json.gz",
+      "bytes": 7983,
+      "sha256": "478936c0cdfacfa81f58f850002f61161ef8b16f4795424344dbefacd6e78b23",
+      "rawBytes": 204795,
+      "rawSha256": "0c4f5a242bde5b36b2909a38eccbfe86eeb29aebe57c38e54ce00e952dc93900",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/inspection.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/oracle.json.gz",
+      "bytes": 252,
+      "sha256": "93d40c891fd86c11d6eb7c9586af8553f2d68aeb8b4214aa1a66eec92e5e02f8",
+      "rawBytes": 438,
+      "rawSha256": "b8e29c009fcc7edf3bd2e9681c52555db2d901c0338daf78e682c6b875fa9517",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/oracle.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/raw-projections/home/.axm/diagnostics/8f4d0d39-95c1-4a4c-b721-e0122c0c5913.json.gz",
+      "bytes": 769,
+      "sha256": "d1368d3abf24e70f1c03c2a1ed3a7e9a34163755b0054380f48158fe0a8f6ab6",
+      "rawBytes": 3371,
+      "rawSha256": "6ef384f912e2011e8d5fedd9bcfa3f72000d49e72e5bc020035226fc3a683516",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/raw-projections/home/.axm/diagnostics/8f4d0d39-95c1-4a4c-b721-e0122c0c5913.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/receipt.json",
+      "bytes": 901,
+      "sha256": "05031d2d1375fbaf22afdb15a7af9c13703ec9d86717511498ccd00f536e3ba4",
+      "rawBytes": 901,
+      "rawSha256": "05031d2d1375fbaf22afdb15a7af9c13703ec9d86717511498ccd00f536e3ba4",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/receipt.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-diagnostic.json.gz",
+      "bytes": 769,
+      "sha256": "d1368d3abf24e70f1c03c2a1ed3a7e9a34163755b0054380f48158fe0a8f6ab6",
+      "rawBytes": 3371,
+      "rawSha256": "6ef384f912e2011e8d5fedd9bcfa3f72000d49e72e5bc020035226fc3a683516",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-diagnostic.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-native-preparation.json.gz",
+      "bytes": 229,
+      "sha256": "1e0cec4c810d6fcfd90a4efb0480e5536fb67ebf8c4e9e5336bc5ad053ca7a44",
+      "rawBytes": 560,
+      "rawSha256": "62eb910ce2832fc391f1341593df9bdc1b2ad0d084a40ff2e6ee238836f092db",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-native-preparation.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-recovery/0.snap.gz",
+      "bytes": 175,
+      "sha256": "a16de4119aad5cc30a56fe46c764baaf59ba366ea2d5225052e91f0a628bd871",
+      "rawBytes": 217,
+      "rawSha256": "c2aba761bc404e8be07c7ac5b689b13d3e2e6facbbf43791dc1a300ea22c3c6a",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-recovery/0.snap.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-recovery/1.snap.gz",
+      "bytes": 420,
+      "sha256": "ffebabebe15da356ca4b81bbe37d7e78174033ee9d32f746521c55712202465e",
+      "rawBytes": 597,
+      "rawSha256": "0cbb037171d65eba00c6b8cb849a4fe5e01af00333e77748516a2ded74512d7c",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-recovery/1.snap.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-recovery/2.snap/skill.json.gz",
+      "bytes": 111,
+      "sha256": "1d5259726a35c42ce407a7928b386147fa989140b2a3656e66a4c91e13b88f74",
+      "rawBytes": 128,
+      "rawSha256": "5d2015bc1845c2793755369772455492818cf801a92b47606ce00b1cac90da6a",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-recovery/2.snap/skill.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-recovery/2.snap/src/SKILL.md.gz",
+      "bytes": 91,
+      "sha256": "0296cf87875d77b36098d59265cc85e566c6c1639552183c55bf4e726eb91b33",
+      "rawBytes": 95,
+      "rawSha256": "d1e737a7c07d2c7a599f6fbe33d55d525ee2feefb6b85617cd3a81b6b5d18570",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/adoption-recovery/2.snap/src/SKILL.md.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/container-receipts-after/presence.json.gz",
+      "bytes": 38,
+      "sha256": "d5303fd3359474e7874fb56bda01f460313bbe6a39460cdc0786252c51a43b9e",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/container-receipts-after/presence.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/container-receipts-before/presence.json.gz",
+      "bytes": 38,
+      "sha256": "d5303fd3359474e7874fb56bda01f460313bbe6a39460cdc0786252c51a43b9e",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/retained/container-receipts-before/presence.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/rss-kib.txt.gz",
+      "bytes": 66,
+      "sha256": "11c58ad153f15d04b59d05b4e777839a7febbab8e9eb9177d116a6dcb83e62d6",
+      "rawBytes": 46,
+      "rawSha256": "e8324b5951722da5a0624769a405bf554ab537c560cc0ffca6db53705fd83d27",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/rss-kib.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/sample.json",
+      "bytes": 1632,
+      "sha256": "8b712d73a4f3cf4b532b34de2b4f3f52f46c6aa21bff2c93b5045219d33f3f14",
+      "rawBytes": 1632,
+      "rawSha256": "8b712d73a4f3cf4b532b34de2b4f3f52f46c6aa21bff2c93b5045219d33f3f14",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/sample.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/semantic-verification.json",
+      "bytes": 3994,
+      "sha256": "92c910a0ff8f8ba3021715f6a398611968ba961459d55935ffc5a0924377b1be",
+      "rawBytes": 3994,
+      "rawSha256": "92c910a0ff8f8ba3021715f6a398611968ba961459d55935ffc5a0924377b1be",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/semantic-verification.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/seq/stderr.txt.gz",
+      "bytes": 20,
+      "sha256": "59869db34853933b239f1e2219cf7d431da006aa919635478511fabbfc8849d2",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/seq/stderr.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/seq/stdout.txt.gz",
+      "bytes": 72680,
+      "sha256": "b84ada97df9135dcf62d396c9f410aae5d44c202e684eb971ac8186cbd5e0812",
+      "rawBytes": 1606957,
+      "rawSha256": "6384f6f6aa245fa437a594a5e96c901ab3192fefe0c5014c103583b6de016caf",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/seq/stdout.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/stderr.txt.gz",
+      "bytes": 488,
+      "sha256": "38b290748c22563e9131d7387c1907f76f7ce73c53e7d38996f4014e55552c13",
+      "rawBytes": 1615,
+      "rawSha256": "3cba5bcb17ff309612094b6120247e9c1456d92251bf46a30991482e21b47791",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/stderr.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/stdout.txt.gz",
+      "bytes": 934,
+      "sha256": "de790bae483ddcc5f541b4e6feccbd7fce34e84464ca63d9bb547eb7a26d536d",
+      "rawBytes": 3032,
+      "rawSha256": "13cc595df332e05865db457a8ab28fe83a40cdd5e792875c38363a793e9428ae",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/stdout.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/after.json.gz",
+      "bytes": 1218,
+      "sha256": "1bb72b9e0c944e4490306023921bbe67b35936c7214e37964379ecb4d2fc7904",
+      "rawBytes": 6453,
+      "rawSha256": "8bc34b81ac868d6fccfa0a2e33735041640c413846e5ef4acab2c410971af141",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/after.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/before.json.gz",
+      "bytes": 1084,
+      "sha256": "d2f5d70328e6b4b4a36932ff73e8a6a14350b3628023948d26516cc753935879",
+      "rawBytes": 6035,
+      "rawSha256": "1c6d1939d9bba2718b17c6ec192edbcf312913c216cd5b9df4542c0e3b20c0f2",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/before.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/compression.json",
+      "bytes": 3438,
+      "sha256": "7d4e9185d4e3744c545ec23c5fc443c688e5efebe442a3466bb6c1573e708579",
+      "rawBytes": 3438,
+      "rawSha256": "7d4e9185d4e3744c545ec23c5fc443c688e5efebe442a3466bb6c1573e708579",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/compression.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/oracle.json.gz",
+      "bytes": 252,
+      "sha256": "93d40c891fd86c11d6eb7c9586af8553f2d68aeb8b4214aa1a66eec92e5e02f8",
+      "rawBytes": 438,
+      "rawSha256": "b8e29c009fcc7edf3bd2e9681c52555db2d901c0338daf78e682c6b875fa9517",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/oracle.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/raw-projections/home/.axm/diagnostics/4ff3d804-9fde-45a2-bf2d-450af89f1ce9.json.gz",
+      "bytes": 769,
+      "sha256": "a29ac3c0a94fa3e8f616064332faa1af461a2403d879d87e5613bdd257296f3b",
+      "rawBytes": 3369,
+      "rawSha256": "27780cfa743129123c2568ad19b2a12a5f0b5341337b3d10c3d4fce47793bd28",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/raw-projections/home/.axm/diagnostics/4ff3d804-9fde-45a2-bf2d-450af89f1ce9.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-diagnostic.json.gz",
+      "bytes": 769,
+      "sha256": "a29ac3c0a94fa3e8f616064332faa1af461a2403d879d87e5613bdd257296f3b",
+      "rawBytes": 3369,
+      "rawSha256": "27780cfa743129123c2568ad19b2a12a5f0b5341337b3d10c3d4fce47793bd28",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-diagnostic.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-native-preparation.json.gz",
+      "bytes": 229,
+      "sha256": "1e0cec4c810d6fcfd90a4efb0480e5536fb67ebf8c4e9e5336bc5ad053ca7a44",
+      "rawBytes": 560,
+      "rawSha256": "62eb910ce2832fc391f1341593df9bdc1b2ad0d084a40ff2e6ee238836f092db",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-native-preparation.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-recovery/0.snap.gz",
+      "bytes": 175,
+      "sha256": "a16de4119aad5cc30a56fe46c764baaf59ba366ea2d5225052e91f0a628bd871",
+      "rawBytes": 217,
+      "rawSha256": "c2aba761bc404e8be07c7ac5b689b13d3e2e6facbbf43791dc1a300ea22c3c6a",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-recovery/0.snap.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-recovery/1.snap.gz",
+      "bytes": 420,
+      "sha256": "ffebabebe15da356ca4b81bbe37d7e78174033ee9d32f746521c55712202465e",
+      "rawBytes": 597,
+      "rawSha256": "0cbb037171d65eba00c6b8cb849a4fe5e01af00333e77748516a2ded74512d7c",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-recovery/1.snap.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-recovery/2.snap/skill.json.gz",
+      "bytes": 111,
+      "sha256": "1d5259726a35c42ce407a7928b386147fa989140b2a3656e66a4c91e13b88f74",
+      "rawBytes": 128,
+      "rawSha256": "5d2015bc1845c2793755369772455492818cf801a92b47606ce00b1cac90da6a",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-recovery/2.snap/skill.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-recovery/2.snap/src/SKILL.md.gz",
+      "bytes": 91,
+      "sha256": "0296cf87875d77b36098d59265cc85e566c6c1639552183c55bf4e726eb91b33",
+      "rawBytes": 95,
+      "rawSha256": "d1e737a7c07d2c7a599f6fbe33d55d525ee2feefb6b85617cd3a81b6b5d18570",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-recovery/2.snap/src/SKILL.md.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-after/presence.json.gz",
+      "bytes": 38,
+      "sha256": "d5303fd3359474e7874fb56bda01f460313bbe6a39460cdc0786252c51a43b9e",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-after/presence.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-before/presence.json.gz",
+      "bytes": 38,
+      "sha256": "d5303fd3359474e7874fb56bda01f460313bbe6a39460cdc0786252c51a43b9e",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/container-receipts-before/presence.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/rss-kib.txt.gz",
+      "bytes": 66,
+      "sha256": "65be36ad807a396b4ece72147b88c013c90e084ff41db16662a4f962ff31dab6",
+      "rawBytes": 46,
+      "rawSha256": "43a06d98ea5495b554c57aabeb551a372d5bed46704ba3966bdceb7fc7483ab6",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/rss-kib.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/sample.json",
+      "bytes": 1096,
+      "sha256": "92777a23dd48339996bfb190101ab8ee193a61c19d1e7b6e9d6791f907129e6d",
+      "rawBytes": 1096,
+      "rawSha256": "92777a23dd48339996bfb190101ab8ee193a61c19d1e7b6e9d6791f907129e6d",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/sample.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/semantic-verification.json",
+      "bytes": 3994,
+      "sha256": "2df7f9910ece4aa3b47510c78f7cc6c2c15ae32eb9d4352b5edb86b0caa88003",
+      "rawBytes": 3994,
+      "rawSha256": "2df7f9910ece4aa3b47510c78f7cc6c2c15ae32eb9d4352b5edb86b0caa88003",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/semantic-verification.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stderr.txt.gz",
+      "bytes": 488,
+      "sha256": "c0d59556d70f35c09b7321ec810f0b0fd11951d11967c4f1018e3ae5845dc407",
+      "rawBytes": 1615,
+      "rawSha256": "07c5de0e574547f331145593ac055a5f63ef4aa1463bc6fe4288a5b29c578675",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stderr.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stdout.txt.gz",
+      "bytes": 932,
+      "sha256": "8fdca5094eeedc9764b59f32ea5b0624f91664db4cc9f4ebeeb11726dfaba0df",
+      "rawBytes": 3032,
+      "rawSha256": "66cf79f441b1f976eb41da34e973a8d88ccf6a25a4888e349b530f4dad6aa80a",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/stdout.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/after.json.gz",
+      "bytes": 1218,
+      "sha256": "edb6d2502d5f451be8349e9217a1cec64a9343afcb0ffa7df47ba389922b4216",
+      "rawBytes": 6453,
+      "rawSha256": "9741b64e3d4b9eb07d4b63ed8036995e65edc78d17a78c006bbeb29748ea9ccb",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/after.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/before.json.gz",
+      "bytes": 1084,
+      "sha256": "d2f5d70328e6b4b4a36932ff73e8a6a14350b3628023948d26516cc753935879",
+      "rawBytes": 6035,
+      "rawSha256": "1c6d1939d9bba2718b17c6ec192edbcf312913c216cd5b9df4542c0e3b20c0f2",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/before.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/compression.json",
+      "bytes": 3438,
+      "sha256": "cdc88d913f0210cd8793a74c2f7112f0e4a2ec43a3591e3e78d213eae64e69ba",
+      "rawBytes": 3438,
+      "rawSha256": "cdc88d913f0210cd8793a74c2f7112f0e4a2ec43a3591e3e78d213eae64e69ba",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/compression.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/oracle.json.gz",
+      "bytes": 252,
+      "sha256": "93d40c891fd86c11d6eb7c9586af8553f2d68aeb8b4214aa1a66eec92e5e02f8",
+      "rawBytes": 438,
+      "rawSha256": "b8e29c009fcc7edf3bd2e9681c52555db2d901c0338daf78e682c6b875fa9517",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/oracle.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/raw-projections/home/.axm/diagnostics/b62e2929-95ca-40d6-ad6d-d71c7a433d42.json.gz",
+      "bytes": 766,
+      "sha256": "ca52ad350c72658ac8c7fa8b0551fa94f0dc21f7c6f631c946accc073fcbb619",
+      "rawBytes": 3369,
+      "rawSha256": "96a3989938e3268ae87c0af228e8132bdf6b5889e355e94cdf8df157ff467a63",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/raw-projections/home/.axm/diagnostics/b62e2929-95ca-40d6-ad6d-d71c7a433d42.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-diagnostic.json.gz",
+      "bytes": 766,
+      "sha256": "ca52ad350c72658ac8c7fa8b0551fa94f0dc21f7c6f631c946accc073fcbb619",
+      "rawBytes": 3369,
+      "rawSha256": "96a3989938e3268ae87c0af228e8132bdf6b5889e355e94cdf8df157ff467a63",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-diagnostic.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-native-preparation.json.gz",
+      "bytes": 229,
+      "sha256": "1e0cec4c810d6fcfd90a4efb0480e5536fb67ebf8c4e9e5336bc5ad053ca7a44",
+      "rawBytes": 560,
+      "rawSha256": "62eb910ce2832fc391f1341593df9bdc1b2ad0d084a40ff2e6ee238836f092db",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-native-preparation.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-recovery/0.snap.gz",
+      "bytes": 175,
+      "sha256": "a16de4119aad5cc30a56fe46c764baaf59ba366ea2d5225052e91f0a628bd871",
+      "rawBytes": 217,
+      "rawSha256": "c2aba761bc404e8be07c7ac5b689b13d3e2e6facbbf43791dc1a300ea22c3c6a",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-recovery/0.snap.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-recovery/1.snap.gz",
+      "bytes": 420,
+      "sha256": "ffebabebe15da356ca4b81bbe37d7e78174033ee9d32f746521c55712202465e",
+      "rawBytes": 597,
+      "rawSha256": "0cbb037171d65eba00c6b8cb849a4fe5e01af00333e77748516a2ded74512d7c",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-recovery/1.snap.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-recovery/2.snap/skill.json.gz",
+      "bytes": 111,
+      "sha256": "1d5259726a35c42ce407a7928b386147fa989140b2a3656e66a4c91e13b88f74",
+      "rawBytes": 128,
+      "rawSha256": "5d2015bc1845c2793755369772455492818cf801a92b47606ce00b1cac90da6a",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-recovery/2.snap/skill.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-recovery/2.snap/src/SKILL.md.gz",
+      "bytes": 91,
+      "sha256": "0296cf87875d77b36098d59265cc85e566c6c1639552183c55bf4e726eb91b33",
+      "rawBytes": 95,
+      "rawSha256": "d1e737a7c07d2c7a599f6fbe33d55d525ee2feefb6b85617cd3a81b6b5d18570",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-recovery/2.snap/src/SKILL.md.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/container-receipts-after/presence.json.gz",
+      "bytes": 38,
+      "sha256": "d5303fd3359474e7874fb56bda01f460313bbe6a39460cdc0786252c51a43b9e",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/container-receipts-after/presence.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/container-receipts-before/presence.json.gz",
+      "bytes": 38,
+      "sha256": "d5303fd3359474e7874fb56bda01f460313bbe6a39460cdc0786252c51a43b9e",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/container-receipts-before/presence.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/rss-kib.txt.gz",
+      "bytes": 66,
+      "sha256": "f2e5d1bca72d0bc619b00c513ae7ea3b8f166180b970bf9537f9e5310b2062ac",
+      "rawBytes": 46,
+      "rawSha256": "24da2916894e95d6ee508085d2b94d65a5893fb314cb019a139a6bd1e74c9c23",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/rss-kib.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/sample.json",
+      "bytes": 1100,
+      "sha256": "cb9b8ac1e1d54f817096e22fb60c3835f2d0170c865f7f86a9ac2bc7c23cc9ad",
+      "rawBytes": 1100,
+      "rawSha256": "cb9b8ac1e1d54f817096e22fb60c3835f2d0170c865f7f86a9ac2bc7c23cc9ad",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/sample.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/semantic-verification.json",
+      "bytes": 3994,
+      "sha256": "83500c08eb598b250e220458e8b858896b6632890c3cd1e543af9b3e852629de",
+      "rawBytes": 3994,
+      "rawSha256": "83500c08eb598b250e220458e8b858896b6632890c3cd1e543af9b3e852629de",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/semantic-verification.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/stderr.txt.gz",
+      "bytes": 487,
+      "sha256": "94501a70cc0b26ba9f59cb8e094201d2c017bea3e94c560a787e54ab31c0301a",
+      "rawBytes": 1615,
+      "rawSha256": "b9cccee4f2f340e167ee12e9c45812517b9f41874f2cbcc7f248791b413a88c2",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/stderr.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/stdout.txt.gz",
+      "bytes": 933,
+      "sha256": "c15f21fdb3403bcfd3b3a2a6ef28863ab4af13658dcb4cbaa51328b00940b3f1",
+      "rawBytes": 3032,
+      "rawSha256": "5f26a88fffb7a5744ce82434135ca04f0792172f824bd761b964606c833d7fc7",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/stdout.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/after.json.gz",
+      "bytes": 1217,
+      "sha256": "ea6647d159f757eabb2f7c5728191cc9c1bc84bb0c691480ecca7202fbbc43db",
+      "rawBytes": 6453,
+      "rawSha256": "5d1a1fdff79d77d499eb6d093ba689382e3c64e21a630ac2db8ba6f839a08c3a",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/after.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/before.json.gz",
+      "bytes": 1084,
+      "sha256": "d2f5d70328e6b4b4a36932ff73e8a6a14350b3628023948d26516cc753935879",
+      "rawBytes": 6035,
+      "rawSha256": "1c6d1939d9bba2718b17c6ec192edbcf312913c216cd5b9df4542c0e3b20c0f2",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/before.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/compression.json",
+      "bytes": 3996,
+      "sha256": "79d0c00f0a858982dec02876a6865eb139984ddf0f1b986a60e933d820cfbf3f",
+      "rawBytes": 3996,
+      "rawSha256": "79d0c00f0a858982dec02876a6865eb139984ddf0f1b986a60e933d820cfbf3f",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/compression.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/expectations.json",
+      "bytes": 282,
+      "sha256": "4d65289ab1a945cef65c3eeedc682be2fe96249eaa61ce9c624ca9289730df5f",
+      "rawBytes": 282,
+      "rawSha256": "4d65289ab1a945cef65c3eeedc682be2fe96249eaa61ce9c624ca9289730df5f",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/expectations.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/inspection.json.gz",
+      "bytes": 7907,
+      "sha256": "ec0d326033e0ef0b5241b00b596ef9fa7ce4205234b24442b340ec8bbbdcc662",
+      "rawBytes": 204766,
+      "rawSha256": "3b4570698e8bac3aa6be1a9c3dae5740b9a17ca302dfa79936846a4f976cf90b",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/inspection.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/oracle.json.gz",
+      "bytes": 252,
+      "sha256": "93d40c891fd86c11d6eb7c9586af8553f2d68aeb8b4214aa1a66eec92e5e02f8",
+      "rawBytes": 438,
+      "rawSha256": "b8e29c009fcc7edf3bd2e9681c52555db2d901c0338daf78e682c6b875fa9517",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/oracle.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/raw-projections/home/.axm/diagnostics/ceabdb1b-556d-4054-9e49-46233f9d0795.json.gz",
+      "bytes": 770,
+      "sha256": "deac6f9a920889f2d1c8b5c45b4acae44ab9fdc00e609934c382670f3c9c183f",
+      "rawBytes": 3371,
+      "rawSha256": "d4c03853fb50fce3480726996a70660caa5df9fadd0b75feb0e2fab66b955ec5",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/raw-projections/home/.axm/diagnostics/ceabdb1b-556d-4054-9e49-46233f9d0795.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/receipt.json",
+      "bytes": 904,
+      "sha256": "a41d9799a83686ebb142a89d002e2c1bfa9c82773bcc14820ca7e029cc80b830",
+      "rawBytes": 904,
+      "rawSha256": "a41d9799a83686ebb142a89d002e2c1bfa9c82773bcc14820ca7e029cc80b830",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/receipt.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-diagnostic.json.gz",
+      "bytes": 770,
+      "sha256": "deac6f9a920889f2d1c8b5c45b4acae44ab9fdc00e609934c382670f3c9c183f",
+      "rawBytes": 3371,
+      "rawSha256": "d4c03853fb50fce3480726996a70660caa5df9fadd0b75feb0e2fab66b955ec5",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-diagnostic.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-native-preparation.json.gz",
+      "bytes": 229,
+      "sha256": "1e0cec4c810d6fcfd90a4efb0480e5536fb67ebf8c4e9e5336bc5ad053ca7a44",
+      "rawBytes": 560,
+      "rawSha256": "62eb910ce2832fc391f1341593df9bdc1b2ad0d084a40ff2e6ee238836f092db",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-native-preparation.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-recovery/0.snap.gz",
+      "bytes": 175,
+      "sha256": "a16de4119aad5cc30a56fe46c764baaf59ba366ea2d5225052e91f0a628bd871",
+      "rawBytes": 217,
+      "rawSha256": "c2aba761bc404e8be07c7ac5b689b13d3e2e6facbbf43791dc1a300ea22c3c6a",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-recovery/0.snap.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-recovery/1.snap.gz",
+      "bytes": 420,
+      "sha256": "ffebabebe15da356ca4b81bbe37d7e78174033ee9d32f746521c55712202465e",
+      "rawBytes": 597,
+      "rawSha256": "0cbb037171d65eba00c6b8cb849a4fe5e01af00333e77748516a2ded74512d7c",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-recovery/1.snap.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-recovery/2.snap/skill.json.gz",
+      "bytes": 111,
+      "sha256": "1d5259726a35c42ce407a7928b386147fa989140b2a3656e66a4c91e13b88f74",
+      "rawBytes": 128,
+      "rawSha256": "5d2015bc1845c2793755369772455492818cf801a92b47606ce00b1cac90da6a",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-recovery/2.snap/skill.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-recovery/2.snap/src/SKILL.md.gz",
+      "bytes": 91,
+      "sha256": "0296cf87875d77b36098d59265cc85e566c6c1639552183c55bf4e726eb91b33",
+      "rawBytes": 95,
+      "rawSha256": "d1e737a7c07d2c7a599f6fbe33d55d525ee2feefb6b85617cd3a81b6b5d18570",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/adoption-recovery/2.snap/src/SKILL.md.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/container-receipts-after/presence.json.gz",
+      "bytes": 38,
+      "sha256": "d5303fd3359474e7874fb56bda01f460313bbe6a39460cdc0786252c51a43b9e",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/container-receipts-after/presence.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/container-receipts-before/presence.json.gz",
+      "bytes": 38,
+      "sha256": "d5303fd3359474e7874fb56bda01f460313bbe6a39460cdc0786252c51a43b9e",
+      "rawBytes": 18,
+      "rawSha256": "d8074cd96e222180caedebe14ecfec6c05eaf4ff0d324acaaa6cc912a56ce9bb",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/retained/container-receipts-before/presence.json.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/rss-kib.txt.gz",
+      "bytes": 66,
+      "sha256": "6681091e04458d6fa0ea7cfcc06f943a05a21a6699f483874451470f7bcc7d2b",
+      "rawBytes": 46,
+      "rawSha256": "a6e130d94c61f09a3a7c64970d36330437965ca12ff913fab5a46374c4d9843c",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/rss-kib.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/sample.json",
+      "bytes": 1628,
+      "sha256": "afab9a3edc12492a7fa3de3b23f11f92aea29e38c97734ab694d16aaa27c182f",
+      "rawBytes": 1628,
+      "rawSha256": "afab9a3edc12492a7fa3de3b23f11f92aea29e38c97734ab694d16aaa27c182f",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/sample.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/semantic-verification.json",
+      "bytes": 3994,
+      "sha256": "0cb8c66b28676f984260c256c0758cd5348ec86fbb4424d3a1d2cbc1396563fb",
+      "rawBytes": 3994,
+      "rawSha256": "0cb8c66b28676f984260c256c0758cd5348ec86fbb4424d3a1d2cbc1396563fb",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/semantic-verification.json",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/seq/stderr.txt.gz",
+      "bytes": 20,
+      "sha256": "59869db34853933b239f1e2219cf7d431da006aa919635478511fabbfc8849d2",
+      "rawBytes": 0,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/seq/stderr.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/seq/stdout.txt.gz",
+      "bytes": 8806,
+      "sha256": "f7fb4032f4dc74f96cd2da5ac5b341985761f26c9ff04fd60f6a2e162ab01ed5",
+      "rawBytes": 199726,
+      "rawSha256": "8ca17b1f0ad69a7777518414b903935d402956fa9cb0bd6bd982d4769ca8763d",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/seq/stdout.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/stderr.txt.gz",
+      "bytes": 488,
+      "sha256": "c4bba59d5680bfc24f764506995a3f563e1ba411d9575376c8facce5c8e0e8ab",
+      "rawBytes": 1615,
+      "rawSha256": "786ed4f035da35570088e933521499b09ee2897b28c140c3bc6f1b2fef6e2934",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/stderr.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/stdout.txt.gz",
+      "bytes": 933,
+      "sha256": "022d2cd8ab81b7e2fd814628923b3234c1d248f0a9734d15adb8f8280bca648c",
+      "rawBytes": 3032,
+      "rawSha256": "d354d3e01259fa303c4df2ce866f00ba3988eef02b704bac3ba5502fe7fb4b98",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/stdout.txt.gz",
+      "kind": "original-case-artifact",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-single-target-tests.log",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/verification/observability-adoption-single-target-tests.public-projection.log",
+      "bytes": 11890,
+      "sha256": "d6d50f5c2f615ee7e12d194968b389e78c7b864baf1d0f2e5c548b0d7d7a547c",
+      "rawBytes": 11890,
+      "rawSha256": "d6d50f5c2f615ee7e12d194968b389e78c7b864baf1d0f2e5c548b0d7d7a547c",
+      "kind": "verification-log-public-projection",
+      "runId": "run-10-adoption-single-target-4d8344c40",
+      "originalBytes": 11932,
+      "originalSha256": "2b4c730d77819370b3eb4e7e36a8ab119c2630a416fa65c24fafb5f3089ba1f9"
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-single-target-checks.log",
+      "bytes": 9156,
+      "sha256": "0596b0e1710998ee90eb90e33f3927e73d50959e57aeef6dbe29118b5cdb7936",
+      "rawBytes": 9156,
+      "rawSha256": "0596b0e1710998ee90eb90e33f3927e73d50959e57aeef6dbe29118b5cdb7936",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/verification/observability-adoption-single-target-checks.log",
+      "kind": "original-verification-log",
+      "runId": "run-10-adoption-single-target-4d8344c40"
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-single-target-preflight.log",
+      "stagedPath": "runs/run-10-adoption-single-target-4d8344c40/verification/observability-adoption-single-target-preflight.public-projection.log",
+      "bytes": 9583,
+      "sha256": "acc8259718b686c0ab7b4d8dedad0c62fb00513f726a27f299eef506ccbb8fae",
+      "rawBytes": 9583,
+      "rawSha256": "acc8259718b686c0ab7b4d8dedad0c62fb00513f726a27f299eef506ccbb8fae",
+      "kind": "verification-log-public-projection",
+      "runId": "run-10-adoption-single-target-4d8344c40",
+      "originalBytes": 9604,
+      "originalSha256": "4d20fbe20c78b33de26e292bfa3f6c8a958410f711f6e9d5ed5168691bf62343"
+    }
+  ],
+  "withheldFiles": [
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/host-preflight.json",
+      "bytes": 77222,
+      "sha256": "df3c8f12501233d79b811810a70988e94f08865fa63e6a0954f84c1e4a939478",
+      "rawBytes": 77222,
+      "rawSha256": "df3c8f12501233d79b811810a70988e94f08865fa63e6a0954f84c1e4a939478",
+      "kind": "run-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/host-after.json",
+      "bytes": 79065,
+      "sha256": "72807af5c4c3d1ba0884447041b2558b75ef01186aa815b2d909cd5bb13b0936",
+      "rawBytes": 79065,
+      "rawSha256": "72807af5c4c3d1ba0884447041b2558b75ef01186aa815b2d909cd5bb13b0936",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/host-before.json",
+      "bytes": 79067,
+      "sha256": "525daf242b7b701c569e55902a052d926508eb9b2f00500cf2d4b70e6ee13bc5",
+      "rawBytes": 79067,
+      "rawSha256": "525daf242b7b701c569e55902a052d926508eb9b2f00500cf2d4b70e6ee13bc5",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/host-preflight.json",
+      "bytes": 83267,
+      "sha256": "14e51841ee89420883e960abd2d691e36b45b025b75c6d808435175ec23e886b",
+      "rawBytes": 83267,
+      "rawSha256": "14e51841ee89420883e960abd2d691e36b45b025b75c6d808435175ec23e886b",
+      "kind": "run-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/host-after.json",
+      "bytes": 81222,
+      "sha256": "3957c820e0f4794362c732ef9a5573d5dbf06fd8a69c80e5f3e3a2b71993a9cf",
+      "rawBytes": 81222,
+      "rawSha256": "3957c820e0f4794362c732ef9a5573d5dbf06fd8a69c80e5f3e3a2b71993a9cf",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-diagnostic2/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/host-before.json",
+      "bytes": 81220,
+      "sha256": "6b9fa71267963a6a2cb50ff062750126a47aa086e7b1025b026e119cba5bfe05",
+      "rawBytes": 81220,
+      "rawSha256": "6b9fa71267963a6a2cb50ff062750126a47aa086e7b1025b026e119cba5bfe05",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/host-preflight.json",
+      "bytes": 83575,
+      "sha256": "c26f72fbf30743ba0e7a90b1ec545b178c665a8646a7980cb243b3616438fdef",
+      "rawBytes": 83575,
+      "rawSha256": "c26f72fbf30743ba0e7a90b1ec545b178c665a8646a7980cb243b3616438fdef",
+      "kind": "run-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/host-after.json.gz",
+      "bytes": 6749,
+      "sha256": "6e287b12a5e5d1d7381372b431d0306b63f21869bd3d329997e41975deb6e848",
+      "rawBytes": 81370,
+      "rawSha256": "81f1d77d5f6ab5fc769ac5dfcc51c1070db9a9b405d0948e9723aa10c7bc8258",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/detail/candidate/validation/0/host-before.json.gz",
+      "bytes": 6737,
+      "sha256": "cde2b913a69eac3adda2a3755a2df6285a9f021dbe414142ae0c13faba95411f",
+      "rawBytes": 81368,
+      "rawSha256": "f136cf9debe3dab6bb09cf16a3c34259ad4fc0b2b0f075b6bbb1ea60b72e41ee",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/host-after.json.gz",
+      "bytes": 6765,
+      "sha256": "a887c73df0e6f110613b47cb4b93bc295e3fe5eb4968b5e9d507cbdb7db43db6",
+      "rawBytes": 81678,
+      "rawSha256": "c47e358c2e4cadf4773845916e0430687fffcafdb30bc036daf4b7415eeda1a7",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/host-before.json.gz",
+      "bytes": 6755,
+      "sha256": "13567202db76fe5aef8e46f5d05a29f7aff3a7431e08ed986528eed672ed8e03",
+      "rawBytes": 81373,
+      "rawSha256": "30d2183ecb405989c8a02cc4990549ed5468f5ca5844068509d3d80317a10a34",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/host-after.json.gz",
+      "bytes": 6744,
+      "sha256": "4944331daec2462a91771dd00b2367c5d58833297edaf844f9d525f7f43245d2",
+      "rawBytes": 81371,
+      "rawSha256": "6ceee10ccd9998ce7ef1daa558a664af3eecdedf4f683db083c84771c8603373",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/host-before.json.gz",
+      "bytes": 6748,
+      "sha256": "6a3a8427a0af4efcf36bd52d393e5a84447fe5c963874987e45d08612eeae800",
+      "rawBytes": 81371,
+      "rawSha256": "e6ca21dde56d9bee0cdac7cfb043eb542ebd665eba0342bc0b2baa88d90319c4",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/host-after.json.gz",
+      "bytes": 6756,
+      "sha256": "c96c647eb3246a686e4d8b70100387c334ca210a6452fb4e5e46188fb5d3587d",
+      "rawBytes": 81371,
+      "rawSha256": "a9cefd2b74a9e7821ab5951151a76d5f641b0869b08ee64ef6a734b88c260e7e",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-knowledge-final-5jaosdfd/adoption-single-target/samples/preflight/installed/adopt-enabled-native-refusal/summary/candidate/validation/0/host-before.json.gz",
+      "bytes": 6754,
+      "sha256": "c548917be593e5dc57ee4ccfe52e0c2ecdcbb0c103ae2eaaf72c24483d4fcc79",
+      "rawBytes": 81371,
+      "rawSha256": "36fa180ce1a58abef0034bcc62df9bc528c095a013e9febba97366ab40fc1e1d",
+      "kind": "subject-host-snapshot",
+      "reason": "Unrelated host process inventory withheld; original compressed/raw hashes retained."
+    }
+  ],
+  "privacyProjections": [
+    {
+      "sourcePath": "/tmp/observability-adoption-diagnostic-tests.log",
+      "originalSha256": "c4a758b271db54ce412826b21b9d70471417f94155ad115ebc518ffa89b094d2",
+      "originalBytes": 11932,
+      "projectedPath": "runs/run-08-adoption-diagnostic-4d8344c40/verification/observability-adoption-diagnostic-tests.public-projection.log",
+      "projectedSha256": "47a466305702b5863a95420f35ba2ca2c078ba33cdfdb3d2aa7cc5ca7243c64f",
+      "projectedBytes": 11890,
+      "operation": "Replace exact absolute repository-root prefix with <repository-root>; preserve all other bytes.",
+      "omittedValueSha256": "254cd97a0e192fb988a1c207a206d949b552034da0531073ed44bec79f1725b6",
+      "omittedValueBytes": 38,
+      "occurrences": 2,
+      "affectedLines": [
+        221,
+        232
+      ]
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-diagnostic-preflight.log",
+      "originalSha256": "34952ad6f7767ea9be51cc80f6ccbaf04bc64fea71f1c2909adee9dbd17378a4",
+      "originalBytes": 12211,
+      "projectedPath": "runs/run-08-adoption-diagnostic-4d8344c40/verification/observability-adoption-diagnostic-preflight.public-projection.log",
+      "projectedSha256": "fa4c9b4b12f52b915267905de52704288933fd230c73686f81ea454e7dd01ab8",
+      "projectedBytes": 12043,
+      "operation": "Replace exact absolute repository-root prefix with <repository-root>; preserve all other bytes.",
+      "omittedValueSha256": "254cd97a0e192fb988a1c207a206d949b552034da0531073ed44bec79f1725b6",
+      "omittedValueBytes": 38,
+      "occurrences": 8,
+      "affectedLines": [
+        188,
+        213,
+        214,
+        215,
+        216,
+        217,
+        219,
+        220
+      ]
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-diagnostic-tests2.log",
+      "originalSha256": "a2dd73ec5e5e486cece7210ed7b7018afadef5c31b91cf61e4effd82482e5000",
+      "originalBytes": 11932,
+      "projectedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/verification/observability-adoption-diagnostic-tests2.public-projection.log",
+      "projectedSha256": "adda1546e7e585ba77e2834d1a412c53ab3653490edcac83114d77b71c813f59",
+      "projectedBytes": 11890,
+      "operation": "Replace exact absolute repository-root prefix with <repository-root>; preserve all other bytes.",
+      "omittedValueSha256": "254cd97a0e192fb988a1c207a206d949b552034da0531073ed44bec79f1725b6",
+      "omittedValueBytes": 38,
+      "occurrences": 2,
+      "affectedLines": [
+        221,
+        232
+      ]
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-diagnostic-preflight2.log",
+      "originalSha256": "0b30dcdf86c415af8fbaed0023809e8934d0f184bf0e5bf0a34a2b0aa97aa152",
+      "originalBytes": 12212,
+      "projectedPath": "runs/run-09-adoption-diagnostic2-4d8344c40/verification/observability-adoption-diagnostic-preflight2.public-projection.log",
+      "projectedSha256": "9c53db0c550314a637b638b55728ef75ee8ecc3174f4b71b771c15cefcbd321c",
+      "projectedBytes": 12044,
+      "operation": "Replace exact absolute repository-root prefix with <repository-root>; preserve all other bytes.",
+      "omittedValueSha256": "254cd97a0e192fb988a1c207a206d949b552034da0531073ed44bec79f1725b6",
+      "omittedValueBytes": 38,
+      "occurrences": 8,
+      "affectedLines": [
+        188,
+        213,
+        214,
+        215,
+        216,
+        217,
+        219,
+        220
+      ]
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-single-target-tests.log",
+      "originalSha256": "2b4c730d77819370b3eb4e7e36a8ab119c2630a416fa65c24fafb5f3089ba1f9",
+      "originalBytes": 11932,
+      "projectedPath": "runs/run-10-adoption-single-target-4d8344c40/verification/observability-adoption-single-target-tests.public-projection.log",
+      "projectedSha256": "d6d50f5c2f615ee7e12d194968b389e78c7b864baf1d0f2e5c548b0d7d7a547c",
+      "projectedBytes": 11890,
+      "operation": "Replace exact absolute repository-root prefix with <repository-root>; preserve all other bytes.",
+      "omittedValueSha256": "254cd97a0e192fb988a1c207a206d949b552034da0531073ed44bec79f1725b6",
+      "omittedValueBytes": 38,
+      "occurrences": 2,
+      "affectedLines": [
+        221,
+        232
+      ]
+    },
+    {
+      "sourcePath": "/tmp/observability-adoption-single-target-preflight.log",
+      "originalSha256": "4d20fbe20c78b33de26e292bfa3f6c8a958410f711f6e9d5ed5168691bf62343",
+      "originalBytes": 9604,
+      "projectedPath": "runs/run-10-adoption-single-target-4d8344c40/verification/observability-adoption-single-target-preflight.public-projection.log",
+      "projectedSha256": "acc8259718b686c0ab7b4d8dedad0c62fb00513f726a27f299eef506ccbb8fae",
+      "projectedBytes": 9583,
+      "operation": "Replace exact absolute repository-root prefix with <repository-root>; preserve all other bytes.",
+      "omittedValueSha256": "254cd97a0e192fb988a1c207a206d949b552034da0531073ed44bec79f1725b6",
+      "omittedValueBytes": 38,
+      "occurrences": 1,
+      "affectedLines": [
+        188
+      ]
+    }
+  ],
+  "syntheticCredentialSourceValidation": {
+    "fixedValues": [
+      {
+        "value": "axm_ses_e2e",
+        "source": "tools/test-support/src/device-auth-server.ts",
+        "sourceSha256": "6be7edd8348b8f7fcc1ad5b18875aee2a169802fbe0ee29ed1a4541c7abc3dd7"
+      },
+      {
+        "value": "axm_ref_e2e",
+        "source": "tools/test-support/src/device-auth-server.ts",
+        "sourceSha256": "6be7edd8348b8f7fcc1ad5b18875aee2a169802fbe0ee29ed1a4541c7abc3dd7"
+      },
+      {
+        "value": "device-secret",
+        "source": "tools/test-support/src/device-auth-server.ts",
+        "sourceSha256": "6be7edd8348b8f7fcc1ad5b18875aee2a169802fbe0ee29ed1a4541c7abc3dd7"
+      }
+    ],
+    "generatedToken": {
+      "pattern": "^axmt_synthetic_fixture_[1-9][0-9]*$",
+      "source": "tools/test-support/src/device-auth-server.ts",
+      "sourceSha256": "6be7edd8348b8f7fcc1ad5b18875aee2a169802fbe0ee29ed1a4541c7abc3dd7",
+      "rule": "Literal public fixture prefix concatenated with the incrementing positive token sequence."
+    },
+    "benchmarkToken": {
+      "value": "synthetic-benchmark-token",
+      "source": "benchmarks/observability-typed-fixtures.ts",
+      "sourceSha256": "ef77acee153db285965285c1cc9075a9f306f81e20870502f1e221df9abfc445"
+    }
+  },
+  "scope": {
+    "newCompletedCases": 1,
+    "newHistoricalFailedVerifierAttempts": 2,
+    "newReceiverInspections": 2,
+    "currentCompletedCases": 245,
+    "currentReservedByteComparisonCases": 4,
+    "currentUniqueScenarios": 249
+  },
+  "limits": [
+    "All seven prior archives are copied byte-for-byte. The prior adoption failure remains historical, not a second current scenario.",
+    "All three original reports retain complete:false; two retain verifier errors and no completed comparison. The selected successful capture is not a timing campaign.",
+    "Failed verifier attempts are preserved by enumerating actual sample artifacts despite empty fixtureChecks arrays. The first has no captured raw diagnostic; the second preserves the raw diagnostic.",
+    "Only the refusal fixture preparation changed to one canonical native entry; preparation proof, raw diagnostics and comparison controls remain retained. Other244 completed scenarios are unaffected.",
+    "No whole homes, private configs, host process snapshots, binaries or receiver storage were copied."
+  ],
+  "privacyReview": "privacy-review-adoption.json",
+  "privacyProjectionRequired": true,
+  "archiveReadback": {
+    "verified": true,
+    "verifiedEntries": 135,
+    "originalPayloadBytesPreserved": true,
+    "exception": "Six explicitly named verification-log projections replace only the checkout path prefix; all benchmark payload bytes remain exact."
+  }
+}

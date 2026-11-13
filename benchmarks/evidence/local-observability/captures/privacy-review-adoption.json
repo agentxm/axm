@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "status": "review-complete-no-unresolved-private-context",
+  "auditedAt": "2026-11-13T07:13:56.487618+00:00",
+  "stagedFileCount": 136,
+  "utf8PayloadsInspected": 136,
+  "gzipPayloadsDecompressed": 66,
+  "jsonPayloadsParsed": 99,
+  "decompressedBytesInspected": 5512843,
+  "knownSyntheticValueOccurrences": {
+    "axm_ses_e2e": 1,
+    "axm_ref_e2e": 1
+  },
+  "emailDomainOccurrences": {},
+  "checks": [
+    "All newly staged textual payloads were decoded as UTF-8, including every gzip file after full decompression.",
+    "Private repository/provider/tracker markers, actual home paths, private keys, common credential prefixes, credential-bearing parsed URLs, token-shaped values and sensitive JSON string fields were inspected.",
+    "Six clearly named log projections replace only the absolute repository-root prefix; original/projected hashes, occurrence counts and affected line numbers are retained.",
+    "All seven prior archives are unchanged and rely on their prior content audits."
+  ],
+  "resolvedFindings": [
+    {
+      "path": "payload-index-adoption.json",
+      "field": "$.syntheticCredentialSourceValidation.generatedToken.pattern",
+      "kind": "token-pattern-metadata",
+      "resolution": "Source-validated regular-expression pattern metadata, not a credential."
+    }
+  ],
+  "unresolvedFindings": [],
+  "limits": "Source-scoped selection and content inspection support this reviewed set; this is not a universal secret-detector guarantee. Host process snapshots were omitted before staging. The first verifier failure did not capture the raw diagnostic.",
+  "completedAt": "2026-11-13T07:15:21.945164+00:00",
+  "metadataReview": "Final generated payload index, privacy review and compact index were inspected separately after all new original/projection payloads were audited."
+}

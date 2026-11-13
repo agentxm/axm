@@ -1,10 +1,11 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "status": "reviewed-staging-packaged-not-published",
-  "preparedAt": "2026-11-13T06:42:40.344103+00:00",
+  "preparedAt": "2026-11-13T07:15:21.945714+00:00",
   "priorCheckpointIndex": {
-    "path": "checkpoint-index-before-terminal-113.json",
-    "sha256": "71b079bb5bc2f2d2249b8d25e45de95d5f32f9d5c9c1d2e252173b80df1f20cc"
+    "path": "checkpoint-index-before-adoption.json",
+    "sha256": "b74ed7a0378a5b3d697f3ec7ed8042bf5f19d07068d5c4aa05cccdde0f7becd1",
+    "bytes": 39985
   },
   "payloadIndexes": [
     {
@@ -16,6 +17,11 @@
       "path": "payload-index-terminal-113.json",
       "sha256": "4a06d72267ce7370769f3bbb5eb47562ab7209d88f5aaedca487934df1064d48",
       "bytes": 4945944
+    },
+    {
+      "path": "payload-index-adoption.json",
+      "sha256": "55862e7103c6da5a16ab395668bb7e7127e03e0084e49e6f05081b1cac3dc631",
+      "bytes": 172134
     }
   ],
   "privacyReviews": [
@@ -28,6 +34,11 @@
       "path": "privacy-review-terminal-113.json",
       "sha256": "a0bbffebdb28a3f22c8bc97d53d6fe5dff4c02f57ca5f3683c4cd13a3c8de6b0",
       "bytes": 2682
+    },
+    {
+      "path": "privacy-review-adoption.json",
+      "sha256": "4a03b6c2465220f427316a70af123781980d56037f7de098d2833e1bc3d9b1ae",
+      "bytes": 1831
     }
   ],
   "crossRunProvenance": [
@@ -1244,20 +1255,136 @@
         }
       ],
       "readbackVerified": true
+    },
+    {
+      "path": "run-08-adoption-diagnostic-4d8344c40.tar.gz",
+      "sha256": "1d15f189631355715736831f4897666f4137e889f32cf848ff455831cb524f32",
+      "bytes": 94420,
+      "entryCount": 20,
+      "payloadBytes": 999227,
+      "runId": "run-08-adoption-diagnostic-4d8344c40",
+      "reportPathWithinArchive": "runs/run-08-adoption-diagnostic-4d8344c40/report.json",
+      "originalReportSha256": "f1af0eb8d077133f936eacbf23dabe7aa3ce21a96b0339b625e47a17ae68937c",
+      "originalComplete": false,
+      "originalError": "ObservabilityBenchmarkFailure: Adoption diagnostic must remain bound to the expected native refusal.",
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-knowledge-final-5jaosdfd/axm-linux-x64",
+        "binarySha256": "2cd081d5e32eb72900992edbc26eb18c71934cc279c997771a5f84b8c054c3e9",
+        "sourceRevision": "4d8344c40f581cce18626e77299abf090dba96ee",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessSha256": "c0fa14bce4cad26731f64d96c5bae3322182d648c3e7df2a1774d15632df28d6",
+      "harnessRevision": "268bcbe987013910b5f663af1dfa32aa09bad8df",
+      "completedCases": 0,
+      "reservedFailedCases": 0,
+      "historicalFailedVerifierAttempts": 1,
+      "cases": [
+        {
+          "scenario": "installed/adopt-enabled-native-refusal",
+          "classification": "historical-failed-verifier-attempt"
+        }
+      ],
+      "actualReceiverInspections": 0,
+      "actualSubjectArtifactDirectories": 1,
+      "readbackVerified": true
+    },
+    {
+      "path": "run-09-adoption-diagnostic2-4d8344c40.tar.gz",
+      "sha256": "612b408fc05863506c0223e7601b0f12606957d8e8a8be15ab604043b7f3cc0b",
+      "bytes": 95053,
+      "entryCount": 21,
+      "payloadBytes": 1002638,
+      "runId": "run-09-adoption-diagnostic2-4d8344c40",
+      "reportPathWithinArchive": "runs/run-09-adoption-diagnostic2-4d8344c40/report.json",
+      "originalReportSha256": "bc993a28ec2ac9a03c0cbb5f6f940420e5de019064915574ba9a1223ed9fb121",
+      "originalComplete": false,
+      "originalError": "ObservabilityBenchmarkFailure: Adoption diagnostic must remain bound to the expected native refusal.",
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-knowledge-final-5jaosdfd/axm-linux-x64",
+        "binarySha256": "2cd081d5e32eb72900992edbc26eb18c71934cc279c997771a5f84b8c054c3e9",
+        "sourceRevision": "4d8344c40f581cce18626e77299abf090dba96ee",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessSha256": "2ff9322932782df9d0188921370aa3bcad699fed84f920c73b43b4e1df386aee",
+      "harnessRevision": "408bc7abbfb095a8e499380d6fdcb84619779854",
+      "completedCases": 0,
+      "reservedFailedCases": 0,
+      "historicalFailedVerifierAttempts": 1,
+      "cases": [
+        {
+          "scenario": "installed/adopt-enabled-native-refusal",
+          "classification": "historical-failed-verifier-attempt"
+        }
+      ],
+      "actualReceiverInspections": 0,
+      "actualSubjectArtifactDirectories": 1,
+      "readbackVerified": true
+    },
+    {
+      "path": "run-10-adoption-single-target-4d8344c40.tar.gz",
+      "sha256": "1b98b65ffb2e81de9d354e8b9efad39ee961990b6b4491b3e22e7f82ba1a3563",
+      "bytes": 233995,
+      "entryCount": 94,
+      "payloadBytes": 1143090,
+      "runId": "run-10-adoption-single-target-4d8344c40",
+      "reportPathWithinArchive": "runs/run-10-adoption-single-target-4d8344c40/report.json",
+      "originalReportSha256": "dc5abeb138cc6126ce966db3c20088dd5ae4f79937ad7cec8a7009dd0342dd02",
+      "originalComplete": false,
+      "originalError": null,
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-knowledge-final-5jaosdfd/axm-linux-x64",
+        "binarySha256": "2cd081d5e32eb72900992edbc26eb18c71934cc279c997771a5f84b8c054c3e9",
+        "sourceRevision": "4d8344c40f581cce18626e77299abf090dba96ee",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessSha256": "8252ec0cf4488d443cc6de257fc2537911875e4bbcd052e4322a330ab295c4e5",
+      "harnessRevision": "290c531ab72ef99a48abbd09dd2408a2bbd4c224",
+      "completedCases": 1,
+      "reservedFailedCases": 0,
+      "historicalFailedVerifierAttempts": 0,
+      "cases": [
+        {
+          "scenario": "installed/adopt-enabled-native-refusal",
+          "classification": "completed"
+        }
+      ],
+      "actualReceiverInspections": 2,
+      "actualSubjectArtifactDirectories": 4,
+      "readbackVerified": true
     }
   ],
   "totals": {
-    "completedCases": 244,
+    "completedCases": 245,
     "reservedByteComparisonCases": 4,
-    "failedAdoptionCases": 1,
+    "failedAdoptionCases": 0,
     "uniqueScenarios": 249,
-    "archives": 7,
-    "archivedPayloadFiles": 14563,
-    "verifiedPayloadFilesIncludingExternal": 14564,
-    "archiveBytes": 19905886,
-    "originalPayloadBytes": 34391854,
-    "omittedHostSnapshotFiles": 1995,
-    "newExactReceiverInspections": 224
+    "archives": 10,
+    "archivedPayloadFiles": 14698,
+    "verifiedPayloadFilesIncludingExternal": 14699,
+    "archiveBytes": 20329354,
+    "originalPayloadBytes": 37537292,
+    "omittedHostSnapshotFiles": 2010,
+    "newExactReceiverInspections": 2,
+    "historicalFailedAdoptionAttempts": 3,
+    "retainedArchivePayloadBytes": 37332951
   },
   "archiveEncoding": {
     "format": "POSIX pax tar within gzip",
@@ -1275,15 +1402,39 @@
   "readback": {
     "verified": true,
     "priorArchivesUnchanged": true,
-    "newPayloadEntriesVerified": 6959,
-    "method": "Fully decompress each gzip stream (CRC checked), traverse every tar payload entry, require safe exact path/order/size and normalized headers, compare SHA-256 with unchanged staged payload-index. External metadata and cross-run provenance copied byte-for-byte."
+    "priorArchiveCount": 7,
+    "newPayloadEntriesVerified": 135,
+    "method": "Fully decompress every new gzip archive (CRC checked), traverse every tar entry, require safe exact path/order/size and normalized headers, compare SHA-256 against unchanged staged payloads. Verify all seven prior archive hashes against their existing index; their previous content audits/readbacks remain applicable."
   },
   "limits": [
-    "The four reserved byte-comparison cases remain failed and unresolved, and the adoption case needs corrected capture/replay; this is not full closure.",
-    "The failed adoption capture lacks raw generated diagnostic contents; its filesystem digest/filename is retained without inventing the missing document. Only disabled comparison ran for that failed attempt.",
-    "All original reports retain complete:false, errors and assessments. New112 completed cases do not relabel the enclosing failed report.",
-    "The exact terminal-run candidate/baseline manifests and continuation selection are inside archive7 under its runs/ directory.",
-    "All prior six archives remain byte-identical; only the new terminal data received a new content audit.",
-    "No whole homes, private configs, host process snapshots, subsequent in-progress evidence or repository edits were included. No timing qualification is claimed."
-  ]
+    "Current coverage is245 completed scenarios and four reserved failed byte comparisons,249 unique scenarios. The four remain unresolved; this is not full acceptance closure.",
+    "The original remaining-113 adoption comparison failure plus the two verifier failures remain historical failures, not additional current scenarios.",
+    "All original report complete:false fields, errors and assessments are unchanged. Selected successful capture does not qualify repeated timing.",
+    "The first verifier failure did not capture its raw diagnostic; the second did. Successful capture retains independent preparation proof and raw diagnostics for all four subjects.",
+    "Archive10 uses product4d8344c40f581cce18626e77299abf090dba96ee and harness290c531ab72ef99a48abbd09dd2408a2bbd4c224; the fixture-only correction leaves244 other completed scenarios applicable.",
+    "Six explicitly named verification-log projections replace only absolute checkout prefixes and retain original/projected hashes plus precise line/occurrence metadata. All benchmark payloads remain exact.",
+    "No whole homes, private configs, host process snapshots, binaries or receiver storage were copied. No timing qualification is claimed."
+  ],
+  "currentCoverage": {
+    "completedCases": 245,
+    "reservedByteComparisonCases": 4,
+    "uniqueScenarios": 249,
+    "unresolvedScenarios": [
+      "typed/subagents/install",
+      "typed/knowledge/install",
+      "typed/knowledge/new",
+      "typed/packs/install"
+    ],
+    "adoption": {
+      "scenario": "installed/adopt-enabled-native-refusal",
+      "currentClassification": "completed",
+      "currentArchive": "run-10-adoption-single-target-4d8344c40.tar.gz",
+      "historicalFailedArchives": [
+        "run-07-remaining-113-4d8344c40.tar.gz",
+        "run-08-adoption-diagnostic-4d8344c40.tar.gz",
+        "run-09-adoption-diagnostic2-4d8344c40.tar.gz"
+      ],
+      "interpretation": "The same adoption scenario has one current completed capture and three preserved historical failed attempts. Historical attempts do not add unique current scenarios."
+    }
+  }
 }

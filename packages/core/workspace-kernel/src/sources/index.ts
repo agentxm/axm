@@ -102,3 +102,5 @@ export { parseWellKnownIndex, WELL_KNOWN_SCHEMA } from "./well-known-index.js";
 // able to; knip skips exports tagged public.
 /** @public */
 export type { AcquiredSourceFiles } from "./service.js";
+
+export { RegistryContentAccess } from "./providers/registry/content-access.js";

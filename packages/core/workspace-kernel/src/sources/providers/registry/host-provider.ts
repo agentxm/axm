@@ -1,3 +1,4 @@
+import { RegistryContentAccess } from "./content-access.js";
 /**
  * Registry source host provider implementations.
  *
@@ -667,7 +668,17 @@ const fetchRegistryExtension = Effect.fnUntraced(function* (
       onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
     }),
   });
-  const { archive: archiveBytes, warnings } = yield* client.getExtensionPackage(packageArgs);
+  const admitted = yield* Effect.serviceOption(RegistryContentAccess);
+  const { archive: archiveBytes, warnings } = yield* Option.isNone(admitted)
+    ? client.getExtensionPackage(packageArgs)
+    : packageArgs.exact === undefined
+      ? Effect.fail(
+          new SourceNotResolvable({
+            category: "conflict",
+            detail: "Admitted Registry content requires an exact accepted identity.",
+          }),
+        )
+      : admitted.value.read(ref, packageArgs);
   if (warnings !== undefined) {
     yield* Effect.forEach(warnings, (warning) => Effect.logWarning(warning), {
       discard: true,

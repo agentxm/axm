@@ -58,7 +58,7 @@ describe("Acquired content through confirmation", () => {
       let scratch = "";
       let applied = false;
       const sources = {
-        validateExposure: () => Effect.die(new Error("unexpected Registry exposure")),
+        withAccess: () => Effect.die(new Error("unexpected Registry exposure")),
         acquire: () =>
           Effect.gen(function* () {
             acquisitions += 1;

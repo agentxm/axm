@@ -1,8 +1,26 @@
 import { PlanSources, makePlanSources } from "./plan-sources.js";
-import { SourceHostProvidersTest } from "../../sources/testing.js";
+import {
+  AxmSkillCandidateGateTest,
+  RegistryResolutionPolicyTest,
+  SourceHostProvidersTest,
+} from "../../sources/testing.js";
 import { NativePlatformTest } from "../../locations/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as ConfigProvider from "effect/ConfigProvider";
+import { createHash } from "node:crypto";
+import { strToU8, zipSync } from "fflate";
+import {
+  RegistryClientFactory,
+  makeRegistryClientFactory,
+  makeUserArchiveCache,
+} from "@agentxm/registry-client";
+import {
+  createRemoteRegistrySourceHostProvider,
+  SourceNotResolvable,
+} from "../../sources/index.js";
 import * as Tracer from "effect/Tracer";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -10,7 +28,10 @@ import * as Schema from "effect/Schema";
 import { ExactContentRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolutions";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
-import { RegistryClientFactoryTest, testRegistryEndpoint } from "@agentxm/registry-client/testing";
+import {
+  passThroughRegistryAuthorization,
+  testRegistryEndpoint,
+} from "@agentxm/registry-client/testing";
 import {
   decodeExtensionNameSync,
   decodeHandleSync,
@@ -32,7 +53,7 @@ export const specification = defineSpecification({
   goals: ["safe-repetition", "workspace-intent-fidelity"],
   boundary: "platform",
   boundaryRationale:
-    "The real candidate pipeline and Registry client execute over a temporary workspace and controlled HTTP port. Request ordering and closure outcomes are observed; Registry server authorization remains covered by the server's transport evidence.",
+    "The real candidate pipeline, Registry client, filesystem cache and archive extraction execute over a temporary workspace and controlled HTTP port. Request ordering, extracted files and closure outcomes are observed; deployed Registry authorization and actual CLI process behavior remain separate evidence.",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],
@@ -64,6 +85,8 @@ describe("Registry eligibility at exposure", () => {
     "revoked-during-confirmation",
     "no-registry-exposure",
     "ten-distinct",
+    "ten-warm",
+    "ten-warm-revoked",
     "hundred-and-one-distinct",
   ] as const) {
     it.effect(scenario, () =>
@@ -71,16 +94,35 @@ describe("Registry eligibility at exposure", () => {
         const workspace = yield* makeSpecWorkspace("axm-registry-exposure-");
         const requests: string[] = [];
         const batchSizes: number[] = [];
+        const warm = scenario === "ten-warm" || scenario === "ten-warm-revoked";
+        const revokes =
+          scenario === "revoked-during-confirmation" || scenario === "ten-warm-revoked";
         const distinct =
-          scenario === "ten-distinct" ? 10 : scenario === "hundred-and-one-distinct" ? 101 : 1;
+          warm || scenario === "ten-distinct"
+            ? 10
+            : scenario === "hundred-and-one-distinct"
+              ? 101
+              : 1;
+        const archives = new Map<string, Uint8Array>();
+        const acquired: string[] = [];
         const exposureRefs =
           distinct === 1
             ? [ref, ref]
-            : Array.from({ length: distinct }, (_, i) => ({
-                ...ref,
-                name: decodeExtensionNameSync(`review-${i}`),
-                skill: { ...ref.skill, name: decodeExtensionNameSync(`review-${i}`) },
-              }));
+            : Array.from({ length: distinct }, (_, i) => {
+                const name = decodeExtensionNameSync(`review-${i}`);
+                const archive = zipSync({
+                  "SKILL.md": strToU8(`---\nname: ${name}\ndescription: Test\n---\n# ${name}\n`),
+                });
+                archives.set(name, archive);
+                return {
+                  ...ref,
+                  name,
+                  skill: { ...ref.skill, name },
+                  integrity: warm
+                    ? Option.some(`sha512-${createHash("sha512").update(archive).digest("base64")}`)
+                    : ref.integrity,
+                };
+              });
         let denied = scenario === "denied";
         let exposed = 0;
         let independent = 0;
@@ -115,11 +157,70 @@ describe("Registry eligibility at exposure", () => {
             return HttpClientResponse.fromWeb(request, response);
           }),
         );
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const configuration = ConfigProvider.layer(
+          ConfigProvider.fromUnknown({ AXM_USER_HOME: workspace.root }),
+        );
+        const factory = yield* makeRegistryClientFactory({
+          httpClient: http,
+          fileSystem: fs,
+          path,
+          authorization: passThroughRegistryAuthorization,
+        }).pipe(Effect.provide(configuration));
+        if (warm) {
+          const cache = yield* makeUserArchiveCache().pipe(Effect.provide(configuration));
+          for (const reference of exposureRefs) {
+            const archive = archives.get(reference.name);
+            if (archive === undefined || Option.isNone(reference.integrity))
+              throw new Error("Expected warm fixture archive");
+            yield* cache.write(reference.integrity.value, archive);
+          }
+        }
+        const provider = createRemoteRegistrySourceHostProvider(
+          yield* factory.forEndpoint(testRegistryEndpoint),
+        );
+        const sourceProviders = SourceHostProvidersTest(
+          warm
+            ? {
+                acquireForTransition: (reference) =>
+                  Effect.gen(function* () {
+                    if (reference.refType !== "registry")
+                      return yield* Effect.die("Unexpected non-Registry source");
+                    const files = yield* provider.fetch(reference.source, reference);
+                    const document = yield* fs
+                      .readFileString(path.join(files.directory, "SKILL.md"))
+                      .pipe(
+                        Effect.mapError(
+                          (cause) =>
+                            new SourceNotResolvable({
+                              category: "internal",
+                              detail: "Fixture archive content could not be read.",
+                              cause,
+                            }),
+                        ),
+                      );
+                    expect(document).toContain(reference.name);
+                    acquired.push(reference.name);
+                    return files;
+                  }).pipe(
+                    Effect.provide(
+                      Layer.mergeAll(
+                        Layer.succeed(FileSystem.FileSystem, fs),
+                        Layer.succeed(Path.Path, path),
+                        AxmSkillCandidateGateTest(),
+                        RegistryResolutionPolicyTest,
+                      ),
+                    ),
+                  ),
+              }
+            : {},
+        );
         const context = makeSpecContext(workspace.workspaceDir, {
           confirmationAvailable: true,
           confirmApplyChanges: () =>
             Effect.sync(() => {
-              if (scenario === "revoked-during-confirmation") denied = true;
+              if (revokes) denied = true;
               return "approved" as const;
             }),
         });
@@ -139,7 +240,7 @@ describe("Registry eligibility at exposure", () => {
                   readiness: "ready" as const,
                   key: `skill:${index}`,
                   label: `step-${index}`,
-                  acquisitionRefs: [],
+                  acquisitionRefs: warm ? [exposureRef] : [],
                   exposureRefs: scenario === "no-registry-exposure" ? [] : [exposureRef],
                   run: Effect.sync(() => {
                     exposed += 1;
@@ -183,10 +284,7 @@ describe("Registry eligibility at exposure", () => {
               context.layer,
               Layer.effect(PlanSources, makePlanSources).pipe(
                 Layer.provide(
-                  Layer.merge(
-                    SourceHostProvidersTest(),
-                    RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, http)),
-                  ),
+                  Layer.merge(sourceProviders, Layer.succeed(RegistryClientFactory, factory)),
                 ),
               ),
             ),
@@ -201,12 +299,9 @@ describe("Registry eligibility at exposure", () => {
           scenario === "no-registry-exposure" ? [0, 0] : [distinct, distinct],
         );
         expect(eligibility.map((span) => span.attributes.get("axm.registry.denied"))).toEqual(
-          scenario === "denied"
-            ? [1, 1]
-            : scenario === "revoked-during-confirmation"
-              ? [0, 1]
-              : [0, 0],
+          scenario === "denied" ? [1, 1] : revokes ? [0, distinct] : [0, 0],
         );
+        expect(acquired.sort()).toEqual(warm ? exposureRefs.map((entry) => entry.name).sort() : []);
         expect(independent).toBe(1);
         expect(exposed).toBe(denied ? 0 : exposureRefs.length);
         expect(result.units.map((unit) => unit.state)).toEqual([

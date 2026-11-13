@@ -237,7 +237,7 @@ describe("previewOrApply", () => {
       let failedApplied = false;
       let healthyApplied = false;
       const providers = {
-        validateExposure: () => Effect.die(new Error("unexpected Registry exposure")),
+        withAccess: () => Effect.die(new Error("unexpected Registry exposure")),
         acquire: (ref) =>
           Effect.gen(function* () {
             if (ref.name === failedName) {
@@ -362,7 +362,7 @@ describe("previewOrApply", () => {
       let acquisitions = 0;
       let applied = false;
       const providers = {
-        validateExposure: () => Effect.die(new Error("unexpected Registry exposure")),
+        withAccess: () => Effect.die(new Error("unexpected Registry exposure")),
         acquire: () =>
           Effect.sync(() => {
             acquisitions += 1;
@@ -1865,7 +1865,7 @@ describe("previewOrApply", () => {
         location: `file://${directory}`,
       };
       const sources = {
-        validateExposure: () => Effect.die(new Error("unexpected Registry exposure")),
+        withAccess: () => Effect.die(new Error("unexpected Registry exposure")),
         acquire: () =>
           Effect.sync(() => {
             acquisitions += 1;

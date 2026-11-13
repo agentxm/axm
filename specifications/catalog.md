@@ -8282,7 +8282,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Role: supporting
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: platform; selection: per-change
-- Boundary rationale: The real candidate pipeline and Registry client execute over a temporary workspace and controlled HTTP port. Request ordering and closure outcomes are observed; Registry server authorization remains covered by the server's transport evidence.
+- Boundary rationale: The real candidate pipeline, Registry client, filesystem cache and archive extraction execute over a temporary workspace and controlled HTTP port. Request ordering, extracted files and closure outcomes are observed; deployed Registry authorization and actual CLI process behavior remain separate evidence.
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/planning/plan/rechecks-registry-exposure.spec.ts`](../packages/core/workspace-kernel/src/planning/plan/rechecks-registry-exposure.spec.ts)
 

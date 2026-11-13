@@ -79,7 +79,11 @@ import {
   withMcpInspectionReadView,
 } from "../../projection/index.js";
 import { preflightPackagePlacement } from "./package-placement.js";
-import { registryExposureRefsForStep, validateRegistryExposure } from "./registry-exposure.js";
+import {
+  registryExposureRefsForStep,
+  validateRegistryExposure,
+  withRegistryExposure,
+} from "./registry-exposure.js";
 import { PlanSources } from "./plan-sources.js";
 import { executionExposureRisks } from "./execution-exposure.js";
 import {
@@ -799,20 +803,6 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     });
   }
 
-  const eligibility = new Map(yield* validateRegistryExposure(candidatePlan, "before-acquisition"));
-  const eligibilityFailureForStep = (step: PlannedJobStep<Requirements, Output>) =>
-    registryExposureRefsForStep(step)
-      .map((ref) => eligibility.get(sourceRefContentKey(ref)))
-      .find((failure) => failure !== undefined);
-  const runnableSteps = candidatePlan.jobs
-    .flatMap((job) => job.steps)
-    .filter((step) => step.readiness !== "error");
-  const allDenied =
-    runnableSteps.length > 0 &&
-    runnableSteps.every((step) => eligibilityFailureForStep(step) !== undefined);
-  const firstDenial = eligibility.values().next().value;
-  if (allDenied && firstDenial !== undefined) return notExecuted({ failure: firstDenial });
-
   function* sourceRefs() {
     for (const job of candidatePlan.jobs) {
       for (const step of job.steps) {
@@ -835,78 +825,113 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
   const scratchBudget = yield* Effect.serviceOption(OperationScratchBudget);
   const acquisitionScope = yield* Scope.Scope;
   if (uniqueSourceRefs.length > 0) yield* enterPhase("acquisition");
-  const acquiredResults = yield* Effect.forEach(
-    uniqueSourceRefs,
-    (ref) =>
+  const { eligibility, acquiredResults } = yield* withRegistryExposure(
+    candidatePlan,
+    "before-acquisition",
+    (failures) =>
       Effect.gen(function* () {
-        const key = sourceRefContentKey(ref);
-        const denial = eligibility.get(key);
-        if (denial !== undefined) return { ref, key, failure: denial };
-        const childScope = yield* Scope.fork(acquisitionScope);
-        const attempted = yield* Effect.gen(function* () {
-          const reservation = Option.isSome(scratchBudget)
-            ? yield* scratchBudget.value.reserve(MAX_ACQUIRED_TREE_BYTES)
-            : undefined;
-          const files = yield* observeUnit(
-            {
-              id:
-                ref.refType === "registry"
-                  ? `registry-extract:${ref.owner}/${ref.type}/${ref.name}`
-                  : `source-acquire:${ref.type}/${ref.name}`,
-              label: `acquiring ${ref.name}`,
-            },
-            sources.acquire(ref),
-          );
-          if (reservation !== undefined) {
-            const measured = yield* measureAcquiredTree(files.scratchRoot ?? files.directory);
-            yield* reservation.settle(measured.bytes);
-          }
-          return files;
-        }).pipe(Effect.provideService(Scope.Scope, childScope), Effect.result);
-        if (Result.isSuccess(attempted)) return { ref, key, files: attempted.success };
-
-        yield* Scope.close(childScope, Exit.fail(attempted.failure));
-        const cause = attempted.failure;
-        // The scratch and tree budgets are this pipeline's own limits;
-        // a source-resolution failure reads as the kernel renders it
-        // wherever else it surfaces.
-        const failure =
-          cause instanceof OperationScratchLimitExceeded
-            ? new StepFailure({
-                category: "quota",
-                detail: `Source acquisition exceeds the ${cause.capacity} byte operation scratch limit`,
-                cause,
-              })
-            : cause instanceof AcquiredTreeLimitExceeded
-              ? new StepFailure({
-                  category: "quota",
-                  detail: `Acquired source exceeds the ${cause.limit} ${cause.resource} tree limit`,
-                  cause,
-                })
-              : !isSourceResolutionFailure(cause)
-                ? new StepFailure({
-                    category: "network",
-                    detail: `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`,
-                    cause,
-                  })
-                : cause._tag === "ConfigError"
-                  ? configErrorToStepFailure(cause)
-                  : resolutionFailureToStepFailure(cause);
-        return { ref, key, failure };
-      }),
-    {
-      concurrency: Option.isSome(scratchBudget)
-        ? Math.min(
-            Option.isSome(budget) ? budget.value.capacity : 1,
-            Math.max(1, Math.floor(scratchBudget.value.capacity / MAX_ACQUIRED_TREE_BYTES)),
+        const eligibility = new Map(failures);
+        const runnable = candidatePlan.jobs
+          .flatMap((job) => job.steps)
+          .filter((step) => step.readiness !== "error");
+        if (
+          runnable.length > 0 &&
+          runnable.every((step) =>
+            registryExposureRefsForStep(step).some((ref) =>
+              eligibility.has(sourceRefContentKey(ref)),
+            ),
           )
-        : Option.isSome(budget)
-          ? budget.value.capacity
-          : 1,
-    },
-  ).pipe((effect) =>
-    uniqueSourceRefs.length === 0 ? effect : withPhaseSpan("acquisition", effect),
+        )
+          return { eligibility, acquiredResults: [] };
+
+        const acquiredResults = yield* Effect.forEach(
+          uniqueSourceRefs,
+          (ref) =>
+            Effect.gen(function* () {
+              const key = sourceRefContentKey(ref);
+              const denial = eligibility.get(key);
+              if (denial !== undefined) return { ref, key, failure: denial };
+              const childScope = yield* Scope.fork(acquisitionScope);
+              const attempted = yield* Effect.gen(function* () {
+                const reservation = Option.isSome(scratchBudget)
+                  ? yield* scratchBudget.value.reserve(MAX_ACQUIRED_TREE_BYTES)
+                  : undefined;
+                const files = yield* observeUnit(
+                  {
+                    id:
+                      ref.refType === "registry"
+                        ? `registry-extract:${ref.owner}/${ref.type}/${ref.name}`
+                        : `source-acquire:${ref.type}/${ref.name}`,
+                    label: `acquiring ${ref.name}`,
+                  },
+                  sources.acquire(ref),
+                );
+                if (reservation !== undefined) {
+                  const measured = yield* measureAcquiredTree(files.scratchRoot ?? files.directory);
+                  yield* reservation.settle(measured.bytes);
+                }
+                return files;
+              }).pipe(Effect.provideService(Scope.Scope, childScope), Effect.result);
+              if (Result.isSuccess(attempted)) return { ref, key, files: attempted.success };
+
+              yield* Scope.close(childScope, Exit.fail(attempted.failure));
+              const cause = attempted.failure;
+              // The scratch and tree budgets are this pipeline's own limits;
+              // a source-resolution failure reads as the kernel renders it
+              // wherever else it surfaces.
+              const failure =
+                cause instanceof OperationScratchLimitExceeded
+                  ? new StepFailure({
+                      category: "quota",
+                      detail: `Source acquisition exceeds the ${cause.capacity} byte operation scratch limit`,
+                      cause,
+                    })
+                  : cause instanceof AcquiredTreeLimitExceeded
+                    ? new StepFailure({
+                        category: "quota",
+                        detail: `Acquired source exceeds the ${cause.limit} ${cause.resource} tree limit`,
+                        cause,
+                      })
+                    : !isSourceResolutionFailure(cause)
+                      ? new StepFailure({
+                          category: "network",
+                          detail: `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`,
+                          cause,
+                        })
+                      : cause._tag === "ConfigError"
+                        ? configErrorToStepFailure(cause)
+                        : resolutionFailureToStepFailure(cause);
+              return { ref, key, failure };
+            }),
+          {
+            concurrency: Option.isSome(scratchBudget)
+              ? Math.min(
+                  Option.isSome(budget) ? budget.value.capacity : 1,
+                  Math.max(1, Math.floor(scratchBudget.value.capacity / MAX_ACQUIRED_TREE_BYTES)),
+                )
+              : Option.isSome(budget)
+                ? budget.value.capacity
+                : 1,
+          },
+        ).pipe((effect) =>
+          uniqueSourceRefs.length === 0 ? effect : withPhaseSpan("acquisition", effect),
+        );
+        return { eligibility, acquiredResults };
+      }),
   );
+  const eligibilityFailureForStep = (step: PlannedJobStep<Requirements, Output>) =>
+    registryExposureRefsForStep(step)
+      .map((ref) => eligibility.get(sourceRefContentKey(ref)))
+      .find((failure) => failure !== undefined);
+  const runnableSteps = candidatePlan.jobs
+    .flatMap((job) => job.steps)
+    .filter((step) => step.readiness !== "error");
+  const allDenied =
+    runnableSteps.length > 0 &&
+    runnableSteps.every((step) => eligibilityFailureForStep(step) !== undefined);
+  const firstDenial = eligibility.values().next().value;
+  if (allDenied && firstDenial !== undefined) return notExecuted({ failure: firstDenial });
+
   const acquiredContent = {
     materializedPackages: yield* Ref.make<ReadonlyMap<string, TreeIntegrity>>(new Map()),
     requestedKeys: new Set(uniqueSourceRefs.map(sourceRefContentKey)),

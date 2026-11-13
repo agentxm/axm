@@ -48,7 +48,7 @@ export const FootprintRecorderTest: Layer.Layer<FootprintRecorder> = Layer.effec
 export const PlanSourcesTest = (overrides: Partial<PlanSourcesService> = {}) =>
   Layer.succeed(PlanSources, {
     acquire: () => Effect.die(new Error("Unexpected plan source acquisition")),
-    validateExposure: () => Effect.die(new Error("Unexpected plan Registry exposure")),
+    withAccess: () => Effect.die(new Error("Unexpected plan Registry exposure")),
     ...overrides,
   });
 

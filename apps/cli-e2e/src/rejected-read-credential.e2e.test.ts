@@ -25,10 +25,9 @@ export const executionBinding = defineExecutionBinding({
 });
 
 const READ = ["view", "@test/skills/absent", "--json"] as const;
-// Observe the requested Registry resource. Other local clients can reach the
-// loopback fixture too; GET / does not read an extension. Keep the complete
-// request log in assertion diagnostics rather than discarding that traffic.
-const READ_PATH = "/v1/extensions/%40test/skills/absent";
+// Metadata selection is a repeat-safe POST. Keep the complete request log in
+// assertion diagnostics, including the separate credential-renewal exchange.
+const READ_PATH = "/v1/resolutions";
 
 describe("A read the Registry rejects for its credential", () => {
   it("renews the stored session once and retries the read", async () => {
@@ -89,8 +88,11 @@ describe("A read the Registry rejects for its credential", () => {
         reads.map((request) => [request.method, request.authorization, request.status]),
         JSON.stringify(registry.requests),
       ).toEqual([
-        ["GET", "Bearer axm_ses_unresolvable", 401],
-        ["GET", "Bearer axm_ses_current-r1", 404],
+        ["POST", "Bearer axm_ses_unresolvable", 401],
+        ["POST", "Bearer axm_ses_current-r1", 200],
+        // The phase discards a response spanning credential renewal and reads
+        // with the new authority generation. Absence is a per-item outcome.
+        ["POST", "Bearer axm_ses_current-r1", 200],
       ]);
     } finally {
       home.cleanup();
@@ -148,7 +150,9 @@ describe("A read the Registry rejects for its credential", () => {
       expect(
         reads.every(
           (request) =>
-            request.method === "GET" && request.authorization === "Bearer unresolvable-token",
+            request.method === "POST" &&
+            request.status === 401 &&
+            request.authorization === "Bearer unresolvable-token",
         ),
         JSON.stringify(registry.requests),
       ).toBe(true);

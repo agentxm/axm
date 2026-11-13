@@ -122,8 +122,11 @@ describe("Trusted publishing from a GitHub Actions job", () => {
       });
       expect(world.idTokens.requests).toEqual([]);
       expect(world.registry.tokenExchanges).toEqual([]);
-      const reads = world.registry.requests.filter((request) => request.method === "GET");
+      const reads = world.registry.requests.filter((request) => request.path === "/v1/resolutions");
       expect(reads.length).toBeGreaterThan(0);
+      expect(reads.map((request) => [request.method, request.status])).toEqual(
+        reads.map(() => ["POST", 200]),
+      );
       expect(reads.map((request) => request.authorization)).toEqual(reads.map(() => undefined));
     } finally {
       await world.cleanup();

@@ -1,5 +1,7 @@
 import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import * as Effect from "effect/Effect";
+import { chunksOf } from "effect/Array";
+import { MAX_RESOLUTION_ITEMS } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
@@ -312,16 +314,32 @@ export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionList
 ) {
   const lockfile = yield* LockfileReader;
   const graph = yield* (yield* DesiredStateReader).graph();
-  return yield* Effect.forEach(
-    items,
-    (item) => {
-      return lockfile.acceptedEntry(item.type, item.name).pipe(
-        Effect.flatMap((accepted) =>
-          assessItem(item, filter, Option.getOrUndefined(accepted), graph),
-        ),
-        Effect.map((assessment): AssessedExtensionListItem => ({ ...item, assessment })),
-      );
-    },
+  const observations = yield* Effect.forEach(items, (item, position) =>
+    lockfile
+      .acceptedEntry(item.type, item.name)
+      .pipe(
+        Effect.map((accepted) => ({ item, position, record: Option.getOrUndefined(accepted) })),
+      ),
+  );
+  const isRegistry = (observation: (typeof observations)[number]) =>
+    observation.record !== undefined && isRegistryAcceptedEntry(observation.record);
+  const assess = ({ item, position, record }: (typeof observations)[number]) =>
+    assessItem(item, filter, record, graph).pipe(
+      Effect.map((assessment) => ({ position, item: { ...item, assessment } })),
+    );
+  // Present one protocol-sized set to the shared resolver at a time. A small
+  // worker pool fragments known Registry identities into unnecessary requests.
+  // Non-Registry providers retain their independent traversal bound.
+  const registry = yield* Effect.forEach(
+    chunksOf(observations.filter(isRegistry), MAX_RESOLUTION_ITEMS),
+    (batch) => Effect.forEach(batch, assess, { concurrency: batch.length }),
+  );
+  const other = yield* Effect.forEach(
+    observations.filter((observation) => !isRegistry(observation)),
+    assess,
     { concurrency: 6 },
   );
+  return [...registry.flat(), ...other]
+    .sort((left, right) => left.position - right.position)
+    .map(({ item }): AssessedExtensionListItem => item);
 });

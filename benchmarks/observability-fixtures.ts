@@ -228,6 +228,11 @@ const observeForkIdentity = (identity: ContainerIdentity, fixture: WorkspaceTemp
   check("owner", identity.owner.identity, () => nativeIdentity(identity.owner.path));
   check("root", identity.root.identity, () => nativeIdentity(identity.root.path));
   check("entry", identity.entry, () => nativeIdentity(identity.physicalPath));
+  check(
+    "entry-present",
+    true,
+    () => fs.lstatSync(identity.physicalPath, { throwIfNoEntry: false }) !== undefined,
+  );
   identity.parents.forEach((parent, index) =>
     check("parents/" + index, parent.identity, () => nativeIdentity(parent.path)),
   );
@@ -250,6 +255,8 @@ const verifyForkReceipts: NonNullable<ObservabilityScenario["verify"]> = ({
   fixture,
   artifacts,
   phase,
+  startedAtMillis,
+  endedAtMillis,
 }) =>
   Effect.gen(function* () {
     if (phase === "timing")
@@ -299,11 +306,62 @@ const verifyForkReceipts: NonNullable<ObservabilityScenario["verify"]> = ({
     ].map(({ location, identity }) => {
       const unchanged = inherited.has(JSON.stringify(identity));
       const observed = observeForkIdentity(identity, fixture);
+      const scratch = path.join(fixture.workspace, ".axm", "tmp");
+      // Admission persists exclusive creation proof before its finalizer removes
+      // the empty scratch directory. The existing runtime-directories-retire-
+      // after-withdrawal owner spec covers this historical receipt lifecycle.
+      const historicalScratch =
+        !unchanged &&
+        location.startsWith("createdDirectories/") &&
+        identity.nativeRoot === fixture.workspace &&
+        identity.ownerRoot === fixture.workspace &&
+        identity.identityOwnerRoot === fixture.workspace &&
+        identity.owner.path === fixture.workspace &&
+        identity.root.path === fixture.workspace &&
+        identity.target === scratch &&
+        identity.physicalPath === scratch &&
+        identity.parents.length === 1 &&
+        identity.parents[0]?.path === path.join(fixture.workspace, ".axm") &&
+        identity.aliases.length === 1 &&
+        identity.aliases[0]?.path === scratch &&
+        identity.aliases[0]?.entryPath === scratch &&
+        identity.aliases[0]?.referentPath === scratch &&
+        identity.aliases[0]?.linkTarget === undefined &&
+        identity.entry.device === identity.parents[0]?.identity.device &&
+        /^[1-9]\d*$/.test(identity.entry.inode) &&
+        Number.isSafeInteger(identity.entry.mode) &&
+        identity.entry.mode >= 0 &&
+        (identity.entry.mode & 0o170000) === 0o040000 &&
+        Number.isSafeInteger(identity.entry.birthtime) &&
+        identity.entry.birthtime >= startedAtMillis &&
+        identity.entry.birthtime <= endedAtMillis &&
+        observed.outsideSample.length === 0 &&
+        observed.checks.some(
+          (check) =>
+            check.field === "entry-present" &&
+            check.observed === false &&
+            check.error === undefined,
+        ) &&
+        observed.checks.every(
+          (check) =>
+            check.matches ||
+            [
+              "entry",
+              "entry-present",
+              "target-referent",
+              "aliases/0/referent",
+              "aliases/0/link",
+            ].includes(check.field),
+        );
       return {
         location,
-        classification: unchanged ? "inherited-unchanged" : "new-or-refreshed",
+        classification: unchanged
+          ? "inherited-unchanged"
+          : historicalScratch
+            ? "historical-runtime-cleanup-not-poststat-verifiable"
+            : "new-or-refreshed",
         ...observed,
-        valid: unchanged || observed.matchesSample,
+        valid: unchanged || observed.matchesSample || historicalScratch,
       };
     });
     yield* Effect.try(() =>
@@ -312,7 +370,8 @@ const verifyForkReceipts: NonNullable<ObservabilityScenario["verify"]> = ({
         JSON.stringify(
           {
             observation:
-              "Node native metadata and aliases in the actual sample; only an exact unchanged before identity may retain expired copied proof. No comparison projection.",
+              "Node native metadata and aliases in the actual sample. Exact unchanged before identities may retain expired copied proof. A new exact .axm/tmp creation history may be absent after cleanup only with verified live ancestors, absence and birthtime in the process interval; its removed entry identity is explicitly not post-stat verifiable. No comparison projection.",
+            processWindow: { startedAtMillis, endedAtMillis },
             observations,
           },
           null,
@@ -327,7 +386,7 @@ const verifyForkReceipts: NonNullable<ObservabilityScenario["verify"]> = ({
     return {
       assertions: [
         "Raw before/after projection-container receipts retained before independent verification.",
-        "New or refreshed identities match sample native metadata and aliases; expired inherited identities are permitted only when unchanged from before.",
+        "New or refreshed identities match sample native metadata and aliases, except exact .axm/tmp cleanup history with verified live ancestors, absence and creation time; expired inherited identities are permitted only when unchanged from before.",
         "Receipt bytes remain subject to the unchanged exact state comparison.",
       ],
     };

@@ -50,6 +50,15 @@ it.effect.each([false, true])(
       });
       const details = spans.filter((span) => span.name === "axm.native.lock-io");
       expect(details).toHaveLength(detail ? 1 : 0);
+      const acquisitions = observations.facts.filter(
+        (fact) => fact.kind === "axm.native.lock-acquire",
+      );
+      expect(acquisitions).toHaveLength(1);
+      expect(acquisitions[0]?.outcome).toBe("success");
+      expect(acquisitions[0]?.attributes["axm.work.executed"]).toBe(1);
+      expect(spans.filter((span) => span.name === "axm.native.lock-acquire")).toHaveLength(
+        detail ? 1 : 0,
+      );
       expect(JSON.stringify(calls)).not.toContain("private-missing-lock-name");
     }).pipe(Effect.provide(NodeServices.layer)),
 );

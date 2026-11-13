@@ -236,19 +236,21 @@ preview, or apply, including flag-dependent behavior such as `lint --fix`.
 Early parsing failures use a bounded unresolved identity. Operation outcome,
 process exit, and diagnostic delivery are separate facts.
 
-| Evidence                                              | Interpretation                                                                                                                                               |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `axm.operation.phase`, `axm.operation.wait`           | Phase spans enclose actual executing work; existing lifecycle wait events delimit reported waits. Private plan names, details and wait subjects are omitted. |
-| `axm.work.summary`                                    | Correlated log containing direct owner aggregates; selection of detailed spans does not change work accounting.                                              |
-| `axm.io.*`                                            | Physical filesystem adapter calls, including live reads that bypass an observation view.                                                                     |
-| Observation, parsing, hashing, and cache work         | Logical work or reuse decisions; do not add these to physical I/O counts to calculate system calls.                                                          |
-| `axm.registry.request`                                | Logical request, including admission waits and retry backoff.                                                                                                |
-| `axm.registry.attempt`                                | One attempt, including response decoding or archive-body consumption.                                                                                        |
-| `axm.http.request`                                    | Base-transport exchange until response headers; check counts against the fixture server's request log.                                                       |
-| `axm.registry.archive-body`                           | Archive-body consumption and successful byte counts; a cache hit does not download a body.                                                                   |
-| `axm.wait.*`, `axm.registry.retry-wait`               | Resource, lock, or retry delay at its owner.                                                                                                                 |
-| `axm.process.run`, `axm.process.spawn`                | Child lifetime and nested spawn; spawn time alone is not subprocess execution time.                                                                          |
-| Publication, receipt verification, and rollback spans | Consequential mutation boundaries, with distinct evidence needed for no-op, conflict, failure, interruption, and restoration paths.                          |
+| Evidence                                              | Interpretation                                                                                                                                                                                                    |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `axm.operation.phase`, `axm.operation.wait`           | Phase spans enclose actual executing work; existing lifecycle wait events delimit reported waits. Private plan names, details and wait subjects are omitted.                                                      |
+| `axm.work.summary`                                    | Correlated log containing direct owner aggregates; selection of detailed spans does not change work accounting.                                                                                                   |
+| `axm.io.*`                                            | Physical filesystem adapter calls, including live reads that bypass an observation view.                                                                                                                          |
+| Observation, parsing, hashing, and cache work         | Logical work or reuse decisions; do not add these to physical I/O counts to calculate system calls.                                                                                                               |
+| `axm.registry.request`                                | Logical request, including admission waits and retry backoff.                                                                                                                                                     |
+| `axm.registry.attempt`                                | One attempt, including response decoding or archive-body consumption.                                                                                                                                             |
+| `axm.http.request`                                    | Base-transport exchange until response headers; check counts against the fixture server's request log.                                                                                                            |
+| `axm.registry.archive-body`                           | Archive-body consumption and successful byte counts; a cache hit does not download a body.                                                                                                                        |
+| `axm.wait.*`, `axm.registry.retry-wait`               | Resource, lock, or retry delay at its owner.                                                                                                                                                                      |
+| `axm.admission.*`                                     | Completed permit/ledger admissions, including uncontended ones; aggregate counts, capacity units and measured duration. Native detail selects individual intervals. This is not a blocked-wait count or duration. |
+| `axm.native.lock-*`                                   | Native lock attempts, cleanup and callback I/O. Summary aggregates these primitives; native detail can expose individual intervals. Proven contention remains a separate wait.                                    |
+| `axm.process.run`, `axm.process.spawn`                | Child lifetime and nested spawn; spawn time alone is not subprocess execution time.                                                                                                                               |
+| Publication, receipt verification, and rollback spans | Consequential mutation boundaries, with distinct evidence needed for no-op, conflict, failure, interruption, and restoration paths.                                                                               |
 
 Use root elapsed time for the instrumented invocation interval. Nested and
 concurrent children overlap; summing them double-counts time. Inspector
@@ -464,6 +466,15 @@ ordered per-unit facts are compared within each acquisition segment. Phase
 changes and non-unit events remain ordered barriers; apply progress and human
 output retain their order. Every fact and raw event remains retained. The report
 records this comparison rule alongside timestamp and fixture-root projections.
+
+Completed memo reuse can occur while the shared result is pending (`coalesced`)
+or after completion (`hit`), depending on scheduling. Cross-run comparison treats
+these as equivalent only for the five declared memo owners when each successful
+occurrence has fully measured requested/reused counts of one and executed count
+of zero. All other dimensions, ownership, bytes and measurement coverage remain
+strict. Archive disk-cache reads and failed, interrupted or incompletely measured
+reuse do not qualify. Individual traces, receipts and inspections retain the
+original labels and exact payloads; the report declares this comparison projection.
 
 Keep `report.json`, raw-artifact hashes, receipts and independent oracle records.
 `harness-modules.json` identifies the complete statically resolvable module

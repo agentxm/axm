@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { makeOperationRequestBudget } from "@agentxm/host-primitives";
 import { withLocalTracing } from "./index.js";
 import { localTracingCollector } from "../test-support/local-tracing-collector.js";
 
@@ -8,7 +9,7 @@ export const specification = defineSpecification({
   requirement: "cli/local-tracing-describes-operation-work",
   title: "Local traces nest actual work under its operation",
   statement:
-    "An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse and complete Registry requests from header arrival without reporting every implementation helper.",
+    "An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse, admission latency from proven contention, and complete Registry requests from header arrival without reporting every implementation helper.",
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics"],
@@ -23,6 +24,54 @@ export const specification = defineSpecification({
 });
 
 describe("Local operation traces", () => {
+  it.live("accounts for request admission without presenting it as proven blocking", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        for (const detail of ["", "native"]) {
+          const receiver = yield* localTracingCollector();
+          const result = yield* withLocalTracing(
+            Effect.scoped(
+              Effect.gen(function* () {
+                const budget = yield* makeOperationRequestBudget({ invocation: 3, origin: 1 });
+                return yield* budget.withAttempt("https://registry.invalid", Effect.succeed(7));
+              }),
+            ).pipe(Effect.withSpan("axm.cli.operation")),
+            { AXM_TRACE: "1", AXM_TRACE_ENDPOINT: receiver.endpoint, AXM_TRACE_DETAIL: detail },
+          );
+          expect(result).toBe(7);
+          const spans = receiver.spans();
+          expect(spans.filter((span) => span.name.startsWith("axm.wait."))).toEqual([]);
+          expect(spans.filter((span) => span.name.startsWith("axm.admission."))).toHaveLength(
+            detail === "native" ? 2 : 0,
+          );
+          const owner = spans.find((span) => span.name === "axm.cli.operation");
+          expect(owner).toBeDefined();
+          for (const [kind, capacity] of [
+            ["axm.admission.request-origin", 1],
+            ["axm.admission.request-invocation", 3],
+          ] as const) {
+            const records = receiver
+              .logs()
+              .filter((log) =>
+                log.attributes.some(
+                  ({ key, value }) => key === "axm.summary.kind" && value["stringValue"] === kind,
+                ),
+              );
+            expect(records).toHaveLength(1);
+            expect(records[0]?.spanId).toBe(owner?.spanId);
+            expect(records[0]?.attributes).toEqual(
+              expect.arrayContaining([
+                { key: "axm.summary.count", value: { intValue: 1 } },
+                { key: "axm.admission.capacity", value: { intValue: capacity } },
+                { key: "axm.admission.unit", value: { stringValue: "permits" } },
+              ]),
+            );
+          }
+        }
+      }),
+    ),
+  );
+
   it.live("flushes nested work and reuses its owner parent across unexported helpers", () =>
     Effect.scoped(
       Effect.gen(function* () {

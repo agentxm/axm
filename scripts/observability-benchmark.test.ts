@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
-import { MachineEventSchema, type MachineEvent } from "axm.sh/runtime";
+import { MachineEventSchema, type MachineEvent, type TraceWorkSummary } from "axm.sh/runtime";
 import {
   assessObservabilityEvidence,
   assessScenarioTiming,
@@ -117,6 +117,42 @@ const preflight = (): PreflightCheck[] =>
   }));
 const assess = (values: ReadonlyArray<ObservationSample>, checks = preflight()) =>
   assessObservabilityEvidence(budgets, coverage, ["list/one"], values, checks);
+
+const deliveredReuse = (
+  outcome: "hit" | "coalesced",
+  count = 1,
+  kind = "axm.observation.reuse",
+): TraceWorkSummary => ({
+  kind,
+  owner: "0123456789abcdef",
+  ownerName: "axm.operation.phase",
+  dimensions: {
+    "axm.work.owner": "axm.observation.phase",
+    "axm.outcome": "success",
+    "axm.cache.outcome": outcome,
+    ...(kind === "axm.auth.cache"
+      ? { "axm.auth.cache-kind": "stored-session", "axm.work.reused": true }
+      : {}),
+  },
+  count,
+  workDurationMs: 1,
+  measurements: {
+    "axm.work.requested": { total: count, measured: count, occurrences: count },
+    "axm.work.executed": { total: 0, measured: count, occurrences: count },
+    "axm.work.reused-count": { total: count, measured: count, occurrences: count },
+  },
+  requested: count,
+  executed: 0,
+  reused: count,
+  bytes: null,
+  ioBytes: null,
+  archiveBytes: null,
+  workCount: null,
+  batchItems: null,
+  registryBatchItems: null,
+  archiveEntries: null,
+  deniedItems: null,
+});
 
 // Unit facts and schedules from the retained 61-event cold sync-restore pair.
 // Keep the fixture independent of temporary campaign artifacts and wall clocks.
@@ -592,6 +628,95 @@ describe("independent comparison artifacts", () => {
     expect(workDigest([work])).not.toBe(
       workDigest([{ ...work, ownerName: "axm.operation.phase" }]),
     );
+  });
+
+  it("compares delivered reuse across completion schedules without changing raw facts", () => {
+    for (const kind of [
+      "axm.observation.reuse",
+      "axm.observation.pack-reuse",
+      "axm.resolve.desired-state-reuse",
+      "axm.registry.metadata-reuse",
+      "axm.auth.cache",
+    ]) {
+      const completed = [deliveredReuse("hit", 2, kind)];
+      const mixed = [deliveredReuse("hit", 1, kind), deliveredReuse("coalesced", 1, kind)];
+      const original = structuredClone({ completed, mixed });
+      expect(workDigest(completed)).toBe(workDigest(mixed));
+      expect({ completed, mixed }).toEqual(original);
+    }
+  });
+
+  it("retains work, bytes, outcomes and ownership when comparing delivered reuse", () => {
+    const hit = deliveredReuse("hit");
+    const coalesced = deliveredReuse("coalesced");
+    const changed: ReadonlyArray<TraceWorkSummary> = [
+      deliveredReuse("coalesced", 2),
+      { ...coalesced, requested: 2 },
+      { ...coalesced, executed: 1 },
+      { ...coalesced, reused: 0 },
+      { ...coalesced, bytes: 1 },
+      { ...coalesced, ioBytes: 1 },
+      { ...coalesced, ownerName: "axm.cli.operation" },
+      {
+        ...coalesced,
+        dimensions: { ...coalesced.dimensions, "axm.work.owner": "axm.cli.command" },
+      },
+      {
+        ...coalesced,
+        dimensions: { ...coalesced.dimensions, "axm.outcome": "failure" },
+      },
+      {
+        ...coalesced,
+        measurements: {
+          ...coalesced.measurements,
+          "axm.work.bytes": { total: 1, measured: 1, occurrences: 1 },
+        },
+      },
+    ];
+    for (const row of changed) expect(workDigest([hit])).not.toBe(workDigest([row]));
+  });
+
+  it("keeps hit/coalesced labels strict outside fully measured successful memo reuse", () => {
+    const invalidShapes: ReadonlyArray<(row: TraceWorkSummary) => TraceWorkSummary> = [
+      (row) => ({ ...row, count: 0 }),
+      (row) => ({ ...row, requested: null }),
+      (row) => ({ ...row, executed: 1 }),
+      (row) => ({ ...row, reused: 0 }),
+      (row) => ({ ...row, measurements: {} }),
+      (row) => ({
+        ...row,
+        measurements: {
+          ...row.measurements,
+          "axm.work.reused-count": { total: 1, measured: 0, occurrences: 1 },
+        },
+      }),
+      (row) => ({
+        ...row,
+        measurements: {
+          ...row.measurements,
+          "axm.work.executed": { total: 1, measured: 1, occurrences: 1 },
+        },
+      }),
+      (row) => ({ ...row, dimensions: { ...row.dimensions, "axm.work.reused": false } }),
+      (row) => ({ ...row, dimensions: { ...row.dimensions, "axm.outcome": "failure" } }),
+      (row) => ({ ...row, dimensions: { ...row.dimensions, "axm.outcome": "interrupted" } }),
+      (row) => ({ ...row, kind: "axm.archive.cache-load" }),
+      (row) => ({ ...row, kind: "axm.archive.cache-read" }),
+      (row) => ({ ...row, kind: "axm.update.cache" }),
+    ];
+    for (const invalid of invalidShapes)
+      expect(workDigest([invalid(deliveredReuse("hit"))])).not.toBe(
+        workDigest([invalid(deliveredReuse("coalesced"))]),
+      );
+    for (const outcome of ["miss", "corrupt", "bypass"])
+      expect(workDigest([deliveredReuse("hit")])).not.toBe(
+        workDigest([
+          {
+            ...deliveredReuse("hit"),
+            dimensions: { ...deliveredReuse("hit").dimensions, "axm.cache.outcome": outcome },
+          },
+        ]),
+      );
   });
 
   it("includes transitive fixture modules in the executable harness identity", () => {

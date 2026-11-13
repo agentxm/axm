@@ -8,6 +8,7 @@ import * as Ref from "effect/Ref";
 import * as Tracer from "effect/Tracer";
 
 import { makeOperationRequestBudget } from "./request-budget.js";
+import { CurrentWorkObserver, type WorkFact } from "./work-observation.js";
 
 describe("OperationRequestBudget", () => {
   for (const boundary of ["origin", "invocation"] as const) {
@@ -38,22 +39,14 @@ describe("OperationRequestBudget", () => {
               }),
             )
             .pipe(
-              Effect.withTracer(
-                Tracer.make({
-                  span(options) {
-                    const span = new Tracer.NativeSpan(options);
-                    const end = span.end.bind(span);
-                    if (span.name === `axm.wait.request-${boundary}`)
-                      span.end = (time, exit) => {
-                        end(time, exit);
-                        ends += 1;
-                        fiber.interruptUnsafe();
-                      };
-                    return span;
-                  },
-                }),
-              ),
-              Effect.withTracerEnabled(true),
+              Effect.provideService(CurrentWorkObserver, {
+                record: (fact) => {
+                  if (fact.kind !== `axm.admission.request-${boundary}`) return;
+                  ends += 1;
+                  fiber.interruptUnsafe();
+                },
+                detailSelected: () => false,
+              }),
             ),
         ).pipe(Effect.forkChild({ startImmediately: true }));
         // Keep the same RcMap origin entry borrowed while the victim is cancelled.
@@ -68,6 +61,77 @@ describe("OperationRequestBudget", () => {
         yield* TestClock.adjust("1 second");
         expect(yield* Fiber.await(probe)).toEqual(Exit.succeed("available"));
       }),
+    );
+  }
+  for (const boundary of ["origin", "invocation"] as const) {
+    it.effect(
+      `records queued ${boundary} cancellation without summary spans or leaked capacity`,
+      () =>
+        Effect.gen(function* () {
+          const budget = yield* makeOperationRequestBudget({
+            invocation: 1,
+            origin: boundary === "origin" ? 1 : 3,
+          });
+          const facts: WorkFact[] = [];
+          const spans: string[] = [];
+          const tracer = Tracer.make({
+            span(options) {
+              spans.push(options.name);
+              return new Tracer.NativeSpan(options);
+            },
+          });
+          const started = yield* Deferred.make<void>();
+          const release = yield* Deferred.make<void>();
+          const origin = "https://registry.example.test";
+          let executed = false;
+          yield* Effect.gen(function* () {
+            const first = yield* budget
+              .withAttempt(
+                origin,
+                Deferred.succeed(started, undefined).pipe(Effect.andThen(Deferred.await(release))),
+              )
+              .pipe(Effect.forkChild({ startImmediately: true }));
+            yield* Deferred.await(started);
+            const queued = yield* budget
+              .withAttempt(
+                origin,
+                Effect.sync(() => {
+                  executed = true;
+                }),
+              )
+              .pipe(Effect.forkChild({ startImmediately: true }));
+            expect(executed).toBe(false);
+            expect(facts).toHaveLength(boundary === "origin" ? 2 : 3);
+            yield* Fiber.interrupt(queued);
+            expect(facts).toHaveLength(boundary === "origin" ? 3 : 4);
+            expect(facts.at(-1)).toMatchObject({
+              kind: `axm.admission.request-${boundary}`,
+              outcome: "interrupted",
+              attributes: { "axm.admission.capacity": 1, "axm.admission.unit": "permits" },
+            });
+            yield* Deferred.succeed(release, undefined);
+            yield* Fiber.join(first);
+            // The permit was admitted successfully even when protected work later fails.
+            expect(
+              yield* budget.withAttempt(origin, Effect.fail("body failed")).pipe(Effect.flip),
+            ).toBe("body failed");
+            expect(facts.slice(-2).map((fact) => fact.outcome)).toEqual(["success", "success"]);
+            expect(yield* budget.withAttempt(origin, Effect.succeed("available"))).toBe(
+              "available",
+            );
+          }).pipe(
+            Effect.provideService(CurrentWorkObserver, {
+              record: (fact) => {
+                facts.push(fact);
+              },
+              detailSelected: () => false,
+            }),
+            Effect.withTracer(tracer),
+            Effect.withTracerEnabled(true),
+          );
+          expect(executed).toBe(false);
+          expect(spans).toEqual([]);
+        }),
     );
   }
   it.effect("admits another origin while one origin is at capacity", () =>

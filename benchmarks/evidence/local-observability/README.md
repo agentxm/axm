@@ -125,6 +125,46 @@ seven affected projects and their prerequisites in
 `/tmp/observability-direct-archive-leaf-owner-checks2.log`.
 The assembled scoped restoration and preview captures remain pending.
 
+The next clean checkpoint is `d2a0b59214949382b64b73868a43344774f75c13`,
+binary SHA-256 `84b1e4388fe0fb5024c74d288b4af0b512ba6f81bb87a96bc252a62c4714f062`,
+retained under `/tmp/axm-observability-checkpoint-blt_tq5w`. Its one-extension
+restoration passed output/state and both exact inspections, then failed strict
+summary/detail comparison: two successful canonical-path reuse labels changed
+from completed hits to coalesced pending results. All physical/native work,
+other counters, ownership and measurement coverage matched. The comparison now
+projects only fully measured successful delivered reuse for five finite memo
+owners; raw facts remain unchanged. The failed run remains at
+`fixtures-scoped-retry`, log `/tmp/observability-direct-frozen-fixtures.log`.
+
+A separate fifty-extension run passed baseline/disabled behavior, then rejected
+summary receipt `118495e37ec93d597de419d2547f5aaa` before receiver retrieval:
+2,049 retained spans including the root, 1,601 drops, and 318 aggregate groups.
+This is an actual volume failure; detail and the selected preview/startup cases
+were not reached. Evidence is `fixtures-volume-preview` and
+`/tmp/observability-direct-frozen-volume-preview.log`. Repeated permit/ledger
+admissions and native lock attempts/cleanup are now being migrated to direct
+facts, preserving their synchronization and cancellation boundaries. Admission
+duration includes uncontended acquisition, so it is not labelled blocked time.
+Proven contention and consequential network/publication spans remain. Caps are
+unchanged; affected owner and assembled checks must establish the correction.
+No repeated timing has run. This VM was selected for the final campaign, but
+unrelated active work still prevents establishing isolated timing conditions.
+
+The coordination correction passed focused owner checks: 13 request/recorder,
+15 archive admission/acquisition, 25 ledger/native-lock, 50 runtime/inspector, and
+25 benchmark-method tests. Type/lint passed across five affected projects and
+their prerequisites, followed by the two changed consumers. The wire bridge
+caught admission capacity being omitted from aggregate dimensions; the recorder
+and inspector now preserve that numeric descriptor without adding capacities
+as work counts. One inspector test also needed to stop assuming aggregate order.
+Logs: `/tmp/observability-coordination-owner-checks.log`,
+`/tmp/observability-coordination-owner-tests.log` (contains the initial wire
+failure alongside successful owner selections),
+`/tmp/observability-coordination-wire-checks.log`,
+`/tmp/observability-coordination-wire-tests2.log`, and
+`/tmp/observability-coordination-method-tests.log`.
+The larger assembled replay and final performance/integration evidence remain pending.
+
 The retained tiny Seq probe confirmed typed aggregate-log correlation and the
 fixed projected-query response (four rows, exit zero, about 0.9 seconds). Its
 artifacts are `/tmp/axm-seq-aggregate-wire-val95fgu/projection-query*`.

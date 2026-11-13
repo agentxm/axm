@@ -22,7 +22,7 @@ import {
 
 const count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 const duration = Schema.Number.check(Schema.isFinite(), Schema.isGreaterThanOrEqualTo(0));
-const dimension = Schema.Union([Schema.String, Schema.Boolean]);
+const dimension = Schema.Union([Schema.String, Schema.Boolean, count]);
 
 /** Every Seq consumer retrieves the same identity and observation contract. */
 export const traceRetrievalColumns = [
@@ -313,7 +313,7 @@ export interface TraceWorkSummary {
   readonly kind: string;
   readonly owner: string;
   readonly ownerName: string;
-  readonly dimensions: Readonly<Record<string, string | boolean>>;
+  readonly dimensions: Readonly<Record<string, string | number | boolean>>;
   readonly count: number;
   readonly workDurationMs: number | null;
   /** Known partial totals survive even when a convenient total remains unknown. */
@@ -635,11 +635,13 @@ export const inspectLocalTrace = Effect.fnUntraced(function* (
         code: "identity-mismatch",
         message: "Aggregate resource identity does not match its invocation.",
       });
-    const dimensions: Record<string, string | boolean> = {};
+    const dimensions: Record<string, string | number | boolean> = {};
     for (const [key, value] of attributes) {
       if (
         !key.startsWith("axm.summary.") &&
-        (typeof value === "string" || typeof value === "boolean")
+        (typeof value === "string" ||
+          typeof value === "boolean" ||
+          (key === "axm.admission.capacity" && typeof value === "number"))
       )
         dimensions[key] = value;
     }

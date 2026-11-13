@@ -2,11 +2,12 @@
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as Clock from "effect/Clock";
+import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
 import * as RcMap from "effect/RcMap";
 import * as Semaphore from "effect/Semaphore";
 import type * as Scope from "effect/Scope";
+import { captureWork } from "./work-observation.js";
 
 export interface OperationRequestBudgetService {
   readonly capacity: number;
@@ -47,20 +48,26 @@ export const makeOperationRequestBudget = (limits: {
     });
     const admitted = <A, E, R>(
       semaphore: Semaphore.Semaphore,
-      name: string,
+      kind: "axm.admission.request-origin" | "axm.admission.request-invocation",
       capacity: number,
       effect: Effect.Effect<A, E, R>,
     ) =>
       Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* () {
-          const span = yield* Effect.makeSpan(name, {
-            attributes: { "axm.wait.capacity": capacity },
+          const capture = yield* captureWork;
+          const admission = capture?.begin(kind, {
+            attributes: { "axm.admission.capacity": capacity, "axm.admission.unit": "permits" },
           });
           const end = (exit: Exit.Exit<unknown, unknown>) =>
-            Effect.gen(function* () {
-              if (span.status._tag === "Ended") return;
-              span.end(yield* Clock.currentTimeNanos, exit);
-            });
+            Effect.sync(() =>
+              admission?.finish(
+                Exit.isSuccess(exit)
+                  ? "success"
+                  : Cause.hasInterruptsOnly(exit.cause)
+                    ? "interrupted"
+                    : "failure",
+              ),
+            );
           const admitted = semaphore.withPermits(1)(end(Exit.void).pipe(Effect.andThen(effect)));
           return yield* Effect.onExit(restore(admitted), end);
         }),
@@ -72,9 +79,9 @@ export const makeOperationRequestBudget = (limits: {
           Effect.flatMap(RcMap.get(origins, origin), (originSemaphore) =>
             admitted(
               originSemaphore,
-              "axm.wait.request-origin",
+              "axm.admission.request-origin",
               limits.origin,
-              admitted(invocation, "axm.wait.request-invocation", limits.invocation, effect),
+              admitted(invocation, "axm.admission.request-invocation", limits.invocation, effect),
             ),
           ),
         ),

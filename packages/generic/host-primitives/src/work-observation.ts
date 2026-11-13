@@ -83,6 +83,14 @@ export const workKinds = [
   "axm.native.unlink",
   "axm.native.remove-directory",
   "axm.native.lock-io",
+  "axm.native.lock-acquire",
+  "axm.native.lock-release",
+  "axm.native.lock-cleanup",
+  "axm.admission.transaction-ledger",
+  "axm.admission.request-origin",
+  "axm.admission.request-invocation",
+  "axm.admission.buffered-archive",
+  "axm.admission.extraction",
   "axm.archive.cache-read",
   "axm.archive.cache-load",
   "axm.archive.cache-write",
@@ -134,6 +142,8 @@ export interface WorkAttributes {
   readonly "axm.auth.cache-kind"?: "stored-session" | "workload";
   readonly "axm.native.operation"?: "mkdir" | "stat" | "utimes" | "write-file" | "unlink" | "rmdir";
   readonly "axm.native.phase"?: "acquire" | "heartbeat" | "release" | "cleanup" | "exit";
+  readonly "axm.admission.capacity"?: number;
+  readonly "axm.admission.unit"?: "permits" | "bytes";
   readonly "axm.invalidation.reason"?: "mutation" | "phase-exit" | "changed-input";
   readonly "axm.observation.operation"?:
     | "read-file"

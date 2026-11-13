@@ -132,7 +132,12 @@ export const makeLocalTraceSession = (
         continue;
       }
       if (key === "axm.outcome" || key === "axm.work.owner") continue;
-      if (typeof value === "string" || typeof value === "boolean") dimensions.push([key, value]);
+      if (
+        typeof value === "string" ||
+        typeof value === "boolean" ||
+        (key === "axm.admission.capacity" && typeof value === "number")
+      )
+        dimensions.push([key, value]);
       else if (typeof value === "number" && traceWorkCounterAttributes.has(key))
         counters.push([key, value]);
     }

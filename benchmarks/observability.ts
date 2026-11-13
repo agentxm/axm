@@ -69,6 +69,48 @@ const writeJson = (file: string, value: unknown) =>
 const fail = (code: string, message: string) =>
   new ObservabilityBenchmarkFailure({ code, message });
 
+const deliveredReuseKinds: ReadonlyArray<string> = [
+  "axm.observation.reuse",
+  "axm.observation.pack-reuse",
+  "axm.resolve.desired-state-reuse",
+  "axm.registry.metadata-reuse",
+  "axm.auth.cache",
+];
+const deliveredReuseComparison = {
+  kinds: deliveredReuseKinds,
+  dimension: "axm.cache.outcome",
+  values: ["hit", "coalesced"],
+  comparedAs: "delivered-reuse",
+  condition:
+    "Successful rows only: positive integer count=requested=reused, executed=0, all three counters fully measured; axm.work.reused, if present, must be true.",
+  preservation:
+    "Only the completed-versus-pending reuse label is projected for cross-run comparison. Raw facts, receipts and inspections retain it; all other dimensions, owner grouping, quantities and measurement coverage remain significant.",
+};
+
+const isDeliveredReuse = (row: TraceWorkSummary): boolean =>
+  deliveredReuseKinds.includes(row.kind) &&
+  (row.dimensions["axm.cache.outcome"] === "hit" ||
+    row.dimensions["axm.cache.outcome"] === "coalesced") &&
+  row.dimensions["axm.outcome"] === "success" &&
+  (row.dimensions["axm.work.reused"] === undefined || row.dimensions["axm.work.reused"] === true) &&
+  Number.isSafeInteger(row.count) &&
+  row.count > 0 &&
+  row.requested === row.count &&
+  row.executed === 0 &&
+  row.reused === row.count &&
+  Object.entries({
+    "axm.work.requested": row.count,
+    "axm.work.executed": 0,
+    "axm.work.reused-count": row.count,
+  }).every(([field, total]) => {
+    const measurement = row.measurements[field];
+    return (
+      measurement?.total === total &&
+      measurement.measured === row.count &&
+      measurement.occurrences === row.count
+    );
+  });
+
 /** Owner IDs and durations differ per invocation; completed work totals must not. */
 export const workDigest = (work: ReadonlyArray<TraceWorkSummary>): string => {
   const groups = new Map<string, Array<number | null>>();
@@ -77,10 +119,21 @@ export const workDigest = (work: ReadonlyArray<TraceWorkSummary>): string => {
     Map<string, { total: number; measured: number; occurrences: number }>
   >();
   for (const row of work) {
+    const deliveredReuse = isDeliveredReuse(row);
     const key = JSON.stringify([
       row.kind,
       row.ownerName,
-      Object.entries(row.dimensions).sort(([a], [b]) => a.localeCompare(b)),
+      Object.entries(row.dimensions)
+        .map(
+          ([key, value]) =>
+            [
+              key,
+              key === "axm.cache.outcome" && deliveredReuse
+                ? deliveredReuseComparison.comparedAs
+                : value,
+            ] as const,
+        )
+        .sort(([a], [b]) => a.localeCompare(b)),
     ]);
     const totals = groups.get(key) ?? [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     const values = [
@@ -300,6 +353,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
           normalization: {
             protocolFields: [...volatileComparisonFields],
             progress: progressComparisonNormalization,
+            deliveredReuse: deliveredReuseComparison,
             fixtureRoots:
               "Temporary workspace/home roots normalize to indexed markers; raw bytes and hashes are retained.",
             requestOrder:

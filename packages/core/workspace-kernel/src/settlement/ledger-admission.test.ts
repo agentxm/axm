@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { CurrentWorkObserver, type WorkFact } from "@agentxm/host-primitives/work-observation";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -17,19 +18,12 @@ it.effect(
         updateTransactionLedger(ledger, (current) =>
           Effect.succeed({ ...current, snapshotSequence: 7 }),
         ).pipe(
-          Effect.withTracer(
-            Tracer.make({
-              span(options) {
-                const span = new Tracer.NativeSpan(options);
-                const end = span.end.bind(span);
-                span.end = (time, exit) => {
-                  end(time, exit);
-                  if (span.name === "axm.wait.transaction-ledger") fiber.interruptUnsafe();
-                };
-                return span;
-              },
-            }),
-          ),
+          Effect.provideService(CurrentWorkObserver, {
+            record(fact) {
+              if (fact.kind === "axm.admission.transaction-ledger") fiber.interruptUnsafe();
+            },
+            detailSelected: () => false,
+          }),
         ),
       ).pipe(Effect.forkChild);
       expect(Exit.hasInterrupts(yield* Fiber.await(pending))).toBe(true);
@@ -57,6 +51,8 @@ for (const outcome of ["released", "interrupted"] as const) {
       ).pipe(Effect.forkChild);
       yield* Deferred.await(holding);
       const spans: Tracer.NativeSpan[] = [];
+      const facts: WorkFact[] = [];
+      let pendingAdmissions = 0;
       const tracer = Tracer.make({
         span(options) {
           const span = new Tracer.NativeSpan(options);
@@ -69,22 +65,38 @@ for (const outcome of ["released", "interrupted"] as const) {
           Effect.andThen(Deferred.await(finish)),
           Effect.as({ ...current, snapshotSequence: current.snapshotSequence + 3 }),
         ),
-      ).pipe(Effect.withTracer(tracer), Effect.forkChild);
+      ).pipe(
+        Effect.withTracer(tracer),
+        Effect.provideService(CurrentWorkObserver, {
+          record: (fact) => facts.push(fact),
+          detailSelected: () => false,
+          started() {
+            pendingAdmissions += 1;
+            return () => {
+              pendingAdmissions -= 1;
+            };
+          },
+        }),
+        Effect.forkChild,
+      );
       yield* Effect.yieldNow;
-      const wait = spans.find((span) => span.name === "axm.wait.transaction-ledger");
-      expect(wait?.status._tag).toBe("Started");
+      expect(pendingAdmissions).toBe(1);
+      expect(facts).toEqual([]);
       if (outcome === "released") {
         yield* Deferred.succeed(release, undefined);
         yield* Fiber.join(holder);
         yield* Deferred.await(admitted);
-        expect(wait?.status._tag === "Ended" && wait.status.exit._tag).toBe("Success");
+        expect(facts).toHaveLength(1);
+        expect(facts[0]?.outcome).toBe("success");
+        expect(pendingAdmissions).toBe(0);
         expect((yield* SynchronizedRef.get(ledger)).snapshotSequence).toBe(7);
         yield* Deferred.succeed(finish, undefined);
         yield* Fiber.join(writer);
         expect((yield* SynchronizedRef.get(ledger)).snapshotSequence).toBe(10);
       } else {
         yield* Fiber.interrupt(writer);
-        expect(wait?.status._tag === "Ended" && wait.status.exit._tag).toBe("Failure");
+        expect(facts).toHaveLength(1);
+        expect(facts[0]?.outcome).toBe("interrupted");
         yield* Deferred.succeed(release, undefined);
         yield* Fiber.join(holder);
         expect((yield* SynchronizedRef.get(ledger)).snapshotSequence).toBe(7);
@@ -93,6 +105,11 @@ for (const outcome of ["released", "interrupted"] as const) {
         );
         expect((yield* SynchronizedRef.get(ledger)).snapshotSequence).toBe(11);
       }
+      expect(facts).toHaveLength(1);
+      expect(facts[0]?.kind).toBe("axm.admission.transaction-ledger");
+      expect(facts[0]?.attributes["axm.work.executed"]).toBeUndefined();
+      expect(pendingAdmissions).toBe(0);
+      expect(spans).toEqual([]);
     }),
   );
 }

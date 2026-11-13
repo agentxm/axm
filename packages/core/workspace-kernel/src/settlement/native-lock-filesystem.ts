@@ -1,6 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off — proper-lockfile owns this callback-style native filesystem boundary
 import * as nodeFs from "node:fs";
-import { captureWork, type WorkCapture } from "@agentxm/host-primitives/work-observation";
+import { captureWork, withWork, type WorkCapture } from "@agentxm/host-primitives/work-observation";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 
@@ -99,7 +99,7 @@ interface ObservedLockFileSystem {
 
 /**
  * Raw callback observations record native API calls, not syscalls or idle timer duration.
- * Timers retain their acquisition's causal parent after the acquire span ends.
+ * Timers retain their acquisition's causal parent after the acquisition completes.
  * Sync exit cleanup can record completion but cannot promise an asynchronous exporter flush.
  */
 const makeObservedLockFileSystemState = (): ObservedLockFileSystem => {
@@ -200,22 +200,20 @@ const makeObservedLockFileSystemState = (): ObservedLockFileSystem => {
   return {
     fs,
     during: <A, E, R>(next: "acquire" | "release" | "cleanup", effect: Effect.Effect<A, E, R>) =>
-      Effect.useSpan(
+      withWork(
         `axm.native.lock-${next}`,
-        { attributes: { "axm.work.executed": 1 } },
-        (span) =>
-          Effect.gen(function* () {
-            phase = next;
-            capture = yield* captureWork;
-          }).pipe(
-            Effect.andThen(effect),
-            Effect.onExit((exit) =>
-              Effect.sync(() => {
-                if (next === "acquire" && Exit.isSuccess(exit)) phase = "heartbeat";
-              }),
-            ),
-            Effect.withParentSpan(span),
+        Effect.gen(function* () {
+          phase = next;
+          capture = yield* captureWork;
+        }).pipe(
+          Effect.andThen(effect),
+          Effect.onExit((exit) =>
+            Effect.sync(() => {
+              if (next === "acquire" && Exit.isSuccess(exit)) phase = "heartbeat";
+            }),
           ),
+        ),
+        { attributes: { "axm.work.executed": 1 } },
       ),
   };
 };

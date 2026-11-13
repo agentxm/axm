@@ -135,6 +135,15 @@ and an optional phase before creating individual spans. Helpers with no useful
 independent fact need no instrumentation. Recording uses already available
 facts and never performs an enrichment-only product read.
 
+Permit and ledger admission, and native lock attempts and cleanup, are repeated
+coordination work. They update direct aggregates; native detail can select their
+individual intervals. Admission ends at the existing protected callback or
+cancellation, preserving the original semaphore and synchronized-reference
+lifecycle. Its elapsed time includes uncontended admission and cannot establish
+blocked time. No diagnostic try-acquire, shadow permit counter or timing threshold
+changes the concurrency policy. Proven lock contention and explicit retry or
+user waits retain separate spans.
+
 Each occurrence has one direct owner, resolved from the executing Effect
 context. Native callbacks capture that context before leaving Effect. An
 asynchronous lifecycle projection cannot assign causal ownership from its

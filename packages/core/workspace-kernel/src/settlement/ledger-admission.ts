@@ -1,5 +1,6 @@
-/** Trace only admission to the existing synchronized ledger, without replacing its lock. */
-import * as Clock from "effect/Clock";
+/** Observe admission to the existing synchronized ledger, without replacing its lock. */
+import { captureWork } from "@agentxm/host-primitives/work-observation";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as SynchronizedRef from "effect/SynchronizedRef";
@@ -11,13 +12,18 @@ export const updateTransactionLedger = <E, R>(
 ): Effect.Effect<void, E, R> =>
   Effect.uninterruptibleMask((restore) =>
     Effect.gen(function* () {
-      const span = yield* Effect.makeSpan("axm.wait.transaction-ledger");
+      const work = (yield* captureWork)?.begin("axm.admission.transaction-ledger");
       const end = (exit: Exit.Exit<unknown, unknown>) =>
-        Effect.gen(function* () {
-          if (span.status._tag === "Ended") return;
-          span.end(yield* Clock.currentTimeNanos, exit);
-        });
-      // makeSpan does not change the current parent: ledger work is not a child of its wait.
+        Effect.sync(() =>
+          work?.finish(
+            Exit.isSuccess(exit)
+              ? "success"
+              : Cause.hasInterruptsOnly(exit.cause)
+                ? "interrupted"
+                : "failure",
+          ),
+        );
+      // Admission includes uncontended calls. It ends before ledger work and is not its parent.
       const transition = SynchronizedRef.updateEffect(ledger, (current) =>
         end(Exit.void).pipe(Effect.andThen(Effect.suspend(() => update(current)))),
       );

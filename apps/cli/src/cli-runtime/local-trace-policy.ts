@@ -54,6 +54,7 @@ const numberAttributes = new Set([
   "axm.wait.capacity",
   "axm.wait.attempts",
   "axm.wait.requested-bytes",
+  "axm.admission.capacity",
 ]);
 const booleanAttributes = new Set(["axm.work.reused", "axm.work.invalidated", "axm.changed"]);
 const attributeValues: Readonly<Record<string, ReadonlyArray<string>>> = {
@@ -93,6 +94,7 @@ const attributeValues: Readonly<Record<string, ReadonlyArray<string>>> = {
   "axm.cache.outcome": ["hit", "miss", "corrupt", "coalesced", "bypass"],
   "axm.native.operation": ["mkdir", "stat", "utimes", "write-file", "unlink", "rmdir"],
   "axm.native.phase": ["acquire", "heartbeat", "release", "cleanup", "exit"],
+  "axm.admission.unit": ["permits", "bytes"],
   "axm.invalidation.reason": ["mutation", "phase-exit", "changed-input"],
   "axm.eligibility.phase": ["before-acquisition", "after-confirmation"],
   "axm.observation.operation": [
@@ -190,7 +192,7 @@ export const detailKindForWork = (name: string): TraceDetailKind => {
   )
     return "parse";
   if (name.startsWith("axm.hash.")) return "hash";
-  if (name.startsWith("axm.native.")) return "native";
+  if (name.startsWith("axm.native.") || name.startsWith("axm.admission.")) return "native";
   if (name.startsWith("axm.render.") || name.startsWith("axm.cli.")) return "render";
   if (
     name.startsWith("axm.archive.") ||
@@ -307,7 +309,6 @@ export const traceSpanNames = new Set([
   "axm.wait.confirmation",
   "axm.wait.workspace-lock",
   "axm.wait.document-writer",
-  "axm.wait.transaction-ledger",
   "axm.parse.receipts",
   "axm.parse.lockfile-round-trip",
   "axm.parse.lockfile-preservation",
@@ -326,10 +327,6 @@ export const traceSpanNames = new Set([
   "axm.archive.cache-verify",
   "axm.archive.integrity",
   "axm.archive.extraction",
-  "axm.wait.extraction",
-  "axm.wait.buffered-archive",
-  "axm.wait.request-origin",
-  "axm.wait.request-invocation",
   "axm.resolve.desired-state-reuse",
   "axm.wait.file-lock",
   "axm.wait.workspace-admission",

@@ -187,6 +187,44 @@ const fixture = () => {
 };
 
 describe("local trace evidence inspection", () => {
+  it.effect("preserves admission capacity as a dimension rather than an additive work count", () =>
+    Effect.gen(function* () {
+      const { tree, receipt, logs, operation, attest } = fixture();
+      for (const capacity of [1, 3]) {
+        const log = aggregate("axm.admission.request-origin", {});
+        log.columns["@Properties"]["axm.admission.capacity"] = capacity;
+        log.columns["@Properties"]["axm.admission.unit"] = "permits";
+        logs.push(log);
+        operation.children.push(log);
+      }
+      attest();
+      const report = yield* inspectLocalTrace(receipt, tree, {
+        expected: {
+          work: [
+            {
+              kind: "axm.admission.request-origin",
+              dimensions: { "axm.admission.capacity": 1 },
+              count: 1,
+            },
+            {
+              kind: "axm.admission.request-origin",
+              dimensions: { "axm.admission.capacity": 3 },
+              count: 1,
+            },
+          ],
+        },
+      });
+      const admissions = report.work.filter((row) => row.kind === "axm.admission.request-origin");
+      expect(admissions).toHaveLength(2);
+      expect(admissions.map((row) => row.dimensions["axm.admission.capacity"])).toEqual(
+        expect.arrayContaining([1, 3]),
+      );
+      expect(admissions.every((row) => row.workCount === null)).toBe(true);
+      expect(report.waits).toHaveLength(1);
+      expect(report.waits[0]?.name).toBe("axm.wait.workspace-lock");
+    }),
+  );
+
   it.effect(
     "uses one bounded projected query at the tree limit and verifies a complete large receipt",
     () =>
@@ -231,14 +269,14 @@ describe("local trace evidence inspection", () => {
           id,
           id === rootId ? null : rootId,
           true,
-          id === rootId ? "axm.cli.invocation" : "axm.wait.extraction",
+          id === rootId ? "axm.cli.invocation" : "axm.archive.extraction",
           10,
           id === rootId ? { "axm.command.route": "list", private: "PRIVATE" } : {},
           ...Object.values(resources),
         ]);
         const decoded = yield* decodeTraceRetrieval(large, { Columns: columns, Rows: rows });
         const report = yield* inspectLocalTrace(large, decoded, {
-          expected: { spans: [{ name: "axm.wait.extraction", count: spanCount - 1 }] },
+          expected: { spans: [{ name: "axm.archive.extraction", count: spanCount - 1 }] },
         });
         expect(report.evidence.retainedSpanCount).toBe(spanCount);
         expect(report.evidence.expectations).toBe("verified");

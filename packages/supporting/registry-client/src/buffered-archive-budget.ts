@@ -1,9 +1,10 @@
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as Clock from "effect/Clock";
+import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Semaphore from "effect/Semaphore";
+import { captureWork } from "@agentxm/host-primitives/work-observation";
 
 import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 
@@ -40,14 +41,20 @@ export const makeOperationBufferedArchiveBudget = Effect.fnUntraced(function* (
     withBufferedArchive: (effect) =>
       Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* () {
-          const span = yield* Effect.makeSpan("axm.wait.buffered-archive", {
-            attributes: { "axm.wait.capacity": capacityBytes },
+          const capture = yield* captureWork;
+          const admission = capture?.begin("axm.admission.buffered-archive", {
+            attributes: { "axm.admission.capacity": capacityBytes, "axm.admission.unit": "bytes" },
           });
           const end = (exit: Exit.Exit<unknown, unknown>) =>
-            Effect.gen(function* () {
-              if (span.status._tag === "Ended") return;
-              span.end(yield* Clock.currentTimeNanos, exit);
-            });
+            Effect.sync(() =>
+              admission?.finish(
+                Exit.isSuccess(exit)
+                  ? "success"
+                  : Cause.hasInterruptsOnly(exit.cause)
+                    ? "interrupted"
+                    : "failure",
+              ),
+            );
           const admitted = semaphore.withPermits(1)(end(Exit.void).pipe(Effect.andThen(effect)));
           return yield* Effect.onExit(restore(admitted), end);
         }),

@@ -1,8 +1,9 @@
 import * as Effect from "effect/Effect";
-import * as Clock from "effect/Clock";
+import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
 import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
+import { captureWork } from "@agentxm/host-primitives/work-observation";
 
 export interface OperationExtractionBudgetService {
   readonly withExtraction: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
@@ -25,14 +26,20 @@ export const makeOperationExtractionBudget = Effect.fnUntraced(function* (
     withExtraction: (effect) =>
       Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* () {
-          const span = yield* Effect.makeSpan("axm.wait.extraction", {
-            attributes: { "axm.wait.capacity": capacity },
+          const capture = yield* captureWork;
+          const admission = capture?.begin("axm.admission.extraction", {
+            attributes: { "axm.admission.capacity": capacity, "axm.admission.unit": "permits" },
           });
           const end = (exit: Exit.Exit<unknown, unknown>) =>
-            Effect.gen(function* () {
-              if (span.status._tag === "Ended") return;
-              span.end(yield* Clock.currentTimeNanos, exit);
-            });
+            Effect.sync(() =>
+              admission?.finish(
+                Exit.isSuccess(exit)
+                  ? "success"
+                  : Cause.hasInterruptsOnly(exit.cause)
+                    ? "interrupted"
+                    : "failure",
+              ),
+            );
           const admitted = semaphore.withPermits(1)(
             end(Exit.void).pipe(
               Effect.andThen(effect.pipe(Effect.withSpan("axm.archive.extraction"))),

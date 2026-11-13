@@ -29,6 +29,14 @@ export const TraceFailureKindSchema = Schema.Literals([
   "failure",
 ]);
 
+// Reuse each schema guard so its parser initializes once across trace attributes.
+const isOperationPhase = Schema.is(OperationPhaseSchema);
+const isErrorCode = Schema.is(ErrorCodeSchema);
+const isTraceFailureKind = Schema.is(TraceFailureKindSchema);
+const isBlockingClass = Schema.is(BlockingClassSchema);
+const isTraceCommandRoute = Schema.is(TraceCommandRouteSchema);
+const isTraceDetailKind = Schema.is(TraceDetailKindSchema);
+
 /** Additive quantities only; attempt ordinals, status codes and capacities are not totals. */
 export const traceWorkCounterAttributes = new Set([
   "axm.work.count",
@@ -163,10 +171,10 @@ export const safeTraceAttribute = (
   value: unknown,
   commandRoutes: ReadonlySet<string> = new Set(),
 ): boolean => {
-  if (key === "axm.operation.phase") return Schema.is(OperationPhaseSchema)(value);
-  if (key === "axm.failure.category") return Schema.is(ErrorCodeSchema)(value);
-  if (key === "axm.failure.kind") return Schema.is(TraceFailureKindSchema)(value);
-  if (key === "axm.wait.class") return Schema.is(BlockingClassSchema)(value);
+  if (key === "axm.operation.phase") return isOperationPhase(value);
+  if (key === "axm.failure.category") return isErrorCode(value);
+  if (key === "axm.failure.kind") return isTraceFailureKind(value);
+  if (key === "axm.wait.class") return isBlockingClass(value);
   if (numberAttributes.has(key))
     return (
       typeof value === "number" &&
@@ -176,8 +184,7 @@ export const safeTraceAttribute = (
       (key === "axm.wait.milliseconds" || Number.isSafeInteger(value))
     );
   if (booleanAttributes.has(key)) return typeof value === "boolean";
-  if (key === "axm.command.route")
-    return Schema.is(TraceCommandRouteSchema)(value) && commandRoutes.has(value);
+  if (key === "axm.command.route") return isTraceCommandRoute(value) && commandRoutes.has(value);
   if (key === "axm.work.owner") return typeof value === "string" && traceSpanNames.has(value);
   return typeof value === "string" && attributeValues[key]?.includes(value) === true;
 };
@@ -215,12 +222,11 @@ export const traceDetailSelection = (
   const kinds: TraceDetailKind[] = [];
   if (value !== "")
     for (const kind of value.split(",")) {
-      if (!Schema.is(TraceDetailKindSchema)(kind.trim())) return undefined;
+      if (!isTraceDetailKind(kind.trim())) return undefined;
       const selected = Schema.decodeUnknownSync(TraceDetailKindSchema)(kind.trim());
       if (!kinds.includes(selected)) kinds.push(selected);
     }
-  if (phase !== null && (!Schema.is(OperationPhaseSchema)(phase) || kinds.length === 0))
-    return undefined;
+  if (phase !== null && (!isOperationPhase(phase) || kinds.length === 0)) return undefined;
   return { kinds, phase };
 };
 
@@ -484,7 +490,7 @@ export const isSummaryOwner = (name: string) =>
 export const safeTraceAggregateAttribute = (key: string, value: unknown): boolean => {
   // The session already admitted the exact command-tree route. This private
   // serialization boundary preserves that fact without another route catalog.
-  if (key === "axm.command.route") return Schema.is(TraceCommandRouteSchema)(value);
+  if (key === "axm.command.route") return isTraceCommandRoute(value);
   if (key === "axm.summary.schema-version") return value === 1;
   if (key === "axm.summary.kind")
     return typeof value === "string" && traceSpanNames.has(value) && value !== "axm.cli.invocation";

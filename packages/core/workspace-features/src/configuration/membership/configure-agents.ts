@@ -67,6 +67,7 @@ import {
   readInstructionRows,
 } from "@agentxm/workspace-kernel/projection";
 import {
+  withWorkspaceReadView,
   unresolvedPackRoutes,
   unresolvedPackRoutesText,
   ConfiguredAgentOutcomesProvider,
@@ -265,7 +266,7 @@ const prepareAddConfiguredAgents = (
       acceptWarnings: request.acceptWarnings ?? false,
       scope: location.scope,
     } satisfies AddConfiguredAgentsCandidate;
-  });
+  }).pipe(withWorkspaceReadView);
 
 /**
  * Steps the application planned through the reconciliation feature, applied
@@ -554,7 +555,7 @@ const prepareRemoveConfiguredAgents = (
       baseDir: location.baseDir,
       scope: location.scope,
     } satisfies RemoveConfiguredAgentsCandidate;
-  });
+  }).pipe(withWorkspaceReadView);
 
 const removeAgentStep = <Output>(
   scope: WorkspaceScope,

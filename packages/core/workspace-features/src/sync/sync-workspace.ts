@@ -291,7 +291,7 @@ const prepareSyncWorkspace = (
         ],
       });
     }
-    const lockfile = yield* LockfileReader;
+    const liveLockfile = yield* LockfileReader;
     const location = yield* WorkspaceLocation;
     const invariantFacts = yield* WorkspaceInvariantFacts;
     const conversion = yield* StepFailureConversion;
@@ -313,18 +313,7 @@ const prepareSyncWorkspace = (
           Effect.gen(function* () {
             const desiredState = yield* DesiredStateReader;
             const evaluation = yield* desiredState.evaluate();
-            // Ownership and projection planning share this accepted input view.
-            // The freshness check below still uses the live reader.
-            const planningReader = {
-              ...desiredState,
-              evaluate: (options) =>
-                options === undefined ? Effect.succeed(evaluation) : desiredState.evaluate(options),
-              graph: (options) =>
-                options === undefined
-                  ? Effect.succeed(evaluation.graph)
-                  : desiredState.graph(options),
-            } satisfies typeof desiredState;
-            return yield* Effect.gen(function* () {
+            const lockfile = yield* LockfileReader;
               const graph = evaluation.graph;
               // The materials this plan rests on: every document the evaluation
               // read or found absent, fingerprinted so a change refuses the
@@ -468,7 +457,6 @@ const prepareSyncWorkspace = (
                 instructionStep,
                 retirementStep,
               };
-            }).pipe(Effect.provideService(DesiredStateReader, planningReader));
           }),
         ),
       ),
@@ -495,7 +483,7 @@ const prepareSyncWorkspace = (
       Option.toArray(cleanupStep).length +
       Option.toArray(instructionStep).length +
       Option.toArray(retirementStep).length;
-    const lockfileNeedsRecovery = (yield* lockfile.state) !== "ok";
+    const lockfileNeedsRecovery = (yield* liveLockfile.state) !== "ok";
     if (
       !(yield* observationsStillCurrent({
         preflightMaterial,

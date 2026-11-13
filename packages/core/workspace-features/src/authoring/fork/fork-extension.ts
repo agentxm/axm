@@ -83,6 +83,8 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import type { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
+  withWorkspaceReadView,
+  withLiveWorkspaceObservations,
   AcceptedResolutionWriter,
   DesiredStateWriter,
   SettingsWriter,
@@ -377,7 +379,9 @@ const prepareForkExtension: (
     });
     yield* createOnly;
 
-    const stagingRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-fork-" }).pipe(
+    const stagingRoot = yield* withLiveWorkspaceObservations(
+      fs.makeTempDirectoryScoped({ prefix: "axm-fork-" }),
+    ).pipe(
       Effect.mapError((cause) =>
         authoringRefused({
           category: "internal",
@@ -547,7 +551,7 @@ const prepareForkExtension: (
       enabled,
       execution: yield* prepareExecutionCandidate(plan),
     } satisfies ForkExtensionCandidate;
-  });
+  }, withWorkspaceReadView);
 
 // -----------------------------------------------------------------------------
 // previewOrApply

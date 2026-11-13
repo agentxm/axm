@@ -1,4 +1,6 @@
 import { RegistryClientFactory, type RegistryClientFactoryService } from "@agentxm/registry-client";
+import { copyProspectivePack } from "./desired-evaluation-inputs.js";
+import { copyWorkspaceDocument } from "../desired/copy-document.js";
 import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import { makeObservationReadView } from "./observation-read-view.js";
 import { CanonicalNativePath } from "../../locations/index.js";
@@ -13,6 +15,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import { LOCKFILE_VERSION, type Lockfile } from "../desired/lockfile/index.js";
+import { freezeWorkspaceValue } from "../desired/freeze-value.js";
 import { createDefaultSettings, type SourceHostConfig } from "../desired/settings/index.js";
 import type { WorkspaceStateReadFailure } from "./contracts.js";
 import type { DesiredStateReaderService } from "./desired-state-reader.js";
@@ -24,7 +27,13 @@ import {
   pendingAcceptedResolutions,
   type WorkspaceDocumentsService,
 } from "./documents.js";
-import { CurrentWorkspaceReadPhase, CurrentWorkspaceReadRequest } from "./read-phase.js";
+import {
+  CurrentWorkspaceReadPhase,
+  CurrentWorkspaceReadRequest,
+  workspaceReadPhaseFor,
+  type WorkspaceReadPhaseEnd,
+  type WorkspaceReadPhaseState,
+} from "./read-phase.js";
 import { CurrentWorkspaceReadPhaseInvalidation } from "./read-phase-lifetime.js";
 import { DesiredStateReader, makeDesiredStateReader } from "./desired-state-reader.js";
 import { WorkspaceLocation } from "./location.js";
@@ -32,7 +41,7 @@ import { LockfileReader, makeLockfileReader } from "./lockfile-reader.js";
 import { SettingsReader, makeSettingsReader } from "./settings-reader.js";
 import { PackManifests } from "./pack-manifests.js";
 import { observeInstallRoot } from "./install-root.js";
-import { readModelFor } from "./state-cells.js";
+import { readModelFor, freshStateLoadersFor } from "./state-cells.js";
 import { WorkspaceRecords, makeWorkspaceRecords } from "./workspace-records.js";
 
 type ReadServices =
@@ -47,6 +56,8 @@ export class WorkspaceReadViews extends Context.Service<
   WorkspaceReadViews,
   {
     readonly withRegistryReadPhase: RegistryClientFactoryService["withReadPhase"];
+    /** Live physical ports for independent conflict and review observations. */
+    readonly liveObservations: Context.Context<FileSystem.FileSystem>;
     /** Capture once per pure query or stable planning phase; never retain across writes. */
     readonly capture: (options?: {
       readonly observations?: boolean;
@@ -63,12 +74,14 @@ export class WorkspaceReadViews extends Context.Service<
 const withReadView = <A, E, R>(effect: Effect.Effect<A, E, R>, observations: boolean) =>
   Effect.gen(function* () {
     const current = yield* CurrentWorkspaceReadPhase;
-    if (current !== undefined && current.isActive()) {
+    const location = yield* Effect.serviceOption(WorkspaceLocation);
+    if (Option.isSome(location) && (yield* workspaceReadPhaseFor(location.value)) !== undefined) {
       yield* Effect.annotateCurrentSpan("axm.work.reused", true);
       return yield* effect;
     }
     const factory = yield* Effect.serviceOption(WorkspaceReadViews);
     if (Option.isNone(factory)) return yield* effect;
+    current?.close("changed-input");
     const readers = yield* factory.value.capture({ observations });
     yield* Effect.annotateCurrentSpan("axm.work.reused", false);
     const phase = Context.get(readers, CurrentWorkspaceReadPhase);
@@ -77,8 +90,8 @@ const withReadView = <A, E, R>(effect: Effect.Effect<A, E, R>, observations: boo
       factory.value.withRegistryReadPhase,
       Effect.ensuring(
         Effect.suspend(() => {
-          const reason = phase?.isActive() === false ? "mutation" : "phase-exit";
           phase?.close();
+          const reason = phase?.endedBy() ?? "phase-exit";
           return Effect.annotateCurrentSpan({
             "axm.work.invalidated": true,
             "axm.invalidation.reason": reason,
@@ -98,7 +111,27 @@ export const withWorkspaceObservationReadView = <A, E, R>(effect: Effect.Effect<
 
 /** Mutation/no-op verification must never inherit preparation's observations. */
 export const withFreshWorkspaceObservationReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  withReadView(effect, true).pipe(Effect.provideService(CurrentWorkspaceReadPhase, undefined));
+  Effect.gen(function* () {
+    // Masking alone restores an active parent on return, resurrecting observations
+    // that predate verification or a write performed by the fresh child.
+    const inherited = yield* CurrentWorkspaceReadPhase;
+    inherited?.close();
+    return yield* withReadView(effect, true).pipe(
+      Effect.provideService(CurrentWorkspaceReadPhase, undefined),
+    );
+  });
+
+/** Independent verification retires preparation and uses the factory's live physical ports. */
+export const withLiveWorkspaceObservations = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  Effect.gen(function* () {
+    // Retained readers and providers must also stop using the old phase; merely
+    // replacing ambient filesystem ports leaves their captured observations live.
+    (yield* CurrentWorkspaceReadPhase)?.close();
+    const factory = yield* Effect.serviceOption(WorkspaceReadViews);
+    return yield* Option.isSome(factory)
+      ? effect.pipe(Effect.provideContext(factory.value.liveObservations))
+      : effect;
+  });
 
 export const WorkspaceReadViewsLive = Layer.effect(
   WorkspaceReadViews,
@@ -108,29 +141,76 @@ export const WorkspaceReadViewsLive = Layer.effect(
     const documents = yield* WorkspaceDocuments;
     const manifests = yield* PackManifests;
     const path = yield* Path.Path;
-    const fs = yield* FileSystem.FileSystem;
+    const liveFs = yield* FileSystem.FileSystem;
     const canonical = yield* CanonicalNativePath;
     return {
       withRegistryReadPhase: registry.withReadPhase,
+      liveObservations: Context.make(FileSystem.FileSystem, liveFs).pipe(
+        Context.add(CanonicalNativePath, canonical),
+      ),
       capture: (options) =>
-        Effect.suspend(() => {
+        Effect.gen(function* () {
+          // Document reuse must preserve caller-provided live I/O capabilities.
+          // Physical verification starts from the factory's independent ports.
+          const callerFs = yield* Effect.serviceOption(FileSystem.FileSystem);
+          const fs =
+            options?.observations === true || Option.isNone(callerFs) ? liveFs : callerFs.value;
           let active = true;
-          const close = () => {
+          let endReason: WorkspaceReadPhaseEnd | undefined;
+          const packDocuments: WorkspaceReadPhaseState["packDocuments"] = new Map();
+          const candidates = new Map<
+            NonNullable<Parameters<DesiredStateReaderService["evaluate"]>[0]>,
+            ReturnType<DesiredStateReaderService["evaluate"]>
+          >();
+          const close = (reason: WorkspaceReadPhaseEnd = "phase-exit") => {
+            if (active) endReason = reason;
             active = false;
+            candidates.clear();
+            packDocuments.clear();
           };
           const readFileSystem = options?.fileSystem ?? fs;
           const observation =
             options?.observations === true
-              ? makeObservationReadView(readFileSystem, canonical, () => active, close)
+              ? makeObservationReadView(
+                  readFileSystem,
+                  canonical,
+                  () => active,
+                  () => close("mutation"),
+                  () => endReason,
+                )
               : Context.make(FileSystem.FileSystem, readFileSystem).pipe(
                   Context.add(CanonicalNativePath, canonical),
                 );
           const io = observation.pipe(Context.add(Path.Path, path));
-          return Effect.gen(function* () {
-            const pending = yield* pendingAcceptedResolutions(documents);
-            const model = yield* readModelFor(location, location.scope);
-            const inheritedScope = location.scope === "project" ? "user" : "project";
-            const inherited = yield* Effect.cached(readModelFor(location, inheritedScope));
+          return yield* Effect.gen(function* () {
+            const pending = yield* pendingAcceptedResolutions(documents).pipe(
+              Effect.map(Option.map((value) => freezeWorkspaceValue(copyWorkspaceDocument(value)))),
+            );
+            const initialSettings =
+              location.initialSettings === undefined
+                ? undefined
+                : freezeWorkspaceValue(copyWorkspaceDocument(location.initialSettings));
+            const project = yield* Effect.cached(
+              freshStateLoadersFor(location, "project").pipe(Effect.provideContext(io)),
+            );
+            const user = yield* Effect.cached(
+              freshStateLoadersFor(location, "user").pipe(Effect.provideContext(io)),
+            );
+            const stateLoaders = (scope: "project" | "user") =>
+              Effect.suspend(() =>
+                active
+                  ? scope === "project"
+                    ? project
+                    : user
+                  : freshStateLoadersFor(location, scope).pipe(
+                      Effect.provideService(FileSystem.FileSystem, readFileSystem),
+                      Effect.provideService(Path.Path, path),
+                    ),
+              );
+            const selectedState = yield* stateLoaders(location.scope);
+            const model = yield* Effect.cached(
+              readModelFor(location, location.scope, selectedState).pipe(Effect.provideContext(io)),
+            );
             const capturedDocuments: WorkspaceDocumentsService = {
               ...documents,
               settings: (scope?: "project" | "user") =>
@@ -139,19 +219,18 @@ export const WorkspaceReadViewsLive = Layer.effect(
                   if (location.observationView?.kind === "git-index" && scope === "user") {
                     return createDefaultSettings();
                   }
-                  const selected =
-                    scope === undefined || scope === location.scope ? model : yield* inherited;
-                  return Option.getOrElse(yield* selected.state.settings, () =>
+                  const selected = yield* stateLoaders(scope ?? location.scope);
+                  return Option.getOrElse(yield* selected.settings, () =>
                     (scope === undefined || scope === location.scope) &&
-                    location.initialSettings !== undefined
-                      ? location.initialSettings
+                    initialSettings !== undefined
+                      ? initialSettings
                       : createDefaultSettings(),
                   );
                 }).pipe(Effect.provideContext(io)),
               acceptedResolutionState: Effect.suspend(() =>
                 !active
                   ? documents.acceptedResolutionState
-                  : model.state.lockfile.pipe(
+                  : selectedState.lockfile.pipe(
                       Effect.map((value) =>
                         Option.isSome(value) ? ("ok" as const) : ("missing" as const),
                       ),
@@ -171,7 +250,7 @@ export const WorkspaceReadViewsLive = Layer.effect(
                   ? documents.acceptedResolutions
                   : Option.isSome(pending)
                     ? Effect.succeed(pending.value)
-                    : model.state.lockfile.pipe(
+                    : selectedState.lockfile.pipe(
                         Effect.map(
                           Option.getOrElse(
                             () =>
@@ -235,42 +314,44 @@ export const WorkspaceReadViewsLive = Layer.effect(
                 }).pipe((effect) => withWork("axm.resolve.desired-state-reuse", effect));
               });
             const evaluation = yield* cacheEvaluation(base.evaluate());
-            const candidates: Array<{
-              readonly inputs: NonNullable<Parameters<typeof base.evaluate>[0]>;
-              readonly evaluation: ReturnType<typeof base.evaluate>;
-            }> = [];
-            const evaluate: DesiredStateReaderService["evaluate"] = (options) =>
-              Effect.suspend(() =>
+            const evaluate: DesiredStateReaderService["evaluate"] = (options) => {
+              // Each invocation captures a proposal owned by this evaluation effect.
+              // Re-running that effect shares its snapshot; another invocation may
+              // capture changed values even when the caller reuses the same objects.
+              const candidate =
+                options === undefined
+                  ? undefined
+                  : copyWorkspaceDocument({
+                      ...(options.settings === undefined ? {} : { settings: options.settings }),
+                      ...(options.acceptedResolutions === undefined
+                        ? {}
+                        : { acceptedResolutions: options.acceptedResolutions }),
+                      ...(options.prospectivePacks === undefined
+                        ? {}
+                        : { prospectivePacks: options.prospectivePacks.map(copyProspectivePack) }),
+                    });
+              return Effect.suspend(() =>
                 !active
                   ? annotateWork({
                       "axm.cache.outcome": "bypass",
                       "axm.work.requested": 1,
                       "axm.work.executed": 1,
                       "axm.work.reused-count": 0,
-                    }).pipe(Effect.andThen(observeEvaluation(base.evaluate(options))), (effect) =>
+                    }).pipe(Effect.andThen(observeEvaluation(base.evaluate(candidate))), (effect) =>
                       withWork("axm.resolve.desired-state-reuse", effect),
                     )
-                  : options === undefined
+                  : candidate === undefined
                     ? evaluation
                     : Effect.gen(function* () {
-                        // Retain immutable input identities without serializing whole
-                        // caller values or collapsing distinct candidate documents.
-                        const existing = () =>
-                          candidates.find(
-                            ({ inputs }) =>
-                              inputs.settings === options.settings &&
-                              inputs.acceptedResolutions === options.acceptedResolutions &&
-                              inputs.prospectivePacks === options.prospectivePacks,
-                          );
-                        const prior = existing();
-                        if (prior !== undefined) return yield* prior.evaluation;
-                        const created = yield* cacheEvaluation(base.evaluate(options));
-                        const selected = existing()?.evaluation ?? created;
-                        if (existing() === undefined)
-                          candidates.push({ inputs: options, evaluation: selected });
+                        const prior = candidates.get(candidate);
+                        if (prior !== undefined) return yield* prior;
+                        const created = yield* cacheEvaluation(base.evaluate(candidate));
+                        const selected = candidates.get(candidate) ?? created;
+                        if (active) candidates.set(candidate, selected);
                         return yield* selected;
                       }),
               );
+            };
             const desired: DesiredStateReaderService = {
               ...base,
               evaluate,
@@ -329,18 +410,26 @@ export const WorkspaceReadViewsLive = Layer.effect(
               Context.add(ExtensionPaths, makeExtensionPaths(location, settings, locks)),
               Context.add(
                 CurrentWorkspaceReadPhaseInvalidation,
-                Effect.andThen(Effect.sync(close), registry.invalidateReadPhase),
+                Effect.andThen(Effect.sync(() => close("mutation")), registry.invalidateReadPhase),
               ),
               Context.add(CurrentWorkspaceReadPhase, {
+                location,
+                observations: options?.observations === true,
+                stateLoaders,
                 fileSystem: Context.get(observation, FileSystem.FileSystem),
                 readers: { desired, settings, locks },
-                packDocuments: new Map(),
+                records,
+                packDocuments,
                 isActive: () => active,
+                endedBy: () => endReason,
                 close,
               }),
               Context.merge(observation),
             );
-          }).pipe(Effect.provideContext(io));
+          }).pipe(
+            Effect.provideContext(io),
+            Effect.onError(() => Effect.sync(close)),
+          );
         }),
     };
   }),

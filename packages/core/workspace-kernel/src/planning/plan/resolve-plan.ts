@@ -108,6 +108,8 @@ import {
   WorkspaceLocation,
   observeConfiguredTargets,
   withFreshWorkspaceObservationReadView,
+  withWorkspaceReadView,
+  withLiveWorkspaceObservations,
   configuredAgentLifecycleOutcomes,
   resolveConfiguredExtensionObservations,
   type ConfiguredAgentOutcomesProviderService,
@@ -559,7 +561,9 @@ const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Require
         ),
     ),
   )
-    ? yield* makeExecutionCandidate(augmentedPlan, materialBoundary, operations)
+    ? yield* withLiveWorkspaceObservations(
+        makeExecutionCandidate(augmentedPlan, materialBoundary, operations),
+      )
     : undefined;
 
   // Readiness blockers and unmet preconditions join the declared risk
@@ -581,7 +585,7 @@ const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Require
   );
   const riskConditions = [
     ...(augmentedPlan.riskConditions ?? []),
-    ...(yield* executionExposureRisks(augmentedPlan).pipe(
+    ...(yield* withLiveWorkspaceObservations(executionExposureRisks(augmentedPlan)).pipe(
       Effect.catch((cause) =>
         Effect.succeed([
           {
@@ -603,7 +607,9 @@ const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Require
     ...augmentedPlan,
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
   };
-  const candidate = yield* makeExecutionCandidate(candidatePlan, materialBoundary, operations);
+  const candidate = yield* withLiveWorkspaceObservations(
+    makeExecutionCandidate(candidatePlan, materialBoundary, operations),
+  );
   if (
     beforeReview !== undefined &&
     beforeReview.materialFingerprint !== candidate.materialFingerprint
@@ -615,7 +621,11 @@ const prepareExecutionCandidateInPlanning = Effect.fnUntraced(function* <Require
 export const prepareExecutionCandidate = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
   options?: PrepareExecutionCandidateOptions,
-) => withPhaseSpan("planning", prepareExecutionCandidateInPlanning(plan, options));
+) =>
+  withPhaseSpan(
+    "planning",
+    withWorkspaceReadView(prepareExecutionCandidateInPlanning(plan, options)),
+  );
 
 export interface ResolveExecutionCandidateOptions<Requirements, Output> {
   /** Additional observations to re-read under the transition before applying. */

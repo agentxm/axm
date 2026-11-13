@@ -31,6 +31,7 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
+  workspaceReadPhaseFor,
   WorkspaceRecords,
   enabledConfiguredEntries,
   sanitizeName,
@@ -450,6 +451,7 @@ export const SkillManagerLive = Layer.effect(
 
     return {
       ...makeBaseManagerMembers({
+        location,
         type: "skill",
         spanPrefix: "SkillManager",
         records,
@@ -486,7 +488,8 @@ export const SkillManagerLive = Layer.effect(
         }),
       // Bundled skills declare their source through origin, not source.
       getConfiguredSource: Effect.fn("SkillManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* settings.entries("skill");
+        const phase = yield* workspaceReadPhaseFor(location);
+        const configured = yield* (phase?.readers.settings ?? settings).entries("skill");
         const entry = configured[target.name];
         if (entry?.origin === "bundled") {
           return Option.some(`bundled:@agentxm/skills/${target.name}`);
@@ -494,11 +497,13 @@ export const SkillManagerLive = Layer.effect(
         return Option.fromUndefinedOr(entry?.source);
       }),
       listMaterializable: Effect.fn("SkillManager.listMaterializable")(function* () {
-        const configured = yield* records
+        const phase = yield* workspaceReadPhaseFor(location);
+        const currentRecords = phase?.records ?? records;
+        const configured = yield* currentRecords
           .rows("skill")
 
           .pipe(Effect.map(configuredRowsByName));
-        const configuredEntries = yield* settings.entries("skill");
+        const configuredEntries = yield* (phase?.readers.settings ?? settings).entries("skill");
         const configuredWithoutBundled = Object.fromEntries(
           Object.entries(configured).filter(
             ([name]) => configuredEntries[name]?.origin !== "bundled",
@@ -506,10 +511,16 @@ export const SkillManagerLive = Layer.effect(
         );
         const workspaceRefs = yield* listMaterializableFromDisk({
           type: "skill",
-          records,
+          records: currentRecords,
           configured: configuredWithoutBundled,
           toDiskRefs: configuredSkillsToDiskRefs,
-          env: { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
+          env: {
+            fs: phase?.fileSystem ?? fs,
+            path,
+            baseDir,
+            scope: location.scope,
+            layout: currentLayout(),
+          },
         });
         const trustedRefs = yield* listMaterializableFromAccepted({
           type: "skill",

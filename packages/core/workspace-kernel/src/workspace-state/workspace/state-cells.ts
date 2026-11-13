@@ -1,5 +1,5 @@
-import type { NativeDirectoryInputs } from "../../locations/index.js";
-import type { NativeObservationView } from "../../locations/index.js";
+import type { StateCellPaths } from "./read-contracts.js";
+export type { StateCellPaths } from "./read-contracts.js";
 /**
  * Settings and lockfile cells: the scoped read model's two authoritative
  * documents, read for either runtime directory the workspace knows about.
@@ -14,7 +14,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { makeAbsolutePath, type AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { LOCKFILE_VERSION } from "../desired/lockfile/index.js";
 import type { Lockfile } from "../desired/lockfile/schema.js";
@@ -29,25 +29,14 @@ import {
   WorkspaceReadModelConfig,
   type WorkspaceReadModel,
 } from "../observed/service.js";
-import { makeScopedStateApi } from "../observed/state.js";
+import { makeScopedStateApi, type ScopedStateLoaders } from "../observed/state.js";
+import { workspaceReadPhaseFor } from "./read-phase.js";
 import { resolveProjectWorkspaceStatePaths, resolveUserWorkspaceLayout } from "./layout.js";
 import type {
   WorkspaceLockfileReadFailure,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
 } from "./contracts.js";
-
-/** The runtime directories a workspace's settings sources can live in. */
-export interface StateCellPaths {
-  readonly initialSettings?: Settings;
-  readonly observationView?: NativeObservationView;
-  readonly scope: WorkspaceScope;
-  readonly nativeDirectoryInputs: NativeDirectoryInputs;
-  readonly projectRoot: AbsolutePath;
-  readonly userHome: AbsolutePath;
-  readonly projectRuntimeDir: string;
-  readonly userRuntimeDir: string;
-}
 
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: LOCKFILE_VERSION,
@@ -68,9 +57,13 @@ const scopeForDir = (
 export const readModelFor = (
   cells: StateCellPaths,
   scope: WorkspaceScope,
+  loaders?: ScopedStateLoaders,
 ): Effect.Effect<WorkspaceReadModel, WorkspaceRootEscape, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    return yield* makeWorkspaceReadModel(scope).pipe(
+    return yield* makeWorkspaceReadModel(
+      scope,
+      loaders ?? (yield* stateLoadersFor(cells, scope)),
+    ).pipe(
       Effect.provide(
         Layer.mergeAll(
           Layer.succeed(WorkspaceReadModelConfig, {
@@ -86,7 +79,7 @@ export const readModelFor = (
   });
 
 /** Fresh authoritative document cells; no agent or authored-directory inventory is needed. */
-const stateLoadersFor = (cells: StateCellPaths, scope: WorkspaceScope) =>
+export const freshStateLoadersFor = (cells: StateCellPaths, scope: WorkspaceScope) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -102,6 +95,14 @@ const stateLoadersFor = (cells: StateCellPaths, scope: WorkspaceScope) =>
       settingsPath: paths.settingsPath,
       lockfilePath: paths.lockPath,
     });
+  });
+
+const stateLoadersFor = (cells: StateCellPaths, scope: WorkspaceScope) =>
+  Effect.gen(function* () {
+    const phase = yield* workspaceReadPhaseFor(cells);
+    return yield* phase !== undefined
+      ? phase.stateLoaders(scope)
+      : freshStateLoadersFor(cells, scope);
   });
 
 /** The settings document of one runtime directory, when present. */

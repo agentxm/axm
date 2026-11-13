@@ -1,6 +1,6 @@
 import { chunksOf } from "effect/Array";
 import { MAX_RESOLUTION_ITEMS } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
-import { withWorkspaceReadView } from "@agentxm/workspace-kernel/workspace-state";
+import { withWorkspaceReadView, withLiveWorkspaceObservations } from "@agentxm/workspace-kernel/workspace-state";
 /**
  * `PublishExtensions`: the application API for publishing workspace-authored
  * extensions to a Registry.
@@ -676,7 +676,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
     },
   };
   return preparation;
-}, withWorkspaceReadView);
+}, withWorkspaceReadView, withLiveWorkspaceObservations);
 
 /**
  * Present the prepared candidate and, on apply, authorize, revalidate, and
@@ -806,7 +806,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         }
       }),
     { discard: true },
-  ).pipe(Effect.withSpan("axm.publish.validate-source"));
+  ).pipe(withLiveWorkspaceObservations, Effect.withSpan("axm.publish.validate-source"));
 
   // The journal and the footprint recorder are this run's own: the journal
   // records per-unit started and resolved facts through the apply so an

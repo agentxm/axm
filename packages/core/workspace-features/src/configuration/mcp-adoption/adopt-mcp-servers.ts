@@ -40,6 +40,8 @@ import {
   type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  withWorkspaceReadView,
+  type WorkspaceStateReadFailure,
   ConfiguredAgentOutcomesProvider,
   LockfileReader,
   SettingsReader,
@@ -76,7 +78,9 @@ const prepareAdoptMcpServers = (
   names: ReadonlyArray<string> = [],
 ): Effect.Effect<
   AdoptMcpServersCandidate,
-  OperationRefused | Effect.Error<ReturnType<typeof collectMcpNativeSources>>,
+  | OperationRefused
+  | WorkspaceStateReadFailure
+  | Effect.Error<ReturnType<typeof collectMcpNativeSources>>,
   SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
@@ -123,7 +127,7 @@ const prepareAdoptMcpServers = (
           ? []
           : yield* prepareMcpAdoptionTargets(normalized.candidates),
     } satisfies AdoptMcpServersCandidate;
-  });
+  }).pipe(withWorkspaceReadView);
 
 const importArtifact = (
   candidate: AdoptMcpServersCandidate,

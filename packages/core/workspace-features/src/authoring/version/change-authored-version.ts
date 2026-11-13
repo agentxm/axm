@@ -52,6 +52,7 @@ import {
   type ExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  withWorkspaceReadView,
   AcceptedResolutionWriter,
   DesiredStateWriter,
   SettingsWriter,
@@ -434,7 +435,7 @@ const prepareChangeAuthoredVersion: (
     unchanged,
     execution: yield* prepareExecutionCandidate(plan),
   } satisfies ChangeAuthoredVersionCandidate;
-});
+}, withWorkspaceReadView);
 
 // -----------------------------------------------------------------------------
 // previewOrApply

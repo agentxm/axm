@@ -39,6 +39,7 @@ import {
   acceptedCanonicalObservation,
   removableAcceptedCanonicalPath,
   usableAcceptedCanonical,
+  workspaceReadPhaseFor,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -249,8 +250,11 @@ const appendCommandHookBinding = (
 export const HookManagerLive = Layer.effect(
   HookManager,
   Effect.gen(function* () {
-    const { location, settings, lockfile, desiredState, records, sources, provide } =
+    const { location, settings, lockfile, desiredState, records, sources, provide, provideRead } =
       yield* captureManagerServices;
+    const planningSettings = workspaceReadPhaseFor(location).pipe(
+      Effect.map((phase) => phase?.readers.settings ?? settings),
+    );
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -373,7 +377,7 @@ export const HookManagerLive = Layer.effect(
       readonly graph: Parameters<typeof activeContributors>[0]["graph"];
       readonly locked: Parameters<typeof activeContributors>[0]["accepted"];
     }) =>
-      provide(
+      provideRead(
         activeContributors({
           layout: currentLayout(),
           type: "hook",
@@ -403,7 +407,8 @@ export const HookManagerLive = Layer.effect(
                   marker,
                   manifest,
                   configuration:
-                    (yield* settings.entries("hook"))[contributor.node.name]?.configuration ?? {},
+                    (yield* (yield* planningSettings).entries("hook"))[contributor.node.name]
+                      ?.configuration ?? {},
                   root: path.relative(baseDir, contributor.packageRoot),
                   contentHash: yield* computePackageContentHash(contributor.packageRoot),
                 };
@@ -455,7 +460,7 @@ export const HookManagerLive = Layer.effect(
       readonly state: "projected" | "current";
     }) =>
       Effect.gen(function* () {
-        const entries = yield* settings.entries("hook");
+        const entries = yield* (yield* planningSettings).entries("hook");
         const groups = yield* Effect.forEach(
           args.contributors,
           (contributor) =>
@@ -552,7 +557,7 @@ export const HookManagerLive = Layer.effect(
             return yield* new HookDefinitionInvalid({
               detail: `Hook ${rendered.name} has no unique compatible implementation for ${target.agent.id}`,
             });
-          const entry = (yield* settings.entries("hook"))[rendered.name];
+          const entry = (yield* (yield* planningSettings).entries("hook"))[rendered.name];
           const values = rendered.configuration ?? entry?.configuration;
           const configuration = resolveHookConfiguration(rendered.manifest, values);
           if (Result.isFailure(configuration))
@@ -660,7 +665,11 @@ export const HookManagerLive = Layer.effect(
       options?: NativeProjectionOptions,
     ) =>
       Effect.gen(function* () {
-        const configuredAgents = options?.configuredAgents ?? (yield* settings.configuredAgents);
+        const phase = yield* workspaceReadPhaseFor(location);
+        const currentSettings = phase?.readers.settings ?? settings;
+        const currentLocks = phase?.readers.locks ?? lockfile;
+        const configuredAgents =
+          options?.configuredAgents ?? (yield* currentSettings.configuredAgents);
         const targets = yield* configuredHookWriterTargets(
           configuredAgents,
           location.scope,
@@ -668,8 +677,9 @@ export const HookManagerLive = Layer.effect(
           path.dirname(location.runtimeDir),
           location.nativeDirectoryInputs,
         );
-        const graph = options?.desiredGraph ?? (yield* desiredState.graph());
-        const locked = yield* lockfile.entries("hook");
+        const graph =
+          options?.desiredGraph ?? (yield* (phase?.readers.desired ?? desiredState).graph());
+        const locked = yield* currentLocks.entries("hook");
         const retained = yield* selectHookContributors({
           graph: {
             ...graph,
@@ -814,7 +824,8 @@ export const HookManagerLive = Layer.effect(
       proposedGraph?: DesiredStateGraph,
     ) =>
       Effect.gen(function* () {
-        const configuredAgents = yield* settings.configuredAgents;
+        const phase = yield* workspaceReadPhaseFor(location);
+        const configuredAgents = yield* (phase?.readers.settings ?? settings).configuredAgents;
         const targets = yield* configuredHookWriterTargets(
           configuredAgents,
           location.scope,
@@ -822,8 +833,8 @@ export const HookManagerLive = Layer.effect(
           path.dirname(location.runtimeDir),
           location.nativeDirectoryInputs,
         );
-        const graph = proposedGraph ?? (yield* desiredState.graph());
-        const locked = yield* lockfile.entries("hook");
+        const graph = proposedGraph ?? (yield* (phase?.readers.desired ?? desiredState).graph());
+        const locked = yield* (phase?.readers.locks ?? lockfile).entries("hook");
         const contributors = yield* selectHookContributors({ graph, locked });
         return yield* evaluateConfiguredOutcomes({
           configuredAgents,
@@ -835,7 +846,7 @@ export const HookManagerLive = Layer.effect(
 
     const configuredAgentOutcomesForRef = (ref: HookExtensionRef, state: "projected" | "current") =>
       Effect.gen(function* () {
-        const configuredAgents = yield* settings.configuredAgents;
+        const configuredAgents = yield* (yield* planningSettings).configuredAgents;
         const targets = yield* configuredHookWriterTargets(
           configuredAgents,
           location.scope,
@@ -888,7 +899,8 @@ export const HookManagerLive = Layer.effect(
                   contentHash: yield* computePackageContentHash(root),
                   configuration:
                     options?.hookConfigurations?.get(ref.hook.name) ??
-                    (yield* settings.entries("hook"))[ref.hook.name]?.configuration ??
+                    (yield* (yield* planningSettings).entries("hook"))[ref.hook.name]
+                      ?.configuration ??
                     {},
                   inputRoot: root,
                 };
@@ -896,7 +908,8 @@ export const HookManagerLive = Layer.effect(
             ),
           { concurrency: 1 },
         );
-        const configuredAgents = options?.configuredAgents ?? (yield* settings.configuredAgents);
+        const configuredAgents =
+          options?.configuredAgents ?? (yield* (yield* planningSettings).configuredAgents);
         const targets = yield* configuredHookWriterTargets(
           configuredAgents,
           location.scope,
@@ -1015,6 +1028,7 @@ export const HookManagerLive = Layer.effect(
       configuredAgentOutcomes,
       configuredAgentOutcomesForRef,
       ...makeBaseManagerMembers({
+        location,
         type: "hook",
         spanPrefix: "HookManager",
         records,
@@ -1035,8 +1049,8 @@ export const HookManagerLive = Layer.effect(
       listMaterializable: () =>
         listMaterializableFromAccepted({
           type: "hook",
-          names: settings
-            .entries("hook")
+          names: workspaceReadPhaseFor(location)
+            .pipe(Effect.flatMap((phase) => (phase?.readers.settings ?? settings).entries("hook")))
             .pipe(
               Effect.map((configured) =>
                 enabledConfiguredEntries(configured).map(([name]) => name),

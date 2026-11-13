@@ -5,11 +5,7 @@ import * as Context from "effect/Context";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 
-import {
-  DesiredStateReader,
-  WorkspaceReadViews,
-  WorkspaceRecords,
-} from "@agentxm/workspace-kernel/workspace-state";
+import { WorkspaceReadViews, WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
 import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { SyncWorkspace } from "./sync-workspace.js";
@@ -21,41 +17,37 @@ import {
 } from "../testing/sync-fixture.js";
 import { writeLocalSkillPackage } from "../testing/local-packages.js";
 
-/** Count the real readers selected for each planning or fresh validation phase. */
+/** Count actual graph executions, not requests served by the phase cache. */
 const countPhaseReads = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
-  counts: { skillInventoryReads: number; graphReads: number },
+  counts: { skillInventoryReads: number; graphEvaluations: number },
 ) =>
   Effect.gen(function* () {
     const views = yield* WorkspaceReadViews;
+    const observer = yield* CurrentWorkObserver;
     return yield* effect.pipe(
+      Effect.provideService(CurrentWorkObserver, {
+        ...observer,
+        detailSelected: observer?.detailSelected ?? (() => false),
+        record: (fact, parent) => {
+          if (fact.kind === "axm.resolve.desired-state-reuse")
+            counts.graphEvaluations += fact.attributes["axm.work.executed"] ?? 0;
+          observer?.record(fact, parent);
+        },
+      }),
       Effect.provideService(WorkspaceReadViews, {
         ...views,
         capture: (options) =>
           views.capture(options).pipe(
             Effect.map((context) => {
               const records = Context.get(context, WorkspaceRecords);
-              const desired = Context.get(context, DesiredStateReader);
-              return context.pipe(
-                Context.add(WorkspaceRecords, {
-                  ...records,
-                  getExtensionInventory: (type, selection) =>
-                    Effect.sync(() => {
-                      if (type === "skill") counts.skillInventoryReads += 1;
-                    }).pipe(Effect.andThen(records.getExtensionInventory(type, selection))),
-                }),
-                Context.add(DesiredStateReader, {
-                  ...desired,
-                  evaluate: (selection) =>
-                    Effect.sync(() => {
-                      counts.graphReads += 1;
-                    }).pipe(Effect.andThen(desired.evaluate(selection))),
-                  graph: (selection) =>
-                    Effect.sync(() => {
-                      counts.graphReads += 1;
-                    }).pipe(Effect.andThen(desired.graph(selection))),
-                }),
-              );
+              return Context.add(context, WorkspaceRecords, {
+                ...records,
+                getExtensionInventory: (type, selection) =>
+                  Effect.sync(() => {
+                    if (type === "skill") counts.skillInventoryReads += 1;
+                  }).pipe(Effect.andThen(records.getExtensionInventory(type, selection))),
+              });
             }),
           ),
       }),
@@ -85,7 +77,7 @@ describe("Sync inventory observation", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          const counts = { skillInventoryReads: 0, graphReads: 0 };
+          const counts = { skillInventoryReads: 0, graphEvaluations: 0 };
           const spans: Tracer.NativeSpan[] = [];
           const tracer = Tracer.make({
             span(options) {
@@ -110,7 +102,7 @@ describe("Sync inventory observation", () => {
           );
           expect(candidate._tag).toBe("SyncWorkspace");
           expect(counts.skillInventoryReads).toBe(2);
-          expect(counts.graphReads).toBe(2);
+          expect(counts.graphEvaluations).toBe(2);
           expect(workspace.snapshot()).toEqual(before);
           expect(spans.filter((span) => span.name === "axm.hash.sync-observations")).toEqual([]);
           const observations = facts.filter((fact) => fact.kind === "axm.hash.sync-observations");
@@ -143,10 +135,10 @@ describe("Sync inventory observation", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          const counts = { skillInventoryReads: 0, graphReads: 0 };
+          const counts = { skillInventoryReads: 0, graphEvaluations: 0 };
           const candidate = yield* countPhaseReads(SyncWorkspace.prepare(syncRequest()), counts);
           expect(candidate._tag).toBe("SyncWorkspace");
-          expect(counts.graphReads).toBe(2);
+          expect(counts.graphEvaluations).toBe(2);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

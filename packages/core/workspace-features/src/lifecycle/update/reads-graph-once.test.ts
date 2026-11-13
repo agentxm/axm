@@ -3,6 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 
 import * as Tracer from "effect/Tracer";
+import { withDetailedWork } from "@agentxm/workspace-kernel/locations/testing";
 import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 import { configuredUpdateRequest } from "./test-helpers.js";
 import { UpdateExtensions } from "./update-extensions.js";
@@ -37,9 +38,9 @@ it.effect("reads the desired graph once across a configured update sweep", () =>
         });
         const candidate = yield* UpdateExtensions.prepare(
           configuredUpdateRequest({ type: "skill" }),
-        ).pipe(Effect.withTracer(tracer));
+        ).pipe(withDetailedWork(tracer));
         expect(candidate.outcome).toBe("planned");
-        expect(spans.filter((span) => span.name === "axm.resolve.desired-state")).toHaveLength(1);
+        expect(spans.filter((span) => span.name === "DesiredStateReader.evaluate")).toHaveLength(1);
       }),
     )
     .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));

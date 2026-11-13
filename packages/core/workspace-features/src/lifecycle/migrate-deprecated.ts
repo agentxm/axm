@@ -13,6 +13,7 @@ import {
   DesiredStateReader,
   WorkspaceLocation,
   acceptedResolutionRef,
+  withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
   operationPresentation,
@@ -163,7 +164,7 @@ export const prepareDeprecatedMigration = Effect.fn("MigrateDeprecated.prepare")
       ],
     }),
   };
-});
+}, withWorkspaceReadView);
 
 export const MigrateDeprecated = {
   prepare: prepareDeprecatedMigration,

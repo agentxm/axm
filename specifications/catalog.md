@@ -244,6 +244,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Supersedes: `cli/lint/reports-deprecated-installed`
+- Additional evidence: process via [`apps/cli-e2e/src/local-inspection-without-registry.e2e.test.ts`](../apps/cli-e2e/src/local-inspection-without-registry.e2e.test.ts) — The compiled CLI inspects a real installed local Skill while its configured Registry returns 503 to every request. An independent HTTP journal stays empty for local inspection and observes an explicit remote-read control.
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/local-inspection-requires-no-registry.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/local-inspection-requires-no-registry.spec.ts)
 
 ##### Lint fails a normal run on errors and a strict run on warnings as well
@@ -4744,6 +4745,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
 - Supersedes: `cli/list/ordinary-inventory-identifies-deprecation`
 - Additional evidence: process via [`apps/cli-e2e/src/list-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/list-lifecycle.e2e.test.ts) — The built CLI publishes and installs fixture packages in a file Registry, then observes independent and combined lifecycle flags, separate JSON metadata, type filtering, invalid combinations, workspace purity, and ordinary listing after the Registry is removed.
+- Additional evidence: process via [`apps/cli-e2e/src/local-inspection-without-registry.e2e.test.ts`](../apps/cli-e2e/src/local-inspection-without-registry.e2e.test.ts) — The compiled CLI inspects a real installed local Skill while its configured Registry returns 503 to every request. An independent HTTP journal stays empty for local inspection and observes an explicit remote-read control.
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/ordinary-inventory-is-local.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/ordinary-inventory-is-local.spec.ts)
 
 ##### List rejects incompatible remote filters

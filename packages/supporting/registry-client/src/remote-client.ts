@@ -20,6 +20,7 @@ import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import { makeAccessibleContent } from "./accessible-content.js";
 import { exactContentBatches } from "./exact-content-batches.js";
 
 import * as Schema from "effect/Schema";
@@ -94,6 +95,7 @@ import type {
   PublishExtensionResponse,
   PublishPreviewResult,
   RegistryClient,
+  AccessibleContent,
   RegistryExtensionManifest,
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
@@ -1023,6 +1025,13 @@ export const createRemoteRegistryClient = (
         lifecycleWarnings: extensionLifecycleWarnings(index, entry.value),
       };
     });
+    return yield* withAccessibleContent([{ ...args, exact: selected }], (content) =>
+      content.read({ ...args, exact: selected }),
+    );
+  });
+
+  const readExactPackage: AccessibleContent["read"] = Effect.fnUntraced(function* (args) {
+    const selected = args.exact;
     const warnings = selected.lifecycleWarnings ?? [];
 
     // Step 3: Download archive, streaming the body so the caller observes
@@ -1041,27 +1050,6 @@ export const createRemoteRegistryClient = (
         mapError: mapArchiveFetchError,
       },
     );
-    const validateCached = validateExtensionAccessBatch([
-      {
-        owner: args.owner,
-        type: args.type,
-        name: args.name,
-        exact: selected,
-        ...(args.usagePurpose === undefined ? {} : { usagePurpose: args.usagePurpose }),
-      },
-    ]).pipe(
-      Effect.flatMap((results) => {
-        const result = results[0];
-        return result === undefined
-          ? Effect.fail(
-              new RegistryRequestFailed({
-                category: "internal",
-                detail: "Exact-content admission result is missing.",
-              }),
-            )
-          : Effect.fromResult(result);
-      }),
-    );
     const archive = yield* archiveCache === undefined
       ? fetchArchive
       : archiveCache.load(
@@ -1077,7 +1065,6 @@ export const createRemoteRegistryClient = (
           ]),
           selected.integrity,
           fetchArchive,
-          validateCached,
         );
 
     return {
@@ -1085,6 +1072,11 @@ export const createRemoteRegistryClient = (
       ...(warnings.length === 0 ? {} : { warnings }),
     } satisfies GetExtensionPackageResponse;
   });
+
+  const withAccessibleContent = makeAccessibleContent(
+    validateExtensionAccessBatch,
+    readExactPackage,
+  );
 
   /**
    * Map errors from the index fetch step of getExtensionPackage.
@@ -1502,6 +1494,7 @@ export const createRemoteRegistryClient = (
   };
 
   return {
+    withAccessibleContent,
     validateExtensionAccessBatch,
     getResolutionMetadata,
     getExtensionIndex,

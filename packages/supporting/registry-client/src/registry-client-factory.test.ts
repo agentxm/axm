@@ -21,7 +21,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { computeIntegrity } from "@agentxm/host-primitives";
-import { exactVersion } from "./test-helpers.js";
+import { admittedContentResponse, exactVersion } from "./test-helpers.js";
 
 import { RegistryClientFactory, RegistryClientFactoryLive } from "./registry-client-factory.js";
 import { RegistryHttpClient, RegistryRequestAuthorization } from "./registry-transport.js";
@@ -102,6 +102,8 @@ describe("RegistryClientFactory", () => {
       const transport = HttpClient.make((request) =>
         Effect.gen(function* () {
           requests.push(request.method);
+          if (new URL(request.url).pathname === "/v1/resolutions")
+            return HttpClientResponse.fromWeb(request, admittedContentResponse(request));
           yield* Deferred.succeed(started, undefined);
           yield* Deferred.await(release);
           return HttpClientResponse.fromWeb(request, new Response(archive));
@@ -125,7 +127,8 @@ describe("RegistryClientFactory", () => {
         yield* Deferred.succeed(release, undefined);
         expect((yield* Fiber.join(first)).archive).toEqual(archive);
         expect((yield* Fiber.join(second)).archive).toEqual(archive);
-        expect(requests).toEqual(["GET"]);
+        expect(requests.filter((method) => method === "POST")).toHaveLength(2);
+        expect(requests.filter((method) => method === "GET")).toHaveLength(1);
       });
       yield* acquisition.pipe(
         Effect.provide(

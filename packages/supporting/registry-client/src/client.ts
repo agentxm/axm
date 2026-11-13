@@ -136,6 +136,14 @@ export type ValidateExtensionAccessArgs = Pick<
   readonly exact: ExactRegistryPackage;
 };
 
+/** Callback-bound reader of only the exact identities admitted in this access stage. */
+export interface AccessibleContent {
+  readonly results: ReadonlyArray<Result.Result<void, RegistryClientFailure>>;
+  readonly read: (
+    args: ValidateExtensionAccessArgs & Pick<GetExtensionPackageBaseArgs, "onProgress">,
+  ) => Effect.Effect<GetExtensionPackageResponse, RegistryClientFailure>;
+}
+
 // -----------------------------------------------------------------------------
 // Get Extension Index Args
 // -----------------------------------------------------------------------------
@@ -373,6 +381,10 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
  * @experimental This API is unstable and may change without notice.
  */
 export interface RegistryClient {
+  readonly withAccessibleContent: <A, E, R>(
+    args: ReadonlyArray<ValidateExtensionAccessArgs>,
+    use: (content: AccessibleContent) => Effect.Effect<A, E, R>,
+  ) => Effect.Effect<A, E | RegistryClientFailure, R>;
   /** Fresh admission for a logical batch. Results retain input order; wire correlation uses keys. */
   readonly validateExtensionAccessBatch: (
     args: ReadonlyArray<ValidateExtensionAccessArgs>,

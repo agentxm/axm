@@ -7209,6 +7209,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `packages/supporting/registry-client/specs/registry-openapi.json`
 - Source: [`packages/supporting/registry-client/src/cached-archives-require-current-authorization.spec.ts`](../packages/supporting/registry-client/src/cached-archives-require-current-authorization.spec.ts)
 
+##### Content admission owns one callback and all byte access within it
+
+- Requirement: `registry-client/content-access-is-callback-scoped`
+- Owner: `registry-client`
+- Statement: AXM shall admit the complete exact-content set before invoking its content callback, allow byte reads only for admitted identities while that callback is active, and require fresh admission for each subsequent callback without a per-archive authorization round inside the cache.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A real filesystem cache is read through the production HTTP Registry adapter over a recording transport. The evidence covers local byte reuse and callback lifetime, not deployed policy or workspace settlement.
+- Methods: contract, example
+- Source: [`packages/supporting/registry-client/src/content-access-is-callback-scoped.spec.ts`](../packages/supporting/registry-client/src/content-access-is-callback-scoped.spec.ts)
+
 ##### Large workspace discovery respects the Registry request contract
 
 - Requirement: `registry-client/discovery-respects-request-limits`

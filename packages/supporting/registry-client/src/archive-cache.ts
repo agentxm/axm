@@ -50,12 +50,11 @@ interface ArchiveCachePruneResult {
 }
 
 export interface ArchiveCache {
-  /** Coalesce equal acquisitions; validate a warm entry before sharing its bytes. */
+  /** Coalesce equal byte acquisitions after the caller has admitted content access. */
   readonly load: (
     selectionKey: string,
     integrity: string,
     fetch: Effect.Effect<Uint8Array, RegistryClientFailure>,
-    validateCached?: Effect.Effect<void, RegistryClientFailure>,
   ) => Effect.Effect<Uint8Array, RegistryClientFailure>;
   readonly read: (
     integrity: string,
@@ -84,7 +83,6 @@ class ArchiveAcquisition implements Equal.Equal {
     readonly selectionKey: string,
     readonly integrity: string,
     readonly fetch: Effect.Effect<Uint8Array, RegistryClientFailure>,
-    readonly validateCached: Effect.Effect<void, RegistryClientFailure> | undefined,
   ) {}
 
   [Equal.symbol](other: unknown): boolean {
@@ -348,7 +346,6 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
           Effect.gen(function* () {
             const cached = yield* read(request.integrity);
             if (Option.isSome(cached)) {
-              if (request.validateCached !== undefined) yield* request.validateCached;
               return cached.value;
             }
             const archive = yield* request.fetch;
@@ -366,9 +363,9 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
     requireServicesAt: "lookup",
   });
 
-  const load: ArchiveCache["load"] = (selectionKey, integrity, fetch, validateCached) =>
+  const load: ArchiveCache["load"] = (selectionKey, integrity, fetch) =>
     Effect.suspend(() => {
-      const request = new ArchiveAcquisition(selectionKey, integrity, fetch, validateCached);
+      const request = new ArchiveAcquisition(selectionKey, integrity, fetch);
       return Cache.get(inFlight, request).pipe(
         Effect.onExit((exit) =>
           annotateWork({

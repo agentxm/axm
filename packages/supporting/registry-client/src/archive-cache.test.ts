@@ -84,34 +84,6 @@ describe("ArchiveCache", () => {
     ),
   );
 
-  it.effect("checks current authority before sharing a warm archive", () =>
-    withCache((cacheRoot) =>
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
-        const archive = new Uint8Array([1, 2, 3]);
-        const integrity = yield* computeIntegrity(archive);
-        yield* cache.write(integrity, archive);
-        const denied = new RegistryOperationFailed({
-          category: "conflict",
-          detail: "Current access was revoked",
-        });
-
-        const failure = yield* cache
-          .load(
-            "accepted-selection",
-            integrity,
-            Effect.die("fetch was not expected"),
-            Effect.fail(denied),
-          )
-          .pipe(Effect.flip);
-
-        expect(failure).toBe(denied);
-      }),
-    ),
-  );
-
   it.effect("coalesces one active selection and forgets a failed load for retry", () =>
     withCache((cacheRoot) =>
       Effect.gen(function* () {
@@ -225,41 +197,6 @@ describe("ArchiveCache", () => {
         expect(
           Array.from(yield* cache.load("selection", integrity, Effect.die("cache miss"))),
         ).toEqual([8, 7, 6]);
-      }),
-    ),
-  );
-
-  it.effect("keeps distinct selection authority separate even when archive integrity matches", () =>
-    withCache((cacheRoot) =>
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
-        const archive = new Uint8Array([8, 7, 6]);
-        const integrity = yield* computeIntegrity(archive);
-        yield* cache.write(integrity, archive);
-        const started = yield* Deferred.make<void>();
-        const release = yield* Deferred.make<void>();
-        const first = yield* cache
-          .load(
-            "allowed-selection",
-            integrity,
-            Effect.die("cache miss"),
-            Deferred.succeed(started, undefined).pipe(Effect.andThen(Deferred.await(release))),
-          )
-          .pipe(Effect.forkChild);
-        yield* Deferred.await(started);
-        const denied = new RegistryOperationFailed({
-          category: "forbidden",
-          detail: "access denied",
-        });
-        expect(
-          yield* cache
-            .load("denied-selection", integrity, Effect.die("cache miss"), Effect.fail(denied))
-            .pipe(Effect.flip),
-        ).toBe(denied);
-        yield* Deferred.succeed(release, undefined);
-        expect(yield* Fiber.join(first)).toEqual(archive);
       }),
     ),
   );
@@ -649,7 +586,6 @@ it.effect(
           },
         });
         let fetches = 0;
-        let validations = 0;
         const started = yield* Deferred.make<void>();
         const release = yield* Deferred.make<void>();
         const fetch = Effect.sync(() => {
@@ -675,14 +611,7 @@ it.effect(
           yield* Deferred.succeed(release, undefined);
           yield* Fiber.join(first);
           yield* Fiber.join(second);
-          yield* cache.load(
-            "same",
-            integrity,
-            Effect.die("unexpected download"),
-            Effect.sync(() => {
-              validations += 1;
-            }),
-          );
+          yield* cache.load("same", integrity, Effect.die("unexpected download"));
           const [entry] = yield* fs.readDirectory(cacheRoot);
           if (entry === undefined) throw new Error("Expected one actual cache entry");
           yield* fs.writeFile(path.join(cacheRoot, entry), new Uint8Array([9]));
@@ -699,7 +628,6 @@ it.effect(
           Effect.withTracerEnabled(true),
         );
         expect(fetches).toBe(1);
-        expect(validations).toBe(1);
         const loads = facts.filter((fact) => fact.kind === "axm.archive.cache-load");
         expect(loads).toHaveLength(4);
         expect(loads.map((fact) => fact.attributes["axm.work.requested"])).toEqual([1, 1, 1, 1]);

@@ -18,6 +18,7 @@ import * as Schema from "effect/Schema";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { RegistryOperationFailed, type RegistryClientFailure } from "./errors.js";
+import { makeAccessibleContent } from "./accessible-content.js";
 import { readBufferedArchive } from "./archive-limits.js";
 import type {
   RegistryClient,
@@ -550,688 +551,729 @@ export const createLocalRegistryClient = (
   registryRoot: string,
   fs: FileSystem.FileSystem,
   path: Path.Path,
-): RegistryClient => ({
-  previewExtensionPublishes: Effect.fnUntraced(function* (args: PreviewExtensionPublishesArgs) {
-    const descriptors = yield* Effect.try({
-      try: () => validatePublicationDescriptors(args.candidates),
-      catch: (cause) =>
-        new RegistryOperationFailed({
-          category: "validation",
-          detail: "The publication set is invalid.",
-          cause,
-        }),
-    });
-    const candidates = yield* Effect.forEach(
-      descriptors,
-      (descriptor): Effect.Effect<PublicationCandidateResult, RegistryClientFailure> => {
-        const target = descriptor.target;
-        const indexPath = path.join(
-          extensionDir(registryRoot, target.owner, target.type, target.name, path.join),
-          "index.json",
-        );
-        return Effect.gen(function* () {
-          const exists = yield* registryPathExists(fs, indexPath);
-          const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
-          const visibility = evaluateLocalPublishVisibility({
-            target,
-            index,
-            input: descriptor.visibility,
-          });
-          return {
-            kind: "resolved",
-            target,
-            participation: descriptor.participation,
-            descriptorDigest: publicationDescriptorDigest(descriptor),
-            visibility,
-            ...(descriptor.participation === "verified-existing"
-              ? {}
-              : {
-                  condition: makeLocalPublishCondition({
-                    target,
-                    visibility: visibility.resolved,
-                    targetVersionExists:
-                      index?.versions.some((entry) => entry.version === target.version) ?? false,
-                  }),
-                }),
-          } satisfies PublicationCandidateResult;
-        });
-      },
-    );
-    const candidateByTarget = new Map(
-      candidates.map((candidate) => [
-        `${candidate.target.owner}\u0000${candidate.target.type}\u0000${candidate.target.name}`,
-        candidate,
-      ]),
-    );
-    const packDescriptors = descriptors.filter(
-      (descriptor) => descriptor.target.type === "pack" && descriptor.participation === "publish",
-    );
-    const dependencyDescriptors = packDescriptors.flatMap(
-      (descriptor) => descriptor.pack?.dependencies ?? [],
-    );
-    const snapshots = yield* Effect.forEach(
-      dependencyDescriptors,
-      (dependency): Effect.Effect<PackDependencySnapshot, RegistryClientFailure> =>
-        Effect.gen(function* () {
+): RegistryClient => {
+  const client = {
+    previewExtensionPublishes: Effect.fnUntraced(function* (args: PreviewExtensionPublishesArgs) {
+      const descriptors = yield* Effect.try({
+        try: () => validatePublicationDescriptors(args.candidates),
+        catch: (cause) =>
+          new RegistryOperationFailed({
+            category: "validation",
+            detail: "The publication set is invalid.",
+            cause,
+          }),
+      });
+      const candidates = yield* Effect.forEach(
+        descriptors,
+        (descriptor): Effect.Effect<PublicationCandidateResult, RegistryClientFailure> => {
+          const target = descriptor.target;
           const indexPath = path.join(
-            extensionDir(
-              registryRoot,
-              dependency.owner,
-              dependency.type,
-              dependency.name,
-              path.join,
-            ),
+            extensionDir(registryRoot, target.owner, target.type, target.name, path.join),
             "index.json",
           );
-          const exists = yield* registryPathExists(fs, indexPath);
-          const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
-          return {
-            target: { owner: dependency.owner, type: dependency.type, name: dependency.name },
-            exists: index !== undefined,
-            visibility: index?.visibility ?? (index === undefined ? null : "public"),
-            lifecycleState: index === undefined ? null : "active",
-            deprecation: index?.deprecation ?? null,
-            versions:
-              index?.versions.map((version) => ({
-                version: version.version,
-                status: "available",
-                yanked: false,
-                purged: false,
-              })) ?? [],
-          };
-        }),
-    );
-    const prospectiveCandidates: ReadonlyArray<PackPublicationCandidate> = descriptors.map(
-      (descriptor) => {
-        const result = candidateByTarget.get(
+          return Effect.gen(function* () {
+            const exists = yield* registryPathExists(fs, indexPath);
+            const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
+            const visibility = evaluateLocalPublishVisibility({
+              target,
+              index,
+              input: descriptor.visibility,
+            });
+            return {
+              kind: "resolved",
+              target,
+              participation: descriptor.participation,
+              descriptorDigest: publicationDescriptorDigest(descriptor),
+              visibility,
+              ...(descriptor.participation === "verified-existing"
+                ? {}
+                : {
+                    condition: makeLocalPublishCondition({
+                      target,
+                      visibility: visibility.resolved,
+                      targetVersionExists:
+                        index?.versions.some((entry) => entry.version === target.version) ?? false,
+                    }),
+                  }),
+            } satisfies PublicationCandidateResult;
+          });
+        },
+      );
+      const candidateByTarget = new Map(
+        candidates.map((candidate) => [
+          `${candidate.target.owner}\u0000${candidate.target.type}\u0000${candidate.target.name}`,
+          candidate,
+        ]),
+      );
+      const packDescriptors = descriptors.filter(
+        (descriptor) => descriptor.target.type === "pack" && descriptor.participation === "publish",
+      );
+      const dependencyDescriptors = packDescriptors.flatMap(
+        (descriptor) => descriptor.pack?.dependencies ?? [],
+      );
+      const snapshots = yield* Effect.forEach(
+        dependencyDescriptors,
+        (dependency): Effect.Effect<PackDependencySnapshot, RegistryClientFailure> =>
+          Effect.gen(function* () {
+            const indexPath = path.join(
+              extensionDir(
+                registryRoot,
+                dependency.owner,
+                dependency.type,
+                dependency.name,
+                path.join,
+              ),
+              "index.json",
+            );
+            const exists = yield* registryPathExists(fs, indexPath);
+            const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
+            return {
+              target: { owner: dependency.owner, type: dependency.type, name: dependency.name },
+              exists: index !== undefined,
+              visibility: index?.visibility ?? (index === undefined ? null : "public"),
+              lifecycleState: index === undefined ? null : "active",
+              deprecation: index?.deprecation ?? null,
+              versions:
+                index?.versions.map((version) => ({
+                  version: version.version,
+                  status: "available",
+                  yanked: false,
+                  purged: false,
+                })) ?? [],
+            };
+          }),
+      );
+      const prospectiveCandidates: ReadonlyArray<PackPublicationCandidate> = descriptors.map(
+        (descriptor) => {
+          const result = candidateByTarget.get(
+            `${descriptor.target.owner}\u0000${descriptor.target.type}\u0000${descriptor.target.name}`,
+          );
+          return result?.kind === "resolved"
+            ? {
+                target: descriptor.target,
+                kind: "resolved",
+                participation: descriptor.participation,
+                visibility: result.visibility.resolved?.value ?? null,
+              }
+            : { target: descriptor.target, kind: "unavailable" };
+        },
+      );
+      const packs: ReadonlyArray<PublicationPackResult> = packDescriptors.map((descriptor) => {
+        const packCandidate = candidateByTarget.get(
           `${descriptor.target.owner}\u0000${descriptor.target.type}\u0000${descriptor.target.name}`,
         );
-        return result?.kind === "resolved"
-          ? {
-              target: descriptor.target,
-              kind: "resolved",
-              participation: descriptor.participation,
-              visibility: result.visibility.resolved?.value ?? null,
-            }
-          : { target: descriptor.target, kind: "unavailable" };
-      },
-    );
-    const packs: ReadonlyArray<PublicationPackResult> = packDescriptors.map((descriptor) => {
-      const packCandidate = candidateByTarget.get(
-        `${descriptor.target.owner}\u0000${descriptor.target.type}\u0000${descriptor.target.name}`,
-      );
-      const evaluated = evaluatePackDependencies({
-        packVisibility:
-          packCandidate?.kind === "resolved" && packCandidate.visibility.resolved !== null
-            ? packCandidate.visibility.resolved.value
-            : "public",
-        dependencies: descriptor.pack?.dependencies ?? [],
-        snapshots,
-        candidates: prospectiveCandidates,
+        const evaluated = evaluatePackDependencies({
+          packVisibility:
+            packCandidate?.kind === "resolved" && packCandidate.visibility.resolved !== null
+              ? packCandidate.visibility.resolved.value
+              : "public",
+          dependencies: descriptor.pack?.dependencies ?? [],
+          snapshots,
+          candidates: prospectiveCandidates,
+        });
+        const blocked = evaluated.findings.some((finding) => finding.severity === "error");
+        return {
+          target: descriptor.target,
+          status: blocked ? "blocked" : "admitted",
+          findings: evaluated.findings.map(formatPackDependencyFinding),
+          resolutions: blocked ? [] : evaluated.resolutions,
+        };
       });
-      const blocked = evaluated.findings.some((finding) => finding.severity === "error");
-      return {
-        target: descriptor.target,
-        status: blocked ? "blocked" : "admitted",
-        findings: evaluated.findings.map(formatPackDependencyFinding),
-        resolutions: blocked ? [] : evaluated.resolutions,
-      };
-    });
-    const status =
-      candidates.some((candidate) =>
-        candidate.visibility.findings.some((finding) => finding.severity === "error"),
-      ) || packs.some((pack) => pack.status === "blocked")
-        ? "blocked"
-        : "admitted";
-    const boundCandidates = candidates.map((candidate) =>
-      status === "blocked" && candidate.kind === "resolved"
-        ? {
-            kind: candidate.kind,
-            target: candidate.target,
-            participation: candidate.participation,
-            descriptorDigest: candidate.descriptorDigest,
-            visibility: candidate.visibility,
-          }
-        : candidate,
-    );
-    return validatePublicationSetResponse(descriptors, {
-      contract: PUBLICATION_SET_CONTRACT,
-      publicationSetDigest: publicationSetDigest(descriptors),
-      status,
-      candidates: boundCandidates,
-      packs,
-    } satisfies PublishPreviewResult);
-  }),
-  getExtensionsByScope: Effect.fnUntraced(function* (args: GetExtensionsByOwnerArgs) {
-    if (args.owner === "*") {
-      const extensionsDir = path.join(registryRoot, "extensions");
-      const indexes = yield* scanAllExtensions(fs, path, extensionsDir);
-      const indexed = Array.getSomes(
-        indexes
-          .filter((index) => args.types.length === 0 || args.types.includes(index.type))
-          .filter((index) => args.names.length === 0 || args.names.includes(index.name))
-          .map((index) =>
-            Option.map(indexToManifest(index, Option.none()), (manifest) => ({
-              index,
-              manifest,
-            })),
-          ),
+      const status =
+        candidates.some((candidate) =>
+          candidate.visibility.findings.some((finding) => finding.severity === "error"),
+        ) || packs.some((pack) => pack.status === "blocked")
+          ? "blocked"
+          : "admitted";
+      const boundCandidates = candidates.map((candidate) =>
+        status === "blocked" && candidate.kind === "resolved"
+          ? {
+              kind: candidate.kind,
+              target: candidate.target,
+              participation: candidate.participation,
+              descriptorDigest: candidate.descriptorDigest,
+              visibility: candidate.visibility,
+            }
+          : candidate,
       );
-      const total = indexed.length;
-      const sliced = indexed.slice(args.offset);
+      return validatePublicationSetResponse(descriptors, {
+        contract: PUBLICATION_SET_CONTRACT,
+        publicationSetDigest: publicationSetDigest(descriptors),
+        status,
+        candidates: boundCandidates,
+        packs,
+      } satisfies PublishPreviewResult);
+    }),
+    getExtensionsByScope: Effect.fnUntraced(function* (args: GetExtensionsByOwnerArgs) {
+      if (args.owner === "*") {
+        const extensionsDir = path.join(registryRoot, "extensions");
+        const indexes = yield* scanAllExtensions(fs, path, extensionsDir);
+        const indexed = Array.getSomes(
+          indexes
+            .filter((index) => args.types.length === 0 || args.types.includes(index.type))
+            .filter((index) => args.names.length === 0 || args.names.includes(index.name))
+            .map((index) =>
+              Option.map(indexToManifest(index, Option.none()), (manifest) => ({
+                index,
+                manifest,
+              })),
+            ),
+        );
+        const total = indexed.length;
+        const sliced = indexed.slice(args.offset);
+        const page = Option.match(args.limit, {
+          onNone: () => sliced,
+          onSome: (l) => sliced.slice(0, l),
+        });
+        return {
+          extensions: page.map(({ manifest }) => manifest),
+          indexes: page.map(({ index }) => index),
+          total,
+        } satisfies GetExtensionsByOwnerResponse;
+      }
+
+      const requestedTypes: ReadonlyArray<ExtensionType> =
+        args.types.length === 0 ? ["skill", "mcp-server", "pack"] : args.types;
+      // Observe each type directory once, even when names or requested types repeat.
+      const directories = yield* Effect.forEach(
+        Array.dedupe(requestedTypes),
+        (type) => {
+          const directory = path.join(
+            registryRoot,
+            "extensions",
+            args.owner,
+            toExtensionTypePlural(type),
+          );
+          return readRegistryDirectory(fs, directory).pipe(
+            Effect.map((names) => ({ type, directory, names })),
+          );
+        },
+        { concurrency: LOCAL_ENUMERATION_CONCURRENCY },
+      );
+      // Preserve name-major, requested-type, then filesystem order, including
+      // repeated selectors. Completion order must not affect pagination or total.
+      const candidates = (args.names.length === 0 ? [""] : args.names).flatMap((name) =>
+        requestedTypes.flatMap((type) => {
+          const observed = directories.find((entry) => entry.type === type);
+          if (observed === undefined) return [];
+          return observed.names
+            .filter((entry) => name === "" || entry === name)
+            .map((entry) => ({ directory: observed.directory, name: entry }));
+        }),
+      );
+      const all = yield* Effect.forEach(
+        candidates,
+        ({ directory, name }) => processNameDir(fs, path, directory, name, Option.none()),
+        { concurrency: LOCAL_ENUMERATION_CONCURRENCY },
+      ).pipe(Effect.map(Array.getSomes));
+
+      const total = all.length;
+      const offset = args.offset;
+      const sliced = all.slice(offset);
       const page = Option.match(args.limit, {
         onNone: () => sliced,
         onSome: (l) => sliced.slice(0, l),
       });
+
       return {
         extensions: page.map(({ manifest }) => manifest),
         indexes: page.map(({ index }) => index),
         total,
       } satisfies GetExtensionsByOwnerResponse;
-    }
+    }),
 
-    const requestedTypes: ReadonlyArray<ExtensionType> =
-      args.types.length === 0 ? ["skill", "mcp-server", "pack"] : args.types;
-    // Observe each type directory once, even when names or requested types repeat.
-    const directories = yield* Effect.forEach(
-      Array.dedupe(requestedTypes),
-      (type) => {
-        const directory = path.join(
-          registryRoot,
-          "extensions",
-          args.owner,
-          toExtensionTypePlural(type),
-        );
-        return readRegistryDirectory(fs, directory).pipe(
-          Effect.map((names) => ({ type, directory, names })),
-        );
-      },
-      { concurrency: LOCAL_ENUMERATION_CONCURRENCY },
-    );
-    // Preserve name-major, requested-type, then filesystem order, including
-    // repeated selectors. Completion order must not affect pagination or total.
-    const candidates = (args.names.length === 0 ? [""] : args.names).flatMap((name) =>
-      requestedTypes.flatMap((type) => {
-        const observed = directories.find((entry) => entry.type === type);
-        if (observed === undefined) return [];
-        return observed.names
-          .filter((entry) => name === "" || entry === name)
-          .map((entry) => ({ directory: observed.directory, name: entry }));
-      }),
-    );
-    const all = yield* Effect.forEach(
-      candidates,
-      ({ directory, name }) => processNameDir(fs, path, directory, name, Option.none()),
-      { concurrency: LOCAL_ENUMERATION_CONCURRENCY },
-    ).pipe(Effect.map(Array.getSomes));
+    ownerExists: Effect.fnUntraced(function* (owner: Parameters<RegistryClient["ownerExists"]>[0]) {
+      const scopeDir = path.join(registryRoot, "extensions", owner);
+      const exists = yield* registryPathExists(fs, scopeDir);
+      return { exists };
+    }),
 
-    const total = all.length;
-    const offset = args.offset;
-    const sliced = all.slice(offset);
-    const page = Option.match(args.limit, {
-      onNone: () => sliced,
-      onSome: (l) => sliced.slice(0, l),
-    });
+    getExtensionIndex: Effect.fnUntraced(function* (args: GetExtensionIndexArgs) {
+      const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
+      const idxPath = path.join(dir, "index.json");
+      const exists = yield* registryPathExists(fs, idxPath);
+      if (!exists) {
+        return Option.none<ExtensionIndex>();
+      }
 
-    return {
-      extensions: page.map(({ manifest }) => manifest),
-      indexes: page.map(({ index }) => index),
-      total,
-    } satisfies GetExtensionsByOwnerResponse;
-  }),
+      return Option.some(yield* readExtensionIndex(fs, idxPath));
+    }),
 
-  ownerExists: Effect.fnUntraced(function* (owner: Parameters<RegistryClient["ownerExists"]>[0]) {
-    const scopeDir = path.join(registryRoot, "extensions", owner);
-    const exists = yield* registryPathExists(fs, scopeDir);
-    return { exists };
-  }),
-
-  getExtensionIndex: Effect.fnUntraced(function* (args: GetExtensionIndexArgs) {
-    const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
-    const idxPath = path.join(dir, "index.json");
-    const exists = yield* registryPathExists(fs, idxPath);
-    if (!exists) {
-      return Option.none<ExtensionIndex>();
-    }
-
-    return Option.some(yield* readExtensionIndex(fs, idxPath));
-  }),
-
-  getExactExtensionVersion: Effect.fnUntraced(function* (args: GetExactExtensionVersionArgs) {
-    const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
-    const idxPath = path.join(dir, "index.json");
-    const exists = yield* registryPathExists(fs, idxPath);
-    if (!exists) return Option.none();
-    const index = yield* readExtensionIndex(fs, idxPath);
-    const version = index.versions.find((entry) => entry.version === args.version);
-    return version === undefined
-      ? Option.none()
-      : Option.some({
-          owner: args.owner,
-          type: args.type,
-          name: args.name,
-          version: args.version,
-          integrity: version.integrity,
-        });
-  }),
-
-  validateExtensionAccessBatch: (items) =>
-    Effect.forEach(items, (args: ValidateExtensionAccessArgs) =>
-      Effect.gen(function* () {
-        const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
-        const index = yield* readExtensionIndex(fs, path.join(dir, "index.json"));
-        const version = index.versions.find((entry) => entry.version === args.exact.version);
-        if (
-          index.publisherBindingId !== args.exact.publisherBindingId ||
-          version?.integrity !== args.exact.integrity
-        ) {
-          return yield* new RegistryOperationFailed({
-            category: "conflict",
-            detail: "Local Registry no longer matches the accepted publisher and archive identity.",
+    getExactExtensionVersion: Effect.fnUntraced(function* (args: GetExactExtensionVersionArgs) {
+      const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
+      const idxPath = path.join(dir, "index.json");
+      const exists = yield* registryPathExists(fs, idxPath);
+      if (!exists) return Option.none();
+      const index = yield* readExtensionIndex(fs, idxPath);
+      const version = index.versions.find((entry) => entry.version === args.version);
+      return version === undefined
+        ? Option.none()
+        : Option.some({
+            owner: args.owner,
+            type: args.type,
+            name: args.name,
+            version: args.version,
+            integrity: version.integrity,
           });
-        }
-        const archive = yield* readBufferedArchive(
-          fs,
-          path.join(dir, `${args.exact.version}.zip`),
-        ).pipe(
-          Effect.mapError(
-            (cause) =>
-              new RegistryOperationFailed({
-                category: "not_found",
-                detail: "Accepted local Registry archive is unavailable.",
-                cause,
-              }),
-          ),
-        );
-        if (
-          `sha512-${createHash("sha512").update(archive).digest("base64")}` !== args.exact.integrity
-        ) {
-          return yield* new RegistryOperationFailed({
-            category: "conflict",
-            detail: "Local Registry archive integrity no longer matches the accepted identity.",
-          });
-        }
-      }).pipe(Effect.result),
-    ),
+    }),
 
-  getExtensionPackage: Effect.fnUntraced(function* (args: GetExtensionPackageArgs) {
-    const owner = args.owner;
-    const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
-
-    const selectVersionEffect =
-      args.exact === undefined
-        ? Option.match(args.version, {
-            onNone: () =>
-              Effect.gen(function* () {
-                const idxPath = path.join(dir, "index.json");
-                const index = yield* readExtensionIndex(fs, idxPath);
-
-                const selected = selectVersion(index.versions);
-                if (Option.isNone(selected)) {
-                  return yield* new RegistryOperationFailed({
-                    category: "internal",
-                    detail: `No versions found for ${owner}/${args.type}/${args.name}`,
-                  });
-                }
-                return selected.value.version;
-              }),
-            onSome: (requestedVersion) =>
-              Effect.gen(function* () {
-                const requestedArchivePath = path.join(dir, `${requestedVersion}.zip`);
-                const requestedExists = yield* registryPathExists(fs, requestedArchivePath);
-
-                // Fast path: exact version archive exists.
-                if (requestedExists) {
-                  return requestedVersion;
-                }
-
-                // Fallback: treat requested version as semver constraint (e.g. ^1.0.0).
-                const idxPath = path.join(dir, "index.json");
-                const index = yield* readExtensionIndex(fs, idxPath);
-
-                const selected = resolveVersionEntry(index.versions, Option.some(requestedVersion));
-                if (Option.isNone(selected)) {
-                  return yield* new RegistryOperationFailed({
-                    category: "internal",
-                    detail: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
-                  });
-                }
-                return selected.value.version;
-              }),
-          })
-        : Effect.succeed(args.exact.version);
-    const version = yield* selectVersionEffect;
-
-    const archivePath = path.join(dir, `${version}.zip`);
-
-    const exists = yield* registryPathExists(fs, archivePath);
-    if (!exists) {
-      return yield* new RegistryOperationFailed({
-        category: "internal",
-        detail: `Archive not found: ${archivePath}`,
-      });
-    }
-
-    const archive = yield* readBufferedArchive(fs, archivePath).pipe(
-      Effect.mapError((e) =>
-        e instanceof RegistryOperationFailed
-          ? e
-          : new RegistryOperationFailed({
-              category: "internal",
-              detail: `Failed to read archive: ${archivePath}`,
-              cause: e,
-            }),
-      ),
-    );
-    return {
-      archive,
-      ...(args.exact?.lifecycleWarnings === undefined || args.exact.lifecycleWarnings.length === 0
-        ? {}
-        : { warnings: args.exact.lifecycleWarnings }),
-    };
-  }),
-
-  publishExtension: Effect.fnUntraced(function* (args: PublishExtensionArgs) {
-    const owner = args.owner;
-    const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
-
-    // Ensure directory exists
-    yield* fs.makeDirectory(dir, { recursive: true }).pipe(
-      Effect.mapError((e) =>
-        registryPublishRejected({
-          message: `Registry directory could not be created: ${dir}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    const indexPath = path.join(dir, "index.json");
-    const archivePath = path.join(dir, `${args.version}.zip`);
-    const lockPath = path.join(dir, ".publish.lock");
-
-    return yield* withLocalPublicationLock(
-      fs,
-      path,
-      lockPath,
-      Effect.gen(function* () {
-        const indexExists = yield* registryPathExists(fs, indexPath);
-        const currentIndex = indexExists
-          ? yield* fs.readFileString(indexPath).pipe(
-              Effect.flatMap(decodeExtensionIndexFromJsonString),
-              Effect.mapError(
-                (cause) =>
-                  new RegistryOperationFailed({
-                    category: "internal",
-                    detail: "Registry index schema is invalid",
-                    cause,
-                  }),
-              ),
-            )
-          : undefined;
-        const resolvedVisibility = resolveLocalUploadVisibility(currentIndex, args.visibility);
-        if (args.condition !== undefined) {
-          const currentCondition = makeLocalPublishCondition({
-            target: {
-              owner: args.owner,
-              type: args.type,
-              name: args.name,
-              version: args.version,
-            },
-            visibility: resolvedVisibility,
-            targetVersionExists:
-              currentIndex?.versions.some((entry) => entry.version === args.version) ?? false,
-          });
-          if (args.condition !== currentCondition) {
+    validateExtensionAccessBatch: (items: ReadonlyArray<ValidateExtensionAccessArgs>) =>
+      Effect.forEach(items, (args: ValidateExtensionAccessArgs) =>
+        Effect.gen(function* () {
+          const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
+          const index = yield* readExtensionIndex(fs, path.join(dir, "index.json"));
+          const version = index.versions.find((entry) => entry.version === args.exact.version);
+          if (
+            index.publisherBindingId !== args.exact.publisherBindingId ||
+            version?.integrity !== args.exact.integrity
+          ) {
             return yield* new RegistryOperationFailed({
               category: "conflict",
-              detail: "Publish precondition changed; preview again before publishing.",
+              detail:
+                "Local Registry no longer matches the accepted publisher and archive identity.",
             });
           }
-        }
-        const nextIndex = indexExists
-          ? yield* Effect.gen(function* () {
-              if (currentIndex === undefined) {
-                return yield* new RegistryOperationFailed({
-                  category: "internal",
-                  detail: "Registry index disappeared during publication.",
-                });
-              }
-              if (args.condition === undefined && args.visibility !== undefined) {
-                return yield* new RegistryOperationFailed({
-                  category: "conflict",
-                  detail: "Initial visibility is only valid when creating an extension.",
-                });
-              }
-              if (currentIndex.versions.some((version) => version.version === args.version)) {
-                return yield* publishConflict({ version: args.version });
-              }
-              return {
-                ...currentIndex,
-                versions: [args.metadata, ...currentIndex.versions],
-              } satisfies ExtensionIndex;
+          const archive = yield* readBufferedArchive(
+            fs,
+            path.join(dir, `${args.exact.version}.zip`),
+          ).pipe(
+            Effect.mapError(
+              (cause) =>
+                new RegistryOperationFailed({
+                  category: "not_found",
+                  detail: "Accepted local Registry archive is unavailable.",
+                  cause,
+                }),
+            ),
+          );
+          if (
+            `sha512-${createHash("sha512").update(archive).digest("base64")}` !==
+            args.exact.integrity
+          ) {
+            return yield* new RegistryOperationFailed({
+              category: "conflict",
+              detail: "Local Registry archive integrity no longer matches the accepted identity.",
+            });
+          }
+        }).pipe(Effect.result),
+      ),
+
+    getExtensionPackage: Effect.fnUntraced(function* (args: GetExtensionPackageArgs) {
+      const owner = args.owner;
+      const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
+
+      const selectVersionEffect =
+        args.exact === undefined
+          ? Option.match(args.version, {
+              onNone: () =>
+                Effect.gen(function* () {
+                  const idxPath = path.join(dir, "index.json");
+                  const index = yield* readExtensionIndex(fs, idxPath);
+
+                  const selected = selectVersion(index.versions);
+                  if (Option.isNone(selected)) {
+                    return yield* new RegistryOperationFailed({
+                      category: "internal",
+                      detail: `No versions found for ${owner}/${args.type}/${args.name}`,
+                    });
+                  }
+                  return selected.value.version;
+                }),
+              onSome: (requestedVersion) =>
+                Effect.gen(function* () {
+                  const requestedArchivePath = path.join(dir, `${requestedVersion}.zip`);
+                  const requestedExists = yield* registryPathExists(fs, requestedArchivePath);
+
+                  // Fast path: exact version archive exists.
+                  if (requestedExists) {
+                    return requestedVersion;
+                  }
+
+                  // Fallback: treat requested version as semver constraint (e.g. ^1.0.0).
+                  const idxPath = path.join(dir, "index.json");
+                  const index = yield* readExtensionIndex(fs, idxPath);
+
+                  const selected = resolveVersionEntry(
+                    index.versions,
+                    Option.some(requestedVersion),
+                  );
+                  if (Option.isNone(selected)) {
+                    return yield* new RegistryOperationFailed({
+                      category: "internal",
+                      detail: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
+                    });
+                  }
+                  return selected.value.version;
+                }),
             })
-          : ({
-              name: args.name,
-              owner,
-              type: args.type,
-              publisherBindingId: `hbnd_local_${globalThis.crypto.randomUUID()}`,
-              visibility: resolvedVisibility.value,
-              archival: null,
-              deprecation: null,
-              versions: [args.metadata],
-            } satisfies ExtensionIndex);
+          : Effect.succeed(args.exact.version);
+      const version = yield* selectVersionEffect;
 
-        yield* writeFileAtomic(fs, {
-          targetPath: archivePath,
-          content: args.archive,
-          removeTargetBeforeRename: true,
-          mapError: (failure) =>
-            failure.step === "rename"
-              ? registryPublishRejected({
-                  message: `Registry archive could not be committed: ${archivePath}`,
-                  cause: failure.cause,
-                })
-              : registryPublishRejected({
-                  message: `Registry archive temp file could not be written: ${failure.tempPath}`,
-                  cause: failure.cause,
-                }),
+      const archivePath = path.join(dir, `${version}.zip`);
+
+      const exists = yield* registryPathExists(fs, archivePath);
+      if (!exists) {
+        return yield* new RegistryOperationFailed({
+          category: "internal",
+          detail: `Archive not found: ${archivePath}`,
         });
+      }
 
-        yield* writeFileAtomic(fs, {
-          targetPath: indexPath,
-          content: `${encodeExtensionIndexToJsonString(nextIndex)}\n`,
-          mapError: (failure) =>
-            failure.step === "rename"
-              ? registryPublishRejected({
-                  message: `Registry index could not be committed: ${indexPath}`,
-                  cause: failure.cause,
-                })
-              : registryPublishRejected({
-                  message: `Registry index temp file could not be written: ${failure.tempPath}`,
-                  cause: failure.cause,
-                }),
-        });
-
-        return {
-          published: true,
-          owner: args.owner,
-          type: args.type,
-          name: args.name,
-          version: args.version,
-          integrity: args.metadata.integrity,
-          visibility: resolvedVisibility,
-          warnings: [],
-        } as const;
-      }),
-    );
-  }),
-
-  getExtensionVisibility: Effect.fnUntraced(function* (args: GetExtensionVisibilityArgs) {
-    const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
-    const index = yield* readExtensionIndex(fs, path.join(dir, "index.json"));
-    return evaluateLocalPublishVisibility({
-      target: { owner: args.owner, type: args.type, name: args.name },
-      index,
-      input: { intent: args.intent, request: null },
-    });
-  }),
-
-  updateExtensionVisibility: Effect.fnUntraced(function* (args: UpdateExtensionVisibilityArgs) {
-    const target = parseExtensionFqnParts(args.target);
-    if (target === undefined) {
-      return yield* new RegistryOperationFailed({
-        category: "validation",
-        detail: `Invalid extension target: ${args.target}`,
-      });
-    }
-    const dir = extensionDir(registryRoot, target.owner, target.type, target.name, path.join);
-    const indexPath = path.join(dir, "index.json");
-    const content = yield* fs.readFileString(indexPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new RegistryOperationFailed({
-            category: "not_found",
-            detail: `Extension index not found: ${indexPath}`,
-            cause,
-          }),
-      ),
-    );
-    const index = yield* decodeExtensionIndexFromJsonString(content).pipe(
-      Effect.mapError(
-        (cause) =>
-          new RegistryOperationFailed({
-            category: "validation",
-            detail: "Registry index schema is invalid",
-            cause,
-          }),
-      ),
-    );
-    const revision = localVisibilityRevision(index);
-    if (revision !== args.revision) {
-      return yield* new RegistryOperationFailed({
-        category: "conflict",
-        detail: "Extension visibility changed; read the current revision and retry.",
-      });
-    }
-    const before = index.visibility ?? "public";
-    if (before === args.visibility) {
+      const archive = yield* readBufferedArchive(fs, archivePath).pipe(
+        Effect.mapError((e) =>
+          e instanceof RegistryOperationFailed
+            ? e
+            : new RegistryOperationFailed({
+                category: "internal",
+                detail: `Failed to read archive: ${archivePath}`,
+                cause: e,
+              }),
+        ),
+      );
       return {
-        target: args.target,
-        before,
-        after: before,
-        authority: args.authority,
-        result: "already-satisfied",
-        revision,
+        archive,
+        ...(args.exact?.lifecycleWarnings === undefined || args.exact.lifecycleWarnings.length === 0
+          ? {}
+          : { warnings: args.exact.lifecycleWarnings }),
       };
-    }
-    yield* fs
-      .writeFileString(
-        indexPath,
-        `${encodeExtensionIndexToJsonString({ ...index, visibility: args.visibility })}\n`,
-      )
-      .pipe(
+    }),
+
+    publishExtension: Effect.fnUntraced(function* (args: PublishExtensionArgs) {
+      const owner = args.owner;
+      const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
+
+      // Ensure directory exists
+      yield* fs.makeDirectory(dir, { recursive: true }).pipe(
+        Effect.mapError((e) =>
+          registryPublishRejected({
+            message: `Registry directory could not be created: ${dir}`,
+            cause: e,
+          }),
+        ),
+      );
+
+      const indexPath = path.join(dir, "index.json");
+      const archivePath = path.join(dir, `${args.version}.zip`);
+      const lockPath = path.join(dir, ".publish.lock");
+
+      return yield* withLocalPublicationLock(
+        fs,
+        path,
+        lockPath,
+        Effect.gen(function* () {
+          const indexExists = yield* registryPathExists(fs, indexPath);
+          const currentIndex = indexExists
+            ? yield* fs.readFileString(indexPath).pipe(
+                Effect.flatMap(decodeExtensionIndexFromJsonString),
+                Effect.mapError(
+                  (cause) =>
+                    new RegistryOperationFailed({
+                      category: "internal",
+                      detail: "Registry index schema is invalid",
+                      cause,
+                    }),
+                ),
+              )
+            : undefined;
+          const resolvedVisibility = resolveLocalUploadVisibility(currentIndex, args.visibility);
+          if (args.condition !== undefined) {
+            const currentCondition = makeLocalPublishCondition({
+              target: {
+                owner: args.owner,
+                type: args.type,
+                name: args.name,
+                version: args.version,
+              },
+              visibility: resolvedVisibility,
+              targetVersionExists:
+                currentIndex?.versions.some((entry) => entry.version === args.version) ?? false,
+            });
+            if (args.condition !== currentCondition) {
+              return yield* new RegistryOperationFailed({
+                category: "conflict",
+                detail: "Publish precondition changed; preview again before publishing.",
+              });
+            }
+          }
+          const nextIndex = indexExists
+            ? yield* Effect.gen(function* () {
+                if (currentIndex === undefined) {
+                  return yield* new RegistryOperationFailed({
+                    category: "internal",
+                    detail: "Registry index disappeared during publication.",
+                  });
+                }
+                if (args.condition === undefined && args.visibility !== undefined) {
+                  return yield* new RegistryOperationFailed({
+                    category: "conflict",
+                    detail: "Initial visibility is only valid when creating an extension.",
+                  });
+                }
+                if (currentIndex.versions.some((version) => version.version === args.version)) {
+                  return yield* publishConflict({ version: args.version });
+                }
+                return {
+                  ...currentIndex,
+                  versions: [args.metadata, ...currentIndex.versions],
+                } satisfies ExtensionIndex;
+              })
+            : ({
+                name: args.name,
+                owner,
+                type: args.type,
+                publisherBindingId: `hbnd_local_${globalThis.crypto.randomUUID()}`,
+                visibility: resolvedVisibility.value,
+                archival: null,
+                deprecation: null,
+                versions: [args.metadata],
+              } satisfies ExtensionIndex);
+
+          yield* writeFileAtomic(fs, {
+            targetPath: archivePath,
+            content: args.archive,
+            removeTargetBeforeRename: true,
+            mapError: (failure) =>
+              failure.step === "rename"
+                ? registryPublishRejected({
+                    message: `Registry archive could not be committed: ${archivePath}`,
+                    cause: failure.cause,
+                  })
+                : registryPublishRejected({
+                    message: `Registry archive temp file could not be written: ${failure.tempPath}`,
+                    cause: failure.cause,
+                  }),
+          });
+
+          yield* writeFileAtomic(fs, {
+            targetPath: indexPath,
+            content: `${encodeExtensionIndexToJsonString(nextIndex)}\n`,
+            mapError: (failure) =>
+              failure.step === "rename"
+                ? registryPublishRejected({
+                    message: `Registry index could not be committed: ${indexPath}`,
+                    cause: failure.cause,
+                  })
+                : registryPublishRejected({
+                    message: `Registry index temp file could not be written: ${failure.tempPath}`,
+                    cause: failure.cause,
+                  }),
+          });
+
+          return {
+            published: true,
+            owner: args.owner,
+            type: args.type,
+            name: args.name,
+            version: args.version,
+            integrity: args.metadata.integrity,
+            visibility: resolvedVisibility,
+            warnings: [],
+          } as const;
+        }),
+      );
+    }),
+
+    getExtensionVisibility: Effect.fnUntraced(function* (args: GetExtensionVisibilityArgs) {
+      const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
+      const index = yield* readExtensionIndex(fs, path.join(dir, "index.json"));
+      return evaluateLocalPublishVisibility({
+        target: { owner: args.owner, type: args.type, name: args.name },
+        index,
+        input: { intent: args.intent, request: null },
+      });
+    }),
+
+    updateExtensionVisibility: Effect.fnUntraced(function* (args: UpdateExtensionVisibilityArgs) {
+      const target = parseExtensionFqnParts(args.target);
+      if (target === undefined) {
+        return yield* new RegistryOperationFailed({
+          category: "validation",
+          detail: `Invalid extension target: ${args.target}`,
+        });
+      }
+      const dir = extensionDir(registryRoot, target.owner, target.type, target.name, path.join);
+      const indexPath = path.join(dir, "index.json");
+      const content = yield* fs.readFileString(indexPath).pipe(
         Effect.mapError(
           (cause) =>
             new RegistryOperationFailed({
-              category: "internal",
-              detail: `Registry index could not be written: ${indexPath}`,
+              category: "not_found",
+              detail: `Extension index not found: ${indexPath}`,
               cause,
             }),
         ),
       );
-    const updated = { ...index, visibility: args.visibility };
-    return {
-      target: args.target,
-      before,
-      after: args.visibility,
-      authority: args.authority,
-      result: "changed",
-      revision: localVisibilityRevision(updated),
-    };
-  }),
-
-  extensionExists: Effect.fnUntraced(function* (args: ExtensionExistsArgs) {
-    const owner = args.owner;
-    const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
-    const indexPath = path.join(dir, "index.json");
-    const exists = yield* registryPathExists(fs, indexPath);
-    return { exists };
-  }),
-
-  discoverPackages: Effect.fnUntraced(function* (args: DiscoverPackagesArgs) {
-    const extensionsRoot = path.join(registryRoot, "extensions");
-    const rootExists = yield* registryPathExists(fs, extensionsRoot);
-    if (!rootExists) {
-      return { results: [] } satisfies DiscoverPackagesResponse;
-    }
-
-    // Scan all extensions and read their index.json
-    const allExtensions = yield* scanAllExtensions(fs, path, extensionsRoot);
-
-    const results = args.packages.map((pkg) => {
-      const purl = encodePackageUrl(packageIdentity(pkg.purl));
-      const entries = new Map<string, DiscoveryExtensionResult>();
-
-      for (const spec of pkg.declaredExtensions) {
-        const declared = extensionDeclarationToDiscoveryRef(spec);
-        if (declared === undefined) {
-          continue;
-        }
-        const parsed = parseRef(spec.ref);
-        const match =
-          parsed === undefined
-            ? undefined
-            : allExtensions.find(
-                (ext) =>
-                  ext.owner === parsed.owner &&
-                  ext.type === parsed.type &&
-                  ext.name === parsed.name,
-              );
-        const resolved =
-          match === undefined
-            ? unresolvedExtensionResult(declared.ref, declared.source)
-            : indexToExtensionResult(match, declared.source, ["package"], false);
-        if (resolved !== undefined) {
-          entries.set(declared.ref, resolved);
-        }
+      const index = yield* decodeExtensionIndexFromJsonString(content).pipe(
+        Effect.mapError(
+          (cause) =>
+            new RegistryOperationFailed({
+              category: "validation",
+              detail: "Registry index schema is invalid",
+              cause,
+            }),
+        ),
+      );
+      const revision = localVisibilityRevision(index);
+      if (revision !== args.revision) {
+        return yield* new RegistryOperationFailed({
+          category: "conflict",
+          detail: "Extension visibility changed; read the current revision and retry.",
+        });
       }
-
-      for (const ext of allExtensions) {
-        const latestVersion = ext.versions[0];
-        if (latestVersion === undefined) {
-          continue;
-        }
-        const matchesPackage = packagesToPackageUrlParts(latestVersion.packages).some((declared) =>
-          purlMatch(pkg.purl, declared),
-        );
-        if (!matchesPackage) {
-          continue;
-        }
-
-        const ref = `${ext.owner}/${toExtensionTypePlural(ext.type)}/${ext.name}`;
-        const existing = entries.get(ref);
-        const next = indexToExtensionResult(
-          ext,
-          existing?.source ?? {
-            type: "registry",
-            url: new URL(AGENTXM_REGISTRY_URL),
-          },
-          existing === undefined ? ["extension"] : ["package", "extension"],
-          existing !== undefined,
-        );
-        if (next !== undefined) {
-          entries.set(ref, next);
-        }
+      const before = index.visibility ?? "public";
+      if (before === args.visibility) {
+        return {
+          target: args.target,
+          before,
+          after: before,
+          authority: args.authority,
+          result: "already-satisfied",
+          revision,
+        };
       }
-
+      yield* fs
+        .writeFileString(
+          indexPath,
+          `${encodeExtensionIndexToJsonString({ ...index, visibility: args.visibility })}\n`,
+        )
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new RegistryOperationFailed({
+                category: "internal",
+                detail: `Registry index could not be written: ${indexPath}`,
+                cause,
+              }),
+          ),
+        );
+      const updated = { ...index, visibility: args.visibility };
       return {
-        purl,
-        version: pkg.version,
-        status: "resolved" as const,
-        extensions: [...entries.values()],
+        target: args.target,
+        before,
+        after: args.visibility,
+        authority: args.authority,
+        result: "changed",
+        revision: localVisibilityRevision(updated),
       };
-    });
+    }),
 
-    return { results } satisfies DiscoverPackagesResponse;
-  }),
-});
+    extensionExists: Effect.fnUntraced(function* (args: ExtensionExistsArgs) {
+      const owner = args.owner;
+      const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
+      const indexPath = path.join(dir, "index.json");
+      const exists = yield* registryPathExists(fs, indexPath);
+      return { exists };
+    }),
+
+    discoverPackages: Effect.fnUntraced(function* (args: DiscoverPackagesArgs) {
+      const extensionsRoot = path.join(registryRoot, "extensions");
+      const rootExists = yield* registryPathExists(fs, extensionsRoot);
+      if (!rootExists) {
+        return { results: [] } satisfies DiscoverPackagesResponse;
+      }
+
+      // Scan all extensions and read their index.json
+      const allExtensions = yield* scanAllExtensions(fs, path, extensionsRoot);
+
+      const results = args.packages.map((pkg) => {
+        const purl = encodePackageUrl(packageIdentity(pkg.purl));
+        const entries = new Map<string, DiscoveryExtensionResult>();
+
+        for (const spec of pkg.declaredExtensions) {
+          const declared = extensionDeclarationToDiscoveryRef(spec);
+          if (declared === undefined) {
+            continue;
+          }
+          const parsed = parseRef(spec.ref);
+          const match =
+            parsed === undefined
+              ? undefined
+              : allExtensions.find(
+                  (ext) =>
+                    ext.owner === parsed.owner &&
+                    ext.type === parsed.type &&
+                    ext.name === parsed.name,
+                );
+          const resolved =
+            match === undefined
+              ? unresolvedExtensionResult(declared.ref, declared.source)
+              : indexToExtensionResult(match, declared.source, ["package"], false);
+          if (resolved !== undefined) {
+            entries.set(declared.ref, resolved);
+          }
+        }
+
+        for (const ext of allExtensions) {
+          const latestVersion = ext.versions[0];
+          if (latestVersion === undefined) {
+            continue;
+          }
+          const matchesPackage = packagesToPackageUrlParts(latestVersion.packages).some(
+            (declared) => purlMatch(pkg.purl, declared),
+          );
+          if (!matchesPackage) {
+            continue;
+          }
+
+          const ref = `${ext.owner}/${toExtensionTypePlural(ext.type)}/${ext.name}`;
+          const existing = entries.get(ref);
+          const next = indexToExtensionResult(
+            ext,
+            existing?.source ?? {
+              type: "registry",
+              url: new URL(AGENTXM_REGISTRY_URL),
+            },
+            existing === undefined ? ["extension"] : ["package", "extension"],
+            existing !== undefined,
+          );
+          if (next !== undefined) {
+            entries.set(ref, next);
+          }
+        }
+
+        return {
+          purl,
+          version: pkg.version,
+          status: "resolved" as const,
+          extensions: [...entries.values()],
+        };
+      });
+
+      return { results } satisfies DiscoverPackagesResponse;
+    }),
+  } satisfies Omit<RegistryClient, "withAccessibleContent">;
+  const withAccessibleContent = makeAccessibleContent(
+    client.validateExtensionAccessBatch,
+    client.getExtensionPackage,
+  );
+  return {
+    ...client,
+    withAccessibleContent,
+    getExtensionPackage: Effect.fnUntraced(function* (args: GetExtensionPackageArgs) {
+      if (args.exact !== undefined)
+        return yield* withAccessibleContent([args], (content) => content.read(args));
+      const index = yield* client.getExtensionIndex(args);
+      if (Option.isNone(index))
+        return yield* new RegistryOperationFailed({
+          category: "not_found",
+          detail: "Local Registry extension is unavailable.",
+        });
+      const entry = resolveVersionEntry(index.value.versions, args.version);
+      if (Option.isNone(entry))
+        return yield* new RegistryOperationFailed({
+          category: "not_found",
+          detail: "No local Registry version matches the requested constraint.",
+        });
+      const selected = {
+        ...args,
+        exact: {
+          version: entry.value.version,
+          integrity: entry.value.integrity,
+          publisherBindingId: index.value.publisherBindingId,
+          lifecycleWarnings: extensionLifecycleWarnings(index.value, entry.value),
+        },
+      };
+      return yield* withAccessibleContent([selected], (content) => content.read(selected));
+    }),
+  };
+};

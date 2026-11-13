@@ -41,6 +41,7 @@ import type { ArchiveDownloadProgress } from "./client.js";
 import type { RegistryClientFailure } from "./errors.js";
 import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import {
+  admittedContentResponse,
   extensionName,
   exactVersion,
   handle,
@@ -88,6 +89,16 @@ const makePackageArgs = (name = "test-skill", version?: string) => ({
 });
 
 const makeExistsArgs = (name = "test-skill") => makeIndexArgs(name);
+
+/** Archive transport cases supply valid admission separately; callback authority has its own contract evidence. */
+const makeArchiveHttpClient = (
+  handler: (request: HttpClientRequest.HttpClientRequest) => Response,
+) =>
+  makeMockHttpClient((request) =>
+    new URL(request.url).pathname === "/v1/resolutions"
+      ? admittedContentResponse(request)
+      : handler(request),
+  );
 
 /**
  * Create a mock HTTP client that routes to a handler based on the request.
@@ -992,15 +1003,9 @@ describe("getExtensionPackage", () => {
         );
       });
       const cache = {
-        load: (
-          _key: string,
-          integrity: string,
-          _fetch: unknown,
-          validate?: Effect.Effect<void, RegistryClientFailure>,
-        ) => {
+        load: (_key: string, integrity: string) => {
           expect(integrity).toBe("sha512-selected");
-          if (validate === undefined) return Effect.die("warm validation was not provided");
-          return Effect.as(validate, cachedArchive);
+          return Effect.succeed(cachedArchive);
         },
         read: () => Effect.die("read was not expected"),
         write: () => Effect.die("write was not expected"),
@@ -1042,15 +1047,7 @@ describe("getExtensionPackage", () => {
           ),
       );
       const cache = {
-        load: (
-          _key: string,
-          _integrity: string,
-          _fetch: unknown,
-          validate?: Effect.Effect<void, RegistryClientFailure>,
-        ) =>
-          validate === undefined
-            ? Effect.die("warm validation was not provided")
-            : Effect.as(validate, new Uint8Array([1])),
+        load: () => Effect.die("Denied content must not reach the cache"),
         read: () => Effect.die("read was not expected"),
         write: () => Effect.void,
         status: () => Effect.die("status was not expected"),
@@ -1096,6 +1093,8 @@ describe("getExtensionPackage", () => {
         const retriedBody = new Uint8Array([3, 4, 5]);
         const wire = HttpClient.make((request) =>
           Effect.sync(() => {
+            if (new URL(request.url).pathname === "/v1/resolutions")
+              return HttpClientResponse.fromWeb(request, admittedContentResponse(request));
             requests.push(request.url);
             const response = HttpClientResponse.fromWeb(request, new Response(retriedBody));
             if (requests.length > 1) return response;
@@ -1184,7 +1183,7 @@ describe("getExtensionPackage", () => {
         },
       });
       const requestedUrls: Array<string> = [];
-      const httpClient = makeMockHttpClient((request) => {
+      const httpClient = makeArchiveHttpClient((request) => {
         requestedUrls.push(request.url);
         return new Response(archive, { status: 200 });
       });
@@ -1206,9 +1205,12 @@ describe("getExtensionPackage", () => {
       expect(body?.attributes.get("axm.archive.bytes")).toBe(4);
       const requests = spans.filter((span) => span.name === "axm.registry.request");
       const attempts = spans.filter((span) => span.name === "axm.registry.attempt");
-      expect(requests).toHaveLength(requestedUrls.length);
-      expect(attempts).toHaveLength(requestedUrls.length);
-      expect(requests[0]?.attributes.get("axm.registry.purpose")).toBe("download");
+      expect(requests).toHaveLength(requestedUrls.length + 1);
+      expect(attempts).toHaveLength(requestedUrls.length + 1);
+      expect(requests.map((span) => span.attributes.get("axm.registry.purpose"))).toEqual([
+        "eligibility",
+        "download",
+      ]);
       expect(attempts[0]?.attributes.get("axm.registry.attempt")).toBe(1);
       expect(attempts[0]?.attributes.get("axm.registry.max-attempts")).toBe(3);
       expect(Array.from(result.archive)).toEqual(Array.from(archive));
@@ -1220,7 +1222,7 @@ describe("getExtensionPackage", () => {
 
   it.effect("rejects an oversized archive from its response length before consuming the body", () =>
     Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(
+      const httpClient = makeArchiveHttpClient(
         () =>
           new Response(new Uint8Array([1]), {
             status: 200,
@@ -1246,7 +1248,7 @@ describe("getExtensionPackage", () => {
 
   it.effect("rejects streamed archive bytes when no response length was declared", () =>
     Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(
+      const httpClient = makeArchiveHttpClient(
         () => new Response(new Uint8Array(MAX_BUFFERED_ARCHIVE_BYTES + 1), { status: 200 }),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
@@ -1271,7 +1273,7 @@ describe("getExtensionPackage", () => {
       const cachedArchive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
       const requestedUrls: Array<string> = [];
       const usagePurposes: Array<string | undefined> = [];
-      const httpClient = makeMockHttpClient((request) => {
+      const httpClient = makeArchiveHttpClient((request) => {
         requestedUrls.push(request.url);
         usagePurposes.push(request.headers["x-agentxm-usage-purpose"]);
         return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
@@ -1301,7 +1303,7 @@ describe("getExtensionPackage", () => {
     Effect.gen(function* () {
       const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
       const requests: Array<{ readonly url: string; readonly purpose: string | undefined }> = [];
-      const httpClient = makeMockHttpClient((request) => {
+      const httpClient = makeArchiveHttpClient((request) => {
         requests.push({
           url: request.url,
           purpose: request.headers["x-agentxm-usage-purpose"],
@@ -1331,7 +1333,7 @@ describe("getExtensionPackage", () => {
     Effect.gen(function* () {
       const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
       let archiveRequests = 0;
-      const httpClient = makeMockHttpClient((request) => {
+      const httpClient = makeArchiveHttpClient((request) => {
         if (!request.url.endsWith("/archive")) {
           return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
         }
@@ -1372,7 +1374,7 @@ describe("getExtensionPackage", () => {
   it.effect("reports a package index retry before the archive is requested", () =>
     Effect.gen(function* () {
       let indexRequests = 0;
-      const httpClient = makeMockHttpClient((request) => {
+      const httpClient = makeArchiveHttpClient((request) => {
         if (request.url.endsWith("/archive")) {
           return new Response(new Uint8Array([0x50, 0x4b, 0x03, 0x04]), { status: 200 });
         }
@@ -1400,7 +1402,7 @@ describe("getExtensionPackage", () => {
   it.effect("returns archive for latest version", () =>
     Effect.gen(function* () {
       const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
-      const httpClient = makeMockHttpClient((request) => {
+      const httpClient = makeArchiveHttpClient((request) => {
         const url = request.url;
         if (url.endsWith("/archive")) {
           return new Response(archiveData, {
@@ -1422,7 +1424,7 @@ describe("getExtensionPackage", () => {
   it.effect("returns archive for specific version", () =>
     Effect.gen(function* () {
       const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
-      const httpClient = makeMockHttpClient((request) => {
+      const httpClient = makeArchiveHttpClient((request) => {
         const url = request.url;
         if (url.endsWith("/archive")) {
           return new Response(archiveData, {
@@ -1461,7 +1463,7 @@ describe("getExtensionPackage", () => {
             : version,
         ),
       };
-      const httpClient = makeMockHttpClient((request) =>
+      const httpClient = makeArchiveHttpClient((request) =>
         request.url.endsWith("/archive")
           ? new Response(archiveData, { status: 200 })
           : new Response(JSON.stringify(response), { status: 200 }),
@@ -1478,7 +1480,7 @@ describe("getExtensionPackage", () => {
 
   it.effect("fails with REGISTRY_REMOTE_PACKAGE_NOT_FOUND on index 404", () =>
     Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(() =>
+      const httpClient = makeArchiveHttpClient(() =>
         typedErrorResponse(404, "extension_not_found", "Extension not found"),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
@@ -1498,7 +1500,7 @@ describe("getExtensionPackage", () => {
 
   it.effect("fails when a package index response has no body", () =>
     Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(() => new Response(null, { status: 304 }));
+      const httpClient = makeArchiveHttpClient(() => new Response(null, { status: 304 }));
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
       const error = yield* runFailure(client.getExtensionPackage(makePackageArgs()));
@@ -1510,7 +1512,7 @@ describe("getExtensionPackage", () => {
 
   it.effect("fails with REGISTRY_REMOTE_PACKAGE_NOT_FOUND on archive 404", () =>
     Effect.gen(function* () {
-      const httpClient = makeMockHttpClient((request) => {
+      const httpClient = makeArchiveHttpClient((request) => {
         const url = request.url;
         if (url.endsWith("/archive")) {
           return typedErrorResponse(404, "version_not_found", "Archive not found");
@@ -1537,7 +1539,7 @@ describe("getExtensionPackage", () => {
 
   it.effect("fails with REGISTRY_REMOTE_VERSION_NOT_FOUND for missing version", () =>
     Effect.gen(function* () {
-      const httpClient = makeMockHttpClient(
+      const httpClient = makeArchiveHttpClient(
         () => new Response(JSON.stringify(extensionIndexResponse), { status: 200 }),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);

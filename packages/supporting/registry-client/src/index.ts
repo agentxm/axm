@@ -13,6 +13,7 @@
 // Client types and factory
 export type {
   RegistryClient,
+  AccessibleContent,
   RegistryExtensionManifest,
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,

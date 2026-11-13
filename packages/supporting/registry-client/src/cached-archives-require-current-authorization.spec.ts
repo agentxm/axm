@@ -157,12 +157,15 @@ describe("Authorization for cached archives", () => {
         const fileSystem = yield* FileSystem.FileSystem;
         const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "axm-cache-evidence-" });
         let archiveGets = 0;
+        let admissionCalls = 0;
         const http = HttpClient.make((request) =>
           Effect.sync(() => {
             if (request.method === "GET") {
               archiveGets += 1;
               return HttpClientResponse.fromWeb(request, new Response(archive));
             }
+            if (++admissionCalls === 1)
+              return HttpClientResponse.fromWeb(request, Response.json(admission));
             const body = {
               ...admission,
               results: admission.results.map((result) => ({
@@ -206,8 +209,10 @@ describe("Authorization for cached archives", () => {
             Effect.sync(() => {
               requests.push(new URL(request.url).pathname);
               if (requests.length === 1)
+                return HttpClientResponse.fromWeb(request, Response.json(admission));
+              if (request.method === "GET")
                 return HttpClientResponse.fromWeb(request, new Response(archive, { status: 200 }));
-              expect(requests[1]).toBe("/v1/resolutions");
+              expect(requests[2]).toBe("/v1/resolutions");
               return HttpClientResponse.fromWeb(
                 request,
                 new Response(
@@ -234,7 +239,7 @@ describe("Authorization for cached archives", () => {
           expect(first.archive).toEqual(archive);
           const failure = yield* client.getExtensionPackage(args).pipe(Effect.flip);
           expect(failure.category).toBe("not_found");
-          expect(requests).toHaveLength(2);
+          expect(requests).toHaveLength(3);
         }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );
   }

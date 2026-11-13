@@ -1,3 +1,5 @@
+import type * as HttpClientRequest from "effect/http/HttpClientRequest";
+import { ExactContentRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolutions";
 /**
  * Shared decode helpers for registry-client internal tests.
  */
@@ -121,3 +123,25 @@ export const remoteRegistryClient = (
     ),
     Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({ AXM_USER_HOME: userHome }))),
   );
+
+export const admittedContentResponse = (request: HttpClientRequest.HttpClientRequest): Response => {
+  if (request.body._tag !== "Uint8Array") throw new Error("Expected exact admission request");
+  const input = Schema.decodeUnknownSync(Schema.fromJsonString(ExactContentRequestSchema))(
+    new TextDecoder().decode(request.body.body),
+  );
+  const observedAt = "2026-11-13T12:00:00Z";
+  return Response.json({
+    schemaVersion: 2,
+    purpose: "authorize-exact",
+    observedAt,
+    results: input.items.map((item) => ({
+      key: item.key,
+      outcome: "allowed",
+      identity: item.identity,
+      publisherBindingId: item.expectedPublisherBinding,
+      accepted: item.accepted,
+      yanked: false,
+      observedAt,
+    })),
+  });
+};

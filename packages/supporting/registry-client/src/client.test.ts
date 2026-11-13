@@ -42,6 +42,7 @@ import {
 import {
   at,
   dependencyConstraints,
+  admittedContentResponse,
   exactVersion,
   extensionName,
   handle,
@@ -504,20 +505,19 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
     // -----------------------------------------------------------------------------
 
     describe("LocalRegistryClient.getExtensionPackage", () => {
-      it.effect(
-        "reads an exact archive and keeps selected lifecycle warnings without an index",
-        () => {
-          const registryRoot = makeRegistryDir();
-          const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
-          const archive = createTestZip("SKILL.md", "# My Skill");
+      it.effect("refuses an exact archive without current index evidence", () => {
+        const registryRoot = makeRegistryDir();
+        const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+        const archive = createTestZip("SKILL.md", "# My Skill");
 
-          return Effect.gen(function* () {
-            const fs = yield* FileSystem.FileSystem;
-            yield* fs.makeDirectory(skillDir, { recursive: true });
-            yield* fs.writeFile(nodePath.join(skillDir, "1.0.0.zip"), archive);
+        return Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          yield* fs.makeDirectory(skillDir, { recursive: true });
+          yield* fs.writeFile(nodePath.join(skillDir, "1.0.0.zip"), archive);
 
-            const client = yield* makeLocalClient(registryRoot);
-            const result = yield* client.getExtensionPackage({
+          const client = yield* makeLocalClient(registryRoot);
+          const result = yield* client
+            .getExtensionPackage({
               ...makeIndexArgs("my-skill"),
               exact: {
                 version: exactVersion("1.0.0"),
@@ -525,17 +525,16 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                 publisherBindingId: "hbnd_test",
                 lifecycleWarnings: ["Previously selected version is deprecated"],
               },
-            });
+            })
+            .pipe(Effect.result);
 
-            expect(Array.from(result.archive)).toEqual(Array.from(archive));
-            expect(result.warnings).toEqual(["Previously selected version is deprecated"]);
-          }).pipe(
-            Effect.ensuring(
-              Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
-            ),
-          );
-        },
-      );
+          expect(result._tag).toBe("Failure");
+        }).pipe(
+          Effect.ensuring(
+            Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+          ),
+        );
+      });
 
       it.effect("reads archive bytes for explicit version", () => {
         const registryRoot = makeRegistryDir();
@@ -547,6 +546,19 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           yield* fs.makeDirectory(skillDir, { recursive: true });
           yield* fs.writeFile(nodePath.join(skillDir, "1.0.0.zip"), archive);
 
+          yield* fs.writeFileString(
+            nodePath.join(skillDir, "index.json"),
+            JSON.stringify(
+              makeIndex({
+                versions: [
+                  makeVersionEntry({
+                    version: "1.0.0",
+                    integrity: yield* computeIntegrity(archive),
+                  }),
+                ],
+              }),
+            ),
+          );
           const client = yield* makeLocalClient(registryRoot);
           const { archive: bytes } = yield* client.getExtensionPackage(
             makePackageArgs("my-skill", "1.0.0"),
@@ -570,7 +582,16 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           yield* fs.makeDirectory(skillDir, { recursive: true });
           yield* fs.writeFileString(
             nodePath.join(skillDir, "index.json"),
-            JSON.stringify(makeIndex({ versions: [makeVersionEntry({ version: "2.0.0" })] })),
+            JSON.stringify(
+              makeIndex({
+                versions: [
+                  makeVersionEntry({
+                    version: "2.0.0",
+                    integrity: yield* computeIntegrity(archive),
+                  }),
+                ],
+              }),
+            ),
           );
           yield* fs.writeFile(nodePath.join(skillDir, "2.0.0.zip"), archive);
 
@@ -599,8 +620,14 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
             JSON.stringify(
               makeIndex({
                 versions: [
-                  makeVersionEntry({ version: "0.2.0" }),
-                  makeVersionEntry({ version: "0.1.5" }),
+                  makeVersionEntry({
+                    version: "0.2.0",
+                    integrity: yield* computeIntegrity(archiveV020),
+                  }),
+                  makeVersionEntry({
+                    version: "0.1.5",
+                    integrity: yield* computeIntegrity(archiveV015),
+                  }),
                 ],
               }),
             ),
@@ -631,7 +658,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
             .pipe(Effect.result);
           expect(result._tag).toBe("Failure");
           if (result._tag === "Failure") {
-            expect(result.failure.category).toBe("internal");
+            expect(result.failure.category).toBe("not_found");
           }
         }).pipe(
           Effect.ensuring(
@@ -656,7 +683,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           const result = yield* client.getExtensionPackage(makePackageArgs()).pipe(Effect.result);
           expect(result._tag).toBe("Failure");
           if (result._tag === "Failure") {
-            expect(result.failure.category).toBe("internal");
+            expect(result.failure.category).toBe("not_found");
           }
         }).pipe(
           Effect.ensuring(
@@ -1643,6 +1670,8 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
     describe("RemoteRegistryClient", () => {
       const stubHttpClient = HttpClient.make((request) =>
         Effect.sync(() => {
+          if (new URL(request.url).pathname === "/v1/resolutions")
+            return HttpClientResponse.fromWeb(request, admittedContentResponse(request));
           if (request.url.endsWith("/v1/owners/%40test")) {
             return HttpClientResponse.fromWeb(
               request,

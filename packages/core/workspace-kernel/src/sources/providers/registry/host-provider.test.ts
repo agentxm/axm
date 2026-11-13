@@ -199,6 +199,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
   ownerExists: () => Effect.succeed({ exists: false }),
   getExtensionIndex: () => Effect.succeed(Option.none()),
   getExactExtensionVersion: () => Effect.succeed(Option.none()),
+  withAccessibleContent: () => Effect.die("Unexpected content callback"),
   validateExtensionAccessBatch: () =>
     Effect.die("Unexpected exact-access validation in source-provider test"),
   getExtensionPackage: () =>
@@ -278,6 +279,7 @@ const createFailingClient = (): RegistryClient => ({
         detail: "remote registry not yet supported",
       }),
     ),
+  withAccessibleContent: () => Effect.die("Unexpected content callback"),
   validateExtensionAccessBatch: () =>
     Effect.die("Unexpected exact-access validation in source-provider test"),
   getExtensionPackage: () =>

@@ -11,6 +11,8 @@ import { digest, projectComparisonField } from "./observability-process.js";
 import { prepareStartupObservabilityFixtures } from "./observability-startup-fixtures.js";
 import { verifyStagedNativeImport } from "./observability-typed-fixtures.js";
 
+const { outcome: upgradeOutcome, ...upgradeResultFields } = UpgradeAssessmentResultSchema.fields;
+
 const lintObservation = Schema.Struct({
   repaired: Schema.Array(Schema.Unknown),
   normalization: Schema.optional(
@@ -23,16 +25,16 @@ const lintObservation = Schema.Struct({
 
 const previewVerification: NonNullable<ObservabilityScenario["verify"]> = ({ stdout }) =>
   Effect.gen(function* () {
-    const document = yield* Schema.decodeUnknownEffect(
+    yield* Schema.decodeUnknownEffect(
       Schema.fromJsonString(
         Schema.Struct({
           ok: Schema.Literal(true),
+          mode: Schema.Literal("preview"),
+          outcome: Schema.Literal("previewed"),
           result: Schema.Record(Schema.String, Schema.Unknown),
         }),
       ),
     )(stdout);
-    if (document.result["mode"] !== "preview" && document.result["outcome"] !== "previewed")
-      return yield* fixtureFailure("Assessment did not report its preview mode or outcome.");
     return {
       assertions: [
         "Successful machine result reports preview; full preflight independently protects workspace, non-cache home and external product state.",
@@ -48,11 +50,16 @@ const upgradePreviewVerification: NonNullable<ObservabilityScenario["verify"]> =
   Effect.gen(function* () {
     const raw = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(stdout);
     const doc = yield* Schema.decodeUnknownEffect(
-      Schema.Struct({ ok: Schema.Literal(true), result: UpgradeAssessmentResultSchema }),
+      Schema.Struct({
+        ok: Schema.Literal(true),
+        mode: Schema.Literal("preview"),
+        outcome: upgradeOutcome,
+        result: Schema.Struct(upgradeResultFields),
+      }),
     )(raw);
     const epoch = Date.parse(doc.result.canonical.validatedAt);
     if (
-      doc.result.outcome !== "previewed" ||
+      doc.outcome !== "previewed" ||
       epoch < startedAtMillis ||
       epoch > endedAtMillis ||
       !Number.isFinite(epoch)

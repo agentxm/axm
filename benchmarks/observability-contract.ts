@@ -53,6 +53,7 @@ export const ObservabilityBudgetsSchema = Schema.Struct({
   interpretation: Schema.String,
 });
 export type ObservabilityBudgets = typeof ObservabilityBudgetsSchema.Type;
+export type MemoryPolicy = "enforced" | "informational";
 export const traceModes = ["disabled", "summary", "detail"] as const;
 export type TraceMode = (typeof traceModes)[number];
 
@@ -549,6 +550,7 @@ export const timingBlockOrder = (
 export const assessScenarioTiming = (
   budgets: ObservabilityBudgets,
   samples: ReadonlyArray<ObservationSample>,
+  memoryPolicy: MemoryPolicy = "enforced",
 ) => {
   const measured = samples.filter((sample) => sample.phase === "timing" && !sample.warmup);
   const baseline = measured
@@ -591,7 +593,7 @@ export const assessScenarioTiming = (
       baselineMedianMs * budgets.elapsedBudgets[mode].relative +
       budgets.elapsedBudgets[mode].absoluteMillis;
     const allowedMedianMs = baselineMedianMs + allowance;
-    // The runner rejects any paired increment, including its warmup; a high baseline in another block cannot mask it.
+    // Retain the largest paired increment, including warmup, even when memory is informational.
     const additionalPeakRssBytes = Math.max(
       ...samples
         .filter(
@@ -632,7 +634,8 @@ export const assessScenarioTiming = (
       straddlesBound: deltas.some((delta) => delta > 0) && deltas.some((delta) => delta < 0),
     };
   });
-  const resourceFailed = comparisons.some((comparison) => !comparison.memoryPassed);
+  const resourceFailed =
+    memoryPolicy === "enforced" && comparisons.some((comparison) => !comparison.memoryPassed);
   const stableFailure =
     !noisy && !drifting && comparisons.some((comparison) => !comparison.elapsedPassed);
   const needsEscalation =
@@ -669,6 +672,7 @@ export const assessObservabilityEvidence = (
   scenarios: ReadonlyArray<string>,
   samples: ReadonlyArray<ObservationSample>,
   preflight: ReadonlyArray<PreflightCheck> = [],
+  memoryPolicy: MemoryPolicy = "enforced",
 ) => {
   const issues: string[] = [];
   const workComparisons: Array<WorkComparison & { readonly scenario: string }> = [];
@@ -730,7 +734,7 @@ export const assessObservabilityEvidence = (
     workComparisons.push({ scenario, ...workComparison });
     issues.push(...workComparison.issues);
     const own = samples.filter((sample) => sample.scenario === scenario);
-    const assessment = assessScenarioTiming(budgets, own);
+    const assessment = assessScenarioTiming(budgets, own, memoryPolicy);
     if (!assessment.complete) issues.push("Incomplete measured blocks: " + scenario);
     if (assessment.needsEscalation)
       issues.push("Required timing escalation is missing: " + scenario);
@@ -739,6 +743,7 @@ export const assessObservabilityEvidence = (
     const initial = assessScenarioTiming(
       budgets,
       own.filter((sample) => sample.warmup || sample.iteration < budgets.measurement.repetitions),
+      memoryPolicy,
     );
     if (assessment.count === budgets.measurement.maximumRepetitions && !initial.needsEscalation)
       issues.push("Unjustified timing escalation: " + scenario);
@@ -772,10 +777,13 @@ export const assessObservabilityEvidence = (
       }
     }
     for (const comparison of assessment.comparisons) {
-      const passed = assessment.passed && comparison.elapsedPassed && comparison.memoryPassed;
+      const passed =
+        assessment.passed &&
+        comparison.elapsedPassed &&
+        (memoryPolicy === "informational" || comparison.memoryPassed);
       comparisons.push({ scenario, ...comparison, passed });
       if (
-        !comparison.memoryPassed ||
+        (memoryPolicy === "enforced" && !comparison.memoryPassed) ||
         (!assessment.noisy && !assessment.drifting && !comparison.elapsedPassed)
       )
         issues.push("Performance budget exceeded: " + scenario + "/" + comparison.mode);

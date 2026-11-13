@@ -435,6 +435,56 @@ describe("observability campaign evidence", () => {
     expect(assess(warmupExceeded).passed).toBe(false);
   });
 
+  it("retains RSS exceedances under informational policy without waiving latency or correctness", () => {
+    const highRss = (count = 5) =>
+      samples(count).map((sample) =>
+        sample.subject === "candidate" ? { ...sample, peakRssBytes: 200_000_000 } : sample,
+      );
+    const informational = (values: ReadonlyArray<ObservationSample>) =>
+      assessObservabilityEvidence(
+        budgets,
+        coverage,
+        ["list/one"],
+        values,
+        preflight(),
+        "informational",
+      );
+    const result = informational(highRss());
+    expect(result.passed).toBe(true);
+    expect(result.comparisons.every((comparison) => !comparison.memoryPassed)).toBe(true);
+    expect(result.comparisons.every((comparison) => comparison.additionalPeakRssBytes > 0)).toBe(
+      true,
+    );
+    expect(assess(highRss()).passed).toBe(false);
+    const near = (count: number) =>
+      highRss(count).map((sample) =>
+        sample.subject === "candidate" && sample.mode === "disabled"
+          ? { ...sample, durationMs: 130 }
+          : sample,
+      );
+    expect(assessScenarioTiming(budgets, near(5), "informational").needsEscalation).toBe(true);
+    expect(informational(near(5)).passed).toBe(false);
+    expect(informational(near(10)).passed).toBe(true);
+    expect(
+      informational(
+        highRss().map((sample) =>
+          sample.subject === "candidate" ? { ...sample, durationMs: 1000 } : sample,
+        ),
+      ).passed,
+    ).toBe(false);
+    expect(
+      informational(
+        highRss().map((sample) =>
+          sample.subject === "candidate" ? { ...sample, stdoutDigest: "changed" } : sample,
+        ),
+      ).passed,
+    ).toBe(false);
+    expect(informational(highRss().map((sample) => ({ ...sample, peakRssBytes: 0 }))).passed).toBe(
+      false,
+    );
+    expect(informational(highRss().slice(1)).passed).toBe(false);
+  });
+
   it("uses the overhead allowance for near-bound escalation and keeps all ten observations", () => {
     const near = (count: number) =>
       samples(count).map((sample) =>

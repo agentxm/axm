@@ -46,8 +46,9 @@
       // from its own dependency metadata.
       "ignoreDependencies": ["@eslint/js", "typescript-eslint"],
       // Native toolchain manager; scanner versions are declared in mise.toml,
-      // independently of npm dependency ownership.
-      "ignoreBinaries": ["mise"],
+      // independently of npm dependency ownership. The startup TLS fixture
+      // also uses the external openssl certificate tool.
+      "ignoreBinaries": ["mise", "openssl"],
       // These are loaded indirectly by Allure, shell launchers, benchmark child
       // processes, and specification discovery.
       "entry": [

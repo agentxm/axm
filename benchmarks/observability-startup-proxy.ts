@@ -11,13 +11,13 @@ import * as Effect from "effect/Effect";
 import { fixtureFailure } from "./observability-contract.js";
 import type { RequestRecord } from "./lifecycle-registry.js";
 
-export interface StartupReleaseResponse {
+interface StartupReleaseResponse {
   readonly status: number;
   readonly body: string;
   readonly bodyDelayMillis: number;
 }
 
-export interface StartupReleaseProxy {
+interface StartupReleaseProxy {
   readonly environment: Readonly<Record<string, string>>;
   readonly certificateSha256: string;
   readonly reset: (response: StartupReleaseResponse) => void;

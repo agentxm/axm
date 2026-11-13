@@ -18,7 +18,6 @@ export const TRACE_LIMITS = {
   summaryGroups: 512,
 } as const;
 
-export type TraceMode = "summary" | "detail";
 export const TraceFailureKindSchema = Schema.Literals([
   "expected-absence",
   "not-found",

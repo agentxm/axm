@@ -35,7 +35,7 @@ interface WorkSummary {
   durationMicros: number;
   durationMeasured: number;
 }
-export interface TraceAggregateRecord {
+interface TraceAggregateRecord {
   readonly parent: Tracer.AnySpan;
   readonly attributes: TraceAggregateAttributes;
 }

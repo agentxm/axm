@@ -12,7 +12,7 @@ export const TraceCommandRouteSchema = Schema.String.check(
   Schema.isPattern(/^(?:[a-z][a-z0-9-]*)(?: [a-z][a-z0-9-]*){0,5}$/),
 );
 const duration = Schema.Number.check(Schema.isFinite(), Schema.isGreaterThanOrEqualTo(0));
-export const TraceTimingsSchema = Schema.Struct({
+const TraceTimingsSchema = Schema.Struct({
   startupMillis: duration,
   executionMillis: duration,
   runtimeElapsedAtExecutionEndMillis: duration,
@@ -30,7 +30,7 @@ export const TraceDetailKindSchema = Schema.Literals([
   "render",
 ]);
 export type TraceDetailKind = typeof TraceDetailKindSchema.Type;
-export const TraceDetailSelectionSchema = Schema.Struct({
+const TraceDetailSelectionSchema = Schema.Struct({
   kinds: Schema.Array(TraceDetailKindSchema),
   phase: Schema.NullOr(OperationPhaseSchema),
 }).check(

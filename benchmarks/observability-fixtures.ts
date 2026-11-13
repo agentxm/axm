@@ -142,7 +142,7 @@ export const copyTemplate = (source: WorkspaceTemplate, destination: string): Wo
   return { workspace, home };
 };
 
-export const clearArchiveCache = (home: string) => {
+const clearArchiveCache = (home: string) => {
   const cache = resolveAxmCacheRootPure(path.join, process.platform, home, { axmUserHome: home });
   fs.rmSync(cache, { recursive: true, force: true });
 };

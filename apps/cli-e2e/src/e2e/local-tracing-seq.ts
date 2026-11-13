@@ -26,7 +26,7 @@ export class TraceFixtureError extends Data.TaggedError("TraceFixtureError")<{
   readonly cause?: unknown;
 }> {}
 
-export const repository = fileURLToPath(new URL("../../../../", import.meta.url));
+const repository = fileURLToPath(new URL("../../../../", import.meta.url));
 const inspectorFixture = fileURLToPath(
   new URL("../fixtures/local-trace-inspection.mjs", import.meta.url),
 );
@@ -205,7 +205,7 @@ export const inspectReceipt = (
 // Validate the public output fields these boundary cases use, without importing an app implementation.
 const Numeric = Schema.NullOr(Schema.Number);
 const Attributes = Schema.Record(Schema.String, Schema.Unknown);
-export const Summary = Schema.Struct({
+const Summary = Schema.Struct({
   schemaVersion: Schema.Literal(2),
   detailSelection: Schema.Struct({
     kinds: Schema.Array(Schema.String),

@@ -28,7 +28,7 @@ const Proxy = Schema.Struct({
 });
 type Proxy = typeof Proxy.Type;
 
-export const profileToxics = (profile: Profile): ReadonlyArray<Toxic> => {
+const profileToxics = (profile: Profile): ReadonlyArray<Toxic> => {
   const latency = profile === "baseline" ? 0 : profile === "slow" ? 150 : 50;
   const jitter = profile === "variable" ? 25 : 0;
   const toxics: Toxic[] =
@@ -76,7 +76,7 @@ const identifyProfile = (proxy: Proxy) =>
     );
   }) ?? "custom-or-incomplete";
 
-export const loopbackOrigin = (value: string) =>
+const loopbackOrigin = (value: string) =>
   Effect.gen(function* () {
     const url = yield* Effect.try({
       try: () => new URL(value),

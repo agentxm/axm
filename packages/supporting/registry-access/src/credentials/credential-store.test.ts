@@ -12,6 +12,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { expect } from "vitest";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
+import { CurrentWorkObserver, type WorkFact } from "@agentxm/host-primitives/work-observation";
 import {
   CredentialStore,
   CredentialStoreSessionLive,
@@ -226,11 +227,15 @@ describe("CredentialStore", () => {
 
     it.effect("shares one in-flight lookup across concurrent misses on one origin", () => {
       const trace = recordTrace();
+      const facts: WorkFact[] = [];
+      const owners: Array<string | undefined> = [];
       const backing = makeRecordingStore();
       backing.seed(originA, "axm_ses_shared");
       return Effect.gen(function* () {
         const started = yield* Deferred.make<void>();
         const release = yield* Deferred.make<void>();
+        const admitted = yield* Deferred.make<void>();
+        let requests = 0;
         backing.overrideLoad(() =>
           Effect.gen(function* () {
             yield* Deferred.succeed(started, undefined);
@@ -246,31 +251,58 @@ describe("CredentialStore", () => {
         const readers = yield* Effect.forkChild(
           Effect.all([store.load(originA), store.load(originA), store.load(originA)], {
             concurrency: "unbounded",
-          }).pipe(Effect.withTracer(trace.tracer), Effect.withTracerEnabled(true)),
+          }).pipe(
+            Effect.withSpan("axm.cli.command"),
+            Effect.provideService(CurrentWorkObserver, {
+              started: () => {
+                if (++requests === 3) Deferred.doneUnsafe(admitted, Effect.void);
+                return () => undefined;
+              },
+              record: (fact, parent) => {
+                facts.push(fact);
+                owners.push(parent?.spanId);
+              },
+              detailSelected: () => false,
+            }),
+            Effect.withTracer(trace.tracer),
+            Effect.withTracerEnabled(true),
+          ),
         );
 
         yield* Deferred.await(started);
+        yield* Deferred.await(admitted);
+        expect(backing.loadCount(originA)).toBe(1);
+        expect(facts).toHaveLength(0);
         yield* Deferred.succeed(release, undefined);
         const results = yield* Fiber.await(readers);
 
         expect(results._tag).toBe("Success");
         expect(backing.loadCount(originA)).toBe(1);
-        const reads = trace.spans.filter((span) => span.name === "axm.auth.cache");
+        const reads = facts.filter((fact) => fact.kind === "axm.auth.cache");
         expect(reads).toHaveLength(3);
-        expect(reads.map((span) => span.attributes.get("axm.cache.outcome"))).toEqual([
+        // Completion ordering between the shared lookup's readers is not an admission order.
+        expect(reads.map((fact) => fact.attributes["axm.cache.outcome"]).sort()).toEqual([
+          "coalesced",
+          "coalesced",
           "miss",
-          "coalesced",
-          "coalesced",
         ]);
         expect(
-          reads.reduce(
-            (total, span) => total + Number(span.attributes.get("axm.work.executed")),
-            0,
+          reads.every(
+            (fact) =>
+              fact.outcome === "success" &&
+              fact.attributes["axm.auth.cache-kind"] === "stored-session",
           ),
+        ).toBe(true);
+        const owner = trace.spans.find((span) => span.name === "axm.cli.command");
+        expect(owner).toBeDefined();
+        expect(owners).toEqual([owner?.spanId, owner?.spanId, owner?.spanId]);
+        expect(trace.spans.filter((span) => span.name === "axm.auth.cache")).toHaveLength(0);
+        expect(
+          reads.reduce((total, fact) => total + Number(fact.attributes["axm.work.executed"]), 0),
         ).toBe(backing.loadCount(originA));
         expect(
           reads.reduce(
-            (total, span) => total + Number(span.attributes.get("axm.work.reused-count")),
+            (total, fact) => total + Number(fact.attributes["axm.work.reused-count"]),
             0,
           ),
         ).toBe(2);

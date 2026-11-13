@@ -8,6 +8,7 @@ import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { RegistryHttpClient } from "@agentxm/registry-client";
+import { CurrentWorkObserver, type WorkFact } from "@agentxm/host-primitives/work-observation";
 
 import { TokenExchangeTest } from "../authentication/auth-client.js";
 import { recordTrace } from "../test-support/test-helpers.js";
@@ -61,23 +62,44 @@ describe("WorkloadCredentialsLive", () => {
   it.effect("keeps a workload token with time left for the rest of the invocation", () => {
     const { counts, layer } = makeLayer(() => ({ seconds: 900 }));
     const trace = recordTrace();
+    const facts: WorkFact[] = [];
+    const owners: Array<string | undefined> = [];
     return Effect.gen(function* () {
       const workload = yield* WorkloadCredentials;
       const first = yield* workload.tokenFor(identity, registry);
       const second = yield* workload.tokenFor(identity, registry);
       expect(second.token).toBe(first.token);
       expect(counts).toEqual({ idTokens: 1, exchanges: 1 });
-      const caches = trace.spans.filter((span) => span.name === "axm.auth.cache");
-      expect(caches.map((span) => span.attributes.get("axm.cache.outcome"))).toEqual([
-        "miss",
-        "hit",
-      ]);
-      expect(caches.map((span) => span.attributes.get("axm.work.executed"))).toEqual([1, 0]);
-      expect(caches.map((span) => span.attributes.get("axm.work.reused-count"))).toEqual([0, 1]);
+      const caches = facts.filter((fact) => fact.kind === "axm.auth.cache");
+      expect(caches).toHaveLength(2);
+      expect(caches.map((fact) => fact.attributes["axm.cache.outcome"])).toEqual(["miss", "hit"]);
+      expect(caches.map((fact) => fact.attributes["axm.work.executed"])).toEqual([1, 0]);
+      expect(caches.map((fact) => fact.attributes["axm.work.reused-count"])).toEqual([0, 1]);
+      expect(
+        caches.every(
+          (fact) =>
+            fact.outcome === "success" && fact.attributes["axm.auth.cache-kind"] === "workload",
+        ),
+      ).toBe(true);
+      const calls = trace.spans.filter((span) => span.name === "WorkloadCredentials.tokenFor");
+      expect(calls).toHaveLength(2);
+      expect(owners).toEqual(calls.map((span) => span.spanId));
+      expect(trace.spans.filter((span) => span.name === "axm.auth.cache")).toHaveLength(0);
       expect(
         trace.spans.filter((span) => span.attributes.get("axm.auth.purpose") === "id-token"),
       ).toHaveLength(counts.idTokens);
-    }).pipe(Effect.provide(layer), Effect.withTracer(trace.tracer), Effect.withTracerEnabled(true));
+    }).pipe(
+      Effect.provide(layer),
+      Effect.provideService(CurrentWorkObserver, {
+        record: (fact, parent) => {
+          facts.push(fact);
+          owners.push(parent?.spanId);
+        },
+        detailSelected: () => false,
+      }),
+      Effect.withTracer(trace.tracer),
+      Effect.withTracerEnabled(true),
+    );
   });
 
   it.effect("exchanges a fresh identity token when the held workload token is lapsing", () => {

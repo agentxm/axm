@@ -232,98 +232,100 @@ const failureKind = (
 };
 
 /** Capture once for native callbacks; each begin measures its own actual interval. */
-export const captureWork: Effect.Effect<WorkCapture | undefined> = Effect.gen(function* () {
-  const observer = yield* CurrentWorkObserver;
-  if (observer === undefined) return undefined;
-  const parent = Option.getOrUndefined(yield* Effect.serviceOption(Tracer.ParentSpan));
-  const clock = yield* Clock.Clock;
-  const tracer = yield* Effect.tracer;
-  const tracerEnabled = yield* References.TracerEnabled;
-  return {
-    begin(kind, options = {}) {
-      let completeObservation: (() => void) | undefined;
-      observeSafely(() => {
-        completeObservation = observer.started?.(parent);
-      });
-      let detailed = false;
-      if (tracerEnabled)
+export const captureWork: Effect.Effect<WorkCapture | undefined> = Effect.withFiberSucceed(
+  (fiber) => {
+    const observer = fiber.getRef(CurrentWorkObserver);
+    if (observer === undefined) return undefined;
+    const parent = Option.getOrUndefined(Context.getOption(fiber.context, Tracer.ParentSpan));
+    const clock = fiber.getRef(Clock.Clock);
+    const tracer = fiber.getRef(Tracer.Tracer);
+    const tracerEnabled = fiber.getRef(References.TracerEnabled);
+    return {
+      begin(kind, options = {}) {
+        let completeObservation: (() => void) | undefined;
         observeSafely(() => {
-          detailed = observer.detailSelected(kind, parent);
+          completeObservation = observer.started?.(parent);
         });
-      const timed = options.timed !== false;
-      const start = timed ? clock.monotonicTimeNanosUnsafe() : undefined;
-      let span: Tracer.Span | undefined;
-      if (detailed)
-        observeSafely(() => {
-          span = tracer.span({
-            name: kind,
-            parent: Option.fromUndefinedOr(parent),
-            annotations: Context.empty(),
-            links: [],
-            startTime: clock.currentTimeNanosUnsafe(),
-            kind: "internal",
-            root: false,
-            sampled: parent?.sampled ?? true,
-          });
-        });
-      let attributes: WorkAttributes = { ...options.attributes };
-      let finished = false;
-      const annotate = (updates: WorkAttributes) => {
-        if (finished) return;
-        attributes = { ...attributes, ...updates };
-        const detailSpan = span;
-        if (detailSpan !== undefined)
+        let detailed = false;
+        if (tracerEnabled)
           observeSafely(() => {
-            for (const [key, value] of Object.entries(updates)) detailSpan.attribute(key, value);
+            detailed = observer.detailSelected(kind, parent);
           });
-      };
-      annotate(attributes);
-      return {
-        span,
-        annotate,
-        finish(outcome, updates) {
-          if (finished) return;
-          if (updates !== undefined)
-            annotate({
-              ...updates,
-              // Producer knowledge, such as an expected absence, takes priority
-              // over the generic failure classification supplied at completion.
-              ...(attributes["axm.failure.kind"] === undefined
-                ? {}
-                : { "axm.failure.kind": attributes["axm.failure.kind"] }),
+        const timed = options.timed !== false;
+        const start = timed ? clock.monotonicTimeNanosUnsafe() : undefined;
+        let span: Tracer.Span | undefined;
+        if (detailed)
+          observeSafely(() => {
+            span = tracer.span({
+              name: kind,
+              parent: Option.fromUndefinedOr(parent),
+              annotations: Context.empty(),
+              links: [],
+              startTime: clock.currentTimeNanosUnsafe(),
+              kind: "internal",
+              root: false,
+              sampled: parent?.sampled ?? true,
             });
-          annotate({ "axm.outcome": outcome });
-          finished = true;
-          const end = timed ? clock.monotonicTimeNanosUnsafe() : undefined;
-          observeSafely(() =>
-            observer.record(
-              {
-                kind,
-                attributes,
-                outcome,
-                ...(timed && start !== undefined && end !== undefined
-                  ? { durationMillis: Number(end - start) / 1_000_000 }
-                  : {}),
-              },
-              parent,
-            ),
-          );
-          observeSafely(() =>
-            span?.end(
-              clock.currentTimeNanosUnsafe(),
-              outcome === "success"
-                ? Exit.void
-                : outcome === "interrupted"
-                  ? Exit.interrupt()
-                  : Exit.fail("work-failed"),
-            ),
-          );
-          if (completeObservation !== undefined) observeSafely(completeObservation);
-        },
-      } satisfies WorkHandle;
-    },
-  } satisfies WorkCapture;
-});
+          });
+        let attributes: WorkAttributes = { ...options.attributes };
+        let finished = false;
+        const annotate = (updates: WorkAttributes) => {
+          if (finished) return;
+          attributes = { ...attributes, ...updates };
+          const detailSpan = span;
+          if (detailSpan !== undefined)
+            observeSafely(() => {
+              for (const [key, value] of Object.entries(updates)) detailSpan.attribute(key, value);
+            });
+        };
+        annotate(attributes);
+        return {
+          span,
+          annotate,
+          finish(outcome, updates) {
+            if (finished) return;
+            if (updates !== undefined)
+              annotate({
+                ...updates,
+                // Producer knowledge, such as an expected absence, takes priority
+                // over the generic failure classification supplied at completion.
+                ...(attributes["axm.failure.kind"] === undefined
+                  ? {}
+                  : { "axm.failure.kind": attributes["axm.failure.kind"] }),
+              });
+            annotate({ "axm.outcome": outcome });
+            finished = true;
+            const end = timed ? clock.monotonicTimeNanosUnsafe() : undefined;
+            observeSafely(() =>
+              observer.record(
+                {
+                  kind,
+                  attributes,
+                  outcome,
+                  ...(timed && start !== undefined && end !== undefined
+                    ? { durationMillis: Number(end - start) / 1_000_000 }
+                    : {}),
+                },
+                parent,
+              ),
+            );
+            observeSafely(() =>
+              span?.end(
+                clock.currentTimeNanosUnsafe(),
+                outcome === "success"
+                  ? Exit.void
+                  : outcome === "interrupted"
+                    ? Exit.interrupt()
+                    : Exit.fail("work-failed"),
+              ),
+            );
+            if (completeObservation !== undefined) observeSafely(completeObservation);
+          },
+        } satisfies WorkHandle;
+      },
+    } satisfies WorkCapture;
+  },
+);
 
 /** Select before constructing a span; summary accounting never needs one. */
 export const withWork = <A, E, R>(

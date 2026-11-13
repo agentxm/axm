@@ -3,6 +3,8 @@ import * as Effect from "effect/Effect";
 import { chunksOf } from "effect/Array";
 import { MAX_RESOLUTION_ITEMS } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import * as Option from "effect/Option";
+import type * as Config from "effect/Config";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
@@ -12,7 +14,7 @@ import {
   parseExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import { type InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { RegistryClientFactory } from "@agentxm/registry-client";
+import { RegistryClientFactory, type RegistryClientFailure } from "@agentxm/registry-client";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 import { resolveSource, SourceHostProviders } from "@agentxm/workspace-kernel/sources";
@@ -153,18 +155,18 @@ const decodeInstalledVersion = (value: string, ref: string) =>
     ),
   );
 
+type RegistryMetadataResult = Result.Result<
+  Option.Option<ExtensionIndex>,
+  RegistryClientFailure | Config.ConfigError
+>;
+
 const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(function* (
   item: AssessedExtensionListItem,
   filter: Exclude<ExtensionListFilter, "all">,
   record: RegistryAcceptedEntry,
   graph: DesiredStateGraph,
+  observed: RegistryMetadataResult,
 ) {
-  const identity = { owner: record.identity.owner, type: item.type, name: record.identity.name };
-  const factory = yield* RegistryClientFactory;
-  const observed = yield* factory.forEndpoint(record.source.url).pipe(
-    Effect.flatMap((client) => client.getExtensionIndex(identity)),
-    Effect.result,
-  );
   if (Result.isFailure(observed))
     return {
       state: "unknown",
@@ -264,49 +266,40 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   } satisfies ExtensionAssessment;
 });
 
-const assessItem = (
+const localAssessment = (
   item: AssessedExtensionListItem,
-  filter: Exclude<ExtensionListFilter, "all">,
   record: AcceptedEntry | undefined,
-  graph: DesiredStateGraph,
-) =>
-  Effect.gen(function* () {
-    if (item.installed === null)
-      return {
-        state: "unknown",
-        reason: "Installation presence could not be observed.",
-      } satisfies ExtensionAssessment;
-    if (!item.installed) return { state: "not-applicable" } satisfies ExtensionAssessment;
-    // Desired state does not reach these packages, so no accepted source applies.
-    if (item.management === "leftover") {
-      return {
-        state: "not-applicable",
-        reason: "Installed package is not configured",
-      } satisfies ExtensionAssessment;
-    }
-    if (item.management === "undeclared") {
-      return {
-        state: "not-applicable",
-        reason: "Authored package is not declared",
-      } satisfies ExtensionAssessment;
-    }
-    if (item.source !== undefined && isWorkspaceSourceLocator(item.source)) {
-      return { state: "not-applicable" } satisfies ExtensionAssessment;
-    }
-    if (record === undefined) {
-      return {
-        state: "unknown",
-        reason: "Installed extension has no accepted external resolution",
-      } satisfies ExtensionAssessment;
-    }
-    if (isRegistryAcceptedEntry(record)) {
-      return yield* registryAssessment(item, filter, record, graph);
-    }
-    if (filter === "outdated" && isGitAcceptedEntry(record)) {
-      return yield* gitAssessment(item, record);
-    }
+): ExtensionAssessment | undefined => {
+  if (item.installed === null)
+    return {
+      state: "unknown",
+      reason: "Installation presence could not be observed.",
+    } satisfies ExtensionAssessment;
+  if (!item.installed) return { state: "not-applicable" } satisfies ExtensionAssessment;
+  // Desired state does not reach these packages, so no accepted source applies.
+  if (item.management === "leftover") {
+    return {
+      state: "not-applicable",
+      reason: "Installed package is not configured",
+    } satisfies ExtensionAssessment;
+  }
+  if (item.management === "undeclared") {
+    return {
+      state: "not-applicable",
+      reason: "Authored package is not declared",
+    } satisfies ExtensionAssessment;
+  }
+  if (item.source !== undefined && isWorkspaceSourceLocator(item.source)) {
     return { state: "not-applicable" } satisfies ExtensionAssessment;
-  });
+  }
+  if (record === undefined) {
+    return {
+      state: "unknown",
+      reason: "Installed extension has no accepted external resolution",
+    } satisfies ExtensionAssessment;
+  }
+  return undefined;
+};
 
 export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionListItems")(function* (
   items: ReadonlyArray<AssessedExtensionListItem>,
@@ -321,25 +314,90 @@ export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionList
         Effect.map((accepted) => ({ item, position, record: Option.getOrUndefined(accepted) })),
       ),
   );
-  const isRegistry = (observation: (typeof observations)[number]) =>
-    observation.record !== undefined && isRegistryAcceptedEntry(observation.record);
-  const assess = ({ item, position, record }: (typeof observations)[number]) =>
-    assessItem(item, filter, record, graph).pipe(
-      Effect.map((assessment) => ({ position, item: { ...item, assessment } })),
-    );
-  // Present one protocol-sized set to the shared resolver at a time. A small
-  // worker pool fragments known Registry identities into unnecessary requests.
-  // Non-Registry providers retain their independent traversal bound.
-  const registry = yield* Effect.forEach(
-    chunksOf(observations.filter(isRegistry), MAX_RESOLUTION_ITEMS),
-    (batch) => Effect.forEach(batch, assess, { concurrency: batch.length }),
+  const factory = yield* RegistryClientFactory;
+  const assess = ({ item, record }: (typeof observations)[number]) =>
+    Effect.gen(function* () {
+      const local = localAssessment(item, record);
+      if (local !== undefined) return local;
+      if (filter === "outdated" && record !== undefined && isGitAcceptedEntry(record))
+        return yield* gitAssessment(item, record);
+      return { state: "not-applicable" } satisfies ExtensionAssessment;
+    });
+  const results = yield* Effect.forEach(chunksOf(observations, MAX_RESOLUTION_ITEMS), (batch) =>
+    Effect.gen(function* () {
+      type Observation = (typeof observations)[number];
+      const groups = new Map<
+        string,
+        Array<Observation & { readonly record: RegistryAcceptedEntry }>
+      >();
+      const other: Observation[] = [];
+      for (const observation of batch) {
+        const { record, item } = observation;
+        if (
+          localAssessment(item, record) !== undefined ||
+          record === undefined ||
+          !isRegistryAcceptedEntry(record)
+        ) {
+          other.push(observation);
+          continue;
+        }
+        const group = groups.get(record.source.url.href) ?? [];
+        group.push({ ...observation, record });
+        groups.set(record.source.url.href, group);
+      }
+      const registry = yield* Effect.forEach(
+        [...groups.values()],
+        (group) =>
+          Effect.gen(function* () {
+            const first = group[0];
+            if (first === undefined) return [];
+            const selected = yield* factory.forEndpoint(first.record.source.url).pipe(
+              Effect.flatMap((client) =>
+                client.selectMany(
+                  group.map(({ item, record }) => ({
+                    owner: record.identity.owner,
+                    type: item.type,
+                    name: record.identity.name,
+                  })),
+                ),
+              ),
+              Effect.result,
+            );
+            return yield* Effect.forEach(group, ({ item, record, position }, index) =>
+              Effect.gen(function* () {
+                const observed = Result.isFailure(selected)
+                  ? Result.fail(selected.failure)
+                  : selected.success[index];
+                if (observed === undefined)
+                  return yield* Effect.die("Registry selection omitted an assessment identity");
+                return {
+                  position,
+                  item: {
+                    ...item,
+                    assessment: yield* registryAssessment(item, filter, record, graph, observed),
+                  },
+                };
+              }),
+            );
+          }),
+        { concurrency: Math.max(1, groups.size) },
+      );
+      const independent = yield* Effect.forEach(
+        other,
+        (observation) =>
+          assess(observation).pipe(
+            Effect.map((assessment) => ({
+              position: observation.position,
+              item: { ...observation.item, assessment },
+            })),
+          ),
+        { concurrency: 6 },
+      );
+      return [...registry.flat(), ...independent];
+    }),
   );
-  const other = yield* Effect.forEach(
-    observations.filter((observation) => !isRegistry(observation)),
-    assess,
-    { concurrency: 6 },
-  );
-  return [...registry.flat(), ...other]
+  return results
+    .flat()
     .sort((left, right) => left.position - right.position)
     .map(({ item }): AssessedExtensionListItem => item);
 });

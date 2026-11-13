@@ -74,6 +74,9 @@ export interface RegistryResponseFixture {
 /** A recorded Registry port: every request observed, every answer supplied. */
 export const makeRecordedRegistryPort = (
   respond: (request: ObservedRegistryRequest) => RegistryResponseFixture,
+  authorization: Parameters<
+    typeof makeRegistryClientFactory
+  >[0]["authorization"] = passThroughRegistryAuthorization,
 ) => {
   const requests: Array<ObservedRegistryRequest> = [];
   const firstRequest = Deferred.makeUnsafe<void>();
@@ -112,7 +115,7 @@ export const makeRecordedRegistryPort = (
         httpClient,
         fileSystem: yield* FileSystem.FileSystem,
         path: yield* Path.Path,
-        authorization: passThroughRegistryAuthorization,
+        authorization,
       });
     }),
   );
@@ -120,6 +123,7 @@ export const makeRecordedRegistryPort = (
 };
 
 export interface InspectionFixtureOptions {
+  readonly authorization?: Parameters<typeof makeRegistryClientFactory>[0]["authorization"];
   readonly scope?: WorkspaceScope;
   /** Settings document for the selected scope; written as authored. */
   readonly settings?: Readonly<Record<string, unknown>>;
@@ -182,6 +186,7 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
           detail: "Fixture extension not found",
         },
       })),
+    options.authorization,
   );
 
   const environment = ConfigProvider.layer(

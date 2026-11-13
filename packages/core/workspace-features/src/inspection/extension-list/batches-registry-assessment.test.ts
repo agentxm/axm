@@ -1,3 +1,4 @@
+import { passThroughRegistryAuthorization } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -18,7 +19,18 @@ describe("Registry assessment batching", () => {
         { length: count },
         (_, index) => `skill-${String(index).padStart(3, "0")}`,
       );
+      let authorityReads = 0;
+      const readsAtDispatch: number[] = [];
       const fixture = makeInspectionFixture({
+        authorization: {
+          ...passThroughRegistryAuthorization,
+          currentContext: (endpoint) =>
+            Effect.gen(function* () {
+              authorityReads += 1;
+              yield* Effect.yieldNow;
+              return yield* passThroughRegistryAuthorization.currentContext(endpoint);
+            }),
+        },
         settings: {
           agents: ["claude-code"],
           sources: [{ name: "company", type: "registry", location: inspectionRegistryUrl }],
@@ -44,14 +56,17 @@ describe("Registry assessment batching", () => {
             `---\nname: ${name}\ndescription: Assessment fixture\n---\n# Guidance\n`,
           ]),
         ),
-        respond: (request) => ({
-          body: publishedSkillSelection(request, {
-            versions: [
-              { version: "1.1.0", published: "2026-02-01T00:00:00.000Z" },
-              { version: "1.0.0", published: "2026-01-01T00:00:00.000Z" },
-            ],
-          }),
-        }),
+        respond: (request) => {
+          readsAtDispatch.push(authorityReads);
+          return {
+            body: publishedSkillSelection(request, {
+              versions: [
+                { version: "1.1.0", published: "2026-02-01T00:00:00.000Z" },
+                { version: "1.0.0", published: "2026-01-01T00:00:00.000Z" },
+              ],
+            }),
+          };
+        },
       });
       return fixture
         .provide(
@@ -59,6 +74,8 @@ describe("Registry assessment batching", () => {
             const before = fixture.snapshot();
             const result = yield* ListExtensions.query({ filter: "outdated" });
             expect(result.document.count).toBe(count);
+            expect(readsAtDispatch).toEqual(count === 10 ? [1] : [1, 102]);
+            expect(authorityReads).toBe(count + (count === 10 ? 1 : 2));
             expect(result.document.items.map((item) => item.name)).toEqual(names);
             expect(result.document.coverage).toMatchObject({ checked: count, unknown: 0 });
             // Records real client requests at the controlled HTTP port, not wire traffic.

@@ -12,7 +12,7 @@ import {
   makeEnvironmentProcessFixture,
   withEnvironmentRegistry,
 } from "./test-support/environment-process-fixture.js";
-import { readExtensionIndex } from "./test-support/read-extension-index.js";
+import { readExtensionIndex, readExtensionSelection } from "./test-support/read-extension-index.js";
 
 export const executionBinding = defineExecutionBinding({
   requirements: [
@@ -35,13 +35,11 @@ describe("Settings-selected default Registry over the built CLI", () => {
     const fixture = makeEnvironmentProcessFixture();
     try {
       await withEnvironmentRegistry(
-        () => ({
-          body: JSON.stringify({
-            ...readExtensionIndex,
-            description: "Selected environment service",
-          }),
-        }),
-        async (origin, requests) => {
+        (requestPath, request) =>
+          request.method === "POST" && requestPath === "/v1/resolutions"
+            ? { body: JSON.stringify(readExtensionSelection("Selected environment service")) }
+            : { status: 500, body: "Unexpected fixture request" },
+        async (origin, requests, observations) => {
           fixture.writeProjectSettings({
             defaultRegistry: "company",
             sources: [{ name: "company", type: "registry", location: origin }],
@@ -52,7 +50,10 @@ describe("Settings-selected default Registry over the built CLI", () => {
           expect(document).toMatchObject({
             result: { description: "Selected environment service" },
           });
-          expect(requests).toEqual(["/v1/extensions/%40acme/skills/review"]);
+          expect(requests).toEqual(["/v1/resolutions"]);
+          expect(observations.map(({ method, path }) => ({ method, path }))).toEqual([
+            { method: "POST", path: "/v1/resolutions" },
+          ]);
         },
       );
     } finally {

@@ -8,7 +8,7 @@ import {
   makeEnvironmentProcessFixture,
   withEnvironmentRegistry,
 } from "./test-support/environment-process-fixture.js";
-import { readExtensionIndex } from "./test-support/read-extension-index.js";
+import { readExtensionIndex, readExtensionSelection } from "./test-support/read-extension-index.js";
 import { wholeStdoutValidator } from "./test-support/wire-contracts.js";
 
 export const executionBinding = defineExecutionBinding({
@@ -87,7 +87,7 @@ describe("Offline schema discovery over the built CLI", () => {
       });
       const decodeField = wholeStdoutValidator(selected.stdout);
       await withEnvironmentRegistry(
-        () => ({ body: JSON.stringify(readExtensionIndex) }),
+        () => ({ body: JSON.stringify(readExtensionSelection()) }),
         async (origin) => {
           fixture.writeProjectSettings({
             defaultRegistry: "company",

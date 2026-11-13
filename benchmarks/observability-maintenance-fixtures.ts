@@ -12,6 +12,8 @@ import type {
 } from "./observability-fixtures.js";
 import { digest, normalizeObservation, projectComparisonField } from "./observability-process.js";
 
+const { outcome: upgradeOutcome, ...upgradeResultFields } = UpgradeAssessmentResultSchema.fields;
+
 const CommandRecord = Schema.Struct({
   executable: Schema.Literals(["npm", "axm"]),
   args: Schema.Array(Schema.String),
@@ -124,7 +126,9 @@ if (executable === 'axm' && args.length === 1 && args[0] === '--version') {
           const document = yield* Schema.decodeUnknownEffect(
             Schema.Struct({
               ok: Schema.Literal(true),
-              result: UpgradeAssessmentResultSchema,
+              mode: Schema.Literal("apply"),
+              outcome: upgradeOutcome,
+              result: Schema.Struct(upgradeResultFields),
             }),
           )(rawDocument);
           const require = (condition: boolean, message: string) =>
@@ -133,7 +137,7 @@ if (executable === 'axm' && args.length === 1 && args[0] === '--version') {
             Number.isFinite(Date.parse(value)) &&
             Date.parse(value) >= startedAtMillis &&
             Date.parse(value) <= endedAtMillis;
-          yield* require(document.result.outcome ===
+          yield* require(document.outcome ===
             item.outcome, "Upgrade did not report the expected successful disposition.");
           yield* require(timestampInInvocation(
             document.result.canonical.validatedAt,

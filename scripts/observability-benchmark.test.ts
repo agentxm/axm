@@ -631,11 +631,11 @@ describe("independent comparison artifacts", () => {
         const source = kind === "skills" ? "./native-skill" : "./native-reviewer.md";
         const raw = {
           ok: true,
+          mode,
+          outcome: mode === "apply" ? "applied" : "previewed",
           result: {
             contract: "plan-result-v4",
             planName: "Import native extension",
-            mode,
-            outcome: mode === "apply" ? "applied" : "previewed",
             candidateId: "f".repeat(64),
             counts: {
               total: 1,
@@ -679,12 +679,17 @@ describe("independent comparison artifacts", () => {
           result: { ...raw.result, footprint: [{ path: "axm.json", change: "removed" }] },
         });
         expect(changed.stdoutComparison).not.toBe(first.stdoutComparison);
+        for (const envelope of [
+          { ...raw, mode: mode === "apply" ? "preview" : "apply" },
+          { ...raw, outcome: "blocked" },
+          { ok: true, result: { ...raw.result, mode: raw.mode, outcome: raw.outcome } },
+        ]) {
+          expect((yield* verify(envelope).pipe(Effect.result))._tag).toBe("Failure");
+        }
         for (const result of [
           { ...raw.result, candidateId: "invalid" },
           { ...raw.result, contract: "other-contract" },
           { ...raw.result, planName: "Unrelated plan" },
-          { ...raw.result, mode: mode === "apply" ? "preview" : "apply" },
-          { ...raw.result, outcome: "blocked" },
           { ...raw.result, units: [] },
           { ...raw.result, units: [{ id: "skill:other", label: "Other target", state: "ready" }] },
           { ...raw.result, counts: { ...raw.result.counts, committed: 2 } },
@@ -1549,10 +1554,11 @@ describe("independent comparison artifacts", () => {
             fs.writeFileSync(file, bytes, { mode: 0o600 });
             const stdout = JSON.stringify({
               ok: false,
+              mode: "apply",
+              outcome: "failed",
               diagnosticId: id,
               result: {
                 contract: "plan-result-v4",
-                outcome: "failed",
                 failure: { code: "internal", message: message + " (internal)" },
                 units: [
                   {
@@ -1676,9 +1682,10 @@ describe("independent comparison artifacts", () => {
               artifacts,
               stdout: JSON.stringify({
                 ok: false,
+                mode: "apply",
+                outcome: "failed",
                 diagnosticId: id,
                 result: {
-                  outcome: "failed",
                   failure: {
                     code: "internal",
                     message:

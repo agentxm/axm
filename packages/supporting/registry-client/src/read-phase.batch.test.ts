@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Result from "effect/Result";
 import { ResolutionMetadataRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import * as Exit from "effect/Exit";
@@ -191,62 +192,72 @@ it.effect("shares across clients only inside one phase and starts fresh after it
   }),
 );
 
-it.effect("interrupts an abandoned request and retries it while the phase remains open", () =>
-  Effect.gen(function* () {
-    const started = yield* Deferred.make<void>();
-    let requests = 0;
-    const interrupted = yield* Deferred.make<void>();
-    const http = HttpClient.make((request) =>
-      Effect.gen(function* () {
-        requests += 1;
-        if (requests === 1) {
-          yield* Deferred.succeed(started, undefined);
-          return yield* Effect.never.pipe(
-            Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined)),
-          );
-        }
-        return HttpClientResponse.fromWeb(
-          request,
-          new Response(
-            JSON.stringify({
-              schemaVersion: 2,
-              purpose: "select",
-              selectionPolicyVersion: "1",
-              observedAt,
-              results: [{ key: "0", outcome: "metadata", page }],
-            }),
-            { status: 200 },
-          ),
-        );
-      }),
-    );
-    yield* Effect.gen(function* () {
-      const factory = yield* RegistryClientFactory;
-      const client = yield* factory.forEndpoint(testRegistryEndpoint);
-      const read = client.getExtensionIndex({
-        owner: handle("@acme"),
-        type: "skill",
-        name: extensionName("shared"),
-      });
-      yield* factory.withReadPhase(
+it.effect.each([1, 2])(
+  "interrupts all %i abandoned waiters and retries within the open phase",
+  (waiters) =>
+    Effect.gen(function* () {
+      const started = yield* Deferred.make<void>();
+      let requests = 0;
+      const interrupted = yield* Deferred.make<void>();
+      const http = HttpClient.make((request) =>
         Effect.gen(function* () {
-          const abandoned = yield* Effect.forkChild(read);
-          yield* Deferred.await(started);
-          yield* Fiber.interrupt(abandoned);
-          yield* Deferred.await(interrupted);
-          expect(Option.isSome(yield* read)).toBe(true);
-          expect(requests).toBe(2);
+          requests += 1;
+          if (requests === 1) {
+            yield* Deferred.succeed(started, undefined);
+            return yield* Effect.never.pipe(
+              Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined)),
+            );
+          }
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(
+              JSON.stringify({
+                schemaVersion: 2,
+                purpose: "select",
+                selectionPolicyVersion: "1",
+                observedAt,
+                results: [{ key: "0", outcome: "metadata", page }],
+              }),
+              { status: 200 },
+            ),
+          );
         }),
       );
-    }).pipe(
-      Effect.provide(
-        Layer.provideMerge(
-          RegistryTransportTest(Layer.succeed(HttpClient.HttpClient, http)),
-          NodeServices.layer,
+      yield* Effect.gen(function* () {
+        const factory = yield* RegistryClientFactory;
+        const client = yield* factory.forEndpoint(testRegistryEndpoint);
+        const read = client.getExtensionIndex({
+          owner: handle("@acme"),
+          type: "skill",
+          name: extensionName("shared"),
+        });
+        yield* factory.withReadPhase(
+          Effect.gen(function* () {
+            const abandoned = yield* Effect.forEach(Array.from({ length: waiters }), () =>
+              Effect.forkChild(read),
+            );
+            yield* Deferred.await(started);
+            for (const [index, fiber] of abandoned.entries()) {
+              yield* Fiber.interrupt(fiber);
+              if (index < abandoned.length - 1) {
+                expect(yield* Deferred.isDone(interrupted)).toBe(false);
+                expect(requests).toBe(1);
+              }
+            }
+            yield* Deferred.await(interrupted);
+            expect(Option.isSome(yield* read)).toBe(true);
+            expect(requests).toBe(2);
+          }),
+        );
+      }).pipe(
+        Effect.provide(
+          Layer.provideMerge(
+            RegistryTransportTest(Layer.succeed(HttpClient.HttpClient, http)),
+            NodeServices.layer,
+          ),
         ),
-      ),
-    );
-  }),
+      );
+    }),
 );
 
 it.effect("keeps a running batch alive for a remaining requester", () =>
@@ -443,4 +454,80 @@ it.effect("known sets and individual reads share the same phase cache", () =>
       ),
     );
   }),
+);
+
+it.effect(
+  "keeps the same identity at separate Registry endpoints in separate batches and cache entries",
+  () =>
+    Effect.gen(function* () {
+      const endpoints = [
+        testRegistryEndpoint,
+        decodeRegistryEndpointSync("https://second.example.test"),
+      ];
+      const origins: string[] = [];
+      const http = HttpClient.make((request) =>
+        Effect.sync(() => {
+          const origin = new URL(request.url).origin;
+          origins.push(origin);
+          if (request.body._tag !== "Uint8Array") throw new Error("Expected selection request");
+          const input = Schema.decodeUnknownSync(
+            Schema.fromJsonString(ResolutionMetadataRequestSchema),
+          )(new TextDecoder().decode(request.body.body));
+          expect(input.items).toHaveLength(1);
+          return HttpClientResponse.fromWeb(
+            request,
+            Response.json({
+              schemaVersion: 2,
+              purpose: "select",
+              selectionPolicyVersion: "1",
+              observedAt,
+              results: input.items.map(({ key }) => ({
+                key,
+                outcome: "metadata",
+                page: {
+                  ...page,
+                  publisherBindingId: origin,
+                },
+              })),
+            }),
+          );
+        }),
+      );
+      yield* Effect.gen(function* () {
+        const factory = yield* RegistryClientFactory;
+        const clients = yield* Effect.forEach(endpoints, (endpoint) =>
+          factory.forEndpoint(endpoint),
+        );
+        const readBoth = Effect.forEach(
+          clients,
+          (client) =>
+            client.getExtensionIndex({
+              owner: handle("@acme"),
+              type: "skill",
+              name: extensionName("shared"),
+            }),
+          { concurrency: clients.length },
+        );
+        yield* factory.withReadPhase(
+          Effect.gen(function* () {
+            const first = yield* readBoth;
+            const repeated = yield* readBoth;
+            expect(
+              first.map((value) => Option.map(value, (index) => index.publisherBindingId)),
+            ).toEqual(endpoints.map((endpoint) => Option.some(new URL(endpoint.href).origin)));
+            expect(repeated).toEqual(first);
+            expect(origins.sort()).toEqual(
+              endpoints.map((endpoint) => new URL(endpoint.href).origin).sort(),
+            );
+          }),
+        );
+      }).pipe(
+        Effect.provide(
+          Layer.provideMerge(
+            RegistryTransportTest(Layer.succeed(HttpClient.HttpClient, http)),
+            NodeServices.layer,
+          ),
+        ),
+      );
+    }),
 );

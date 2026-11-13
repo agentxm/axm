@@ -31,6 +31,7 @@ import {
   snapshotTree,
 } from "../benchmarks/observability-process.js";
 import { harnessProvenance } from "../benchmarks/observability-provenance.js";
+import { verifyStagedNativeImport } from "../benchmarks/observability-typed-fixtures.js";
 import {
   discoverObservabilityRoutes,
   makeObservabilityCoverage,
@@ -608,6 +609,81 @@ describe("independent comparison artifacts", () => {
       outputDigest(projectPlanEvaluationTime(JSON.stringify(changed), epoch - 1, epoch + 1), []),
     ).not.toBe(outputDigest(projected, []));
   });
+
+  it.effect.each([
+    ["skills", "apply"],
+    ["skills", "preview"],
+    ["subagents", "apply"],
+    ["subagents", "preview"],
+  ] as const)(
+    "compares only independently staged %s %s identity while preserving the result contract",
+    ([kind, mode]) =>
+      Effect.gen(function* () {
+        const source = kind === "skills" ? "./native-skill" : "./native-reviewer.md";
+        const raw = {
+          ok: true,
+          result: {
+            contract: "plan-result-v4",
+            planName: "Import native extension",
+            mode,
+            outcome: mode === "apply" ? "applied" : "previewed",
+            candidateId: "f".repeat(64),
+            counts: {
+              total: 1,
+              ready: mode === "preview" ? 1 : 0,
+              committed: mode === "apply" ? 1 : 0,
+              failed: 0,
+              blocked: 0,
+              rolledBack: 0,
+            },
+            units: [
+              {
+                id: (kind === "skills" ? "skill" : "subagent") + ":imported",
+                label: `Import ${source} -> @acme/${kind}/imported`,
+                state: mode === "apply" ? "committed" : "ready",
+                artifact: { path: kind + "/imported", change: "created" },
+              },
+            ],
+            footprint: [{ path: "axm.json", change: "modified" }],
+          },
+          suggestions: ["retained"],
+        };
+        const original = JSON.stringify(raw);
+        const verify = (value: unknown) =>
+          verifyStagedNativeImport(kind, mode, JSON.stringify(value));
+        const first = yield* verify(raw);
+        const second = yield* verify({
+          ...raw,
+          result: { ...raw.result, candidateId: "3".repeat(64) },
+        });
+        expect(second.stdoutComparison).toBe(first.stdoutComparison);
+        expect(JSON.parse(first.stdoutComparison)).toEqual({
+          ...raw,
+          result: {
+            ...raw.result,
+            candidateId: "<independently-staged-native-import-candidate>",
+          },
+        });
+        expect(JSON.stringify(raw)).toBe(original);
+        const changed = yield* verify({
+          ...raw,
+          result: { ...raw.result, footprint: [{ path: "axm.json", change: "removed" }] },
+        });
+        expect(changed.stdoutComparison).not.toBe(first.stdoutComparison);
+        for (const result of [
+          { ...raw.result, candidateId: "invalid" },
+          { ...raw.result, contract: "other-contract" },
+          { ...raw.result, planName: "Unrelated plan" },
+          { ...raw.result, mode: mode === "apply" ? "preview" : "apply" },
+          { ...raw.result, outcome: "blocked" },
+          { ...raw.result, units: [] },
+          { ...raw.result, units: [{ id: "skill:other", label: "Other target", state: "ready" }] },
+          { ...raw.result, counts: { ...raw.result.counts, committed: 2 } },
+        ]) {
+          expect((yield* verify({ ...raw, result }).pipe(Effect.result))._tag).toBe("Failure");
+        }
+      }),
+  );
 
   it("distinguishes unknown work metrics from observed zero and retains semantic ownership", () => {
     const work = {

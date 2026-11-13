@@ -96,6 +96,64 @@ const decodeDocument = Schema.decodeUnknownSync(
   Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
 );
 const decodeRecord = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown));
+
+/** Native skill/subagent imports fingerprint an independently allocated OS-temp staging path. */
+export const verifyStagedNativeImport = (
+  kind: "skills" | "subagents",
+  mode: "apply" | "preview",
+  stdout: string,
+) =>
+  Effect.gen(function* () {
+    const source = kind === "skills" ? "./native-skill" : "./native-reviewer.md";
+    const unit = kind === "skills" ? "skill" : "subagent";
+    const raw = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(stdout);
+    const document = yield* Schema.decodeUnknownEffect(
+      Schema.Struct({
+        ok: Schema.Literal(true),
+        result: Schema.Struct({
+          contract: Schema.Literal("plan-result-v4"),
+          planName: Schema.Literal("Import native extension"),
+          mode: Schema.Literal(mode),
+          outcome: Schema.Literal(mode === "apply" ? "applied" : "previewed"),
+          candidateId: Schema.String,
+          counts: Schema.Struct({
+            total: Schema.Literal(1),
+            ready: Schema.Literal(mode === "preview" ? 1 : 0),
+            committed: Schema.Literal(mode === "apply" ? 1 : 0),
+            failed: Schema.Literal(0),
+            blocked: Schema.Literal(0),
+            rolledBack: Schema.Literal(0),
+          }),
+          units: Schema.Array(
+            Schema.Struct({
+              id: Schema.Literal(unit + ":imported"),
+              label: Schema.Literal(`Import ${source} -> @acme/${kind}/imported`),
+              state: Schema.Literal(mode === "apply" ? "committed" : "ready"),
+            }),
+          ),
+        }),
+      }),
+    )(raw);
+    if (document.result.units.length !== 1 || !/^[0-9a-f]{64}$/.test(document.result.candidateId))
+      return yield* fixtureFailure(
+        "Staged native import must report one expected unit and a SHA-256 candidate identity.",
+      );
+    return {
+      assertions: [
+        "Expected native import plan, unit, mode, outcome and SHA-256 candidate identity validated.",
+        "Only this independently staged skill/subagent import's candidateId is compared as invocation-local: its material fingerprint includes the random axm-import-*/package path. Raw ID and every other output, input and state field remain retained and significant.",
+      ],
+      stdoutComparison: JSON.stringify(
+        projectComparisonField(
+          raw,
+          ["result", "candidateId"],
+          document.result.candidateId,
+          "<independently-staged-native-import-candidate>",
+        ),
+      ),
+    };
+  });
+
 const publishOutput = Schema.fromJsonString(
   Schema.Struct({
     ok: Schema.Literal(true),
@@ -806,6 +864,8 @@ export const prepareTypedObservabilityFixtures = Effect.fnUntraced(function* (op
     "skills import",
     ["skills", "import", "./native-skill", "@acme/skills/imported"],
     skill,
+    "authored",
+    { verify: ({ stdout }) => verifyStagedNativeImport("skills", "apply", stdout) },
   );
 
   const subagent = clone("subagents-native");
@@ -826,6 +886,8 @@ export const prepareTypedObservabilityFixtures = Effect.fnUntraced(function* (op
       "claude-code",
     ],
     subagent,
+    "authored",
+    { verify: ({ stdout }) => verifyStagedNativeImport("subagents", "apply", stdout) },
   );
 
   const hook = clone("hooks-native");

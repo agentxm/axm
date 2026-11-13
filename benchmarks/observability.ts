@@ -502,6 +502,8 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             periodicMaintenance: periodicMaintenanceComparison,
             automaticCacheMaintenance: automaticCacheMaintenanceComparison,
             containerReceipts: containerReceiptComparison,
+            stagedNativeImportCandidates:
+              "Only skill/subagent native import and derived preview fixtures: validate the expected plan/unit/mode/outcome and SHA-256 shape, then project result.candidateId because its material fingerprint includes an independently allocated axm-import-*/package path. Raw identity and every other result/input/state field remain significant.",
             fixtureRoots:
               "Temporary workspace/home roots normalize to indexed markers; raw bytes and hashes are retained.",
             requestOrder:
@@ -1225,10 +1227,17 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 ...(result.trace === undefined ? {} : { trace: result.trace }),
               });
               save(false);
-              if (comparisonIssues.length !== 0)
-                return yield* fail("fixture-comparison", comparisonIssues.join("; "));
+              if (comparisonIssues.length !== 0) break;
             }
           }
+          const failedComparisons = fixtureChecks.filter((check) => !check.comparisonVerified);
+          if (failedComparisons.length !== 0)
+            return yield* fail(
+              "fixture-comparison",
+              "Preflight comparisons failed in " +
+                failedComparisons.length +
+                " scenario(s); inspect each retained fixtureChecks comparisonIssues. Independent scenarios continued; failed modes were not certified.",
+            );
           if (runMode === "fixtures") {
             save(false);
             return;

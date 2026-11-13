@@ -399,6 +399,12 @@ Its preflight schedules 996 workload invocations and 498 full trace inspections.
 `AXM_OBSERVABILITY_SCENARIO_FILTER` may narrow a diagnostic fixture run using
 comma-separated scenario substrings; it never filters a measured campaign.
 
+A comparison failure stops the remaining modes of that scenario while independent
+scenarios continue. The final verdict still fails before timing can begin, and
+every failed comparison stays in `fixtureChecks`. Process, fixture, identity and
+delivery failures still stop collection immediately. This gathers independent
+comparison failures without repeatedly preparing the entire fixture set.
+
 For measurement, use a fresh output directory, set
 `AXM_OBSERVABILITY_RUN=measure`, and declare
 `AXM_OBSERVABILITY_REFERENCE_HOST=1` only after isolating the Linux x64 reference
@@ -521,6 +527,15 @@ the removed entry is explicitly not post-stat verifiable. Arbitrary missing
 directories cannot qualify as history. Devices, permissions, paths, aliases,
 ownership, ordering and every unrelated field remain strict in both cases.
 Raw receipts and classifications are retained; this audit runs only in preflight.
+
+Native skill/subagent imports include an independently allocated temporary
+staging path in the candidate fingerprint. For those two fixtures and their
+previews only, the comparator validates the expected plan, unit, mode, outcome
+and SHA-256 identity shape before projecting `result.candidateId`. The accepted
+contract binds identity to the same prepared candidate; it does not require
+separately staged imports to share an ID. Raw IDs remain retained and every
+other output, input and state field remains strict. This output-only check also
+runs in timing without a native filesystem audit.
 
 The [evidence ledger](../../benchmarks/evidence/local-observability/README.md)
 records completed captures and their provenance. This comparison rule does not

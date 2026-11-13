@@ -9,6 +9,7 @@ import { observabilityRiskScenarios, type ObservabilityCommand } from "./observa
 import { copyTemplate, type ObservabilityScenario } from "./observability-fixtures.js";
 import { digest, projectComparisonField } from "./observability-process.js";
 import { prepareStartupObservabilityFixtures } from "./observability-startup-fixtures.js";
+import { verifyStagedNativeImport } from "./observability-typed-fixtures.js";
 
 const lintObservation = Schema.Struct({
   repaired: Schema.Array(Schema.Unknown),
@@ -203,7 +204,11 @@ export const prepareObservabilityModeFixtures = Effect.fnUntraced(function* (opt
         ? verifyLint(true)
         : entry.command === "upgrade"
           ? upgradePreviewVerification
-          : previewVerification,
+          : source.id === "typed/skills/import"
+            ? ({ stdout }) => verifyStagedNativeImport("skills", "preview", stdout)
+            : source.id === "typed/subagents/import"
+              ? ({ stdout }) => verifyStagedNativeImport("subagents", "preview", stdout)
+              : previewVerification,
     });
   }
   const view = defaults.get("view");

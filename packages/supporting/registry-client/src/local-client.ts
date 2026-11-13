@@ -552,7 +552,7 @@ export const createLocalRegistryClient = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ): RegistryClient => {
-  const client = {
+  const client: Omit<RegistryClient, "withAccessibleContent"> = {
     previewExtensionPublishes: Effect.fnUntraced(function* (args: PreviewExtensionPublishesArgs) {
       const descriptors = yield* Effect.try({
         try: () => validatePublicationDescriptors(args.candidates),
@@ -787,6 +787,9 @@ export const createLocalRegistryClient = (
       const exists = yield* registryPathExists(fs, scopeDir);
       return { exists };
     }),
+
+    selectMany: (identities) =>
+      Effect.forEach(identities, (identity) => Effect.result(client.getExtensionIndex(identity))),
 
     getExtensionIndex: Effect.fnUntraced(function* (args: GetExtensionIndexArgs) {
       const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
@@ -1250,7 +1253,7 @@ export const createLocalRegistryClient = (
 
       return { results } satisfies DiscoverPackagesResponse;
     }),
-  } satisfies Omit<RegistryClient, "withAccessibleContent">;
+  };
   const withAccessibleContent = makeAccessibleContent(
     client.validateExtensionAccessBatch,
     client.getExtensionPackage,

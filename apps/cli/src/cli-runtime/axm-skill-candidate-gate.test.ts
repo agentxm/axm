@@ -123,6 +123,7 @@ const toResult = (
 
 /** Create a mock RegistryClient with controllable return values. */
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
+  selectMany: () => Effect.die("Unexpected batch selection"),
   validateExtensionAccessBatch: () =>
     Effect.die("Unexpected exact-access validation in built-in skill candidate test"),
   withAccessibleContent: () =>

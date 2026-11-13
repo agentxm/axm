@@ -195,6 +195,7 @@ const makeManifest = (overrides?: {
 
 /** Create a mock RegistryClient with controllable return values. */
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
+  selectMany: () => Effect.die("Unexpected batch selection"),
   getExtensionsByScope: () => Effect.succeed(toResult([])),
   ownerExists: () => Effect.succeed({ exists: false }),
   getExtensionIndex: () => Effect.succeed(Option.none()),
@@ -251,6 +252,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
 });
 
 const createFailingClient = (): RegistryClient => ({
+  selectMany: () => Effect.die("Unexpected batch selection"),
   getExtensionsByScope: () =>
     Effect.fail(
       new RegistryOperationFailed({

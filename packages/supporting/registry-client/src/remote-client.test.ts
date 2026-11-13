@@ -19,6 +19,7 @@ import * as Stream from "effect/Stream";
 import * as Tracer from "effect/Tracer";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
@@ -262,31 +263,32 @@ it.effect("sends one repeat-safe resolution metadata batch", () =>
           selectionPolicyVersion: "1",
           observedAt: "2026-09-22T00:00:00.000Z",
           results: [
-            { key: "first", outcome: "unavailable" },
-            { key: "second", outcome: "unavailable" },
+            { key: "0", outcome: "unavailable" },
+            { key: "1", outcome: "unavailable" },
           ],
         }),
         { status: 200 },
       );
     });
     const client = createRemoteRegistryClient(BASE_URL, httpClient);
-    if (client.getResolutionMetadata === undefined) throw new Error("Batch metadata unavailable");
     const request = Schema.decodeUnknownSync(ResolutionMetadataRequestSchema)({
       schemaVersion: 2,
       purpose: "select",
       selectionPolicyVersion: "1",
-      items: ["first", "second"].map((key) => ({
+      items: ["0", "1"].map((key) => ({
         key,
         identity: { owner: "@acme", type: "skill", name: "test-skill" },
       })),
     });
 
     const results = yield* client
-      .getResolutionMetadata(request)
+      .selectMany(request.items.map((item) => item.identity))
       .pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true));
 
     expect(methods).toEqual(["POST /v1/resolutions"]);
-    expect(results.map((result) => result.outcome)).toEqual(["unavailable", "unavailable"]);
+    expect(
+      results.map((result) => Result.isSuccess(result) && Option.isNone(result.success)),
+    ).toEqual([true, true]);
     const requests = spans.filter((span) => span.name === "axm.registry.request");
     const attempts = spans.filter((span) => span.name === "axm.registry.attempt");
     expect(requests).toHaveLength(1);
@@ -302,7 +304,7 @@ it.effect("restarts a changed metadata history before returning candidates", () 
   Effect.gen(function* () {
     const observedAt = "2026-09-22T00:00:00.000Z";
     const page = (revision: string, continuation: string | null, versions: number) => ({
-      key: "first",
+      key: "0",
       outcome: "metadata",
       page: {
         publisherBindingId: "hbnd_test",
@@ -322,7 +324,7 @@ it.effect("restarts a changed metadata history before returning candidates", () 
     });
     const replies = [
       [page("first-revision", "next", 100)],
-      [{ key: "first", outcome: "restart-required", revision: "second-revision" }],
+      [{ key: "0", outcome: "restart-required", revision: "second-revision" }],
       [page("second-revision", null, 1)],
     ];
     let calls = 0;
@@ -342,26 +344,27 @@ it.effect("restarts a changed metadata history before returning candidates", () 
       );
     });
     const client = createRemoteRegistryClient(BASE_URL, httpClient);
-    if (client.getResolutionMetadata === undefined) throw new Error("Batch metadata unavailable");
     const request = Schema.decodeUnknownSync(ResolutionMetadataRequestSchema)({
       schemaVersion: 2,
       purpose: "select",
       selectionPolicyVersion: "1",
       items: [
         {
-          key: "first",
+          key: "0",
           identity: { owner: "@acme", type: "skill", name: "test-skill" },
         },
       ],
     });
 
-    const results = yield* client.getResolutionMetadata(request);
+    const results = yield* client.selectMany(request.items.map((item) => item.identity));
 
     expect(calls).toBe(3);
-    expect(results[0]?.outcome).toBe("metadata");
-    if (results[0]?.outcome === "metadata") {
-      expect(results[0].page.revision).toBe("second-revision");
-      expect(results[0].page.versions).toHaveLength(1);
+    const first = results[0];
+    expect(first !== undefined && Result.isSuccess(first)).toBe(true);
+    if (first !== undefined && Result.isSuccess(first)) {
+      const selected = Option.getOrThrow(first.success);
+      expect(selected.versions).toHaveLength(1);
+      expect(selected.versions[0]?.version).toBe("1.0.0");
     }
   }),
 );

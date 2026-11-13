@@ -14,7 +14,6 @@ import * as Exit from "effect/Exit";
 import * as Result from "effect/Result";
 import * as Request from "effect/Request";
 import * as RequestResolver from "effect/RequestResolver";
-import * as Schema from "effect/Schema";
 
 import {
   RegistryClientFactory,
@@ -22,11 +21,7 @@ import {
   type GetExtensionIndexArgs,
   type RegistryClientFailure,
 } from "@agentxm/registry-client";
-import {
-  ExtensionIndexSchema,
-  type ExtensionIndex,
-} from "@agentxm/registry-protocol/unstable/registry";
-import type { ResolutionMetadataOutcome } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import * as Option from "effect/Option";
 
 /** Planning can inspect the same identity under several independent constraints. */
@@ -51,34 +46,6 @@ interface RegistryIndexRequest extends Request.Request<
 }
 
 const RegistryIndexRequest = Request.tagged<RegistryIndexRequest>("RegistryIndexRequest");
-
-const indexFromMetadata = (
-  key: RegistryIndexKey,
-  outcome: ResolutionMetadataOutcome,
-): Option.Option<ExtensionIndex> => {
-  if (outcome.outcome === "unavailable") return Option.none();
-  if (outcome.outcome !== "metadata") {
-    throw new Error(`Registry batch metadata returned unexpected ${outcome.outcome} outcome.`);
-  }
-  const page = outcome.page;
-  return Option.some(
-    Schema.decodeUnknownSync(Schema.toType(ExtensionIndexSchema))({
-      owner: key.owner,
-      type: key.type,
-      name: key.name,
-      publisherBindingId: page.publisherBindingId,
-      visibility: page.visibility,
-      archival: page.archival,
-      deprecation: page.deprecation,
-      ...(page.description == null ? {} : { description: page.description }),
-      ...(page.repository == null ? {} : { repository: page.repository }),
-      ...(page.bugs == null ? {} : { bugs: page.bugs }),
-      ...(page.license == null ? {} : { license: page.license }),
-      ...(page.authors == null ? {} : { authors: page.authors }),
-      versions: page.versions,
-    }),
-  );
-};
 
 export interface RegistryIndexMemoService {
   readonly get: (
@@ -189,38 +156,13 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
               });
             }
             const client = yield* registryClients.forEndpoint(endpoint.success);
-            if (client.getResolutionMetadata === undefined) {
-              return yield* Effect.forEach(entries, ({ request }) =>
-                client.getExtensionIndex(request.key),
-              );
-            }
-            const results = yield* client.getResolutionMetadata({
-              schemaVersion: 2,
-              purpose: "select",
-              selectionPolicyVersion: "1",
-              items: entries.map(({ request }, index) => ({
-                key: String(index),
-                identity: {
-                  owner: request.key.owner,
-                  type: request.key.type,
-                  name: request.key.name,
-                },
+            return yield* client.selectMany(
+              entries.map(({ request }) => ({
+                owner: request.key.owner,
+                type: request.key.type,
+                name: request.key.name,
               })),
-            });
-            return yield* Effect.try({
-              try: () =>
-                entries.map(({ request }, index) => {
-                  const outcome = results[index];
-                  if (outcome === undefined) throw new Error("Registry batch result is missing.");
-                  return indexFromMetadata(request.key, outcome);
-                }),
-              catch: (cause) =>
-                new RegistryRequestFailed({
-                  category: "internal",
-                  detail: "Registry batch metadata could not be used for index selection.",
-                  cause,
-                }),
-            });
+            );
           });
           const result = yield* Effect.exit(run);
           if (Exit.isFailure(result)) yield* Effect.annotateCurrentSpan("axm.outcome", "failure");
@@ -238,7 +180,9 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
                       detail: "Registry batch result is missing.",
                     }),
                   )
-                : Exit.succeed(value),
+                : Result.isFailure(value)
+                  ? Exit.fail(value.failure)
+                  : Exit.succeed(value.success),
             );
           }
         }).pipe(Effect.withSpan("axm.registry.metadata-batch")),

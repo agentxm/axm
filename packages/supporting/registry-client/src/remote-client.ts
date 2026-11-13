@@ -23,6 +23,8 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { makeAccessibleContent } from "./accessible-content.js";
 import { exactContentBatches } from "./exact-content-batches.js";
+import { resolutionBatches } from "./resolution-batches.js";
+import { indexFromMetadata } from "./selection-metadata.js";
 
 import * as Schema from "effect/Schema";
 import {
@@ -1513,7 +1515,29 @@ export const createRemoteRegistryClient = (
   return {
     withAccessibleContent,
     validateExtensionAccessBatch,
-    getResolutionMetadata,
+    selectMany: (identities) =>
+      Effect.gen(function* () {
+        const batches = yield* resolutionBatches(
+          identities.map((identity, index) => ({ key: String(index), identity })),
+          (items): ResolutionMetadataRequest => ({
+            schemaVersion: 2,
+            purpose: "select",
+            selectionPolicyVersion: "1",
+            items,
+          }),
+        );
+        const chunks = yield* Effect.forEach(batches, (batch) =>
+          Effect.gen(function* () {
+            const response = yield* Effect.result(getResolutionMetadata(batch));
+            if (Result.isFailure(response))
+              return batch.items.map(() => Result.fail(response.failure));
+            return yield* Effect.forEach(batch.items, (item, index) =>
+              Effect.result(indexFromMetadata(item.identity, response.success[index])),
+            );
+          }),
+        );
+        return chunks.flat();
+      }),
     getExtensionIndex,
     getExactExtensionVersion,
     getExtensionsByScope,

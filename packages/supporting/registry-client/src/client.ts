@@ -40,10 +40,6 @@ import type {
   Repository,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { DiscoverPackagesResponse } from "./discovery-response.js";
-import type {
-  ResolutionMetadataOutcome,
-  ResolutionMetadataRequest,
-} from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import type { AgentExtensionRecommendation } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import type { Version, VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -392,10 +388,13 @@ export interface RegistryClient {
     ReadonlyArray<Result.Result<void, RegistryClientFailure>>,
     RegistryClientFailure
   >;
-  /** Available for remote registries that support the batched resolution contract. */
-  readonly getResolutionMetadata?: (
-    request: ResolutionMetadataRequest,
-  ) => Effect.Effect<ReadonlyArray<ResolutionMetadataOutcome>, RegistryClientFailure>;
+  /** Complete selection metadata in input order, for every supported transport. */
+  readonly selectMany: (
+    identities: ReadonlyArray<GetExtensionIndexArgs>,
+  ) => Effect.Effect<
+    ReadonlyArray<Result.Result<Option.Option<ExtensionIndex>, RegistryClientFailure>>,
+    RegistryClientFailure
+  >;
   readonly getExtensionsByScope: (
     args: GetExtensionsByOwnerArgs,
   ) => Effect.Effect<GetExtensionsByOwnerResponse, RegistryClientFailure>;

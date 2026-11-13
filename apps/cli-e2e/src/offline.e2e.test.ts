@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { startHttpRegistry } from "./e2e/http-registry-server.js";
+import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { publishSkill } from "./test-support/registry-workspace.js";
 import { createBinaryRunner } from "@agentxm/client-e2e-utils";
 import { resolveHostBinaryPath } from "./distribution-targets.js";

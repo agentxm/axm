@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { defineExecutionBinding } from "@agentxm/specification-metadata";
 import { createBinaryRunner } from "@agentxm/client-e2e-utils";
 import { resolveHostBinaryPath } from "./distribution-targets.js";
-import { startHttpRegistry } from "./e2e/http-registry-server.js";
+import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { makeEnvironmentProcessFixture } from "./test-support/environment-process-fixture.js";
 import { publishExtension } from "./test-support/registry-workspace.js";
 

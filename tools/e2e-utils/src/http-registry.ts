@@ -53,7 +53,7 @@ interface PublishRecord {
   readonly byteLength: number;
 }
 
-/** Completed response records; requestStarts separately retains unfinished arrivals. */
+/** Every wire arrival, with status zero until its response finishes. */
 interface RequestRecord {
   readonly method: string;
   readonly path: string;

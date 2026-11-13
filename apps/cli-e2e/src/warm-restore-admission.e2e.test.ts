@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 import { createBinaryRunner } from "@agentxm/client-e2e-utils";
 import { defineExecutionBinding } from "@agentxm/specification-metadata";
 import { resolveHostBinaryPath } from "./distribution-targets.js";
-import { startHttpRegistry } from "./e2e/http-registry-server.js";
+import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { makeEnvironmentProcessFixture } from "./test-support/environment-process-fixture.js";
 import { publishSkill } from "./test-support/registry-workspace.js";
 
@@ -55,7 +55,7 @@ it("restores ten warm identities with two bulk admission stages and no archive r
     const batchStart = registry.metadataRequests.length;
     const restored = await fixture.run(["sync", "--json"], environment);
     expect(restored.exitCode, restored.stdout + restored.stderr).toBe(0);
-    expect(JSON.parse(restored.stdout)).toMatchObject({ ok: true, result: { outcome: "applied" } });
+    expect(JSON.parse(restored.stdout)).toMatchObject({ ok: true, outcome: "applied" });
     const requests = registry.requests.slice(wireStart);
     const batches = registry.metadataRequests.slice(batchStart);
     const purposes = registry.metadataPurposes.slice(batchStart);

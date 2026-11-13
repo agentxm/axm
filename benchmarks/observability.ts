@@ -23,17 +23,17 @@ import {
   observationLimitIssues,
   observationPairIssues,
   compareSummaryDetailWork,
-  nativeReceiptByteField,
-  nativeReceiptByteRowKey,
+  documentByteField,
+  documentByteRowKey,
   timingBlockOrder,
   traceModes,
   verifyBinaryIdentity,
   type BinaryManifest,
   type ObservationSample,
   type TraceMode,
-  type NativeReceiptByteRow,
-  type NativeReceiptSerialization,
-  type NativeSerializationWork,
+  type DocumentByteRow,
+  type DocumentSerialization,
+  type DocumentSerializationWork,
   type WorkComparison,
 } from "./observability-contract.js";
 import {
@@ -281,7 +281,7 @@ export const automaticCacheMaintenanceWork = (
 
 /** Compare deterministic work; preserve duration-dependent maintenance separately. */
 const workComparisonFacts = (work: ReadonlyArray<TraceWorkSummary>, scenario?: string) => {
-  const byteRows = new Map<string, NativeReceiptByteRow>();
+  const byteRows = new Map<string, DocumentByteRow>();
   const byteStrict = new Set<string>();
   const groups = new Map<string, Array<number | null>>();
   const measured = new Map<
@@ -306,10 +306,18 @@ const workComparisonFacts = (work: ReadonlyArray<TraceWorkSummary>, scenario?: s
         )
         .sort(([a], [b]) => a.localeCompare(b)),
     ]);
-    const field = scenario === undefined ? undefined : nativeReceiptByteField(scenario, row);
+    const field = scenario === undefined ? undefined : documentByteField(scenario, row);
     const measuredBytes = field === undefined ? undefined : row.measurements[field.measurement];
     const value = field === undefined ? undefined : row[field.field];
+    const execution = row.measurements["axm.work.executed"];
+    const diagnosticExecution =
+      scenario !== "installed/adopt-enabled-native-refusal" ||
+      (row.executed === row.count &&
+        execution?.total === row.count &&
+        execution.measured === row.count &&
+        execution.occurrences === row.count);
     if (
+      !diagnosticExecution ||
       field === undefined ||
       measuredBytes === undefined ||
       value === null ||
@@ -371,7 +379,7 @@ const workComparisonFacts = (work: ReadonlyArray<TraceWorkSummary>, scenario?: s
       }),
     );
   }
-  const inconclusive = "<native-allocation-byte-equivalence-unproven>";
+  const inconclusive = "<serialized-document-byte-equivalence-unproven>";
   return {
     digest: digest(
       JSON.stringify(
@@ -402,7 +410,7 @@ const workComparisonFacts = (work: ReadonlyArray<TraceWorkSummary>, scenario?: s
       ),
     ),
     byteRows: [...byteRows.values()].sort((a, b) =>
-      nativeReceiptByteRowKey(a).localeCompare(nativeReceiptByteRowKey(b)),
+      documentByteRowKey(a).localeCompare(documentByteRowKey(b)),
     ),
   };
 };
@@ -412,11 +420,11 @@ export const workDigest = (work: ReadonlyArray<TraceWorkSummary>): string =>
   workComparisonFacts(work).digest;
 
 /** Also usable against retained inspections; it neither recaptures work nor changes raw records. */
-export const nativeSerializationWork = (
+export const documentSerializationWork = (
   scenario: string,
   work: ReadonlyArray<TraceWorkSummary>,
-  receipt: NativeReceiptSerialization | undefined,
-): NativeSerializationWork | undefined => {
+  receipt: DocumentSerialization | undefined,
+): DocumentSerializationWork | undefined => {
   if (receipt === undefined) return undefined;
   const facts = workComparisonFacts(work, scenario);
   if (facts.byteRows.length === 0) return undefined;
@@ -597,6 +605,8 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             periodicMaintenance: periodicMaintenanceComparison,
             automaticCacheMaintenance: automaticCacheMaintenanceComparison,
             containerReceipts: containerReceiptComparison,
+            adoptionDiagnosticSerialization:
+              "Only the independently validated adoption-refusal diagnostic: two fully measured write aggregates (command count 1, operation count 6) may differ by exactly its final history elapsedMs scalar-width delta. Other work, quantities and semantics remain strict. Raw bytes remain unequal; this is byte-inconclusive eligibility, not proof of intermediate-write attribution.",
             stagedNativeImportCandidates:
               "Only skill/subagent native import and derived preview fixtures: validate the expected plan/unit/mode/outcome and SHA-256 shape, then project result.candidateId because its material fingerprint includes an independently allocated axm-import-*/package path. Raw identity and every other result/input/state field remain significant.",
             fixtureRoots:
@@ -1249,10 +1259,11 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 const automaticCacheMaintenance = yield* automaticCacheMaintenanceWork(inspected);
                 const variableRows = new Set(automaticCacheMaintenance);
                 const comparedWork = inspected.work.filter((row) => !variableRows.has(row));
-                const nativeWork = nativeSerializationWork(
+                const serializationWork = documentSerializationWork(
                   scenario.id,
                   comparedWork,
-                  receiptVerification?.nativeReceiptSerialization,
+                  operationVerification?.adoptionDiagnosticSerialization ??
+                    receiptVerification?.nativeReceiptSerialization,
                 );
                 trace = {
                   ...trace,
@@ -1260,7 +1271,9 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                   retainedDetailSpanCount: inspected.evidence.retainedDetailSpanCount,
                   summaryGroups: inspected.evidence.aggregateEventCount,
                   workDigest: workDigest(comparedWork),
-                  ...(nativeWork === undefined ? {} : { nativeSerializationWork: nativeWork }),
+                  ...(serializationWork === undefined
+                    ? {}
+                    : { documentSerializationWork: serializationWork }),
                   periodicMaintenance: periodicMaintenanceWork(inspected.work),
                   automaticCacheMaintenance,
                   retrievalBytes: Buffer.byteLength(retrieved.stdout),

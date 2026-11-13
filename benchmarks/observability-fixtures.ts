@@ -21,7 +21,11 @@ import { prepareTypedObservabilityFixtures } from "./observability-typed-fixture
 import { prepareAuthObservabilityFixtures } from "./observability-auth-fixtures.js";
 import { prepareMaintenanceObservabilityFixtures } from "./observability-maintenance-fixtures.js";
 import { observabilityRiskScenarios } from "./observability-coverage.js";
-import { fixtureFailure, type NativeReceiptSerialization } from "./observability-contract.js";
+import {
+  fixtureFailure,
+  type NativeReceiptSerialization,
+  type AdoptionDiagnosticSerialization,
+} from "./observability-contract.js";
 import {
   digest,
   normalizeObservation,
@@ -105,6 +109,7 @@ export interface ObservabilityScenario {
     {
       readonly assertions: ReadonlyArray<string>;
       readonly stdoutComparison?: string;
+      readonly adoptionDiagnosticSerialization?: AdoptionDiagnosticSerialization;
       readonly retainedArtifacts?: ReadonlyArray<{
         readonly name: string;
         readonly source: string;
@@ -304,6 +309,11 @@ export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario[
       record.occurredAt,
       "<during-invocation>",
     );
+    if (diagnosticBytes.toString("utf8") !== JSON.stringify(rawRecord) + "\n")
+      return yield* fixtureFailure(
+        "Adoption diagnostic must retain its canonical serialized bytes.",
+      );
+    const projectedFields: Array<AdoptionDiagnosticSerialization["projectedFields"][number]> = [];
     let previous = 0;
     for (const [index, transition] of (record.failure.history ?? []).entries()) {
       const elapsed = transition.elapsedMs;
@@ -317,6 +327,11 @@ export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario[
           "Adoption diagnostic history has invalid invocation-relative timing.",
         );
       previous = elapsed;
+      projectedFields.push({
+        path: "failure/history/" + index + "/elapsedMs",
+        bytes: Buffer.byteLength(JSON.stringify(elapsed)),
+        historical: false,
+      });
       projected = projectComparisonField(
         projected,
         ["failure", "history", String(index), "elapsedMs"],
@@ -324,7 +339,21 @@ export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario[
         "<invocation-relative-duration>",
       );
     }
+    const comparisonSha256 = digest(
+      JSON.stringify(normalizeObservation(projected, [fixture.workspace, fixture.home])),
+    );
     return {
+      adoptionDiagnosticSerialization: {
+        path: ".axm/diagnostics/adoption-diagnostic.json" as const,
+        rawSha256: digest(diagnosticBytes),
+        rawBytes: diagnosticBytes.byteLength,
+        comparisonSha256,
+        projectedScalarBytes: projectedFields.reduce((sum, field) => sum + field.bytes, 0),
+        projectedFieldCount: projectedFields.length,
+        historicalFieldCount: 0 as const,
+        projectedFields,
+        validation: "invocation-bound-adoption-diagnostic" as const,
+      },
       assertions: [
         "Raw adoption diagnostic retained; printed UUID, file identity, internal refusal cause and occurrence/history timing independently validated.",
         "Only the validated event/invocation UUIDs, occurrence/history times and exact diagnostic filename are projected; failure semantics, history order, causes and unknown fields remain strict.",
@@ -335,9 +364,7 @@ export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario[
           container: "home" as const,
           path: relative,
           comparisonPath: ".axm/diagnostics/adoption-diagnostic.json",
-          sha256: digest(
-            JSON.stringify(normalizeObservation(projected, [fixture.workspace, fixture.home])),
-          ),
+          sha256: comparisonSha256,
           reason:
             "Exact adoption diagnostic UUID binding and process-bounded times verified before projection; raw path, record and hashes retained.",
         },

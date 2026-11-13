@@ -19,6 +19,7 @@ import {
   type ObservationSample,
   type PreflightCheck,
   type NativeReceiptSerialization,
+  type AdoptionDiagnosticSerialization,
 } from "../benchmarks/observability-contract.js";
 import {
   compressObservationArtifacts,
@@ -47,7 +48,7 @@ import {
   automaticCacheMaintenanceWork,
   periodicMaintenanceWork,
   workDigest,
-  nativeSerializationWork,
+  documentSerializationWork,
 } from "../benchmarks/observability.js";
 
 const budgets = Schema.decodeUnknownSync(Schema.fromJsonString(ObservabilityBudgetsSchema))(
@@ -742,6 +743,138 @@ describe("independent comparison artifacts", () => {
     );
   });
 
+  it("bounds diagnostic serialization uncertainty without treating bytes as equal", () => {
+    const scenario = "installed/adopt-enabled-native-refusal";
+    const proof = (wide: boolean): AdoptionDiagnosticSerialization => ({
+      path: ".axm/diagnostics/adoption-diagnostic.json",
+      rawSha256: digest(wide ? "wide diagnostic" : "narrow diagnostic"),
+      rawBytes: wide ? 3371 : 3369,
+      comparisonSha256: digest("same independently validated diagnostic"),
+      projectedScalarBytes: wide ? 13 : 11,
+      projectedFieldCount: 5,
+      historicalFieldCount: 0,
+      projectedFields: [1, wide ? 3 : 2, wide ? 3 : 2, 3, 3].map((bytes, index) => ({
+        path: "failure/history/" + index + "/elapsedMs",
+        bytes,
+        historical: false,
+      })),
+      validation: "invocation-bound-adoption-diagnostic",
+    });
+    const rows = (bytes: number): ReadonlyArray<TraceWorkSummary> =>
+      ["axm.cli.command", "axm.cli.operation"].map((ownerName) => {
+        const count = ownerName === "axm.cli.command" ? 1 : 6;
+        const ioBytes = bytes + (count === 1 ? 0 : 700);
+        return {
+          ...deliveredReuse("hit"),
+          ownerName,
+          count,
+          kind: "axm.io.write-file",
+          dimensions: { "axm.work.owner": ownerName, "axm.outcome": "success" },
+          requested: null,
+          reused: null,
+          executed: count,
+          ioBytes,
+          measurements: {
+            "axm.work.executed": { total: count, measured: count, occurrences: count },
+            "axm.io.bytes": { total: ioBytes, measured: count, occurrences: count },
+          },
+        };
+      });
+    const trace = (
+      evidence: AdoptionDiagnosticSerialization,
+      work = rows(evidence.rawBytes),
+      selected = scenario,
+    ): NonNullable<ObservationSample["trace"]> => {
+      const serialization = documentSerializationWork(selected, work, evidence);
+      return {
+        complete: true,
+        delivery: "inspected",
+        periodicMaintenance: [],
+        automaticCacheMaintenance: [],
+        retainedSpanCount: 8,
+        retainedDetailSpanCount: 7,
+        summaryGroups: 2,
+        diagnosticShutdownMillis: 1,
+        exportFinalizationMillis: 1,
+        traceId: "0123456789abcdef0123456789abcdef",
+        rootSpanId: "0123456789abcdef",
+        workDigest: workDigest(work),
+        ...(serialization === undefined ? {} : { documentSerializationWork: serialization }),
+      };
+    };
+    const a = proof(false),
+      b = proof(true);
+    const left = trace(a),
+      right = trace(b);
+    const original = JSON.stringify({ a, b, left, right });
+    expect(compareSummaryDetailWork(scenario, left, right)).toMatchObject({
+      status: "diagnostic-serialization-bytes-inconclusive",
+      byteEquivalence: "unproven",
+      completeAttribution: "unproven",
+      issues: [],
+    });
+    expect(left.workDigest).not.toBe(right.workDigest);
+    expect(JSON.stringify({ a, b, left, right })).toBe(original);
+    const altered = rows(b.rawBytes).map((row) => ({
+      ...row,
+      ioBytes: (row.ioBytes ?? 0) + 1,
+      measurements: {
+        ...row.measurements,
+        "axm.io.bytes": {
+          total: (row.ioBytes ?? 0) + 1,
+          measured: row.count,
+          occurrences: row.count,
+        },
+      },
+    }));
+    const negatives = [
+      trace({ ...b, comparisonSha256: digest("changed semantics") }),
+      trace({ ...b, projectedScalarBytes: 14 }),
+      trace({
+        ...b,
+        projectedFields: b.projectedFields.map((field) => ({
+          ...field,
+          path: "failure/other/elapsedMs",
+        })),
+      }),
+      trace({ ...b, rawBytes: b.rawBytes + 1 }, rows(b.rawBytes)),
+      trace(b, altered),
+      trace(b, rows(b.rawBytes).slice(0, 1)),
+      trace(b, [...rows(b.rawBytes), ...rows(b.rawBytes)]),
+      trace(
+        b,
+        rows(b.rawBytes).map((row) => ({ ...row, count: row.count + 1 })),
+      ),
+      trace(
+        b,
+        rows(b.rawBytes).map((row) => ({ ...row, executed: 0 })),
+      ),
+      trace(
+        b,
+        rows(b.rawBytes).map((row) => ({ ...row, ownerName: "unrelated" })),
+      ),
+      trace(
+        b,
+        rows(b.rawBytes).map((row) => ({
+          ...row,
+          dimensions: { ...row.dimensions, "axm.outcome": "failure" },
+        })),
+      ),
+      trace(
+        b,
+        rows(b.rawBytes).map((row) => ({ ...row, measurements: {} })),
+      ),
+      trace(b, rows(b.rawBytes), "other-scenario"),
+      { ...right, complete: false },
+      { ...right, delivery: "not-individually-inspected" as const },
+    ];
+    for (const [index, invalid] of negatives.entries())
+      expect(compareSummaryDetailWork(scenario, left, invalid).status, String(index)).toBe(
+        "different",
+      );
+    expect(compareSummaryDetailWork("other-scenario", left, right).status).toBe("different");
+  });
+
   it("keeps exact bytes while bounding native-allocation byte uncertainty to proved cases and rows", () => {
     // This checks the comparison method; the runtime receipt-publication test owns real FS byte accounting.
     const receipt = (inode: string): NativeReceiptSerialization => {
@@ -785,7 +918,7 @@ describe("independent comparison artifacts", () => {
       work: ReadonlyArray<TraceWorkSummary>,
       proof: NativeReceiptSerialization | undefined,
     ): NonNullable<ObservationSample["trace"]> => {
-      const native = nativeSerializationWork(scenario, work, proof);
+      const native = documentSerializationWork(scenario, work, proof);
       return {
         complete: true,
         delivery: "inspected",
@@ -799,7 +932,7 @@ describe("independent comparison artifacts", () => {
         traceId: "0123456789abcdef0123456789abcdef",
         rootSpanId: "0123456789abcdef",
         workDigest: workDigest(work),
-        ...(native === undefined ? {} : { nativeSerializationWork: native }),
+        ...(native === undefined ? {} : { documentSerializationWork: native }),
       };
     };
     const workA = [row(a.rawBytes)];
@@ -899,16 +1032,16 @@ describe("independent comparison artifacts", () => {
         .status,
     ).toBe("different");
     const detail = trace(scenario, workB, b);
-    if (detail.nativeSerializationWork === undefined)
+    if (detail.documentSerializationWork === undefined)
       throw new Error("Missing test comparison evidence");
     expect(
       compareSummaryDetailWork(scenario, summary, {
         ...detail,
-        nativeSerializationWork: {
-          ...detail.nativeSerializationWork,
+        documentSerializationWork: {
+          ...detail.documentSerializationWork,
           byteRows: [
-            ...detail.nativeSerializationWork.byteRows,
-            ...detail.nativeSerializationWork.byteRows,
+            ...detail.documentSerializationWork.byteRows,
+            ...detail.documentSerializationWork.byteRows,
           ],
         },
       }).status,
@@ -1379,8 +1512,12 @@ describe("independent comparison artifacts", () => {
                 command: "adopt",
                 history: [
                   { operation: "workspace.planning", outcome: "started", elapsedMs: 0 },
-                  { operation: "workspace.validation", outcome: "started", elapsedMs: 100 + index },
-                  { operation: "workspace.apply", outcome: "started", elapsedMs: 102 + index },
+                  {
+                    operation: "workspace.validation",
+                    outcome: "started",
+                    elapsedMs: 95 + index * 20,
+                  },
+                  { operation: "workspace.apply", outcome: "started", elapsedMs: 97 + index * 20 },
                   {
                     operation: "workspace.restoration",
                     outcome: "started",
@@ -1444,6 +1581,15 @@ describe("independent comparison artifacts", () => {
               fs.readFileSync(path.join(artifacts, "retained", "adoption-diagnostic.json"), "utf8"),
             ).toBe(bytes);
             expect(fs.readFileSync(file, "utf8")).toBe(bytes);
+            expect(result.adoptionDiagnosticSerialization).toMatchObject({
+              rawSha256: digest(bytes),
+              rawBytes: Buffer.byteLength(bytes),
+              projectedScalarBytes: index === 0 ? 11 : 13,
+              projectedFieldCount: 5,
+              historicalFieldCount: 0,
+              comparisonSha256: result.fileComparisons?.[0]?.sha256,
+              validation: "invocation-bound-adoption-diagnostic",
+            });
             const projection = result.fileComparisons?.[0];
             if (projection === undefined || result.stdoutComparison === undefined)
               return yield* Effect.die("Missing validated diagnostic comparison");

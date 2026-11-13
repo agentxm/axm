@@ -10,7 +10,7 @@ import {
   inspectionRegistryUrl,
   makeInspectionFixture,
   makeInstalledSkillFixture,
-  publishedSkillIndex,
+  publishedSkillSelection,
 } from "../testing.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
@@ -87,7 +87,12 @@ describe("Recorded Registry update assessment", () => {
             // Every request went to the recorded Registry source, never elsewhere.
             expect(fixture.requests.length).toBeGreaterThan(0);
             for (const request of fixture.requests)
-              expect(request.url).toContain("/v1/extensions/%40acme/skills/review");
+              expect(request).toMatchObject({
+                url: `${inspectionRegistryUrl}/v1/resolutions`,
+                selection: {
+                  items: [{ identity: { owner: "@acme", type: "skill", name: "review" } }],
+                },
+              });
           }),
         )
         .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
@@ -125,8 +130,8 @@ describe("Recorded Registry update assessment", () => {
             dependencies: { "@acme/skills/review": "~1.0.0" },
           }),
         },
-        respond: () => ({
-          body: publishedSkillIndex({
+        respond: (request) => ({
+          body: publishedSkillSelection(request, {
             versions: [
               { version: "1.1.0", published: "2026-03-01T00:00:00.000Z" },
               { version: "1.0.5", published: "2026-02-01T00:00:00.000Z" },

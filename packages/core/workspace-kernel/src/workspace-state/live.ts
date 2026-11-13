@@ -1,3 +1,4 @@
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 import { NativeEntryRemoval } from "../locations/index.js";
 /**
  * @agentxm/workspace-kernel/workspace-state environment-backed composition.
@@ -70,7 +71,11 @@ const stateServicesOver = (
 ): Layer.Layer<
   WorkspaceStateServices,
   WorkspaceStateError,
-  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceFileWriteLocks
+  | NativeEntryRemoval
+  | RegistryClientFactory
 > => {
   // The shared mutex and cache are composition-internal: one instance (the
   // layer is memoized by reference within a build) provided to every service
@@ -108,7 +113,11 @@ export const WorkspaceStateLive = (
 ): Layer.Layer<
   WorkspaceStateServices,
   WorkspaceStateError,
-  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceFileWriteLocks
+  | NativeEntryRemoval
+  | RegistryClientFactory
 > => stateServicesOver(WorkspaceLocationLive(options));
 
 /** The production transaction scope over the located workspace's paths. */
@@ -143,7 +152,11 @@ export const layer = (
 ): Layer.Layer<
   WorkspaceStateServices | WorkspaceTransactionScope,
   WorkspaceStateError,
-  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceFileWriteLocks
+  | NativeEntryRemoval
+  | RegistryClientFactory
 > => Layer.provideMerge(WorkspaceTransactionScopeLive, WorkspaceStateLive(options));
 
 /**

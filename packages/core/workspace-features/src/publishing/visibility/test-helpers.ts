@@ -124,14 +124,17 @@ export const makeVisibilityWorld = (
 
   const services = Layer.provideMerge(
     Layer.mergeAll(
-      WorkspaceStateLayer({ scope, projectRoot: decodeAbsolutePathSync(root) }),
+      WorkspaceStateLayer({ scope, projectRoot: decodeAbsolutePathSync(root) }).pipe(
+        Layer.provideMerge(
+          RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, transport)),
+        ),
+      ),
       AuthClientTest(),
       AuthLoginInteractionTest().layer,
       AuthLoginPresenterTest().layer,
       CredentialStoreTest(),
       RegistryContextTest(testRegistryUrl),
       Layer.succeed(HttpClient.HttpClient, transport),
-      RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, transport)),
     ),
     Layer.merge(
       Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest),

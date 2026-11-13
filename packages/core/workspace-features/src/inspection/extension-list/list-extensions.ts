@@ -88,6 +88,7 @@ export interface ListExtensionsRequest {
  * (`available`) or a moved source revision (`changed`).
  */
 const matchesFilter = (item: AssessedExtensionListItem, filter: ExtensionListFilter): boolean => {
+  if (item.assessment.state === "unknown") return true;
   switch (filter) {
     case "all":
       return true;

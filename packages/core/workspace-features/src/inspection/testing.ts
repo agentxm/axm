@@ -25,6 +25,11 @@ import * as nodePath from "node:path";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
+import {
+  ResolutionMetadataRequestSchema,
+  type ResolutionMetadataRequest,
+} from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
@@ -58,6 +63,7 @@ export interface ObservedRegistryRequest {
   readonly method: string;
   readonly url: string;
   readonly hasAuthorization: boolean;
+  readonly selection?: ResolutionMetadataRequest;
 }
 
 export interface RegistryResponseFixture {
@@ -77,6 +83,15 @@ export const makeRecordedRegistryPort = (
         method: request.method,
         url: request.url,
         hasAuthorization: request.headers["authorization"] !== undefined,
+        ...(request.method === "POST" &&
+        new URL(request.url).pathname === "/v1/resolutions" &&
+        request.body._tag === "Uint8Array"
+          ? {
+              selection: Schema.decodeUnknownSync(
+                Schema.fromJsonString(ResolutionMetadataRequestSchema),
+              )(new TextDecoder().decode(request.body.body)),
+            }
+          : {}),
       };
       requests.push(observed);
       yield* Deferred.succeed(firstRequest, undefined);
@@ -190,13 +205,12 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
         ConfiguredAgentOutcomesProviderTest,
         transport,
         sourceProviders,
-        registry.layer,
       ),
       WorkspaceStateLive({
         scope,
         projectRoot: decodeAbsolutePathSync(root),
         allowUninitialized: options.settings === undefined,
-      }),
+      }).pipe(Layer.provideMerge(registry.layer)),
     ),
     environment,
   );
@@ -237,17 +251,33 @@ export interface PublishedSkillIndex {
   readonly deprecation?: unknown;
 }
 
-export const publishedSkillIndex = (index: PublishedSkillIndex): unknown => ({
-  owner: "@acme",
-  type: "skill",
-  name: "review",
-  description: "Review guidance",
-  publisherBindingId: "hbnd_inspection_fixture",
-  visibility: "public",
-  archival: index.archival ?? null,
-  deprecation: index.deprecation ?? null,
-  versions: index.versions.map((entry) => ({ ...entry, integrity: "sha512-AAAA==" })),
-});
+export const publishedSkillSelection = (
+  request: ObservedRegistryRequest,
+  index: PublishedSkillIndex,
+): unknown => {
+  if (request.selection === undefined) throw new Error("Expected a selection request");
+  return {
+    schemaVersion: 2,
+    purpose: "select",
+    selectionPolicyVersion: "1",
+    observedAt: "2026-11-13T12:00:00Z",
+    results: request.selection.items.map(({ key }) => ({
+      key,
+      outcome: "metadata",
+      page: {
+        publisherBindingId: "hbnd_inspection_fixture",
+        visibility: "public",
+        archival: index.archival ?? null,
+        deprecation: index.deprecation ?? null,
+        revision: "inspection-fixture",
+        observedAt: "2026-11-13T12:00:00Z",
+        validUntil: "2026-11-13T12:01:00Z",
+        continuation: null,
+        versions: index.versions.map((entry) => ({ ...entry, integrity: "sha512-AAAA==" })),
+      },
+    })),
+  };
+};
 
 /**
  * One accepted Registry skill, physically present, recorded against a named
@@ -293,7 +323,8 @@ export const makeInstalledSkillFixture = (
       "agent_extensions/company/@acme/skills/review/SKILL.md":
         "---\nname: review\ndescription: Review guidance\n---\n# Review\n",
     },
-    respond: options.respond ?? (() => ({ body: publishedSkillIndex(current.index) })),
+    respond:
+      options.respond ?? ((request) => ({ body: publishedSkillSelection(request, current.index) })),
   });
   return {
     ...fixture,

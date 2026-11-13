@@ -96,6 +96,8 @@ const ExtensionListColumns = [
 ] satisfies ReadonlyArray<ViewColumn<ListTableRow>>;
 
 const guidanceFor = (item: ListItem): string => {
+  if (item.assessment.state === "unknown")
+    return item.assessment.reason ?? "Assessment evidence is unavailable";
   const deprecation = item.assessment.deprecation;
   const archival = item.assessment.archival;
   return (

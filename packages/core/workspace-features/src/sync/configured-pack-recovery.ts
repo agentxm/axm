@@ -1,4 +1,3 @@
-import { withRegistryReadPhase } from "@agentxm/registry-client";
 /**
  * Restore missing configured Pack content without changing accepted choices.
  *
@@ -439,4 +438,4 @@ export const collectConfiguredPackRecovery = (args: {
             },
       steps: recovered.flatMap(({ steps }): ReadonlyArray<RecoveryStep> => steps),
     };
-  }).pipe(withRegistryReadPhase);
+  });

@@ -28,6 +28,7 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Ref from "effect/Ref";
+import * as Exit from "effect/Exit";
 import * as Scope from "effect/Scope";
 import * as Fiber from "effect/Fiber";
 import { makeLiveRegistryReadPhase, type RegistryReadPhaseService } from "./read-phase.js";
@@ -58,6 +59,8 @@ import {
 export interface RegistryClientFactoryService {
   /** A fresh metadata observation phase, including nested calls made by the effect. */
   readonly withReadPhase: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
+  /** End the current phase before mutation; later queries must open a fresh phase. */
+  readonly invalidateReadPhase: Effect.Effect<void>;
   readonly authorityContext: (
     endpoint: RegistryEndpoint,
   ) => Effect.Effect<RegistryAuthorityContext, RegistryRequestFailed>;
@@ -144,10 +147,9 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
     // borrow requests executed under another client's policy.
     const policies = new Map<string, RegistryRequestPolicy>();
     const policyIds = new WeakMap<RegistryRequestPolicy, string>();
-    const currentPhase = ServiceMap.Reference<RegistryReadPhaseService | undefined>(
-      `@agentxm/registry-client/read-phase/${randomUUID()}`,
-      { defaultValue: () => undefined },
-    );
+    const currentPhase = ServiceMap.Reference<
+      (RegistryReadPhaseService & { readonly invalidate: Effect.Effect<void> }) | undefined
+    >(`@agentxm/registry-client/read-phase/${randomUUID()}`, { defaultValue: () => undefined });
     const withReadPhase: RegistryClientFactoryService["withReadPhase"] = (effect) =>
       Effect.acquireUseRelease(
         Scope.make(),
@@ -166,7 +168,8 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
               scope,
             );
             yield* Scope.addFinalizer(scope, Effect.andThen(Ref.set(open, false), phase.clear));
-            const guarded: RegistryReadPhaseService = {
+            const guarded = {
+              invalidate: Scope.close(scope, Exit.void),
               clear: phase.clear,
               get: (endpoint, args, policy) =>
                 Effect.gen(function* () {
@@ -181,7 +184,7 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
                     Fiber.interrupt,
                   );
                 }),
-            };
+            } satisfies RegistryReadPhaseService & { readonly invalidate: Effect.Effect<void> };
             return yield* Effect.provideService(effect, currentPhase, guarded);
           }),
         (scope, exit) => Scope.close(scope, exit),
@@ -225,6 +228,10 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
     return {
       authorityContext,
       withReadPhase,
+      invalidateReadPhase: Effect.flatMap(
+        currentPhase,
+        (phase) => phase?.invalidate ?? Effect.void,
+      ),
       forEndpoint,
       lifecycle: (endpoint, operation) =>
         Effect.map(requireHttpRegistryEndpoint(endpoint, "lifecycle", operation), (http) =>

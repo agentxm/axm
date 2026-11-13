@@ -16,7 +16,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { exactVersion, extensionName, handle, storedLockfileFixture } from "../testing.js";
 import { prepareAcceptedCanonicalTransition } from "./accepted-canonical-ref.js";
 import { TEST_TREE_INTEGRITY } from "./test-stubs.js";
-import { WorkspaceStateLive } from "../live.js";
+import { WorkspaceStateTest } from "../testing.js";
 
 describe("accepted canonical source transitions", () => {
   it.effect("removes only the superseded accepted package", () =>
@@ -100,7 +100,7 @@ describe("accepted canonical source transitions", () => {
         ref,
       }).pipe(
         Effect.provide(
-          WorkspaceStateLive({
+          WorkspaceStateTest({
             scope: "project",
             projectRoot: decodeAbsolutePathSync(root),
           }),

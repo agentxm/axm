@@ -1,3 +1,4 @@
+import type { RegistryClientFactory } from "@agentxm/registry-client";
 import { PlanSources, makePlanSources } from "@agentxm/workspace-kernel/planning";
 import type { NativeEntryRemoval } from "@agentxm/workspace-kernel/locations";
 import { makeRegistryContextLayer } from "../runtime.js";
@@ -624,7 +625,11 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   readonly workspaceLayer?: Layer.Layer<
     WorkspaceStateServices | WorkspaceTransactionScope,
     WorkspaceStateError,
-    FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
+    | FileSystem.FileSystem
+    | Path.Path
+    | WorkspaceFileWriteLocks
+    | NativeEntryRemoval
+    | RegistryClientFactory
   >;
   readonly wsOptions?:
     | (Omit<Partial<WorkspaceStateOptions>, "projectRoot"> & {

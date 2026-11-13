@@ -17,7 +17,7 @@ import {
   protectWorkspacePath,
   recordFootprint,
 } from "@agentxm/workspace-kernel/settlement";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
+import { WorkspaceLayerTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -58,7 +58,7 @@ describe("makeAtomicMembershipSteps", () => {
     writeWorkspace(root, []);
     const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest);
     const workspace = Layer.provide(
-      coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
+      WorkspaceLayerTest({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
     );
 
@@ -139,7 +139,7 @@ describe("makeAtomicMembershipSteps", () => {
     writeWorkspace(root, []);
     const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest);
     const workspace = Layer.provide(
-      coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
+      WorkspaceLayerTest({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
     );
 
@@ -198,7 +198,7 @@ describe("makeAtomicMembershipSteps", () => {
     fs.writeFileSync(target, "managed\n");
     const platform = Layer.provideMerge(WorkspaceFileWriteLocksLive, NativePlatformTest);
     const workspace = Layer.provide(
-      coreWorkspaceLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
+      WorkspaceLayerTest({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       platform,
     );
 

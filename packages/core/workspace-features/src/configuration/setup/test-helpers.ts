@@ -12,7 +12,7 @@ import {
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace-kernel/projection/live";
 import type { WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
-import { layer as WorkspaceLayerLive } from "@agentxm/workspace-kernel/workspace-state/live";
+import { WorkspaceLayerTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 
 import { SetupWorkspace, type SetupWorkspaceRequest } from "./setup-workspace.js";
 
@@ -20,7 +20,7 @@ import { SetupWorkspace, type SetupWorkspaceRequest } from "./setup-workspace.js
 export const setupWorkspaceTestLayer = (options: WorkspaceStateOptions) =>
   Layer.provideMerge(
     Layer.merge(CodingAgentRepositoryLive, NativeWriteAuthorityLive),
-    WorkspaceLayerLive({ ...options, allowUninitialized: true }),
+    WorkspaceLayerTest({ ...options, allowUninitialized: true }),
   );
 
 export const runSetup = (request: SetupWorkspaceRequest) =>

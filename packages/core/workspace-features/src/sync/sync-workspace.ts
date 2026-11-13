@@ -380,6 +380,9 @@ const prepareSyncWorkspace = (
                       nativeProjection: collected.knowledgeProjection,
                       adapter: conversion,
                       deferPreview: collected.knowledgeMayChange,
+                      ...(collected.preparedKnowledgePlans === undefined
+                        ? {}
+                        : { prepared: collected.preparedKnowledgePlans }),
                       facts: knowledgeProjectionFacts,
                     });
               const hooksStep: Option.Option<SyncPlanStep> = selectionTouches(selection, "hook")

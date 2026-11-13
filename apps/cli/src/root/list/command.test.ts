@@ -252,4 +252,18 @@ describe("root list", () => {
       }),
     );
   });
+
+  it.effect("shows an unknown assessment and its reason when metadata is absent", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({});
+    writeInstalledRegistrySkill();
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList({ ...listAll, outdated: true });
+        const text = painted(rendererState).join("\n");
+        expect(text).toContain("review");
+        expect(text).toContain("unknown");
+        expect(text).toContain("Extension index was not found");
+      }),
+    );
+  });
 });

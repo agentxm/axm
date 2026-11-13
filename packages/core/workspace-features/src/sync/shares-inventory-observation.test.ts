@@ -30,6 +30,7 @@ const countPhaseReads = <A, E, R>(
     const views = yield* WorkspaceReadViews;
     return yield* effect.pipe(
       Effect.provideService(WorkspaceReadViews, {
+        ...views,
         capture: (options) =>
           views.capture(options).pipe(
             Effect.map((context) => {

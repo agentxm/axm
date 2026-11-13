@@ -4,9 +4,11 @@ import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as Stream from "effect/Stream";
+import { MAX_RESOLUTION_RESPONSE_BYTES } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientError from "effect/http/HttpClientError";
-import type * as HttpClientResponse from "effect/http/HttpClientResponse";
+import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 const decodeUnknownJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
 
@@ -16,6 +18,44 @@ const recoverBodyText = (text: string): unknown => {
 };
 
 const retainedResponseBodyKey = Symbol("@agentxm/registry/retained-response-body");
+
+// Fetch-backed responses do not honor HttpIncomingMessage.MaxBodySize. Bound
+// selection/admission bytes while consuming the stream, before JSON decoding or
+// error-body retention. Stream owns cancellation on overflow and interruption.
+const boundResolutionBody = (response: HttpClientResponse.HttpClientResponse) =>
+  Effect.gen(function* () {
+    if (
+      response.request.method !== "POST" ||
+      new URL(response.request.url).pathname !== "/v1/resolutions"
+    )
+      return response;
+    const bytes = new Uint8Array(MAX_RESOLUTION_RESPONSE_BYTES);
+    const size = yield* Stream.runFoldEffect(
+      response.stream,
+      () => 0,
+      (offset, chunk) => {
+        if (chunk.byteLength > bytes.byteLength - offset)
+          return Effect.fail(
+            new HttpClientError.HttpClientError({
+              reason: new HttpClientError.DecodeError({
+                request: response.request,
+                response,
+                description: "Registry resolution response exceeds the encoded body limit",
+              }),
+            }),
+          );
+        bytes.set(chunk, offset);
+        return Effect.succeed(offset + chunk.byteLength);
+      },
+    );
+    return HttpClientResponse.fromWeb(
+      response.request,
+      new Response(bytes.slice(0, size), {
+        status: response.status,
+        headers: response.headers,
+      }),
+    );
+  });
 
 const retainResponseBody = (response: HttpClientResponse.HttpClientResponse) =>
   response.text.pipe(
@@ -60,6 +100,7 @@ export const captureRegistryErrorResponseBodies = (
         });
       }),
     ),
+    HttpClient.transformResponse(Effect.flatMap(boundResolutionBody)),
     HttpClient.transformResponse(
       Effect.flatMap((response) =>
         response.status < 200 || response.status >= 300

@@ -91,6 +91,7 @@ describe("Local lint with Registry-installed extensions", () => {
                 Effect.provideService(RegistryClientFactory, {
                   authorityContext: () => Effect.die("Unexpected Registry authority lookup"),
                   withReadPhase: (effect) => effect,
+                  invalidateReadPhase: Effect.void,
                   forEndpoint: () => Effect.die("Local lint requested Registry content"),
                   lifecycle: () => Effect.die("Local lint requested Registry lifecycle"),
                   wire: () => Effect.die("Local lint requested Registry transport"),

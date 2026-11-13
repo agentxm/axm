@@ -86,7 +86,7 @@ export const batchableWorkspaceDocuments = (
     ...adapter,
     writeSettings: (next, options) =>
       Effect.gen(function* () {
-        (yield* CurrentWorkspaceReadPhaseInvalidation)?.();
+        yield* (yield* CurrentWorkspaceReadPhaseInvalidation) ?? Effect.void;
         return yield* adapter.writeSettings(next, options);
       }),
     acceptedResolutions: Effect.gen(function* () {
@@ -97,7 +97,7 @@ export const batchableWorkspaceDocuments = (
     }),
     commitAcceptedResolutions: (base, next, options) =>
       Effect.gen(function* () {
-        (yield* CurrentWorkspaceReadPhaseInvalidation)?.();
+        yield* (yield* CurrentWorkspaceReadPhaseInvalidation) ?? Effect.void;
         const batch = yield* CurrentAcceptedResolutionBatch;
         if (batch?.target !== documents)
           return yield* adapter.commitAcceptedResolutions(base, next, options);

@@ -103,6 +103,7 @@ import {
 } from "@agentxm/workspace-kernel/planning";
 import {
   desiredStateSettled,
+  withWorkspaceReadView,
   DesiredStateReader,
   WorkspaceRecords,
   acceptedResolutionRef,
@@ -841,13 +842,6 @@ const prepareConfigured = Effect.fnUntraced(function* (request: ConfiguredUpdate
       : yield* resolveConfiguredUpdateSelection(request.selector);
   if (selection._tag === "NoMatch") return nothingToAdvance(selection.message);
   const names = selection._tag === "Names" ? selection.names : undefined;
-  const desiredState = yield* DesiredStateReader;
-  const currentGraph = yield* Effect.cached(desiredState.graph());
-  const phaseReader = {
-    ...desiredState,
-    graph: (options) => (options === undefined ? currentGraph : desiredState.graph(options)),
-  } satisfies typeof desiredState;
-
   const result = yield* buildWorkspaceUpdatePlan({
     type: request.type,
     planName: request.planName,
@@ -855,7 +849,7 @@ const prepareConfigured = Effect.fnUntraced(function* (request: ConfiguredUpdate
     nonInteractive: request.nonInteractive,
     reinstall: request.reinstall === true,
     ...(names === undefined ? {} : { names }),
-  }).pipe(Effect.provideService(DesiredStateReader, phaseReader));
+  });
 
   if (result._tag === "NoConfiguredExtensions") {
     return nothingToAdvance(result.message);
@@ -864,9 +858,7 @@ const prepareConfigured = Effect.fnUntraced(function* (request: ConfiguredUpdate
   // Every Registry acceptance the sweep proposed is classified against the
   // accepted resolution, so a replaced publisher binding carries the same
   // interactive-only condition here as on the install routes.
-  const plan = yield* prepareAcquisitionPlan(result.plan, request.reinstall === true).pipe(
-    Effect.provideService(DesiredStateReader, phaseReader),
-  );
+  const plan = yield* prepareAcquisitionPlan(result.plan, request.reinstall === true);
   return {
     outcome: "planned",
     subjectType: Option.getOrElse(request.type, (): UpdateSubjectType => "mixed"),
@@ -894,7 +886,7 @@ const prepareUpdate: (
   return request.kind === "targeted"
     ? yield* prepareTargeted(request)
     : yield* prepareConfigured(request);
-});
+}, withWorkspaceReadView);
 
 // -----------------------------------------------------------------------------
 // previewOrApply

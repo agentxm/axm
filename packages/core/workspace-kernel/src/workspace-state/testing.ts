@@ -1,3 +1,5 @@
+import { WorkspaceStateLive, layer as workspaceLayer, type WorkspaceStateOptions } from "./live.js";
+import { RegistryClientFactoryTest, OfflineHttpClient } from "@agentxm/registry-client/testing";
 import type { NativeEntryRemoval } from "../locations/index.js";
 /**
  * @agentxm/workspace-kernel/workspace-state deterministic test layers and fixtures.
@@ -253,3 +255,11 @@ export * from "./observed/__fixtures__/builder.js";
 export * from "./observed/__fixtures__/decoders.js";
 export * from "./observed/__fixtures__/occurrences.js";
 export * from "./observed/__fixtures__/scenario-harness.js";
+
+/** Native workspace services with an offline Registry transport for local-state fixtures. */
+export const WorkspaceStateTest = (options: WorkspaceStateOptions) =>
+  WorkspaceStateLive(options).pipe(Layer.provide(RegistryClientFactoryTest(OfflineHttpClient)));
+
+/** Native workspace and transaction services with the same offline Registry fixture. */
+export const WorkspaceLayerTest = (options: WorkspaceStateOptions) =>
+  workspaceLayer(options).pipe(Layer.provide(RegistryClientFactoryTest(OfflineHttpClient)));

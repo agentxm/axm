@@ -26,7 +26,7 @@ import {
   computePackageContentHash,
   withWorkspaceObservationReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
+import { WorkspaceStateTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import {
   inspectLocalTrace,
   observedFileSystem,
@@ -155,7 +155,7 @@ const capture = (mode: "summary" | "detail", fault?: "unobserved-read" | "missin
       ),
     );
     const services = yield* Layer.build(
-      WorkspaceStateLive({
+      WorkspaceStateTest({
         scope: "project",
         projectRoot: decodeAbsolutePathSync(directory),
         allowUninitialized: true,

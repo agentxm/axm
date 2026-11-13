@@ -14,7 +14,7 @@ import { afterEach } from "vitest";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
+import { WorkspaceStateTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as Option from "effect/Option";
 import {
   acceptedRowKey,
@@ -114,7 +114,7 @@ const makeWorkspace = (
   );
   return {
     root,
-    layer: WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }).pipe(
+    layer: WorkspaceStateTest({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }).pipe(
       Layer.provide(WorkspaceFileWriteLocksLive),
     ),
     cleanup: () => fs.rmSync(root, { recursive: true, force: true }),

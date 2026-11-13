@@ -8,7 +8,11 @@ import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
 
 import { resolveViewHandle, resolveViewRegistry, ViewExtension } from "./view-extension.js";
-import { inspectionRegistryUrl, makeInspectionFixture } from "../testing.js";
+import {
+  inspectionRegistryUrl,
+  makeInspectionFixture,
+  type ObservedRegistryRequest,
+} from "../testing.js";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 export const specification = defineSpecification({
@@ -32,25 +36,37 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-/** A published index for whichever extension the request asked about. */
-const publishedIndex = (args: {
-  readonly owner: string;
-  readonly type: string;
-  readonly name: string;
-}) => ({
-  owner: args.owner,
-  type: args.type,
-  name: args.name,
-  description: "Review guidance",
-  publisherBindingId: "hbnd_view_fixture",
-  visibility: "public",
-  archival: null,
-  deprecation: null,
-  versions: [
-    { version: "1.1.0", published: "2026-02-01T00:00:00.000Z", integrity: "sha512-BBBB==" },
-    { version: "1.0.0", published: "2026-01-01T00:00:00.000Z", integrity: "sha512-AAAA==" },
-  ],
-});
+/** Published metadata for each explicitly requested identity. */
+const publishedSelection = (request: ObservedRegistryRequest) => {
+  if (request.selection === undefined) throw new Error("Expected a selection read");
+  return {
+    body: {
+      schemaVersion: 2,
+      purpose: "select",
+      selectionPolicyVersion: "1",
+      observedAt: "2026-11-13T12:00:00Z",
+      results: request.selection.items.map(({ key }) => ({
+        key,
+        outcome: "metadata",
+        page: {
+          description: "Review guidance",
+          publisherBindingId: "hbnd_view_fixture",
+          visibility: "public",
+          archival: null,
+          deprecation: null,
+          revision: "view-fixture",
+          observedAt: "2026-11-13T12:00:00Z",
+          validUntil: "2026-11-13T12:01:00Z",
+          continuation: null,
+          versions: [
+            { version: "1.1.0", published: "2026-02-01T00:00:00.000Z", integrity: "sha512-BBBB==" },
+            { version: "1.0.0", published: "2026-01-01T00:00:00.000Z", integrity: "sha512-AAAA==" },
+          ],
+        },
+      })),
+    },
+  };
+};
 
 /**
  * Two extensions of different types share the local name `review`; only the
@@ -98,10 +114,7 @@ describe("Typed local-name lookup", () => {
     it.effect(`${row.type} resolves to the identity configured for that type`, () => {
       const fixture = makeInspectionFixture({
         settings: configuredBothTypes,
-        respond: (request) =>
-          request.url.includes("/knowledge/")
-            ? { body: publishedIndex({ owner: "@acme", type: "knowledge", name: "review" }) }
-            : { body: publishedIndex({ owner: "@acme", type: "skill", name: "review" }) },
+        respond: publishedSelection,
       });
       return fixture
         .provide(
@@ -127,8 +140,13 @@ describe("Typed local-name lookup", () => {
                 name: "review",
               });
             expect(fixture.requests.map((request) => request.url)).toEqual([
-              `${inspectionRegistryUrl}/v1/extensions/%40acme/${row.plural}/review`,
+              `${inspectionRegistryUrl}/v1/resolutions`,
             ]);
+            expect(
+              fixture.requests.flatMap(
+                (request) => request.selection?.items.map(({ identity }) => identity) ?? [],
+              ),
+            ).toEqual([{ owner: "@acme", type: row.type, name: "review" }]);
           }),
         )
         .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
@@ -153,13 +171,7 @@ describe("Typed local-name lookup", () => {
           }),
         },
       },
-      respond: (request) => ({
-        body: publishedIndex({
-          owner: request.url.includes("/@stale/") ? "@stale" : "@acme",
-          type: "skill",
-          name: "review",
-        }),
-      }),
+      respond: publishedSelection,
     });
     return fixture
       .provide(
@@ -185,8 +197,13 @@ describe("Typed local-name lookup", () => {
               name: "review",
             });
           expect(fixture.requests.map((request) => request.url)).toEqual([
-            `${inspectionRegistryUrl}/v1/extensions/%40acme/skills/review`,
+            `${inspectionRegistryUrl}/v1/resolutions`,
           ]);
+          expect(
+            fixture.requests.flatMap(
+              (request) => request.selection?.items.map(({ identity }) => identity) ?? [],
+            ),
+          ).toEqual([{ owner: "@acme", type: "skill", name: "review" }]);
         }),
       )
       .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));

@@ -177,7 +177,10 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
     WorkspaceFileWriteLocksLive,
     Layer.mergeAll(NativePlatformTest, FetchHttpClient.layer),
   );
-  const presence = Layer.provideMerge(AgentPresenceProbeLive, platform);
+  const presence = Layer.provideMerge(
+    AgentPresenceProbeLive,
+    Layer.provideMerge(RegistryClientFactoryTest(FetchHttpClient.layer), platform),
+  );
   const state = Layer.provideMerge(
     workspaceStateLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(workspace.root) }),
     presence,
@@ -195,7 +198,6 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
         ArtifactHttpClient,
         HttpClient.make(() => Effect.die("Unexpected HTTP artifact request")),
       ),
-      Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), platform),
     ),
     projection,
   );

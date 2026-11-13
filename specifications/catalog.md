@@ -4684,20 +4684,6 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `cli/list/reports-the-cross-type-inventory`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`, `packages/core/workspace-kernel/src/workspace-state/observed/extensions/inventory.ts`
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/classifies-unexplained-content.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/classifies-unexplained-content.spec.ts)
 
-##### List exposes failed Registry assessment
-
-- Requirement: `cli/list/fails-when-registry-assessment-fails`
-- Owner: `workspace-features`
-- Statement: When a requested Registry assessment fails, AXM shall fail the list command without presenting a successful empty or current assessment.
-- Class: functional
-- Role: experience
-- Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: platform; selection: per-change
-- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
-- Methods: example
-- Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
-- Source: [`packages/core/workspace-features/src/inspection/extension-list/fails-when-registry-assessment-fails.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/fails-when-registry-assessment-fails.spec.ts)
-
 ##### Lifecycle listings distinguish archival and deprecation and combine them as a union
 
 - Requirement: `cli/list/filters-registry-lifecycle`
@@ -4776,7 +4762,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/list/reports-incomplete-assessment`
 - Owner: `workspace-features`
-- Statement: When an installation’s recorded Registry source is not configured or its extension index is not found, AXM shall mark that assessment as unknown in coverage instead of treating it as a confirmed current installation.
+- Statement: When requested Registry assessment cannot obtain current metadata, AXM shall retain the affected installation with an unknown assessment and its reason, count it as unknown in coverage, and preserve independently assessed results without presenting unavailable evidence as current or active.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
@@ -4784,6 +4770,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
+- Supersedes: `cli/list/fails-when-registry-assessment-fails`
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/reports-incomplete-assessment.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/reports-incomplete-assessment.spec.ts)
 
 ##### List reports the current inventory across extension types

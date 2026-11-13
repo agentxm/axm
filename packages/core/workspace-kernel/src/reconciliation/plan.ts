@@ -32,6 +32,7 @@ import {
   RuleManager,
   type PreparedHookProjection,
   type RuleManagerService,
+  type KnowledgeManagerService,
   type NativeProjectionOptions,
 } from "../materialization/index.js";
 import {
@@ -394,6 +395,7 @@ export const collectKnowledgeStep: (args: {
   readonly nativeProjection?: NativeProjectionOptions;
   readonly adapter: StepFailureConversionService;
   readonly deferPreview?: boolean;
+  readonly prepared?: Effect.Success<ReturnType<KnowledgeManagerService["prepareProjection"]>>;
   readonly facts?: ReadonlyArray<ProjectionInvariantFact>;
 }) => Effect.Effect<
   Option.Option<PlannedJobStep<SyncStepRequirements>>,
@@ -411,6 +413,22 @@ export const collectKnowledgeStep: (args: {
   const instructionFile = resolveInstructionsConfig(
     Option.isSome(instructions) && instructions.value !== false ? instructions.value : undefined,
   ).fileName;
+  const preparedResult =
+    args.prepared === undefined
+      ? undefined
+      : yield* Effect.result(observeProjectionPlans(args.prepared));
+  if (preparedResult !== undefined && Result.isFailure(preparedResult)) {
+    return Option.some<PlannedJobStep<SyncStepRequirements>>({
+      key: "knowledge:discovery",
+      label: "Knowledge discovery",
+      readiness: "error",
+      errorMessage: args.adapter.toStepFailure(preparedResult.failure).detail,
+    });
+  }
+  const facts =
+    preparedResult === undefined
+      ? (args.facts ?? [])
+      : preparedResult.success.map((unit) => makeProjectionInvariantFact(unit, location.scope));
   const previewResult =
     args.deferPreview === true
       ? undefined
@@ -432,7 +450,7 @@ export const collectKnowledgeStep: (args: {
         path: instructionFile,
         scope: location.scope,
         change: "unchanged",
-        managedRegions: managedRegionsForFacts(args.facts ?? []),
+        managedRegions: managedRegionsForFacts(facts),
       },
     });
   }
@@ -452,15 +470,15 @@ export const collectKnowledgeStep: (args: {
     path: instructionFile,
     scope: location.scope,
     change: preview?.changed === false ? "unchanged" : "updated",
-    managedRegions: managedRegionsForFacts(args.facts ?? []),
+    managedRegions: managedRegionsForFacts(facts),
     nativeLocations: combineNativeLocationOutcomes([
       ...(preview?.nativeLocations ?? []),
-      ...(args.facts ?? []).flatMap((fact) => fact.observation.nativeLocations ?? []),
+      ...facts.flatMap((fact) => fact.observation.nativeLocations ?? []),
     ]),
   } satisfies JobStepArtifact;
   const exposure = yield* retainedProjectionExposure(
     ["knowledge"],
-    args.facts ?? [],
+    facts,
     artifact.nativeLocations,
     args.adapter,
     args.proposedRefs,
@@ -475,7 +493,7 @@ export const collectKnowledgeStep: (args: {
     });
   return Option.some({
     key: "knowledge:discovery",
-    label: projectionDivergenceLabel("Knowledge discovery", args.facts ?? []),
+    label: projectionDivergenceLabel("Knowledge discovery", facts),
     readiness: "ready",
     artifact,
     ...exposure,
@@ -1050,12 +1068,9 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
         args.proposedRefs,
       );
     // An alias exposes the entire instruction source, including the other owner's region.
-    const ruleFacts =
-      projectionFacts.length > 0
-        ? projectionFacts
-        : (yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).map(
-            (unit) => makeProjectionInvariantFact(unit, location.scope),
-          );
+    // The caller's planned facts are authoritative, including an empty Rule set.
+    // Reading the current graph here loses Pack recovery's proposed members.
+    const ruleFacts = projectionFacts;
     const knowledgeFacts =
       args.knowledgeFacts ??
       (yield* (yield* KnowledgeManager)

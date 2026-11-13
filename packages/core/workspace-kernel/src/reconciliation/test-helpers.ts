@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { AbsolutePathSchema } from "@agentxm/extension-model/unstable/path-types";
-import { WorkspaceStateLive } from "../workspace-state/live.js";
+import { WorkspaceStateTest } from "../workspace-state/testing.js";
 import {
   SettingsWriter,
   AcceptedResolutionWriter,
@@ -31,7 +31,7 @@ export interface RecipeWriteFaults {
 }
 
 export const recipeWorkspace = (root: string, faults: RecipeWriteFaults = {}) => {
-  const state = WorkspaceStateLive({
+  const state = WorkspaceStateTest({
     scope: "project",
     projectRoot: Schema.decodeUnknownSync(AbsolutePathSchema)(root),
     allowUninitialized: true,

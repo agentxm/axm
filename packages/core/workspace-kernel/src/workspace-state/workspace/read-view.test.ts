@@ -1,3 +1,4 @@
+import { RegistryClientFactoryTest, OfflineHttpClient } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Deferred from "effect/Deferred";
@@ -47,6 +48,7 @@ describe("workspace read phase lifetime", () => {
           },
         });
         const layer = WorkspaceReadViewsLive.pipe(
+          Layer.provide(RegistryClientFactoryTest(OfflineHttpClient)),
           Layer.provideMerge(WorkspaceReadTest({ baseDir: root })),
           Layer.provide(
             Layer.succeed(
@@ -185,6 +187,7 @@ describe("workspace read phase lifetime", () => {
             ),
         });
         const layer = WorkspaceReadViewsLive.pipe(
+          Layer.provide(RegistryClientFactoryTest(OfflineHttpClient)),
           Layer.provideMerge(WorkspaceReadTest({ baseDir: root })),
           Layer.provide(Layer.succeed(WorkspaceDocuments, documents)),
           Layer.provide(

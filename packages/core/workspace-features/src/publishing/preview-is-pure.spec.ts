@@ -13,6 +13,7 @@ import {
   publishDocument,
   requestFor,
   runPublish,
+  unpublishedSelectionResponse,
   type PublishWorld,
 } from "./test-helpers.js";
 
@@ -64,6 +65,11 @@ const PUBLISH_PROTECTED_STATE = [...WORKSPACE_PROTECTED_STATE, "registry"];
 
 /** A remote Registry that answers reads and dies on anything that would write. */
 const readOnlyRegistry = HttpClient.make((request) => {
+  if (request.method === "POST" && new URL(request.url).pathname === "/v1/resolutions") {
+    return Effect.succeed(
+      HttpClientResponse.fromWeb(request, unpublishedSelectionResponse(request)),
+    );
+  }
   if (request.method !== "GET") {
     return Effect.die(new Error("Preview must not create authority or upload"));
   }

@@ -13,7 +13,7 @@ import * as Ref from "effect/Ref";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../../../settlement/live.js";
 import { WorkspaceFileWriteLocks } from "../../../settlement/index.js";
-import { WorkspaceStateLive } from "../../live.js";
+import { WorkspaceStateTest } from "../../testing.js";
 import { WorkspaceLocation } from "../../workspace/location.js";
 import { AcceptedResolutionWriter } from "../../workspace/accepted-resolution-writer.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -353,10 +353,10 @@ describe("lockfile", () => {
           projectRoot: decodeAbsolutePathSync(root),
           allowUninitialized: true,
         } as const;
-        const first = yield* Layer.build(WorkspaceStateLive(options)).pipe(
+        const first = yield* Layer.build(WorkspaceStateTest(options)).pipe(
           Effect.provideService(WorkspaceFileWriteLocks, observed),
         );
-        const second = yield* Layer.build(WorkspaceStateLive(options)).pipe(
+        const second = yield* Layer.build(WorkspaceStateTest(options)).pipe(
           Effect.provideService(WorkspaceFileWriteLocks, observed),
         );
         const firstWriter = Context.get(first, AcceptedResolutionWriter);

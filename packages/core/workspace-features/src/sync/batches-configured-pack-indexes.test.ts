@@ -73,6 +73,7 @@ it.effect("batches configured Pack indexes despite uneven workspace read complet
         const budget = yield* makeOperationRequestBudget({ invocation: 2, origin: 2 });
         const planning = yield* SyncWorkspace.prepare(syncRequest()).pipe(
           Effect.provideService(WorkspaceReadViews, {
+            ...views,
             capture: (options) =>
               views.capture(options).pipe(
                 Effect.map((context) => {

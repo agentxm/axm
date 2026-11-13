@@ -159,12 +159,16 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
 ) {
   const identity = { owner: record.identity.owner, type: item.type, name: record.identity.name };
   const factory = yield* RegistryClientFactory;
-  const client = yield* factory.forEndpoint(record.source.url);
-  const index = yield* client.getExtensionIndex({
-    owner: identity.owner,
-    type: identity.type,
-    name: identity.name,
-  });
+  const observed = yield* factory.forEndpoint(record.source.url).pipe(
+    Effect.flatMap((client) => client.getExtensionIndex(identity)),
+    Effect.result,
+  );
+  if (Result.isFailure(observed))
+    return {
+      state: "unknown",
+      reason: kernelFailureToStepFailure(observed.failure).detail,
+    } satisfies ExtensionAssessment;
+  const index = observed.success;
   if (Option.isNone(index)) {
     return {
       state: "unknown",
@@ -283,6 +287,9 @@ const assessItem = (
         state: "not-applicable",
         reason: "Authored package is not declared",
       } satisfies ExtensionAssessment;
+    }
+    if (item.source !== undefined && isWorkspaceSourceLocator(item.source)) {
+      return { state: "not-applicable" } satisfies ExtensionAssessment;
     }
     if (record === undefined) {
       return {

@@ -13,7 +13,7 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
-import { layer as WorkspaceStateOverProject } from "../../live.js";
+import { WorkspaceLayerTest } from "../../testing.js";
 import { DesiredStateReader } from "../../workspace/desired-state-reader.js";
 import { SettingsWriter } from "../../workspace/settings-writer.js";
 
@@ -81,7 +81,7 @@ const makeInlineWorkspace = () => {
     provide: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       effect.pipe(
         Effect.provide(
-          WorkspaceStateOverProject({
+          WorkspaceLayerTest({
             scope: "project",
             projectRoot: decodeAbsolutePathSync(root),
           }).pipe(

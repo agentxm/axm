@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
+import { applySync } from "../../testing/sync-fixture.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -90,6 +91,11 @@ describe("A workspace update plans coherent groups", () => {
             settings: {
               agents: ["claude-code", "codex"],
               instructionFiles: { fileName: "AGENTS.md" },
+              packs: {
+                "alpha-pack": "@acme/packs/alpha-pack",
+                "beta-pack": "@acme/packs/beta-pack",
+              },
+              knowledge: { direct: "@acme/knowledge/direct" },
             },
           });
           cleanups.push(cleanup);
@@ -118,13 +124,15 @@ describe("A workspace update plans coherent groups", () => {
           return workspace
             .provide(
               Effect.gen(function* () {
-                for (const name of ["alpha", "beta"]) yield* installPack(`${name}-pack`);
-                yield* applyInstall(
-                  installRequest({
-                    type: "knowledge",
-                    subject: { kind: "source", source: "@acme/knowledge/direct" },
-                  }),
-                );
+                // Establish the three independent roots in one native settlement;
+                // sequential install behavior is outside this update scenario.
+                const initial = yield* applySync();
+                expect(initial._tag).toBe("Resolved");
+                if (initial._tag === "Resolved")
+                  expect(deriveOperationOutcome(initial.resolution), JSON.stringify(initial)).toBe(
+                    "applied",
+                  );
+                expect(workspace.exists("CLAUDE.md")).toBe(true);
                 const before = workspace.snapshot();
                 for (const name of ["alpha", "beta"]) publish(name, true);
                 const preview = expectResolved(yield* previewUpdate(configuredUpdateRequest({})));

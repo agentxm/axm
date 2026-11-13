@@ -15,7 +15,7 @@ import { afterEach, beforeEach } from "vitest";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { type WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
+import { WorkspaceLayerTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
 import {
@@ -100,7 +100,7 @@ describe("packs list.handler", () => {
       ...opts?.wsOverrides,
       projectRoot: opts?.wsOverrides?.projectRoot ?? decodeAbsolutePathSync(tempDir),
     };
-    const WsLayer = Layer.provide(coreWorkspaceLayer({ ...wsOptions }), BaseLayer);
+    const WsLayer = Layer.provide(WorkspaceLayerTest({ ...wsOptions }), BaseLayer);
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
     const provide = Effect.provide(FullLayer);
 

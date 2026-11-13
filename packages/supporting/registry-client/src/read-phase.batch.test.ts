@@ -1,3 +1,4 @@
+import * as Exit from "effect/Exit";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -313,4 +314,67 @@ it.effect("keeps a running batch alive for a remaining requester", () =>
       ),
     );
   }),
+);
+
+it.effect(
+  "explicit invalidation waits for active transport cleanup and requires a fresh phase",
+  () =>
+    Effect.gen(function* () {
+      const started = yield* Deferred.make<void>();
+      let requests = 0;
+      let stopped = false;
+      const http = HttpClient.make((request) =>
+        Effect.gen(function* () {
+          requests++;
+          if (requests === 1) {
+            yield* Deferred.succeed(started, undefined);
+            return yield* Effect.never.pipe(
+              Effect.onInterrupt(() =>
+                Effect.sync(() => {
+                  stopped = true;
+                }),
+              ),
+            );
+          }
+          return HttpClientResponse.fromWeb(
+            request,
+            Response.json({
+              schemaVersion: 2,
+              purpose: "select",
+              selectionPolicyVersion: "1",
+              observedAt,
+              results: [{ key: "0", outcome: "metadata", page }],
+            }),
+          );
+        }),
+      );
+      yield* Effect.gen(function* () {
+        const factory = yield* RegistryClientFactory;
+        const client = yield* factory.forEndpoint(testRegistryEndpoint);
+        const read = client.getExtensionIndex({
+          owner: handle("@acme"),
+          type: "skill",
+          name: extensionName("shared"),
+        });
+        yield* factory.withReadPhase(
+          Effect.gen(function* () {
+            const active = yield* Effect.forkChild(read);
+            yield* Deferred.await(started);
+            yield* factory.invalidateReadPhase;
+            expect(stopped).toBe(true);
+            expect(Exit.hasInterrupts(yield* Fiber.await(active))).toBe(true);
+            expect(yield* read.pipe(Effect.flip)).toMatchObject({ category: "conflict" });
+            expect(Option.isSome(yield* factory.withReadPhase(read))).toBe(true);
+            expect(requests).toBe(2);
+          }),
+        );
+      }).pipe(
+        Effect.provide(
+          Layer.provideMerge(
+            RegistryTransportTest(Layer.succeed(HttpClient.HttpClient, http)),
+            NodeServices.layer,
+          ),
+        ),
+      );
+    }),
 );

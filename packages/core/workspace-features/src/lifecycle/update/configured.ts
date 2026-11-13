@@ -1,4 +1,3 @@
-import { withRegistryReadPhase } from "@agentxm/registry-client";
 /**
  * The configured-entry sweep an update performs.
  *
@@ -1202,7 +1201,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
         ],
       }),
     };
-  }).pipe(withRegistryReadPhase);
+  });
 
 // Total over every entry type: a missing key is a compile error, so a type can
 // never again be silently dropped from workspace update.

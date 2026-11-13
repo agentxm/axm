@@ -111,7 +111,10 @@ export const makeInstalledWorkspace = (options: InstalledWorkspaceOptions = {}) 
     WorkspaceFileWriteLocksLive,
     Layer.mergeAll(NativePlatformTest, FetchHttpClient.layer),
   );
-  const presence = Layer.provideMerge(AgentPresenceProbeLive, platform);
+  const presence = Layer.provideMerge(
+    AgentPresenceProbeLive,
+    Layer.provideMerge(RegistryClientFactoryTest(FetchHttpClient.layer), platform),
+  );
   const state = Layer.provideMerge(
     Layer.provideMerge(
       workspaceStateLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
@@ -132,7 +135,6 @@ export const makeInstalledWorkspace = (options: InstalledWorkspaceOptions = {}) 
         ArtifactHttpClient,
         HttpClient.make(() => Effect.die("Unexpected HTTP artifact request")),
       ),
-      Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), platform),
     ),
     projection,
   );

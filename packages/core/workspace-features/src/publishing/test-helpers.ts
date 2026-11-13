@@ -59,6 +59,7 @@ import {
   testRegistryUrl,
 } from "@agentxm/registry-client/testing";
 import { validateArchive } from "@agentxm/extension-content";
+import { ResolutionMetadataRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -94,6 +95,23 @@ import {
   writeAuthoredExtension,
   type AuthoredExtensionFixture,
 } from "./testing.js";
+
+/** A selection read against a Registry with no previously published identities. */
+export const unpublishedSelectionResponse = (
+  request: HttpClientRequest.HttpClientRequest,
+): Response => {
+  if (request.body._tag !== "Uint8Array") throw new Error("Expected encoded selection request");
+  const input = Schema.decodeUnknownSync(Schema.fromJsonString(ResolutionMetadataRequestSchema))(
+    new TextDecoder().decode(request.body.body),
+  );
+  return Response.json({
+    schemaVersion: 2,
+    purpose: "select",
+    selectionPolicyVersion: "1",
+    observedAt: "2026-11-13T12:00:00Z",
+    results: input.items.map(({ key }) => ({ key, outcome: "unavailable" })),
+  });
+};
 
 /** One mutating call the recording file system observed. */
 export interface FileSystemWriteEvent {
@@ -256,7 +274,6 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
   const interaction = ResolvePlanInteractionTest();
   const base = Layer.provideMerge(
     Layer.mergeAll(
-      WorkspaceStateLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       AuthClientTest(options.auth),
       AuthLoginPresenterTest().layer,
       DeviceLoginInteractionTest(
@@ -301,8 +318,8 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
   // Registry clients are built over the authenticated transport, as the
   // executable builds them, so an upload carries the seeded session.
   const services = Layer.provideMerge(
-    Layer.provide(RegistryClientFactoryLive, authenticated),
-    authenticated,
+    WorkspaceStateLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
+    Layer.provideMerge(RegistryClientFactoryLive, authenticated),
   );
 
   return {
@@ -599,6 +616,9 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
         );
       }
       const url = new URL(request.url);
+      if (request.method === "POST" && url.pathname === "/v1/resolutions") {
+        return HttpClientResponse.fromWeb(request, unpublishedSelectionResponse(request));
+      }
       if (request.method === "POST" && url.pathname === "/v1/publish-previews") {
         if (request.body._tag !== "Uint8Array") {
           throw new Error("Expected an encoded preview request body");

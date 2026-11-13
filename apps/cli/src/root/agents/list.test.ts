@@ -10,7 +10,7 @@ import { afterEach, beforeEach } from "vitest";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestRenderer } from "../../test-support/presenter-test.js";
 import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
+import { WorkspaceLayerTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { lifecycleCell } from "./lifecycle-cell.js";
 import { handleAgentsList } from "./list.js";
@@ -57,7 +57,7 @@ describe("agents list.handler", () => {
       }),
     );
     const wsLayer = Layer.provide(
-      coreWorkspaceLayer({
+      WorkspaceLayerTest({
         scope: "project",
         projectRoot: decodeAbsolutePathSync(tempDir),
       }),

@@ -15,7 +15,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { kernelFailureToStepFailure } from "./index.js";
 import { LOCKFILE_VERSION, WorkspaceRecords } from "../workspace-state/index.js";
-import { WorkspaceStateLive } from "../workspace-state/live.js";
+import { WorkspaceStateTest } from "../workspace-state/testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/invalid-workspace-state-gates-operations",
@@ -242,7 +242,7 @@ const makeWorkspace = () => {
     states: () => ({ project: snapshotUnder(root), user: snapshotUnder(home) }),
     layerFor: (scope: "project" | "user") =>
       Layer.provide(
-        WorkspaceStateLive({ scope, projectRoot: decodeAbsolutePathSync(root) }),
+        WorkspaceStateTest({ scope, projectRoot: decodeAbsolutePathSync(root) }),
         ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),
       ),
     cleanup: () => {

@@ -202,7 +202,6 @@ export const makeWorkspaceWorld = <P>(
         NativeWriteAuthorityLive,
         transport,
         Layer.provide(Layer.effect(ArtifactHttpClient, HttpClient.HttpClient), transport),
-        RegistryClientFactoryTest(transport),
         executables,
         PlanInvocationTest,
         options.ports,
@@ -211,7 +210,10 @@ export const makeWorkspaceWorld = <P>(
         scope: options.scope ?? "project",
         projectRoot: decodeAbsolutePathSync(directories.root),
         allowUninitialized: options.settings === undefined,
-      }).pipe(Layer.provide(WorkspaceBoundaryClaimsTest(directories.boundaryClaimsDirectory))),
+      }).pipe(
+        Layer.provide(WorkspaceBoundaryClaimsTest(directories.boundaryClaimsDirectory)),
+        Layer.provideMerge(RegistryClientFactoryTest(transport)),
+      ),
     ),
     ConfigProvider.layer(options.configureConfigProvider?.(isolatedConfig) ?? isolatedConfig),
   ).pipe(Layer.provideMerge(Layer.merge(CanonicalNativePathLive, NativeEntryRemovalLive)));

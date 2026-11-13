@@ -48,6 +48,7 @@ describe("Lint normalization preview", () => {
       const noRegistryAccess = {
         authorityContext: () => Effect.die("Unexpected Registry authority lookup"),
         withReadPhase: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
+        invalidateReadPhase: Effect.void,
         forEndpoint: () => Effect.die("Lint normalization accessed a registry"),
         lifecycle: () => Effect.die("Lint normalization managed a registry"),
         wire: () => Effect.die("Lint normalization authenticated with a registry"),

@@ -23,7 +23,7 @@ import {
   countExtensionInventory,
   type WorkspaceStateOptions,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-kernel/workspace-state/live";
+import { WorkspaceLayerTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
 import { paintText } from "../../screen/index.js";
@@ -112,7 +112,7 @@ describe("list.handler", () => {
       projectRoot: opts?.wsOverrides?.projectRoot ?? decodeAbsolutePathSync(tempDir),
     };
     const WsLayer = Layer.provide(
-      coreWorkspaceLayer({
+      WorkspaceLayerTest({
         ...wsOptions,
       }),
       BaseLayer,
@@ -225,6 +225,7 @@ describe("list.handler", () => {
             },
           }),
           Effect.provideService(WorkspaceReadViews, {
+            ...views,
             capture: (options) =>
               views.capture(options).pipe(
                 Effect.map((readers) =>

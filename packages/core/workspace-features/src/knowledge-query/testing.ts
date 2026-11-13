@@ -23,7 +23,7 @@ import * as Ref from "effect/Ref";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
+import { WorkspaceStateTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 
 import { captureInstalledKnowledgeCorpus } from "./corpus/installed-corpus.js";
 import { KnowledgeIndexLive } from "./live.js";
@@ -59,7 +59,7 @@ export interface KnowledgeFixtureBundle {
 const makeKnowledgeFixtureLayer = (root: string, home: string, scope: WorkspaceScope) =>
   Layer.provideMerge(
     Layer.merge(
-      WorkspaceStateLive({
+      WorkspaceStateTest({
         scope,
         projectRoot: decodeAbsolutePathSync(root),
         allowUninitialized: true,

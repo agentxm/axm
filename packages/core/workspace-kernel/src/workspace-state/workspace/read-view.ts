@@ -1,3 +1,4 @@
+import { RegistryClientFactory, type RegistryClientFactoryService } from "@agentxm/registry-client";
 import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import { makeObservationReadView } from "./observation-read-view.js";
 import { CanonicalNativePath } from "../../locations/index.js";
@@ -45,6 +46,7 @@ type ReadServices =
 export class WorkspaceReadViews extends Context.Service<
   WorkspaceReadViews,
   {
+    readonly withRegistryReadPhase: RegistryClientFactoryService["withReadPhase"];
     /** Capture once per pure query or stable planning phase; never retain across writes. */
     readonly capture: (options?: {
       readonly observations?: boolean;
@@ -72,6 +74,7 @@ const withReadView = <A, E, R>(effect: Effect.Effect<A, E, R>, observations: boo
     const phase = Context.get(readers, CurrentWorkspaceReadPhase);
     return yield* effect.pipe(
       Effect.provideContext(readers),
+      factory.value.withRegistryReadPhase,
       Effect.ensuring(
         Effect.suspend(() => {
           const reason = phase?.isActive() === false ? "mutation" : "phase-exit";
@@ -100,6 +103,7 @@ export const withFreshWorkspaceObservationReadView = <A, E, R>(effect: Effect.Ef
 export const WorkspaceReadViewsLive = Layer.effect(
   WorkspaceReadViews,
   Effect.gen(function* () {
+    const registry = yield* RegistryClientFactory;
     const location = yield* WorkspaceLocation;
     const documents = yield* WorkspaceDocuments;
     const manifests = yield* PackManifests;
@@ -107,6 +111,7 @@ export const WorkspaceReadViewsLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const canonical = yield* CanonicalNativePath;
     return {
+      withRegistryReadPhase: registry.withReadPhase,
       capture: (options) =>
         Effect.suspend(() => {
           let active = true;
@@ -322,7 +327,10 @@ export const WorkspaceReadViewsLive = Layer.effect(
               Context.add(LockfileReader, locks),
               Context.add(WorkspaceRecords, records),
               Context.add(ExtensionPaths, makeExtensionPaths(location, settings, locks)),
-              Context.add(CurrentWorkspaceReadPhaseInvalidation, close),
+              Context.add(
+                CurrentWorkspaceReadPhaseInvalidation,
+                Effect.andThen(Effect.sync(close), registry.invalidateReadPhase),
+              ),
               Context.add(CurrentWorkspaceReadPhase, {
                 fileSystem: Context.get(observation, FileSystem.FileSystem),
                 readers: { desired, settings, locks },

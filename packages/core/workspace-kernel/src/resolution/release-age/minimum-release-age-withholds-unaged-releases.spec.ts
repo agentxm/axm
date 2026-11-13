@@ -28,7 +28,7 @@ import type {
   VersionEntry,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
 import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
-import { WorkspaceStateLive } from "../../workspace-state/live.js";
+import { WorkspaceStateTest } from "../../workspace-state/testing.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -107,7 +107,7 @@ const evaluationFor = (scenario: Scenario = {}) => {
     Effect.provide(
       Layer.provideMerge(
         Layer.merge(
-          WorkspaceStateLive({
+          WorkspaceStateTest({
             scope: "project",
             projectRoot: decodeAbsolutePathSync(root),
             allowUninitialized: true,

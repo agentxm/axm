@@ -326,14 +326,14 @@ export const startLifecycleRegistry = async (
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
+    server.listen(0, "::1", resolve);
   });
   const address = server.address();
   if (address === null || typeof address === "string") {
     throw new Error("Could not determine benchmark Registry address.");
   }
   return {
-    url: `http://127.0.0.1:${address.port}`,
+    url: `http://[::1]:${address.port}`,
     reset: (record) => {
       recording = record;
       records = [];

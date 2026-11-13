@@ -177,12 +177,13 @@ export const controlNetwork = (options: NetworkOptions) =>
         message:
           "Use a proxy port from 1024 to 65535, distinct from the registry and control API ports.",
       });
+    const listen = `${upstream.hostname}:${port}`;
     const profile = options.profile ?? "typical";
     // Disabled until every toxic is installed: partial setup must never admit unshaped traffic.
     yield* requireStatus(
       yield* request("POST", "/proxies", {
         name,
-        listen: `127.0.0.1:${port}`,
+        listen,
         upstream: `${upstream.hostname}:${upstream.port || 80}`,
         enabled: false,
       }),
@@ -197,7 +198,7 @@ export const controlNetwork = (options: NetworkOptions) =>
       if (
         active === undefined ||
         identifyProfile(active) !== profile ||
-        active.listen !== `127.0.0.1:${port}` ||
+        active.listen !== listen ||
         active.name !== name ||
         active.upstream !== `${upstream.hostname}:${upstream.port || 80}`
       ) {

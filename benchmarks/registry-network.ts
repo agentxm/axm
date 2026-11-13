@@ -58,7 +58,7 @@ const program = Effect.gen(function* () {
   const owner = path.join(root, "proxy-owner");
   const api = process.env["AXM_REGISTRY_NETWORK_API"] ?? "http://127.0.0.1:8474";
   const port = Number(process.env["AXM_NETWORK_PORT"] ?? 18089);
-  const origin = `http://127.0.0.1:${port}`;
+  const origin = `http://[::1]:${port}`;
   fs.mkdirSync(path.dirname(output), { recursive: true });
   fs.mkdirSync(`${output}.receipts`, { recursive: true });
   const samples: unknown[] = [];

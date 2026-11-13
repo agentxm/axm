@@ -3958,6 +3958,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, contract
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `packages/core/workspace-features/src/publishing/settlement.test.ts`
 - Limitation: How the unresolved run reads to a person — the rendered lines that name each candidate's unknown settlement and never say a publication happened — and the exit status that run leaves are the application's mapping of this outcome, not the outcome itself, so they are not observed here. Retires when: The CLI owns evidence, beside its publish view and exit mapping, that an unsettled run renders every unresolved candidate without reporting a publication and exits with the reported-problems code.
+- Additional evidence: process via [`apps/cli-e2e/src/publication-timeout.e2e.test.ts`](../apps/cli-e2e/src/publication-timeout.e2e.test.ts) — The compiled CLI uses its production five-minute publication deadline over a real socket. The server commits but never answers the PUT; independent arrival and publication journals distinguish readback settlement from replay.
 - Source: [`packages/core/workspace-features/src/publishing/settlement/outcomes-distinguish-unresolved-uploads.spec.ts`](../packages/core/workspace-features/src/publishing/settlement/outcomes-distinguish-unresolved-uploads.spec.ts)
 
 ##### One failed publish preflight blocks the whole selection

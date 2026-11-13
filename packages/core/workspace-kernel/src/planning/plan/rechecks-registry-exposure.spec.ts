@@ -94,6 +94,7 @@ describe("Registry eligibility at exposure", () => {
     "ten-distinct",
     "ten-warm",
     "ten-warm-revoked",
+    "ten-warm-revoked-during-acquisition",
     "hundred-and-one-distinct",
   ] as const) {
     const processContention =
@@ -110,9 +111,13 @@ describe("Registry eligibility at exposure", () => {
         const noExposure = scenario === "no-registry-exposure" || scenario === "local-contention";
         const requests: string[] = [];
         const batchSizes: number[] = [];
-        const warm = scenario === "ten-warm" || scenario === "ten-warm-revoked";
+        const acquisitionRevokes = scenario === "ten-warm-revoked-during-acquisition";
+        const warm =
+          scenario === "ten-warm" || scenario === "ten-warm-revoked" || acquisitionRevokes;
         const revokes =
-          scenario === "revoked-during-confirmation" || scenario === "ten-warm-revoked";
+          scenario === "revoked-during-confirmation" ||
+          scenario === "ten-warm-revoked" ||
+          acquisitionRevokes;
         const distinct =
           warm || scenario === "ten-distinct"
             ? 10
@@ -240,6 +245,7 @@ describe("Registry eligibility at exposure", () => {
                       );
                     expect(document).toContain(reference.name);
                     acquired.push(reference.name);
+                    if (acquisitionRevokes) denied = true;
                     return files;
                   }).pipe(
                     Effect.provide(
@@ -258,7 +264,7 @@ describe("Registry eligibility at exposure", () => {
           confirmationAvailable: true,
           confirmApplyChanges: () =>
             Effect.sync(() => {
-              if (revokes) denied = true;
+              if (revokes && !acquisitionRevokes) denied = true;
               return "approved" as const;
             }),
         });

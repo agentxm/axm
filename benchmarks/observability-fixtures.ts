@@ -281,9 +281,9 @@ const observeReceiptIdentity = (identity: ContainerIdentity, fixture: WorkspaceT
 
 export const containerReceiptComparison = {
   scope:
-    "Preflight workspace receipt store: newly recorded, exactly classified .axm/tmp cleanup history only",
+    "Preflight workspace receipt store: independently matched new/refreshed live identities and exact .axm/tmp cleanup history",
   fields:
-    "inode and birthtime of its live-verified owner/root/sole parent and separately classified removed scratch entry",
+    "Only inode and birthtime of live-verified entry/owner/root/parents; separately classified removed .axm/tmp entry retains a distinct historical token",
   retained:
     "Raw before/after receipts, native observations, process window and projected comparison document",
   limitation:
@@ -424,28 +424,45 @@ export const verifyContainerReceiptEvidence =
         );
       let projected: unknown = after;
       let projectedRows = 0;
-      for (const [index, identity] of after.createdDirectories.entries()) {
-        if (
-          !observations.some(
-            (observation) =>
-              observation.location === "createdDirectories/" + index &&
-              observation.classification === "historical-runtime-cleanup-not-poststat-verifiable",
-          )
-        )
-          continue;
-        const parent = identity.parents[0];
-        if (parent === undefined)
-          return yield* fixtureFailure("Validated scratch history lost its required parent.");
+      const identities = [
+        ...after.entries.map((entry, index) => ({
+          location: "entries/" + index,
+          fields: ["entries", String(index), "identity"],
+          identity: entry.identity,
+        })),
+        ...after.createdDirectories.map((identity, index) => ({
+          location: "createdDirectories/" + index,
+          fields: ["createdDirectories", String(index)],
+          identity,
+        })),
+      ];
+      for (const { location, fields, identity } of identities) {
+        const observation = observations.find((entry) => entry.location === location);
+        const historical =
+          observation?.classification === "historical-runtime-cleanup-not-poststat-verifiable";
+        const live =
+          observation?.classification === "new-or-refreshed" &&
+          observation.matchesSample &&
+          observation.valid;
+        if (!historical && !live) continue;
         for (const part of [
           { fields: ["owner", "identity"], value: identity.owner.identity, proof: "live-verified" },
           { fields: ["root", "identity"], value: identity.root.identity, proof: "live-verified" },
-          { fields: ["parents", "0", "identity"], value: parent.identity, proof: "live-verified" },
-          { fields: ["entry"], value: identity.entry, proof: "historical-not-poststat-verified" },
+          ...identity.parents.map((parent, index) => ({
+            fields: ["parents", String(index), "identity"],
+            value: parent.identity,
+            proof: "live-verified",
+          })),
+          {
+            fields: ["entry"],
+            value: identity.entry,
+            proof: historical ? "historical-not-poststat-verified" : "live-verified",
+          },
         ])
           for (const field of ["inode", "birthtime"] as const)
             projected = projectComparisonField(
               projected,
-              ["createdDirectories", String(index), ...part.fields, field],
+              [...fields, ...part.fields, field],
               part.value[field],
               "<receipt-" + part.proof + "-" + field + ">",
             );
@@ -470,7 +487,7 @@ export const verifyContainerReceiptEvidence =
         assertions: [
           "Raw before/after projection-container receipts retained before independent verification.",
           "New or refreshed identities match sample native metadata and aliases, except exact .axm/tmp cleanup history with verified live ancestors, absence and creation time; expired inherited identities are permitted only when unchanged from before.",
-          "Only inode/birthtime in the classified scratch history are projected with distinct live-verified and historical-not-poststat-verified tokens; all other receipt fields remain strict.",
+          "Only inode/birthtime of independently matched new/refreshed live identities and exact scratch history are projected, with distinct live-verified and historical-not-poststat-verified tokens; inherited proofs and all other receipt fields remain strict.",
         ],
         fileComparisons:
           projectedRows === 0

@@ -17,16 +17,72 @@ work owner, schema, execution binding, or evidence artifact changes.
 
 ## Scope and status
 
-The current working-tree redesign replaces per-occurrence summary spans with
-direct owner aggregates exported as correlated logs. It adds receipt/inspection
-schema 2, aggregate event count and payload integrity, partial-measurement
-coverage, and category/phase-selected detail. **Final-candidate verification is
-pending.** The focused redesign checkpoint below establishes selected current
-source claims. Older successful runs recorded later predate this migration. They retain
-value for their independent fixtures and unchanged product behavior; they do
-not prove the new producer, log delivery, receipt, inspector or overhead.
+The implementation replaces per-occurrence summary spans with direct owner
+aggregates exported as correlated logs. It adds receipt/inspection schema 2,
+aggregate event count and payload integrity, partial-measurement coverage, and
+category/phase-selected detail. **Final completion remains pending.** The current
+checkpoint separates completed evidence, applicable historical reuse, and finite
+remaining work. Historical evidence retains its actual source/binary provenance;
+earlier failed runs remain failed. Isolated repeated elapsed/RSS qualification
+is explicitly deferred, not passed.
 
-### Direct-accounting development checkpoint
+### Current verification checkpoint
+
+The frozen product candidate is
+`99856a289d1f416d4f59a7e6b26d18d76250b4f5`, Linux binary SHA-256
+`6b5a1898ad4dff8cb0f25cc26bbada9f9c7ec9387cab3f974807b81a535d877d`,
+retained at `/tmp/axm-observability-final-host-vw6nykx9/axm-linux-x64`.
+[Full CI](https://github.com/agentxm/axm/actions/runs/43364797814) passed at
+that revision, including source partitions, main E2E shards, binary/install
+distribution, and actual native-host checks. Linux x64's mounted ext4 casefold
+case passed with cache disabled; ARM64 casefold and both macOS canonical-path,
+case-sensitive APFS, and physical-boundary steps passed. Evidence:
+`/tmp/axm-linux-x64-ci-43364797814-job131687353495.log` and
+`/tmp/axm-native-platform-ci-43364797814-steps.json`. Windows results and
+its two platform-inapplicable skips are recorded below.
+
+The subsequent published `pnpm run test:affected --exclude=axm` production
+graph passed 18 project targets and 17 prerequisites, reusing 24 of 35
+input-valid results, in 15 minutes 40 seconds. It began at `189c689e1`
+against main base `187ebf03a`; production inputs stayed frozen during the
+excluded harness edits. Kernel tests passed 2,914 cases with four platform
+skips, workspace-feature tests passed 3,558 with one skip, and CLI tests passed
+4,217. The kernel run includes the distinct-existing-case check that is
+inapplicable on the folding Windows volume. Evidence:
+`/tmp/observability-final-production-tests.log` and
+`/tmp/axm-observability-final-host-vw6nykx9/production-verification`.
+These input-scoped results do not constitute the final main integration gate.
+
+Preflight currently covers **51 of 249 scenarios**: 13 applicable query/group
+cases retain their original `08befbe16` provenance, and 38 cases passed on
+the frozen `99856a289` binary, including fork in all candidate modes. This
+coverage accounts for 204 workload invocations and 102 exact receiver inspections.
+**198 scenarios remain**, scheduling 792 workload invocations and 396 inspections;
+failed attempts are retained separately. The run stopped on
+`typed/skills/handoff` postcondition comparison and remains failed at
+`/tmp/axm-observability-final-host-vw6nykx9/remaining-preflight`.
+
+The shared receipt-capture correction at `a1496bf0a` passed six focused
+controls and repository type/lint checks
+(`/tmp/observability-receipt-capture-tests.log`,
+`/tmp/observability-receipt-capture-checks.log`).
+The focused handoff capture then failed strict comparison, retaining exactly
+158 scalar differences: 98 creation times and 60 inodes, with no other field
+differences. Each subject's 13 new live identities independently matched its
+filesystem paths/aliases; both before states were absent, and the exact temporary
+history was classified separately. The bounded comparison refinement for those
+independently validated new/refreshed live identities passed six focused tests,
+including forged live identity/parent/alias rejection and preservation of real
+mode/path/owner differences (`/tmp/observability-live-receipt-tests.log`).
+The assembled handoff replay remains pending. The failed capture remains
+diagnostic evidence: `/tmp/observability-handoff-receipts.log`.
+
+The remaining delivery work is that finite preflight selection, applicable final
+evidence reconciliation, and the clean main-only integration gate. Existing
+owner, real-Seq and supported-host evidence is reused only with its source/input
+applicability recorded. No isolated timing campaign has run.
+
+### Historical direct-accounting development checkpoints
 
 These are provisional executions on a dirty source tree, not a frozen candidate,
 performance result or integration verdict. Existing independent work oracles were
@@ -203,8 +259,8 @@ native owner regression confirmed creation-time tunneling on rename: inode was
 unchanged, while the file inherited the deleted destination's creation time.
 Publication now obtains that timestamp from a retained staged handle on Windows,
 preserving all other staged identity/content checks. Linux filesystem calls are
-unchanged, with a shared lexical publication scope; earlier assembled evidence
-needs an explicit applicability audit. Fourteen atomic-write and three real
+unchanged, with a shared lexical publication scope; the applicability audit
+below limits reuse of earlier assembled evidence. Fourteen atomic-write and three real
 interference owner cases passed locally. Windows fixture paths were canonicalized
 and same-bytes foreign replacement uses move-aside followed by rename, retaining
 strict rejection and recovery checks. Windows qualification passed at
@@ -217,10 +273,11 @@ Earlier failed and superseded CI runs remain failed/cancelled.
 
 The source-impact audit retains only 13 unaffected query/group scenarios from
 the original Linux preflight, with their original `08befbe16` binary/receipts.
-The seven earlier publication scenarios require replay because the common lexical
-scope changed. Together with the 229 previously unreached cases, the remaining
-selection schedules 944 workload invocations and 472 exact inspections. The 13
-reused cases contribute 52 invocations and 26 inspections. This is behavioral
+The audit selected seven earlier publication scenarios for replay because the
+common lexical scope changed. Together with 229 previously unreached cases,
+that original replay selection scheduled 944 workload invocations and 472 exact
+inspections. The current checkpoint records its 38 completed cases and the
+198-case remainder. The 13 reused cases contribute 52 invocations and 26 inspections. This is behavioral
 impact analysis, not current-binary execution or an Nx cache-validity claim.
 Selection and source bindings are retained in
 `/tmp/axm-observability-final-mdkja07w/final-preflight-selection.json`.
@@ -231,8 +288,9 @@ timing exclusion. Their initial synthetic process window was too narrow for
 filesystem timestamp quantization; only the unit fixture window changed, and
 production capture bounds remain unchanged. Logs:
 `/tmp/observability-fork-projection-tests2.log` and
-`/tmp/observability-fork-projection-checks2.log`. Actual fork replay and remaining
-operation coverage are still required.
+`/tmp/observability-fork-projection-checks2.log`. Actual fork replay subsequently
+passed on the current frozen binary and is included in the 38 completed cases.
+The shared receipt comparison controls also pass; handoff replay remains pending.
 
 The coordination correction passed focused owner checks: 13 request/recorder,
 15 archive admission/acquisition, 25 ledger/native-lock, 50 runtime/inspector, and
@@ -247,14 +305,16 @@ failure alongside successful owner selections),
 `/tmp/observability-coordination-wire-checks.log`,
 `/tmp/observability-coordination-wire-tests2.log`, and
 `/tmp/observability-coordination-method-tests.log`.
-The larger assembled replay and final performance/integration evidence remain pending.
+The finite remaining assembled selection and final integration evidence remain
+pending. Isolated repeated elapsed/RSS qualification is deferred.
 
 The retained tiny Seq probe confirmed typed aggregate-log correlation and the
 fixed projected-query response (four rows, exit zero, about 0.9 seconds). Its
 artifacts are `/tmp/axm-seq-aggregate-wire-val95fgu/projection-query*`.
-It does not certify large live retrieval or production CLI wiring. Those claims,
-the authenticated workflow, final operation/mode preflight, timing campaign and
-integration/platform gates still need current-candidate evidence.
+That tiny probe alone does not certify large live retrieval or production CLI
+wiring. The later schema-2 Seq/authenticated executions and current platform CI
+above supply their separately stated evidence. Remaining operation coverage and
+the final integration gate are pending; repeated elapsed/RSS measurement is deferred.
 
 The registered command tree contains **148 routes in 43 top-level families**,
 including group nodes and the root. All routes declare capabilities. Universal
@@ -285,11 +345,12 @@ Status terms:
 
 ## Architecture and executable bindings
 
-All source bindings below are present. Final candidate architecture, typecheck,
-lint, specification catalog, and execution evidence remain pending unless the
-execution register explicitly records them.
+All source bindings below are present. The current checkpoint records passed CI
+and production checks with their actual input scope. This table describes proof
+obligations; the completion table records what is established and what remains
+for the final integrated revision.
 
-| Boundary                                       | Consequential owner                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Specification and executable binding                                                                                                                                                                                                                                                                                                                                                                                                                                 | Remaining evidence                                                                                                                                                                            |
+| Boundary                                       | Consequential owner                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Specification and executable binding                                                                                                                                                                                                                                                                                                                                                                                                                                 | Evidence obligation                                                                                                                                                                           |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Invocation identity and outcomes               | [app dispatch](../../../apps/cli/src/app.ts), [capability identity](../../../apps/cli/src/command-tracing.ts), [runtime](../../../apps/cli/src/cli-runtime/run-cli-main.ts)                                                                                                                                                                                                                                                                                                              | [command identity specification](../../../apps/cli/src/cli-runtime/local-tracing-identifies-commands.spec.ts), [invocation specification](../../../apps/cli/src/cli-runtime/local-tracing-identifies-invocations.spec.ts), [compiled E2E](../../../apps/cli-e2e/src/binary-local-tracing.e2e.test.ts)                                                                                                                                                                | Real source and compiled work for every family; early failure, concurrent processes, build identity, startup/render/finalization separation.                                                  |
 | Lifecycle phases and user waits                | [operation lifecycle](../../../apps/cli/src/operation-lifecycle.ts), [event observer](../../../apps/cli/src/cli-runtime/lifecycle-tracing.ts)                                                                                                                                                                                                                                                                                                                                            | [phase/wait tests](../../../apps/cli/src/cli-runtime/lifecycle-tracing.test.ts)                                                                                                                                                                                                                                                                                                                                                                                      | Real user delay and all settlement outcomes, including failure/interruption/finalizer lifetimes.                                                                                              |
@@ -377,21 +438,21 @@ its applicable specifications, architecture, implementation, independent oracles
 and final execution evidence agree. The absence of a fixture is pending work,
 not a reason to exclude a command or outcome.
 
-| Outcome                                   | Required proof                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Current status and next evidence source                                                                                                                                                                                                                                                                                                           |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Complete surface inventory             | Every registered family, consequential work owner, specification, implementation, and executable binding; reasoned route-specific inapplicability.                                                                                                                                                                                                                                                                                                                                                         | **Bound; pending semantic coverage.** The 148-route table and ownership map are present. Help dispatch covers identity only. Each real handler and option-dependent mode still needs applicable work evidence.                                                                                                                                    |
-| 2. Coherent architecture                  | Existing Effect services/layers own instrumentation; declared package entries and dependency direction hold; superseded paths are removed; schema, privacy, mode and lifetime contracts align between producer/exporter/inspector.                                                                                                                                                                                                                                                                         | **Pending final review/checks.** Source owners are mapped above. Review command dispatch, physical ports, cache decisions, request ownership, publication, and schema admission together; record architecture/typecheck/lint/catalog results on the final candidate.                                                                              |
-| 3. Invocation and elapsed-time truth      | Actual source and compiled commands identify route/mode/version/build and correctly nested work; early errors and concurrent invocations remain distinct. Startup/process, execution, user wait, terminal rendering, and finalization/export are distinguished. No double counting of overlapping work.                                                                                                                                                                                                    | **Provisional source/compiled Seq execution.** Identity, output/state equivalence and separate concurrent worktrees passed against real Seq. External elapsed and receipt timing remain distinct; the full family and final-candidate matrix is pending.                                                                                          |
-| 4. Actual work and reuse truth            | Independent server/FS/process counters agree with requested/executed/reused counts, batches, bytes, outcomes and invalidation. Cover miss/hit/coalescing, changed candidate, mutation/phase invalidation, live/bypass/post-phase reads, parsing, hashing, archive work and writes.                                                                                                                                                                                                                         | **Provisional independent-oracle execution.** Native bridge, cache/read-view and selected real HTTP fixtures passed; source/compiled summary/detail results preserve all inspected additive work fields. The complete owner/outcome matrix remains pending; trace-derived expected values cannot close it.                                        |
-| 5. Request, delay and wait truth          | One transport exchange owner; semantic purpose, attempts, batches, eligibility phases, headers, body, retry/backoff and admission are distinct. Controlled delay, saturated request/extraction/archive/scratch budgets, locks, resources, user wait and full subprocess lifetime are observed. Authorization remains unchanged.                                                                                                                                                                            | **Provisional temporal execution.** A real response-body gate separated body completion from headers; retained device-poll evidence and independent source barriers exercise waits. The full resource/lock/user-wait matrix and final-candidate evidence remain pending.                                                                          |
-| 6. Mutation and recovery truth            | Real no-op and changed operations preserve unmanaged data and required identities. Snapshot/preservation reads, fresh conflicts, publication route selection, write/verify/receipt boundaries, and rollback/restoration are visible on success, failure and interruption.                                                                                                                                                                                                                                  | **Pending real-operation matrix.** Existing transaction/interference tests are bindings; before/after filesystem and independent port records must establish the mutation claim.                                                                                                                                                                  |
-| 7. Diagnostic completeness                | Distinguish disabled tracing, setup failure, failed/missing receipt, producer completion, delivery, missing root/child/batch, truncation/caps, forced termination and receiver completeness. Deliberately drop a span and a batch; verification must fail. Keep diagnostic status independent of product outcome.                                                                                                                                                                                          | **Provisional real-receiver negative controls.** Truncated trees, missing/wrong owners, duplicate work, traversal limits and forced termination are rejected. An acknowledged but dropped OTLP batch is independently retained and rejected despite zero producer loss. Final-candidate replay and the remaining applicable controls are pending. |
-| 8. Privacy and non-interference           | Default off, loopback-only endpoint validation, redirects/proxies/credentials constrained, bounded names/attributes, and no unsafe errors/events/links/logs/secrets. Off/reject/stall preserves stdout/stderr, exit, effects and bounded shutdown, with no enrichment reads.                                                                                                                                                                                                                               | **Provisional source/compiled execution.** Authenticated product output, credential state and wire counts remain unchanged across capture modes; real collector rejection/stall and authenticated Seq paths passed. This is selected development evidence, not the complete privacy/operation matrix or final performance certification.          |
-| 9. Contributor and agent workflow         | Source and compiled capture, exact trace lookup, bounded subtree, stable compact pure JSON, fresh receipts/concurrent worktrees, authenticated Seq, and real receiver inspection. Injected duplicate work and waits are visible.                                                                                                                                                                                                                                                                           | **Provisional real-Seq workflow execution.** Source/compiled capture, JSON inspection, bounded subtree selection, authenticated Seq and concurrent linked worktrees passed. The reader register records exact scope; final immutable-candidate execution remains pending.                                                                         |
-| 10. Bounded cost and performance evidence | Predeclared numeric disabled/default/detail elapsed, memory, volume and shutdown budgets. Before/after every affected operation across disabled, summary and detail capture with matched fixtures/runtimes, shared nearby baselines, repetitions and artifact identities. Apply size, latency and cache variations to the declared risk set. Preflight reconciles summary/detail work and receiver completeness; timing retains receipts without repeated receiver inspection or full fixture inventories. | **Elapsed/RSS qualification explicitly deferred by the maintainer.** Preserve the unchanged limits and balanced protocol in the follow-up. Full behavior/trace preflight, volume and shutdown evidence remain required here; earlier diagnostics are not performance acceptance.                                                                  |
-| 11. Consequential executable evidence     | Current source, compiled process and real Seq cover success/no-op/reuse/invalidation/retry/contention/error/interruption/rollback. Missing owner, duplicate exchange, omitted live I/O, wrong reuse and incomplete collection negative controls fail meaningfully.                                                                                                                                                                                                                                         | **Partial source and real-Seq execution.** Selected outcomes and meaningful owner/work/delivery negative controls passed, with the reused batch-loss control identified separately below. The final applicable outcome matrix remains pending; aggregate test totals cannot close it.                                                             |
-| 12. Main integration and platforms        | Source verification precedes published affected host-compatible E2E; E2E failure blocks a real push; final HEAD/cleanliness checks still run; non-main pushes stay fast. Required platform-specific CI runs on its actual host.                                                                                                                                                                                                                                                                            | **Bound; final execution pending.** [Integration runbook](../../../devops/runbooks/integrate-changes.md) and [gate tests](../../../scripts/verify-integration.test.mjs) own ordering and real failed-push evidence. Linux results do not establish macOS/Windows assurance.                                                                       |
-| 13. Reproducible final proof              | Every requirement/architecture/family/outcome maps to exact source/spec/test command, revision, host, raw artifact, trace ID and independent oracle. Cached results and provenance limits are explicit; no silent deferral or waived scope.                                                                                                                                                                                                                                                                | **Pending.** Final immutable source/binary identity, checked-in raw reports, required platform results and complete row-by-row evidence are not yet available.                                                                                                                                                                                    |
+| Outcome                                   | Required proof                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Current status and next evidence source                                                                                                                                                                                                                                                                     |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Complete surface inventory             | Every registered family, consequential work owner, specification, implementation, and executable binding; reasoned route-specific inapplicability.                                                                                                                                                                                                                                                                                                                                                         | **Partial exhaustive preflight.** The inventory covers 148 routes; 51 of 249 scenarios have applicable evidence, with original/current binary provenance separated above. The remaining 198 cases must establish their real handler/mode outcomes.                                                          |
+| 2. Coherent architecture                  | Existing Effect services/layers own instrumentation; declared package entries and dependency direction hold; superseded paths are removed; schema, privacy, mode and lifetime contracts align between producer/exporter/inspector.                                                                                                                                                                                                                                                                         | **Current CI and owner checks passed; final audit pending.** Full CI at `99856a289` and the later input-valid production graph cover the bound packages. Final wiring/applicability reconciliation and the delivered-revision integration gate remain required.                                             |
+| 3. Invocation and elapsed-time truth      | Actual source and compiled commands identify route/mode/version/build and correctly nested work; early errors and concurrent invocations remain distinct. Startup/process, execution, user wait, terminal rendering, and finalization/export are distinguished. No double counting of overlapping work.                                                                                                                                                                                                    | **Schema-2 Seq execution and partial preflight.** The six-case `08befbe16` suite and separate authenticated checkpoint establish their stated identity/ownership outcomes. Preserve those revisions; reconcile applicability and complete the remaining operation/mode cases.                               |
+| 4. Actual work and reuse truth            | Independent server/FS/process counters agree with requested/executed/reused counts, batches, bytes, outcomes and invalidation. Cover miss/hit/coalescing, changed candidate, mutation/phase invalidation, live/bypass/post-phase reads, parsing, hashing, archive work and writes.                                                                                                                                                                                                                         | **Independent owner evidence and partial preflight.** Direct-accounting oracles and inspected completed cases retain exact work/coverage evidence. Complete the 198-case selection and final owner-to-case mapping; telemetry cannot serve as its own expected-value oracle.                                |
+| 5. Request, delay and wait truth          | One transport exchange owner; semantic purpose, attempts, batches, eligibility phases, headers, body, retry/backoff and admission are distinct. Controlled delay, saturated request/extraction/archive/scratch budgets, locks, resources, user wait and full subprocess lifetime are observed. Authorization remains unchanged.                                                                                                                                                                            | **Shared temporal evidence executed.** Held-body, admission, lock and subprocess owner controls and the six-case Seq suite are recorded above. Reconcile their input applicability and remaining assembled bindings; do not reopen completed shared controls without an uncovered failure.                  |
+| 6. Mutation and recovery truth            | Real no-op and changed operations preserve unmanaged data and required identities. Snapshot/preservation reads, fresh conflicts, publication route selection, write/verify/receipt boundaries, and rollback/restoration are visible on success, failure and interruption.                                                                                                                                                                                                                                  | **Publication controls passed; assembled coverage incomplete.** Linux and Windows interference controls passed, and current fork replay passed. The handoff comparison remains failed pending its bounded fixture correction and replay; remaining mutation/preview cases still require evidence.           |
+| 7. Diagnostic completeness                | Distinguish disabled tracing, setup failure, failed/missing receipt, producer completion, delivery, missing root/child/batch, truncation/caps, forced termination and receiver completeness. Deliberately drop a span and a batch; verification must fail. Keep diagnostic status independent of product outcome.                                                                                                                                                                                          | **Schema-2 receiver controls executed.** The six-case Seq suite passed at `08befbe16`; focused owner/inspection controls and six receipt-capture checks have recorded results. Final evidence maps their precise loss/tampering/termination claims and source applicability.                                |
+| 8. Privacy and non-interference           | Default off, loopback-only endpoint validation, redirects/proxies/credentials constrained, bounded names/attributes, and no unsafe errors/events/links/logs/secrets. Off/reject/stall preserves stdout/stderr, exit, effects and bounded shutdown, with no enrichment reads.                                                                                                                                                                                                                               | **Shared privacy/isolation and shutdown evidence executed.** Source/compiled/authenticated and collector-failure checkpoints retain their actual scope; observed cleanup upper bounds remain below 500 ms. Complete the per-claim applicability audit; isolated elapsed/RSS qualification remains deferred. |
+| 9. Contributor and agent workflow         | Source and compiled capture, exact trace lookup, bounded subtree, stable compact pure JSON, fresh receipts/concurrent worktrees, authenticated Seq, and real receiver inspection. Injected duplicate work and waits are visible.                                                                                                                                                                                                                                                                           | **Schema-2 contributor/agent workflow executed.** The six-case real-Seq suite and authenticated source/compiled checkpoint supersede the older reader register for their stated claims. Preserve exact revisions and artifacts in the final applicability map.                                              |
+| 10. Bounded cost and performance evidence | Predeclared numeric disabled/default/detail elapsed, memory, volume and shutdown budgets. Before/after every affected operation across disabled, summary and detail capture with matched fixtures/runtimes, shared nearby baselines, repetitions and artifact identities. Apply size, latency and cache variations to the declared risk set. Preflight reconciles summary/detail work and receiver completeness; timing retains receipts without repeated receiver inspection or full fixture inventories. | **Elapsed/RSS qualification explicitly deferred by the maintainer.** Preserve the unchanged limits and balanced protocol in the follow-up. Full behavior/trace preflight, volume and shutdown evidence remain required here; earlier diagnostics are not performance acceptance.                            |
+| 11. Consequential executable evidence     | Current source, compiled process and real Seq cover success/no-op/reuse/invalidation/retry/contention/error/interruption/rollback. Missing owner, duplicate exchange, omitted live I/O, wrong reuse and incomplete collection negative controls fail meaningfully.                                                                                                                                                                                                                                         | **Owner suites and partial assembled coverage passed.** The production graph and real-Seq controls establish their bound outcomes; 198 operation/mode cases and the final per-outcome evidence reconciliation remain. Aggregate test totals do not replace that mapping.                                    |
+| 12. Main integration and platforms        | Source verification precedes published affected host-compatible E2E; E2E failure blocks a real push; final HEAD/cleanliness checks still run; non-main pushes stay fast. Required platform-specific CI runs on its actual host.                                                                                                                                                                                                                                                                            | **Current supported-platform CI passed; main integration pending.** Full CI at `99856a289` covers applicable Linux, Windows and macOS checks. The final clean source → affected host E2E → HEAD/cleanliness gate remains required; preserve existing blocked-push evidence with its applicability.          |
+| 13. Reproducible final proof              | Every requirement/architecture/family/outcome maps to exact source/spec/test command, revision, host, raw artifact, trace ID and independent oracle. Cached results and provenance limits are explicit; no silent deferral or waived scope.                                                                                                                                                                                                                                                                | **Final audit pending.** Frozen source/binary identities and current platform results are recorded above. Complete the 198-case evidence set, final integrated revision, checked-in raw reports and row-by-row provenance/applicability record; timing remains explicitly deferred.                         |
 
 The intended result is a trustworthy baseline for subsequent performance design,
 not a performance optimization in this change. Reduced retained span count in
@@ -462,7 +523,8 @@ span-ID hash plus `aggregateEventCount` and `aggregateEventsSha256`. The latter
 protects admitted aggregate values, dimensions, coverage and ownership, rather
 than receiver-generated IDs or timestamps. Independent expectations separately
 establish whether required work occurred. Work totals come from aggregates;
-selected detail spans are not added again. These new boundaries await execution.
+selected detail spans are not added again. Schema-2 owner and real-Seq execution
+is recorded in the checkpoints above; exhaustive operation coverage is incomplete.
 
 Completed receipts require `commandRoute` and `detailSelection`. Route admission
 uses the actual registered vocabulary, and the benchmark matches the receipt
@@ -473,10 +535,13 @@ capture constructs no repetitive low-level spans; `AXM_TRACE_DETAIL` selects
 by `AXM_TRACE_DETAIL_PHASE`. The benchmark selects `io` for its detail subject.
 The tracing guide owns configuration and the versioned schema owns field shapes.
 
-The reader evidence below applies to the prior span-derived pipeline. Each
-affected workflow needs a current schema-2 run before it can verify the redesign.
+The table below preserves historical reader evidence from the prior span-derived
+pipeline. The six-case schema-2 suite at `08befbe16` and separate authenticated
+checkpoint above provide the later workflow evidence. Their actual revisions
+and input applicability belong in the final audit; these historical rows do not
+require an automatic repeat of every reader workflow.
 
-| Reader task                                                                | Current evidence                                                                                                                                                                                                                                                                                                                                  |
+| Reader task                                                                | Historical evidence                                                                                                                                                                                                                                                                                                                               |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Follow guide from source capture through pure-JSON inspection              | **Provisional workflow execution.** Real source captures were retrieved and parsed by the published inspector; exact trees and JSON results are retained in `identity-AYN3fa` and `identity-ehZlED`. This is executable workflow evidence, not an independent human reader study.                                                                 |
 | Build and capture current compiled CLI, preserving machine stdout          | **Provisional compiled execution.** The identity cases compare untraced/traced output, exit, credential files and actual wire requests across summary/detail. The dirty build and executable identities are recorded below.                                                                                                                       |
@@ -537,8 +602,9 @@ failed with `identity-mismatch`. Its duplicate-wait control also failed as expec
 with `expectation-mismatch` before an unrelated final-state assertion failed.
 That result establishes the prior span-set control only. Schema 2 additionally
 requires aggregate-log loss and payload-tampering controls; the old batch-loss
-run cannot certify those new boundaries. Current execution and final replay on
-the immutable candidate remain pending.
+run cannot certify those new boundaries. The later schema-2 suite and focused
+controls are recorded above; their final source/input applicability still needs
+explicit reconciliation.
 
 ### Benchmark execution status
 
@@ -602,7 +668,8 @@ are unchanged. Count reductions do not establish wall-clock savings.
 The revised scheduling and contract had passing development type/lint and
 17-test evidence before the observation migration. The redesigned trace
 reconciliation and selected-`io` detail subject require current checks. Revised
-preview/startup fixtures, full preflight and measurement remain pending.
+preview/startup fixtures have partial current preflight evidence; the finite
+198-case remainder is still pending. Repeated elapsed/RSS measurement is deferred.
 Earlier 262-descriptor baseline smoke is retained as fixture feasibility evidence,
 not a completed campaign under this revised method. The restricted TLS fixture
 has a separate five-control development probe at
@@ -637,7 +704,9 @@ a convenient total remains `null` unless every occurrence measured that field.
 An exact independent expectation, including zero, requires full coverage.
 Attempt ordinals, status codes, capacities and requested admission sizes remain
 attributes, not additive totals. The prior 52-test/Seq evidence supports the old
-owner-unit distinction; current coverage and direct aggregation remain unverified.
+owner-unit distinction. The later direct-accounting owner and schema-2 Seq
+checkpoints establish their recorded scope; exhaustive operation coverage and
+final evidence reconciliation remain incomplete.
 Explicit receipt status documents distinguish starting, disabled, rejected
 endpoints and setup failures without claiming completion. Missing or invalid
 receipts remain uncertain and are rejected before receiver lookup.

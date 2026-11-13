@@ -485,17 +485,25 @@ The owning lock test independently observes actual heartbeat/mtime refresh with
 tracing enabled and disabled. This distinction does not permit missing accounting
 or a performance claim from unequal-duration diagnostics.
 
-Fork fixtures retain raw before/after native-directory receipts. Independent
-filesystem checks distinguish unchanged copied proofs from new live identities.
+Preflight fixtures retain raw before/after native-directory receipts through the
+shared receipt capture. Independent filesystem checks distinguish unchanged
+inherited proofs from new or refreshed live identities, validating each entry
+against its actual path, aliases and metadata. Only the inode and creation-time
+fields of those independently validated live identities may be projected for
+cross-run comparison. Inherited proofs remain strict.
+
 The exact `.axm/tmp` creation-history record can remain after its empty directory
-is retired. That narrow case requires matching live ancestors, confirmed absence,
-the expected directory/alias shape and creation time inside the invocation.
-Comparison projects only inode and creation-time fields within that validated
-record, using distinct markers for live-verified ancestors and the removed
-historical entry. The latter is explicitly not post-stat verifiable. Inherited
-proofs, devices, permissions, paths, aliases, ownership, ordering and other fields
-remain strict. Raw receipts and classifications are retained; this full audit
-runs only in preflight.
+is retired. That separate historical case requires matching live ancestors,
+confirmed absence, the expected directory/alias shape and creation time inside
+the invocation. Its inode and creation time use a distinct historical marker;
+the removed entry is explicitly not post-stat verifiable. Arbitrary missing
+directories cannot qualify as history. Devices, permissions, paths, aliases,
+ownership, ordering and every unrelated field remain strict in both cases.
+Raw receipts and classifications are retained; this audit runs only in preflight.
+
+The [evidence ledger](../../benchmarks/evidence/local-observability/README.md)
+records completed captures and their provenance. This comparison rule does not
+certify an uncompleted capture or relax product identity checks.
 
 Keep `report.json`, raw-artifact hashes, receipts and independent oracle records.
 `harness-modules.json` identifies the complete statically resolvable module

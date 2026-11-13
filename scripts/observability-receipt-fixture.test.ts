@@ -73,12 +73,19 @@ const makeSample = (root: string, name: string, template: WorkspaceTemplate) => 
   fs.mkdirSync(scratch);
   const history = directoryProof(fixture.workspace, scratch, [runtime]);
   fs.rmdirSync(scratch);
+  const liveTarget = path.join(runtime, "live", "nested");
+  fs.mkdirSync(liveTarget, { recursive: true });
+  const live = directoryProof(fixture.workspace, liveTarget, [path.dirname(liveTarget), runtime]);
   const endedAtMillis = Date.now();
   expect(history.entry.birthtime).toBeGreaterThanOrEqual(startedAtMillis);
   expect(history.entry.birthtime).toBeLessThanOrEqual(endedAtMillis);
   const inherited = directoryProof(template.workspace, path.join(template.workspace, ".axm"), []);
   const before = { version: 1, entries: [], createdDirectories: [inherited] };
-  const after = { ...before, createdDirectories: [inherited, history] };
+  const after = {
+    ...before,
+    entries: [{ unit: "live-unit", kind: "created-directory", identity: live }],
+    createdDirectories: [inherited, history],
+  };
   const beforePath = path.join(root, name, "before-receipt.json");
   const afterPath = path.join(runtime, "projection-containers.json");
   fs.mkdirSync(path.dirname(beforePath), { recursive: true });
@@ -93,7 +100,7 @@ const makeSample = (root: string, name: string, template: WorkspaceTemplate) => 
     startedAtMillis,
     endedAtMillis,
   };
-  return { before, after, history, beforePath, afterPath, observed };
+  return { before, after, history, live, beforePath, afterPath, observed };
 };
 
 const verifySample = (
@@ -113,7 +120,7 @@ const verifySample = (
 
 describe("preflight native receipt comparison", () => {
   it.effect(
-    "retains genuine absence and validates new live proof without projecting its native IDs",
+    "retains genuine absence and projects only independently matched new live native IDs",
     () =>
       Effect.gen(function* () {
         const root = yield* temporaryRoot;
@@ -145,7 +152,7 @@ describe("preflight native receipt comparison", () => {
           ),
         ).toBe(false);
         const runtime = path.join(sample.observed.fixture.workspace, ".axm");
-        const target = path.join(runtime, "live");
+        const target = path.join(runtime, "new-live");
         fs.mkdirSync(target);
         const live = directoryProof(sample.observed.fixture.workspace, target, [runtime]);
         fs.writeFileSync(
@@ -159,10 +166,8 @@ describe("preflight native receipt comparison", () => {
         const checked = yield* verifyContainerReceiptEvidence(template, { before, after })(
           sample.observed,
         );
-        expect(checked.fileComparisons).toEqual([]);
-        expect(fs.existsSync(path.join(retained, "container-receipts-comparison.json"))).toBe(
-          false,
-        );
+        expect(checked.fileComparisons?.[0]?.sha256).toBeDefined();
+        expect(fs.existsSync(path.join(retained, "container-receipts-comparison.json"))).toBe(true);
         expect(
           fs.readFileSync(
             path.join(retained, "container-receipt-native-observations.json"),
@@ -247,6 +252,12 @@ describe("preflight native receipt comparison", () => {
           "foreign-device",
           "linked-alias",
           "entry-receipt",
+          "new-live-entry",
+          "new-live-parent",
+          "new-live-birthtime",
+          "new-live-mode",
+          "new-live-device",
+          "new-live-alias",
         ];
         for (const name of cases) {
           const sample = makeSample(root, name, template);
@@ -292,7 +303,34 @@ describe("preflight native receipt comparison", () => {
                   ...sample.after,
                   createdDirectories: [...sample.before.createdDirectories, history],
                 };
-          fs.writeFileSync(sample.afterPath, JSON.stringify(after));
+          let live = sample.live;
+          if (name === "new-live-entry") live = { ...live, entry: { ...live.entry, inode: "0" } };
+          if (name === "new-live-birthtime")
+            live = { ...live, entry: { ...live.entry, birthtime: live.entry.birthtime - 1 } };
+          if (name === "new-live-mode")
+            live = { ...live, entry: { ...live.entry, mode: 0o100644 } };
+          if (name === "new-live-device")
+            live = { ...live, entry: { ...live.entry, device: live.entry.device + "9" } };
+          if (name === "new-live-alias")
+            live = {
+              ...live,
+              aliases: live.aliases.map((alias) => ({ ...alias, path: alias.path + "-missing" })),
+            };
+          if (name === "new-live-parent")
+            live = {
+              ...live,
+              parents: live.parents.map((parent) => ({
+                ...parent,
+                identity: { ...parent.identity, inode: "0" },
+              })),
+            };
+          const observedAfter = name.startsWith("new-live-")
+            ? {
+                ...after,
+                entries: sample.after.entries.map((entry) => ({ ...entry, identity: live })),
+              }
+            : after;
+          fs.writeFileSync(sample.afterPath, JSON.stringify(observedAfter));
           const result = yield* verifySample(template, sample).pipe(Effect.result);
           expect(result._tag, name).toBe("Failure");
           expect(
@@ -326,6 +364,9 @@ describe("preflight native receipt comparison", () => {
           "inherited-owner",
           "inherited-alias",
           "order",
+          "live-mode",
+          "live-path",
+          "live-unit",
         ]) {
           const sample = makeSample(root, field, template);
           const inherited = sample.before.createdDirectories[0];
@@ -359,10 +400,29 @@ describe("preflight native receipt comparison", () => {
             sample.beforePath,
             JSON.stringify({ ...sample.before, createdDirectories: [changed] }),
           );
+          let live = sample.live;
+          if (field === "live-mode") {
+            fs.chmodSync(live.target, (live.entry.mode & 0o777) === 0o700 ? 0o755 : 0o700);
+            live = { ...live, entry: nativeIdentity(live.target) };
+          }
+          if (field === "live-path") {
+            const next = live.target + "-other";
+            fs.renameSync(live.target, next);
+            live = directoryProof(
+              sample.observed.fixture.workspace,
+              next,
+              live.parents.map((parent) => parent.path),
+            );
+          }
           fs.writeFileSync(
             sample.afterPath,
             JSON.stringify({
               ...sample.after,
+              entries: sample.after.entries.map((entry) => ({
+                ...entry,
+                unit: field === "live-unit" ? "other-unit" : entry.unit,
+                identity: live,
+              })),
               createdDirectories: field === "order" ? [history, changed] : [changed, history],
             }),
           );

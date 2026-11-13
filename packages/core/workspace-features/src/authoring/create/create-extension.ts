@@ -92,6 +92,8 @@ import {
 import type { CredentialStore } from "@agentxm/registry-access/credentials";
 import type { RegistryContext } from "@agentxm/registry-client";
 import {
+  withWorkspaceReadView,
+  withLiveWorkspaceObservations,
   AcceptedResolutionWriter,
   DesiredStateWriter,
   computeExtensionPathsForLayout,
@@ -632,7 +634,7 @@ const prepareCreateExtension: (
       });
     }),
   );
-  const nativeProjection = yield* nativePreflight;
+  const nativeProjection = yield* withLiveWorkspaceObservations(nativePreflight);
   const plannedArtifact: JobStepArtifact = {
     ...nativeProjection,
     path: authoredPath,
@@ -877,7 +879,7 @@ const prepareCreateExtension: (
     settingsPath,
     execution,
   } satisfies CreateExtensionCandidate;
-});
+}, withWorkspaceReadView);
 
 // -----------------------------------------------------------------------------
 // previewOrApply

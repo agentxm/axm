@@ -170,6 +170,7 @@ export const validateWorkspaceReadRoot = Effect.fnUntraced(function* (
 // ---------------------------------------------------------------------------
 
 interface BuildScopeDeps {
+  readonly loaders?: ScopedStateLoaders;
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: Scope;
   readonly fs: FileSystem.FileSystem;
@@ -204,12 +205,14 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
   const diagnostics: Diagnostics = makeDiagnostics(diagnosticsRef);
 
   // Cached state-source cells: settings/settingsRaw + lockfile/lockfileRaw.
-  const loaders = yield* makeScopedStateApi(scope, {
-    fs,
-    path,
-    settingsPath,
-    lockfilePath,
-  });
+  const loaders =
+    deps.loaders ??
+    (yield* makeScopedStateApi(scope, {
+      fs,
+      path,
+      settingsPath,
+      lockfilePath,
+    }));
 
   const settingsResult = yield* Effect.result(loaders.settings);
   const layoutSettings: Settings = Result.isSuccess(settingsResult)
@@ -448,6 +451,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
  */
 export const makeWorkspaceReadModel = Effect.fn("workspace.read-model.make")(function* (
   scope: Scope,
+  loaders?: ScopedStateLoaders,
 ): Effect.fn.Return<
   WorkspaceReadModel,
   WorkspaceRootEscape,
@@ -486,6 +490,7 @@ export const makeWorkspaceReadModel = Effect.fn("workspace.read-model.make")(fun
   );
 
   return yield* buildScope({
+    ...(loaders === undefined ? {} : { loaders }),
     nativeDirectoryInputs: config.nativeDirectoryInputs,
     scope,
     fs,

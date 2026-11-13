@@ -79,6 +79,7 @@ import {
   ProjectionOutputPosture,
 } from "@agentxm/workspace-kernel/projection";
 import {
+  withWorkspaceReadView,
   AcceptedResolutionWriter,
   ConfiguredAgentOutcomesProvider,
   LockfileReader,
@@ -604,7 +605,7 @@ const planTransition = (transition: InstructionTransition) =>
     };
     const execution = yield* prepareExecutionCandidate(plan);
     return { ...transition, execution } satisfies ManageInstructionsCandidate;
-  });
+  }).pipe(withWorkspaceReadView);
 
 /** Preview or apply the transition a request settled and planned. */
 const previewOrApplyManageInstructions = (

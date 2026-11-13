@@ -220,6 +220,7 @@ describe("list.handler", () => {
             },
           }),
           Effect.provideService(WorkspaceReadViews, {
+            ...views,
             capture: (options) =>
               views.capture(options).pipe(
                 Effect.map((readers) =>

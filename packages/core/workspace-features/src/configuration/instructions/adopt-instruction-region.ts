@@ -18,6 +18,7 @@ import {
   resolveInstructionsConfig,
 } from "@agentxm/workspace-kernel/projection";
 import {
+  withWorkspaceReadView,
   AcceptedResolutionWriter,
   SettingsReader,
   WorkspaceLocation,
@@ -180,6 +181,7 @@ export const prepareAdoptInstructionRegion = Effect.fn("Instructions.prepareAdop
     };
     return yield* prepareExecutionCandidate(plan);
   },
+  withWorkspaceReadView,
 );
 
 export const AdoptInstructionRegion = {

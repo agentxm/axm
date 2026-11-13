@@ -29,7 +29,10 @@ import {
   captureAgentOutputAuthority,
   expectedProjectionNames,
 } from "@agentxm/workspace-kernel/projection";
-import { AcceptedResolutionWriter } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  AcceptedResolutionWriter,
+  withWorkspaceReadView,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -490,7 +493,7 @@ const prepareUninstallExtensions: (
     planName: plan.name,
     execution,
   } satisfies UninstallExtensionsCandidate;
-});
+}, withWorkspaceReadView);
 
 // -----------------------------------------------------------------------------
 // previewOrApply

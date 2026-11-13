@@ -33,6 +33,7 @@ import {
   removableAcceptedCanonicalPath,
   stableJson,
   type ProjectionDigest,
+  workspaceReadPhaseFor,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -154,7 +155,7 @@ export const ruleMaterializationObservation = (
 export const RuleManagerLive = Layer.effect(
   RuleManager,
   Effect.gen(function* () {
-    const { location, settings, lockfile, desiredState, records, sources, provide } =
+    const { location, settings, lockfile, desiredState, records, sources, provide, provideRead } =
       yield* captureManagerServices;
     const accepted = yield* AcceptedResolutionWriter;
     const currentLayout = () => Ref.getUnsafe(location.layout);
@@ -214,7 +215,8 @@ export const RuleManagerLive = Layer.effect(
 
     const sourceFileTarget = () =>
       Effect.gen(function* () {
-        const config = yield* settings.instructionsConfig;
+        const phase = yield* workspaceReadPhaseFor(location);
+        const config = yield* (phase?.readers.settings ?? settings).instructionsConfig;
         const resolved = resolveInstructionsConfig(
           Option.isSome(config) && config.value !== false ? config.value : undefined,
         );
@@ -269,7 +271,7 @@ export const RuleManagerLive = Layer.effect(
       readonly graph: Parameters<typeof activeContributors>[0]["graph"];
       readonly locked: Parameters<typeof activeContributors>[0]["accepted"];
     }) =>
-      provide(
+      provideRead(
         activeContributors({
           layout: currentLayout(),
           type: "rule",
@@ -410,9 +412,14 @@ export const RuleManagerLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         const target = yield* sourceFileTarget();
-        const graph = options?.desiredGraph ?? (yield* desiredState.graph());
-        const locked = yield* lockfile.entries("rule");
-        const configuredAgents = options?.configuredAgents ?? (yield* settings.configuredAgents);
+        const phase = yield* workspaceReadPhaseFor(location);
+        const currentSettings = phase?.readers.settings ?? settings;
+        const currentLocks = phase?.readers.locks ?? lockfile;
+        const graph =
+          options?.desiredGraph ?? (yield* (phase?.readers.desired ?? desiredState).graph());
+        const locked = yield* currentLocks.entries("rule");
+        const configuredAgents =
+          options?.configuredAgents ?? (yield* currentSettings.configuredAgents);
         const accepted = yield* captureAgentOutputAuthority();
         const ownership = [
           ...accepted.expectedRegions.rule,
@@ -470,10 +477,11 @@ export const RuleManagerLive = Layer.effect(
       });
 
     const regionGeneration: RuleManagerService["regionGeneration"] = Effect.gen(function* () {
+      const phase = yield* workspaceReadPhaseFor(location);
       const target = yield* sourceFileTarget();
       const contributors = yield* selectRuleContributors({
-        graph: yield* desiredState.graph(),
-        locked: yield* lockfile.entries("rule"),
+        graph: yield* (phase?.readers.desired ?? desiredState).graph(),
+        locked: yield* (phase?.readers.locks ?? lockfile).entries("rule"),
       });
       return yield* rulesRegionGeneration(
         yield* projectionUnitPath(baseDir, path.resolve(baseDir, target.relative)),
@@ -592,6 +600,7 @@ export const RuleManagerLive = Layer.effect(
       regionGeneration,
       aggregateProjectionObservation: Ref.get(lastProjection),
       ...makeBaseManagerMembers({
+        location,
         type: "rule",
         spanPrefix: "RuleManager",
         records,
@@ -612,8 +621,8 @@ export const RuleManagerLive = Layer.effect(
       listMaterializable: () =>
         listMaterializableFromAccepted({
           type: "rule",
-          names: settings
-            .entries("rule")
+          names: workspaceReadPhaseFor(location)
+            .pipe(Effect.flatMap((phase) => (phase?.readers.settings ?? settings).entries("rule")))
             .pipe(
               Effect.map((configured) =>
                 enabledConfiguredEntries(configured).map(([name]) => name),

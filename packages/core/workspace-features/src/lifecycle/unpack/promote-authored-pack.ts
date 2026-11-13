@@ -57,6 +57,7 @@ import {
   desiredPackageKey,
   formatDesiredIdentity,
   type DesiredNodeIdentity,
+  withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Option from "effect/Option";
@@ -404,7 +405,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
     })),
     execution: yield* prepareExecutionCandidate(plan),
   } satisfies PromoteAuthoredPackCandidate;
-});
+}, withWorkspaceReadView);
 
 const preparePromoteAuthoredPack: (
   request: PromoteAuthoredPackRequest,

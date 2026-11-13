@@ -3945,7 +3945,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/publish/prepared-distribution-is-revalidated`
 - Owner: `workspace-features`
-- Statement: Before the first upload, publish shall rediscover its effective file-selection inputs and rebuild the selected distribution, refuse changed source bytes or policy with no upload, and publish the exact prepared archive when both remain unchanged.
+- Statement: Before the first upload, even within an enclosing observation phase, publish shall rediscover its effective file-selection inputs and rebuild the selected distribution, refuse changed source bytes or policy with no upload, and publish the exact prepared archive when both remain unchanged.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
@@ -8635,6 +8635,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and preserve native containers and unrelated content, and restore owned file artifacts across process exit.
 - Source: [`packages/core/workspace-kernel/src/workspace-state/desired/lockfile/withdraws-new-resolutions-exactly.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/lockfile/withdraws-new-resolutions-exactly.spec.ts)
 
+##### Planning consumers share the executing phase's observations
+
+- Requirement: `workspace/materialization/planning-observations-use-current-phase`
+- Owner: `workspace-kernel`
+- Statement: Planning consumers shall consume the executing workspace phase's stable document and desired-state observations, sharing equivalent reads with their caller and observing fresh inputs in a subsequent phase.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace readers and invariant evaluation share real filesystem documents across registered participant ports; no mutation or remote publication is exercised.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/materialization/planning-observations-use-current-phase.spec.ts`](../packages/core/workspace-kernel/src/materialization/planning-observations-use-current-phase.spec.ts)
+
 ##### Explicit MCP cleanup preserves the native container and unselected state
 
 - Requirement: `workspace/mcps/explicit-cleanup-preserves-unselected-state`
@@ -8661,6 +8674,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/external-mcp-resolutions-remain-reachable.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/external-mcp-resolutions-remain-reachable.spec.ts)
+
+##### Execution review verifies current physical inputs independently
+
+- Requirement: `workspace/planning/execution-review-rejects-intervening-edits`
+- Owner: `workspace-kernel`
+- Statement: Execution candidate preparation shall independently observe physical inputs before and after external execution review and refuse a candidate whose inputs change during that review, including when preparation runs inside a cached observation phase.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production candidate preparation and workspace readers use real files; filesystem and source-provider ports deterministically introduce an external script edit during review. Registry transport is substituted; no apply or remote acquisition is exercised.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/planning/plan/execution-review-rejects-intervening-edits.spec.ts`](../packages/core/workspace-kernel/src/planning/plan/execution-review-rejects-intervening-edits.spec.ts)
 
 ##### Region fences carry only a name and count only at the top level
 
@@ -8703,6 +8729,71 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary rationale: Distinct live process-lock instances and real directory identities exercise proof transfer and finalizer cleanup.
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/settlement/runtime-directories-retire-after-withdrawal.spec.ts`](../packages/core/workspace-kernel/src/settlement/runtime-directories-retire-after-withdrawal.spec.ts)
+
+##### Candidate evaluations own their input evidence
+
+- Requirement: `workspace/workspace-state/candidate-inputs-are-owned`
+- Owner: `workspace-kernel`
+- Statement: A candidate evaluation shall own its settings, inherited bindings, accepted resolutions and proposed Pack documents; mutating caller inputs or returned input evidence shall not change an existing evaluation; capturing changed inputs shall produce the changed evaluation, including at the same proposed document path; decoded URL and extended BigInt and Date values shall retain their values and types.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Production input collection and graph evaluation consume validated domain documents; ownership and proposal identity require no filesystem or transport.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/candidate-inputs-are-owned.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/candidate-inputs-are-owned.spec.ts)
+
+##### Pack document reuse preserves ownership and phase lifetime
+
+- Requirement: `workspace/workspace-state/pack-observations-are-phase-scoped`
+- Owner: `workspace-kernel`
+- Statement: Equivalent Pack document reads within an active phase shall share decoding and immutable observations; cancelling one waiter shall preserve surviving demand, abandoned reads shall be retryable, and expired observations shall not replace live reads; reuse accounting shall describe executions and reuse independently of tracing being enabled.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The production Pack manifest adapter reads real files through a counted filesystem and deferred reads make cancellation deterministic.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/adapters/filesystem/pack-observations-are-phase-scoped.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/adapters/filesystem/pack-observations-are-phase-scoped.spec.ts)
+
+##### Physical observation reuse preserves isolation and live boundaries
+
+- Requirement: `workspace/workspace-state/physical-observations-preserve-live-boundaries`
+- Owner: `workspace-kernel`
+- Statement: A stable physical observation phase shall coalesce equivalent reads and completed local failures while preserving exact path spelling, encoding and directory-option semantics; mutable byte buffers and directory results shall be independently owned by callers; mutation shall invalidate observations before writing, expired ports shall read live, and new phases shall retry local failures; cancelling a waiter shall preserve surviving demand; abandoned demand shall be retryable, with truthful execution and reuse accounting independent of tracing.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production observation ports read and mutate real files; counted and deferred filesystem calls make coalescing, failure reuse, cancellation and accounting observable.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/physical-observations-preserve-live-boundaries.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/physical-observations-preserve-live-boundaries.spec.ts)
+
+##### Read reuse is bounded by the owning workspace phase
+
+- Requirement: `workspace/workspace-state/read-phases-have-bounded-lifetimes`
+- Owner: `workspace-kernel`
+- Statement: Equivalent stable reads shall share document decoding and candidate evaluation within a phase; workspace, scope and source view shall retain distinct identities; tolerant lock status shall not replace strict read failures, and a new phase shall retry completed local failures; compatible nested calls shall join without upgrading a document-only phase to physical caching; success, failure, interruption, mutation and replacement shall retire the owning phase; a fresh verification shall not reactivate its parent; cancelling one waiter shall preserve surviving demand, abandoned work shall be retryable, and expired readers shall observe live state; logical pending resolutions shall not claim persisted lockfile validity.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production phase composition and document cells read real files, while deferred manifest observations make cancellation and coalescing deterministic.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/read-phases-have-bounded-lifetimes.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/read-phases-have-bounded-lifetimes.spec.ts)
+
+##### Consumers cannot alter shared document observations
+
+- Requirement: `workspace/workspace-state/shared-document-observations-are-immutable`
+- Owner: `workspace-kernel`
+- Statement: A consumer's attempted mutation of shared decoded settings, accepted resolutions, or raw document evidence shall not change the values observed by another consumer of those document cells.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The production scoped cells read and decode real settings and lockfile bytes before independent consumers attempt mutations.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/workspace-state/observed/shared-document-observations-are-immutable.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/observed/shared-document-observations-are-immutable.spec.ts)
 
 ## Product goals
 

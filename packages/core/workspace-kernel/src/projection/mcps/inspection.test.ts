@@ -12,6 +12,16 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as ConfigProvider from "effect/ConfigProvider";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { OfflineHttpClient, RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
+import { NativePlatformTest } from "../../locations/testing.js";
+import { WorkspaceStateLive } from "../../workspace-state/live.js";
+import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
+import {
+  withWorkspaceObservationReadView,
+  withLiveWorkspaceObservations,
+} from "../../workspace-state/index.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
@@ -304,16 +314,27 @@ describe("agent MCP config inspection", () => {
           entry: contextEntry,
         };
         try {
-          const first = yield* withMcpInspectionReadView(
+          const { first, retained } = yield* withMcpInspectionReadView(
             Effect.gen(function* () {
               const first = yield* inspectAgentMcpServer(request);
-              const again = yield* inspectAgentMcpServer({ ...request });
-              expect(again).toBe(first);
-              expect(first.status).toBe("absent");
-              return first;
+              const original = structuredClone(first);
+              Reflect.set(first, "status", "match");
+              Reflect.set(first.fields, "0", "consumer-field");
+              if (first.expected !== undefined)
+                Reflect.set(first.expected, "command", "consumer-command");
+              const again = yield* withMcpInspectionReadView(inspectAgentMcpServer({ ...request }));
+              expect(again).toEqual(original);
+              expect(again.status).toBe("absent");
+              return {
+                first,
+                retained: inspectAgentMcpServer(request).pipe(
+                  Effect.provideContext(yield* Effect.context()),
+                ),
+              };
             }),
           );
           writeCodexConfig(workspaceRoot, ["[mcp_servers.context]", 'command = "different"']);
+          expect((yield* retained).status).toBe("drift");
           const next = yield* withMcpInspectionReadView(inspectAgentMcpServer(request));
           expect(next).not.toBe(first);
           expect(next.status).toBe("drift");
@@ -321,6 +342,49 @@ describe("agent MCP config inspection", () => {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
       }),
+    ),
+  );
+
+  it.effect("retires MCP observations with the enclosing workspace phase", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const workspaceRoot = yield* fs.makeTempDirectoryScoped();
+      const request = {
+        workspaceRoot,
+        scope: "project" as const,
+        agentId: "codex",
+        serverName: "context",
+        entry: contextEntry,
+      };
+      const state = WorkspaceStateLive({
+        projectRoot: decodeAbsolutePathSync(workspaceRoot),
+        scope: "project",
+        allowUninitialized: true,
+      }).pipe(
+        Layer.provide(WorkspaceFileWriteLocksLive),
+        Layer.provide(RegistryClientFactoryTest(OfflineHttpClient)),
+        Layer.provide(
+          ConfigProvider.layer(
+            ConfigProvider.fromEnv({ env: { AXM_USER_HOME: `${workspaceRoot}/home` } }),
+          ),
+        ),
+      );
+      yield* withWorkspaceObservationReadView(
+        withMcpInspectionReadView(
+          Effect.gen(function* () {
+            const before = yield* inspectAgentMcpServer(request);
+            expect(before.status).toBe("absent");
+            writeCodexConfig(workspaceRoot, ["[mcp_servers.context]", 'command = "different"']);
+            expect(yield* inspectAgentMcpServer(request)).toEqual(before);
+            yield* withLiveWorkspaceObservations(Effect.void);
+            // The MCP wrapper is still open, but its workspace observations expired.
+            expect((yield* inspectAgentMcpServer(request)).status).toBe("drift");
+          }),
+        ),
+      ).pipe(Effect.provide(state));
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativePlatformTest, NativeWriteAuthorityPermissive)),
     ),
   );
 

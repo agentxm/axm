@@ -123,6 +123,7 @@ import {
   type DesiredStateGraph,
   type AcceptedCanonicalRefError,
   settingsDisplayPath,
+  withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
   FootprintRecorder,
@@ -949,7 +950,7 @@ const prepareActivation = <R>(
     const candidate = yield* settleActivation(request, prepareRealization);
     if (candidate._tag === "Unchanged") return candidate;
     return yield* prepareActivationExecution(candidate);
-  });
+  }).pipe(withWorkspaceReadView);
 
 const previewOrApplyActivation = (
   candidate: ActivationCandidate,

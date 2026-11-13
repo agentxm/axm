@@ -45,6 +45,7 @@ import {
   type ExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  withWorkspaceReadView,
   problemsAffectingPack,
   DesiredStateReader,
   SettingsReader,
@@ -338,7 +339,7 @@ const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(function
     execution: yield* prepareExecutionCandidate(plan),
   };
   return change;
-});
+}, withWorkspaceReadView);
 
 interface ResolvedMember {
   readonly fqn: string;

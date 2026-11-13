@@ -1328,38 +1328,66 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     }),
   );
   const transitionSubject = "workspace-transition";
+  const requiresRegistryAccess = candidatePlan.jobs.some((job) =>
+    job.steps.some((step) => registryExposureRefsForStep(step).length > 0),
+  );
   const applyResult = yield* Effect.gen(function* () {
-    const waited = yield* Ref.make(false);
-    const contention = yield* acquireWorkspaceTransition({
-      command: applyExecution.approvalRecovery.command.join(" "),
-      candidateId: candidate.id,
-      // Contention is a first-class lifecycle fact: observers render the
-      // wait and its holder; nothing here decides how it is worded.
-      onWaiting: (holder) =>
-        Ref.set(waited, true).pipe(
-          Effect.andThen(
-            publishWaiting({
-              blockingClass: "resource-conflict",
-              subject: transitionSubject,
-              detail: Option.match(holder, {
-                onNone: () => "another operation",
-                onSome: (value) => `${value.command} (pid ${String(value.pid)})`,
-              }),
+    // Repeated contenders cannot keep an invocation retrying indefinitely.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const result = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const waited = yield* Ref.make(false);
+          const contention = yield* acquireWorkspaceTransition({
+            command: applyExecution.approvalRecovery.command.join(" "),
+            candidateId: candidate.id,
+            // Contention is a first-class lifecycle fact: observers render the
+            // wait and its holder; nothing here decides how it is worded.
+            onWaiting: (holder) =>
+              Ref.set(waited, true).pipe(
+                Effect.andThen(
+                  publishWaiting({
+                    blockingClass: "resource-conflict",
+                    subject: transitionSubject,
+                    detail: Option.match(holder, {
+                      onNone: () => "another operation",
+                      onSome: (value) => `${value.command} (pid ${String(value.pid)})`,
+                    }),
+                  }),
+                ),
+              ),
+          });
+          const didWait = yield* Ref.get(waited);
+          if (didWait) yield* publishWaitEnded(transitionSubject);
+          if (Option.isSome(contention)) {
+            return { type: "contention", contention: contention.value } as const;
+          }
+          // Release this attempt's lock before obtaining any new remote decision.
+          if (didWait && requiresRegistryAccess) return { type: "retry-access" } as const;
+          return yield* guardedApply.pipe(
+            Effect.provideService(AcquiredContent, acquiredContent),
+            Effect.match({
+              onFailure: (error) => ({ type: "failure", error }) as const,
+              onSuccess: (value) => ({ type: "success", value }) as const,
             }),
-          ),
-        ),
-    });
-    if (yield* Ref.get(waited)) yield* publishWaitEnded(transitionSubject);
-    if (Option.isSome(contention)) {
-      return { type: "contention", contention: contention.value } as const;
+          );
+        }),
+      );
+      if (result.type !== "retry-access") return result;
+      if (attempt < 2) {
+        const refreshed = yield* validateRegistryExposure(candidatePlan, "after-contention");
+        for (const [key, failure] of refreshed) eligibility.set(key, failure);
+      }
     }
-    return yield* guardedApply.pipe(
-      Effect.provideService(AcquiredContent, acquiredContent),
-      Effect.match({
-        onFailure: (error) => ({ type: "failure", error }) as const,
-        onSuccess: (value) => ({ type: "success", value }) as const,
-      }),
-    );
+    return {
+      type: "failure",
+      error: {
+        error: new StepFailure({
+          category: "conflict",
+          detail:
+            "Workspace contention repeatedly invalidated current access; rerun the operation.",
+        }),
+      } satisfies PlanApplyFailure<Output>,
+    } as const;
   });
   if (applyResult.type === "contention") {
     const reference = Option.match(applyResult.contention.holder, {

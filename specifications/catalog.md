@@ -8279,7 +8279,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `workspace/recheck-registry-exposure`
 - Owner: `workspace-kernel`
-- Statement: AXM shall check current exact Registry publisher, integrity and content eligibility before acquiring or exposing Registry content, including retained contributors, repeat the check after confirmation, and refuse each affected semantic closure while preserving independent work and operations that acquire or expose no Registry content.
+- Statement: AXM shall check current exact Registry publisher, integrity and content eligibility before acquiring or exposing Registry content, including retained contributors, repeat the check after confirmation and outside the transition lock after contention, and refuse each affected semantic closure while preserving independent work and operations that acquire or expose no Registry content.
 - Class: functional
 - Role: supporting
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`

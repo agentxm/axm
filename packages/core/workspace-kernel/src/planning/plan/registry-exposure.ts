@@ -18,7 +18,7 @@ export const registryExposureRefsForStep = (step: PlannedJobStep<unknown, unknow
 /** Admission belongs to one callback stage, never the lockfile or local content cache. */
 export const withRegistryExposure = <A, E, R>(
   plan: Plan<unknown, unknown>,
-  phase: "before-acquisition" | "after-confirmation",
+  phase: "before-acquisition" | "after-confirmation" | "after-contention",
   use: (failures: ReadonlyMap<string, StepFailure>) => Effect.Effect<A, E, R>,
 ) =>
   Effect.gen(function* () {
@@ -47,5 +47,5 @@ export const withRegistryExposure = <A, E, R>(
 
 export const validateRegistryExposure = (
   plan: Plan<unknown, unknown>,
-  phase: "after-confirmation",
+  phase: "after-confirmation" | "after-contention",
 ) => withRegistryExposure(plan, phase, Effect.succeed);

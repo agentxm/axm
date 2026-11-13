@@ -1,3 +1,4 @@
+import { WorkspaceTransactionScope } from "../../settlement/index.js";
 import { PlanSources, makePlanSources } from "./plan-sources.js";
 import {
   AxmSkillCandidateGateTest,
@@ -47,7 +48,7 @@ export const specification = defineSpecification({
   requirement: "workspace/recheck-registry-exposure",
   title: "Registry exposure requires current exact content eligibility",
   statement:
-    "AXM shall check current exact Registry publisher, integrity and content eligibility before acquiring or exposing Registry content, including retained contributors, repeat the check after confirmation, and refuse each affected semantic closure while preserving independent work and operations that acquire or expose no Registry content.",
+    "AXM shall check current exact Registry publisher, integrity and content eligibility before acquiring or exposing Registry content, including retained contributors, repeat the check after confirmation and outside the transition lock after contention, and refuse each affected semantic closure while preserving independent work and operations that acquire or expose no Registry content.",
   class: "functional",
   role: "supporting",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -83,7 +84,10 @@ describe("Registry eligibility at exposure", () => {
     "eligible",
     "denied",
     "revoked-during-confirmation",
+    "revoked-during-contention",
+    "repeated-contention",
     "no-registry-exposure",
+    "local-contention",
     "ten-distinct",
     "ten-warm",
     "ten-warm-revoked",
@@ -92,6 +96,7 @@ describe("Registry eligibility at exposure", () => {
     it.effect(scenario, () =>
       Effect.gen(function* () {
         const workspace = yield* makeSpecWorkspace("axm-registry-exposure-");
+        const noExposure = scenario === "no-registry-exposure" || scenario === "local-contention";
         const requests: string[] = [];
         const batchSizes: number[] = [];
         const warm = scenario === "ten-warm" || scenario === "ten-warm-revoked";
@@ -126,8 +131,11 @@ describe("Registry eligibility at exposure", () => {
         let denied = scenario === "denied";
         let exposed = 0;
         let independent = 0;
+        let lockHeld: Effect.Effect<boolean> = Effect.succeed(false);
+        let lockAttempts = 0;
         const http = HttpClient.make((request) =>
-          Effect.sync(() => {
+          Effect.gen(function* () {
+            expect(yield* lockHeld).toBe(false);
             requests.push(request.method);
             if (request.body._tag !== "Uint8Array") throw new Error("Expected JSON admission");
             const input = Schema.decodeUnknownSync(
@@ -241,7 +249,7 @@ describe("Registry eligibility at exposure", () => {
                   key: `skill:${index}`,
                   label: `step-${index}`,
                   acquisitionRefs: warm ? [exposureRef] : [],
-                  exposureRefs: scenario === "no-registry-exposure" ? [] : [exposureRef],
+                  exposureRefs: noExposure ? [] : [exposureRef],
                   run: Effect.sync(() => {
                     exposed += 1;
                     return { result: "success" as const, message: "exposed" };
@@ -279,6 +287,28 @@ describe("Registry eligibility at exposure", () => {
           }),
         ).pipe(
           Effect.withTracer(tracer),
+          Effect.provideServiceEffect(
+            WorkspaceTransactionScope,
+            Effect.map(WorkspaceTransactionScope, (scope) => {
+              lockHeld = scope.isHeld;
+              return WorkspaceTransactionScope.of({
+                ...scope,
+                acquire: (request) =>
+                  Effect.gen(function* () {
+                    lockAttempts += 1;
+                    if (
+                      (scenario === "revoked-during-contention" && lockAttempts === 1) ||
+                      scenario === "repeated-contention" ||
+                      scenario === "local-contention"
+                    ) {
+                      yield* request.onWaiting?.(Option.none()) ?? Effect.void;
+                      denied = scenario === "revoked-during-contention";
+                    }
+                    return yield* scope.acquire(request);
+                  }),
+              });
+            }),
+          ),
           Effect.provide(
             Layer.merge(
               context.layer,
@@ -291,15 +321,45 @@ describe("Registry eligibility at exposure", () => {
           ),
         );
         const eligibility = spans.filter((span) => span.name === "axm.registry.eligibility");
+        if (scenario === "repeated-contention") {
+          expect(lockAttempts).toBe(3);
+          expect(yield* lockHeld).toBe(false);
+          expect(exposed).toBe(0);
+          expect(independent).toBe(0);
+          expect(result.failure).toMatchObject({
+            category: "conflict",
+            detail: expect.stringContaining("contention"),
+          });
+          expect(batchSizes).toEqual([1, 1, 1, 1]);
+          expect(eligibility.map((span) => span.attributes.get("axm.eligibility.phase"))).toEqual([
+            "before-acquisition",
+            "after-confirmation",
+            "after-contention",
+            "after-contention",
+          ]);
+          return;
+        }
+
         expect(eligibility.map((span) => span.attributes.get("axm.eligibility.phase"))).toEqual([
           "before-acquisition",
           "after-confirmation",
+          ...(scenario === "revoked-during-contention" ? ["after-contention"] : []),
         ]);
         expect(eligibility.map((span) => span.attributes.get("axm.work.executed"))).toEqual(
-          scenario === "no-registry-exposure" ? [0, 0] : [distinct, distinct],
+          noExposure
+            ? [0, 0]
+            : scenario === "revoked-during-contention"
+              ? [1, 1, 1]
+              : [distinct, distinct],
         );
         expect(eligibility.map((span) => span.attributes.get("axm.registry.denied"))).toEqual(
-          scenario === "denied" ? [1, 1] : revokes ? [0, distinct] : [0, 0],
+          scenario === "denied"
+            ? [1, 1]
+            : revokes
+              ? [0, distinct]
+              : scenario === "revoked-during-contention"
+                ? [0, 0, 1]
+                : [0, 0],
         );
         expect(acquired.sort()).toEqual(warm ? exposureRefs.map((entry) => entry.name).sort() : []);
         expect(independent).toBe(1);
@@ -308,12 +368,15 @@ describe("Registry eligibility at exposure", () => {
           ...exposureRefs.map(() => (denied ? "failed" : "committed")),
           "committed",
         ]);
-        const expectedBatches =
-          scenario === "no-registry-exposure"
-            ? []
-            : distinct === 101
-              ? [100, 1, 100, 1]
+        const expectedBatches = noExposure
+          ? []
+          : distinct === 101
+            ? [100, 1, 100, 1]
+            : scenario === "revoked-during-contention"
+              ? [1, 1, 1]
               : [distinct, distinct];
+        if (scenario === "revoked-during-contention") expect(lockAttempts).toBe(2);
+        if (scenario === "local-contention") expect(lockAttempts).toBe(1);
         expect(batchSizes).toEqual(expectedBatches);
         expect(requests).toEqual(expectedBatches.map(() => "POST"));
       }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),

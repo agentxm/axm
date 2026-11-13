@@ -41,7 +41,7 @@ import {
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { applyPlanExecution, type Plan } from "../../operations/index.js";
+import { applyPlanExecution, deriveOperationOutcome, type Plan } from "../../operations/index.js";
 import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 import { makeSpecContext, makeSpecWorkspace } from "./__tests__/plan-spec-support.js";
 
@@ -427,6 +427,7 @@ describe("Registry eligibility at exposure", () => {
           ...exposureRefs.map(() => (denied ? "failed" : "committed")),
           "committed",
         ]);
+        expect(deriveOperationOutcome(result)).toBe(denied ? "partial" : "applied");
         const expectedBatches = noExposure
           ? []
           : distinct === 101

@@ -135,6 +135,31 @@ export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario[
       Schema.isPattern(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u),
     );
     const raw = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(stdout);
+    const identity = yield* Schema.decodeUnknownEffect(Schema.Struct({ diagnosticId: uuid }))(raw);
+    const relative = ".axm/diagnostics/" + identity.diagnosticId + ".json";
+    let diagnosticBytes: Buffer | undefined;
+    if (phase === "preflight") {
+      const directory = path.join(fixture.home, ".axm", "diagnostics");
+      const file = path.join(fixture.home, relative);
+      if (!fs.lstatSync(directory).isDirectory())
+        return yield* fixtureFailure("Adoption diagnostics must use an ordinary owned directory.");
+      const info = fs.lstatSync(file);
+      if (!info.isFile() || info.size > 64 * 1024 || (info.mode & 0o777) !== 0o600)
+        return yield* fixtureFailure(
+          "Adoption diagnostic must be one bounded restricted ordinary file.",
+        );
+      diagnosticBytes = fs.readFileSync(file);
+      const retained = path.join(artifacts, "retained", "adoption-diagnostic.json");
+      fs.mkdirSync(path.dirname(retained), { recursive: true });
+      fs.writeFileSync(retained, diagnosticBytes, { flag: "wx", mode: 0o600 });
+      if (
+        JSON.stringify(fs.readdirSync(directory)) !==
+        JSON.stringify([identity.diagnosticId + ".json"])
+      )
+        return yield* fixtureFailure(
+          "Adoption refusal must create exactly its reported diagnostic record.",
+        );
+    }
     const output = yield* Schema.decodeUnknownEffect(
       Schema.Struct({
         ok: Schema.Literal(false),
@@ -147,7 +172,7 @@ export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario[
     )(raw);
     const expectedMessage =
       "Preserved unowned skill artifact at " +
-      path.join(fixture.workspace, ".agents", "skills", "bench-001");
+      path.join(fixture.workspace, ".claude", "skills", "bench-001");
     if (output.result.failure.message !== expectedMessage + " (internal)")
       return yield* fixtureFailure(
         "Adoption diagnostic must remain bound to the expected native refusal.",
@@ -162,27 +187,10 @@ export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario[
         ],
         stdoutComparison,
       };
-    const directory = path.join(fixture.home, ".axm", "diagnostics");
-    const relative = ".axm/diagnostics/" + output.diagnosticId + ".json";
-    const file = path.join(fixture.home, relative);
-    if (
-      !fs.lstatSync(directory).isDirectory() ||
-      JSON.stringify(fs.readdirSync(directory)) !== JSON.stringify([output.diagnosticId + ".json"])
-    )
-      return yield* fixtureFailure(
-        "Adoption refusal must create exactly its reported diagnostic record.",
-      );
-    const info = fs.lstatSync(file);
-    if (!info.isFile() || info.size > 64 * 1024 || (info.mode & 0o777) !== 0o600)
-      return yield* fixtureFailure(
-        "Adoption diagnostic must be one bounded restricted ordinary file.",
-      );
-    const bytes = fs.readFileSync(file);
-    const retained = path.join(artifacts, "retained", "adoption-diagnostic.json");
-    fs.mkdirSync(path.dirname(retained), { recursive: true });
-    fs.writeFileSync(retained, bytes, { flag: "wx", mode: 0o600 });
+    if (diagnosticBytes === undefined)
+      return yield* fixtureFailure("Preflight adoption diagnostic capture is missing.");
     const rawRecord = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
-      bytes.toString("utf8"),
+      diagnosticBytes.toString("utf8"),
     );
     const record = yield* Schema.decodeUnknownEffect(
       Schema.Struct({

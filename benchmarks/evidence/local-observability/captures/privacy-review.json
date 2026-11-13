@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "auditedAt": "2026-11-13T06:29:37.108475+00:00",
+  "status": "review-complete-no-unresolved-private-context",
+  "stagedFileCount": 7606,
+  "utf8PayloadsInspected": 7606,
+  "gzipPayloadsDecompressed": 5392,
+  "jsonPayloadsParsed": 6770,
+  "decompressedBytesInspected": 260830912,
+  "knownSyntheticValueOccurrences": {
+    "axm_ses_e2e": 5,
+    "axm_ref_e2e": 1,
+    "axmt_synthetic_fixture_1": 4
+  },
+  "emailDomainOccurrences": {
+    "example.com": 4
+  },
+  "checks": [
+    "All staged files decoded as UTF-8; gzip members inspected after decompression.",
+    "Private repository/provider/tracker markers, real home paths, private keys, common credential prefixes, credential-bearing URLs, token-shaped values and sensitive JSON fields scanned.",
+    "Known synthetic authentication values were checked against their public fixture producers recorded in index.json.",
+    "No publication or credential transmission was performed."
+  ],
+  "limits": "Content-pattern checks are combined with the source-scoped artifact selection and fixture provenance; they are not a universal secret-detector guarantee. Original host process inventories were omitted before staging.",
+  "resolvedFindings": [
+    {
+      "path": "index.json",
+      "class": "real-home-path",
+      "occurrences": 8,
+      "resolution": "Reviewed false positive: a relative raw-projections/home fixture-artifact path, or its original/staged path inside the synthetic temporary evidence tree. This is not an actual account home path.",
+      "status": "resolved-false-positive"
+    },
+    {
+      "path": "index.json",
+      "class": "unvalidated-token-shaped-value",
+      "valueSha256": "4183c97298c454ee904bbfa919ba49002e88d7e8d64e72bae8ea66725b771099",
+      "valueLength": 23,
+      "resolution": "Reviewed false positive: the documented source-validated synthetic token pattern in index.json, not a token value.",
+      "status": "resolved-false-positive"
+    },
+    {
+      "path": "completed/maintenance/changed/summary/candidate/validation/0/compression.json",
+      "class": "real-home-path",
+      "occurrences": 1,
+      "resolution": "Reviewed false positive: a relative raw-projections/home fixture-artifact path, or its original/staged path inside the synthetic temporary evidence tree. This is not an actual account home path.",
+      "status": "resolved-false-positive"
+    },
+    {
+      "path": "completed/maintenance/changed/detail/candidate/validation/0/compression.json",
+      "class": "real-home-path",
+      "occurrences": 1,
+      "resolution": "Reviewed false positive: a relative raw-projections/home fixture-artifact path, or its original/staged path inside the synthetic temporary evidence tree. This is not an actual account home path.",
+      "status": "resolved-false-positive"
+    },
+    {
+      "path": "completed/maintenance/changed/disabled/candidate/validation/0/compression.json",
+      "class": "real-home-path",
+      "occurrences": 1,
+      "resolution": "Reviewed false positive: a relative raw-projections/home fixture-artifact path, or its original/staged path inside the synthetic temporary evidence tree. This is not an actual account home path.",
+      "status": "resolved-false-positive"
+    },
+    {
+      "path": "completed/maintenance/changed/disabled/baseline/validation/0/compression.json",
+      "class": "real-home-path",
+      "occurrences": 1,
+      "resolution": "Reviewed false positive: a relative raw-projections/home fixture-artifact path, or its original/staged path inside the synthetic temporary evidence tree. This is not an actual account home path.",
+      "status": "resolved-false-positive"
+    }
+  ],
+  "unresolvedFindings": [],
+  "emailDomainReview": {
+    "domain": "example.com",
+    "occurrences": 4,
+    "source": "tools/test-support/src/device-auth-server.ts",
+    "finding": "The public standalone fixture returns the fixed synthetic identity alice@example.com."
+  },
+  "completedAt": "2026-11-13T06:32:19.273422+00:00",
+  "metadataReview": "This review document and final index metadata were inspected separately after the full 7,606-file scan; all original copied payloads remain byte-identical."
+}

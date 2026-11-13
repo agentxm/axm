@@ -1036,7 +1036,7 @@ describe("independent comparison artifacts", () => {
           fs.mkdirSync(directory, { recursive: true });
           const message =
             "Preserved unowned skill artifact at " +
-            path.join(fixture.workspace, ".agents", "skills", "bench-001");
+            path.join(fixture.workspace, ".claude", "skills", "bench-001");
           const hashes: string[] = [];
           const outputs: string[] = [];
           for (const [index, id] of [
@@ -1129,12 +1129,13 @@ describe("independent comparison artifacts", () => {
           const id = "00000000-0000-4000-8000-000000000001";
           const message =
             "Preserved unowned skill artifact at " +
-            path.join(fixture.workspace, ".agents", "skills", "bench-001");
+            path.join(fixture.workspace, ".claude", "skills", "bench-001");
           for (const fault of [
             "event",
             "time",
             "history",
             "category",
+            "message",
             "cause",
             "extra",
             "malformed",
@@ -1178,7 +1179,14 @@ describe("independent comparison artifacts", () => {
                 diagnosticId: id,
                 result: {
                   outcome: "failed",
-                  failure: { code: "internal", message: message + " (internal)" },
+                  failure: {
+                    code: "internal",
+                    message:
+                      (fault === "message"
+                        ? "Preserved unowned skill artifact at " +
+                          path.join(fixture.workspace, ".agents", "skills", "bench-001")
+                        : message) + " (internal)",
+                  },
                 },
               }),
               stderr: "",
@@ -1187,13 +1195,9 @@ describe("independent comparison artifacts", () => {
               endedAtMillis: 2000,
             }).pipe(Effect.exit);
             expect(result._tag, fault).toBe("Failure");
-            if (fault !== "extra")
-              expect(
-                fs.readFileSync(
-                  path.join(artifacts, "retained", "adoption-diagnostic.json"),
-                  "utf8",
-                ),
-              ).toBe(bytes);
+            expect(
+              fs.readFileSync(path.join(artifacts, "retained", "adoption-diagnostic.json"), "utf8"),
+            ).toBe(bytes);
           }
         } finally {
           fs.rmSync(root, { recursive: true, force: true });

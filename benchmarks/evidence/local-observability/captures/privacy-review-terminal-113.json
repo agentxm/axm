@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "status": "review-complete-no-unresolved-private-context",
+  "auditedAt": "2026-11-13T06:40:48.109791+00:00",
+  "stagedFileCount": 6960,
+  "utf8PayloadsInspected": 6960,
+  "gzipPayloadsDecompressed": 5104,
+  "jsonPayloadsParsed": 6250,
+  "decompressedBytesInspected": 154733121,
+  "knownSyntheticValueOccurrences": {
+    "axm_ses_e2e": 1,
+    "axm_ref_e2e": 1
+  },
+  "emailDomainOccurrences": {},
+  "checks": [
+    "All new staged payloads were decoded as UTF-8, including every gzip member after decompression.",
+    "Private repository/provider/tracker markers, real home paths, private keys, common credential prefixes, credential-bearing URLs, token-shaped values and sensitive JSON fields were inspected.",
+    "Known synthetic values are source-validated in payload-index-terminal-113.json; previous six reviewed archives were not rescanned."
+  ],
+  "limits": "Source-scoped evidence selection and content inspection support this reviewed set; this is not a universal secret-detector guarantee. Host process snapshots were omitted before staging. Failed adoption raw diagnostic contents were never captured.",
+  "resolvedFindings": [
+    {
+      "path": "payload-index-terminal-113.json",
+      "class": "unvalidated-token-shaped-value",
+      "valueSha256": "4183c97298c454ee904bbfa919ba49002e88d7e8d64e72bae8ea66725b771099",
+      "valueLength": 23,
+      "resolution": "Reviewed false positive: source-validated synthetic token pattern metadata, not a credential value.",
+      "status": "resolved-false-positive"
+    },
+    {
+      "path": "failed/installed/adopt-enabled-native-refusal/disabled/candidate/validation/0/retained/adoption-recovery/0.snap.gz",
+      "class": "credential-in-url",
+      "occurrences": 1,
+      "resolution": "Reviewed false positive: the broad text pattern crossed JSON field boundaries. Parsed sources[0].location is an uncredentialed loopback Registry URL; URL username/password are both absent.",
+      "status": "resolved-false-positive"
+    },
+    {
+      "path": "failed/installed/adopt-enabled-native-refusal/disabled/baseline/validation/0/retained/adoption-recovery/0.snap.gz",
+      "class": "credential-in-url",
+      "occurrences": 1,
+      "resolution": "Reviewed false positive: the broad text pattern crossed JSON field boundaries. Parsed sources[0].location is an uncredentialed loopback Registry URL; URL username/password are both absent.",
+      "status": "resolved-false-positive"
+    }
+  ],
+  "unresolvedFindings": [],
+  "completedAt": "2026-11-13T06:42:39.220720+00:00",
+  "metadataReview": "Final index and this review metadata inspected separately after all original payloads were audited."
+}

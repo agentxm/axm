@@ -1,0 +1,783 @@
+{
+  "schemaVersion": 1,
+  "status": "reviewed-staging-packaged-not-published",
+  "preparedAt": "2026-11-13T06:36:29.423895+00:00",
+  "sourceStaging": "/tmp/axm-observability-public-proof-f7hqvjkv",
+  "payloadIndex": {
+    "path": "payload-index.json",
+    "sha256": "00a2deacc1153ae2db8fac4d5ae68b4db45a2d575ad8016412fd061d735c2122",
+    "bytes": 5388294
+  },
+  "privacyReview": {
+    "path": "privacy-review.json",
+    "sha256": "ef3affc70b2c9673727937c868babc391286f32e639469bb7709b2f97fa774b5",
+    "bytes": 4171
+  },
+  "crossRunProvenance": [
+    {
+      "path": "provenance/prune-only-52-applicability.json",
+      "sha256": "8617f78dcce2a5b97124c0bdd3d69d6e7d5f39c946373af3e2d9d5137f7390e0",
+      "bytes": 203858
+    }
+  ],
+  "archives": [
+    {
+      "path": "run-01-full-preflight-08befbe16.tar.gz",
+      "sha256": "edf383f1ccb4b14121bb7c6a7f6cd159aae4b0bb9ca4e4db8fcd7bfd9aaf9769",
+      "bytes": 248955,
+      "entryCount": 604,
+      "payloadBytes": 1407425,
+      "runId": "run-01-full-preflight-08befbe16",
+      "reportPathWithinArchive": "runs/run-01-full-preflight-08befbe16/report.json",
+      "originalReportSha256": "5cc4db92cd746b746e3bc07163cee77643fbbc7fd749decbc23d76af05c2f9c2",
+      "originalComplete": false,
+      "originalError": "ObservabilityBenchmarkFailure: Behavior/input mismatch (postconditionDigest): authoring/fork/disabled/false/0",
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-final-mdkja07w/axm-linux-x64",
+        "binarySha256": "09ba75f1d7c95d7b3958dea90e01b4b0a373f83459ccd5f3cc074b83e1e7c3cd",
+        "sourceRevision": "08befbe1662033dc2faab44bc2ace3c900a23578",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessSha256": "f3837206203db7d09ea1acff0bc030bdd5ca92443cc0052e1d48bad9fd5ac522",
+      "completedCases": 13,
+      "reservedFailedCases": 0,
+      "cases": [
+        {
+          "scenario": "group/root",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/discover",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/help",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/skills",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/mcps",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/subagents",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/rules",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/hooks",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/knowledge",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/packs",
+          "classification": "completed"
+        },
+        {
+          "scenario": "registry/1/list/warm/baseline",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/lock",
+          "classification": "completed"
+        },
+        {
+          "scenario": "registry/1/view/cold/baseline",
+          "classification": "completed"
+        }
+      ],
+      "readbackVerified": true
+    },
+    {
+      "path": "run-02-remaining-preflight-99856a289.tar.gz",
+      "sha256": "3d9bcf68e8d398646a751c2fbad487b18bcc792efb2e530e59568f08f59808b5",
+      "bytes": 3150511,
+      "entryCount": 1782,
+      "payloadBytes": 4767791,
+      "runId": "run-02-remaining-preflight-99856a289",
+      "reportPathWithinArchive": "runs/run-02-remaining-preflight-99856a289/report.json",
+      "originalReportSha256": "49eeea8fd4886e31442c20b1eb2b6badcb8a0dab04ea5f67d53dd272588b6cb8",
+      "originalComplete": false,
+      "originalError": "ObservabilityBenchmarkFailure: Behavior/input mismatch (postconditionDigest): typed/skills/handoff/disabled/false/0",
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-final-host-vw6nykx9/axm-linux-x64",
+        "binarySha256": "6b5a1898ad4dff8cb0f25cc26bbada9f9c7ec9387cab3f974807b81a535d877d",
+        "sourceRevision": "99856a289d1f416d4f59a7e6b26d18d76250b4f5",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessSha256": "89b21c5bc92f5adf1c135744278d001ed5b2606cbcc847b00487a2f4f0134679",
+      "completedCases": 38,
+      "reservedFailedCases": 0,
+      "cases": [
+        {
+          "scenario": "local/setup",
+          "classification": "completed"
+        },
+        {
+          "scenario": "registry/1/install/cold/baseline",
+          "classification": "completed"
+        },
+        {
+          "scenario": "registry/1/update/warm/baseline",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/uninstall",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/enable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/disable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/migrate",
+          "classification": "completed"
+        },
+        {
+          "scenario": "authoring/fork",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/adopt-disabled",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/demote",
+          "classification": "completed"
+        },
+        {
+          "scenario": "authoring/version",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/publish",
+          "classification": "completed"
+        },
+        {
+          "scenario": "git/share",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/visibility",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/registry/yank",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/registry/unyank",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/registry/deprecate",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/registry/undeprecate",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/registry/archive",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/registry/unarchive",
+          "classification": "completed"
+        },
+        {
+          "scenario": "registry/1/sync-restore/cold/baseline",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/agents",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/instructions",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/lint",
+          "classification": "completed"
+        },
+        {
+          "scenario": "auth/login",
+          "classification": "completed"
+        },
+        {
+          "scenario": "auth/logout",
+          "classification": "completed"
+        },
+        {
+          "scenario": "auth/whoami",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/token",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/cache",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/diagnostics",
+          "classification": "completed"
+        },
+        {
+          "scenario": "maintenance/changed",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/skills-install",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/skills-update",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/skills-uninstall",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/skills-list",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/skills-show",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/skills-enable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/skills-disable",
+          "classification": "completed"
+        }
+      ],
+      "readbackVerified": true
+    },
+    {
+      "path": "run-03-handoff-and-scaling-99856a289.tar.gz",
+      "sha256": "8f53023afbde3152dbcdadd5fd994db3a2fc5d3f3b0feb04949b88e16ad389e1",
+      "bytes": 384007,
+      "entryCount": 76,
+      "payloadBytes": 1269695,
+      "runId": "run-03-handoff-and-scaling-99856a289",
+      "reportPathWithinArchive": "runs/run-03-handoff-and-scaling-99856a289/report.json",
+      "originalReportSha256": "062e1fbe6a8fcb0d9f5995d9e637f341ddb3997acc378e4b5c116cf5a5e0f604",
+      "originalComplete": false,
+      "originalError": "ObservabilityBenchmarkFailure: Summary/detail work mismatch: registry/50/sync-restore/cold/baseline",
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-final-host-vw6nykx9/axm-linux-x64",
+        "binarySha256": "6b5a1898ad4dff8cb0f25cc26bbada9f9c7ec9387cab3f974807b81a535d877d",
+        "sourceRevision": "99856a289d1f416d4f59a7e6b26d18d76250b4f5",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessSha256": "3b995e2c85aa26858c174df7a63809328538572eed2f559747928975f4d1616c",
+      "completedCases": 1,
+      "reservedFailedCases": 0,
+      "cases": [
+        {
+          "scenario": "typed/skills/handoff",
+          "classification": "completed"
+        }
+      ],
+      "readbackVerified": true
+    },
+    {
+      "path": "run-04-scaling-50-2cf3580d3.tar.gz",
+      "sha256": "8545f70139ee6a54f9730d92693add962d0935ce4beb72a4931882ed1386c8d2",
+      "bytes": 482274,
+      "entryCount": 60,
+      "payloadBytes": 1455323,
+      "runId": "run-04-scaling-50-2cf3580d3",
+      "reportPathWithinArchive": "runs/run-04-scaling-50-2cf3580d3/report.json",
+      "originalReportSha256": "cfdd2fead9662dd266f37e9af444b5d17adf647eadfb972588e4502918b40c4d",
+      "originalComplete": false,
+      "originalError": null,
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-prune-final-xu_g0ysh/axm-linux-x64",
+        "binarySha256": "2b4de10acb5dfe1ab9a6422d583af7809ed76a24db59a574ceedf8e007b294da",
+        "sourceRevision": "2cf3580d33c4a676697a80d222677f8ad59e3579",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessSha256": "c352a910b91d09c664f444206d448c62a5cac61aa17369755f3e77b553ec87a9",
+      "completedCases": 1,
+      "reservedFailedCases": 0,
+      "cases": [
+        {
+          "scenario": "registry/50/sync-restore/cold/baseline",
+          "classification": "completed"
+        }
+      ],
+      "readbackVerified": true
+    },
+    {
+      "path": "run-05-remaining-196-2cf3580d3.tar.gz",
+      "sha256": "0b097c2c8e72bfd7c058d5d3ddd481db8e6139b0cec0e8af6a190efc4a8c4be9",
+      "bytes": 277749,
+      "entryCount": 76,
+      "payloadBytes": 1162589,
+      "runId": "run-05-remaining-196-2cf3580d3",
+      "reportPathWithinArchive": "runs/run-05-remaining-196-2cf3580d3/report.json",
+      "originalReportSha256": "bcf0f1d1c6f9c95ed645a72c1348c465a389c7f2678502534c3a4488c9397459",
+      "originalComplete": false,
+      "originalError": "ObservabilityBenchmarkFailure: Behavior/input mismatch (stdoutDigest): typed/skills/import/disabled/false/0",
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-prune-final-xu_g0ysh/axm-linux-x64",
+        "binarySha256": "2b4de10acb5dfe1ab9a6422d583af7809ed76a24db59a574ceedf8e007b294da",
+        "sourceRevision": "2cf3580d33c4a676697a80d222677f8ad59e3579",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessSha256": "c352a910b91d09c664f444206d448c62a5cac61aa17369755f3e77b553ec87a9",
+      "completedCases": 1,
+      "reservedFailedCases": 0,
+      "cases": [
+        {
+          "scenario": "authoring/skills-new",
+          "classification": "completed"
+        }
+      ],
+      "readbackVerified": true
+    },
+    {
+      "path": "run-06-remaining-195-2cf3580d3.tar.gz",
+      "sha256": "7a1ab581216ce913dfaf48818cae637a71bc6caffc5c34ae30342ce33f402603",
+      "bytes": 7917638,
+      "entryCount": 5006,
+      "payloadBytes": 10944033,
+      "runId": "run-06-remaining-195-2cf3580d3",
+      "reportPathWithinArchive": "runs/run-06-remaining-195-2cf3580d3/report.json",
+      "originalReportSha256": "20b443dfebc894aba183ef7d48bb6e361811b0c5f40800ca1d7867db8be03fff",
+      "originalComplete": false,
+      "originalError": "ObservabilityBenchmarkFailure: Producer accounting did not complete without loss, unknown data or overflow.",
+      "candidate": {
+        "binaryPath": "/tmp/axm-observability-prune-final-xu_g0ysh/axm-linux-x64",
+        "binarySha256": "2b4de10acb5dfe1ab9a6422d583af7809ed76a24db59a574ceedf8e007b294da",
+        "sourceRevision": "2cf3580d33c4a676697a80d222677f8ad59e3579",
+        "sourceDirty": false
+      },
+      "baseline": {
+        "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+        "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+        "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+        "sourceDirty": false
+      },
+      "harnessSha256": "6d02385a4208a3d0c74f0c069164abe1df5fa90b12adf9c94a062e524ce86cb6",
+      "completedCases": 78,
+      "reservedFailedCases": 4,
+      "cases": [
+        {
+          "scenario": "typed/skills/import",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/skills/publish",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/install",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/update",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/uninstall",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/list",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/show",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/enable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/disable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/add",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/adopt",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/new",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/import",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/mcps/publish",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/subagents/update",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/subagents/uninstall",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/subagents/list",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/subagents/show",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/subagents/enable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/subagents/disable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/subagents/new",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/subagents/import",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/subagents/publish",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/rules/install",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/rules/update",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/rules/uninstall",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/rules/list",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/rules/show",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/rules/enable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/rules/disable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/rules/new",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/rules/publish",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/hooks/install",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/hooks/new",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/hooks/import",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/hooks/test",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/hooks/export",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/hooks/publish",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/knowledge/update",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/knowledge/uninstall",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/knowledge/list",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/knowledge/show",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/knowledge/enable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/knowledge/disable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "group/knowledge-concepts",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/knowledge/publish",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/update",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/uninstall",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/list",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/show",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/enable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/disable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/add",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/remove",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/new",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/unpack",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/packs/publish",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/lock-export",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/visibility/status",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/visibility/set",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/visibility/reconcile",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/agents-list",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/agents-add",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/agents-remove",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/agents-capabilities",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/instructions-status",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/instructions-enable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/instructions-disable",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/instructions/adopt",
+          "classification": "completed"
+        },
+        {
+          "scenario": "auth/token-show",
+          "classification": "completed"
+        },
+        {
+          "scenario": "auth/token-create",
+          "classification": "completed"
+        },
+        {
+          "scenario": "auth/token-list",
+          "classification": "completed"
+        },
+        {
+          "scenario": "auth/token-revoke",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/cache-status",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/cache-verify",
+          "classification": "completed"
+        },
+        {
+          "scenario": "installed/cache-prune",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/diagnostics-show",
+          "classification": "completed"
+        },
+        {
+          "scenario": "local/diagnostics-export",
+          "classification": "completed"
+        },
+        {
+          "scenario": "typed/subagents/install",
+          "classification": "reserved"
+        },
+        {
+          "scenario": "typed/knowledge/install",
+          "classification": "reserved"
+        },
+        {
+          "scenario": "typed/knowledge/new",
+          "classification": "reserved"
+        },
+        {
+          "scenario": "typed/packs/install",
+          "classification": "reserved"
+        }
+      ],
+      "readbackVerified": true
+    }
+  ],
+  "totals": {
+    "applicableCompletedCases": 132,
+    "reservedFailedCases": 4,
+    "archives": 6,
+    "archivedPayloadFiles": 7604,
+    "verifiedPayloadFilesIncludingExternal": 7605,
+    "archiveBytes": 12461134,
+    "originalPayloadBytes": 21210714,
+    "omittedHostSnapshotFiles": 1094
+  },
+  "archiveEncoding": {
+    "format": "POSIX pax tar within gzip",
+    "entryOrdering": "Lexicographically sorted relative paths",
+    "regularFileMode": "0644",
+    "uid": 0,
+    "gid": 0,
+    "userName": "",
+    "groupName": "",
+    "mtime": 0,
+    "gzipMtime": 0,
+    "gzipOriginalFilename": null,
+    "compressionLevel": 6
+  },
+  "readback": {
+    "verified": true,
+    "method": "Fully decompress each gzip stream (CRC checked), traverse every tar payload entry, require safe exact path/order/size and normalized headers, compare SHA-256 with unchanged staged payload-index. External metadata and cross-run provenance copied byte-for-byte.",
+    "verifiedEntries": 7604
+  },
+  "limits": [
+    "The four reserved cases remain failed byte comparisons pending a decision; their reserved/ paths and original failed statuses are preserved.",
+    "All original reports retain complete:false and error/assessment fields. Individual completed subsets do not relabel failed runs.",
+    "Host process snapshots remain omitted with original hashes and reasons in payload-index.json; the readable privacy review applies to this exact reviewed payload set.",
+    "No active113-run data, repository files or original staging bytes were changed. No timing qualification is claimed."
+  ]
+}

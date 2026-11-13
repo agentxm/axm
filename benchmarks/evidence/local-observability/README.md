@@ -26,6 +26,13 @@ remaining work. Historical evidence retains its actual source/binary provenance;
 earlier failed runs remain failed. Isolated repeated elapsed/RSS qualification
 is explicitly deferred, not passed.
 
+The [retained capture archives](captures/README.md) contain the reviewed raw
+evidence for the cases below, original reports and source/binary/harness
+identities, exact receipt/receiver payloads and independent fixture observations.
+Readable manifests record every payload hash and the omission of unrelated host
+process snapshots. Original failed reports stay failed; fixture-only reports do
+not claim complete timing campaigns. Additional replay evidence remains separate.
+
 ### Current verification checkpoint
 
 The latest captured clean product candidate is

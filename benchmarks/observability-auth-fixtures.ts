@@ -83,6 +83,17 @@ export const prepareAuthObservabilityFixtures = Effect.fnUntraced(function* (opt
     id: "auth/" + item.command.replaceAll(" ", "-"),
     condition,
     environment: { CI: "0" },
+    // A native keychain is shared across fixture homes. Establish each sample's
+    // session through the CLI instead of treating a copied home as isolation.
+    // Preparation is outside the measured interval and its requests are reset.
+    prepare: (fixture, invoke) =>
+      Effect.gen(function* () {
+        yield* invoke(fixture, ["logout"], { environment: { CI: "0" } });
+        if (item.command !== "login")
+          yield* invoke(fixture, ["login", "--device-code", "--wait-for-human", "5"], {
+            environment: { CI: "0" },
+          });
+      }),
     external: { reset: server.reset, snapshot: server.snapshot },
     requests: () =>
       server.requests().map((request) => ({

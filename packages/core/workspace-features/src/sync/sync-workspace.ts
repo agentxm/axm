@@ -230,18 +230,26 @@ const planWorkspaceMaterialization = (args: {
 }): Effect.Effect<CollectedMaterializeSteps, SyncWorkspaceFailure, SyncWorkspaceRequirements> =>
   Effect.gen(function* () {
     const conversion = yield* StepFailureConversion;
+    const graph = yield* (yield* DesiredStateReader).graph();
     const materialization = yield* collectMaterializeSteps({
+      desiredState: graph,
       ...(args.selection === undefined ? {} : { selection: args.selection }),
       ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
       adapter: conversion,
     });
     if (args.newlyConfiguredAgentIds === undefined || args.newlyConfiguredAgentIds.length === 0)
       return materialization;
+    const projectionFacts = yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(graph);
     const instructions = yield* collectInstructionStep({
       proposedRefs: materialization.steps.flatMap((step) => step.exposureRefs ?? []),
       ...(args.configuredAgents === undefined ? {} : { configuredAgents: args.configuredAgents }),
       newlyConfiguredAgentIds: args.newlyConfiguredAgentIds,
-      projectionFacts: [],
+      projectionFacts: projectionFacts.filter(
+        ({ subject }) => subject.unitId === "rule:instructions-region",
+      ),
+      knowledgeFacts: projectionFacts.filter(
+        ({ subject }) => subject.unitId === "knowledge:discovery-region",
+      ),
       touchesRule: false,
       adapter: conversion,
     });

@@ -1,6 +1,7 @@
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { observationViewLayer, type NativeObservationView } from "../../locations/index.js";
 import * as Option from "effect/Option";
+import * as Context from "effect/Context";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { CurrentWorkspaceReadPhase, type WorkspaceReadPhaseState } from "./read-phase.js";
 import { describe, expect, it } from "@effect/vitest";
@@ -30,6 +31,7 @@ import { readSettingsCell, readLockfileCell, readModelFor } from "./state-cells.
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import { PackManifests } from "./pack-manifests.js";
 import {
+  WorkspaceReadViews,
   WorkspaceReadViewsLive,
   withWorkspaceReadView,
   withWorkspaceObservationReadView,
@@ -478,6 +480,36 @@ const phaseFixture = (root: string, overrides: Partial<WorkspaceLocationService>
       ),
     ),
   );
+
+it.effect("retains an explicit filesystem capability after document observations expire", () =>
+  Effect.gen(function* () {
+    const live = yield* FileSystem.FileSystem;
+    const root = yield* live.makeTempDirectoryScoped();
+    const selected = `${root}/axm.json`;
+    const constrained = `${root}/constrained.json`;
+    yield* live.writeFileString(selected, '{"agents":["codex"]}');
+    yield* live.writeFileString(constrained, '{"agents":["claude-code"]}');
+    const fileSystem = FileSystem.make({
+      ...live,
+      readFile: (file) => live.readFile(file === selected ? constrained : file),
+    });
+    yield* Effect.gen(function* () {
+      const factory = yield* WorkspaceReadViews;
+      const readers = yield* factory.capture({ observations: true, fileSystem });
+      const phase = Context.get(readers, CurrentWorkspaceReadPhase);
+      if (phase === undefined) throw new Error("Expected captured phase");
+      const agents = Effect.gen(function* () {
+        const cells = yield* phase.stateLoaders("project");
+        return Option.getOrThrow(yield* cells.settings).agents;
+      });
+      expect(yield* agents).toEqual(["claude-code"]);
+      yield* live.writeFileString(constrained, '{"agents":["cursor"]}');
+      expect(yield* agents).toEqual(["claude-code"]);
+      phase.close();
+      expect(yield* agents).toEqual(["cursor"]);
+    }).pipe(Effect.provide(phaseFixture(root)));
+  }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+);
 
 for (const ending of ["success", "failure", "interruption"] as const) {
   it.effect(`document phase joins physical requests without upgrade and retires on ${ending}`, () =>

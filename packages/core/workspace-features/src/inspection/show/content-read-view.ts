@@ -84,6 +84,7 @@ export const withLocalInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E,
       ? query
       : query.pipe(
           Effect.provideService(WorkspaceReadViews, {
+            ...factory.value,
             capture: (options) => factory.value.capture({ ...options, fileSystem: captured }),
           }),
         );

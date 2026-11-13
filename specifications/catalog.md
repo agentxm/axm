@@ -7181,6 +7181,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, decision-table
 - Source: [`packages/core/extension-content/src/packaging/filtered-package-validation.spec.ts`](../packages/core/extension-content/src/packaging/filtered-package-validation.spec.ts)
 
+##### Logical exact-content admission retains independent outcomes across bounded exchanges
+
+- Requirement: `registry-client/batches-exact-content-admission`
+- Owner: `registry-client`
+- Statement: AXM shall split a logical exact-content admission into requests of at most 100 items and 256 KiB, correlate outcomes by caller key, and retain each item's result independently across request boundaries while refusing all items in a malformed response batch.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The production client emits encoded HTTP requests to a recording transport. This proves wire shape and result mapping, not deployed server policy or real sockets.
+- Methods: contract, example
+- Derived from: `packages/supporting/registry-client/specs/registry-openapi.json`
+- Source: [`packages/supporting/registry-client/src/batches-exact-content-admission.spec.ts`](../packages/supporting/registry-client/src/batches-exact-content-admission.spec.ts)
+
 ##### Cached archives retain current Registry content authorization
 
 - Requirement: `registry-client/cached-archives-require-current-authorization`

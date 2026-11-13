@@ -37,7 +37,7 @@ const admission = {
   observedAt,
   results: [
     {
-      key: "exact",
+      key: "0",
       outcome: "allowed",
       identity: { owner: "@acme", type: "skill", name: "example" },
       publisherBindingId: "hbnd_test",
@@ -215,7 +215,7 @@ describe("Authorization for cached archives", () => {
                     schemaVersion: 2,
                     purpose: "authorize-exact",
                     observedAt: "2026-10-16T00:00:00.000Z",
-                    results: [{ key: "exact", outcome: "unavailable" }],
+                    results: [{ key: "0", outcome: "unavailable" }],
                   }),
                   { status: 200 },
                 ),
@@ -233,7 +233,7 @@ describe("Authorization for cached archives", () => {
           const first = yield* client.getExtensionPackage(args);
           expect(first.archive).toEqual(archive);
           const failure = yield* client.getExtensionPackage(args).pipe(Effect.flip);
-          expect(failure.category).toBe("conflict");
+          expect(failure.category).toBe("not_found");
           expect(requests).toHaveLength(2);
         }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );

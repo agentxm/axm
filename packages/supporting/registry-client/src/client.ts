@@ -10,6 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type * as Result from "effect/Result";
 
 import type { RegistryClientFailure } from "./errors.js";
 import type {
@@ -372,9 +373,13 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
  * @experimental This API is unstable and may change without notice.
  */
 export interface RegistryClient {
-  readonly validateExtensionAccess: (
-    args: ValidateExtensionAccessArgs,
-  ) => Effect.Effect<void, RegistryClientFailure>;
+  /** Fresh admission for a logical batch. Results retain input order; wire correlation uses keys. */
+  readonly validateExtensionAccessBatch: (
+    args: ReadonlyArray<ValidateExtensionAccessArgs>,
+  ) => Effect.Effect<
+    ReadonlyArray<Result.Result<void, RegistryClientFailure>>,
+    RegistryClientFailure
+  >;
   /** Available for remote registries that support the batched resolution contract. */
   readonly getResolutionMetadata?: (
     request: ResolutionMetadataRequest,

@@ -18,6 +18,7 @@ export type {
   GetExtensionsByOwnerResponse,
   GetExtensionIndexArgs,
   GetExtensionPackageArgs,
+  ValidateExtensionAccessArgs,
   PublishExtensionArgs,
   PublishExtensionResponse,
   RegistryPublishWarning,

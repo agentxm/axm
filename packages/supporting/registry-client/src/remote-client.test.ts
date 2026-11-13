@@ -883,7 +883,7 @@ describe("ownerExists", () => {
 // getExtensionPackage
 // =============================================================================
 
-describe("validateExtensionAccess", () => {
+describe("validateExtensionAccessBatch", () => {
   for (const scenario of [
     { name: "allowed", outcome: { outcome: "allowed" }, allowed: true },
     { name: "unavailable", outcome: { outcome: "unavailable" }, allowed: false },
@@ -909,7 +909,7 @@ describe("validateExtensionAccess", () => {
             requests.push(`${request.method} ${new URL(request.url).pathname}`);
             const outcome = scenario.allowed
               ? {
-                  key: "exact",
+                  key: "0",
                   outcome: "allowed",
                   identity: { owner: "@acme", type: "skill", name: "test-skill" },
                   publisherBindingId: "hbnd_test",
@@ -917,7 +917,7 @@ describe("validateExtensionAccess", () => {
                   yanked: false,
                   observedAt: "2026-09-22T00:00:00.000Z",
                 }
-              : { key: "exact", ...scenario.outcome };
+              : { key: "0", ...scenario.outcome };
             return new Response(
               JSON.stringify({
                 schemaVersion: 2,
@@ -929,17 +929,17 @@ describe("validateExtensionAccess", () => {
             );
           }),
         );
-        const result = yield* client
-          .validateExtensionAccess({
+        const result = yield* client.validateExtensionAccessBatch([
+          {
             ...makeIndexArgs(),
             exact: {
               version: exactVersion("1.0.0"),
               integrity: "sha512-selected",
               publisherBindingId: "hbnd_test",
             },
-          })
-          .pipe(Effect.result);
-        expect(result._tag).toBe(scenario.allowed ? "Success" : "Failure");
+          },
+        ]);
+        expect(result[0]?._tag).toBe(scenario.allowed ? "Success" : "Failure");
         expect(requests).toEqual(["POST /v1/resolutions"]);
       }),
     );
@@ -948,17 +948,17 @@ describe("validateExtensionAccess", () => {
   it.effect("refuses unknown eligibility when the Registry is offline", () =>
     Effect.gen(function* () {
       const client = createRemoteRegistryClient(BASE_URL, makeNetworkErrorClient());
-      const result = yield* client
-        .validateExtensionAccess({
+      const result = yield* client.validateExtensionAccessBatch([
+        {
           ...makeIndexArgs(),
           exact: {
             version: exactVersion("1.0.0"),
             integrity: "sha512-selected",
             publisherBindingId: "hbnd_test",
           },
-        })
-        .pipe(Effect.result);
-      expect(result._tag).toBe("Failure");
+        },
+      ]);
+      expect(result[0]?._tag).toBe("Failure");
     }),
   );
 });
@@ -978,7 +978,7 @@ describe("getExtensionPackage", () => {
             observedAt: "2026-09-22T00:00:00.000Z",
             results: [
               {
-                key: "exact",
+                key: "0",
                 outcome: "allowed",
                 identity: { owner: "@acme", type: "skill", name: "test-skill" },
                 publisherBindingId: "hbnd_test",
@@ -1036,7 +1036,7 @@ describe("getExtensionPackage", () => {
               purpose: "authorize-exact",
               selectionPolicyVersion: "1",
               observedAt: "2026-09-22T00:00:00.000Z",
-              results: [{ key: "exact", outcome: "unavailable" }],
+              results: [{ key: "0", outcome: "unavailable" }],
             }),
             { status: 200 },
           ),
@@ -1068,7 +1068,7 @@ describe("getExtensionPackage", () => {
           },
         })
         .pipe(Effect.flip);
-      expect(failure.category).toBe("conflict");
+      expect(failure.category).toBe("not_found");
     }),
   );
 

@@ -6,6 +6,8 @@ import * as Effect from "effect/Effect";
 import * as Tracer from "effect/Tracer";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import { ExactContentRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolutions";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import { RegistryClientFactoryTest, testRegistryEndpoint } from "@agentxm/registry-client/testing";
@@ -61,34 +63,54 @@ describe("Registry eligibility at exposure", () => {
     "denied",
     "revoked-during-confirmation",
     "no-registry-exposure",
+    "ten-distinct",
+    "hundred-and-one-distinct",
   ] as const) {
     it.effect(scenario, () =>
       Effect.gen(function* () {
         const workspace = yield* makeSpecWorkspace("axm-registry-exposure-");
         const requests: string[] = [];
+        const batchSizes: number[] = [];
+        const distinct =
+          scenario === "ten-distinct" ? 10 : scenario === "hundred-and-one-distinct" ? 101 : 1;
+        const exposureRefs =
+          distinct === 1
+            ? [ref, ref]
+            : Array.from({ length: distinct }, (_, i) => ({
+                ...ref,
+                name: decodeExtensionNameSync(`review-${i}`),
+                skill: { ...ref.skill, name: decodeExtensionNameSync(`review-${i}`) },
+              }));
         let denied = scenario === "denied";
         let exposed = 0;
         let independent = 0;
         const http = HttpClient.make((request) =>
           Effect.sync(() => {
             requests.push(request.method);
+            if (request.body._tag !== "Uint8Array") throw new Error("Expected JSON admission");
+            const input = Schema.decodeUnknownSync(
+              Schema.fromJsonString(ExactContentRequestSchema),
+            )(new TextDecoder().decode(request.body.body));
+            batchSizes.push(input.items.length);
             const response = Response.json({
               schemaVersion: 2,
               purpose: "authorize-exact",
               observedAt: "2026-09-22T00:00:00.000Z",
-              results: [
-                denied
-                  ? { key: "exact", outcome: "unavailable" }
-                  : {
-                      key: "exact",
-                      outcome: "allowed",
-                      identity: { owner: "@acme", type: "skill", name: "review" },
-                      publisherBindingId: "publisher-1",
-                      accepted: { version: "1.0.0", integrity: `sha512-${"A".repeat(86)}==` },
-                      yanked: false,
-                      observedAt: "2026-09-22T00:00:00.000Z",
-                    },
-              ],
+              results: input.items
+                .map((item) =>
+                  denied
+                    ? { key: item.key, outcome: "unavailable" }
+                    : {
+                        key: item.key,
+                        outcome: "allowed",
+                        identity: item.identity,
+                        publisherBindingId: item.expectedPublisherBinding,
+                        accepted: item.accepted,
+                        yanked: false,
+                        observedAt: "2026-09-22T00:00:00.000Z",
+                      },
+                )
+                .reverse(),
             });
             return HttpClientResponse.fromWeb(request, response);
           }),
@@ -113,12 +135,12 @@ describe("Registry eligibility at exposure", () => {
               concurrency: 1,
               executionPolicy: "best-effort",
               steps: [
-                ...["first", "second"].map((name) => ({
+                ...exposureRefs.map((exposureRef, index) => ({
                   readiness: "ready" as const,
-                  key: `skill:${name}`,
-                  label: name,
+                  key: `skill:${index}`,
+                  label: `step-${index}`,
                   acquisitionRefs: [],
-                  exposureRefs: scenario === "no-registry-exposure" ? [] : [ref],
+                  exposureRefs: scenario === "no-registry-exposure" ? [] : [exposureRef],
                   run: Effect.sync(() => {
                     exposed += 1;
                     return { result: "success" as const, message: "exposed" };
@@ -176,7 +198,7 @@ describe("Registry eligibility at exposure", () => {
           "after-confirmation",
         ]);
         expect(eligibility.map((span) => span.attributes.get("axm.work.executed"))).toEqual(
-          scenario === "no-registry-exposure" ? [0, 0] : [1, 1],
+          scenario === "no-registry-exposure" ? [0, 0] : [distinct, distinct],
         );
         expect(eligibility.map((span) => span.attributes.get("axm.registry.denied"))).toEqual(
           scenario === "denied"
@@ -186,11 +208,19 @@ describe("Registry eligibility at exposure", () => {
               : [0, 0],
         );
         expect(independent).toBe(1);
-        expect(exposed).toBe(denied ? 0 : 2);
-        expect(result.units.map((unit) => unit.state)).toEqual(
-          denied ? ["failed", "failed", "committed"] : ["committed", "committed", "committed"],
-        );
-        expect(requests).toEqual(scenario === "no-registry-exposure" ? [] : ["POST", "POST"]);
+        expect(exposed).toBe(denied ? 0 : exposureRefs.length);
+        expect(result.units.map((unit) => unit.state)).toEqual([
+          ...exposureRefs.map(() => (denied ? "failed" : "committed")),
+          "committed",
+        ]);
+        const expectedBatches =
+          scenario === "no-registry-exposure"
+            ? []
+            : distinct === 101
+              ? [100, 1, 100, 1]
+              : [distinct, distinct];
+        expect(batchSizes).toEqual(expectedBatches);
+        expect(requests).toEqual(expectedBatches.map(() => "POST"));
       }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }

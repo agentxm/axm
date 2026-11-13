@@ -19,6 +19,8 @@ import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
+import { exactContentBatches } from "./exact-content-batches.js";
 
 import * as Schema from "effect/Schema";
 import {
@@ -82,7 +84,6 @@ import type {
   GetExactExtensionVersionArgs,
   GetExtensionIndexArgs,
   GetExtensionPackageArgs,
-  ValidateExtensionAccessArgs,
   GetExtensionPackageResponse,
   GetExtensionVisibilityArgs,
   GetExtensionsByOwnerArgs,
@@ -900,82 +901,85 @@ export const createRemoteRegistryClient = (
   // ---------------------------------------------------------------------------
   // getExtensionPackage
   // ---------------------------------------------------------------------------
-  const validateExtensionAccess = Effect.fnUntraced(function* (
-    args: ValidateExtensionAccessArgs,
-  ): Effect.fn.Return<void, RegistryClientFailure> {
-    const submitted = yield* Schema.decodeUnknownEffect(ExactContentRequestSchema)({
-      schemaVersion: 2,
-      purpose: "authorize-exact",
-      items: [
-        {
-          key: "exact",
-          identity: { owner: args.owner, type: args.type, name: args.name },
-          expectedPublisherBinding: args.exact.publisherBindingId,
-          accepted: { version: args.exact.version, integrity: args.exact.integrity },
-        },
-      ],
-    }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new RegistryRequestFailed({
-            category: "internal",
-            detail: "Invalid exact-content request.",
-            cause,
-          }),
-      ),
-    );
-    const response = yield* executeRemoteRequest(
-      Effect.gen(function* () {
-        const payload = yield* Schema.encodeEffect(ExactContentRequestSchema)(submitted);
-        const [result, transport] = yield* client.ResolutionsPostResolutions({
-          payload,
-          config: { includeResponse: true },
-        });
-        if (transport.status !== 200)
-          return yield* new HttpClientError.HttpClientError({
-            reason: new HttpClientError.DecodeError({
-              request: transport.request,
-              response: transport,
-              description: "Resolution evidence requires HTTP 200",
+  const validateExtensionAccessBatch: RegistryClient["validateExtensionAccessBatch"] =
+    Effect.fnUntraced(function* (args) {
+      const batches = yield* exactContentBatches(args);
+      const results: Result.Result<void, RegistryClientFailure>[] = [];
+      for (const submitted of batches) {
+        const checked = yield* Effect.result(
+          executeRemoteRequest(
+            Effect.gen(function* () {
+              const payload = yield* Schema.encodeEffect(ExactContentRequestSchema)(submitted);
+              const [result, transport] = yield* client.ResolutionsPostResolutions({
+                payload,
+                config: { includeResponse: true },
+              });
+              if (transport.status !== 200)
+                return yield* new HttpClientError.HttpClientError({
+                  reason: new HttpClientError.DecodeError({
+                    request: transport.request,
+                    response: transport,
+                    description: "Resolution evidence requires HTTP 200",
+                  }),
+                });
+              const encoded = yield* Schema.encodeEffect(
+                GeneratedRegistryClient.ResolutionsPostResolutions200,
+              )(result);
+              return yield* Schema.decodeUnknownEffect(ExactContentResponseSchema)(encoded, {
+                onExcessProperty: "error",
+              });
             }),
+            {
+              operation: "authorize exact content",
+              purpose: "eligibility",
+              batchSize: submitted.items.length,
+              method: "POST",
+              path: "/v1/resolutions",
+              replaySafety: safe,
+              mapError: (error, nowMillis) =>
+                mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+            },
+          ),
+        );
+        if (Result.isFailure(checked)) {
+          results.push(...submitted.items.map(() => Result.fail(checked.failure)));
+          continue;
+        }
+        const response = checked.success;
+        if (!exactContentResponseMatchesRequest(submitted, response)) {
+          const failure = new RegistryRequestFailed({
+            category: "internal",
+            detail: "Registry exact-content response does not match its request.",
           });
-        const encoded = yield* Schema.encodeEffect(
-          GeneratedRegistryClient.ResolutionsPostResolutions200,
-        )(result);
-        return yield* Schema.decodeUnknownEffect(ExactContentResponseSchema)(encoded, {
-          onExcessProperty: "error",
-        });
-      }),
-      {
-        operation: "authorize exact content",
-        purpose: "eligibility",
-        batchSize: submitted.items.length,
-        method: "POST",
-        path: "/v1/resolutions",
-        replaySafety: safe,
-        mapError: (error, nowMillis) =>
-          mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
-      },
-    );
-    if (!exactContentResponseMatchesRequest(submitted, response)) {
-      return yield* new RegistryRequestFailed({
-        category: "internal",
-        detail: "Registry exact-content response does not match its request.",
-      });
-    }
-    if (response.results.some((result) => result.outcome === "temporarily-unavailable")) {
-      return yield* new RegistryRequestFailed({
-        category: "unavailable",
-        detail: "Registry exact-content authorization is temporarily unavailable.",
-      });
-    }
-    if (response.results.some((result) => result.outcome !== "allowed")) {
-      return yield* new RegistryOperationFailed({
-        category: "conflict",
-        detail: "The exact package no longer has matching Registry content authorization.",
-      });
-    }
-  });
+          results.push(...submitted.items.map(() => Result.fail(failure)));
+          continue;
+        }
+        const byKey = new Map(response.results.map((result) => [result.key, result]));
+        for (const item of submitted.items) {
+          const result = byKey.get(item.key);
+          if (result?.outcome === "allowed") {
+            results.push(Result.succeed(undefined));
+          } else {
+            results.push(
+              Result.fail(
+                new RegistryOperationFailed({
+                  category:
+                    result?.outcome === "temporarily-unavailable"
+                      ? "unavailable"
+                      : result?.outcome === "unavailable"
+                        ? "not_found"
+                        : result?.outcome === "lifecycle-blocked"
+                          ? "forbidden"
+                          : "conflict",
+                  detail: `Registry exact-content authorization refused: ${result?.outcome ?? "missing-result"}.`,
+                }),
+              ),
+            );
+          }
+        }
+      }
+      return results;
+    });
 
   const getExtensionPackage = Effect.fnUntraced(function* (
     args: GetExtensionPackageArgs,
@@ -1037,13 +1041,27 @@ export const createRemoteRegistryClient = (
         mapError: mapArchiveFetchError,
       },
     );
-    const validateCached = validateExtensionAccess({
-      owner: args.owner,
-      type: args.type,
-      name: args.name,
-      exact: selected,
-      ...(args.usagePurpose === undefined ? {} : { usagePurpose: args.usagePurpose }),
-    });
+    const validateCached = validateExtensionAccessBatch([
+      {
+        owner: args.owner,
+        type: args.type,
+        name: args.name,
+        exact: selected,
+        ...(args.usagePurpose === undefined ? {} : { usagePurpose: args.usagePurpose }),
+      },
+    ]).pipe(
+      Effect.flatMap((results) => {
+        const result = results[0];
+        return result === undefined
+          ? Effect.fail(
+              new RegistryRequestFailed({
+                category: "internal",
+                detail: "Exact-content admission result is missing.",
+              }),
+            )
+          : Effect.fromResult(result);
+      }),
+    );
     const archive = yield* archiveCache === undefined
       ? fetchArchive
       : archiveCache.load(
@@ -1484,7 +1502,7 @@ export const createRemoteRegistryClient = (
   };
 
   return {
-    validateExtensionAccess,
+    validateExtensionAccessBatch,
     getResolutionMetadata,
     getExtensionIndex,
     getExactExtensionVersion,

@@ -815,41 +815,44 @@ export const createLocalRegistryClient = (
         });
   }),
 
-  validateExtensionAccess: Effect.fnUntraced(function* (args: ValidateExtensionAccessArgs) {
-    const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
-    const index = yield* readExtensionIndex(fs, path.join(dir, "index.json"));
-    const version = index.versions.find((entry) => entry.version === args.exact.version);
-    if (
-      index.publisherBindingId !== args.exact.publisherBindingId ||
-      version?.integrity !== args.exact.integrity
-    ) {
-      return yield* new RegistryOperationFailed({
-        category: "conflict",
-        detail: "Local Registry no longer matches the accepted publisher and archive identity.",
-      });
-    }
-    const archive = yield* readBufferedArchive(
-      fs,
-      path.join(dir, `${args.exact.version}.zip`),
-    ).pipe(
-      Effect.mapError(
-        (cause) =>
-          new RegistryOperationFailed({
-            category: "not_found",
-            detail: "Accepted local Registry archive is unavailable.",
-            cause,
-          }),
-      ),
-    );
-    if (
-      `sha512-${createHash("sha512").update(archive).digest("base64")}` !== args.exact.integrity
-    ) {
-      return yield* new RegistryOperationFailed({
-        category: "conflict",
-        detail: "Local Registry archive integrity no longer matches the accepted identity.",
-      });
-    }
-  }),
+  validateExtensionAccessBatch: (items) =>
+    Effect.forEach(items, (args: ValidateExtensionAccessArgs) =>
+      Effect.gen(function* () {
+        const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
+        const index = yield* readExtensionIndex(fs, path.join(dir, "index.json"));
+        const version = index.versions.find((entry) => entry.version === args.exact.version);
+        if (
+          index.publisherBindingId !== args.exact.publisherBindingId ||
+          version?.integrity !== args.exact.integrity
+        ) {
+          return yield* new RegistryOperationFailed({
+            category: "conflict",
+            detail: "Local Registry no longer matches the accepted publisher and archive identity.",
+          });
+        }
+        const archive = yield* readBufferedArchive(
+          fs,
+          path.join(dir, `${args.exact.version}.zip`),
+        ).pipe(
+          Effect.mapError(
+            (cause) =>
+              new RegistryOperationFailed({
+                category: "not_found",
+                detail: "Accepted local Registry archive is unavailable.",
+                cause,
+              }),
+          ),
+        );
+        if (
+          `sha512-${createHash("sha512").update(archive).digest("base64")}` !== args.exact.integrity
+        ) {
+          return yield* new RegistryOperationFailed({
+            category: "conflict",
+            detail: "Local Registry archive integrity no longer matches the accepted identity.",
+          });
+        }
+      }).pipe(Effect.result),
+    ),
 
   getExtensionPackage: Effect.fnUntraced(function* (args: GetExtensionPackageArgs) {
     const owner = args.owner;

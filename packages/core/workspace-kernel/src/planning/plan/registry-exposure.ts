@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Result from "effect/Result";
 import { sourceRefContentKey } from "../../acquisition/index.js";
 import { StepFailure, type Plan, type PlannedJobStep } from "../../operations/index.js";
 import { PlanSources } from "./plan-sources.js";
@@ -29,20 +28,13 @@ export const validateRegistryExposure = Effect.fn("axm.registry.eligibility")(fu
     "axm.work.reused-count": 0,
     "axm.registry.denied": 0,
   });
-  const failures = new Map<string, StepFailure>();
-  if (refs.length === 0) return failures;
+  if (refs.length === 0) return new Map<string, StepFailure>();
   const sources = yield* PlanSources;
-  const seen = new Set<string>();
-  for (const ref of refs) {
-    const key = sourceRefContentKey(ref);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const checked = yield* Effect.result(sources.validateExposure(ref));
-    if (Result.isFailure(checked)) failures.set(key, checked.failure);
-  }
+  const unique = new Map(refs.map((ref) => [sourceRefContentKey(ref), ref]));
+  const failures = yield* sources.validateExposure([...unique.values()]);
   yield* Effect.annotateCurrentSpan({
-    "axm.work.executed": seen.size,
-    "axm.work.reused-count": refs.length - seen.size,
+    "axm.work.executed": unique.size,
+    "axm.work.reused-count": refs.length - unique.size,
     "axm.registry.denied": failures.size,
   });
   return failures;

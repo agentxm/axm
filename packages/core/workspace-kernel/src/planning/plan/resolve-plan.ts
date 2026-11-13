@@ -799,7 +799,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     });
   }
 
-  const eligibility = yield* validateRegistryExposure(candidatePlan, "before-acquisition");
+  const eligibility = new Map(yield* validateRegistryExposure(candidatePlan, "before-acquisition"));
   const eligibilityFailureForStep = (step: PlannedJobStep<Requirements, Output>) =>
     registryExposureRefsForStep(step)
       .map((ref) => eligibility.get(sourceRefContentKey(ref)))

@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "classification": "separate-offline-native-byte-adjudication",
+  "preparedAt": "2026-11-13T07:56:52.541824+00:00",
+  "methodRevision": "4fa487526f17031a8ef8f399154a00412e718e93",
+  "runtime": {
+    "name": "bun",
+    "version": "1.4.4"
+  },
+  "archive": {
+    "path": "native-byte-dispositions-4fa487526.tar.gz",
+    "bytes": 51554,
+    "sha256": "d638b8612e95e742a3cf869c6e7aa0ec5f28db75e606534269d427d27d057d07",
+    "entryCount": 9
+  },
+  "files": [
+    {
+      "sourcePath": "/tmp/axm-native-byte-dispositions-qw9v0c0n/README.md",
+      "path": "README.md",
+      "bytes": 3081,
+      "sha256": "17659ceea26644c0f22f63f2b08c5d24226491720a8f7fc96be58e35b716aecc",
+      "kind": "original-analysis-artifact"
+    },
+    {
+      "sourcePath": "/tmp/axm-native-byte-dispositions-qw9v0c0n/artifact-manifest.json",
+      "path": "artifact-manifest.json",
+      "bytes": 1365,
+      "sha256": "e1cd00f8cd5a5788987c549533b137b5e12f3deacf61484eb3dc5e22b63d4fe1",
+      "kind": "original-analysis-artifact"
+    },
+    {
+      "sourcePath": "/tmp/axm-native-byte-dispositions-qw9v0c0n/consolidate.ts",
+      "path": "consolidate.ts",
+      "bytes": 18683,
+      "sha256": "4ce0204679b8a24e7e43d57b1282afc49baa16ca2eb509c3dd3b7c4cf11bfeb6",
+      "kind": "original-analysis-artifact"
+    },
+    {
+      "sourcePath": "/tmp/axm-native-byte-dispositions-qw9v0c0n/dispositions.json",
+      "path": "dispositions.json",
+      "bytes": 563142,
+      "sha256": "86f1a453368a36de017c369df894183226c8ad0b71f3f924d99253ee7cd81aed",
+      "kind": "original-analysis-artifact"
+    },
+    {
+      "sourcePath": "/tmp/axm-native-byte-dispositions-qw9v0c0n/extraction-manifest.json",
+      "path": "extraction-manifest.json",
+      "bytes": 63882,
+      "sha256": "fdc12902b41b7a504abfa87d8b776523839322fd1921f1858d47f768cecee0fd",
+      "kind": "original-analysis-artifact"
+    },
+    {
+      "sourcePath": "/tmp/axm-native-byte-dispositions-qw9v0c0n/execution.stdout",
+      "path": "execution.stdout",
+      "bytes": 216,
+      "sha256": "803f7b1dadbc550cae86dc9b495162fd3f17abfe44a9c328364173116dd843f5",
+      "kind": "original-analysis-artifact"
+    },
+    {
+      "sourcePath": "/tmp/axm-native-byte-dispositions-qw9v0c0n/execution.stderr",
+      "path": "execution.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "original-analysis-artifact"
+    },
+    {
+      "sourcePath": "/tmp/axm-native-byte-dispositions-qw9v0c0n/execution.stdout.attempt1",
+      "path": "execution.stdout.attempt1",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "original-analysis-artifact"
+    },
+    {
+      "sourcePath": "/tmp/axm-native-byte-dispositions-qw9v0c0n/execution.stderr.attempt1",
+      "path": "execution.stderr.attempt1.public-projection.txt",
+      "bytes": 2010,
+      "sha256": "43ba481df4db967ad77acb735afd70d4dc24790bfd894aa16a26b9f8a94ec0bc",
+      "kind": "failed-attempt-public-projection",
+      "originalBytes": 2136,
+      "originalSha256": "d190439b0fbdd44878fac0c077bd2f9bd8c95a3c0d3d9122d3714802ca10d511"
+    }
+  ],
+  "privacyProjections": [
+    {
+      "originalPath": "execution.stderr.attempt1",
+      "originalBytes": 2136,
+      "originalSha256": "d190439b0fbdd44878fac0c077bd2f9bd8c95a3c0d3d9122d3714802ca10d511",
+      "projectedPath": "execution.stderr.attempt1.public-projection.txt",
+      "projectedBytes": 2010,
+      "projectedSha256": "43ba481df4db967ad77acb735afd70d4dc24790bfd894aa16a26b9f8a94ec0bc",
+      "operation": "Replace only the exact absolute checkout-root prefix with <repository-root>; preserve the failed ENOENT attempt and all other bytes.",
+      "omittedValueSha256": "254cd97a0e192fb988a1c207a206d949b552034da0531073ed44bec79f1725b6",
+      "omittedValueBytes": 38,
+      "occurrences": 6,
+      "affectedLines": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
+      ]
+    }
+  ],
+  "sourceArchive": {
+    "path": "benchmarks/evidence/local-observability/captures/run-06-remaining-195-2cf3580d3.tar.gz",
+    "sha256": "7a1ab581216ce913dfaf48818cae637a71bc6caffc5c34ae30342ce33f402603",
+    "extractionMapping": {
+      "report": "runs/run-06-remaining-195-2cf3580d3/report.json",
+      "payloads": "samples/preflight/<case>/... maps to reserved/<case>/..."
+    }
+  },
+  "sourceReport": {
+    "archiveMember": "runs/run-06-remaining-195-2cf3580d3/report.json",
+    "sha256": "20b443dfebc894aba183ef7d48bb6e361811b0c5f40800ca1d7867db8be03fff",
+    "complete": false,
+    "error": "ObservabilityBenchmarkFailure: Producer accounting did not complete without loss, unknown data or overflow.",
+    "baseline": {
+      "binaryPath": "/tmp/axm-observability-baseline/axm-linux-x64",
+      "binarySha256": "da82b0ce5a735f9ccf470b6d28870869f504a9f618433a21c5357faf124d6ea6",
+      "sourceRevision": "45e752305a796c808de434e45b3e0f5e1a685123",
+      "sourceDirty": false
+    },
+    "candidate": {
+      "binaryPath": "/tmp/axm-observability-prune-final-xu_g0ysh/axm-linux-x64",
+      "binarySha256": "2b4de10acb5dfe1ab9a6422d583af7809ed76a24db59a574ceedf8e007b294da",
+      "sourceRevision": "2cf3580d33c4a676697a80d222677f8ad59e3579",
+      "sourceDirty": false
+    },
+    "harnessSha256": "6d02385a4208a3d0c74f0c069164abe1df5fa90b12adf9c94a062e524ce86cb6",
+    "dependencyLockSha256": "f14e8531eabc3f5fa0e16d820a13fe4b9b4776cbbab94c7be02e93fb5140e7d1"
+  },
+  "inputMapping": {
+    "consumedMembers": 81,
+    "extractedMembers": 281,
+    "mapping": {
+      "report": "runs/run-06-remaining-195-2cf3580d3/report.json",
+      "payloads": "samples/preflight/<case>/... maps to reserved/<case>/..."
+    },
+    "hashValidation": "Public source archive hash and unchanged raw report hash checked during packaging;81 consumed member hashes/lengths match the original extraction manifest. Decoded/member hashes and offline reinspection results remain in dispositions.json."
+  },
+  "coverage": {
+    "behaviorAndAccountingCasesCovered": 249,
+    "fullComparisonCases": 245,
+    "byteEquivalenceAndCompleteAttributionUnprovenCases": 4,
+    "storedReceiverPayloadsReinspectedOffline": 8,
+    "exactDifferingRowsRetained": 33,
+    "qualification": "The four cases remain native-serialization-bytes-inconclusive. This separate adjudication does not relabel raw failed reports or prior captures/index.json historical statuses."
+  },
+  "cases": [
+    {
+      "scenario": "typed/subagents/install",
+      "status": "native-serialization-bytes-inconclusive",
+      "byteEquivalence": "unproven",
+      "completeAttribution": "unproven",
+      "differingRows": 11,
+      "summaryWorkDigest": "c90478fd3e795ccffbb8b741200a0ecba766b1142a7ad7c2cb6ae0c260cc0b56",
+      "detailWorkDigest": "fa806e93f0f214dc514e7ae2e74f508c7022010cbe0cb80db629309d4ea7f6c1",
+      "storedReceiverPayloadsReinspected": 2,
+      "originalComparisonRemainsFailed": true
+    },
+    {
+      "scenario": "typed/knowledge/install",
+      "status": "native-serialization-bytes-inconclusive",
+      "byteEquivalence": "unproven",
+      "completeAttribution": "unproven",
+      "differingRows": 9,
+      "summaryWorkDigest": "2356268376197c10ed47ab77f1f7b78f0dae930c8f3633e668b123d10b0b908c",
+      "detailWorkDigest": "d3e0f557ba0182f15d752ff884576e37e2a062d59bca96106572ad6ba08fbb27",
+      "storedReceiverPayloadsReinspected": 2,
+      "originalComparisonRemainsFailed": true
+    },
+    {
+      "scenario": "typed/packs/install",
+      "status": "native-serialization-bytes-inconclusive",
+      "byteEquivalence": "unproven",
+      "completeAttribution": "unproven",
+      "differingRows": 9,
+      "summaryWorkDigest": "528176bd565b9ea8e07a7e4f83a5791facce0807c19cca15c6a2ac476a274ac6",
+      "detailWorkDigest": "606219638087a1bca8ed6335fef6e02aa0fd83e265cbc2d051627b5b009e14e3",
+      "storedReceiverPayloadsReinspected": 2,
+      "originalComparisonRemainsFailed": true
+    },
+    {
+      "scenario": "typed/knowledge/new",
+      "status": "native-serialization-bytes-inconclusive",
+      "byteEquivalence": "unproven",
+      "completeAttribution": "unproven",
+      "differingRows": 4,
+      "summaryWorkDigest": "a184c1b2ca2aae2d0a705360a94774520b268a9b99a5b4f0c1f31f058e913ce0",
+      "detailWorkDigest": "a144aa79026f6782888392ba10dc8176ee53d7434ef59f753a5ffda7b49c01e1",
+      "storedReceiverPayloadsReinspected": 2,
+      "originalComparisonRemainsFailed": true
+    }
+  ],
+  "attempts": [
+    {
+      "name": "attempt1",
+      "status": "failed",
+      "failure": "ENOENT from initial sample path layout assumption; corrected reserved/<case>/ mapping retained in the final script and extraction manifest.",
+      "stdout": "execution.stdout.attempt1",
+      "stderr": "execution.stderr.attempt1.public-projection.txt",
+      "numericExitStatus": "not independently captured in these retained files"
+    },
+    {
+      "name": "corrected-offline-analysis",
+      "status": "completed-with-four-inconclusive-byte-dispositions",
+      "stdout": "execution.stdout",
+      "stderr": "execution.stderr",
+      "output": "dispositions.json"
+    }
+  ],
+  "excludedPaths": [
+    {
+      "path": "repo",
+      "kind": "symlink",
+      "reason": "Local checkout link; use a clean method-revision checkout for reproduction."
+    },
+    {
+      "path": "node_modules",
+      "kind": "symlink",
+      "reason": "Local dependency link; use pinned dependencies in the method checkout."
+    },
+    {
+      "path": "extracted/",
+      "kind": "directory",
+      "reason": "Inputs already retained in the public source archive; extraction mapping and hashes retained here."
+    },
+    {
+      "path": "decoded/",
+      "kind": "directory",
+      "reason": "Derived receipt-decoding scratch outputs; reproducible from existing public inputs and retained script."
+    }
+  ],
+  "readback": {
+    "verified": true,
+    "entries": 9,
+    "encoding": "Sorted POSIX pax tar within gzip; mode0644, owner/group0, timestamps0, empty names; no symlinks.",
+    "method": "Full archive gzip decompression/CRC check; verify every tar entry order, header, length and SHA-256 against staged whitelist."
+  },
+  "limitations": [
+    "No CLI workload, Seq query or fresh native-target observation ran.",
+    "Recorded native metadata was schema-checked and matched to original receipt fields and projection markers; historical scratch entries remain not post-stat verified.",
+    "Original reports remain failed. This sidecar changes neither their bytes nor their verdicts.",
+    "Exact per-invocation totals are retained. Cross-run byte equivalence and complete attribution remain unproven.",
+    "The final-field width envelope is conservative comparison eligibility, not an intermediate-write bound.",
+    "This establishes no repeated timing/RSS qualification.",
+    "No CLI workload or Seq query was executed for this packaging task. No existing reports, captures indexes or repository files were changed.",
+    "The final-field width envelope is conservative eligibility, not an intermediate-write bound or complete mixed-owner attribution.",
+    "consolidate.ts is stored inside an ordinary evidence archive, not introduced as a repository source entry."
+  ]
+}

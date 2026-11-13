@@ -235,7 +235,7 @@ export const nativeReceiptByteRowKey = (row: NativeReceiptByteRow): string =>
 
 export interface WorkComparison {
   readonly status: "equal" | "different" | "native-serialization-bytes-inconclusive";
-  readonly byteEquivalence: "equal" | "unproven";
+  readonly byteEquivalence: "recorded-equal" | "unproven";
   readonly completeAttribution: "unproven";
   readonly summaryWorkDigest: string | undefined;
   readonly detailWorkDigest: string | undefined;
@@ -274,7 +274,13 @@ export const compareSummaryDetailWork = (
   });
   if (summary?.workDigest === undefined || detail?.workDigest === undefined) return failed();
   if (summary.workDigest === detail.workDigest)
-    return { ...identity, status: "equal", byteEquivalence: "equal", differences: [], issues: [] };
+    return {
+      ...identity,
+      status: "equal",
+      byteEquivalence: "recorded-equal",
+      differences: [],
+      issues: [],
+    };
   const left = summary.nativeSerializationWork;
   const right = detail.nativeSerializationWork;
   if (

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "status": "review-complete-no-unresolved-private-context",
+  "auditedAt": "2026-11-13T07:56:52.542217+00:00",
+  "payloadFilesInspected": 9,
+  "utf8BytesInspected": 652379,
+  "jsonDocumentsParsed": 4,
+  "checks": [
+    "Exact whitelist of nine regular files; repo/node_modules symlinks and extracted/decoded directories excluded.",
+    "Every new payload decoded as UTF-8; JSON documents parsed; private repository/provider/tracker/home markers, common credentials, keys, token-shaped values, sensitive JSON fields and credential-bearing URLs inspected.",
+    "Only six absolute checkout-prefix occurrences in the first failed attempt stderr required projection. Original hash and affected lines retained.",
+    "Prior public input captures were referenced without copying or changing their original bytes/statuses."
+  ],
+  "unresolvedFindings": [],
+  "metadataReview": "Final readable index, README and privacy review inspected for private context.",
+  "limits": "Bounded source-scoped review, not a universal secret-detector guarantee. Existing public capture inputs retain their prior audit provenance."
+}

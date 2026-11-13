@@ -553,6 +553,8 @@ dimensions, counts, outcomes, measurement coverage, non-byte quantities and all
 other rows remain strict. Fixed-byte inputs and every other fixture remain strict.
 The comparator retains each differing row and reports
 `byteEquivalence: "unproven"` and `completeAttribution: "unproven"`.
+The ordinary `recorded-equal` result compares recorded facts, including their
+measurement coverage; matching unknown values never prove unmeasured bytes equal.
 
 As a conservative admission restriction, each differing row must also fit its
 measured occurrence count times the sum of absolute paired final-field width

@@ -2,9 +2,11 @@
 
 This ledger tracks whether local CLI traces can support trustworthy performance
 baselines before further optimization. It separates source bindings, executed
-checks, independent measurements, and final integration evidence. **Coverage is
-not complete.** Pending rows remain in scope; a test count, source scan, root
-span, or Seq `complete` value does not close them.
+checks, independent measurements, and final integration evidence. **All 249
+operation/mode cases have behavior and accounting evidence; final integration
+remains pending.** Of these, 245 have full comparisons and four retain explicitly
+unproven byte equivalence and complete attribution. A test count, source scan,
+root span, or Seq `complete` value does not close an unrelated obligation.
 
 The [accepted specification catalog](../../../specifications/catalog.md) and
 [specification contract](../../../contributing/guides/executable-specifications.md)
@@ -35,18 +37,23 @@ not claim complete timing campaigns. Additional replay evidence remains separate
 The [shared verification archive](shared/README.md) retains the applicable Seq,
 authenticated-capture, shutdown, platform and owner evidence, with explicit
 source-attestation and log-projection limits.
+The [native-byte reconciliation](native-byte-reconciliation/README.md) records
+the separate offline adjudication of the four byte-inconclusive cases. It does
+not rewrite failed reports or historical capture-index statuses. The
+[source verification archive](source-verification/README.md) retains the later
+clean source-only gate, including actual executed versus cached task scope.
 
 ### Current verification checkpoint
 
 The finite remaining closure is:
 
-| Criterion                                                        | Missing evidence                                                                      | Cheapest sufficient next check                                                                                                                                                                                |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Scope, work accounting and preflight (1, 4, 10)                  | Shared-guard reconciliation for four retained byte-only comparison failures           | Apply the tested comparability rule to retained inspections and independently validated native receipts. Preserve exact totals, unknown byte equivalence and original failed reports; no recapture is needed. |
-| Architecture, causality, failure, privacy and workflow (2–9, 11) | Final source/input applicability record                                               | Bind the retained owner, Seq, platform and completed operation captures to the delivered changes; reuse unchanged claims and the explicit affected replays.                                                   |
-| Integration (12)                                                 | Final source gate, affected host E2E, clean main push and applicable hosted assurance | One frozen candidate through the published main gate; retain its exact SHA and actual CI results.                                                                                                             |
-| Auditable closure (13)                                           | Final accepted dispositions and integrated revision                                   | Reconcile the existing case/claim indexes and raw archives. No new blanket campaign is needed.                                                                                                                |
-| Repeated elapsed/RSS qualification (10, 13)                      | Isolated reference-host samples                                                       | Explicitly deferred; retain the unchanged staged protocol and budgets for the authorized follow-up.                                                                                                           |
+| Criterion                                                        | Missing evidence                                                                        | Cheapest sufficient next check                                                                                                                                                           |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope, work accounting and preflight (1, 4, 10)                  | No missing operation/mode capture; four byte comparisons remain explicitly inconclusive | Reuse the completed offline reconciliation, exact totals and independent receipt evidence. Do not recapture to obtain matching native widths or relabel the original failed comparisons. |
+| Architecture, causality, failure, privacy and workflow (2–9, 11) | Final source/input applicability record                                                 | Bind the retained owner, Seq, platform and completed operation captures to the delivered changes; reuse unchanged claims and the explicit affected replays.                              |
+| Integration (12)                                                 | Final source gate, affected host E2E, clean main push and applicable hosted assurance   | One frozen candidate through the published main gate; retain its exact SHA and actual CI results.                                                                                        |
+| Auditable closure (13)                                           | Final delivered revision and gate/CI applicability record                               | Use this pre-integration ledger and retained dispositions; record the delivered SHA and actual final gate/CI results in the delivery issue and CI. No new blanket campaign is needed.    |
+| Repeated elapsed/RSS qualification (10, 13)                      | Isolated reference-host samples                                                         | Explicitly deferred; retain the unchanged staged protocol and budgets for the authorized follow-up.                                                                                      |
 
 The latest captured clean product candidate is
 `4d8344c40f581cce18626e77299abf090dba96ee`, Linux binary SHA-256
@@ -79,7 +86,7 @@ skips remain skips. The checkout stayed clean. Exact selected JUnit reports and
 the scoped log are retained; this is source-only evidence, before the subsequent
 benchmark-comparator changes and before the final main-push E2E gate.
 
-The subsequent published `pnpm run test:affected --exclude=axm` production
+An earlier published `pnpm run test:affected --exclude=axm` production
 graph passed 18 project targets and 17 prerequisites, reusing 24 of 35
 input-valid results, in 15 minutes 40 seconds. It began at `189c689e1`
 against main base `187ebf03a`; production inputs stayed frozen during the
@@ -91,16 +98,21 @@ inapplicable on the folding Windows volume. Evidence:
 `/tmp/axm-observability-final-host-vw6nykx9/production-verification`.
 These input-scoped results do not constitute the final main integration gate.
 
-Preflight currently has **245 of 249 scenarios with applicable completed
-evidence**, accounting for 980 selected workload invocations and 490 exact
-receiver inspections. These combine 132 applicable prior cases, 112 cases in
-the continuation on `4d8344c40`, and the later adoption-refusal replay on that
-same binary with harness `290c531ab`. Each retains its actual binary and harness provenance;
-source-impact reuse does not relabel earlier captures as current-binary runs.
+Preflight now covers **all 249 scenarios for behavior and accounting: 245 full
+comparisons and four native-byte-inconclusive comparisons**. The coverage union
+contains 996 selected workload invocations and 498 actual exact receiver
+inspections; historical retries, discovery and fixture preparation are separate.
+The 245 full comparisons combine 132 applicable prior cases, 112 cases in the
+continuation on `4d8344c40`, and the later adoption-refusal replay on that same
+binary with harness `290c531ab`. The four additional cases use their retained
+captures and the offline reconciliation below. Each retains its actual binary
+and harness provenance; source-impact reuse does not relabel earlier captures
+as current-binary runs.
 The conservative installed Knowledge lint replay and the seven prepared-Hook
 cases plus five previews all passed in this continuation.
 
-Four captured cases remain reserved: `typed/subagents/install`,
+Four captured cases have disposition `native-serialization-bytes-inconclusive`:
+`typed/subagents/install`,
 `typed/knowledge/install`, `typed/packs/install`, and `typed/knowledge/new`.
 Their operation counts, semantic results, measurement coverage and inspected
 delivery match, but exact byte totals differ. Raw receipts demonstrate native
@@ -109,8 +121,27 @@ passes. Attribution of every mixed-owner byte difference remains unproven.
 Their failed strict comparisons stay failed. The specification-authority audit
 confirmed that exact per-invocation accounting is required, while equal byte
 streams across independent native allocations are not. The authorized methodology
-revision now uses a narrow shared comparison guard; applying it to these retained
-records will preserve byte equivalence and complete attribution as unproven.
+revision uses a narrow shared comparison guard. At method revision
+`4fa487526f17031a8ef8f399154a00412e718e93`, the completed
+[offline reconciliation](native-byte-reconciliation/README.md) reinspected eight
+stored receiver payloads, reproduced their complete original work digests and
+retained all 33 exact differing rows. All four dispositions preserve byte
+equivalence and complete attribution as unproven. No CLI workload, Seq query,
+recapture or fresh native-target observation ran for that analysis; the eight
+offline reinspections are not eight additional receiver retrievals.
+
+The independently retained final receipt lengths differ as follows. These
+lengths establish native serialization differences, not an explanation for every
+mixed-owner byte difference or a bound on intermediate writes.
+
+| Scenario                  | Summary receipt bytes | Detail receipt bytes |
+| ------------------------- | --------------------: | -------------------: |
+| `typed/subagents/install` |                47,454 |               47,456 |
+| `typed/knowledge/install` |                45,541 |               45,544 |
+| `typed/packs/install`     |                45,342 |               45,341 |
+| `typed/knowledge/new`     |                 6,159 |                6,156 |
+
+The failed raw reports and earlier capture-index statuses remain unchanged.
 No fixture is rerun to obtain equal inode widths by chance.
 
 The enabled-native adoption refusal now passes all three candidate modes and
@@ -134,12 +165,15 @@ The 36 method tests and affected type/lint checks pass; logs are
 `/tmp/observability-adoption-single-target-tests.log` and
 `/tmp/observability-adoption-single-target-checks.log`.
 
-Across the 245 completed cases, maximum inspected retained span counts are
+Across the covered cases, maximum inspected retained span counts are
 1,838 in summary and 9,465 in detail; the maximum aggregate-group count is 382.
-These are within the unchanged limits. The four reserved cases retain their own
-complete inspections and exact counters, but their strict cross-run byte
-comparisons retain their original failed results. Their separate method
-reconciliation remains pending. No repeated timing ran.
+The maximum observed diagnostic-shutdown upper bounds are 100.858544 ms in
+summary and 100.860722 ms in detail. These observations are within the unchanged
+volume and shutdown limits. The four byte-inconclusive cases retain complete
+inspections and exact counters; their strict cross-run comparisons retain their
+original failed results alongside the completed separate adjudication. These
+are shared-host diagnostics, not isolated elapsed/RSS qualification. No repeated
+timing ran.
 
 At `4d8344c40`, redundant Knowledge adapter/selection helper spans were removed
 at construction. Actual handler/tracer checks preserve meaningful operation and
@@ -251,10 +285,12 @@ tuple as one value; only callback destructuring changed, and the failed log is
 retained. Later completed captures establish assembled import behavior with
 their original binary/harness provenance.
 
-The remaining delivery work is that finite preflight selection, applicable final
-evidence reconciliation, and the clean main-only integration gate. Existing
+The remaining delivery work is final source/input applicability, the clean
+main-only integration gate, and applicable final hosted CI assurance. Existing
 owner, real-Seq and supported-host evidence is reused only with its source/input
-applicability recorded. No isolated timing campaign has run.
+applicability recorded. This ledger is a pre-integration record; the delivery
+issue and CI will retain the final delivered SHA and gate results without a
+documentation-only commit loop. No isolated timing campaign has run.
 
 ### Historical direct-accounting development checkpoints
 
@@ -353,7 +389,8 @@ Logs are `/tmp/observability-direct-archive-leaf-tests.log`,
 `/tmp/observability-direct-architecture-checks2.log`. Type/lint passed across
 seven affected projects and their prerequisites in
 `/tmp/observability-direct-archive-leaf-owner-checks2.log`.
-The assembled scoped restoration and preview captures remain pending.
+At that historical checkpoint, assembled scoped restoration and preview captures
+were pending; the current 249-case coverage is recorded above.
 
 The next clean checkpoint is `d2a0b59214949382b64b73868a43344774f75c13`,
 binary SHA-256 `84b1e4388fe0fb5024c74d288b4af0b512ba6f81bb87a96bc252a62c4714f062`,
@@ -482,16 +519,18 @@ failure alongside successful owner selections),
 `/tmp/observability-coordination-wire-checks.log`,
 `/tmp/observability-coordination-wire-tests2.log`, and
 `/tmp/observability-coordination-method-tests.log`.
-The finite remaining assembled selection and final integration evidence remain
-pending. Isolated repeated elapsed/RSS qualification is deferred.
+At that historical checkpoint, assembled selection and final integration were
+pending. The current checkpoint above supersedes that operation-coverage status;
+isolated repeated elapsed/RSS qualification remains deferred.
 
 The retained tiny Seq probe confirmed typed aggregate-log correlation and the
 fixed projected-query response (four rows, exit zero, about 0.9 seconds). Its
 artifacts are `/tmp/axm-seq-aggregate-wire-val95fgu/projection-query*`.
 That tiny probe alone does not certify large live retrieval or production CLI
 wiring. The later schema-2 Seq/authenticated executions and current platform CI
-above supply their separately stated evidence. Remaining operation coverage and
-the final integration gate are pending; repeated elapsed/RSS measurement is deferred.
+above supply their separately stated evidence. The current checkpoint covers
+all 249 operation/mode cases; final integration is pending and isolated repeated
+elapsed/RSS measurement is deferred.
 
 The registered command tree contains **148 routes in 43 top-level families**,
 including group nodes and the root. All routes declare capabilities. Universal
@@ -503,8 +542,8 @@ are comparison inventories, not a second tracing route registry.
 The family table below enumerates all paths. Its source owners route to the
 consequential boundaries in the architecture table. A help-dispatch check proves
 route identity and admission, not the work performed by the route's handler.
-Real-operation development evidence exists for the selected workflows recorded
-below; the complete family matrix remains pending. No family is excluded
+The current checkpoint records behavior/accounting evidence for all 249 cases
+across this family matrix, including four byte-inconclusive dispositions. No family is excluded
 because it bypasses the common operation wrapper. Query-only routes do not need
 mutation evidence unless a declared option changes their effect. Each claimed
 inapplicability must cite the route's capabilities and relevant specification.
@@ -615,21 +654,21 @@ its applicable specifications, architecture, implementation, independent oracles
 and final execution evidence agree. The absence of a fixture is pending work,
 not a reason to exclude a command or outcome.
 
-| Outcome                                   | Required proof                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Current status and next evidence source                                                                                                                                                                                                                                                                                                                                                        |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Complete surface inventory             | Every registered family, consequential work owner, specification, implementation, and executable binding; reasoned route-specific inapplicability.                                                                                                                                                                                                                                                                                                                                                         | **Partial exhaustive preflight.** The inventory covers 148 routes; 245 of 249 scenarios have applicable completed evidence. Four byte-only cases await retained-evidence reconciliation under the clarified method; the adoption replay passed.                                                                                                                                                |
-| 2. Coherent architecture                  | Existing Effect services/layers own instrumentation; declared package entries and dependency direction hold; superseded paths are removed; schema, privacy, mode and lifetime contracts align between producer/exporter/inspector.                                                                                                                                                                                                                                                                         | **Prior CI and new prune checks passed; final audit pending.** Full CI at `99856a289` and the later production graph retain their input scope. Prune owner controls and fifty-package capture passed at the stated checkpoints; import controls and assembled captures pass. Knowledge construction and prepared-receipt checks also pass; final applicability and integration remain pending. |
-| 3. Invocation and elapsed-time truth      | Actual source and compiled commands identify route/mode/version/build and correctly nested work; early errors and concurrent invocations remain distinct. Startup/process, execution, user wait, terminal rendering, and finalization/export are distinguished. No double counting of overlapping work.                                                                                                                                                                                                    | **Schema-2 Seq execution and partial preflight.** The six-case `08befbe16` suite and separate authenticated checkpoint establish their stated identity/ownership outcomes. Preserve those revisions; reconcile applicability and complete the remaining operation/mode cases.                                                                                                                  |
-| 4. Actual work and reuse truth            | Independent server/FS/process counters agree with requested/executed/reused counts, batches, bytes, outcomes and invalidation. Cover miss/hit/coalescing, changed candidate, mutation/phase invalidation, live/bypass/post-phase reads, parsing, hashing, archive work and writes.                                                                                                                                                                                                                         | **Independent owner evidence and partial preflight.** Completed cases retain exact work/coverage evidence; automatic-prune inventory reconciles per scan in the fresh fifty-package capture. Resolve the four byte-only cases, then finalize the owner-to-case mapping. The independent byte-accounting oracle and adoption replay pass.                                                       |
-| 5. Request, delay and wait truth          | One transport exchange owner; semantic purpose, attempts, batches, eligibility phases, headers, body, retry/backoff and admission are distinct. Controlled delay, saturated request/extraction/archive/scratch budgets, locks, resources, user wait and full subprocess lifetime are observed. Authorization remains unchanged.                                                                                                                                                                            | **Shared temporal evidence executed.** Held-body, admission, lock and subprocess owner controls and the six-case Seq suite are recorded above. Reconcile their input applicability and remaining assembled bindings; do not reopen completed shared controls without an uncovered failure.                                                                                                     |
-| 6. Mutation and recovery truth            | Real no-op and changed operations preserve unmanaged data and required identities. Snapshot/preservation reads, fresh conflicts, publication route selection, write/verify/receipt boundaries, and rollback/restoration are visible on success, failure and interruption.                                                                                                                                                                                                                                  | **Publication controls passed; assembled coverage incomplete.** Linux and Windows interference controls and current fork/handoff replays passed. Their earlier failed captures remain preserved; remaining mutation/preview cases still require evidence.                                                                                                                                      |
-| 7. Diagnostic completeness                | Distinguish disabled tracing, setup failure, failed/missing receipt, producer completion, delivery, missing root/child/batch, truncation/caps, forced termination and receiver completeness. Deliberately drop a span and a batch; verification must fail. Keep diagnostic status independent of product outcome.                                                                                                                                                                                          | **Schema-2 receiver controls executed.** The six-case Seq suite passed at `08befbe16`; focused owner/inspection controls and eight receipt-capture checks have recorded results. Final evidence maps their precise loss/tampering/termination claims and source applicability.                                                                                                                 |
-| 8. Privacy and non-interference           | Default off, loopback-only endpoint validation, redirects/proxies/credentials constrained, bounded names/attributes, and no unsafe errors/events/links/logs/secrets. Off/reject/stall preserves stdout/stderr, exit, effects and bounded shutdown, with no enrichment reads.                                                                                                                                                                                                                               | **Shared privacy/isolation and shutdown evidence executed.** Source/compiled/authenticated and collector-failure checkpoints retain their actual scope; observed cleanup upper bounds remain below 500 ms. Complete the per-claim applicability audit; isolated elapsed/RSS qualification remains deferred.                                                                                    |
-| 9. Contributor and agent workflow         | Source and compiled capture, exact trace lookup, bounded subtree, stable compact pure JSON, fresh receipts/concurrent worktrees, authenticated Seq, and real receiver inspection. Injected duplicate work and waits are visible.                                                                                                                                                                                                                                                                           | **Schema-2 contributor/agent workflow executed.** The six-case real-Seq suite and authenticated source/compiled checkpoint supersede the older reader register for their stated claims. Preserve exact revisions and artifacts in the final applicability map.                                                                                                                                 |
-| 10. Bounded cost and performance evidence | Predeclared numeric disabled/default/detail elapsed, memory, volume and shutdown budgets. Before/after every affected operation across disabled, summary and detail capture with matched fixtures/runtimes, shared nearby baselines, repetitions and artifact identities. Apply size, latency and cache variations to the declared risk set. Preflight reconciles summary/detail work and receiver completeness; timing retains receipts without repeated receiver inspection or full fixture inventories. | **Elapsed/RSS qualification explicitly deferred by the maintainer.** Preserve the unchanged limits and balanced protocol in the follow-up. Full behavior/trace preflight, volume and shutdown evidence remain required here; earlier diagnostics are not performance acceptance.                                                                                                               |
-| 11. Consequential executable evidence     | Current source, compiled process and real Seq cover success/no-op/reuse/invalidation/retry/contention/error/interruption/rollback. Missing owner, duplicate exchange, omitted live I/O, wrong reuse and incomplete collection negative controls fail meaningfully.                                                                                                                                                                                                                                         | **Owner suites and partial assembled coverage passed.** The production graph and real-Seq controls establish their bound outcomes; four operation/mode cases and the final per-outcome evidence reconciliation remain. Aggregate test totals do not replace that mapping.                                                                                                                      |
-| 12. Main integration and platforms        | Source verification precedes published affected host-compatible E2E; E2E failure blocks a real push; final HEAD/cleanliness checks still run; non-main pushes stay fast. Required platform-specific CI runs on its actual host.                                                                                                                                                                                                                                                                            | **Current supported-platform CI passed; main integration pending.** Full CI at `99856a289` covers applicable Linux, Windows and macOS checks. The final clean source → affected host E2E → HEAD/cleanliness gate remains required; preserve existing blocked-push evidence with its applicability.                                                                                             |
-| 13. Reproducible final proof              | Every requirement/architecture/family/outcome maps to exact source/spec/test command, revision, host, raw artifact, trace ID and independent oracle. Cached results and provenance limits are explicit; no silent deferral or waived scope.                                                                                                                                                                                                                                                                | **Final audit pending.** Frozen source/binary identities and current platform results are recorded above. Resolve the four remaining cases and record the final integrated revision, retained raw reports and row-by-row provenance/applicability; timing remains explicitly deferred.                                                                                                         |
+| Outcome                                   | Required proof                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Current status and next evidence source                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Complete surface inventory             | Every registered family, consequential work owner, specification, implementation, and executable binding; reasoned route-specific inapplicability.                                                                                                                                                                                                                                                                                                                                                         | **All 249 behavior/accounting cases covered.** The 148-route inventory includes 245 full comparisons and four explicitly byte-inconclusive dispositions. The [capture union](captures/README.md) and [offline reconciliation](native-byte-reconciliation/README.md) retain exact provenance; no operation/mode capture remains missing.                                                                  |
+| 2. Coherent architecture                  | Existing Effect services/layers own instrumentation; declared package entries and dependency direction hold; superseded paths are removed; schema, privacy, mode and lifetime contracts align between producer/exporter/inspector.                                                                                                                                                                                                                                                                         | **Source/owner evidence retained; final applicability pending.** [Source verification](source-verification/README.md) passed at `700aa5ecf`; [shared checks](shared/README.md), prune scaling, import, Knowledge construction and prepared-receipt controls retain their recorded inputs. The later comparator method changes no product behavior; the final gate must qualify delivered inputs.         |
+| 3. Invocation and elapsed-time truth      | Actual source and compiled commands identify route/mode/version/build and correctly nested work; early errors and concurrent invocations remain distinct. Startup/process, execution, user wait, terminal rendering, and finalization/export are distinguished. No double counting of overlapping work.                                                                                                                                                                                                    | **Schema-2 Seq and complete operation/mode coverage retained.** The [shared archive](shared/README.md) binds the six-case `08befbe16` suite and authenticated checkpoint to their actual revisions. All 249 cases retain invocation evidence; final source/input applicability remains distinct from isolated elapsed/RSS qualification.                                                                 |
+| 4. Actual work and reuse truth            | Independent server/FS/process counters agree with requested/executed/reused counts, batches, bytes, outcomes and invalidation. Cover miss/hit/coalescing, changed candidate, mutation/phase invalidation, live/bypass/post-phase reads, parsing, hashing, archive work and writes.                                                                                                                                                                                                                         | **Exact per-invocation accounting covered.** Independent work oracles and per-scan prune inventory reconcile across the declared cases. The [four-case adjudication](native-byte-reconciliation/README.md) reproduces eight complete work digests and retains 33 differing byte rows; cross-run byte equivalence and complete attribution remain explicitly unproven.                                    |
+| 5. Request, delay and wait truth          | One transport exchange owner; semantic purpose, attempts, batches, eligibility phases, headers, body, retry/backoff and admission are distinct. Controlled delay, saturated request/extraction/archive/scratch budgets, locks, resources, user wait and full subprocess lifetime are observed. Authorization remains unchanged.                                                                                                                                                                            | **Shared temporal evidence and assembled bindings retained.** Held-body, admission, lock and subprocess controls are in the [shared archive](shared/README.md); the declared assembled cases are covered. Final input applicability remains required; no completed shared control needs repetition absent an uncovered failure.                                                                          |
+| 6. Mutation and recovery truth            | Real no-op and changed operations preserve unmanaged data and required identities. Snapshot/preservation reads, fresh conflicts, publication route selection, write/verify/receipt boundaries, and rollback/restoration are visible on success, failure and interruption.                                                                                                                                                                                                                                  | **Publication and assembled mutation/preview evidence retained.** Linux/Windows interference controls, fork/handoff and adoption-refusal replay passed at their stated checkpoints. All declared mutation/preview cases are covered; four native-byte dispositions preserve uncertainty without weakening product-state or recovery checks.                                                              |
+| 7. Diagnostic completeness                | Distinguish disabled tracing, setup failure, failed/missing receipt, producer completion, delivery, missing root/child/batch, truncation/caps, forced termination and receiver completeness. Deliberately drop a span and a batch; verification must fail. Keep diagnostic status independent of product outcome.                                                                                                                                                                                          | **Schema-2 receiver controls executed.** The six-case Seq suite passed at `08befbe16`; focused owner/inspection controls and eight receipt-capture checks have recorded results. Final evidence maps their precise loss/tampering/termination claims and source applicability.                                                                                                                           |
+| 8. Privacy and non-interference           | Default off, loopback-only endpoint validation, redirects/proxies/credentials constrained, bounded names/attributes, and no unsafe errors/events/links/logs/secrets. Off/reject/stall preserves stdout/stderr, exit, effects and bounded shutdown, with no enrichment reads.                                                                                                                                                                                                                               | **Shared privacy/isolation and shutdown evidence retained.** [Shared controls](shared/README.md) preserve source/compiled/authenticated and collector-failure scope; selected preflight maxima are 100.858544/100.860722 ms for summary/detail diagnostic shutdown. These shared-host diagnostics do not qualify isolated elapsed/RSS; final applicability remains required.                             |
+| 9. Contributor and agent workflow         | Source and compiled capture, exact trace lookup, bounded subtree, stable compact pure JSON, fresh receipts/concurrent worktrees, authenticated Seq, and real receiver inspection. Injected duplicate work and waits are visible.                                                                                                                                                                                                                                                                           | **Schema-2 contributor/agent workflow executed.** The six-case real-Seq suite and authenticated source/compiled checkpoint supersede the older reader register for their stated claims. Preserve exact revisions and artifacts in the final applicability map.                                                                                                                                           |
+| 10. Bounded cost and performance evidence | Predeclared numeric disabled/default/detail elapsed, memory, volume and shutdown budgets. Before/after every affected operation across disabled, summary and detail capture with matched fixtures/runtimes, shared nearby baselines, repetitions and artifact identities. Apply size, latency and cache variations to the declared risk set. Preflight reconciles summary/detail work and receiver completeness; timing retains receipts without repeated receiver inspection or full fixture inventories. | **Behavior/accounting, volume and shutdown evidence retained; isolated elapsed/RSS deferred.** All 249 cases are covered with 245 full comparisons and four explicit byte-inconclusive dispositions. Maxima are 1,838 summary spans, 9,465 detail spans and 382 groups; numeric limits and the staged timing protocol remain unchanged. Diagnostic observations are not repeated-performance acceptance. |
+| 11. Consequential executable evidence     | Current source, compiled process and real Seq cover success/no-op/reuse/invalidation/retry/contention/error/interruption/rollback. Missing owner, duplicate exchange, omitted live I/O, wrong reuse and incomplete collection negative controls fail meaningfully.                                                                                                                                                                                                                                         | **Owner and all declared assembled outcomes covered.** [Source](source-verification/README.md), [shared](shared/README.md), [capture](captures/README.md) and [adjudication](native-byte-reconciliation/README.md) records bind their distinct claims. Final delivered-input applicability is pending; aggregate test totals do not replace those bindings.                                              |
+| 12. Main integration and platforms        | Source verification precedes published affected host-compatible E2E; E2E failure blocks a real push; final HEAD/cleanliness checks still run; non-main pushes stay fast. Required platform-specific CI runs on its actual host.                                                                                                                                                                                                                                                                            | **Prior supported-platform CI passed; final gate and CI pending.** Full CI at `99856a289` retains its applicable Linux/Windows/macOS scope; source-only verification passed at `700aa5ecf`. The final clean source → affected host E2E → HEAD/cleanliness gate and applicable hosted CI remain required. Existing blocked-push evidence retains its source/input limits.                                 |
+| 13. Reproducible final proof              | Every requirement/architecture/family/outcome maps to exact source/spec/test command, revision, host, raw artifact, trace ID and independent oracle. Cached results and provenance limits are explicit; no silent deferral or waived scope.                                                                                                                                                                                                                                                                | **Pre-integration proof retained; final delivery record pending.** The four-case offline adjudication is complete with explicit byte uncertainty, and raw failures remain unchanged. Record final delivered SHA, gate and CI results in the delivery issue and CI; this ledger does not require a self-referential commit update. Only isolated repeated elapsed/RSS is deferred.                        |
 
 The intended result is a trustworthy baseline for subsequent performance design,
 not a performance optimization in this change. Reduced retained span count in
@@ -703,7 +742,8 @@ protects admitted aggregate values, dimensions, coverage and ownership, rather
 than receiver-generated IDs or timestamps. Independent expectations separately
 establish whether required work occurred. Work totals come from aggregates;
 selected detail spans are not added again. Schema-2 owner and real-Seq execution
-is recorded in the checkpoints above; exhaustive operation coverage is incomplete.
+is recorded in the checkpoints above; all 249 operation/mode cases have behavior
+and accounting evidence, with four explicit byte-inconclusive dispositions.
 
 Completed receipts require `commandRoute` and `detailSelection`. Route admission
 uses the actual registered vocabulary, and the benchmark matches the receipt
@@ -801,9 +841,11 @@ Comparison against rebased revision
 Markdown changes under the product scope, with no product code or dependency
 lockfile change. The baseline executable remains preserved; it is not rebuilt
 from the current working tree.
-The clean candidate identity is recorded above. Full assembled fixture validation
-and final trace-oracle reconciliation remain pending; repeated elapsed/RSS pairs
-are the explicit maintainer-authorized follow-up. Provisional baseline smoke
+The captured product identities are recorded above. All 249 assembled cases have
+behavior/accounting evidence, including the completed separate reconciliation
+of four byte-inconclusive comparisons. Final integration remains pending;
+isolated repeated elapsed/RSS pairs are the explicit maintainer-authorized
+follow-up. Historical provisional baseline smoke
 exercised seven successful authentication/token operations and changed/no-op
 upgrade with independent state assertions. Typed-fixture smoke passed 78 cases,
 including eight actual publication writes. A later smoke passed visibility
@@ -845,9 +887,11 @@ The independent compiled-list latency specification's sampling and CI target
 are unchanged. Count reductions do not establish wall-clock savings.
 
 The revised scheduling and contract had passing development type/lint and
-17-test evidence before the observation migration. The redesigned trace
-reconciliation and selected-`io` detail subject require current checks. All preview/startup fixtures have current applicable preflight evidence; the
-four remaining cases are identified in the current checkpoint above. Repeated elapsed/RSS measurement is deferred.
+17-test evidence before the observation migration. Later retained captures cover
+the redesigned reconciliation, selected-`io` detail subject and all preview/startup
+fixtures. The current checkpoint records 249 behavior/accounting cases, with
+245 full comparisons and four completed byte-inconclusive adjudications.
+Isolated repeated elapsed/RSS measurement is deferred.
 Earlier 262-descriptor baseline smoke is retained as fixture feasibility evidence,
 not a completed campaign under this revised method. The restricted TLS fixture
 has a separate five-control development probe at
@@ -883,8 +927,10 @@ An exact independent expectation, including zero, requires full coverage.
 Attempt ordinals, status codes, capacities and requested admission sizes remain
 attributes, not additive totals. The prior 52-test/Seq evidence supports the old
 owner-unit distinction. The later direct-accounting owner and schema-2 Seq
-checkpoints establish their recorded scope; exhaustive operation coverage and
-final evidence reconciliation remain incomplete.
+checkpoints establish their recorded scope. All 249 operation/mode cases now
+have behavior/accounting evidence; four byte comparisons retain the explicit
+uncertainty recorded in the separate offline adjudication. Final integration
+and delivered-input applicability remain pending.
 Explicit receipt status documents distinguish starting, disabled, rejected
 endpoints and setup failures without claiming completion. Missing or invalid
 receipts remain uncertain and are rejected before receiver lookup.
@@ -901,11 +947,17 @@ be converted into a pass.
 
 ### Finalization still required
 
-Before marking any complete-scope claim verified, retain the final source and
-binary identities, raw evidence and independent oracles, replace provisional
-entries with exact reproducible command/host/artifact records, and resolve every
-pending applicable outcome. Run the existing main-only integration gate on the
-clean final candidate and record platform-specific CI separately. Any remaining
-gap must remain visible here and in the delivery report. The sole authorized
-deferral is isolated repeated elapsed/RSS qualification; every other applicable
-criterion must pass. A deferred measurement is never reported as a pass.
+This ledger is the pre-integration evidence record. Retained source/binary
+identities, commands, hosts, raw artifacts and independent oracles keep their
+actual provenance; historical failures and provisional checkpoints stay historical.
+The four native-byte adjudications are complete as explicitly inconclusive byte
+comparisons, not deferred execution or claims of byte equivalence.
+
+Run the existing main-only source → affected host E2E → HEAD/cleanliness gate
+on the clean final candidate and obtain applicable hosted CI assurance. Bind
+reused evidence to the delivered inputs, then record the exact delivered SHA
+and actual gate/CI results in the delivery issue and CI. Do not create a new
+source commit solely to embed its own final verification identity in this ledger.
+Any remaining gap must stay explicit in that delivery record. The sole authorized
+verification deferral is isolated repeated elapsed/RSS qualification; all other
+applicable criteria must pass. A deferred measurement is never reported as a pass.

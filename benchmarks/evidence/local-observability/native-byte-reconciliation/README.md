@@ -1,0 +1,13 @@
+# Offline native byte comparison adjudication
+
+This separate analysis records **249 behavior/accounting cases covered: 245 full comparisons and four cases whose byte equivalence and complete attribution remain unproven**. All four have status `native-serialization-bytes-inconclusive`. The original failed reports and historical capture-index statuses remain unchanged.
+
+[native-byte-dispositions-4fa487526.tar.gz](native-byte-dispositions-4fa487526.tar.gz) retains exact `dispositions.json`, the reproducible `consolidate.ts`, original artifact/extraction manifests, reproduction README and execution outputs. It also retains the first failed attempt with only its checkout prefix projected. Archive SHA-256: `d638b8612e95e742a3cf869c6e7aa0ec5f28db75e606534269d427d27d057d07`. Every one of its nine entries passed hash/header readback. `index.json` lists hashes, dispositions, exclusions and the exact projection.
+
+The analysis at method revision `4fa487526f17031a8ef8f399154a00412e718e93` reinspected eight stored receiver payloads offline, reproduced complete original work digests and retained 33 exact differing rows. It made no CLI workload, Seq query or fresh native-target observation. The conservative final-field width envelope does not establish intermediate-write bounds or complete attribution; repeated timing/RSS qualification is absent.
+
+Extract this archive into a fresh temporary directory with `tar -xzf native-byte-dispositions-4fa487526.tar.gz -C <empty-directory>` and follow its original `README.md` to reproduce with the method checkout and pinned tools. The script stays inside the evidence archive; it is not a repository entry. Local repo/dependency symlinks are intentionally excluded.
+
+Inputs remain in `benchmarks/evidence/local-observability/captures/run-06-remaining-195-2cf3580d3.tar.gz` (SHA-256 `7a1ab581216ce913dfaf48818cae637a71bc6caffc5c34ae30342ce33f402603`). Its report member is `runs/run-06-remaining-195-2cf3580d3/report.json`. Original `samples/preflight/<case>/...` paths map to `reserved/<case>/...` archive members. `extraction-manifest.json` lists 281 extracted members; `dispositions.json` records 81 consumed member and decoded hashes. The input report SHA-256 remains `20b443dfebc894aba183ef7d48bb6e361811b0c5f40800ca1d7867db8be03fff`.
+
+The first attempt failed because it assumed a different archive path layout. Its original stderr hash remains indexed and its public projection is `execution.stderr.attempt1.public-projection.txt`; the original artifact manifest still names/hashes the original stderr. Only six absolute checkout prefixes changed. No missing failure output or numeric exit status has been invented.

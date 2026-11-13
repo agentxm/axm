@@ -826,7 +826,10 @@ describe("independent comparison artifacts", () => {
       expect(comparison.differences).toHaveLength(1);
       expect(comparison.differences[0]?.summary.value).toBe(a.rawBytes);
       expect(comparison.differences[0]?.detail.value).toBe(b.rawBytes);
-      expect(compareSummaryDetailWork(scenario, summary, summary).status).toBe("equal");
+      expect(compareSummaryDetailWork(scenario, summary, summary)).toMatchObject({
+        status: "equal",
+        byteEquivalence: "recorded-equal",
+      });
     }
     const scenario = "typed/subagents/install";
     const summary = trace(scenario, workA, a);

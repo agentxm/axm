@@ -78,7 +78,7 @@ const program = Effect.gen(function* () {
     archiveBodyDelayMs: 100,
     upstream: "synthetic loopback Registry",
     cacheMeaning:
-      "cold: archive cache cleared; warm: archives preseeded; every sample is a fresh process and copied workspace",
+      "cold: archive cache cleared; warm: archives preseeded; corrupt: seeded archive bytes altered; every sample is a fresh process and copied workspace",
   };
   const save = (complete: boolean) =>
     fs.writeFileSync(output, `${JSON.stringify({ ...provenance, complete, samples }, null, 2)}\n`);
@@ -140,6 +140,30 @@ const program = Effect.gen(function* () {
   const clearCache = (home: string) => {
     const cache = resolveAxmCacheRootPure(path.join, process.platform, home, { axmUserHome: home });
     fs.rmSync(cache, { recursive: true, force: true });
+  };
+  const corruptCache = (home: string) => {
+    const cache = resolveAxmCacheRootPure(path.join, process.platform, home, { axmUserHome: home });
+    const archives = path.join(cache, "archives");
+    const records = fs
+      .readdirSync(archives, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".zip"))
+      .map((entry) => {
+        const file = path.join(archives, entry.name);
+        const bytes = fs.readFileSync(file);
+        const first = bytes[0];
+        if (first === undefined) throw new Error("Expected a populated cached archive");
+        const beforeSha256 = createHash("sha256").update(bytes).digest("hex");
+        bytes[0] = first ^ 0xff;
+        fs.writeFileSync(file, bytes);
+        return {
+          file: entry.name,
+          bytes: bytes.byteLength,
+          beforeSha256,
+          afterSha256: createHash("sha256").update(bytes).digest("hex"),
+        };
+      });
+    if (records.length === 0) throw new Error("Corrupt-cache scenario needs seeded archives");
+    return records;
   };
   save(false);
   yield* Effect.gen(function* () {
@@ -245,8 +269,11 @@ const program = Effect.gen(function* () {
             const selected = profiles[(repeat + offset) % profiles.length];
             if (selected === undefined) continue;
             const configured = yield* profile(selected);
-            for (const scenario of selectedCases)
-              for (const cacheState of ["cold", "warm"]) {
+            for (const scenario of selectedCases) {
+              const cacheStates = ["install", "sync-restore", "update"].includes(scenario.operation)
+                ? ["cold", "warm", "corrupt"]
+                : ["cold", "warm"];
+              for (const cacheState of cacheStates) {
                 const id = `${count}-${selected}-${scenario.operation}-${cacheState}-${repeat}`;
                 const sampleRoot = path.join(root, id);
                 const workspace = path.join(sampleRoot, "workspace");
@@ -255,6 +282,7 @@ const program = Effect.gen(function* () {
                 copy(scenario.source, workspace);
                 copy(scenario.cache, sampleHome);
                 if (cacheState === "cold") clearCache(sampleHome);
+                const corruptedArchives = cacheState === "corrupt" ? corruptCache(sampleHome) : [];
                 const receipt = traced ? path.join(`${output}.receipts`, `${id}.json`) : undefined;
                 registry.reset(true);
                 const result = yield* invoke(workspace, sampleHome, scenario.args, receipt).pipe(
@@ -275,6 +303,7 @@ const program = Effect.gen(function* () {
                   operation: scenario.operation,
                   repeat,
                   traced,
+                  corruptedArchives,
                   ...result,
                   proxy: configured,
                   requests: registry.metrics(),
@@ -286,6 +315,7 @@ const program = Effect.gen(function* () {
                 );
                 fs.rmSync(sampleRoot, { recursive: true, force: true });
               }
+            }
           }
         }
       }).pipe(

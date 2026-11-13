@@ -980,7 +980,82 @@ describe("independent comparison artifacts", () => {
     for (const row of changed) expect(workDigest([hit])).not.toBe(workDigest([row]));
   });
 
-  it("keeps hit/coalesced labels strict outside fully measured successful memo reuse", () => {
+  const failedReuse = (
+    outcome: "hit" | "coalesced",
+    count = 1,
+    kind = "axm.observation.reuse",
+    failure = "failure",
+  ): TraceWorkSummary => {
+    const row = deliveredReuse(outcome, count, kind);
+    return {
+      ...row,
+      dimensions: {
+        ...row.dimensions,
+        "axm.outcome": "failure",
+        "axm.failure.kind": failure,
+      },
+    };
+  };
+
+  it("compares delivered local failures across completion schedules without erasing failures", () => {
+    for (const kind of [
+      "axm.observation.reuse",
+      "axm.observation.pack-reuse",
+      "axm.resolve.desired-state-reuse",
+    ]) {
+      const left = [failedReuse("hit", 13, kind), failedReuse("coalesced", 1, kind)];
+      const right = [failedReuse("hit", 12, kind), failedReuse("coalesced", 2, kind)];
+      const original = structuredClone({ left, right });
+      expect(workDigest(left)).toBe(workDigest(right));
+      expect(workDigest(left)).not.toBe(workDigest([deliveredReuse("hit", 14, kind)]));
+      expect(workDigest(left)).not.toBe(workDigest([failedReuse("hit", 14, kind, "not-found")]));
+      expect({ left, right }).toEqual(original);
+    }
+  });
+
+  it("keeps interrupted, defective, unclassified and remote failures schedule-sensitive", () => {
+    for (const failure of ["interrupted", "defect", "unknown", ""])
+      expect(workDigest([failedReuse("hit", 1, "axm.observation.reuse", failure)])).not.toBe(
+        workDigest([failedReuse("coalesced", 1, "axm.observation.reuse", failure)]),
+      );
+    for (const kind of ["axm.registry.metadata-reuse", "axm.auth.cache"])
+      expect(workDigest([failedReuse("hit", 1, kind)])).not.toBe(
+        workDigest([failedReuse("coalesced", 1, kind)]),
+      );
+  });
+
+  it("retains execution, quantities and measurement coverage for delivered local failures", () => {
+    const row = failedReuse("coalesced");
+    const changed: ReadonlyArray<TraceWorkSummary> = [
+      failedReuse("coalesced", 2),
+      { ...row, executed: 1 },
+      { ...row, requested: 2 },
+      { ...row, reused: 0 },
+      { ...row, bytes: 1 },
+      { ...row, ownerName: "axm.cli.command" },
+      {
+        ...row,
+        measurements: {
+          ...row.measurements,
+          "axm.work.executed": { total: 0, measured: 0, occurrences: 1 },
+        },
+      },
+    ];
+    for (const changedRow of changed)
+      expect(workDigest([failedReuse("hit")])).not.toBe(workDigest([changedRow]));
+    const incomplete = (row: TraceWorkSummary): TraceWorkSummary => ({
+      ...row,
+      measurements: {
+        ...row.measurements,
+        "axm.work.executed": { total: 0, measured: 0, occurrences: 1 },
+      },
+    });
+    expect(workDigest([incomplete(failedReuse("hit"))])).not.toBe(
+      workDigest([incomplete(failedReuse("coalesced"))]),
+    );
+  });
+
+  it("keeps hit/coalesced labels strict outside eligible fully measured memo reuse", () => {
     const invalidShapes: ReadonlyArray<(row: TraceWorkSummary) => TraceWorkSummary> = [
       (row) => ({ ...row, count: 0 }),
       (row) => ({ ...row, requested: null }),

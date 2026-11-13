@@ -6,7 +6,11 @@ import { annotateWork, withWork } from "@agentxm/host-primitives/work-observatio
  * @packageDocumentation
  */
 
-import { redactCredentialText, OperationRequestBudget } from "@agentxm/host-primitives";
+import {
+  redactCredentialText,
+  OperationRequestBudget,
+  NetworkDisabled,
+} from "@agentxm/host-primitives";
 import { createHash } from "node:crypto";
 import * as FileSystem from "effect/FileSystem";
 import * as Array from "effect/Array";
@@ -112,11 +116,11 @@ const mapGitError =
   };
 
 /**
- * Interrupt the child before returning a typed failure when Git stops responding.
+ * Refuse unisolated Git execution offline and interrupt children that stop responding.
  *
  * @public The deadline test loads this from the built module in a child process.
  */
-export const withGitOperationDeadline =
+export const withGitOperationBoundary =
   (
     operation: GitOperation,
     duration: Duration.Input = Duration.minutes(5),
@@ -126,7 +130,17 @@ export const withGitOperationDeadline =
   <A, R>(
     effect: Effect.Effect<A, GitOperationFailed, R>,
   ): Effect.Effect<A, GitOperationFailed, R> =>
-    effect.pipe(
+    Effect.flatMap(NetworkDisabled, (offline) =>
+      offline
+        ? Effect.fail(
+            new GitOperationFailed({
+              operation,
+              detail:
+                "network-required: --offline refuses Git execution without enforced network isolation.",
+            }),
+          )
+        : effect,
+    ).pipe(
       Effect.timeoutOrElse({
         duration,
         orElse: () =>
@@ -249,7 +263,7 @@ export const shallowClone = Effect.fn("Git.shallowClone")(function* (
       catch: mapGitError("clone", `Failed to shallow clone ${url}`),
     }),
   );
-}, withGitOperationDeadline("clone"));
+}, withGitOperationBoundary("clone"));
 
 /** Initialize a shallow checkout at one immutable, remote-reachable commit. */
 export const shallowFetchCommit = Effect.fn("Git.shallowFetchCommit")(function* (
@@ -282,7 +296,7 @@ export const shallowFetchCommit = Effect.fn("Git.shallowFetchCommit")(function* 
     try: (signal) => createGit(destination, signal).raw(["checkout", "--detach", "FETCH_HEAD"]),
     catch: mapError,
   });
-}, withGitOperationDeadline("fetch-commit"));
+}, withGitOperationBoundary("fetch-commit"));
 
 /** Remote branch and tag names advertised by a Git repository. */
 export interface GitRemoteRefs {
@@ -314,7 +328,7 @@ export const listRemoteRefs = Effect.fn("Git.listRemoteRefs")(function* (url: st
       catch: mapGitError("list-remote-refs", `Failed to list remote Git refs from ${url}`),
     }).pipe(Effect.map(parseRemoteRefs)),
   );
-}, withGitOperationDeadline("list-remote-refs"));
+}, withGitOperationBoundary("list-remote-refs"));
 
 /** Read one configured remote URL from a local repository. */
 export const getRemoteUrl = (repoPath: string, remoteName: string) =>
@@ -326,14 +340,14 @@ export const getRemoteUrl = (repoPath: string, remoteName: string) =>
       return url === undefined || url.length === 0 ? Option.none<string>() : Option.some(url);
     },
     catch: mapGitError("get-remote-url", `Failed to read Git remote '${remoteName}'`),
-  }).pipe(withGitOperationDeadline("get-remote-url"), Effect.withSpan("Git.getRemoteUrl"));
+  }).pipe(withGitOperationBoundary("get-remote-url"), Effect.withSpan("Git.getRemoteUrl"));
 
 /** Get the immutable commit checked out at HEAD. */
 export const getCommitSha = (repoPath: string) =>
   Effect.tryPromise({
     try: async (signal) => (await createGit(repoPath, signal).revparse(["HEAD"])).trim(),
     catch: mapGitError("get-commit-sha", "Failed to get checked-out commit SHA"),
-  }).pipe(withGitOperationDeadline("get-commit-sha"), Effect.withSpan("Git.getCommitSha"));
+  }).pipe(withGitOperationBoundary("get-commit-sha"), Effect.withSpan("Git.getCommitSha"));
 
 /** Read the single tag that points at the checked-out commit. */
 export const getExactTag = (repoPath: string) =>
@@ -347,7 +361,7 @@ export const getExactTag = (repoPath: string) =>
       return tags.length === 1 ? Option.some(tags[0] ?? "") : Option.none<string>();
     },
     catch: mapGitError("get-exact-tag", "Failed to read the tag at the checked-out commit"),
-  }).pipe(withGitOperationDeadline("get-exact-tag"), Effect.withSpan("Git.getExactTag"));
+  }).pipe(withGitOperationBoundary("get-exact-tag"), Effect.withSpan("Git.getExactTag"));
 
 /**
  * Get the git tree SHA for a path within a repository.
@@ -390,7 +404,7 @@ export const getTreeSha = (repoPath: string, subPath = ".") =>
       return sha;
     },
     catch: mapGitError("get-tree-sha", `Failed to get tree SHA for '${subPath}'`),
-  }).pipe(withGitOperationDeadline("get-tree-sha"), Effect.withSpan("Git.getTreeSha"));
+  }).pipe(withGitOperationBoundary("get-tree-sha"), Effect.withSpan("Git.getTreeSha"));
 
 /**
  * Compare an exact set of current payload entries with the corresponding Git
@@ -540,6 +554,6 @@ export const compareDirectoryToHead = Effect.fn("Git.compareDirectoryToHead")(
               `Failed to compare '${directory}' with Git HEAD`,
             )(cause),
       ),
-      withGitOperationDeadline("compare-directory-to-head"),
+      withGitOperationBoundary("compare-directory-to-head"),
     ),
 );

@@ -15,7 +15,12 @@ import * as Stream from "effect/Stream";
 import * as Redacted from "effect/Redacted";
 import type * as CommandLine from "effect/process/CommandLine";
 import { ChildProcess } from "effect/process";
-import { envOption, isLexicallyWithin, writeFileAtomic } from "@agentxm/host-primitives";
+import {
+  envOption,
+  isLexicallyWithin,
+  writeFileAtomic,
+  NetworkDisabled,
+} from "@agentxm/host-primitives";
 import { readExtensionManifest } from "@agentxm/extension-content";
 import {
   resolveHookConfiguration,
@@ -59,6 +64,12 @@ export const TestHook = {
     readonly configuration?: HookConfigurationValues;
     readonly fixtures?: ReadonlyArray<string>;
   }) {
+    if (yield* NetworkDisabled)
+      return yield* authoringRefused({
+        category: "network",
+        detail:
+          "network-required: --offline refuses Hook execution without enforced network isolation.",
+      });
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const location = yield* WorkspaceLocation;

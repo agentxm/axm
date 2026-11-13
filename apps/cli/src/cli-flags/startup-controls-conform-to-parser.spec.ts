@@ -12,6 +12,7 @@ import {
   quietFlag,
   debugFlag,
   verboseFlag,
+  offlineFlag,
 } from "./index.js";
 import { booleanOptionFromArgv } from "./argv-boolean.js";
 import { baseLayer } from "../runtime.js";
@@ -20,7 +21,7 @@ export const specification = defineSpecification({
   requirement: "cli/startup-controls-conform-to-parser",
   title: "Startup control readers honor the registered Boolean grammar",
   statement:
-    "Before parsing, AXM's readers of JSON, diagnostic verbosity, credential export, and unattended posture shall honor the registered Boolean vocabulary, including bare switches, explicit Boolean values, negation, and the option terminator, rather than interpreting an explicit false request as enabled. Startup diagnostic precedence shall agree with parsed diagnostic precedence.",
+    "Before parsing, AXM's readers of JSON, diagnostic verbosity, credential export, offline mode, and unattended posture shall honor the registered Boolean vocabulary, including bare switches, explicit Boolean values, negation, and the option terminator, rather than interpreting an explicit false request as enabled. Startup diagnostic precedence shall agree with parsed diagnostic precedence.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -36,6 +37,7 @@ const controls = [
   { names: ["--non-interactive"], setting: nonInteractiveFlag },
 ] as const;
 const diagnosticControls = [
+  { names: ["--offline"], setting: offlineFlag },
   { names: ["--quiet", "-q"], setting: quietFlag },
   { names: ["--debug"], setting: debugFlag },
   { names: ["--verbose", "-v"], setting: verboseFlag },

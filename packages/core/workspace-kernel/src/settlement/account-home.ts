@@ -29,6 +29,9 @@ export const accountHome = Effect.gen(function* () {
     );
   }
 
+  // This fixed native account query is a host primitive, including offline. It
+  // admits no caller-authored command, preload, environment file or package import;
+  // it does not expose the general subprocess execution capability.
   // Bun documents BUN_BE_BUN for standalone executables. Use this runtime's
   // own executable so compiled installations need no additional Node or Bun.
   // Windows spawn may restore USERPROFILE automatically; clear it inside the

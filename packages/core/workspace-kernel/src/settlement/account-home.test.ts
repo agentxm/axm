@@ -16,6 +16,7 @@ class AccountHomeWitnessError extends Data.TaggedError("AccountHomeWitnessError"
   readonly reason: "query-failed";
 }> {}
 const program = String.raw`
+import { NetworkDisabled } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Tracer from "effect/Tracer";
@@ -35,7 +36,7 @@ const tracer = Tracer.make({ span(options) {
   spans.push(span);
   return span;
 } });
-const home = await Effect.runPromise(accountHome.pipe(Effect.provide(NodeServices.layer), Effect.withTracer(tracer)));
+const home = await Effect.runPromise(accountHome.pipe(Effect.provide(NodeServices.layer), Effect.provideService(NetworkDisabled, true), Effect.withTracer(tracer)));
 const subprocess = spans.filter(span => span.name === "axm.process.account-home");
 console.log(JSON.stringify({
   matchesAccount: home === process.env.AXM_TEST_ACCOUNT_HOME,
@@ -49,7 +50,7 @@ console.log(JSON.stringify({
 `;
 
 it.live(
-  "uses the OS account under Bun despite home overrides, runtime options, and workspace config",
+  "uses the OS account offline under Bun despite home overrides, runtime options, and workspace config",
   () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

@@ -38,6 +38,15 @@ export const quietFlag = GlobalFlag.Setting("axm-quiet")({
   ),
 });
 
+export const offlineFlag = GlobalFlag.Setting("axm-offline")({
+  flag: Flag.Boolean("offline").pipe(
+    withParameterDescription(
+      "Prohibit network access and external commands without network isolation for this invocation",
+    ),
+    withParameterDefault(false),
+  ),
+});
+
 export const directoryFlag = GlobalFlag.Setting("axm-directory")({
   flag: Flag.Directory("directory", { mustExist: true }).pipe(
     Flag.withAlias("C"),
@@ -222,6 +231,7 @@ export const registryFlag = Flag.String("registry").pipe(
 );
 
 export const axmGlobalFlags = [
+  offlineFlag,
   acceptExecutionChangesFlag,
   nonInteractiveFlag,
   verboseFlag,

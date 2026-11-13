@@ -89,6 +89,7 @@ export class RegistryRequestFailed extends Data.TaggedError("RegistryRequestFail
     | "transport"
     | "deadline"
     | "metadata-churn"
+    | "network-required"
     | "unclassified";
   readonly category: RegistryErrorCategory;
   readonly detail: string;

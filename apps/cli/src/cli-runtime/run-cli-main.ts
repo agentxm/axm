@@ -1,3 +1,5 @@
+import { NetworkDisabled } from "@agentxm/host-primitives";
+import { offlineFromArgv } from "./offline.js";
 // @effect-diagnostics anyUnknownInErrorContext:off — the sanctioned process entry accepts and renders unknown defects
 import * as Effect from "effect/Effect";
 import * as Cause from "effect/Cause";
@@ -87,7 +89,7 @@ export const runCliMain = async (
         commandRoutes: options?.traceCommandRoutes,
         version: options?.version,
       }),
-    ),
+    ).pipe(Effect.provideService(NetworkDisabled, offlineFromArgv(args))),
   );
   if (outcome.exitCode !== 0 || ("terminate" in outcome && outcome.terminate)) {
     process.exit(outcome.exitCode);

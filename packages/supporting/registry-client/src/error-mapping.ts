@@ -83,7 +83,11 @@ export const carriedRegistryFailure = (
  */
 export const isTransientTransportError = (error: HttpClientError.HttpClientError): boolean => {
   const carried = carriedRegistryFailure(error);
-  return carried === undefined || carried.category === "network";
+  return (
+    carried === undefined ||
+    (carried.category === "network" &&
+      !(carried._tag === "RegistryRequestFailed" && carried.reason === "network-required"))
+  );
 };
 
 /**

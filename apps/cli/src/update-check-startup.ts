@@ -1,3 +1,4 @@
+import { NetworkDisabled } from "@agentxm/host-primitives";
 import { booleanOptionFromArgv } from "./cli-flags/argv-boolean.js";
 import type { OutputWriteFailed } from "./screen/streams.js";
 /**
@@ -118,6 +119,7 @@ export const withUpdateCheck = <A, E, R>(
 ): Effect.Effect<A, E | OutputWriteFailed, R | UpdateCheckCache | LatestReleaseCheck | Screen> =>
   Effect.scoped(
     Effect.gen(function* () {
+      if (yield* NetworkDisabled) return yield* program;
       const context = yield* skipContext(options.inputs);
       const outcome = yield* checkStartupUpdate({
         localVersion: options.localVersion,

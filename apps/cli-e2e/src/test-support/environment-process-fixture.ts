@@ -8,7 +8,7 @@ import { withWireContracts } from "./wire-contracts.js";
 const builtArtifact = new URL("../../../cli/dist/src/main.js", import.meta.url);
 const runBuiltCli = withWireContracts(createCliRunner(builtArtifact), builtArtifact.href);
 
-export const makeEnvironmentProcessFixture = () => {
+export const makeEnvironmentProcessFixture = (runCli = runBuiltCli) => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-environment-spec-")));
   const platformHome = path.join(root, "platform-home");
   const applicationHome = path.join(root, "application-home");
@@ -25,7 +25,7 @@ export const makeEnvironmentProcessFixture = () => {
     writeProjectSettings: (settings: unknown) =>
       fs.writeFileSync(path.join(invoking, "axm.json"), JSON.stringify(settings)),
     run: (args: ReadonlyArray<string>, environment: Readonly<Record<string, string>> = {}) =>
-      runBuiltCli(args, {
+      runCli(args, {
         cwd: invoking,
         env: {
           HOME: platformHome,

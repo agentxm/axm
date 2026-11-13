@@ -1,3 +1,5 @@
+import { RegistryRequestFailed } from "@agentxm/registry-client";
+import { NetworkDisabled } from "@agentxm/host-primitives";
 /**
  * Sign-in orchestration: flag coherence, persisted-credential policy, the
  * existing-session decision, strategy selection, and the loopback →
@@ -176,6 +178,13 @@ export const login = Effect.fn("Login.run")(function* (
   if (!credentials.allowsPersistedCredentials) {
     return yield* makePersistedCredentialsUnsupportedError(endpoint.href);
   }
+
+  if (yield* NetworkDisabled)
+    return yield* new RegistryRequestFailed({
+      reason: "network-required",
+      category: "network",
+      detail: "network-required: Sign-in requires network access, which --offline prohibits.",
+    });
 
   const existing = yield* credentials.load(credentialKey(endpoint));
   if (Option.isSome(existing)) {

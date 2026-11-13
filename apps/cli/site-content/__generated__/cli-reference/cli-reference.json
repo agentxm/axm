@@ -9,6 +9,14 @@
     "options": [],
     "globalOptions": [
       {
+        "name": "offline",
+        "aliases": [],
+        "type": "boolean",
+        "required": false,
+        "description": "Prohibit network access and external commands without network isolation for this invocation",
+        "default": false
+      },
+      {
         "name": "accept-execution-changes",
         "aliases": [],
         "type": "boolean",

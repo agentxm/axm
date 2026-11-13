@@ -10,3 +10,5 @@ export * from "./path-containment.js";
 export * from "./request-budget.js";
 export * from "./user-home.js";
 export * from "./git-environment.js";
+
+export { NetworkDisabled } from "./network-policy.js";

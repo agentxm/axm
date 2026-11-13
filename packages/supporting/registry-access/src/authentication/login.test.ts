@@ -1,3 +1,5 @@
+import { NetworkDisabled } from "@agentxm/host-primitives";
+import * as Result from "effect/Result";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -57,5 +59,26 @@ describe("login after the Registry refuses a stored credential", () => {
         expect(requests).toEqual(["/v1/auth/me", "/v1/auth/device/code"]);
       }).pipe(Effect.provide(Layer.merge(ports.layer, authClientOver(wire))));
     },
+  );
+});
+
+it.effect("offline refuses login before credential reads, listeners or HTTP", () => {
+  const ports = makeAuthPorts();
+  const wire = HttpClient.make(() => Effect.die("Offline login must not dispatch"));
+  return Effect.gen(function* () {
+    const result = yield* Effect.result(
+      login({ ...deviceLoginRequest(), deviceCode: false }, authSelectedRegistry),
+    );
+    expect(Result.isFailure(result)).toBe(true);
+    if (Result.isFailure(result))
+      expect(result.failure).toMatchObject({
+        _tag: "RegistryRequestFailed",
+        category: "network",
+        reason: "network-required",
+        detail: expect.stringContaining("network-required"),
+      });
+  }).pipe(
+    Effect.provide(Layer.merge(ports.layer, authClientOver(wire))),
+    Effect.provideService(NetworkDisabled, true),
   );
 });

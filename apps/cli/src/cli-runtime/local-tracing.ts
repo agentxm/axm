@@ -1,3 +1,4 @@
+import { NetworkDisabled } from "@agentxm/host-primitives";
 import { makeLocalTraceSession } from "./local-trace-session.js";
 import { LocalTraceEnabled } from "./local-trace-enabled.js";
 import { TraceInvocation } from "./trace-invocation.js";
@@ -175,7 +176,7 @@ export interface LocalTraceOptions {
 }
 
 /** One invocation owns its exporter, bounded accounting, and exclusive receipt handle. */
-export const withLocalTracing = <A, E, R>(
+const withConfiguredLocalTracing = <A, E, R>(
   program: Effect.Effect<A, E, R>,
   environment: Readonly<Record<string, string | undefined>>,
   options: LocalTraceOptions = {},
@@ -349,3 +350,16 @@ export const withLocalTracing = <A, E, R>(
     );
   });
 };
+
+export const withLocalTracing = <A, E, R>(
+  program: Effect.Effect<A, E, R>,
+  environment: Readonly<Record<string, string | undefined>>,
+  options: LocalTraceOptions = {},
+): Effect.Effect<A, E, R> =>
+  Effect.flatMap(NetworkDisabled, (offline) =>
+    withConfiguredLocalTracing(
+      program,
+      offline ? { ...environment, AXM_TRACE: "0", AXM_TRACE_ENDPOINT: undefined } : environment,
+      options,
+    ),
+  );

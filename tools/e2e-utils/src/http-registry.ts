@@ -564,7 +564,7 @@ export const startHttpRegistry = async (
       if (
         options.browserOnlyTokenCreate === true &&
         request.method === "POST" &&
-        pathname !== "/v1/resolutions/metadata"
+        pathname !== "/v1/resolutions"
       ) {
         if (pathname !== "/v1/tokens") {
           sendProblem(response, 404, `No POST route for ${pathname}`);
@@ -875,7 +875,7 @@ export const startHttpRegistry = async (
       if (
         request.method !== "GET" &&
         request.method !== "HEAD" &&
-        !(request.method === "POST" && pathname === "/v1/resolutions/metadata")
+        !(request.method === "POST" && pathname === "/v1/resolutions")
       ) {
         sendProblem(response, 405, `Unsupported method ${request.method ?? "unknown"}`);
         return;
@@ -912,7 +912,7 @@ export const startHttpRegistry = async (
         extensionVisibilities.get(key(owner, plural, name)) !== "private" ||
         requesterOwner === owner;
 
-      if (request.method === "POST" && pathname === "/v1/resolutions/metadata") {
+      if (request.method === "POST" && pathname === "/v1/resolutions") {
         let body: unknown;
         try {
           body = JSON.parse((await readBody(request)).toString("utf8"));
@@ -935,7 +935,7 @@ export const startHttpRegistry = async (
           const identity = item["identity"];
           if (
             typeof item["key"] !== "string" ||
-            typeof item["purpose"] !== "string" ||
+            typeof body["purpose"] !== "string" ||
             typeof identity["owner"] !== "string" ||
             typeof identity["type"] !== "string" ||
             typeof identity["name"] !== "string"
@@ -944,7 +944,7 @@ export const startHttpRegistry = async (
             return;
           }
           identities.push(`${identity["owner"]}/${identity["type"]}/${identity["name"]}`);
-          purposes.push(item["purpose"]);
+          purposes.push(body["purpose"]);
         }
         metadataRequests.push(identities);
         metadataPurposes.push(purposes);
@@ -982,14 +982,25 @@ export const startHttpRegistry = async (
             return { key: item["key"], outcome: "unavailable" };
           }
           const accepted = item["accepted"];
-          if (item["purpose"] === "restore-exact" && isRecord(accepted)) {
+          if (body["purpose"] === "authorize-exact") {
+            if (!isRecord(accepted)) return { key: item["key"], outcome: "unavailable" };
             const exact = versions.find((entry) => entry.version === accepted["version"]);
-            if (exact === undefined) {
-              return { key: item["key"], outcome: "exact-conflict", reason: "version-unavailable" };
+            if (
+              exact === undefined ||
+              exact.integrity !== accepted["integrity"] ||
+              item["expectedPublisherBinding"] !== "hbnd_e2e"
+            ) {
+              return { key: item["key"], outcome: "unavailable" };
             }
-            if (exact.integrity !== accepted["integrity"]) {
-              return { key: item["key"], outcome: "exact-conflict", reason: "integrity-mismatch" };
-            }
+            return {
+              key: item["key"],
+              outcome: "allowed",
+              identity,
+              publisherBindingId: "hbnd_e2e",
+              accepted,
+              yanked: exact.yankedAt !== undefined,
+              observedAt,
+            };
           }
           const visibility = extensionVisibilities.get(key(owner, plural, name)) ?? "public";
           const revision = crypto
@@ -1025,8 +1036,9 @@ export const startHttpRegistry = async (
           };
         });
         sendJson(response, 200, {
-          schemaVersion: 1,
-          selectionPolicyVersion: "1",
+          schemaVersion: 2,
+          purpose: body["purpose"],
+          ...(body["purpose"] === "select" ? { selectionPolicyVersion: "1" } : {}),
           observedAt,
           results,
         });

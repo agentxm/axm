@@ -1,3 +1,4 @@
+import { offlineHttpClient, offlineProcessSpawner } from "./cli-runtime/offline.js";
 import { observedProcessSpawner } from "./cli-runtime/observed-process.js";
 import { observedFileSystem } from "./cli-runtime/observed-filesystem.js";
 import { observedTransport } from "./cli-runtime/observed-transport.js";
@@ -169,7 +170,10 @@ const AxmHttpClientLayer = Layer.provide(
   Layer.effect(
     HttpClient.HttpClient,
     Effect.map(Effect.all([HttpClient.HttpClient, LocalTraceEnabled]), ([httpClient, enabled]) =>
-      withAxmUserAgent(enabled ? observedTransport(httpClient) : httpClient, loadVersion()),
+      withAxmUserAgent(
+        enabled ? observedTransport(offlineHttpClient(httpClient)) : offlineHttpClient(httpClient),
+        loadVersion(),
+      ),
     ),
   ),
   FetchHttpClient.layer.pipe(Layer.provide(AxmFetchLayer)),
@@ -183,7 +187,10 @@ export const makeArtifactHttpClientLayer = (fetchImplementation: typeof globalTh
   Layer.effect(
     ArtifactHttpClient,
     Effect.map(Effect.all([HttpClient.HttpClient, LocalTraceEnabled]), ([client, enabled]) =>
-      withAxmUserAgent(enabled ? observedTransport(client) : client, loadVersion()),
+      withAxmUserAgent(
+        enabled ? observedTransport(offlineHttpClient(client)) : offlineHttpClient(client),
+        loadVersion(),
+      ),
     ),
   ).pipe(
     Layer.provide(
@@ -208,7 +215,10 @@ export const makeRegistryHttpClientLayer = (fetchImplementation: typeof globalTh
   Layer.effect(
     RegistryHttpClient,
     Effect.map(Effect.all([HttpClient.HttpClient, LocalTraceEnabled]), ([client, enabled]) =>
-      withAxmUserAgent(enabled ? observedTransport(client) : client, loadVersion()),
+      withAxmUserAgent(
+        enabled ? observedTransport(offlineHttpClient(client)) : offlineHttpClient(client),
+        loadVersion(),
+      ),
     ),
   ).pipe(
     Layer.provide(
@@ -232,7 +242,10 @@ const observedNodeServices = Layer.provideMerge(
       ChildProcessSpawner.ChildProcessSpawner,
       Effect.map(
         Effect.all([ChildProcessSpawner.ChildProcessSpawner, LocalTraceEnabled]),
-        ([spawner, enabled]) => (enabled ? observedProcessSpawner(spawner) : spawner),
+        ([spawner, enabled]) =>
+          enabled
+            ? observedProcessSpawner(offlineProcessSpawner(spawner))
+            : offlineProcessSpawner(spawner),
       ),
     ),
   ),

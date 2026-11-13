@@ -3344,6 +3344,21 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Assumptions: An inline connection and a Pack-supplied Registry connection are the two ways a structured MCP projection enters desired state, so one of each stands for every structured native projection.
 - Source: [`packages/core/workspace-features/src/sync/native-projections-compare-by-decoded-value.spec.ts`](../packages/core/workspace-features/src/sync/native-projections-compare-by-decoded-value.spec.ts)
 
+##### Offline invocations prohibit network activity
+
+- Requirement: `cli/network/offline-prohibits-network`
+- Owner: `cli`
+- Statement: When --offline is enabled, AXM shall prohibit invocation-initiated network requests, authentication listeners, background network work and arbitrary subprocess execution without enforced network isolation, while retaining local filesystem operations and refusing remote access requirements explicitly.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `machine-automation`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The production transport and subprocess Layers run over native local files; controlled HTTP transports observe dispatch refusal.
+- Methods: example
+- Limitation: These examples do not establish separate-process or compiled-binary network silence across every command family. Retires when: Process-level scenarios independently observe network and subprocess activity for local, remote-cache, authentication and background paths.
+- Additional evidence: process via [`apps/cli-e2e/src/offline.e2e.test.ts`](../apps/cli-e2e/src/offline.e2e.test.ts) — Real CLI invocations address a controlled HTTP origin for Registry, telemetry and trace export; its independent request journal must remain empty offline and observe an online control request.
+- Source: [`apps/cli/src/cli-runtime/offline.spec.ts`](../apps/cli/src/cli-runtime/offline.spec.ts)
+
 ##### Pack add preview describes the dependency without changing any state
 
 - Requirement: `cli/packs/add/preview-is-pure`
@@ -6802,7 +6817,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/startup-controls-conform-to-parser`
 - Owner: `cli`
-- Statement: Before parsing, AXM's readers of JSON, diagnostic verbosity, credential export, and unattended posture shall honor the registered Boolean vocabulary, including bare switches, explicit Boolean values, negation, and the option terminator, rather than interpreting an explicit false request as enabled. Startup diagnostic precedence shall agree with parsed diagnostic precedence.
+- Statement: Before parsing, AXM's readers of JSON, diagnostic verbosity, credential export, offline mode, and unattended posture shall honor the registered Boolean vocabulary, including bare switches, explicit Boolean values, negation, and the option terminator, rather than interpreting an explicit false request as enabled. Startup diagnostic precedence shall agree with parsed diagnostic precedence.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`

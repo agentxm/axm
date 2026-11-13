@@ -1,3 +1,4 @@
+import { NetworkDisabled } from "@agentxm/host-primitives";
 import { TerminalDiagnostics } from "../cli-runtime/terminal-diagnostics.js";
 // @effect-diagnostics anyUnknownInErrorContext:off — telemetry is a best-effort boundary over generated opaque transport failures
 import type { InstalledSkill } from "@agentxm/workspace-features/lifecycle";
@@ -359,7 +360,8 @@ const makeTelemetryClient = (
   Scope.Scope | HttpClient.HttpClient | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    if (options.mode === "off" || (yield* isTest(options))) return disabledTelemetry();
+    if ((yield* NetworkDisabled) || options.mode === "off" || (yield* isTest(options)))
+      return disabledTelemetry();
     const httpClient = yield* HttpClient.HttpClient;
     const ci = yield* isCI;
     const baseUrl = yield* readBaseUrl;

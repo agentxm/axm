@@ -13,9 +13,13 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Tracer from "effect/Tracer";
+import * as Result from "effect/Result";
+import { NetworkDisabled } from "@agentxm/host-primitives";
 import {
   compareDirectoryToHead,
   getCommitSha,
+  getRemoteUrl,
+  getExactTag,
   getTreeSha,
   listRemoteRefs,
   shallowClone,
@@ -177,10 +181,10 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 const Tracer = await import("effect/Tracer");
 const spans = [];
 const tracer = Tracer.make({ span(options) { const span = new Tracer.NativeSpan(options); spans.push(span); return span; } });
-const { listRemoteRefs, withGitOperationDeadline } = await import(process.argv[1]);
+const { listRemoteRefs, withGitOperationBoundary } = await import(process.argv[1]);
 const failure = await Effect.runPromise(
   listRemoteRefs("probe").pipe(
-    withGitOperationDeadline("list-remote-refs", Duration.seconds(1)),
+    withGitOperationBoundary("list-remote-refs", Duration.seconds(1)),
     Effect.flip,
     Effect.provideService(Tracer.Tracer, tracer),
     Effect.provide(NodeServices.layer),
@@ -752,3 +756,28 @@ exit 128
     });
   });
 });
+
+it.effect("offline refuses every Git execution boundary before inspecting repositories", () =>
+  Effect.gen(function* () {
+    const directory = "/nonexistent/offline-git-fixture";
+    const url = "https://example.invalid/offline-fixture.git";
+    const operations = [
+      shallowClone(url, directory).pipe(Effect.asVoid),
+      shallowFetchCommit(url, directory, "a".repeat(40)).pipe(Effect.asVoid),
+      listRemoteRefs(url).pipe(Effect.asVoid),
+      getRemoteUrl(directory, "origin").pipe(Effect.asVoid),
+      getCommitSha(directory).pipe(Effect.asVoid),
+      getExactTag(directory).pipe(Effect.asVoid),
+      getTreeSha(directory).pipe(Effect.asVoid),
+      compareDirectoryToHead(directory, directory, []).pipe(Effect.asVoid),
+    ];
+    for (const operation of operations) {
+      const result = yield* Effect.result(operation);
+      expect(Result.isFailure(result)).toBe(true);
+      if (Result.isFailure(result))
+        expect(result.failure).toMatchObject({
+          detail: expect.stringContaining("network-required"),
+        });
+    }
+  }).pipe(Effect.provideService(NetworkDisabled, true), Effect.provide(NodeServices.layer)),
+);

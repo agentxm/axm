@@ -37,9 +37,8 @@ export const specification = defineSpecification({
   derivedFrom: ["AgentXM Registry API 0.1.0", "apps/cli/src/root/publish/command.test.ts"],
   supersedes: ["cli/publish/uploads-the-reviewed-publication-set"],
   assumptions: [],
-  openQuestions: [
-    "If local source changes after the authoritative preview, must AXM abort or may it upload the previewed archive? The current implementation aborts; the accepted requirement binds actual upload bytes to the previewed set without choosing an enforcement strategy.",
-  ],
+  // Source-change refusal is owned by cli/publish/prepared-distribution-is-revalidated.
+  openQuestions: [],
 });
 
 describe("Publishing requires a signed-in person", () => {

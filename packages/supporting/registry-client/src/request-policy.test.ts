@@ -760,3 +760,12 @@ it.effect("records only the bounded mapped failure category", () =>
     expect(spans.flatMap((span) => [...span.attributes.values()])).not.toContain("private denial");
   }),
 );
+
+for (const kind of ["safe", "mutation"] as const) {
+  it.effect(`${kind} request communicates transport replay safety`, () =>
+    Effect.gen(function* () {
+      const effective = yield* execute(RegistryRequestAttempt, { replaySafety: { kind } });
+      expect(effective.replaySafe).toBe(kind === "safe");
+    }),
+  );
+}

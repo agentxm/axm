@@ -96,6 +96,7 @@ import {
   RegistryClientFactoryLive,
   RegistryContext,
   RegistryHttpClient,
+  RegistryRequestAttempt,
   RegistrySelectionFailed,
   type RegistryContextService,
   type RegistrySelectionFailure,
@@ -214,17 +215,29 @@ export const makeArtifactHttpClientLayer = (fetchImplementation: typeof globalTh
 export const makeRegistryHttpClientLayer = (fetchImplementation: typeof globalThis.fetch) =>
   Layer.effect(
     RegistryHttpClient,
-    Effect.map(Effect.all([HttpClient.HttpClient, LocalTraceEnabled]), ([client, enabled]) =>
-      withAxmUserAgent(
-        enabled ? observedTransport(offlineHttpClient(client)) : offlineHttpClient(client),
+    Effect.map(Effect.all([HttpClient.HttpClient, LocalTraceEnabled]), ([client, enabled]) => {
+      const governed = HttpClient.transformResponse(client, (response) =>
+        Effect.gen(function* () {
+          const attempt = yield* Effect.serviceOption(RegistryRequestAttempt);
+          // A reused Bun connection can silently replay a request after a disconnect.
+          // Only explicitly repeat-safe attempts may reuse it; writes settle ambiguity themselves.
+          return yield* response.pipe(
+            Effect.provideService(FetchHttpClient.RequestInit, {
+              redirect: "manual",
+              keepalive: Option.isSome(attempt) && attempt.value.replaySafe,
+            }),
+          );
+        }),
+      );
+      return withAxmUserAgent(
+        enabled ? observedTransport(offlineHttpClient(governed)) : offlineHttpClient(governed),
         loadVersion(),
-      ),
-    ),
+      );
+    }),
   ).pipe(
     Layer.provide(
       FetchHttpClient.layer.pipe(
         Layer.provide(Layer.succeed(FetchHttpClient.Fetch, fetchImplementation)),
-        Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { redirect: "manual" })),
       ),
     ),
   );

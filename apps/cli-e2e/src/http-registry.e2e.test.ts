@@ -701,6 +701,46 @@ describe("HTTP registry transport", () => {
     }
   });
 
+  it("settles a committed upload after connection loss without replaying it", async () => {
+    const registry = await startHttpRegistry({
+      commitThenDisconnectPublishOnce: ["skills/settled-loss"],
+    });
+    const workspace = createTempDir();
+    try {
+      await initRegistryWorkspace({
+        path: workspace.path,
+        location: registry.url,
+        owner: OWNER,
+        minimumReleaseAge: "0s",
+      });
+      const created = await runCli(["skills", "new", "settled-loss", "--owner", OWNER], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(created.exitCode, created.stdout + created.stderr).toBe(0);
+      const published = await runCli(["publish", `${OWNER}/skills/settled-loss`, "--json"], {
+        cwd: workspace.path,
+        env: registryEnv(registry.url),
+      });
+      expect(
+        published.exitCode,
+        published.stdout +
+          published.stderr +
+          JSON.stringify(
+            registry.requests.map(({ method, path, status }) => ({ method, path, status })),
+          ),
+      ).toBe(0);
+      expect(JSON.parse(published.stdout).result.execution.outcomes).toMatchObject([
+        { name: "settled-loss", status: "success", settlement: "readback" },
+      ]);
+      expect(registry.publishes).toHaveLength(1);
+      expect(registry.requests.filter((request) => request.method === "PUT")).toHaveLength(1);
+    } finally {
+      workspace.cleanup();
+      await registry.close();
+    }
+  });
+
   // The registry stores the version but its response never arrives, and the
   // interruption lands in exactly that window. Only evidenced states may be
   // reported: the upload's outcome is indeterminate, and the credential-free

@@ -502,6 +502,8 @@ const reviewedVisibility = {
 } as const;
 
 export interface RemotePublishWorldOptions {
+  /** Hold authoritative preview delivery while a scenario changes local source. */
+  readonly beforePreviewResponse?: Effect.Effect<void>;
   readonly settings?: Readonly<Record<string, unknown>>;
   readonly compare?: GitDirectoryComparisonService["compare"];
   /** Answer one archive upload; the default acknowledges the previewed bytes. */
@@ -623,10 +625,9 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
         if (request.body._tag !== "Uint8Array") {
           throw new Error("Expected an encoded preview request body");
         }
-        return HttpClientResponse.fromWeb(
-          request,
-          previewResponse(JSON.parse(new TextDecoder().decode(request.body.body))),
-        );
+        const response = previewResponse(JSON.parse(new TextDecoder().decode(request.body.body)));
+        yield* options.beforePreviewResponse ?? Effect.void;
+        return HttpClientResponse.fromWeb(request, response);
       }
       if (request.method === "GET" && url.pathname.startsWith("/v1/owners/")) {
         return HttpClientResponse.fromWeb(

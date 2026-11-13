@@ -60,6 +60,7 @@ interface RequestRecord {
   readonly status: number;
   readonly authorization: string | undefined;
   readonly userAgent: string | undefined;
+  readonly usagePurpose: string | undefined;
 }
 
 export interface HttpRegistry {
@@ -80,6 +81,8 @@ export interface HttpRegistry {
   readonly nextHungArchive: () => Promise<string>;
   /** Stop hanging one `plural/name` download so a later run can complete it. */
   readonly resumeArchive: (pluralAndName: string) => void;
+  /** Deny content while retaining public selection metadata. */
+  readonly denyContent: (pluralAndName: string) => void;
   /** Make the next matching index read return a retryable response. */
   readonly failNextIndex: (pluralAndName: string) => void;
   readonly copyVersion: (
@@ -108,6 +111,8 @@ export interface HttpRegistryOptions {
    * request.
    */
   readonly commitThenHangPublishOnce?: ReadonlyArray<string>;
+  /** Commit then close the socket before headers, forcing ambiguous-dispatch readback. */
+  readonly commitThenDisconnectPublishOnce?: ReadonlyArray<string>;
   /**
    * Accept the archive download for each `plural/name` key and never answer
    * it — the point at which one closure has settled and the next is in flight,
@@ -378,10 +383,12 @@ export const startHttpRegistry = async (
     { readonly condition: string; readonly setDigest: string; readonly descriptorDigest: string }
   >();
   const publishes: Array<PublishRecord> = [];
+  const deniedContent = new Set<string>();
   const pendingPublishFailures = new Set(options.failPublishOnce ?? []);
   const pendingIndexFailures = new Set<string>();
   const rejectedPublishes = new Set(options.rejectPublish ?? []);
   const pendingPublishHangs = new Set(options.commitThenHangPublishOnce ?? []);
+  const pendingPublishDisconnects = new Set(options.commitThenDisconnectPublishOnce ?? []);
   const hangingArchives = new Set(options.hangArchive ?? []);
   let hangWaiters: Array<(key: string) => void> = [];
   const notifyHungPublish = (hungKey: string) => {
@@ -426,14 +433,20 @@ export const startHttpRegistry = async (
     const url = new URL(request.url ?? "/", "http://registry.test");
     const pathname = url.pathname;
     requestStarts.push({ method: request.method ?? "UNKNOWN", path: pathname });
+    const observedRequest = {
+      method: request.method ?? "UNKNOWN",
+      path: pathname,
+      status: 0,
+      authorization: request.headers.authorization,
+      userAgent: request.headers["user-agent"],
+      usagePurpose:
+        typeof request.headers["x-agentxm-usage-purpose"] === "string"
+          ? request.headers["x-agentxm-usage-purpose"]
+          : undefined,
+    };
+    requests.push(observedRequest);
     response.on("finish", () => {
-      requests.push({
-        method: request.method ?? "UNKNOWN",
-        path: pathname,
-        status: response.statusCode,
-        authorization: request.headers.authorization,
-        userAgent: request.headers["user-agent"],
-      });
+      observedRequest.status = response.statusCode;
     });
 
     void (async () => {
@@ -842,6 +855,11 @@ export const startHttpRegistry = async (
           byteLength: archive.byteLength,
         });
 
+        if (pendingPublishDisconnects.delete(failureKey)) {
+          response.destroy();
+          return;
+        }
+
         // Commit-then-hang: the version is durably stored above, but the
         // response is never written — from the client's side this upload is
         // indistinguishable from one the registry never processed.
@@ -983,6 +1001,8 @@ export const startHttpRegistry = async (
           }
           const accepted = item["accepted"];
           if (body["purpose"] === "authorize-exact") {
+            if (deniedContent.has(`${plural}/${name}`))
+              return { key: item["key"], outcome: "unavailable" };
             if (!isRecord(accepted)) return { key: item["key"], outcome: "unavailable" };
             const exact = versions.find((entry) => entry.version === accepted["version"]);
             if (
@@ -1056,7 +1076,11 @@ export const startHttpRegistry = async (
         const stored = extensions
           .get(key(owner, plural, name))
           ?.find((entry) => entry.version === version);
-        if (stored === undefined || !canRead(owner, plural, name)) {
+        if (
+          stored === undefined ||
+          !canRead(owner, plural, name) ||
+          deniedContent.has(`${plural}/${name}`)
+        ) {
           sendProblem(response, 404, `No archive for ${plural}/${name}@${version}`);
           return;
         }
@@ -1230,6 +1254,9 @@ export const startHttpRegistry = async (
       new Promise<string>((resolve) => {
         archiveHangWaiters.push(resolve);
       }),
+    denyContent: (pluralAndName) => {
+      deniedContent.add(pluralAndName);
+    },
     resumeArchive: (pluralAndName) => {
       hangingArchives.delete(pluralAndName);
     },

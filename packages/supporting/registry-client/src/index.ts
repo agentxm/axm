@@ -130,3 +130,5 @@ export {
 } from "./archive-limits.js";
 
 export { RegistryFailureObservation } from "./failure-observation.js";
+
+export { RegistryRequestAttempt } from "./request-attempt.js";

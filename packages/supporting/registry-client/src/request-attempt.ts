@@ -6,6 +6,8 @@ export class RegistryRequestAttempt extends Context.Service<
   RegistryRequestAttempt,
   {
     readonly n: number;
+    /** Whether the transport may safely replay an ambiguous exchange. */
+    readonly replaySafe: boolean;
     readonly of: number;
     readonly requestId: string;
     readonly observeResponse: (response: {

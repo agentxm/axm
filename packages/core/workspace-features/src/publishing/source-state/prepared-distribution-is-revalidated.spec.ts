@@ -1,12 +1,18 @@
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
+import * as crypto from "node:crypto";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { applyPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { prepare, previewOrApply } from "../index.js";
 import {
   makePublishWorld,
+  makeRemotePublishWorld,
+  remoteRequest,
+  runPublish,
   publishDocument,
   publishFailureOf,
   requestFor,
@@ -120,3 +126,47 @@ describe("prepared distribution freshness", () => {
     );
   }
 });
+
+for (const changed of [true, false]) {
+  it.effect(`source changed while authoritative preview is pending: ${changed}`, () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const world = makeRemotePublishWorld({
+        settings: { skills: { review: "workspace" } },
+        beforePreviewResponse: Deferred.succeed(entered, undefined).pipe(
+          Effect.andThen(Deferred.await(release)),
+        ),
+      });
+      try {
+        const root = world.write("skill", { name: "review" });
+        const pending = yield* world.provide(runPublish(remoteRequest())).pipe(Effect.forkScoped);
+        yield* Deferred.await(entered);
+        expect(world.uploads).toHaveLength(0);
+        if (changed)
+          fs.appendFileSync(
+            nodePath.join(root, "src", "SKILL.md"),
+            "\nChanged while authorization was pending.\n",
+          );
+        yield* Deferred.succeed(release, undefined);
+        const outcome = yield* Fiber.join(pending);
+        const document = publishDocument(outcome);
+        if (changed) {
+          expect(world.uploads).toHaveLength(0);
+          expect(document.counts.published).toBe(0);
+          expect(publishFailureOf(outcome).detail).toContain("changed");
+        } else {
+          expect(document.counts.published).toBe(1);
+          expect(world.uploads).toHaveLength(1);
+          const upload = world.uploads[0];
+          if (upload?.body._tag !== "Uint8Array") throw new Error("Expected archive upload");
+          expect(crypto.createHash("sha256").update(upload.body.body).digest("hex")).toBe(
+            world.previewed().candidates[0]?.archiveSha256Hex,
+          );
+        }
+      } finally {
+        world.cleanup();
+      }
+    }).pipe(Effect.scoped),
+  );
+}

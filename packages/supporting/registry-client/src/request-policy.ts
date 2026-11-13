@@ -350,6 +350,7 @@ export const executeRegistryRequest = Effect.fnUntraced(function* <A, E, R>(
         yield* endRetryWait();
         return yield* Effect.provideService(attempt, RegistryRequestAttempt, {
           n,
+          replaySafe,
           of: attemptLimit,
           requestId,
           observeResponse: (response) => Ref.set(lastResponse, Option.some(response)),

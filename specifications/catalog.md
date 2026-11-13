@@ -1937,6 +1937,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Boundary: platform; selection: per-change
 - Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example, decision-table
+- Additional evidence: process via [`apps/cli-e2e/src/published-hook-access.e2e.test.ts`](../apps/cli-e2e/src/published-hook-access.e2e.test.ts) — The compiled CLI warms a remote Hook archive cache, then refuses its content after current access is revoked while public metadata stays available; the independent HTTP journal observes verification-purpose traffic.
 - Source: [`packages/core/workspace-features/src/inspection/view/reports-published-native-hook-facts.spec.ts`](../packages/core/workspace-features/src/inspection/view/reports-published-native-hook-facts.spec.ts)
 
 #### Human factors
@@ -7209,6 +7210,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary rationale: A real temporary archive cache and controlled Registry responses expose whether a later acquisition returns bytes after access is withdrawn.
 - Methods: contract, decision-table
 - Derived from: `packages/supporting/registry-client/specs/registry-openapi.json`
+- Additional evidence: process via [`apps/cli-e2e/src/published-hook-access.e2e.test.ts`](../apps/cli-e2e/src/published-hook-access.e2e.test.ts) — The compiled CLI warms a remote Hook archive cache, then refuses its content after current access is revoked while public metadata stays available; the independent HTTP journal observes verification-purpose traffic.
 - Source: [`packages/supporting/registry-client/src/cached-archives-require-current-authorization.spec.ts`](../packages/supporting/registry-client/src/cached-archives-require-current-authorization.spec.ts)
 
 ##### Content admission owns one callback and all byte access within it
@@ -7331,7 +7333,6 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, contract
 - Derived from: `AgentXM Registry API 0.1.0`, `apps/cli/src/root/publish/command.test.ts`
 - Supersedes: `cli/publish/uploads-the-reviewed-publication-set`
-- Open questions: If local source changes after the authoritative preview, must AXM abort or may it upload the previewed archive? The current implementation aborts; the accepted requirement binds actual upload bytes to the previewed set without choosing an enforcement strategy.
 - Source: [`packages/core/workspace-features/src/publishing/authorization/publishing-requires-a-signed-in-person.spec.ts`](../packages/core/workspace-features/src/publishing/authorization/publishing-requires-a-signed-in-person.spec.ts)
 
 ### Goal: workspace-intent-fidelity

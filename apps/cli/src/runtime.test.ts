@@ -28,7 +28,7 @@ import { localTracingCollector } from "./test-support/local-tracing-collector.js
 import { withLocalTracing } from "./cli-runtime/index.js";
 
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
-import { RegistryHttpClient } from "@agentxm/registry-client";
+import { RegistryHttpClient, RegistryRequestAttempt } from "@agentxm/registry-client";
 
 describe("Local subprocess traces", () => {
   it.live("records one real spawn without exposing command arguments or output", () =>
@@ -308,3 +308,32 @@ describe("Registry transport policy", () => {
     }),
   );
 });
+
+for (const replaySafe of [false, true]) {
+  it.effect(
+    `Registry fetch transport honors replay safety (${replaySafe}) and redirect refusal`,
+    () =>
+      Effect.gen(function* () {
+        const fetchImplementation = Object.assign(
+          vi.fn(() => Promise.resolve(new Response("{}"))),
+          { preconnect: vi.fn() },
+        );
+        const client = yield* RegistryHttpClient.pipe(
+          Effect.provide(makeRegistryHttpClientLayer(fetchImplementation)),
+        );
+        yield* client.post("https://registry.example.test/v1/action").pipe(
+          Effect.provideService(RegistryRequestAttempt, {
+            n: 1,
+            of: 1,
+            requestId: "fixture",
+            replaySafe,
+            observeResponse: () => Effect.void,
+          }),
+        );
+        expect(fetchImplementation).toHaveBeenCalledExactlyOnceWith(
+          expect.anything(),
+          expect.objectContaining({ keepalive: replaySafe, redirect: "manual" }),
+        );
+      }),
+  );
+}

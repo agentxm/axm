@@ -120,12 +120,12 @@ export interface ObservationSample {
     readonly traceId: string;
     readonly rootSpanId: string;
     readonly workDigest?: string;
-    readonly nativeSerializationWork?: NativeSerializationWork;
+    readonly documentSerializationWork?: DocumentSerializationWork;
     readonly retrievalBytes?: number;
   };
 }
 
-/** Four observed allocation-sensitive fixtures; every other scenario remains byte-strict. */
+/** Native receipt profiles; the diagnostic profile below has separate admission guards. */
 const nativeReceiptInstallOwners = new Map<string, ReadonlyArray<string>>([
   ["axm.hash.preimage", ["axm.publish.file", "axm.publish.snapshot", "axm.verify.publication"]],
   [
@@ -140,7 +140,7 @@ const nativeReceiptInstallOwners = new Map<string, ReadonlyArray<string>>([
   ["axm.io.write-file", ["axm.operation.phase", "axm.publish.receipts"]],
 ]);
 
-export const nativeReceiptByteField = (
+export const documentByteField = (
   scenario: string,
   row: {
     readonly kind: string;
@@ -150,6 +150,15 @@ export const nativeReceiptByteField = (
 ):
   | { readonly field: "bytes" | "ioBytes"; readonly measurement: "axm.work.bytes" | "axm.io.bytes" }
   | undefined => {
+  if (scenario === "installed/adopt-enabled-native-refusal") {
+    return row.kind === "axm.io.write-file" &&
+      ["axm.cli.command", "axm.cli.operation"].includes(row.ownerName) &&
+      row.dimensions["axm.work.owner"] === row.ownerName &&
+      row.dimensions["axm.outcome"] === "success" &&
+      Object.keys(row.dimensions).length === 2
+      ? { field: "ioBytes", measurement: "axm.io.bytes" }
+      : undefined;
+  }
   if (
     row.ownerName !== "axm.operation.phase" ||
     Object.keys(row.dimensions).length !== 2 ||
@@ -200,7 +209,33 @@ const NativeReceiptSerializationSchema = Schema.Struct({
 });
 export type NativeReceiptSerialization = typeof NativeReceiptSerializationSchema.Type;
 
-const NativeReceiptByteRowSchema = Schema.Struct({
+const AdoptionDiagnosticSerializationSchema = Schema.Struct({
+  path: Schema.Literal(".axm/diagnostics/adoption-diagnostic.json"),
+  rawSha256: sha256,
+  rawBytes: count.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(64 * 1024)),
+  comparisonSha256: sha256,
+  projectedScalarBytes: count,
+  projectedFieldCount: count.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(16)),
+  historicalFieldCount: Schema.Literal(0),
+  projectedFields: Schema.Array(
+    Schema.Struct({
+      path: Schema.String.check(
+        Schema.isPattern(/^failure\/history\/(?:[0-9]|1[0-5])\/elapsedMs$/u),
+      ),
+      bytes: count.check(Schema.isGreaterThan(0)),
+      historical: Schema.Literal(false),
+    }),
+  ),
+  validation: Schema.Literal("invocation-bound-adoption-diagnostic"),
+});
+export type AdoptionDiagnosticSerialization = typeof AdoptionDiagnosticSerializationSchema.Type;
+const DocumentSerializationSchema = Schema.Union([
+  NativeReceiptSerializationSchema,
+  AdoptionDiagnosticSerializationSchema,
+]);
+export type DocumentSerialization = typeof DocumentSerializationSchema.Type;
+
+const DocumentByteRowSchema = Schema.Struct({
   kind: Schema.String,
   ownerName: Schema.String,
   dimensions: Schema.Record(
@@ -215,16 +250,16 @@ const NativeReceiptByteRowSchema = Schema.Struct({
   measured: count,
   occurrences: count,
 });
-export type NativeReceiptByteRow = typeof NativeReceiptByteRowSchema.Type;
+export type DocumentByteRow = typeof DocumentByteRowSchema.Type;
 
-const NativeSerializationWorkSchema = Schema.Struct({
+const DocumentSerializationWorkSchema = Schema.Struct({
   strictDigest: sha256,
-  receipt: NativeReceiptSerializationSchema,
-  byteRows: Schema.Array(NativeReceiptByteRowSchema),
+  receipt: DocumentSerializationSchema,
+  byteRows: Schema.Array(DocumentByteRowSchema),
 });
-export type NativeSerializationWork = typeof NativeSerializationWorkSchema.Type;
+export type DocumentSerializationWork = typeof DocumentSerializationWorkSchema.Type;
 
-export const nativeReceiptByteRowKey = (row: NativeReceiptByteRow): string =>
+export const documentByteRowKey = (row: DocumentByteRow): string =>
   JSON.stringify([
     row.kind,
     row.ownerName,
@@ -234,21 +269,25 @@ export const nativeReceiptByteRowKey = (row: NativeReceiptByteRow): string =>
   ]);
 
 export interface WorkComparison {
-  readonly status: "equal" | "different" | "native-serialization-bytes-inconclusive";
+  readonly status:
+    | "equal"
+    | "different"
+    | "native-serialization-bytes-inconclusive"
+    | "diagnostic-serialization-bytes-inconclusive";
   readonly byteEquivalence: "recorded-equal" | "unproven";
   readonly completeAttribution: "unproven";
   readonly summaryWorkDigest: string | undefined;
   readonly detailWorkDigest: string | undefined;
   readonly issues: ReadonlyArray<string>;
   readonly differences: ReadonlyArray<{
-    readonly summary: NativeReceiptByteRow;
-    readonly detail: NativeReceiptByteRow;
+    readonly summary: DocumentByteRow;
+    readonly detail: DocumentByteRow;
   }>;
   readonly receipts?: {
-    readonly summary: NativeReceiptSerialization;
-    readonly detail: NativeReceiptSerialization;
+    readonly summary: DocumentSerialization;
+    readonly detail: DocumentSerialization;
   };
-  readonly finalReceiptWidthEnvelope?: {
+  readonly finalDocumentWidthEnvelope?: {
     readonly scalarWidthDifference: number;
     readonly interpretation: "Conservative comparison eligibility only; final fields do not bound intermediate writes or establish complete attribution.";
   };
@@ -281,15 +320,20 @@ export const compareSummaryDetailWork = (
       differences: [],
       issues: [],
     };
-  const left = summary.nativeSerializationWork;
-  const right = detail.nativeSerializationWork;
+  const left = summary.documentSerializationWork;
+  const right = detail.documentSerializationWork;
   if (
-    !Schema.is(NativeSerializationWorkSchema)(left) ||
-    !Schema.is(NativeSerializationWorkSchema)(right)
+    !Schema.is(DocumentSerializationWorkSchema)(left) ||
+    !Schema.is(DocumentSerializationWorkSchema)(right)
   )
     return failed();
   const a = left.receipt;
   const b = right.receipt;
+  const diagnostic = scenario === "installed/adopt-enabled-native-refusal";
+  const validation = diagnostic
+    ? "invocation-bound-adoption-diagnostic"
+    : "native-metadata-and-bounded-cleanup";
+  if (a.validation !== validation || b.validation !== validation) return failed();
   if (
     summary.delivery !== "inspected" ||
     detail.delivery !== "inspected" ||
@@ -307,7 +351,7 @@ export const compareSummaryDetailWork = (
     left.byteRows.length !== right.byteRows.length
   )
     return failed();
-  const validFields = (receipt: NativeReceiptSerialization) =>
+  const validFields = (receipt: DocumentSerialization) =>
     receipt.projectedFields.length === receipt.projectedFieldCount &&
     new Set(receipt.projectedFields.map((field) => field.path)).size ===
       receipt.projectedFieldCount &&
@@ -324,8 +368,8 @@ export const compareSummaryDetailWork = (
     scalarWidthDifference += Math.abs(other.bytes - field.bytes);
   }
   if (scalarWidthDifference === 0) return failed();
-  const valid = (row: NativeReceiptByteRow) => {
-    const field = nativeReceiptByteField(scenario, row);
+  const valid = (row: DocumentByteRow) => {
+    const field = documentByteField(scenario, row);
     return (
       field?.field === row.field &&
       field.measurement === row.measurement &&
@@ -335,15 +379,15 @@ export const compareSummaryDetailWork = (
     );
   };
   if (!left.byteRows.every(valid) || !right.byteRows.every(valid)) return failed();
-  const rightRows = new Map(right.byteRows.map((row) => [nativeReceiptByteRowKey(row), row]));
+  const rightRows = new Map(right.byteRows.map((row) => [documentByteRowKey(row), row]));
   if (
     rightRows.size !== right.byteRows.length ||
-    new Set(left.byteRows.map(nativeReceiptByteRowKey)).size !== left.byteRows.length
+    new Set(left.byteRows.map(documentByteRowKey)).size !== left.byteRows.length
   )
     return failed();
-  const differences: Array<{ summary: NativeReceiptByteRow; detail: NativeReceiptByteRow }> = [];
+  const differences: Array<{ summary: DocumentByteRow; detail: DocumentByteRow }> = [];
   for (const row of left.byteRows) {
-    const other = rightRows.get(nativeReceiptByteRowKey(row));
+    const other = rightRows.get(documentByteRowKey(row));
     if (
       other === undefined ||
       row.count !== other.count ||
@@ -356,14 +400,33 @@ export const compareSummaryDetailWork = (
     if (row.value !== other.value) differences.push({ summary: row, detail: other });
   }
   if (differences.length === 0) return failed();
+  if (diagnostic) {
+    // Exactly one diagnostic write per admitted owner. Other operation writes remain
+    // in its aggregate; only the observed final scalar-width delta is eligible.
+    if (left.byteRows.length !== 2 || differences.length !== 2) return failed();
+    for (const { summary: row, detail: other } of differences) {
+      const expectedCount = row.ownerName === "axm.cli.command" ? 1 : 6;
+      if (
+        row.count !== expectedCount ||
+        other.value - row.value !== b.rawBytes - a.rawBytes ||
+        row.value < a.rawBytes ||
+        other.value < b.rawBytes ||
+        (row.ownerName === "axm.cli.command" &&
+          (row.value !== a.rawBytes || other.value !== b.rawBytes))
+      )
+        return failed();
+    }
+  }
   return {
     ...identity,
-    status: "native-serialization-bytes-inconclusive",
+    status: diagnostic
+      ? "diagnostic-serialization-bytes-inconclusive"
+      : "native-serialization-bytes-inconclusive",
     byteEquivalence: "unproven",
     issues: [],
     differences,
     receipts: { summary: a, detail: b },
-    finalReceiptWidthEnvelope: {
+    finalDocumentWidthEnvelope: {
       scalarWidthDifference,
       interpretation:
         "Conservative comparison eligibility only; final fields do not bound intermediate writes or establish complete attribution.",

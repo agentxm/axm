@@ -737,7 +737,44 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             const sampleRoot = path.join(root, "sample");
             fs.rmSync(sampleRoot, { recursive: true, force: true });
             const fixture = copyTemplate(scenario.template, sampleRoot);
+            const auditPreparation =
+              phase === "preflight" && scenario.verifyPreparedReceipts === true;
+            const preparationArtifacts = path.join(artifacts, "preparation");
+            const preparationBefore = auditPreparation
+              ? yield* captureContainerReceiptEvidence({
+                  fixture,
+                  artifacts: preparationArtifacts,
+                  phase,
+                  stage: "before",
+                })
+              : undefined;
+            const preparationStarted = Date.now();
             if (scenario.prepare !== undefined) yield* scenario.prepare(fixture, prepare);
+            const preparationEnded = Date.now();
+            const preparationVerification = auditPreparation
+              ? yield* verifyContainerReceiptEvidence(scenario.template, {
+                  before: preparationBefore,
+                  after: yield* captureContainerReceiptEvidence({
+                    fixture,
+                    artifacts: preparationArtifacts,
+                    phase,
+                    stage: "after",
+                  }),
+                })({
+                  fixture,
+                  artifacts: preparationArtifacts,
+                  phase,
+                  stdout: "",
+                  stderr: "",
+                  startedAtMillis: preparationStarted,
+                  endedAtMillis: preparationEnded,
+                })
+              : undefined;
+            if (preparationVerification !== undefined)
+              writeJson(
+                path.join(preparationArtifacts, "semantic-verification.json"),
+                preparationVerification,
+              );
             if (scenario.external !== undefined) yield* scenario.external.reset;
             const receiptBefore = yield* captureContainerReceiptEvidence({
               fixture,
@@ -768,6 +805,27 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 ? undefined
                 : (scenario.external?.protectedState?.() ?? before.external);
             if (before !== undefined) writeJson(path.join(artifacts, "before.json"), before);
+            let comparedBeforeWorkspace = before?.workspace;
+            let comparedBeforeHome = before?.home;
+            for (const projection of preparationVerification?.fileComparisons ?? []) {
+              const entries =
+                projection.container === "workspace" ? comparedBeforeWorkspace : comparedBeforeHome;
+              if (
+                entries === undefined ||
+                !entries.some((entry) => entry.path === projection.path && entry.kind === "file")
+              )
+                return yield* fail(
+                  "comparison-projection",
+                  "A preparation comparison names an absent product file.",
+                );
+              const projected = entries.map((entry) =>
+                entry.path === projection.path
+                  ? { ...entry, comparisonSha256: projection.sha256 }
+                  : entry,
+              );
+              if (projection.container === "workspace") comparedBeforeWorkspace = projected;
+              else comparedBeforeHome = projected;
+            }
             scenario.registry?.reset(true);
             const traceEnabled = subject === "candidate" && mode !== "disabled";
             const detailSelection: TraceReceipt["detailSelection"] =
@@ -878,6 +936,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 ? yield* verifyContainerReceiptEvidence(scenario.template, {
                     before: receiptBefore,
                     after: receiptAfter,
+                    preparedIdentities: preparationVerification?.verifiedIdentities,
                   })({
                     fixture,
                     phase,
@@ -1142,8 +1201,8 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 before === undefined
                   ? null
                   : digest(
-                      snapshotDigest(before.workspace) +
-                        snapshotDigest(before.home) +
+                      snapshotDigest(comparedBeforeWorkspace ?? before.workspace) +
+                        snapshotDigest(comparedBeforeHome ?? before.home) +
                         JSON.stringify(normalizeObservation(beforeExternalComparison, roots)),
                     ),
               stdoutDigest: outputDigest(

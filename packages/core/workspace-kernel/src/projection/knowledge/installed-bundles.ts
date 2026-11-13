@@ -52,9 +52,9 @@ export class InstalledKnowledgeUnavailable extends Data.TaggedError(
  * A named bundle that is not installed is a typed refusal, so callers do not
  * have to distinguish "no bundles" from "not that bundle".
  */
-export const selectInstalledKnowledgeBundles = Effect.fn(
-  "Projection.selectInstalledKnowledgeBundles",
-)(function* (options?: { readonly name?: string }) {
+export const selectInstalledKnowledgeBundles = Effect.fnUntraced(function* (options?: {
+  readonly name?: string;
+}) {
   const location = yield* WorkspaceLocation;
   const desiredState = yield* DesiredStateReader;
   const lockfile = yield* LockfileReader;

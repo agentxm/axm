@@ -40,7 +40,7 @@ const relatedColumns: ReadonlyArray<ViewColumn<RelatedRow>> = [
   { header: "Title", value: (row) => row.title },
 ];
 
-export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.related")(function* (
+export const handleKnowledgeConceptRelated = Effect.fnUntraced(function* (
   reference: string,
   maximumDepth = 1,
   includeIndexBacklinks = false,

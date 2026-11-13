@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { describe, expect, it } from "@effect/vitest";
+import { writeFileAtomic } from "@agentxm/host-primitives";
 import { withWork } from "@agentxm/host-primitives/work-observation";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
@@ -8,8 +9,19 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import {
+  captureContainerIdentity,
+  readContainerReceipts,
+  updateContainerReceipts,
+  type ContainerReceipt,
+} from "@agentxm/workspace-kernel/locations";
 import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
+import {
+  recordFilePublication,
+  runWorkspaceTransaction,
+} from "@agentxm/workspace-kernel/settlement";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
+import { WorkspaceTransactionScopeTest } from "@agentxm/workspace-kernel/settlement/testing";
 import {
   computePackageContentHash,
   withWorkspaceObservationReadView,
@@ -249,6 +261,171 @@ const capture = (mode: "summary" | "detail", fault?: "unobserved-read" | "missin
   });
 
 describe("Local work through the exporter and inspector", () => {
+  it.live("accounts exactly for receipt publication with different native identity widths", () =>
+    Effect.gen(function* () {
+      const native = yield* FileSystem.FileSystem;
+      const directory = yield* native.makeTempDirectoryScoped();
+      const runtimeDirectory = join(directory, ".axm");
+      yield* native.makeDirectory(runtimeDirectory);
+      const target = join(runtimeDirectory, "projection-containers.json");
+      const captured = yield* captureContainerIdentity({
+        nativeRoot: directory,
+        target: runtimeDirectory,
+      });
+      const results: Array<{
+        mode: string;
+        inode: string;
+        beforeBytes: number;
+        afterBytes: number;
+        readBytes: number;
+        writeBytes: number;
+        hashBytes: number;
+      }> = [];
+      for (const mode of ["summary", "detail"]) {
+        for (const inode of ["529366", "1312118"]) {
+          // These controlled proof values exercise serialization, not native
+          // identity authority. Native proof validation has separate owner evidence.
+          const identity = { ...captured, entry: { ...captured.entry, inode } };
+          const prior: ContainerReceipt = { unit: "before", kind: "created-directory", identity };
+          const added: ContainerReceipt = { unit: "added", kind: "created-directory", identity };
+          const before =
+            JSON.stringify({ version: 1, entries: [prior], createdDirectories: [] }, null, 2) +
+            "\n";
+          const after =
+            JSON.stringify(
+              { version: 1, entries: [prior, added], createdDirectories: [] },
+              null,
+              2,
+            ) + "\n";
+          const beforeBytes = Buffer.byteLength(before);
+          const afterBytes = Buffer.byteLength(after);
+          yield* native.writeFileString(target, before);
+          const reads: Array<{ target: string; bytes: number }> = [];
+          const writes: Array<{ target: string; bytes: number }> = [];
+          const observed = observedFileSystem(
+            FileSystem.make({
+              ...native,
+              readFile: (file) =>
+                native.readFile(file).pipe(
+                  Effect.tap((bytes) =>
+                    Effect.sync(() => {
+                      reads.push({ target: file, bytes: bytes.byteLength });
+                    }),
+                  ),
+                ),
+              writeFile: (file, bytes, options) =>
+                native.writeFile(file, bytes, options).pipe(
+                  Effect.tap(() =>
+                    Effect.sync(() => {
+                      writes.push({ target: file, bytes: bytes.byteLength });
+                    }),
+                  ),
+                ),
+            }),
+          );
+          const receiver = yield* localTracingCollector();
+          const receiptPath = join(directory, `${mode}-${inode}.json`);
+          yield* withLocalTracing(
+            runWorkspaceTransaction({
+              claimDefaultTargets: false,
+              targets: [target],
+              transition: Effect.gen(function* () {
+                yield* updateContainerReceipts(runtimeDirectory, (entries) => [...entries, added], {
+                  // The enclosing transaction owns this single caller. This
+                  // test does not exercise competing receipt writers.
+                  withLock: (_target, effect) => effect,
+                  createDirectory: () => Effect.die("Receipt directory already exists"),
+                  retire: () => Effect.die("This publication must not retire entries"),
+                  write: (file, content) =>
+                    writeFileAtomic(observed, {
+                      targetPath: file,
+                      content,
+                      onPublished: (publication) =>
+                        recordFilePublication({ path: file, change: "modified" }, publication),
+                      mapError: ({ cause }) => cause,
+                    }).pipe(Effect.asVoid),
+                });
+                expect((yield* readContainerReceipts(runtimeDirectory)).entries).toEqual([
+                  prior,
+                  added,
+                ]);
+              }),
+              validate: () => Effect.void,
+            }).pipe(
+              // Substitute only admission/claims; snapshot and publication use
+              // the real filesystem and transaction implementation.
+              Effect.provide(
+                WorkspaceTransactionScopeTest({
+                  workspaceDir: runtimeDirectory,
+                  settingsPath: join(directory, "axm.json"),
+                  lockPath: join(directory, "axm.lock"),
+                }),
+              ),
+              Effect.provideService(FileSystem.FileSystem, observed),
+              Effect.withSpan("axm.cli.operation"),
+            ),
+            {
+              AXM_TRACE: "1",
+              AXM_TRACE_DETAIL: mode === "detail" ? "io,hash" : "",
+              AXM_TRACE_ENDPOINT: receiver.endpoint,
+              AXM_TRACE_RECEIPT: receiptPath,
+            },
+          );
+          // Snapshot, receipt decode, published-file verification, final decode.
+          expect(reads).toEqual([
+            { target, bytes: beforeBytes },
+            { target, bytes: beforeBytes },
+            { target, bytes: afterBytes },
+            { target, bytes: afterBytes },
+          ]);
+          expect(writes).toHaveLength(1);
+          expect(writes[0]?.target.startsWith(target + ".tmp.")).toBe(true);
+          expect(writes[0]?.bytes).toBe(afterBytes);
+          expect(yield* native.readFileString(target)).toBe(after);
+          const readBytes = reads.reduce((total, entry) => total + entry.bytes, 0);
+          const writeBytes = writes.reduce((total, entry) => total + entry.bytes, 0);
+          // One prior-file hash and two publication hashes (actual and expected).
+          const hashBytes = beforeBytes + afterBytes * 2;
+          const receipt = yield* Schema.decodeUnknownEffect(
+            Schema.fromJsonString(TraceReceiptSchema),
+          )(yield* native.readFileString(receiptPath));
+          const inspected = yield* inspectLocalTrace(
+            receipt,
+            receiverTree(receiver.spans(), receiver.logs()),
+            {
+              expected: {
+                work: [
+                  { kind: "axm.io.read-file", count: 4, executed: 4, ioBytes: readBytes },
+                  { kind: "axm.io.write-file", count: 1, executed: 1, ioBytes: writeBytes },
+                  { kind: "axm.hash.preimage", count: 3, workCount: 3, bytes: hashBytes },
+                ],
+              },
+            },
+          );
+          expect(inspected.evidence.expectations).toBe("verified");
+          results.push({ mode, inode, beforeBytes, afterBytes, readBytes, writeBytes, hashBytes });
+        }
+      }
+      const [summarySix, summarySeven, detailSix, detailSeven] = results;
+      if (
+        summarySix === undefined ||
+        summarySeven === undefined ||
+        detailSix === undefined ||
+        detailSeven === undefined
+      )
+        return yield* Effect.die("Missing paired receipt evidence");
+      expect(detailSix).toEqual({ ...summarySix, mode: "detail" });
+      expect(detailSeven).toEqual({ ...summarySeven, mode: "detail" });
+      expect(summarySeven.beforeBytes - summarySix.beforeBytes).toBe(1);
+      expect(summarySeven.afterBytes - summarySix.afterBytes).toBe(2);
+      expect(summarySeven.readBytes - summarySix.readBytes).toBe(6);
+      expect(summarySeven.writeBytes - summarySix.writeBytes).toBe(2);
+      expect(summarySeven.hashBytes - summarySix.hashBytes).toBe(5);
+      // Exact accounting for this controlled owner does not retrospectively
+      // attribute byte differences inside mixed assembled-operation aggregates.
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
   it.live(
     "retains each cache scan and its own physical stat accounting in summary and detail",
     () =>

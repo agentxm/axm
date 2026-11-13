@@ -10,7 +10,7 @@ import { ExitCode } from "../../../app-error/index.js";
 import { emitResult, type Screen, errorDoc } from "../../../screen/index.js";
 import { type ProcessOutcome, processOutcome } from "../../../cli-runtime/index.js";
 
-const failWithConflict = Effect.fn("Knowledge.concepts.failWithConflict")(function* (output: {
+const failWithConflict = Effect.fnUntraced(function* (output: {
   readonly outcome: "failed";
   readonly reason: "corpus-changing" | "cursor-expired";
 }) {

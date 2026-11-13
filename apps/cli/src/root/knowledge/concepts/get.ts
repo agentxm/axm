@@ -23,7 +23,7 @@ import { knowledgeConceptFailures } from "../knowledge-errors.js";
 import { failKnowledgeCorpusChanging } from "./failures.js";
 import { sanitizeKnowledgeTerminalText } from "./terminal-text.js";
 
-export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(function* (
+export const handleKnowledgeConceptGet = Effect.fnUntraced(function* (
   reference: string,
   options?: { readonly ifRevision?: string; readonly raw?: boolean },
 ) {

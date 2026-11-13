@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Tracer from "effect/Tracer";
 import { afterEach, beforeEach } from "vitest";
 
 import { writeKnowledgeExtension, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
@@ -334,6 +335,13 @@ describe("knowledge JSON output", () => {
 
   it.effect("each human discovery result is complete on stdout and observes its inspection", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext();
+    const constructedSpans: string[] = [];
+    const tracer = Tracer.make({
+      span(options) {
+        constructedSpans.push(options.name);
+        return new Tracer.NativeSpan(options);
+      },
+    });
     const axmDir = path.join(tempDir, ".axm");
     writeKnowledgeExtension(axmDir, "platform");
     fs.writeFileSync(
@@ -376,7 +384,9 @@ describe("knowledge JSON output", () => {
         for (const [command, expected] of cases) {
           const before = rendererState.docs.length;
           const eventsBefore = rendererState.events.length;
-          yield* command;
+          yield* Effect.gen(function* () {
+            yield* command;
+          }).pipe(Effect.withTracer(tracer));
           const stdout = rendererState.docs
             .slice(before)
             .filter((entry) => entry.channel === "stdout")
@@ -386,6 +396,23 @@ describe("knowledge JSON output", () => {
           expect(rendererState.events.slice(eventsBefore).at(0)?._tag).toBe("OperationStarted");
           expect(rendererState.events.at(-1)?._tag).toBe("OperationSettled");
         }
+        // Observe construction before any runtime admission/export filtering.
+        expect(
+          constructedSpans.filter(
+            (name) =>
+              name.startsWith("Knowledge.concepts.") ||
+              name === "Projection.selectInstalledKnowledgeBundles",
+          ),
+        ).toEqual([]);
+        expect(constructedSpans).toEqual(
+          expect.arrayContaining([
+            "axm.cli.operation",
+            "KnowledgeDiscovery.query",
+            "KnowledgeDiscovery.resolve",
+            "KnowledgeDiscovery.get",
+            "KnowledgeDiscovery.related",
+          ]),
+        );
       }),
     );
   });

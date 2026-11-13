@@ -83,6 +83,8 @@ export interface ObservabilityScenario {
     fixture: WorkspaceTemplate,
     invoke: PrepareInvocation,
   ) => Effect.Effect<void, unknown>;
+  /** Audit fresh native receipts created by in-place preparation during preflight only. */
+  readonly verifyPreparedReceipts?: true;
   readonly external?: {
     readonly reset: Effect.Effect<void, unknown>;
     readonly snapshot: () => unknown;
@@ -281,7 +283,7 @@ const observeReceiptIdentity = (identity: ContainerIdentity, fixture: WorkspaceT
 
 export const containerReceiptComparison = {
   scope:
-    "Preflight workspace receipt store: independently matched new/refreshed live identities and exact .axm/tmp cleanup history",
+    "Preflight workspace receipt store: independently matched new/refreshed live identities, exact .axm/tmp cleanup history and exact independently verified preparation identities",
   fields:
     "Only inode and birthtime of live-verified entry/owner/root/parents; separately classified removed .axm/tmp entry retains a distinct historical token",
   retained:
@@ -289,7 +291,18 @@ export const containerReceiptComparison = {
   limitation:
     "Removed scratch entry identity is not post-stat verifiable; only the bounded historical shape, live ancestors, absence and process-bounded creation time are verified.",
   strict:
-    "Inherited proofs, devices, modes, ownership, paths, aliases, receipt order and every other field",
+    "Unverified inherited proofs, devices, modes, ownership, paths, aliases, receipt order and every other field; preparation proof carries only for exact identities present in the operation preimage",
+};
+
+interface VerifiedContainerReceiptIdentity {
+  readonly identity: string;
+  readonly proof: "live" | "historical-runtime-cleanup";
+}
+
+type ContainerReceiptVerification = Effect.Success<
+  ReturnType<NonNullable<ObservabilityScenario["verify"]>>
+> & {
+  readonly verifiedIdentities?: ReadonlyArray<VerifiedContainerReceiptIdentity>;
 };
 
 export const verifyContainerReceiptEvidence =
@@ -298,9 +311,19 @@ export const verifyContainerReceiptEvidence =
     captured: {
       readonly before: Effect.Success<ReturnType<typeof captureContainerReceiptEvidence>>;
       readonly after: Effect.Success<ReturnType<typeof captureContainerReceiptEvidence>>;
+      readonly preparedIdentities?: ReadonlyArray<VerifiedContainerReceiptIdentity> | undefined;
     },
-  ): NonNullable<ObservabilityScenario["verify"]> =>
-  ({ fixture, artifacts, phase, startedAtMillis, endedAtMillis }) =>
+  ) =>
+  ({
+    fixture,
+    artifacts,
+    phase,
+    startedAtMillis,
+    endedAtMillis,
+  }: Parameters<NonNullable<ObservabilityScenario["verify"]>>[0]): Effect.Effect<
+    ContainerReceiptVerification,
+    unknown
+  > =>
     Effect.gen(function* () {
       if (phase === "timing")
         return {
@@ -323,7 +346,11 @@ export const verifyContainerReceiptEvidence =
             Effect.provide(NodeServices.layer),
           )
         : undefined;
-      if (after === undefined || captured.before.sha256 === captured.after.sha256)
+      if (
+        after === undefined ||
+        (captured.before.sha256 === captured.after.sha256 &&
+          (captured.preparedIdentities?.length ?? 0) === 0)
+      )
         return {
           assertions: [
             "Raw receipt presence/absence and present bytes retained; absent or byte-unchanged stores keep strict state comparison without a fresh native-identity audit claim.",
@@ -333,6 +360,9 @@ export const verifyContainerReceiptEvidence =
         ...(before?.entries ?? []).map((entry) => JSON.stringify(entry.identity)),
         ...(before?.createdDirectories ?? []).map((identity) => JSON.stringify(identity)),
       ]);
+      const prepared = new Map<string, VerifiedContainerReceiptIdentity["proof"]>(
+        captured.preparedIdentities?.map((entry) => [entry.identity, entry.proof]),
+      );
       const observations = [
         ...after.entries.map((entry, index) => ({
           location: "entries/" + index,
@@ -343,7 +373,9 @@ export const verifyContainerReceiptEvidence =
           identity,
         })),
       ].map(({ location, identity }) => {
-        const unchanged = inherited.has(JSON.stringify(identity));
+        const serialized = JSON.stringify(identity);
+        const unchanged = inherited.has(serialized);
+        const preparationProof = unchanged ? prepared.get(serialized) : undefined;
         const observed = observeReceiptIdentity(identity, fixture);
         const scratch = path.join(fixture.workspace, ".axm", "tmp");
         // Admission persists exclusive creation proof before its finalizer removes
@@ -394,11 +426,15 @@ export const verifyContainerReceiptEvidence =
           );
         return {
           location,
-          classification: unchanged
-            ? "inherited-unchanged"
-            : historicalScratch
-              ? "historical-runtime-cleanup-not-poststat-verifiable"
-              : "new-or-refreshed",
+          classification:
+            preparationProof !== undefined
+              ? "inherited-setup-verified"
+              : unchanged
+                ? "inherited-unchanged"
+                : historicalScratch
+                  ? "historical-runtime-cleanup-not-poststat-verifiable"
+                  : "new-or-refreshed",
+          preparationProof,
           ...observed,
           valid: unchanged || observed.matchesSample || historicalScratch,
         };
@@ -409,7 +445,7 @@ export const verifyContainerReceiptEvidence =
           JSON.stringify(
             {
               observation:
-                "Node native metadata and aliases in the actual sample. Exact unchanged before identities may retain expired copied proof. A new exact .axm/tmp creation history may be absent after cleanup only with verified live ancestors, absence and birthtime in the process interval; its removed entry identity is explicitly not post-stat verifiable.",
+                "Node native metadata and aliases in the actual sample. Exact unchanged before identities may retain expired copied proof. Inherited setup proof is carried only from independent preparation verification and the exact operation preimage; current native mismatch or absence remains recorded, not claimed post-stat verified. A new exact .axm/tmp creation history may be absent after cleanup only with verified live ancestors, absence and birthtime in the process interval; its removed entry identity is explicitly not post-stat verifiable.",
               processWindow: { startedAtMillis, endedAtMillis },
               observations,
             },
@@ -424,6 +460,7 @@ export const verifyContainerReceiptEvidence =
         );
       let projected: unknown = after;
       let projectedRows = 0;
+      const verifiedIdentities: VerifiedContainerReceiptIdentity[] = [];
       const identities = [
         ...after.entries.map((entry, index) => ({
           location: "entries/" + index,
@@ -444,19 +481,32 @@ export const verifyContainerReceiptEvidence =
           observation?.classification === "new-or-refreshed" &&
           observation.matchesSample &&
           observation.valid;
-        if (!historical && !live) continue;
+        const preparationProof = observation?.preparationProof;
+        if (!historical && !live && preparationProof === undefined) continue;
+        if (historical || live)
+          verifiedIdentities.push({
+            identity: JSON.stringify(identity),
+            proof: historical ? "historical-runtime-cleanup" : "live",
+          });
+        const liveProof =
+          preparationProof === undefined ? "live-verified" : "preparation-live-verified";
         for (const part of [
-          { fields: ["owner", "identity"], value: identity.owner.identity, proof: "live-verified" },
-          { fields: ["root", "identity"], value: identity.root.identity, proof: "live-verified" },
+          { fields: ["owner", "identity"], value: identity.owner.identity, proof: liveProof },
+          { fields: ["root", "identity"], value: identity.root.identity, proof: liveProof },
           ...identity.parents.map((parent, index) => ({
             fields: ["parents", String(index), "identity"],
             value: parent.identity,
-            proof: "live-verified",
+            proof: liveProof,
           })),
           {
             fields: ["entry"],
             value: identity.entry,
-            proof: historical ? "historical-not-poststat-verified" : "live-verified",
+            proof:
+              preparationProof === "historical-runtime-cleanup"
+                ? "preparation-historical-not-poststat-verified"
+                : historical
+                  ? "historical-not-poststat-verified"
+                  : liveProof,
           },
         ])
           for (const field of ["inode", "birthtime"] as const)
@@ -487,8 +537,9 @@ export const verifyContainerReceiptEvidence =
         assertions: [
           "Raw before/after projection-container receipts retained before independent verification.",
           "New or refreshed identities match sample native metadata and aliases, except exact .axm/tmp cleanup history with verified live ancestors, absence and creation time; expired inherited identities are permitted only when unchanged from before.",
-          "Only inode/birthtime of independently matched new/refreshed live identities and exact scratch history are projected, with distinct live-verified and historical-not-poststat-verified tokens; inherited proofs and all other receipt fields remain strict.",
+          "Only inode/birthtime of independently matched new/refreshed live identities, exact scratch history and exact setup-verified identities from the operation preimage are projected, with distinct current/preparation and live/historical tokens; unverified inherited proofs and all other receipt fields remain strict.",
         ],
+        verifiedIdentities,
         fileComparisons:
           projectedRows === 0
             ? []

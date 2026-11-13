@@ -351,6 +351,7 @@ export const prepareTypedObservabilityFixtures = Effect.fnUntraced(function* (op
             : {
                 // Native Hook commands contain absolute package paths. Prepare them in the sample's
                 // actual cwd with the baseline, before the runner snapshots or starts measurement.
+                verifyPreparedReceipts: true,
                 prepare: (fixture: WorkspaceTemplate, prepare: PrepareInvocation) =>
                   Effect.gen(function* () {
                     yield* prepare(fixture, [

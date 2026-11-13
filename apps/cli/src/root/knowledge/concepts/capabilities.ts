@@ -19,30 +19,28 @@ import { scopeConfig } from "../flags.js";
 import { knowledgeCorpusFailures } from "../knowledge-errors.js";
 import { failKnowledgeCorpusChanging } from "./failures.js";
 
-export const handleKnowledgeConceptCapabilities = Effect.fn("Knowledge.concepts.capabilities")(
-  function* () {
-    const result = yield* withLiveOperation(
-      {
-        name: "Inspect knowledge discovery",
-        mode: "query",
-      },
-      reportKnowledgeDiscoveryCapabilities().pipe(
-        Effect.catchTag(
-          "KnowledgeCorpusUnavailable",
-          knowledgeCorpusFailures.KnowledgeCorpusUnavailable,
-        ),
+export const handleKnowledgeConceptCapabilities = Effect.fnUntraced(function* () {
+  const result = yield* withLiveOperation(
+    {
+      name: "Inspect knowledge discovery",
+      mode: "query",
+    },
+    reportKnowledgeDiscoveryCapabilities().pipe(
+      Effect.catchTag(
+        "KnowledgeCorpusUnavailable",
+        knowledgeCorpusFailures.KnowledgeCorpusUnavailable,
       ),
-    );
-    if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
-    const output = result.document;
-    yield* emitResult(output, KnowledgeConceptCapabilitiesOutputSchema, () =>
-      rawDoc(
-        `Knowledge discovery ${output.capabilities.contract}\nBundles  ${String(output.bundleCount)}\nConcepts ${String(output.conceptCount)}\nCorpus   ${output.corpusFingerprint}\n`,
-      ),
-    );
-    return processOutcome(0);
-  },
-);
+    ),
+  );
+  if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
+  const output = result.document;
+  yield* emitResult(output, KnowledgeConceptCapabilitiesOutputSchema, () =>
+    rawDoc(
+      `Knowledge discovery ${output.capabilities.contract}\nBundles  ${String(output.bundleCount)}\nConcepts ${String(output.conceptCount)}\nCorpus   ${output.corpusFingerprint}\n`,
+    ),
+  );
+  return processOutcome(0);
+});
 
 const capabilitiesConfig = { ...scopeConfig } as const;
 

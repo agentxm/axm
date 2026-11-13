@@ -58,7 +58,7 @@ export interface KnowledgeConceptQueryArgs {
   readonly cursor?: string;
 }
 
-export const handleKnowledgeConceptQuery = Effect.fn("Knowledge.concepts.query")(function* (
+export const handleKnowledgeConceptQuery = Effect.fnUntraced(function* (
   scope: WorkspaceScope,
   args: KnowledgeConceptQueryArgs,
 ) {

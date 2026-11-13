@@ -34,7 +34,7 @@ const candidateColumns: ReadonlyArray<ViewColumn<CandidateRow>> = [
   { header: "Match", value: (row) => row.reason },
 ];
 
-export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resolve")(function* (
+export const handleKnowledgeConceptResolve = Effect.fnUntraced(function* (
   input: string,
   fuzzy = false,
 ) {

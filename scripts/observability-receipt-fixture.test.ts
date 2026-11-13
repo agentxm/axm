@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Schema from "effect/Schema";
 import type { ContainerIdentity } from "@agentxm/workspace-kernel/locations";
 import {
   captureContainerReceiptEvidence,
@@ -193,6 +194,126 @@ describe("preflight native receipt comparison", () => {
         fs.readFileSync(path.join(retained, "container-receipts-after/projection-containers.json")),
       ).toEqual(fs.readFileSync(sample.beforePath));
     }).pipe(Effect.scoped),
+  );
+
+  it.effect(
+    "carries only verified setup identities across unchanged receipts and later retirement",
+    () =>
+      Effect.gen(function* () {
+        const root = yield* temporaryRoot;
+        const template = makeTemplate(root);
+        for (const retirement of ["retained-proof", "removed-proof"]) {
+          const inputDigests: Array<string | undefined> = [];
+          const outputDigests: Array<string | undefined> = [];
+          for (const subject of ["baseline", "candidate"]) {
+            const sample = makeSample(root, retirement + "-" + subject, template);
+            const setup = yield* verifySample(template, sample);
+            expect(setup.verifiedIdentities?.length).toBe(2);
+            inputDigests.push(setup.fileComparisons?.[0]?.sha256);
+            const observed = {
+              ...sample.observed,
+              artifacts: path.join(sample.observed.artifacts, "operation"),
+              // Setup history is deliberately outside the measured operation window.
+              startedAtMillis: sample.observed.endedAtMillis + 1000,
+              endedAtMillis: sample.observed.endedAtMillis + 2000,
+            };
+            const before = yield* captureContainerReceiptEvidence({
+              ...observed,
+              stage: "before",
+            });
+            fs.rmdirSync(sample.live.target);
+            if (retirement === "removed-proof")
+              fs.writeFileSync(sample.afterPath, JSON.stringify({ ...sample.after, entries: [] }));
+            const raw = fs.readFileSync(sample.afterPath);
+            const after = yield* captureContainerReceiptEvidence({ ...observed, stage: "after" });
+            const verified = yield* verifyContainerReceiptEvidence(template, {
+              before,
+              after,
+              preparedIdentities: setup.verifiedIdentities,
+            })(observed);
+            outputDigests.push(verified.fileComparisons?.[0]?.sha256);
+            expect(fs.readFileSync(sample.afterPath)).toEqual(raw);
+            const retained = path.join(observed.artifacts, "retained");
+            const projection = fs.readFileSync(
+              path.join(retained, "container-receipts-comparison.json"),
+              "utf8",
+            );
+            expect(projection).toContain(
+              "<receipt-preparation-historical-not-poststat-verified-inode>",
+            );
+            const projected = yield* Schema.decodeUnknownEffect(
+              Schema.fromJsonString(
+                Schema.Struct({
+                  createdDirectories: Schema.Array(Schema.Struct({ entry: Schema.Unknown })),
+                }),
+              ),
+            )(projection);
+            expect(projected.createdDirectories[0]?.entry).toEqual(
+              sample.before.createdDirectories[0]?.entry,
+            );
+            const observations = fs.readFileSync(
+              path.join(retained, "container-receipt-native-observations.json"),
+              "utf8",
+            );
+            expect(observations).toContain('"classification": "inherited-setup-verified"');
+            expect(observations).toContain('"matchesSample": false');
+            if (retirement === "retained-proof") {
+              expect(projection).toContain("<receipt-preparation-live-verified-inode>");
+              expect(observations).toContain('"preparationProof": "live"');
+              expect(before?.sha256).toBe(after?.sha256);
+            }
+          }
+          expect(inputDigests[0]).toBeDefined();
+          expect(inputDigests[0]).toBe(inputDigests[1]);
+          expect(outputDigests[0]).toBeDefined();
+          expect(outputDigests[0]).toBe(outputDigests[1]);
+        }
+      }).pipe(Effect.scoped),
+  );
+
+  it.effect(
+    "rejects setup carry for identities absent from the operation preimage or changed afterward",
+    () =>
+      Effect.gen(function* () {
+        const root = yield* temporaryRoot;
+        const template = makeTemplate(root);
+        for (const change of ["absent-preimage", "changed-identity"]) {
+          const sample = makeSample(root, change, template);
+          const setup = yield* verifySample(template, sample);
+          const observed = {
+            ...sample.observed,
+            artifacts: path.join(sample.observed.artifacts, "operation"),
+            startedAtMillis: sample.observed.endedAtMillis + 1000,
+            endedAtMillis: sample.observed.endedAtMillis + 2000,
+          };
+          if (change === "absent-preimage") fs.copyFileSync(sample.beforePath, sample.afterPath);
+          const before = yield* captureContainerReceiptEvidence({ ...observed, stage: "before" });
+          const changed = {
+            ...sample.after,
+            entries: sample.after.entries.map((entry) => ({
+              ...entry,
+              identity:
+                change === "changed-identity"
+                  ? { ...entry.identity, entry: { ...entry.identity.entry, inode: "0" } }
+                  : entry.identity,
+            })),
+          };
+          fs.writeFileSync(sample.afterPath, JSON.stringify(changed));
+          fs.rmdirSync(sample.live.target);
+          const after = yield* captureContainerReceiptEvidence({ ...observed, stage: "after" });
+          const result = yield* verifyContainerReceiptEvidence(template, {
+            before,
+            after,
+            preparedIdentities: setup.verifiedIdentities,
+          })(observed).pipe(Effect.result);
+          expect(result._tag, change).toBe("Failure");
+          expect(
+            fs.existsSync(
+              path.join(observed.artifacts, "retained/container-receipts-comparison.json"),
+            ),
+          ).toBe(false);
+        }
+      }).pipe(Effect.scoped),
   );
 
   it.effect(

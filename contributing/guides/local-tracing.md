@@ -519,6 +519,16 @@ against its actual path, aliases and metadata. Only the inode and creation-time
 fields of those independently validated live identities may be projected for
 cross-run comparison. Inherited proofs remain strict.
 
+Installed Hook fixtures prepare native commands in the actual sample directory.
+For those fixtures and their previews, preflight also retains and independently
+validates receipts across preparation, before starting the measured command.
+Only exact identities verified in that preparation and still present in the
+command's preimage may carry their projection into the input/after comparison.
+Retained provenance distinguishes a preparation-verified identity from one
+verified after execution; retirement does not become a claim of a later native
+match. Copied or expired template proofs never acquire this exemption. Timing
+performs the required fixture preparation without this additional audit.
+
 The exact `.axm/tmp` creation-history record can remain after its empty directory
 is retired. That separate historical case requires matching live ancestors,
 confirmed absence, the expected directory/alias shape and creation time inside

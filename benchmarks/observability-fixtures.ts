@@ -1184,6 +1184,7 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
                 if (diagnostic.stdoutComparison === undefined)
                   return yield* fixtureFailure("Adoption diagnostic comparison is missing.");
                 return {
+                  ...diagnostic,
                   assertions: [
                     "Preparation independently verified Codex's single shared native symlink and exact acquired-source target before adoption.",
                     "Known enabled-native baseline failure retains moved authored bytes, restores settings/lock, and keeps independently verified original recovery snapshots.",

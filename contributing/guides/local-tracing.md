@@ -477,10 +477,16 @@ records this comparison rule alongside timestamp and fixture-root projections.
 
 Completed memo reuse can occur while the shared result is pending (`coalesced`)
 or after completion (`hit`), depending on scheduling. Cross-run comparison treats
-these as equivalent only for the five declared memo owners when each successful
+these as equivalent for the five declared memo owners when each successful
 occurrence has fully measured requested/reused counts of one and executed count
-of zero. All other dimensions, ownership, bytes and measurement coverage remain
-strict. Archive disk-cache reads and failed, interrupted or incompletely measured
+of zero. The three local observation, Pack and desired-state memo owners also
+qualify when they deliver the same completed failure: expected absence, not found,
+denied, timeout, conflict or an ordinary failure. A waiter may receive that failure
+before or after it enters the phase cache without executing another read. Failure
+outcome and kind remain separate comparison dimensions; failure never compares
+equal to success or to another failure kind. All other dimensions, ownership,
+bytes and measurement coverage remain strict. Archive disk-cache reads, remote
+failures, defects, interruption, unclassified failures and incompletely measured
 reuse do not qualify. Individual traces, receipts and inspections retain the
 original labels and exact payloads; the report declares this comparison projection.
 

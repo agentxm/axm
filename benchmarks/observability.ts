@@ -80,20 +80,33 @@ const writeJson = (file: string, value: unknown) =>
 const fail = (code: string, message: string) =>
   new ObservabilityBenchmarkFailure({ code, message });
 
-const deliveredReuseKinds: ReadonlyArray<string> = [
+const localMemoReuseKinds: ReadonlyArray<string> = [
   "axm.observation.reuse",
   "axm.observation.pack-reuse",
   "axm.resolve.desired-state-reuse",
+];
+const deliveredReuseKinds: ReadonlyArray<string> = [
+  ...localMemoReuseKinds,
   "axm.registry.metadata-reuse",
   "axm.auth.cache",
 ];
+const completedLocalFailureKinds: ReadonlyArray<string> = [
+  "expected-absence",
+  "not-found",
+  "denied",
+  "timeout",
+  "conflict",
+  "failure",
+];
 const deliveredReuseComparison = {
   kinds: deliveredReuseKinds,
+  localFailureMemoKinds: localMemoReuseKinds,
+  completedLocalFailureKinds,
   dimension: "axm.cache.outcome",
   values: ["hit", "coalesced"],
   comparedAs: "delivered-reuse",
   condition:
-    "Successful rows only: positive integer count=requested=reused, executed=0, all three counters fully measured; axm.work.reused, if present, must be true.",
+    "Successful rows, or classified completed failures from the three local memo owners: positive integer count=requested=reused, executed=0, all three counters fully measured; axm.work.reused, if present, must be true. Interrupted, defective, unclassified and remote failures remain strict.",
   preservation:
     "Only the completed-versus-pending reuse label is projected for cross-run comparison. Raw facts, receipts and inspections retain it; all other dimensions, owner grouping, quantities and measurement coverage remain significant.",
 };
@@ -102,7 +115,10 @@ const isDeliveredReuse = (row: TraceWorkSummary): boolean =>
   deliveredReuseKinds.includes(row.kind) &&
   (row.dimensions["axm.cache.outcome"] === "hit" ||
     row.dimensions["axm.cache.outcome"] === "coalesced") &&
-  row.dimensions["axm.outcome"] === "success" &&
+  (row.dimensions["axm.outcome"] === "success" ||
+    (row.dimensions["axm.outcome"] === "failure" &&
+      localMemoReuseKinds.includes(row.kind) &&
+      completedLocalFailureKinds.some((kind) => kind === row.dimensions["axm.failure.kind"]))) &&
   (row.dimensions["axm.work.reused"] === undefined || row.dimensions["axm.work.reused"] === true) &&
   Number.isSafeInteger(row.count) &&
   row.count > 0 &&

@@ -36,7 +36,9 @@ const args = (index: number, publisherBindingId = "publisher"): ValidateExtensio
   name: extensionName(`skill-${index}`),
   exact: { version: exactVersion("1.0.0"), integrity: "sha512-accepted", publisherBindingId },
 });
-const fixture = (mode: "mixed" | "duplicate" | "wrong-identity" = "mixed") => {
+const fixture = (
+  mode: "mixed" | "duplicate" | "wrong-identity" | "missing" | "extra" = "mixed",
+) => {
   const batches: number[] = [];
   const bytes: number[] = [];
   const client = createRemoteRegistryClient(
@@ -53,7 +55,7 @@ const fixture = (mode: "mixed" | "duplicate" | "wrong-identity" = "mixed") => {
         batches.push(input.items.length);
         const observedAt = "2026-11-13T12:00:00.000Z";
         const results = input.items.map((item, index) =>
-          index % 2 === 1
+          mode === "mixed" && index % 2 === 1
             ? {
                 key: item.key,
                 outcome: "unavailable",
@@ -71,6 +73,8 @@ const fixture = (mode: "mixed" | "duplicate" | "wrong-identity" = "mixed") => {
         );
         const first = results[0];
         if (mode === "duplicate" && first !== undefined) results.fill(first);
+        if (mode === "missing") results.pop();
+        if (mode === "extra" && first !== undefined) results.push({ ...first, key: "unsolicited" });
         return HttpClientResponse.fromWeb(
           request,
           Response.json({
@@ -121,13 +125,43 @@ describe("logical exact-content batches", () => {
       expect(results.every(Result.isSuccess)).toBe(true);
     }),
   );
-  for (const mode of ["duplicate", "wrong-identity"] as const) {
+  for (const mode of ["missing", "extra", "duplicate", "wrong-identity"] as const) {
     it.effect(`refuses every item when response evidence has ${mode}`, () =>
       Effect.gen(function* () {
         const { client } = fixture(mode);
         const results = yield* client.validateExtensionAccessBatch([args(0), args(1)]);
         expect(results).toHaveLength(2);
         expect(results.every(Result.isFailure)).toBe(true);
+      }),
+    );
+    it.effect(`refuses byte reads and downstream effects when evidence has ${mode}`, () =>
+      Effect.gen(function* () {
+        const { client, batches } = fixture(mode);
+        let consumed = 0;
+        const results = yield* client.withAccessibleContent([args(0), args(1)], (content) =>
+          Effect.forEach([args(0), args(1)], (item) =>
+            content.read(item).pipe(
+              Effect.tap(() =>
+                Effect.sync(() => {
+                  consumed += 1;
+                }),
+              ),
+              Effect.result,
+            ),
+          ),
+        );
+        expect(results).toEqual([
+          expect.objectContaining({
+            _tag: "Failure",
+            failure: expect.objectContaining({ category: "internal" }),
+          }),
+          expect.objectContaining({
+            _tag: "Failure",
+            failure: expect.objectContaining({ category: "internal" }),
+          }),
+        ]);
+        expect(consumed).toBe(0);
+        expect(batches).toEqual([2]);
       }),
     );
   }

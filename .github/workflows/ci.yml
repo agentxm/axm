@@ -97,6 +97,10 @@ jobs:
           AXM_OBSERVABILITY_REFERENCE_HOST: "1"
         run: |
           set -euo pipefail
+          if [[ "$AXM_OBSERVABILITY_RUN" == measure ]]; then
+            test -z "$AXM_OBSERVABILITY_SCENARIO_FILTER"
+            unset AXM_OBSERVABILITY_SCENARIO_FILTER
+          fi
           export AXM_OBSERVABILITY_BASELINE_MANIFEST="$RUNNER_TEMP/phase-qualification/baseline/manifest.json"
           export AXM_OBSERVABILITY_CANDIDATE_MANIFEST="$RUNNER_TEMP/phase-qualification/candidate/manifest.json"
           export AXM_OBSERVABILITY_OUTPUT="$RUNNER_TEMP/phase-qualification/campaign"

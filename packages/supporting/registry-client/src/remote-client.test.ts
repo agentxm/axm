@@ -918,6 +918,11 @@ describe("validateExtensionAccessBatch", () => {
       outcome: { outcome: "exact-conflict", reason: "integrity-mismatch" },
       allowed: false,
     },
+    {
+      name: "accepted version unavailable",
+      outcome: { outcome: "exact-conflict", reason: "version-unavailable" },
+      allowed: false,
+    },
   ]) {
     it.effect(`uses one current content admission without metadata or HEAD: ${scenario.name}`, () =>
       Effect.gen(function* () {
@@ -959,6 +964,15 @@ describe("validateExtensionAccessBatch", () => {
           },
         ]);
         expect(result[0]?._tag).toBe(scenario.allowed ? "Success" : "Failure");
+        if (
+          scenario.outcome.outcome === "binding-conflict" ||
+          scenario.outcome.outcome === "exact-conflict"
+        ) {
+          expect(result[0]).toMatchObject({
+            _tag: "Failure",
+            failure: { category: "conflict" },
+          });
+        }
         expect(requests).toEqual(["POST /v1/resolutions"]);
       }),
     );

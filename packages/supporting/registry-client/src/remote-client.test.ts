@@ -243,7 +243,8 @@ it.effect("sends one repeat-safe resolution metadata batch", () =>
       methods.push(`${request.method} ${new URL(request.url).pathname}`);
       return new Response(
         JSON.stringify({
-          schemaVersion: 1,
+          schemaVersion: 2,
+          purpose: "select",
           selectionPolicyVersion: "1",
           observedAt: "2026-09-22T00:00:00.000Z",
           results: [
@@ -257,11 +258,11 @@ it.effect("sends one repeat-safe resolution metadata batch", () =>
     const client = createRemoteRegistryClient(BASE_URL, httpClient);
     if (client.getResolutionMetadata === undefined) throw new Error("Batch metadata unavailable");
     const request = Schema.decodeUnknownSync(ResolutionMetadataRequestSchema)({
-      schemaVersion: 1,
+      schemaVersion: 2,
+      purpose: "select",
       selectionPolicyVersion: "1",
       items: ["first", "second"].map((key) => ({
         key,
-        purpose: "select",
         identity: { owner: "@acme", type: "skill", name: "test-skill" },
       })),
     });
@@ -270,7 +271,7 @@ it.effect("sends one repeat-safe resolution metadata batch", () =>
       .getResolutionMetadata(request)
       .pipe(Effect.withTracer(tracer), Effect.withTracerEnabled(true));
 
-    expect(methods).toEqual(["POST /v1/resolutions/metadata"]);
+    expect(methods).toEqual(["POST /v1/resolutions"]);
     expect(results.map((result) => result.outcome)).toEqual(["unavailable", "unavailable"]);
     const requests = spans.filter((span) => span.name === "axm.registry.request");
     const attempts = spans.filter((span) => span.name === "axm.registry.attempt");
@@ -317,7 +318,8 @@ it.effect("restarts a changed metadata history before returning candidates", () 
       if (results === undefined) throw new Error("Unexpected metadata retry");
       return new Response(
         JSON.stringify({
-          schemaVersion: 1,
+          schemaVersion: 2,
+          purpose: "select",
           selectionPolicyVersion: "1",
           observedAt,
           results,
@@ -328,13 +330,13 @@ it.effect("restarts a changed metadata history before returning candidates", () 
     const client = createRemoteRegistryClient(BASE_URL, httpClient);
     if (client.getResolutionMetadata === undefined) throw new Error("Batch metadata unavailable");
     const request = Schema.decodeUnknownSync(ResolutionMetadataRequestSchema)({
-      schemaVersion: 1,
+      schemaVersion: 2,
+      purpose: "select",
       selectionPolicyVersion: "1",
       items: [
         {
           key: "first",
           identity: { owner: "@acme", type: "skill", name: "test-skill" },
-          purpose: "select",
         },
       ],
     });
@@ -883,122 +885,63 @@ describe("ownerExists", () => {
 
 describe("validateExtensionAccess", () => {
   for (const scenario of [
-    {
-      name: "eligible",
-      status: 200,
-      integrity: "sha512-selected",
-      publisher: "hbnd_test",
-      allowed: true,
-    },
-    {
-      name: "missing entitlement",
-      status: 403,
-      integrity: "sha512-selected",
-      publisher: "hbnd_test",
-      allowed: false,
-    },
-    {
-      name: "concealed or purged",
-      status: 404,
-      integrity: "sha512-selected",
-      publisher: "hbnd_test",
-      allowed: false,
-    },
-    {
-      name: "held",
-      status: 451,
-      integrity: "sha512-selected",
-      publisher: "hbnd_test",
-      allowed: false,
-    },
-    {
-      name: "archive changed",
-      status: 200,
-      integrity: "sha512-different",
-      publisher: "hbnd_test",
-      allowed: false,
-    },
-    {
-      name: "integrity unavailable",
-      status: 200,
-      integrity: "",
-      publisher: "hbnd_test",
-      allowed: false,
-    },
+    { name: "allowed", outcome: { outcome: "allowed" }, allowed: true },
+    { name: "unavailable", outcome: { outcome: "unavailable" }, allowed: false },
+    { name: "held", outcome: { outcome: "lifecycle-blocked", reason: "held" }, allowed: false },
+    { name: "temporary failure", outcome: { outcome: "temporarily-unavailable" }, allowed: false },
     {
       name: "publisher changed",
-      status: 200,
-      integrity: "sha512-selected",
-      publisher: "hbnd_other",
+      outcome: { outcome: "binding-conflict", publisherBindingId: "hbnd_other" },
+      allowed: false,
+    },
+    {
+      name: "integrity changed",
+      outcome: { outcome: "exact-conflict", reason: "integrity-mismatch" },
       allowed: false,
     },
   ]) {
-    it.effect(
-      `checks current metadata and content authorization without downloading: ${scenario.name}`,
-      () =>
-        Effect.gen(function* () {
-          const requests: string[] = [];
-          const client = createRemoteRegistryClient(
-            BASE_URL,
-            makeMockHttpClient((request) => {
-              requests.push(`${request.method} ${new URL(request.url).pathname}`);
-              if (request.method === "HEAD")
-                return new Response(null, {
-                  status: scenario.status,
-                  headers: { "x-integrity": scenario.integrity },
-                });
-              expect(request.method).toBe("POST");
-              return new Response(
-                JSON.stringify({
-                  schemaVersion: 1,
-                  selectionPolicyVersion: "1",
+    it.effect(`uses one current content admission without metadata or HEAD: ${scenario.name}`, () =>
+      Effect.gen(function* () {
+        const requests: string[] = [];
+        const client = createRemoteRegistryClient(
+          BASE_URL,
+          makeMockHttpClient((request) => {
+            requests.push(`${request.method} ${new URL(request.url).pathname}`);
+            const outcome = scenario.allowed
+              ? {
+                  key: "exact",
+                  outcome: "allowed",
+                  identity: { owner: "@acme", type: "skill", name: "test-skill" },
+                  publisherBindingId: "hbnd_test",
+                  accepted: { version: "1.0.0", integrity: "sha512-selected" },
+                  yanked: false,
                   observedAt: "2026-09-22T00:00:00.000Z",
-                  results: [
-                    {
-                      key: "exact",
-                      outcome: "metadata",
-                      page: {
-                        publisherBindingId: scenario.publisher,
-                        visibility: "public",
-                        archival: null,
-                        deprecation: null,
-                        revision: "revision",
-                        observedAt: "2026-09-22T00:00:00.000Z",
-                        validUntil: "2026-09-22T00:00:30.000Z",
-                        continuation: null,
-                        versions: [
-                          {
-                            version: "1.0.0",
-                            published: "2026-09-22T00:00:00.000Z",
-                            integrity: "sha512-selected",
-                          },
-                        ],
-                      },
-                    },
-                  ],
-                }),
-                { status: 200 },
-              );
-            }),
-          );
-          const result = yield* client
-            .validateExtensionAccess({
-              ...makeIndexArgs(),
-              exact: {
-                version: exactVersion("1.0.0"),
-                integrity: "sha512-selected",
-                publisherBindingId: "hbnd_test",
-              },
-            })
-            .pipe(Effect.result);
-          expect(result._tag).toBe(scenario.allowed ? "Success" : "Failure");
-          expect(requests).toEqual([
-            "POST /v1/resolutions/metadata",
-            ...(scenario.publisher === "hbnd_test"
-              ? ["HEAD /v1/extensions/%40acme/skills/test-skill/1.0.0/archive"]
-              : []),
-          ]);
-        }),
+                }
+              : { key: "exact", ...scenario.outcome };
+            return new Response(
+              JSON.stringify({
+                schemaVersion: 2,
+                purpose: "authorize-exact",
+                observedAt: "2026-09-22T00:00:00.000Z",
+                results: [outcome],
+              }),
+              { status: 200 },
+            );
+          }),
+        );
+        const result = yield* client
+          .validateExtensionAccess({
+            ...makeIndexArgs(),
+            exact: {
+              version: exactVersion("1.0.0"),
+              integrity: "sha512-selected",
+              publisherBindingId: "hbnd_test",
+            },
+          })
+          .pipe(Effect.result);
+        expect(result._tag).toBe(scenario.allowed ? "Success" : "Failure");
+        expect(requests).toEqual(["POST /v1/resolutions"]);
+      }),
     );
   }
 
@@ -1027,35 +970,21 @@ describe("getExtensionPackage", () => {
       const requestedUrls: Array<string> = [];
       const httpClient = makeMockHttpClient((request) => {
         requestedUrls.push(request.url);
-        if (request.method === "HEAD") {
-          return new Response(null, { status: 200, headers: { "x-integrity": "sha512-selected" } });
-        }
+        expect(request.method).toBe("POST");
         return new Response(
           JSON.stringify({
-            schemaVersion: 1,
-            selectionPolicyVersion: "1",
+            schemaVersion: 2,
+            purpose: "authorize-exact",
             observedAt: "2026-09-22T00:00:00.000Z",
             results: [
               {
                 key: "exact",
-                outcome: "metadata",
-                page: {
-                  publisherBindingId: "hbnd_test",
-                  visibility: "public",
-                  archival: null,
-                  deprecation: null,
-                  revision: "revision",
-                  observedAt: "2026-09-22T00:00:00.000Z",
-                  validUntil: "2026-09-22T00:00:30.000Z",
-                  versions: [
-                    {
-                      version: "2.0.0",
-                      published: "2026-09-22T00:00:00.000Z",
-                      integrity: "sha512-selected",
-                    },
-                  ],
-                  continuation: "next-history-page",
-                },
+                outcome: "allowed",
+                identity: { owner: "@acme", type: "skill", name: "test-skill" },
+                publisherBindingId: "hbnd_test",
+                accepted: { version: "1.0.0", integrity: "sha512-selected" },
+                yanked: false,
+                observedAt: "2026-09-22T00:00:00.000Z",
               },
             ],
           }),
@@ -1093,10 +1022,7 @@ describe("getExtensionPackage", () => {
 
       expect(Array.from(result.archive)).toEqual(Array.from(cachedArchive));
       expect(result.warnings).toEqual(["Previously selected version is deprecated"]);
-      expect(requestedUrls).toEqual([
-        `${BASE_URL}/v1/resolutions/metadata`,
-        `${BASE_URL}/v1/extensions/%40acme/skills/test-skill/1.0.0/archive`,
-      ]);
+      expect(requestedUrls).toEqual([`${BASE_URL}/v1/resolutions`]);
     }),
   );
 
@@ -1106,7 +1032,8 @@ describe("getExtensionPackage", () => {
         () =>
           new Response(
             JSON.stringify({
-              schemaVersion: 1,
+              schemaVersion: 2,
+              purpose: "authorize-exact",
               selectionPolicyVersion: "1",
               observedAt: "2026-09-22T00:00:00.000Z",
               results: [{ key: "exact", outcome: "unavailable" }],

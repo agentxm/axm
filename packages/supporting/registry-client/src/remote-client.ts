@@ -60,6 +60,11 @@ import {
   ResolutionMetadataResponseSchema,
   type ResolutionMetadataRequest,
 } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
+import {
+  ExactContentRequestSchema,
+  ExactContentResponseSchema,
+  exactContentResponseMatchesRequest,
+} from "@agentxm/registry-protocol/unstable/registry/resolutions";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import { extensionLifecycleWarnings } from "./utils.js";
 import { collectBufferedArchive, MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
@@ -645,18 +650,26 @@ export const createRemoteRegistryClient = (
         executeRemoteRequest(
           Effect.gen(function* () {
             const payload = yield* Schema.decodeUnknownEffect(
-              GeneratedRegistryClient.ResolutionsPostMetadataRequestJson,
+              GeneratedRegistryClient.ResolutionsPostResolutionsRequestJson,
             )(pageRequest).pipe(
               Effect.flatMap(
-                Schema.encodeEffect(GeneratedRegistryClient.ResolutionsPostMetadataRequestJson),
+                Schema.encodeEffect(GeneratedRegistryClient.ResolutionsPostResolutionsRequestJson),
               ),
             );
-            const response = yield* client.ResolutionsPostMetadata({
+            const [response, transport] = yield* client.ResolutionsPostResolutions({
               payload,
-              config: undefined,
+              config: { includeResponse: true },
             });
+            if (transport.status !== 200)
+              return yield* new HttpClientError.HttpClientError({
+                reason: new HttpClientError.DecodeError({
+                  request: transport.request,
+                  response: transport,
+                  description: "Resolution evidence requires HTTP 200",
+                }),
+              });
             const encoded = yield* Schema.encodeEffect(
-              GeneratedRegistryClient.ResolutionsPostMetadata200,
+              GeneratedRegistryClient.ResolutionsPostResolutions200,
             )(response);
             return yield* Schema.decodeUnknownEffect(ResolutionMetadataResponseSchema)(encoded);
           }),
@@ -665,7 +678,7 @@ export const createRemoteRegistryClient = (
             purpose: "metadata",
             batchSize: pageRequest.items.length,
             method: "POST",
-            path: "/v1/resolutions/metadata",
+            path: "/v1/resolutions",
             replaySafety: safe,
             mapError: (error, nowMillis) =>
               mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
@@ -890,63 +903,78 @@ export const createRemoteRegistryClient = (
   const validateExtensionAccess = Effect.fnUntraced(function* (
     args: ValidateExtensionAccessArgs,
   ): Effect.fn.Return<void, RegistryClientFailure> {
-    const selected = args.exact;
-    const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${toExtensionTypePlural(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
-    const archiveHttpClient =
-      args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient;
-    {
-      const outcomes = yield* getResolutionMetadata({
-        schemaVersion: 1,
-        selectionPolicyVersion: "1",
-        items: [
-          {
-            key: "exact",
-            identity: { owner: args.owner, type: args.type, name: args.name },
-            purpose: "restore-exact",
-            expectedPublisherBinding: selected.publisherBindingId,
-            accepted: { version: selected.version, integrity: selected.integrity },
-          },
-        ],
-      });
-      const outcome = outcomes[0];
-      if (
-        outcome?.outcome !== "metadata" ||
-        outcome.page.publisherBindingId !== selected.publisherBindingId
-      ) {
-        return yield* new RegistryOperationFailed({
-          category: "conflict",
-          detail:
-            "The exact package no longer has matching Registry publisher and version evidence.",
-        });
-      }
-    }
-    // Public metadata is not archive download authorization. HEAD applies
-    // current content access and lifecycle policy without downloading or
-    // counting another delivery, using the same credentials as GET.
-    yield* executeRemoteRequest(
+    const submitted = yield* Schema.decodeUnknownEffect(ExactContentRequestSchema)({
+      schemaVersion: 2,
+      purpose: "authorize-exact",
+      items: [
+        {
+          key: "exact",
+          identity: { owner: args.owner, type: args.type, name: args.name },
+          expectedPublisherBinding: args.exact.publisherBindingId,
+          accepted: { version: args.exact.version, integrity: args.exact.integrity },
+        },
+      ],
+    }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new RegistryRequestFailed({
+            category: "internal",
+            detail: "Invalid exact-content request.",
+            cause,
+          }),
+      ),
+    );
+    const response = yield* executeRemoteRequest(
       Effect.gen(function* () {
-        const response = yield* HttpClient.filterStatusOk(archiveHttpClient).execute(
-          HttpClientRequest.head(archivePath),
-        );
-        if (response.status !== 200 || response.headers["x-integrity"] !== selected.integrity) {
+        const payload = yield* Schema.encodeEffect(ExactContentRequestSchema)(submitted);
+        const [result, transport] = yield* client.ResolutionsPostResolutions({
+          payload,
+          config: { includeResponse: true },
+        });
+        if (transport.status !== 200)
           return yield* new HttpClientError.HttpClientError({
             reason: new HttpClientError.DecodeError({
-              request: response.request,
-              response,
-              description: "Exact package access requires a 200 response with matching integrity",
+              request: transport.request,
+              response: transport,
+              description: "Resolution evidence requires HTTP 200",
             }),
           });
-        }
+        const encoded = yield* Schema.encodeEffect(
+          GeneratedRegistryClient.ResolutionsPostResolutions200,
+        )(result);
+        return yield* Schema.decodeUnknownEffect(ExactContentResponseSchema)(encoded, {
+          onExcessProperty: "error",
+        });
       }),
       {
-        operation: "validate exact package access",
+        operation: "authorize exact content",
         purpose: "eligibility",
-        method: "HEAD",
-        path: archivePath,
+        batchSize: submitted.items.length,
+        method: "POST",
+        path: "/v1/resolutions",
         replaySafety: safe,
-        mapError: mapArchiveFetchError,
+        mapError: (error, nowMillis) =>
+          mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
       },
     );
+    if (!exactContentResponseMatchesRequest(submitted, response)) {
+      return yield* new RegistryRequestFailed({
+        category: "internal",
+        detail: "Registry exact-content response does not match its request.",
+      });
+    }
+    if (response.results.some((result) => result.outcome === "temporarily-unavailable")) {
+      return yield* new RegistryRequestFailed({
+        category: "unavailable",
+        detail: "Registry exact-content authorization is temporarily unavailable.",
+      });
+    }
+    if (response.results.some((result) => result.outcome !== "allowed")) {
+      return yield* new RegistryOperationFailed({
+        category: "conflict",
+        detail: "The exact package no longer has matching Registry content authorization.",
+      });
+    }
   });
 
   const getExtensionPackage = Effect.fnUntraced(function* (

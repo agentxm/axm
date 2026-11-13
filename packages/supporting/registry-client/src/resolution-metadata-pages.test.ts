@@ -22,18 +22,17 @@ const current = {
   validUntil,
 };
 const request = decodeRequest({
-  schemaVersion: 1,
+  schemaVersion: 2,
+  purpose: "select",
   selectionPolicyVersion: "1",
   items: [
     {
       key: "first",
       identity: { owner: "@acme", type: "skill", name: "first" },
-      purpose: "select",
     },
     {
       key: "second",
       identity: { owner: "@acme", type: "skill", name: "second" },
-      purpose: "select",
     },
   ],
 });
@@ -53,48 +52,25 @@ const page = (
 });
 const response = (results: ReadonlyArray<unknown>): ResolutionMetadataResponse =>
   decodeResponse({
-    schemaVersion: 1,
+    schemaVersion: 2,
+    purpose: "select",
     selectionPolicyVersion: "1",
     observedAt,
     results,
   });
 
 describe("complete batch metadata pages", () => {
-  it.effect("uses one page for an exact restoration check", () =>
-    Effect.gen(function* () {
-      const exact = decodeRequest({
-        schemaVersion: 1,
-        selectionPolicyVersion: "1",
-        items: [
-          {
-            key: "first",
-            identity: { owner: "@acme", type: "skill", name: "first" },
-            purpose: "restore-exact",
-            accepted: { version: "1.0.0", integrity: "sha512-0" },
-          },
-        ],
-      });
-      let requests = 0;
-      const results = yield* collectResolutionMetadataPages(exact, () => {
-        requests += 1;
-        return Effect.succeed(response([page("first", [version(0)], "next")]));
-      });
-      expect(requests).toBe(1);
-      expect(results[0]?.outcome).toBe("metadata");
-    }),
-  );
-
   it.effect("collects a whole history before returning results in caller order", () =>
     Effect.gen(function* () {
       const submitted: string[][] = [];
       const replies = [
         response([
+          { key: "second", outcome: "unavailable" },
           page(
             "first",
             Array.from({ length: 100 }, (_, index) => version(index)),
             "next",
           ),
-          { key: "second", outcome: "unavailable" },
         ]),
         response([page("first", [version(100)], null)]),
       ];

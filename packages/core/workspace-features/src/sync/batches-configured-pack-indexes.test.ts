@@ -29,7 +29,8 @@ it.effect("batches configured Pack indexes despite uneven workspace read complet
         request,
         new Response(
           JSON.stringify({
-            schemaVersion: 1,
+            schemaVersion: 2,
+            purpose: "select",
             selectionPolicyVersion: "1",
             observedAt: "2026-09-22T00:00:00.000Z",
             results: body.items.map((item) => ({ key: item.key, outcome: "unavailable" })),

@@ -33,7 +33,8 @@ describe("Registry planning metadata batches", () => {
             request,
             new Response(
               JSON.stringify({
-                schemaVersion: 1,
+                schemaVersion: 2,
+                purpose: "select",
                 selectionPolicyVersion: "1",
                 observedAt,
                 results: [
@@ -72,7 +73,7 @@ describe("Registry planning metadata batches", () => {
         ),
       );
 
-      expect(paths).toEqual(["/v1/resolutions/metadata"]);
+      expect(paths).toEqual(["/v1/resolutions"]);
       expect(results.map((result) => Option.map(result, (index) => index.name))).toEqual([
         Option.some(extensionName("first")),
         Option.some(extensionName("second")),

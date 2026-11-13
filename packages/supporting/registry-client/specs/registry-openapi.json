@@ -2978,6 +2978,13 @@
                 },
                 "required": false
               },
+              "content-disposition": {
+                "schema": {
+                  "type": "string",
+                  "description": "RFC 6266 attachment disposition naming the file `<name>.zip`, for example `attachment; filename=\"my-skill.zip\"`."
+                },
+                "required": true
+              },
               "content-digest": {
                 "schema": {
                   "type": "string",
@@ -3080,6 +3087,13 @@
                   "description": "The yank category, when the version is yanked."
                 },
                 "required": false
+              },
+              "content-disposition": {
+                "schema": {
+                  "type": "string",
+                  "description": "RFC 6266 attachment disposition naming the file `<name>.zip`, for example `attachment; filename=\"my-skill.zip\"`."
+                },
+                "required": true
               },
               "content-length": {
                 "schema": {
@@ -5202,12 +5216,12 @@
         }
       }
     },
-    "/v1/resolutions/metadata": {
+    "/v1/resolutions": {
       "post": {
         "tags": [
           "Resolutions"
         ],
-        "operationId": "Resolutions.postMetadata",
+        "operationId": "Resolutions.postResolutions",
         "parameters": [],
         "security": [
           {},
@@ -5217,11 +5231,18 @@
         ],
         "responses": {
           "200": {
-            "description": "ResolutionMetadataResponse",
+            "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ResolutionMetadataResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ResolutionMetadataResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExactContentResponse"
+                    }
+                  ]
                 }
               }
             }
@@ -5347,13 +5368,20 @@
             }
           }
         },
-        "description": "Repeat-safe authorized query. Responses are private and must not be stored by shared caches; errors use the resolution metadata protocol envelope.",
-        "summary": "Resolve current extension metadata in a batch",
+        "description": "Repeat-safe authorized query. Responses are private and must not be stored by shared caches; errors use the resolution protocol envelope.",
+        "summary": "Select metadata or authorize exact content in a batch",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResolutionMetadataRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResolutionMetadataRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ExactContentRequest"
+                  }
+                ]
               }
             }
           },
@@ -5951,6 +5979,237 @@
           },
           "required": true
         }
+      }
+    },
+    "/v1/feed": {
+      "get": {
+        "tags": [
+          "Feed"
+        ],
+        "operationId": "Feed.get",
+        "parameters": [
+          {
+            "name": "show",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "following",
+                "yours"
+              ],
+              "description": "`all` (default), `following` (only what you follow), or `yours` (what you did)."
+            },
+            "required": false
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "releases",
+                "deprecations_and_yanks",
+                "library_changes",
+                "new_extensions"
+              ],
+              "description": "`all` (default), `releases`, `deprecations_and_yanks`, `library_changes`, or `new_extensions`."
+            },
+            "required": false
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 512,
+              "description": "Opaque `cursor` from the previous page. A cursor issued for other filters, or one that cannot be read, reads as the first page."
+            },
+            "required": false
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 512,
+              "description": "Opaque `anchor` from the first page, which holds the window still while paging. One that cannot be read starts a fresh window."
+            },
+            "required": false
+          },
+          {
+            "name": "tz",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          },
+          {
+            "name": "ownerText",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "description": "`true` to include owner-written excerpts as `ownerText`, fenced and marked untrusted. Omitted by default."
+            },
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the caller's own Feed: day sections of items and rollups, newest first, over the last 90 days.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedPageResponse"
+                }
+              }
+            },
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                },
+                "required": true
+              },
+              "vary": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Accept, Authorization"
+                  ]
+                },
+                "required": true
+              },
+              "etag": {
+                "schema": {
+                  "type": "string",
+                  "description": "Strong entity tag of the page as returned to this caller, without its `anchor`. Send it as `If-None-Match` to receive `304` while nothing on the page changed."
+                },
+                "required": true
+              }
+            }
+          },
+          "304": {
+            "description": "<No Content>",
+            "headers": {
+              "cache-control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                },
+                "required": true
+              },
+              "vary": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Accept, Authorization"
+                  ]
+                },
+                "required": true
+              },
+              "etag": {
+                "schema": {
+                  "type": "string",
+                  "description": "Strong entity tag of the page as returned to this caller, without its `anchor`. Send it as `If-None-Match` to receive `304` while nothing on the page changed."
+                },
+                "required": true
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestProblemEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized | Token Ended",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundErrorEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal | Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/InternalErrorEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/InternalServerErrorProblemEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceUnavailableErrorEncoded"
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns one page of your own Feed: Activity from what you follow and from people acting on your extensions and libraries, over the last 90 days, newest first, in day sections. An interactive session reads it; a token reads it only when it carries `feed:read`, and otherwise answers `403` `insufficient_scope`. A workload has no Feed (`403` `credential_not_admitted`). While the Feed is not available to your account it answers `404`. A token sees only what it can read: its extension scopes, allowlist and Organization withdrawals narrow the page exactly as they narrow extension reads, so private subjects it does not reach are absent. Libraries read through a token as they read anonymously, so a private library's Activity is shown only to an interactive session. Owner-written text is omitted unless `ownerText=true`; then each item may carry `ownerText`, marked `untrusted_owner_text` and fenced. Page with `cursor` and `at`. Unlike other list operations, a `cursor` or `at` that cannot be read starts from the first page rather than failing, because both are bound to you and your filters.",
+        "summary": "Get your Feed"
       }
     },
     "/v1/health": {
@@ -6910,6 +7169,9 @@
           "details": {
             "$ref": "#/components/schemas/PublishDetails"
           },
+          "reason": {
+            "$ref": "#/components/schemas/RegistryUnauthorizedReason"
+          },
           "type": {
             "type": "string",
             "enum": [
@@ -6934,6 +7196,15 @@
           "type"
         ],
         "additionalProperties": false
+      },
+      "RegistryUnauthorizedReason": {
+        "type": "string",
+        "enum": [
+          "managed_account_suspended",
+          "managed_account_ended",
+          "account_closed"
+        ],
+        "description": "Sent only with status 401: why the presented credential's account can no longer authenticate. Present only when the account's access ended."
       },
       "InvalidRequestErrorEncoded": {
         "type": "object",
@@ -7021,6 +7292,173 @@
         "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
         "format": "date-time"
       },
+      "InternalErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "internal_error",
+              "archive_missing",
+              "archive_read_failed",
+              "publish_internal_error"
+            ]
+          },
+          "details": {
+            "$ref": "#/components/schemas/PublishDetails"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/internal_error"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              500
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Internal"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "ForbiddenErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "forbidden",
+              "insufficient_scope",
+              "resource_restriction",
+              "credential_not_admitted",
+              "browser_session_required",
+              "identity_suspended",
+              "employer_authorization_required",
+              "individual_public_publishing_not_allowed",
+              "personal_account_required",
+              "invitation_binding_mismatch",
+              "plan_admission_required",
+              "staff_credential_required",
+              "different_target_required",
+              "company_identity_managed_by_provider",
+              "impersonation_not_allowed",
+              "publish_quota_exceeded",
+              "publish_insufficient_scope",
+              "publish_resource_restriction",
+              "publish_handle_not_owned",
+              "publish_publish_forbidden",
+              "publish_plan_limit_reached",
+              "visibility_plan_limit_reached"
+            ]
+          },
+          "details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublishDetails"
+              },
+              {
+                "$ref": "#/components/schemas/AuthorizationDenyDetails"
+              }
+            ]
+          },
+          "reason": {
+            "$ref": "#/components/schemas/RegistryForbiddenReason"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "https://registry.agentxm.ai/v1/problems/forbidden"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "enum": [
+              403
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Forbidden"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "RegistryForbiddenReason": {
+        "type": "string",
+        "enum": [
+          "left_organization",
+          "removed_from_organization",
+          "work_access_ended"
+        ],
+        "description": "Sent only with status 403: why the principal's own access to the organization that owns the target ended. Present only when that ending explains the refusal."
+      },
+      "AuthorizationDenyDetails": {
+        "type": "object",
+        "properties": {
+          "requiredScope": {
+            "type": "string",
+            "description": "The scope required to perform the requested operation."
+          },
+          "tokenScopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The scopes present on the token used for the request."
+          },
+          "requiredRole": {
+            "type": "string",
+            "description": "The management role required, if applicable."
+          },
+          "requiredPermission": {
+            "type": "string",
+            "description": "The staff permission required, if applicable."
+          },
+          "admittedCredentials": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The credential kinds the refused operation admits, if applicable."
+          },
+          "settingsUrl": {
+            "type": "string",
+            "description": "Where the person can perform a browser-only operation themselves."
+          }
+        },
+        "additionalProperties": false,
+        "title": "Authorization Deny Details",
+        "description": "Diagnostic details returned when a request is denied due to insufficient authorization."
+      },
       "TokenEndedErrorEncoded": {
         "type": "object",
         "properties": {
@@ -7047,6 +7485,9 @@
           },
           "endedAt": {
             "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/RegistryUnauthorizedReason"
           },
           "type": {
             "type": "string",
@@ -7075,6 +7516,1004 @@
           "type"
         ],
         "additionalProperties": false
+      },
+      "FeedPageResponse": {
+        "type": "object",
+        "properties": {
+          "filters": {
+            "type": "object",
+            "properties": {
+              "show": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "following",
+                  "yours"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "releases",
+                  "deprecations_and_yanks",
+                  "library_changes",
+                  "new_extensions"
+                ]
+              }
+            },
+            "required": [
+              "show",
+              "type"
+            ],
+            "additionalProperties": false,
+            "description": "The filters the page applied."
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedDaySection"
+            }
+          },
+          "entryCount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
+              }
+            ]
+          },
+          "caughtUpBefore": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "On a first page holding new entries, the flat entry index (across sections) where the caught-up line sits."
+          },
+          "newCount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
+              }
+            ]
+          },
+          "moreNew": {
+            "type": "boolean"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Opaque cursor for the next page, null on the last. Pass it back unchanged with the same `show`, `type` and `at`."
+          },
+          "anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Opaque token that holds this window still. Pass it back as `at` while paging so later Activity does not shift the pages; null when it could not be issued."
+          },
+          "empty": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "no_interest",
+                  "nothing_recent",
+                  "no_match"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why an empty first page is empty: nothing followed or owned, nothing in the last 90 days, or nothing matching the filters."
+          }
+        },
+        "required": [
+          "filters",
+          "sections",
+          "entryCount",
+          "caughtUpBefore",
+          "newCount",
+          "moreNew",
+          "hasMore",
+          "cursor",
+          "anchor",
+          "empty"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Page Response",
+        "description": "One page of the caller's own Feed: day sections of items and rollups, newest first, over the last 90 days."
+      },
+      "FeedDaySection": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "The caller's calendar day, `YYYY-MM-DD`, in `tz`."
+          },
+          "label": {
+            "type": "string",
+            "description": "`Today`, `Yesterday`, or a date such as `Wednesday, November 4`."
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FeedItemEntry"
+                },
+                {
+                  "$ref": "#/components/schemas/FeedRollupEntry"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "entries"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Day Section",
+        "description": "The entries of one calendar day, newest first."
+      },
+      "FeedRollupEntry": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rollup"
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "sentence": {
+            "$ref": "#/components/schemas/FeedSentence"
+          },
+          "lead": {
+            "$ref": "#/components/schemas/FeedItem"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedItem"
+            }
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
+              }
+            ]
+          },
+          "actorCount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isNew": {
+            "type": "boolean"
+          },
+          "belowBoundary": {
+            "type": "boolean"
+          },
+          "continues": {
+            "type": "boolean",
+            "description": "More members may follow on the next page."
+          }
+        },
+        "required": [
+          "kind",
+          "key",
+          "sentence",
+          "lead",
+          "members",
+          "count",
+          "actorCount",
+          "reason",
+          "isNew",
+          "belowBoundary",
+          "continues"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Rollup Entry",
+        "description": "A day's run of one kind of Activity, such as several releases of one extension. Its sentence is filled from `lead`; `members` holds every member, newest first."
+      },
+      "FeedReason": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "owns",
+              "follows",
+              "library",
+              "member",
+              "follows_owner",
+              "actor"
+            ],
+            "description": "Why the item is in the Feed: the caller owns the subject, follows it, or the extension is in one of their libraries."
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FeedTextPart"
+                },
+                {
+                  "$ref": "#/components/schemas/FeedReasonRef"
+                }
+              ]
+            }
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "extension"
+                    ]
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/ExtensionId"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "library"
+                    ]
+                  },
+                  "id": {
+                    "$ref": "#/components/schemas/LibraryId"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "library": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedLibrary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "parts",
+          "subject",
+          "library"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Reason",
+        "description": "The one reason line an item or rollup shows."
+      },
+      "FeedLibrary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/LibraryId"
+          },
+          "title": {
+            "type": "string"
+          },
+          "ownerHandle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The owner's handle, without `@`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ownerName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "private": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "ownerHandle",
+          "ownerName",
+          "private"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Library",
+        "description": "The library an item or reason names."
+      },
+      "LibraryId": {
+        "type": "string",
+        "pattern": "^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Library ID",
+        "description": "Identifies an account-owned curated collection of extension identities in the registry.",
+        "examples": [
+          "lib_01h455vb4pexka56gq5w2r7cpc"
+        ]
+      },
+      "ExtensionId": {
+        "type": "string",
+        "pattern": "^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Extension ID",
+        "description": "Identifies a registered extension in the registry. An extension groups all published versions under a single handle, type, and name.",
+        "examples": [
+          "ext_01h455vb4pexka56gq5w2r7cpc"
+        ]
+      },
+      "FeedReasonRef": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ref"
+            ]
+          },
+          "slot": {
+            "type": "string",
+            "enum": [
+              "subject",
+              "library",
+              "organization",
+              "owner"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "slot"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Reason Reference",
+        "description": "A slot filled from the reason's facts: `subject` names the item's extension or library with the id in `subject`, `library` from `library`."
+      },
+      "FeedTextPart": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text"
+            ]
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Text Part",
+        "description": "Literal sentence text, rendered as is."
+      },
+      "FeedItem": {
+        "type": "object",
+        "properties": {
+          "activityId": {
+            "$ref": "#/components/schemas/ActivityId"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ActivityType"
+          },
+          "occurredAt": {
+            "type": "string",
+            "description": "When it happened, as a microsecond UTC instant (`YYYY-MM-DDTHH:MM:SS.ffffffZ`)."
+          },
+          "isNew": {
+            "type": "boolean",
+            "description": "Recorded since the caller last acknowledged the Feed on the web."
+          },
+          "belowBoundary": {
+            "type": "boolean",
+            "description": "A new item that sorts below the caught-up line."
+          },
+          "sentence": {
+            "$ref": "#/components/schemas/FeedSentence"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedPersonActor"
+              },
+              {
+                "$ref": "#/components/schemas/FeedOrganizationActor"
+              },
+              {
+                "$ref": "#/components/schemas/FeedFormerMemberActor"
+              }
+            ]
+          },
+          "onBehalfOf": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "organizationId": {
+                    "$ref": "#/components/schemas/OrgId"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "handle": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "organizationId",
+                  "name",
+                  "handle"
+                ],
+                "additionalProperties": false,
+                "description": "The Organization a person acted for, only when the caller belongs to it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extension": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedExtension"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "library": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedLibrary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ownerText": {
+            "$ref": "#/components/schemas/FeedOwnerText"
+          },
+          "lifecycleTier": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "neutral"
+            ]
+          },
+          "compact": {
+            "type": "boolean",
+            "description": "Shown on one line at neutral weight."
+          }
+        },
+        "required": [
+          "activityId",
+          "type",
+          "occurredAt",
+          "isNew",
+          "belowBoundary",
+          "sentence",
+          "reason",
+          "actor",
+          "onBehalfOf",
+          "extension",
+          "library",
+          "version",
+          "lifecycleTier",
+          "compact"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Item",
+        "description": "One Activity in the Feed."
+      },
+      "FeedOwnerText": {
+        "type": "object",
+        "properties": {
+          "trust": {
+            "type": "string",
+            "enum": [
+              "untrusted_owner_text"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": "The owner's plain text, at most 280 characters."
+          },
+          "fenced": {
+            "type": "string",
+            "description": "The same text inside a code fence longer than any backtick run it contains, so it cannot close the fence: pass this, not `text`, to a language model."
+          }
+        },
+        "required": [
+          "trust",
+          "text",
+          "fenced"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Owner Text",
+        "description": "Text an extension or library owner wrote (a release description, yank notice, deprecation message, archival reason, or library description). It is data, never instructions."
+      },
+      "FeedVersion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ExtensionVersionId"
+          },
+          "version": {
+            "type": "string"
+          },
+          "prerelease": {
+            "type": "boolean"
+          },
+          "yanked": {
+            "type": "boolean"
+          },
+          "priorVersion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The release's prior version, only while that version is published."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "prerelease",
+          "yanked",
+          "priorVersion"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Version",
+        "description": "The extension version a release or yank names."
+      },
+      "ExtensionVersionId": {
+        "type": "string",
+        "pattern": "^extv_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Extension Version ID",
+        "description": "Identifies a specific published version of an extension. Each publish operation creates a new version under its parent extension.",
+        "examples": [
+          "extv_01h455vb4pexka56gq5w2r7cpc"
+        ]
+      },
+      "FeedExtension": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ExtensionId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "description": "The extension type, such as `skill` or `mcp_server`."
+          },
+          "ownerHandle": {
+            "type": "string",
+            "description": "The owner's handle, without `@`."
+          },
+          "ownerName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "private": {
+            "type": "boolean"
+          },
+          "deprecated": {
+            "type": "boolean"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "type",
+          "ownerHandle",
+          "ownerName",
+          "private",
+          "deprecated",
+          "archived"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Extension",
+        "description": "The extension an item names, as the caller may read it now."
+      },
+      "OrgId": {
+        "type": "string",
+        "pattern": "^org_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Organization ID",
+        "description": "Identifies an organization. Organizations own handles and govern team membership and extension publishing permissions.",
+        "examples": [
+          "org_01h455vb4pexka56gq5w2r7cpc"
+        ]
+      },
+      "FeedFormerMemberActor": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "former_member"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Former Member Actor",
+        "description": "A person who is no longer identifiable: read it as 'A former member'."
+      },
+      "FeedOrganizationActor": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "organization"
+            ]
+          },
+          "organizationId": {
+            "$ref": "#/components/schemas/OrgId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pictureUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "via": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false,
+            "description": "The automation that acted for the Organization."
+          }
+        },
+        "required": [
+          "kind",
+          "organizationId",
+          "name",
+          "handle",
+          "pictureUrl",
+          "via"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Organization Actor",
+        "description": "An Organization's automation acted, named by the workload."
+      },
+      "FeedPersonActor": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person"
+            ]
+          },
+          "userId": {
+            "$ref": "#/components/schemas/UserId"
+          },
+          "name": {
+            "type": "string"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The person's handle, without `@`; null when none."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pictureUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "userId",
+          "name",
+          "handle",
+          "pictureUrl"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Person Actor",
+        "description": "A person who acted."
+      },
+      "UserId": {
+        "type": "string",
+        "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "User ID",
+        "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
+        "examples": [
+          "user_01h455vb4pexka56gq5w2r7cpc"
+        ]
+      },
+      "FeedSentence": {
+        "type": "object",
+        "properties": {
+          "parts": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FeedTextPart"
+                },
+                {
+                  "$ref": "#/components/schemas/FeedSentenceRef"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "parts"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Sentence",
+        "description": "A whole sentence as ordered parts. Concatenate the parts, filling each reference from the item's facts."
+      },
+      "FeedSentenceRef": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ref"
+            ]
+          },
+          "slot": {
+            "type": "string",
+            "enum": [
+              "actor",
+              "extension",
+              "library",
+              "version",
+              "organization"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "slot"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Sentence Reference",
+        "description": "A slot filled from the item's facts: `actor` from `actor`, `extension` from `extension`, `library` from `library`, `version` from `version.version`. `organization` is not used yet."
+      },
+      "ActivityType": {
+        "type": "string",
+        "enum": [
+          "extension.version.published",
+          "extension.created",
+          "extension.made_public",
+          "extension.deprecated",
+          "extension.archived",
+          "extension.version.yanked",
+          "library.created",
+          "library.made_public",
+          "library.extension.added",
+          "library.extension.removed",
+          "favorite.added",
+          "organization.created",
+          "user.joined"
+        ],
+        "title": "Activity type",
+        "description": "A recorded Activity's type: lowercase dotted resource segments ending in a past-tense domain verb."
+      },
+      "ActivityId": {
+        "type": "string",
+        "pattern": "^act_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+        "title": "Activity ID",
+        "description": "Identifies a durable activity feed spine row shared by type-specific activity variants.",
+        "examples": [
+          "act_01h455vb4pexka56gq5w2r7cpc"
+        ]
+      },
+      "FeedItemEntry": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "item"
+            ]
+          },
+          "item": {
+            "$ref": "#/components/schemas/FeedItem"
+          }
+        },
+        "required": [
+          "kind",
+          "item"
+        ],
+        "additionalProperties": false,
+        "title": "Feed Item Entry",
+        "description": "A single Activity."
       },
       "UnsupportedMediaTypeErrorEncoded": {
         "type": "object",
@@ -7157,52 +8596,6 @@
             "type": "string",
             "enum": [
               "Payload Too Large"
-            ]
-          }
-        },
-        "required": [
-          "code",
-          "type"
-        ],
-        "additionalProperties": false
-      },
-      "InternalErrorEncoded": {
-        "type": "object",
-        "properties": {
-          "detail": {
-            "type": "string"
-          },
-          "instance": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string",
-            "enum": [
-              "internal_error",
-              "archive_missing",
-              "archive_read_failed",
-              "publish_internal_error"
-            ]
-          },
-          "details": {
-            "$ref": "#/components/schemas/PublishDetails"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "https://registry.agentxm.ai/v1/problems/internal_error"
-            ]
-          },
-          "status": {
-            "type": "number",
-            "enum": [
-              500
-            ]
-          },
-          "title": {
-            "type": "string",
-            "enum": [
-              "Internal"
             ]
           }
         },
@@ -8325,13 +9718,251 @@
         ],
         "additionalProperties": false
       },
+      "ExactContentResponse": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "number",
+            "enum": [
+              2
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "authorize-exact"
+            ]
+          },
+          "observedAt": {
+            "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "allowed"
+                      ]
+                    },
+                    "identity": {
+                      "$ref": "#/components/schemas/ResolutionMetadataIdentity"
+                    },
+                    "publisherBindingId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "accepted": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "$ref": "#/components/schemas/Version"
+                        },
+                        "integrity": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^[^\\uD800-\\uDFFF]*$"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "integrity"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "yanked": {
+                      "type": "boolean"
+                    },
+                    "observedAt": {
+                      "$ref": "#/components/schemas/IsoDateTimeString"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "outcome",
+                    "identity",
+                    "publisherBindingId",
+                    "accepted",
+                    "yanked",
+                    "observedAt"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "unavailable"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "outcome"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "binding-conflict"
+                      ]
+                    },
+                    "publisherBindingId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "outcome",
+                    "publisherBindingId"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "exact-conflict"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "version-unavailable",
+                        "integrity-mismatch"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "outcome",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "lifecycle-blocked"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "held"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "outcome",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "temporarily-unavailable"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "outcome"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "purpose",
+          "observedAt",
+          "results"
+        ],
+        "additionalProperties": false
+      },
+      "ResolutionMetadataCallerKey": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[^\\uD800-\\uDFFF]*$",
+        "maxLength": 128,
+        "description": "Opaque caller correlation key. It grants no identity or authority."
+      },
+      "ResolutionMetadataIdentity": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "$ref": "#/components/schemas/Handle"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ExtensionType"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ExtensionName"
+          }
+        },
+        "required": [
+          "owner",
+          "type",
+          "name"
+        ],
+        "additionalProperties": false
+      },
       "ResolutionMetadataResponse": {
         "type": "object",
         "properties": {
           "schemaVersion": {
             "type": "number",
             "enum": [
-              1
+              2
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "select"
             ]
           },
           "selectionPolicyVersion": {
@@ -8421,16 +10052,6 @@
                     },
                     "validUntil": {
                       "$ref": "#/components/schemas/IsoDateTimeString"
-                    },
-                    "exactVersion": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/components/schemas/Version"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
                     }
                   },
                   "required": [
@@ -8498,33 +10119,6 @@
                     "outcome": {
                       "type": "string",
                       "enum": [
-                        "exact-conflict"
-                      ]
-                    },
-                    "reason": {
-                      "type": "string",
-                      "enum": [
-                        "version-unavailable",
-                        "integrity-mismatch"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "key",
-                    "outcome",
-                    "reason"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "key": {
-                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
-                    },
-                    "outcome": {
-                      "type": "string",
-                      "enum": [
                         "restart-required"
                       ]
                     },
@@ -8546,6 +10140,7 @@
         },
         "required": [
           "schemaVersion",
+          "purpose",
           "selectionPolicyVersion",
           "observedAt",
           "results"
@@ -8555,13 +10150,8 @@
       "ResolutionMetadataRevision": {
         "type": "string",
         "minLength": 1,
+        "pattern": "^[^\\uD800-\\uDFFF]*$",
         "maxLength": 256
-      },
-      "ResolutionMetadataCallerKey": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 128,
-        "description": "Opaque caller correlation key. It grants no identity or authority."
       },
       "ArchivalView": {
         "type": "object",
@@ -8719,6 +10309,7 @@
       "ResolutionMetadataContinuation": {
         "type": "string",
         "minLength": 1,
+        "pattern": "^[^\\uD800-\\uDFFF]*$",
         "maxLength": 2048,
         "description": "Opaque token bound by the server to the request context and revision."
       },
@@ -9005,13 +10596,88 @@
         "title": "Repository",
         "description": "Source repository for this extension. Accepts a URL string (or `host:owner/repo` shorthand) or an object with `type`, `url`, and optional `directory`."
       },
+      "ExactContentRequest": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "number",
+            "enum": [
+              2
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "authorize-exact"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                },
+                "identity": {
+                  "$ref": "#/components/schemas/ResolutionMetadataIdentity"
+                },
+                "expectedPublisherBinding": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\uD800-\\uDFFF]*$"
+                },
+                "accepted": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "$ref": "#/components/schemas/Version"
+                    },
+                    "integrity": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[^\\uD800-\\uDFFF]*$"
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "integrity"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "key",
+                "identity",
+                "expectedPublisherBinding",
+                "accepted"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "purpose",
+          "items"
+        ],
+        "additionalProperties": false
+      },
       "ResolutionMetadataRequest": {
         "type": "object",
         "properties": {
           "schemaVersion": {
             "type": "number",
             "enum": [
-              1
+              2
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "select"
             ]
           },
           "selectionPolicyVersion": {
@@ -9023,160 +10689,65 @@
           "items": {
             "type": "array",
             "items": {
-              "anyOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "key": {
-                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
-                    },
-                    "identity": {
-                      "$ref": "#/components/schemas/ResolutionMetadataIdentity"
-                    },
-                    "expectedPublisherBinding": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "knownRevision": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/components/schemas/ResolutionMetadataRevision"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "continuation": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "token": {
-                              "$ref": "#/components/schemas/ResolutionMetadataContinuation"
-                            },
-                            "revision": {
-                              "$ref": "#/components/schemas/ResolutionMetadataRevision"
-                            }
-                          },
-                          "required": [
-                            "token",
-                            "revision"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "purpose": {
-                      "type": "string",
-                      "enum": [
-                        "select"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "key",
-                    "identity",
-                    "purpose"
-                  ],
-                  "additionalProperties": false
+              "type": "object",
+              "properties": {
+                "key": {
+                  "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
                 },
-                {
-                  "type": "object",
-                  "properties": {
-                    "key": {
-                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
-                    },
-                    "identity": {
-                      "$ref": "#/components/schemas/ResolutionMetadataIdentity"
-                    },
-                    "expectedPublisherBinding": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "knownRevision": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/components/schemas/ResolutionMetadataRevision"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "continuation": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "token": {
-                              "$ref": "#/components/schemas/ResolutionMetadataContinuation"
-                            },
-                            "revision": {
-                              "$ref": "#/components/schemas/ResolutionMetadataRevision"
-                            }
-                          },
-                          "required": [
-                            "token",
-                            "revision"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "purpose": {
+                "identity": {
+                  "$ref": "#/components/schemas/ResolutionMetadataIdentity"
+                },
+                "expectedPublisherBinding": {
+                  "anyOf": [
+                    {
                       "type": "string",
-                      "enum": [
-                        "restore-exact"
-                      ]
+                      "minLength": 1,
+                      "pattern": "^[^\\uD800-\\uDFFF]*$"
                     },
-                    "accepted": {
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "knownRevision": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ResolutionMetadataRevision"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "continuation": {
+                  "anyOf": [
+                    {
                       "type": "object",
                       "properties": {
-                        "version": {
-                          "$ref": "#/components/schemas/Version"
+                        "token": {
+                          "$ref": "#/components/schemas/ResolutionMetadataContinuation"
                         },
-                        "integrity": {
-                          "type": "string",
-                          "minLength": 1
+                        "revision": {
+                          "$ref": "#/components/schemas/ResolutionMetadataRevision"
                         }
                       },
                       "required": [
-                        "version",
-                        "integrity"
+                        "token",
+                        "revision"
                       ],
                       "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
                     }
-                  },
-                  "required": [
-                    "key",
-                    "identity",
-                    "purpose",
-                    "accepted"
-                  ],
-                  "additionalProperties": false
+                  ]
                 }
-              ]
+              },
+              "required": [
+                "key",
+                "identity"
+              ],
+              "additionalProperties": false
             },
             "minItems": 1,
             "maxItems": 100
@@ -9184,28 +10755,9 @@
         },
         "required": [
           "schemaVersion",
+          "purpose",
           "selectionPolicyVersion",
           "items"
-        ],
-        "additionalProperties": false
-      },
-      "ResolutionMetadataIdentity": {
-        "type": "object",
-        "properties": {
-          "owner": {
-            "$ref": "#/components/schemas/Handle"
-          },
-          "type": {
-            "$ref": "#/components/schemas/ExtensionType"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ExtensionName"
-          }
-        },
-        "required": [
-          "owner",
-          "type",
-          "name"
         ],
         "additionalProperties": false
       },
@@ -9305,115 +10857,6 @@
           "type"
         ],
         "additionalProperties": false
-      },
-      "ForbiddenErrorEncoded": {
-        "type": "object",
-        "properties": {
-          "detail": {
-            "type": "string"
-          },
-          "instance": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string",
-            "enum": [
-              "forbidden",
-              "insufficient_scope",
-              "resource_restriction",
-              "credential_not_admitted",
-              "browser_session_required",
-              "identity_suspended",
-              "employer_authorization_required",
-              "individual_public_publishing_not_allowed",
-              "personal_account_required",
-              "invitation_binding_mismatch",
-              "plan_admission_required",
-              "staff_credential_required",
-              "different_target_required",
-              "company_identity_managed_by_provider",
-              "impersonation_not_allowed",
-              "publish_quota_exceeded",
-              "publish_insufficient_scope",
-              "publish_resource_restriction",
-              "publish_handle_not_owned",
-              "publish_publish_forbidden",
-              "publish_plan_limit_reached",
-              "visibility_plan_limit_reached"
-            ]
-          },
-          "details": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PublishDetails"
-              },
-              {
-                "$ref": "#/components/schemas/AuthorizationDenyDetails"
-              }
-            ]
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "https://registry.agentxm.ai/v1/problems/forbidden"
-            ]
-          },
-          "status": {
-            "type": "number",
-            "enum": [
-              403
-            ]
-          },
-          "title": {
-            "type": "string",
-            "enum": [
-              "Forbidden"
-            ]
-          }
-        },
-        "required": [
-          "code",
-          "type"
-        ],
-        "additionalProperties": false
-      },
-      "AuthorizationDenyDetails": {
-        "type": "object",
-        "properties": {
-          "requiredScope": {
-            "type": "string",
-            "description": "The scope required to perform the requested operation."
-          },
-          "tokenScopes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "The scopes present on the token used for the request."
-          },
-          "requiredRole": {
-            "type": "string",
-            "description": "The management role required, if applicable."
-          },
-          "requiredPermission": {
-            "type": "string",
-            "description": "The staff permission required, if applicable."
-          },
-          "admittedCredentials": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "The credential kinds the refused operation admits, if applicable."
-          },
-          "settingsUrl": {
-            "type": "string",
-            "description": "Where the person can perform a browser-only operation themselves."
-          }
-        },
-        "additionalProperties": false,
-        "title": "Authorization Deny Details",
-        "description": "Diagnostic details returned when a request is denied due to insufficient authorization."
       },
       "VersionYankState": {
         "type": "object",
@@ -11287,15 +12730,6 @@
         "title": "Authenticated User",
         "description": "Your profile information."
       },
-      "UserId": {
-        "type": "string",
-        "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-        "title": "User ID",
-        "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
-        "examples": [
-          "user_01h455vb4pexka56gq5w2r7cpc"
-        ]
-      },
       "TokenOAuthErrorEncoded": {
         "type": "object",
         "properties": {
@@ -11534,6 +12968,9 @@
     },
     {
       "name": "Discovery"
+    },
+    {
+      "name": "Feed"
     },
     {
       "name": "Health"

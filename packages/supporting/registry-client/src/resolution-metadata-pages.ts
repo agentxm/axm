@@ -40,8 +40,9 @@ export const collectResolutionMetadataPages = Effect.fnUntraced(function* (
     }
 
     const next = new Map<string, PendingPage>();
-    for (const [index, outcome] of response.results.entries()) {
-      const item = submitted.items[index];
+    const submittedByKey = new Map(submitted.items.map((item) => [item.key, item]));
+    for (const outcome of response.results) {
+      const item = submittedByKey.get(outcome.key);
       if (item === undefined) {
         return yield* Effect.fail(incompatible("Registry batch response has an extra result."));
       }
@@ -71,10 +72,6 @@ export const collectResolutionMetadataPages = Effect.fnUntraced(function* (
       }
       const first = previous?.first ?? outcome;
       const versions = [...(previous?.versions ?? []), ...outcome.page.versions];
-      if (item.purpose === "restore-exact") {
-        completed.set(item.key, outcome);
-        continue;
-      }
       const token = outcome.page.continuation;
       if (token === null) {
         completed.set(item.key, {
@@ -110,28 +107,14 @@ export const collectResolutionMetadataPages = Effect.fnUntraced(function* (
 
     submitted = {
       ...request,
-      items: [...next.values()].map(({ item, first, nextToken }) =>
-        item.purpose === "restore-exact"
-          ? {
-              key: item.key,
-              identity: item.identity,
-              purpose: item.purpose,
-              accepted: item.accepted,
-              ...(item.expectedPublisherBinding === undefined
-                ? {}
-                : { expectedPublisherBinding: item.expectedPublisherBinding }),
-              continuation: { token: nextToken, revision: first.page.revision },
-            }
-          : {
-              key: item.key,
-              identity: item.identity,
-              purpose: item.purpose,
-              ...(item.expectedPublisherBinding === undefined
-                ? {}
-                : { expectedPublisherBinding: item.expectedPublisherBinding }),
-              continuation: { token: nextToken, revision: first.page.revision },
-            },
-      ),
+      items: [...next.values()].map(({ item, first, nextToken }) => ({
+        key: item.key,
+        identity: item.identity,
+        ...(item.expectedPublisherBinding === undefined
+          ? {}
+          : { expectedPublisherBinding: item.expectedPublisherBinding }),
+        continuation: { token: nextToken, revision: first.page.revision },
+      })),
     };
     pending = next;
   }

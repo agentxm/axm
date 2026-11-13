@@ -72,43 +72,24 @@ describe("Registry eligibility at exposure", () => {
         const http = HttpClient.make((request) =>
           Effect.sync(() => {
             requests.push(request.method);
-            const response =
-              request.method === "HEAD"
-                ? new Response(null, {
-                    status: denied ? 403 : 200,
-                    headers: { "x-integrity": `sha512-${"A".repeat(86)}==` },
-                  })
-                : new Response(
-                    JSON.stringify({
-                      schemaVersion: 1,
-                      selectionPolicyVersion: "1",
+            const response = Response.json({
+              schemaVersion: 2,
+              purpose: "authorize-exact",
+              observedAt: "2026-09-22T00:00:00.000Z",
+              results: [
+                denied
+                  ? { key: "exact", outcome: "unavailable" }
+                  : {
+                      key: "exact",
+                      outcome: "allowed",
+                      identity: { owner: "@acme", type: "skill", name: "review" },
+                      publisherBindingId: "publisher-1",
+                      accepted: { version: "1.0.0", integrity: `sha512-${"A".repeat(86)}==` },
+                      yanked: false,
                       observedAt: "2026-09-22T00:00:00.000Z",
-                      results: [
-                        {
-                          key: "exact",
-                          outcome: "metadata",
-                          page: {
-                            publisherBindingId: "publisher-1",
-                            visibility: "public",
-                            archival: null,
-                            deprecation: null,
-                            revision: "revision",
-                            observedAt: "2026-09-22T00:00:00.000Z",
-                            validUntil: "2026-09-22T00:00:30.000Z",
-                            continuation: null,
-                            versions: [
-                              {
-                                version: "1.0.0",
-                                published: "2026-09-22T00:00:00.000Z",
-                                integrity: `sha512-${"A".repeat(86)}==`,
-                              },
-                            ],
-                          },
-                        },
-                      ],
-                    }),
-                    { status: 200 },
-                  );
+                    },
+              ],
+            });
             return HttpClientResponse.fromWeb(request, response);
           }),
         );
@@ -209,9 +190,7 @@ describe("Registry eligibility at exposure", () => {
         expect(result.units.map((unit) => unit.state)).toEqual(
           denied ? ["failed", "failed", "committed"] : ["committed", "committed", "committed"],
         );
-        expect(requests).toEqual(
-          scenario === "no-registry-exposure" ? [] : ["POST", "HEAD", "POST", "HEAD"],
-        );
+        expect(requests).toEqual(scenario === "no-registry-exposure" ? [] : ["POST", "POST"]);
       }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
     );
   }

@@ -7239,6 +7239,18 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 #### Constraints
 
+##### Exact content admission binds each allowance to the submitted content
+
+- Requirement: `registry/exact-content-preserves-authority`
+- Owner: `registry-protocol`
+- Statement: AXM shall accept an exact-content admission response only when every submitted caller key has exactly one outcome and every allowance echoes the submitted extension identity, publisher binding, version, and integrity, without treating selection evidence or a validity interval as content authorization.
+- Class: constraint
+- Role: interface
+- Product goals: `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Source: [`packages/core/registry-protocol/src/unstable/registry/exact-content-preserves-authority.spec.ts`](../packages/core/registry-protocol/src/unstable/registry/exact-content-preserves-authority.spec.ts)
+
 ##### Publication-set digests follow versioned conformance vectors
 
 - Requirement: `registry/publication-set-digests-follow-versioned-vectors`
@@ -7267,7 +7279,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `registry/resolution-metadata-preserves-batch-evidence`
 - Owner: `registry-protocol`
-- Statement: A Registry batch metadata exchange shall use one unique caller key per bounded request item and one ordered outcome per key, shall distinguish complete metadata from a page requiring continuation, and shall reject a continued page whose revision differs from the request so AXM cannot select from incomplete or mixed evidence.
+- Statement: A Registry batch metadata exchange shall use one unique caller key per bounded request item and exactly one outcome per key regardless of response order, shall distinguish complete metadata from a page requiring continuation, and shall reject a continued page whose revision differs from the request so AXM cannot select from incomplete or mixed evidence.
 - Class: constraint
 - Role: interface
 - Product goals: `trustworthy-distribution`, `dependable-change-process`

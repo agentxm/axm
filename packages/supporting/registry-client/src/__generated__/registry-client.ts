@@ -286,6 +286,17 @@ export const TrustedPublisherId = Schema.String.annotate({
     identifier: "TrustedPublisherId",
   }),
 );
+export type RegistryUnauthorizedReason =
+  "managed_account_suspended" | "managed_account_ended" | "account_closed";
+export const RegistryUnauthorizedReason = Schema.Literals([
+  "managed_account_suspended",
+  "managed_account_ended",
+  "account_closed",
+]).annotate({
+  description:
+    "Sent only with status 401: why the presented credential's account can no longer authenticate. Present only when the account's access ended.",
+  identifier: "RegistryUnauthorizedReason",
+});
 export type TokenId = string;
 export const TokenId = Schema.String.annotate({
   title: "Token ID",
@@ -338,6 +349,17 @@ export const AuthorizationDenyDetails = Schema.Struct({
   description:
     "Diagnostic details returned when a request is denied due to insufficient authorization.",
   identifier: "AuthorizationDenyDetails",
+});
+export type RegistryForbiddenReason =
+  "left_organization" | "removed_from_organization" | "work_access_ended";
+export const RegistryForbiddenReason = Schema.Literals([
+  "left_organization",
+  "removed_from_organization",
+  "work_access_ended",
+]).annotate({
+  description:
+    "Sent only with status 403: why the principal's own access to the organization that owns the target ended. Present only when that ending explains the refusal.",
+  identifier: "RegistryForbiddenReason",
 });
 export type CreateTokenPermissionsRequest = {
   readonly owners?: ReadonlyArray<string> | null;
@@ -835,28 +857,38 @@ export const ResolutionMetadataCallerKey = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isMaxCodePoints(128).annotate({
-      expected: "a string with at most 128 code points",
+    Schema.isMaxCodePoints(128).annotate({ expected: "a string with at most 128 code points" }),
+  )
+  .check(
+    Schema.isPattern(new globalThis.RegExp("^[^\\uD800-\\uDFFF]*$", "u")).annotate({
+      expected: "a string matching the RegExp ^[^\\uD800-\\uDFFF]*$",
       identifier: "ResolutionMetadataCallerKey",
     }),
   );
 export type ResolutionMetadataRevision = string;
 export const ResolutionMetadataRevision = Schema.String.check(
   Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-).check(
-  Schema.isMaxCodePoints(256).annotate({
-    expected: "a string with at most 256 code points",
-    identifier: "ResolutionMetadataRevision",
-  }),
-);
+)
+  .check(
+    Schema.isMaxCodePoints(256).annotate({ expected: "a string with at most 256 code points" }),
+  )
+  .check(
+    Schema.isPattern(new globalThis.RegExp("^[^\\uD800-\\uDFFF]*$", "u")).annotate({
+      expected: "a string matching the RegExp ^[^\\uD800-\\uDFFF]*$",
+      identifier: "ResolutionMetadataRevision",
+    }),
+  );
 export type ResolutionMetadataContinuation = string;
 export const ResolutionMetadataContinuation = Schema.String.annotate({
   description: "Opaque token bound by the server to the request context and revision.",
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isMaxCodePoints(2048).annotate({
-      expected: "a string with at most 2048 code points",
+    Schema.isMaxCodePoints(2048).annotate({ expected: "a string with at most 2048 code points" }),
+  )
+  .check(
+    Schema.isPattern(new globalThis.RegExp("^[^\\uD800-\\uDFFF]*$", "u")).annotate({
+      expected: "a string matching the RegExp ^[^\\uD800-\\uDFFF]*$",
       identifier: "ResolutionMetadataContinuation",
     }),
   );
@@ -990,6 +1022,161 @@ export const PublishPreviewBatchTooLargeHttpErrorEncoded = Schema.Struct({
   status: Schema.optionalKey(Schema.Literal(413)),
   title: Schema.optionalKey(Schema.Literal("Publish Preview Batch Too Large Http")),
 }).annotate({ identifier: "PublishPreviewBatchTooLargeHttpErrorEncoded" });
+export type ActivityId = string;
+export const ActivityId = Schema.String.annotate({
+  title: "Activity ID",
+  description:
+    "Identifies a durable activity feed spine row shared by type-specific activity variants.",
+  examples: ["act_01h455vb4pexka56gq5w2r7cpc"],
+}).check(
+  Schema.isPattern(new globalThis.RegExp("^act_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
+    expected: "a string matching the RegExp ^act_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+    identifier: "ActivityId",
+  }),
+);
+export type ActivityType =
+  | "extension.version.published"
+  | "extension.created"
+  | "extension.made_public"
+  | "extension.deprecated"
+  | "extension.archived"
+  | "extension.version.yanked"
+  | "library.created"
+  | "library.made_public"
+  | "library.extension.added"
+  | "library.extension.removed"
+  | "favorite.added"
+  | "organization.created"
+  | "user.joined";
+export const ActivityType = Schema.Literals([
+  "extension.version.published",
+  "extension.created",
+  "extension.made_public",
+  "extension.deprecated",
+  "extension.archived",
+  "extension.version.yanked",
+  "library.created",
+  "library.made_public",
+  "library.extension.added",
+  "library.extension.removed",
+  "favorite.added",
+  "organization.created",
+  "user.joined",
+]).annotate({
+  title: "Activity type",
+  description:
+    "A recorded Activity's type: lowercase dotted resource segments ending in a past-tense domain verb.",
+  identifier: "ActivityType",
+});
+export type FeedTextPart = { readonly kind: "text"; readonly text: string };
+export const FeedTextPart = Schema.Struct({
+  kind: Schema.Literal("text"),
+  text: Schema.String,
+}).annotate({
+  title: "Feed Text Part",
+  description: "Literal sentence text, rendered as is.",
+  identifier: "FeedTextPart",
+});
+export type FeedSentenceRef = {
+  readonly kind: "ref";
+  readonly slot: "actor" | "extension" | "library" | "version" | "organization";
+};
+export const FeedSentenceRef = Schema.Struct({
+  kind: Schema.Literal("ref"),
+  slot: Schema.Literals(["actor", "extension", "library", "version", "organization"]),
+}).annotate({
+  title: "Feed Sentence Reference",
+  description:
+    "A slot filled from the item's facts: `actor` from `actor`, `extension` from `extension`, `library` from `library`, `version` from `version.version`. `organization` is not used yet.",
+  identifier: "FeedSentenceRef",
+});
+export type FeedReasonRef = {
+  readonly kind: "ref";
+  readonly slot: "subject" | "library" | "organization" | "owner";
+};
+export const FeedReasonRef = Schema.Struct({
+  kind: Schema.Literal("ref"),
+  slot: Schema.Literals(["subject", "library", "organization", "owner"]),
+}).annotate({
+  title: "Feed Reason Reference",
+  description:
+    "A slot filled from the reason's facts: `subject` names the item's extension or library with the id in `subject`, `library` from `library`.",
+  identifier: "FeedReasonRef",
+});
+export type ExtensionId = string;
+export const ExtensionId = Schema.String.annotate({
+  title: "Extension ID",
+  description:
+    "Identifies a registered extension in the registry. An extension groups all published versions under a single handle, type, and name.",
+  examples: ["ext_01h455vb4pexka56gq5w2r7cpc"],
+}).check(
+  Schema.isPattern(new globalThis.RegExp("^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
+    expected: "a string matching the RegExp ^ext_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+    identifier: "ExtensionId",
+  }),
+);
+export type LibraryId = string;
+export const LibraryId = Schema.String.annotate({
+  title: "Library ID",
+  description:
+    "Identifies an account-owned curated collection of extension identities in the registry.",
+  examples: ["lib_01h455vb4pexka56gq5w2r7cpc"],
+}).check(
+  Schema.isPattern(new globalThis.RegExp("^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
+    expected: "a string matching the RegExp ^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+    identifier: "LibraryId",
+  }),
+);
+export type OrgId = string;
+export const OrgId = Schema.String.annotate({
+  title: "Organization ID",
+  description:
+    "Identifies an organization. Organizations own handles and govern team membership and extension publishing permissions.",
+  examples: ["org_01h455vb4pexka56gq5w2r7cpc"],
+}).check(
+  Schema.isPattern(new globalThis.RegExp("^org_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
+    expected: "a string matching the RegExp ^org_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+    identifier: "OrgId",
+  }),
+);
+export type FeedFormerMemberActor = { readonly kind: "former_member" };
+export const FeedFormerMemberActor = Schema.Struct({
+  kind: Schema.Literal("former_member"),
+}).annotate({
+  title: "Feed Former Member Actor",
+  description: "A person who is no longer identifiable: read it as 'A former member'.",
+  identifier: "FeedFormerMemberActor",
+});
+export type ExtensionVersionId = string;
+export const ExtensionVersionId = Schema.String.annotate({
+  title: "Extension Version ID",
+  description:
+    "Identifies a specific published version of an extension. Each publish operation creates a new version under its parent extension.",
+  examples: ["extv_01h455vb4pexka56gq5w2r7cpc"],
+}).check(
+  Schema.isPattern(new globalThis.RegExp("^extv_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
+    expected: "a string matching the RegExp ^extv_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+    identifier: "ExtensionVersionId",
+  }),
+);
+export type FeedOwnerText = {
+  readonly trust: "untrusted_owner_text";
+  readonly text: string;
+  readonly fenced: string;
+};
+export const FeedOwnerText = Schema.Struct({
+  trust: Schema.Literal("untrusted_owner_text"),
+  text: Schema.String.annotate({ description: "The owner's plain text, at most 280 characters." }),
+  fenced: Schema.String.annotate({
+    description:
+      "The same text inside a code fence longer than any backtick run it contains, so it cannot close the fence: pass this, not `text`, to a language model.",
+  }),
+}).annotate({
+  title: "Feed Owner Text",
+  description:
+    "Text an extension or library owner wrote (a release description, yank notice, deprecation message, archival reason, or library description). It is data, never instructions.",
+  identifier: "FeedOwnerText",
+});
 export type SecretScanningLabel = {
   readonly token_hash: string;
   readonly token_type: string;
@@ -1091,24 +1278,6 @@ export const ServiceUnavailableErrorEncoded = Schema.Struct({
   status: Schema.optionalKey(Schema.Literal(503)),
   title: Schema.optionalKey(Schema.Literal("Service Unavailable")),
 }).annotate({ identifier: "ServiceUnavailableErrorEncoded" });
-export type UnauthorizedErrorEncoded = {
-  readonly detail?: string;
-  readonly instance?: string;
-  readonly code: "unauthorized";
-  readonly details?: PublishDetails;
-  readonly type: "https://registry.agentxm.ai/v1/problems/unauthorized";
-  readonly status?: 401;
-  readonly title?: "Unauthorized";
-};
-export const UnauthorizedErrorEncoded = Schema.Struct({
-  detail: Schema.optionalKey(Schema.String),
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.Literal("unauthorized"),
-  details: Schema.optionalKey(PublishDetails),
-  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/unauthorized"),
-  status: Schema.optionalKey(Schema.Literal(401)),
-  title: Schema.optionalKey(Schema.Literal("Unauthorized")),
-}).annotate({ identifier: "UnauthorizedErrorEncoded" });
 export type NotFoundErrorEncoded = {
   readonly detail?: string;
   readonly instance?: string;
@@ -1343,32 +1512,6 @@ export const TokenResponse = Schema.Struct({
     "OAuth 2.0 token response: a session's access and refresh token pair, or a workload token exchanged for a CI identity token. Keys are protocol-defined snake_case (RFC 6749, RFC 8693) and exempt from the Registry's camelCase rule; `expires_at` is a Registry extension member kept in the message's casing.",
   identifier: "TokenResponse",
 });
-export type TokenEndedErrorEncoded = {
-  readonly detail?: string;
-  readonly instance?: string;
-  readonly code: "token_expired" | "token_revoked";
-  readonly tokenId: string;
-  readonly tokenPrefix: string;
-  readonly endedAt: IsoDateTimeString;
-  readonly type: "https://registry.agentxm.ai/v1/problems/token_ended";
-  readonly status?: 401;
-  readonly title?: "Token Ended";
-};
-export const TokenEndedErrorEncoded = Schema.Struct({
-  detail: Schema.optionalKey(Schema.String),
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.Literals(["token_expired", "token_revoked"]),
-  tokenId: Schema.String.annotate({
-    description: "The presented token's ID, as its holder's settings show it.",
-  }),
-  tokenPrefix: Schema.String.annotate({
-    description: "The token's type prefix and first body characters; never the secret.",
-  }),
-  endedAt: IsoDateTimeString,
-  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/token_ended"),
-  status: Schema.optionalKey(Schema.Literal(401)),
-  title: Schema.optionalKey(Schema.Literal("Token Ended")),
-}).annotate({ identifier: "TokenEndedErrorEncoded" });
 export type ExtensionNameHeldErrorEncoded = {
   readonly detail?: string;
   readonly instance?: string;
@@ -1452,6 +1595,27 @@ export const AuthMeUser = Schema.Struct({
   description: "Your profile information.",
   identifier: "AuthMeUser",
 });
+export type FeedPersonActor = {
+  readonly kind: "person";
+  readonly userId: UserId;
+  readonly name: string;
+  readonly handle: string | null;
+  readonly pictureUrl: string | null;
+};
+export const FeedPersonActor = Schema.Struct({
+  kind: Schema.Literal("person"),
+  userId: UserId,
+  name: Schema.String,
+  handle: Schema.Union([
+    Schema.String.annotate({ description: "The person's handle, without `@`; null when none." }),
+    Schema.Null,
+  ]),
+  pictureUrl: Schema.Union([Schema.String, Schema.Null]),
+}).annotate({
+  title: "Feed Person Actor",
+  description: "A person who acted.",
+  identifier: "FeedPersonActor",
+});
 export type AuthMeTrustedPublisher = { readonly id: TrustedPublisherId; readonly name: string };
 export const AuthMeTrustedPublisher = Schema.Struct({
   id: TrustedPublisherId,
@@ -1461,6 +1625,54 @@ export const AuthMeTrustedPublisher = Schema.Struct({
   description: "The trusted publisher a workload token was exchanged through.",
   identifier: "AuthMeTrustedPublisher",
 });
+export type UnauthorizedErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code: "unauthorized";
+  readonly details?: PublishDetails;
+  readonly reason?: RegistryUnauthorizedReason;
+  readonly type: "https://registry.agentxm.ai/v1/problems/unauthorized";
+  readonly status?: 401;
+  readonly title?: "Unauthorized";
+};
+export const UnauthorizedErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literal("unauthorized"),
+  details: Schema.optionalKey(PublishDetails),
+  reason: Schema.optionalKey(RegistryUnauthorizedReason),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/unauthorized"),
+  status: Schema.optionalKey(Schema.Literal(401)),
+  title: Schema.optionalKey(Schema.Literal("Unauthorized")),
+}).annotate({ identifier: "UnauthorizedErrorEncoded" });
+export type TokenEndedErrorEncoded = {
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code: "token_expired" | "token_revoked";
+  readonly tokenId: string;
+  readonly tokenPrefix: string;
+  readonly endedAt: IsoDateTimeString;
+  readonly reason?: RegistryUnauthorizedReason;
+  readonly type: "https://registry.agentxm.ai/v1/problems/token_ended";
+  readonly status?: 401;
+  readonly title?: "Token Ended";
+};
+export const TokenEndedErrorEncoded = Schema.Struct({
+  detail: Schema.optionalKey(Schema.String),
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literals(["token_expired", "token_revoked"]),
+  tokenId: Schema.String.annotate({
+    description: "The presented token's ID, as its holder's settings show it.",
+  }),
+  tokenPrefix: Schema.String.annotate({
+    description: "The token's type prefix and first body characters; never the secret.",
+  }),
+  endedAt: IsoDateTimeString,
+  reason: Schema.optionalKey(RegistryUnauthorizedReason),
+  type: Schema.Literal("https://registry.agentxm.ai/v1/problems/token_ended"),
+  status: Schema.optionalKey(Schema.Literal(401)),
+  title: Schema.optionalKey(Schema.Literal("Token Ended")),
+}).annotate({ identifier: "TokenEndedErrorEncoded" });
 export type TokenListItem = {
   readonly id: TokenId;
   readonly name: string | null;
@@ -1539,6 +1751,7 @@ export type ForbiddenErrorEncoded = {
     | "publish_plan_limit_reached"
     | "visibility_plan_limit_reached";
   readonly details?: PublishDetails | AuthorizationDenyDetails;
+  readonly reason?: RegistryForbiddenReason;
   readonly type: "https://registry.agentxm.ai/v1/problems/forbidden";
   readonly status?: 403;
   readonly title?: "Forbidden";
@@ -1571,6 +1784,7 @@ export const ForbiddenErrorEncoded = Schema.Struct({
     "visibility_plan_limit_reached",
   ]),
   details: Schema.optionalKey(Schema.Union([PublishDetails, AuthorizationDenyDetails])),
+  reason: Schema.optionalKey(RegistryForbiddenReason),
   type: Schema.Literal("https://registry.agentxm.ai/v1/problems/forbidden"),
   status: Schema.optionalKey(Schema.Literal(403)),
   title: Schema.optionalKey(Schema.Literal("Forbidden")),
@@ -1841,6 +2055,107 @@ export const PackDependencyDescriptor = Schema.Struct({
   range: VersionRange,
   source: Schema.optionalKey(Schema.Union([PackMemberRegistrySource, Schema.Null])),
 }).annotate({ identifier: "PackDependencyDescriptor" });
+export type FeedSentence = { readonly parts: ReadonlyArray<FeedTextPart | FeedSentenceRef> };
+export const FeedSentence = Schema.Struct({
+  parts: Schema.Array(Schema.Union([FeedTextPart, FeedSentenceRef])),
+}).annotate({
+  title: "Feed Sentence",
+  description:
+    "A whole sentence as ordered parts. Concatenate the parts, filling each reference from the item's facts.",
+  identifier: "FeedSentence",
+});
+export type FeedExtension = {
+  readonly id: ExtensionId;
+  readonly name: string;
+  readonly type: string;
+  readonly ownerHandle: string;
+  readonly ownerName: string | null;
+  readonly private: boolean;
+  readonly deprecated: boolean;
+  readonly archived: boolean;
+};
+export const FeedExtension = Schema.Struct({
+  id: ExtensionId,
+  name: Schema.String,
+  type: Schema.String.annotate({
+    description: "The extension type, such as `skill` or `mcp_server`.",
+  }),
+  ownerHandle: Schema.String.annotate({ description: "The owner's handle, without `@`." }),
+  ownerName: Schema.Union([Schema.String, Schema.Null]),
+  private: Schema.Boolean,
+  deprecated: Schema.Boolean,
+  archived: Schema.Boolean,
+}).annotate({
+  title: "Feed Extension",
+  description: "The extension an item names, as the caller may read it now.",
+  identifier: "FeedExtension",
+});
+export type FeedLibrary = {
+  readonly id: LibraryId;
+  readonly title: string;
+  readonly ownerHandle: string | null;
+  readonly ownerName: string | null;
+  readonly private: boolean;
+};
+export const FeedLibrary = Schema.Struct({
+  id: LibraryId,
+  title: Schema.String,
+  ownerHandle: Schema.Union([
+    Schema.String.annotate({ description: "The owner's handle, without `@`." }),
+    Schema.Null,
+  ]),
+  ownerName: Schema.Union([Schema.String, Schema.Null]),
+  private: Schema.Boolean,
+}).annotate({
+  title: "Feed Library",
+  description: "The library an item or reason names.",
+  identifier: "FeedLibrary",
+});
+export type FeedOrganizationActor = {
+  readonly kind: "organization";
+  readonly organizationId: OrgId;
+  readonly name: string;
+  readonly handle: string | null;
+  readonly pictureUrl: string | null;
+  readonly via: { readonly name: string };
+};
+export const FeedOrganizationActor = Schema.Struct({
+  kind: Schema.Literal("organization"),
+  organizationId: OrgId,
+  name: Schema.String,
+  handle: Schema.Union([Schema.String, Schema.Null]),
+  pictureUrl: Schema.Union([Schema.String, Schema.Null]),
+  via: Schema.Struct({ name: Schema.String }).annotate({
+    description: "The automation that acted for the Organization.",
+  }),
+}).annotate({
+  title: "Feed Organization Actor",
+  description: "An Organization's automation acted, named by the workload.",
+  identifier: "FeedOrganizationActor",
+});
+export type FeedVersion = {
+  readonly id: ExtensionVersionId;
+  readonly version: string;
+  readonly prerelease: boolean;
+  readonly yanked: boolean;
+  readonly priorVersion: string | null;
+};
+export const FeedVersion = Schema.Struct({
+  id: ExtensionVersionId,
+  version: Schema.String,
+  prerelease: Schema.Boolean,
+  yanked: Schema.Boolean,
+  priorVersion: Schema.Union([
+    Schema.String.annotate({
+      description: "The release's prior version, only while that version is published.",
+    }),
+    Schema.Null,
+  ]),
+}).annotate({
+  title: "Feed Version",
+  description: "The extension version a release or yank names.",
+  identifier: "FeedVersion",
+});
 export type AuthMeToken = {
   readonly id: string;
   readonly type: "session" | "pat" | "oidc";
@@ -1915,96 +2230,178 @@ export const TokenListResponse = Schema.Struct({
   identifier: "TokenListResponse",
 });
 export type ResolutionMetadataRequest = {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
+  readonly purpose: "select";
   readonly selectionPolicyVersion: "1";
-  readonly items: ReadonlyArray<
-    | {
-        readonly key: ResolutionMetadataCallerKey;
-        readonly identity: ResolutionMetadataIdentity;
-        readonly expectedPublisherBinding?: string | null;
-        readonly knownRevision?: ResolutionMetadataRevision | null;
-        readonly continuation?: {
-          readonly token: ResolutionMetadataContinuation;
-          readonly revision: ResolutionMetadataRevision;
-        } | null;
-        readonly purpose: "select";
-      }
-    | {
-        readonly key: ResolutionMetadataCallerKey;
-        readonly identity: ResolutionMetadataIdentity;
-        readonly expectedPublisherBinding?: string | null;
-        readonly knownRevision?: ResolutionMetadataRevision | null;
-        readonly continuation?: {
-          readonly token: ResolutionMetadataContinuation;
-          readonly revision: ResolutionMetadataRevision;
-        } | null;
-        readonly purpose: "restore-exact";
-        readonly accepted: { readonly version: Version; readonly integrity: string };
-      }
-  >;
+  readonly items: ReadonlyArray<{
+    readonly key: ResolutionMetadataCallerKey;
+    readonly identity: ResolutionMetadataIdentity;
+    readonly expectedPublisherBinding?: string | null;
+    readonly knownRevision?: ResolutionMetadataRevision | null;
+    readonly continuation?: {
+      readonly token: ResolutionMetadataContinuation;
+      readonly revision: ResolutionMetadataRevision;
+    } | null;
+  }>;
 };
 export const ResolutionMetadataRequest = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
+  schemaVersion: Schema.Literal(2),
+  purpose: Schema.Literal("select"),
   selectionPolicyVersion: Schema.Literal("1"),
   items: Schema.Array(
-    Schema.Union([
-      Schema.Struct({
-        key: ResolutionMetadataCallerKey,
-        identity: ResolutionMetadataIdentity,
-        expectedPublisherBinding: Schema.optionalKey(
-          Schema.Union([
-            Schema.String.check(
-              Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-            ),
-            Schema.Null,
-          ]),
-        ),
-        knownRevision: Schema.optionalKey(Schema.Union([ResolutionMetadataRevision, Schema.Null])),
-        continuation: Schema.optionalKey(
-          Schema.Union([
-            Schema.Struct({
-              token: ResolutionMetadataContinuation,
-              revision: ResolutionMetadataRevision,
-            }),
-            Schema.Null,
-          ]),
-        ),
-        purpose: Schema.Literal("select"),
-      }),
-      Schema.Struct({
-        key: ResolutionMetadataCallerKey,
-        identity: ResolutionMetadataIdentity,
-        expectedPublisherBinding: Schema.optionalKey(
-          Schema.Union([
-            Schema.String.check(
-              Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-            ),
-            Schema.Null,
-          ]),
-        ),
-        knownRevision: Schema.optionalKey(Schema.Union([ResolutionMetadataRevision, Schema.Null])),
-        continuation: Schema.optionalKey(
-          Schema.Union([
-            Schema.Struct({
-              token: ResolutionMetadataContinuation,
-              revision: ResolutionMetadataRevision,
-            }),
-            Schema.Null,
-          ]),
-        ),
-        purpose: Schema.Literal("restore-exact"),
-        accepted: Schema.Struct({
-          version: Version,
-          integrity: Schema.String.check(
+    Schema.Struct({
+      key: ResolutionMetadataCallerKey,
+      identity: ResolutionMetadataIdentity,
+      expectedPublisherBinding: Schema.optionalKey(
+        Schema.Union([
+          Schema.String.check(
             Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+          ).check(
+            Schema.isPattern(new globalThis.RegExp("^[^\\uD800-\\uDFFF]*$", "u")).annotate({
+              expected: "a string matching the RegExp ^[^\\uD800-\\uDFFF]*$",
+            }),
           ),
-        }),
-      }),
-    ]),
+          Schema.Null,
+        ]),
+      ),
+      knownRevision: Schema.optionalKey(Schema.Union([ResolutionMetadataRevision, Schema.Null])),
+      continuation: Schema.optionalKey(
+        Schema.Union([
+          Schema.Struct({
+            token: ResolutionMetadataContinuation,
+            revision: ResolutionMetadataRevision,
+          }),
+          Schema.Null,
+        ]),
+      ),
+    }),
   )
     .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
     .check(Schema.isMaxLength(100).annotate({ expected: "a value with a length of at most 100" })),
 }).annotate({ identifier: "ResolutionMetadataRequest" });
+export type ExactContentRequest = {
+  readonly schemaVersion: 2;
+  readonly purpose: "authorize-exact";
+  readonly items: ReadonlyArray<{
+    readonly key: ResolutionMetadataCallerKey;
+    readonly identity: ResolutionMetadataIdentity;
+    readonly expectedPublisherBinding: string;
+    readonly accepted: { readonly version: Version; readonly integrity: string };
+  }>;
+};
+export const ExactContentRequest = Schema.Struct({
+  schemaVersion: Schema.Literal(2),
+  purpose: Schema.Literal("authorize-exact"),
+  items: Schema.Array(
+    Schema.Struct({
+      key: ResolutionMetadataCallerKey,
+      identity: ResolutionMetadataIdentity,
+      expectedPublisherBinding: Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ).check(
+        Schema.isPattern(new globalThis.RegExp("^[^\\uD800-\\uDFFF]*$", "u")).annotate({
+          expected: "a string matching the RegExp ^[^\\uD800-\\uDFFF]*$",
+        }),
+      ),
+      accepted: Schema.Struct({
+        version: Version,
+        integrity: Schema.String.check(
+          Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+        ).check(
+          Schema.isPattern(new globalThis.RegExp("^[^\\uD800-\\uDFFF]*$", "u")).annotate({
+            expected: "a string matching the RegExp ^[^\\uD800-\\uDFFF]*$",
+          }),
+        ),
+      }),
+    }),
+  )
+    .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+    .check(Schema.isMaxLength(100).annotate({ expected: "a value with a length of at most 100" })),
+}).annotate({ identifier: "ExactContentRequest" });
+export type ExactContentResponse = {
+  readonly schemaVersion: 2;
+  readonly purpose: "authorize-exact";
+  readonly observedAt: IsoDateTimeString;
+  readonly results: ReadonlyArray<
+    | {
+        readonly key: ResolutionMetadataCallerKey;
+        readonly outcome: "allowed";
+        readonly identity: ResolutionMetadataIdentity;
+        readonly publisherBindingId: string;
+        readonly accepted: { readonly version: Version; readonly integrity: string };
+        readonly yanked: boolean;
+        readonly observedAt: IsoDateTimeString;
+      }
+    | { readonly key: ResolutionMetadataCallerKey; readonly outcome: "unavailable" }
+    | {
+        readonly key: ResolutionMetadataCallerKey;
+        readonly outcome: "binding-conflict";
+        readonly publisherBindingId: string;
+      }
+    | {
+        readonly key: ResolutionMetadataCallerKey;
+        readonly outcome: "exact-conflict";
+        readonly reason: "version-unavailable" | "integrity-mismatch";
+      }
+    | {
+        readonly key: ResolutionMetadataCallerKey;
+        readonly outcome: "lifecycle-blocked";
+        readonly reason: "held";
+      }
+    | { readonly key: ResolutionMetadataCallerKey; readonly outcome: "temporarily-unavailable" }
+  >;
+};
+export const ExactContentResponse = Schema.Struct({
+  schemaVersion: Schema.Literal(2),
+  purpose: Schema.Literal("authorize-exact"),
+  observedAt: IsoDateTimeString,
+  results: Schema.Array(
+    Schema.Union([
+      Schema.Struct({
+        key: ResolutionMetadataCallerKey,
+        outcome: Schema.Literal("allowed"),
+        identity: ResolutionMetadataIdentity,
+        publisherBindingId: Schema.String.check(
+          Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+        ),
+        accepted: Schema.Struct({
+          version: Version,
+          integrity: Schema.String.check(
+            Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+          ).check(
+            Schema.isPattern(new globalThis.RegExp("^[^\\uD800-\\uDFFF]*$", "u")).annotate({
+              expected: "a string matching the RegExp ^[^\\uD800-\\uDFFF]*$",
+            }),
+          ),
+        }),
+        yanked: Schema.Boolean,
+        observedAt: IsoDateTimeString,
+      }),
+      Schema.Struct({ key: ResolutionMetadataCallerKey, outcome: Schema.Literal("unavailable") }),
+      Schema.Struct({
+        key: ResolutionMetadataCallerKey,
+        outcome: Schema.Literal("binding-conflict"),
+        publisherBindingId: Schema.String.check(
+          Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+        ),
+      }),
+      Schema.Struct({
+        key: ResolutionMetadataCallerKey,
+        outcome: Schema.Literal("exact-conflict"),
+        reason: Schema.Literals(["version-unavailable", "integrity-mismatch"]),
+      }),
+      Schema.Struct({
+        key: ResolutionMetadataCallerKey,
+        outcome: Schema.Literal("lifecycle-blocked"),
+        reason: Schema.Literal("held"),
+      }),
+      Schema.Struct({
+        key: ResolutionMetadataCallerKey,
+        outcome: Schema.Literal("temporarily-unavailable"),
+      }),
+    ]),
+  ).check(Schema.isMaxLength(100).annotate({ expected: "a value with a length of at most 100" })),
+}).annotate({ identifier: "ExactContentResponse" });
 export type ExtensionIdentityMismatchErrorEncoded = {
   readonly detail?: string;
   readonly instance?: string;
@@ -2245,6 +2642,39 @@ export const PackDependencyResolution = Schema.Struct({
   dependency: PackDependencyDescriptor,
   effectiveVersion: Version,
 }).annotate({ identifier: "PackDependencyResolution" });
+export type FeedReason = {
+  readonly kind: "owns" | "follows" | "library" | "member" | "follows_owner" | "actor";
+  readonly parts: ReadonlyArray<FeedTextPart | FeedReasonRef>;
+  readonly subject:
+    | { readonly kind: "extension"; readonly id: ExtensionId }
+    | { readonly kind: "library"; readonly id: LibraryId }
+    | null;
+  readonly library: FeedLibrary | null;
+};
+export const FeedReason = Schema.Struct({
+  kind: Schema.Literals([
+    "owns",
+    "follows",
+    "library",
+    "member",
+    "follows_owner",
+    "actor",
+  ]).annotate({
+    description:
+      "Why the item is in the Feed: the caller owns the subject, follows it, or the extension is in one of their libraries.",
+  }),
+  parts: Schema.Array(Schema.Union([FeedTextPart, FeedReasonRef])),
+  subject: Schema.Union([
+    Schema.Struct({ kind: Schema.Literal("extension"), id: ExtensionId }),
+    Schema.Struct({ kind: Schema.Literal("library"), id: LibraryId }),
+    Schema.Null,
+  ]),
+  library: Schema.Union([FeedLibrary, Schema.Null]),
+}).annotate({
+  title: "Feed Reason",
+  description: "The one reason line an item or rollup shows.",
+  identifier: "FeedReason",
+});
 export type AuthMeResponse = { readonly user: AuthMeUser; readonly token: AuthMeToken };
 export const AuthMeResponse = Schema.Struct({ user: AuthMeUser, token: AuthMeToken }).annotate({
   title: "Auth Me Response",
@@ -2416,6 +2846,63 @@ export const PublicationDescriptor = Schema.Struct({
     ]),
   ),
 }).annotate({ identifier: "PublicationDescriptor" });
+export type FeedItem = {
+  readonly activityId: ActivityId;
+  readonly type: ActivityType;
+  readonly occurredAt: string;
+  readonly isNew: boolean;
+  readonly belowBoundary: boolean;
+  readonly sentence: FeedSentence;
+  readonly reason: FeedReason | null;
+  readonly actor: FeedPersonActor | FeedOrganizationActor | FeedFormerMemberActor;
+  readonly onBehalfOf: {
+    readonly organizationId: OrgId;
+    readonly name: string;
+    readonly handle: string | null;
+  } | null;
+  readonly extension: FeedExtension | null;
+  readonly library: FeedLibrary | null;
+  readonly version: FeedVersion | null;
+  readonly ownerText?: FeedOwnerText;
+  readonly lifecycleTier: "error" | "warning" | "neutral";
+  readonly compact: boolean;
+};
+export const FeedItem = Schema.Struct({
+  activityId: ActivityId,
+  type: ActivityType,
+  occurredAt: Schema.String.annotate({
+    description: "When it happened, as a microsecond UTC instant (`YYYY-MM-DDTHH:MM:SS.ffffffZ`).",
+  }),
+  isNew: Schema.Boolean.annotate({
+    description: "Recorded since the caller last acknowledged the Feed on the web.",
+  }),
+  belowBoundary: Schema.Boolean.annotate({
+    description: "A new item that sorts below the caught-up line.",
+  }),
+  sentence: FeedSentence,
+  reason: Schema.Union([FeedReason, Schema.Null]),
+  actor: Schema.Union([FeedPersonActor, FeedOrganizationActor, FeedFormerMemberActor]),
+  onBehalfOf: Schema.Union([
+    Schema.Struct({
+      organizationId: OrgId,
+      name: Schema.String,
+      handle: Schema.Union([Schema.String, Schema.Null]),
+    }).annotate({
+      description: "The Organization a person acted for, only when the caller belongs to it.",
+    }),
+    Schema.Null,
+  ]),
+  extension: Schema.Union([FeedExtension, Schema.Null]),
+  library: Schema.Union([FeedLibrary, Schema.Null]),
+  version: Schema.Union([FeedVersion, Schema.Null]),
+  ownerText: Schema.optionalKey(FeedOwnerText),
+  lifecycleTier: Schema.Literals(["error", "warning", "neutral"]),
+  compact: Schema.Boolean.annotate({ description: "Shown on one line at neutral weight." }),
+}).annotate({
+  title: "Feed Item",
+  description: "One Activity in the Feed.",
+  identifier: "FeedItem",
+});
 export type ExtensionSummaryPage = {
   readonly extensions: ReadonlyArray<ExtensionSummary>;
   readonly cursor: string | null;
@@ -2497,7 +2984,8 @@ export const PreviewPublicationSetResponse = Schema.Struct({
   ),
 }).annotate({ identifier: "PreviewPublicationSetResponse" });
 export type ResolutionMetadataResponse = {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
+  readonly purpose: "select";
   readonly selectionPolicyVersion: "1";
   readonly observedAt: IsoDateTimeString;
   readonly results: ReadonlyArray<
@@ -2516,7 +3004,6 @@ export type ResolutionMetadataResponse = {
         readonly revision: ResolutionMetadataRevision;
         readonly observedAt: IsoDateTimeString;
         readonly validUntil: IsoDateTimeString;
-        readonly exactVersion?: Version | null;
       }
     | { readonly key: ResolutionMetadataCallerKey; readonly outcome: "unavailable" }
     | {
@@ -2526,18 +3013,14 @@ export type ResolutionMetadataResponse = {
       }
     | {
         readonly key: ResolutionMetadataCallerKey;
-        readonly outcome: "exact-conflict";
-        readonly reason: "version-unavailable" | "integrity-mismatch";
-      }
-    | {
-        readonly key: ResolutionMetadataCallerKey;
         readonly outcome: "restart-required";
         readonly revision: ResolutionMetadataRevision;
       }
   >;
 };
 export const ResolutionMetadataResponse = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
+  schemaVersion: Schema.Literal(2),
+  purpose: Schema.Literal("select"),
   selectionPolicyVersion: Schema.Literal("1"),
   observedAt: IsoDateTimeString,
   results: Schema.Array(
@@ -2559,7 +3042,6 @@ export const ResolutionMetadataResponse = Schema.Struct({
         revision: ResolutionMetadataRevision,
         observedAt: IsoDateTimeString,
         validUntil: IsoDateTimeString,
-        exactVersion: Schema.optionalKey(Schema.Union([Version, Schema.Null])),
       }),
       Schema.Struct({ key: ResolutionMetadataCallerKey, outcome: Schema.Literal("unavailable") }),
       Schema.Struct({
@@ -2568,11 +3050,6 @@ export const ResolutionMetadataResponse = Schema.Struct({
         publisherBindingId: Schema.String.check(
           Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
         ),
-      }),
-      Schema.Struct({
-        key: ResolutionMetadataCallerKey,
-        outcome: Schema.Literal("exact-conflict"),
-        reason: Schema.Literals(["version-unavailable", "integrity-mismatch"]),
       }),
       Schema.Struct({
         key: ResolutionMetadataCallerKey,
@@ -2590,6 +3067,123 @@ export const PreviewPublicationSetRequest = Schema.Struct({
   contract: Schema.Literal("publication-set-v2"),
   candidates: Schema.Array(PublicationDescriptor),
 }).annotate({ identifier: "PreviewPublicationSetRequest" });
+export type FeedItemEntry = { readonly kind: "item"; readonly item: FeedItem };
+export const FeedItemEntry = Schema.Struct({
+  kind: Schema.Literal("item"),
+  item: FeedItem,
+}).annotate({
+  title: "Feed Item Entry",
+  description: "A single Activity.",
+  identifier: "FeedItemEntry",
+});
+export type FeedRollupEntry = {
+  readonly kind: "rollup";
+  readonly key: string;
+  readonly sentence: FeedSentence;
+  readonly lead: FeedItem;
+  readonly members: ReadonlyArray<FeedItem>;
+  readonly count: number | "Infinity" | "-Infinity" | "NaN";
+  readonly actorCount: number | "Infinity" | "-Infinity" | "NaN";
+  readonly reason: FeedReason | null;
+  readonly isNew: boolean;
+  readonly belowBoundary: boolean;
+  readonly continues: boolean;
+};
+export const FeedRollupEntry = Schema.Struct({
+  kind: Schema.Literal("rollup"),
+  key: Schema.String,
+  sentence: FeedSentence,
+  lead: FeedItem,
+  members: Schema.Array(FeedItem),
+  count: Schema.Union([Schema.Finite, Schema.Literals(["Infinity", "-Infinity", "NaN"])]),
+  actorCount: Schema.Union([Schema.Finite, Schema.Literals(["Infinity", "-Infinity", "NaN"])]),
+  reason: Schema.Union([FeedReason, Schema.Null]),
+  isNew: Schema.Boolean,
+  belowBoundary: Schema.Boolean,
+  continues: Schema.Boolean.annotate({ description: "More members may follow on the next page." }),
+}).annotate({
+  title: "Feed Rollup Entry",
+  description:
+    "A day's run of one kind of Activity, such as several releases of one extension. Its sentence is filled from `lead`; `members` holds every member, newest first.",
+  identifier: "FeedRollupEntry",
+});
+export type FeedDaySection = {
+  readonly key: string;
+  readonly label: string;
+  readonly entries: ReadonlyArray<FeedItemEntry | FeedRollupEntry>;
+};
+export const FeedDaySection = Schema.Struct({
+  key: Schema.String.annotate({ description: "The caller's calendar day, `YYYY-MM-DD`, in `tz`." }),
+  label: Schema.String.annotate({
+    description: "`Today`, `Yesterday`, or a date such as `Wednesday, November 4`.",
+  }),
+  entries: Schema.Array(Schema.Union([FeedItemEntry, FeedRollupEntry])),
+}).annotate({
+  title: "Feed Day Section",
+  description: "The entries of one calendar day, newest first.",
+  identifier: "FeedDaySection",
+});
+export type FeedPageResponse = {
+  readonly filters: {
+    readonly show: "all" | "following" | "yours";
+    readonly type:
+      "all" | "releases" | "deprecations_and_yanks" | "library_changes" | "new_extensions";
+  };
+  readonly sections: ReadonlyArray<FeedDaySection>;
+  readonly entryCount: number | "Infinity" | "-Infinity" | "NaN";
+  readonly caughtUpBefore: number | "Infinity" | "-Infinity" | "NaN" | null;
+  readonly newCount: number | "Infinity" | "-Infinity" | "NaN";
+  readonly moreNew: boolean;
+  readonly hasMore: boolean;
+  readonly cursor: string | null;
+  readonly anchor: string | null;
+  readonly empty: "no_interest" | "nothing_recent" | "no_match" | null;
+};
+export const FeedPageResponse = Schema.Struct({
+  filters: Schema.Struct({
+    show: Schema.Literals(["all", "following", "yours"]),
+    type: Schema.Literals([
+      "all",
+      "releases",
+      "deprecations_and_yanks",
+      "library_changes",
+      "new_extensions",
+    ]),
+  }).annotate({ description: "The filters the page applied." }),
+  sections: Schema.Array(FeedDaySection),
+  entryCount: Schema.Union([Schema.Finite, Schema.Literals(["Infinity", "-Infinity", "NaN"])]),
+  caughtUpBefore: Schema.Union([
+    Schema.Finite,
+    Schema.Literals(["Infinity", "-Infinity", "NaN"]),
+    Schema.Null,
+  ]).annotate({
+    description:
+      "On a first page holding new entries, the flat entry index (across sections) where the caught-up line sits.",
+  }),
+  newCount: Schema.Union([Schema.Finite, Schema.Literals(["Infinity", "-Infinity", "NaN"])]),
+  moreNew: Schema.Boolean,
+  hasMore: Schema.Boolean,
+  cursor: Schema.Union([Schema.String, Schema.Null]).annotate({
+    description:
+      "Opaque cursor for the next page, null on the last. Pass it back unchanged with the same `show`, `type` and `at`.",
+  }),
+  anchor: Schema.Union([Schema.String, Schema.Null]).annotate({
+    description:
+      "Opaque token that holds this window still. Pass it back as `at` while paging so later Activity does not shift the pages; null when it could not be issued.",
+  }),
+  empty: Schema.Union([
+    Schema.Literals(["no_interest", "nothing_recent", "no_match"]),
+    Schema.Null,
+  ]).annotate({
+    description:
+      "Why an empty first page is empty: nothing followed or owned, nothing in the last 90 days, or nothing matching the filters.",
+  }),
+}).annotate({
+  title: "Feed Page Response",
+  description:
+    "One page of the caller's own Feed: day sections of items and rollups, newest first, over the last 90 days.",
+  identifier: "FeedPageResponse",
+});
 // schemas
 export type MetaGet200 = MetaResponse;
 export const MetaGet200 = MetaResponse;
@@ -3639,18 +4233,24 @@ export const ExtensionsYankAvailableVersions500 = Schema.Union([
 ]);
 export type ExtensionsYankAvailableVersions503 = ServiceUnavailableErrorEncoded;
 export const ExtensionsYankAvailableVersions503 = ServiceUnavailableErrorEncoded;
-export type ResolutionsPostMetadataRequestJson = ResolutionMetadataRequest;
-export const ResolutionsPostMetadataRequestJson = ResolutionMetadataRequest;
-export type ResolutionsPostMetadata200 = ResolutionMetadataResponse;
-export const ResolutionsPostMetadata200 = ResolutionMetadataResponse;
-export type ResolutionsPostMetadata400 =
+export type ResolutionsPostResolutionsRequestJson = ResolutionMetadataRequest | ExactContentRequest;
+export const ResolutionsPostResolutionsRequestJson = Schema.Union([
+  ResolutionMetadataRequest,
+  ExactContentRequest,
+]);
+export type ResolutionsPostResolutions200 = ResolutionMetadataResponse | ExactContentResponse;
+export const ResolutionsPostResolutions200 = Schema.Union([
+  ResolutionMetadataResponse,
+  ExactContentResponse,
+]);
+export type ResolutionsPostResolutions400 =
   | {
       readonly code:
         "invalid-request" | "unsupported-schema-version" | "unsupported-selection-policy-version";
       readonly detail: string;
     }
   | BadRequestProblemEncoded;
-export const ResolutionsPostMetadata400 = Schema.Union([
+export const ResolutionsPostResolutions400 = Schema.Union([
   Schema.Struct({
     code: Schema.Literals([
       "invalid-request",
@@ -3661,29 +4261,30 @@ export const ResolutionsPostMetadata400 = Schema.Union([
   }),
   BadRequestProblemEncoded,
 ]);
-export type ResolutionsPostMetadata401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
-export const ResolutionsPostMetadata401 = Schema.Union([
+export type ResolutionsPostResolutions401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const ResolutionsPostResolutions401 = Schema.Union([
   UnauthorizedErrorEncoded,
   TokenEndedErrorEncoded,
 ]);
-export type ResolutionsPostMetadata413 = {
+export type ResolutionsPostResolutions413 = {
   readonly code: "request-too-large" | "response-too-large";
   readonly detail: string;
 };
-export const ResolutionsPostMetadata413 = Schema.Struct({
+export const ResolutionsPostResolutions413 = Schema.Struct({
   code: Schema.Literals(["request-too-large", "response-too-large"]),
   detail: Schema.String,
 });
-export type ResolutionsPostMetadata500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
-export const ResolutionsPostMetadata500 = Schema.Union([
+export type ResolutionsPostResolutions500 =
+  InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const ResolutionsPostResolutions500 = Schema.Union([
   InternalErrorEncoded,
   InternalServerErrorProblemEncoded,
 ]);
-export type ResolutionsPostMetadata503 = {
+export type ResolutionsPostResolutions503 = {
   readonly code: "backend-unavailable";
   readonly detail: string;
 };
-export const ResolutionsPostMetadata503 = Schema.Struct({
+export const ResolutionsPostResolutions503 = Schema.Struct({
   code: Schema.Literal("backend-unavailable"),
   detail: Schema.String,
 });
@@ -3872,6 +4473,72 @@ export const DiscoveryPostDiscovery500 = Schema.Union([
   InternalErrorEncoded,
   InternalServerErrorProblemEncoded,
 ]);
+export type FeedGetParams = {
+  readonly show?: "all" | "following" | "yours";
+  readonly type?:
+    "all" | "releases" | "deprecations_and_yanks" | "library_changes" | "new_extensions";
+  readonly cursor?: string;
+  readonly at?: string;
+  readonly tz?: string;
+  readonly ownerText?: "true" | "false";
+};
+export const FeedGetParams = Schema.Struct({
+  show: Schema.optionalKey(
+    Schema.Literals(["all", "following", "yours"]).annotate({
+      description:
+        "`all` (default), `following` (only what you follow), or `yours` (what you did).",
+    }),
+  ),
+  type: Schema.optionalKey(
+    Schema.Literals([
+      "all",
+      "releases",
+      "deprecations_and_yanks",
+      "library_changes",
+      "new_extensions",
+    ]).annotate({
+      description:
+        "`all` (default), `releases`, `deprecations_and_yanks`, `library_changes`, or `new_extensions`.",
+    }),
+  ),
+  cursor: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        "Opaque `cursor` from the previous page. A cursor issued for other filters, or one that cannot be read, reads as the first page.",
+    }).check(
+      Schema.isMaxCodePoints(512).annotate({ expected: "a string with at most 512 code points" }),
+    ),
+  ),
+  at: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        "Opaque `anchor` from the first page, which holds the window still while paging. One that cannot be read starts a fresh window.",
+    }).check(
+      Schema.isMaxCodePoints(512).annotate({ expected: "a string with at most 512 code points" }),
+    ),
+  ),
+  tz: Schema.optionalKey(Schema.String),
+  ownerText: Schema.optionalKey(
+    Schema.Literals(["true", "false"]).annotate({
+      description:
+        "`true` to include owner-written excerpts as `ownerText`, fenced and marked untrusted. Omitted by default.",
+    }),
+  ),
+});
+export type FeedGet200 = FeedPageResponse;
+export const FeedGet200 = FeedPageResponse;
+export type FeedGet400 = BadRequestProblemEncoded;
+export const FeedGet400 = BadRequestProblemEncoded;
+export type FeedGet401 = UnauthorizedErrorEncoded | TokenEndedErrorEncoded;
+export const FeedGet401 = Schema.Union([UnauthorizedErrorEncoded, TokenEndedErrorEncoded]);
+export type FeedGet403 = ForbiddenErrorEncoded;
+export const FeedGet403 = ForbiddenErrorEncoded;
+export type FeedGet404 = NotFoundErrorEncoded;
+export const FeedGet404 = NotFoundErrorEncoded;
+export type FeedGet500 = InternalErrorEncoded | InternalServerErrorProblemEncoded;
+export const FeedGet500 = Schema.Union([InternalErrorEncoded, InternalServerErrorProblemEncoded]);
+export type FeedGet503 = ServiceUnavailableErrorEncoded;
+export const FeedGet503 = ServiceUnavailableErrorEncoded;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),
@@ -5056,17 +5723,19 @@ export const make = <E, R>(
           ),
         ),
       ),
-    ResolutionsPostMetadata: (options: Parameters<RegistryClient["ResolutionsPostMetadata"]>[0]) =>
-      HttpClientRequest.post("/v1/resolutions/metadata").pipe(
+    ResolutionsPostResolutions: (
+      options: Parameters<RegistryClient["ResolutionsPostResolutions"]>[0],
+    ) =>
+      HttpClientRequest.post("/v1/resolutions").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(ResolutionsPostMetadata200),
-            "400": decodeError("ResolutionsPostMetadata400", ResolutionsPostMetadata400),
-            "401": decodeError("ResolutionsPostMetadata401", ResolutionsPostMetadata401),
-            "413": decodeError("ResolutionsPostMetadata413", ResolutionsPostMetadata413),
-            "500": decodeError("ResolutionsPostMetadata500", ResolutionsPostMetadata500),
-            "503": decodeError("ResolutionsPostMetadata503", ResolutionsPostMetadata503),
+            "2xx": decodeSuccess(ResolutionsPostResolutions200),
+            "400": decodeError("ResolutionsPostResolutions400", ResolutionsPostResolutions400),
+            "401": decodeError("ResolutionsPostResolutions401", ResolutionsPostResolutions401),
+            "413": decodeError("ResolutionsPostResolutions413", ResolutionsPostResolutions413),
+            "500": decodeError("ResolutionsPostResolutions500", ResolutionsPostResolutions500),
+            "503": decodeError("ResolutionsPostResolutions503", ResolutionsPostResolutions503),
             orElse: unexpectedStatus,
           }),
         ),
@@ -5114,6 +5783,30 @@ export const make = <E, R>(
             "413": decodeError("DiscoveryPostDiscovery413", DiscoveryPostDiscovery413),
             "415": decodeError("DiscoveryPostDiscovery415", DiscoveryPostDiscovery415),
             "500": decodeError("DiscoveryPostDiscovery500", DiscoveryPostDiscovery500),
+            orElse: unexpectedStatus,
+          }),
+        ),
+      ),
+    FeedGet: (options: Parameters<RegistryClient["FeedGet"]>[0]) =>
+      HttpClientRequest.get("/v1/feed").pipe(
+        HttpClientRequest.setUrlParams({
+          show: options?.params?.["show"] as any,
+          type: options?.params?.["type"] as any,
+          cursor: options?.params?.["cursor"] as any,
+          at: options?.params?.["at"] as any,
+          tz: options?.params?.["tz"] as any,
+          ownerText: options?.params?.["ownerText"] as any,
+        }),
+        withResponse(options?.config)(
+          HttpClientResponse.matchStatus({
+            "200": decodeSuccess(FeedGet200),
+            "400": decodeError("FeedGet400", FeedGet400),
+            "401": decodeError("FeedGet401", FeedGet401),
+            "403": decodeError("FeedGet403", FeedGet403),
+            "404": decodeError("FeedGet404", FeedGet404),
+            "500": decodeError("FeedGet500", FeedGet500),
+            "503": decodeError("FeedGet503", FeedGet503),
+            "304": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -6397,37 +7090,37 @@ export interface RegistryClient<E = HttpClientError.HttpClientError, R = never> 
     >;
   };
   /**
-   * Repeat-safe authorized query. Responses are private and must not be stored by shared caches; errors use the resolution metadata protocol envelope.
+   * Repeat-safe authorized query. Responses are private and must not be stored by shared caches; errors use the resolution protocol envelope.
    */
-  readonly ResolutionsPostMetadata: {
+  readonly ResolutionsPostResolutions: {
     <Config extends OperationConfig | undefined = undefined>(options: {
-      readonly payload: typeof ResolutionsPostMetadataRequestJson.Encoded;
+      readonly payload: typeof ResolutionsPostResolutionsRequestJson.Encoded;
       readonly config: Config;
     }): Effect.Effect<
-      WithOptionalResponse<ResolutionsPostMetadata200, Config>,
+      WithOptionalResponse<ResolutionsPostResolutions200, Config>,
       | E
       | HttpClientError.HttpClientError
       | SchemaError
-      | RegistryClientError<"ResolutionsPostMetadata400", ResolutionsPostMetadata400>
-      | RegistryClientError<"ResolutionsPostMetadata401", ResolutionsPostMetadata401>
-      | RegistryClientError<"ResolutionsPostMetadata413", ResolutionsPostMetadata413>
-      | RegistryClientError<"ResolutionsPostMetadata500", ResolutionsPostMetadata500>
-      | RegistryClientError<"ResolutionsPostMetadata503", ResolutionsPostMetadata503>,
+      | RegistryClientError<"ResolutionsPostResolutions400", ResolutionsPostResolutions400>
+      | RegistryClientError<"ResolutionsPostResolutions401", ResolutionsPostResolutions401>
+      | RegistryClientError<"ResolutionsPostResolutions413", ResolutionsPostResolutions413>
+      | RegistryClientError<"ResolutionsPostResolutions500", ResolutionsPostResolutions500>
+      | RegistryClientError<"ResolutionsPostResolutions503", ResolutionsPostResolutions503>,
       R
     >;
     <Config extends OperationConfig | undefined = undefined>(options: {
-      readonly payload: typeof ResolutionsPostMetadataRequestJson.Encoded;
+      readonly payload: typeof ResolutionsPostResolutionsRequestJson.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
-      WithOptionalResponse<ResolutionsPostMetadata200, Config | undefined>,
+      WithOptionalResponse<ResolutionsPostResolutions200, Config | undefined>,
       | E
       | HttpClientError.HttpClientError
       | SchemaError
-      | RegistryClientError<"ResolutionsPostMetadata400", ResolutionsPostMetadata400>
-      | RegistryClientError<"ResolutionsPostMetadata401", ResolutionsPostMetadata401>
-      | RegistryClientError<"ResolutionsPostMetadata413", ResolutionsPostMetadata413>
-      | RegistryClientError<"ResolutionsPostMetadata500", ResolutionsPostMetadata500>
-      | RegistryClientError<"ResolutionsPostMetadata503", ResolutionsPostMetadata503>,
+      | RegistryClientError<"ResolutionsPostResolutions400", ResolutionsPostResolutions400>
+      | RegistryClientError<"ResolutionsPostResolutions401", ResolutionsPostResolutions401>
+      | RegistryClientError<"ResolutionsPostResolutions413", ResolutionsPostResolutions413>
+      | RegistryClientError<"ResolutionsPostResolutions500", ResolutionsPostResolutions500>
+      | RegistryClientError<"ResolutionsPostResolutions503", ResolutionsPostResolutions503>,
       R
     >;
   };
@@ -6528,6 +7221,47 @@ export interface RegistryClient<E = HttpClientError.HttpClientError, R = never> 
       | RegistryClientError<"DiscoveryPostDiscovery413", DiscoveryPostDiscovery413>
       | RegistryClientError<"DiscoveryPostDiscovery415", DiscoveryPostDiscovery415>
       | RegistryClientError<"DiscoveryPostDiscovery500", DiscoveryPostDiscovery500>,
+      R
+    >;
+  };
+  /**
+   * Returns one page of your own Feed: Activity from what you follow and from people acting on your extensions and libraries, over the last 90 days, newest first, in day sections. An interactive session reads it; a token reads it only when it carries `feed:read`, and otherwise answers `403` `insufficient_scope`. A workload has no Feed (`403` `credential_not_admitted`). While the Feed is not available to your account it answers `404`. A token sees only what it can read: its extension scopes, allowlist and Organization withdrawals narrow the page exactly as they narrow extension reads, so private subjects it does not reach are absent. Libraries read through a token as they read anonymously, so a private library's Activity is shown only to an interactive session. Owner-written text is omitted unless `ownerText=true`; then each item may carry `ownerText`, marked `untrusted_owner_text` and fenced. Page with `cursor` and `at`. Unlike other list operations, a `cursor` or `at` that cannot be read starts from the first page rather than failing, because both are bound to you and your filters.
+   */
+  readonly FeedGet: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params?: typeof FeedGetParams.Encoded | undefined;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<FeedGet200 | void, Config>,
+      | E
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"FeedGet400", FeedGet400>
+      | RegistryClientError<"FeedGet401", FeedGet401>
+      | RegistryClientError<"FeedGet403", FeedGet403>
+      | RegistryClientError<"FeedGet404", FeedGet404>
+      | RegistryClientError<"FeedGet500", FeedGet500>
+      | RegistryClientError<"FeedGet503", FeedGet503>,
+      R
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options:
+        | {
+            readonly params?: typeof FeedGetParams.Encoded | undefined;
+            readonly config?: Config | undefined;
+          }
+        | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<FeedGet200 | void, Config | undefined>,
+      | E
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"FeedGet400", FeedGet400>
+      | RegistryClientError<"FeedGet401", FeedGet401>
+      | RegistryClientError<"FeedGet403", FeedGet403>
+      | RegistryClientError<"FeedGet404", FeedGet404>
+      | RegistryClientError<"FeedGet500", FeedGet500>
+      | RegistryClientError<"FeedGet503", FeedGet503>,
       R
     >;
   };

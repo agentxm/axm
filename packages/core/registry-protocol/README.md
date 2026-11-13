@@ -9,43 +9,38 @@ validation (`./unstable/registry/publication-set`), publish visibility
 human-handoff error vocabulary (`./unstable/suggested-action`,
 `./unstable/human-handoff`).
 
-## Batch resolution metadata
+## Batch resolution
 
-`./unstable/registry/resolution-metadata` defines the versioned contract for a
-repeat-safe `POST /v1/resolutions/metadata` query. The Registry owns the HTTP
-route and authorization; AXM keeps version selection, release-age policy, and
-dependency graph decisions. A request groups up to 100 items in one trusted
-Registry and credential context. Each item has a unique caller key, extension
-identity, and a `select` or `restore-exact` purpose. Exact restoration supplies
-the accepted version and integrity. The caller may also supply an expected
-publisher binding, a known representation revision, or a continuation bound to
-the previous revision.
+`./unstable/registry/resolutions` defines schema version 2 of the repeat-safe
+`POST /v1/resolutions` query. Each batch has one purpose, `select` or
+`authorize-exact`, and up to 100 uniquely keyed items in one Registry and
+credential context. Requests are limited to 256 KiB and responses to 1 MiB.
+Results match caller keys independently of response order. Missing, duplicate,
+or unsolicited keys invalidate the response; keys confer no identity or access.
 
-The response has exactly one outcome per submitted key in request order:
+Selection contracts live in `./unstable/registry/resolution-metadata`. AXM owns
+version selection, release-age policy, and dependency graph decisions. The
+Registry supplies authorized metadata, publisher binding, lifecycle facts, and
+revision-bound continuation. A page contains at most 100 versions; clients must
+collect every page of one revision before selecting. The selection outcomes are
+`metadata`, `unchanged`, `unavailable`, `binding-conflict`, and
+`restart-required`. An `unchanged` result requires the caller to already hold
+the complete matching representation. Selection evidence never grants content
+access.
 
-| Outcome            | Meaning                                                                                                                                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `metadata`         | An authorized page of version descriptors, dependency and package compatibility data, lifecycle information, and an opaque revision. A `null` continuation means the candidate list is complete. |
-| `unchanged`        | Current authorization and lifecycle still admit a matching complete representation already held by the client. A client without that representation repeats the item without `knownRevision`.    |
-| `unavailable`      | The identity is absent or inaccessible; the response deliberately does not distinguish those cases.                                                                                              |
-| `binding-conflict` | An authorized identity no longer has the expected publisher binding.                                                                                                                             |
-| `exact-conflict`   | An authorized exact version or integrity no longer matches the accepted identity.                                                                                                                |
-| `restart-required` | A continued page crossed a representation revision; discard the earlier pages and restart.                                                                                                       |
+Exact-content requests supply the extension identity, expected publisher
+binding, accepted version, and integrity. An `allowed` outcome echoes those
+facts and reports whether the version is yanked. Other outcomes are
+`unavailable`, `binding-conflict`, `exact-conflict`, `lifecycle-blocked`, and
+`temporarily-unavailable`. An allowance has an observation time, but no lease,
+continuation, conditional revision, or version history. It is current evidence
+for the submitted content only. The Registry applies its content-access policy;
+AXM checks every echoed fact before using the allowance.
 
-A metadata page contains at most 100 versions. Clients must follow every
-continuation and check the revision and result keys before selecting a version;
-truncated pages are never complete selection input. Continuation tokens are
-opaque and must be bound by the Registry to the request identity, credential
-context, and revision. A changed binding, hold, visibility, yank, archival or
-deprecation fact must invalidate an `unchanged` result. Backend failures are
-envelope errors, never invented per-item absence. The query is private and
-non-cacheable across commands; its POST method does not make publish mutations
-retryable.
-
-The schema exports the item, version-page, request-body, and response-body
-limits. A server checks encoded body size before decoding and returns the
-declared `request-too-large` error when exceeded. Request keys correlate results
-only; they confer no identity or access.
+Both purposes require a complete HTTP 200 response. Responses are private and
+non-cacheable across commands. Backend failures must remain failures rather
+than invented absence. This query's repeat safety does not make publication
+mutations retryable.
 
 The exported `./unstable/registry/resolution-metadata.vectors.json` records
 selection examples for ordinary and exact yanks, release age, direct and pack

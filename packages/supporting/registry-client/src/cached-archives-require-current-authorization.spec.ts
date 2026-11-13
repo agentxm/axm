@@ -31,25 +31,19 @@ export const specification = defineSpecification({
 const archive = new Uint8Array([1, 2, 3]);
 const integrity = `sha512-${createHash("sha512").update(archive).digest("base64")}`;
 const observedAt = "2026-10-16T00:00:00.000Z";
-const metadata = {
-  schemaVersion: 1,
-  selectionPolicyVersion: "1",
+const admission = {
+  schemaVersion: 2,
+  purpose: "authorize-exact",
   observedAt,
   results: [
     {
       key: "exact",
-      outcome: "metadata",
-      page: {
-        publisherBindingId: "hbnd_test",
-        visibility: "public",
-        archival: null,
-        deprecation: null,
-        revision: "revision",
-        observedAt,
-        validUntil: "2026-10-16T00:00:30.000Z",
-        versions: [{ version: "1.0.0", published: observedAt, integrity }],
-        continuation: null,
-      },
+      outcome: "allowed",
+      identity: { owner: "@acme", type: "skill", name: "example" },
+      publisherBindingId: "hbnd_test",
+      accepted: { version: "1.0.0", integrity },
+      yanked: false,
+      observedAt,
     },
   ],
 };
@@ -70,7 +64,7 @@ describe("Authorization for cached archives", () => {
     for (const usagePurpose of [undefined, "verification"] as const) {
       for (const deniedStatus of [403, 404]) {
         it.effect(
-          `refuses ${exact ? "exact" : "selected"} ${usagePurpose ?? "normal"} cached bytes after archive access returns ${deniedStatus} while metadata remains visible`,
+          `refuses ${exact ? "exact" : "selected"} ${usagePurpose ?? "normal"} cached bytes after admission returns ${deniedStatus} while selection remains visible`,
           () =>
             Effect.gen(function* () {
               const fileSystem = yield* FileSystem.FileSystem;
@@ -83,8 +77,19 @@ describe("Authorization for cached archives", () => {
                 Effect.sync(() => {
                   const requestPath = new URL(request.url).pathname;
                   requests.push({ method: request.method, path: requestPath });
-                  if (requestPath === "/v1/resolutions/metadata") {
-                    return HttpClientResponse.fromWeb(request, Response.json(metadata));
+                  if (requestPath === "/v1/resolutions") {
+                    return HttpClientResponse.fromWeb(
+                      request,
+                      revoked
+                        ? Response.json(
+                            { code: "denied", detail: "Admission denied" },
+                            {
+                              status: deniedStatus,
+                              headers: { "x-request-id": "fc9c43e7-e99a-46ee-a55c-c0e8ef747c64" },
+                            },
+                          )
+                        : Response.json(admission),
+                    );
                   }
                   if (!requestPath.endsWith("/archive")) {
                     return HttpClientResponse.fromWeb(request, Response.json(index));
@@ -131,8 +136,6 @@ describe("Authorization for cached archives", () => {
               );
               expect(requests.filter((request) => request.path === archivePath)).toEqual([
                 { method: "GET", path: archivePath },
-                { method: "HEAD", path: archivePath },
-                { method: "HEAD", path: archivePath },
               ]);
             }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
         );
@@ -148,7 +151,7 @@ describe("Authorization for cached archives", () => {
     { status: 304, reportedIntegrity: integrity },
     { status: 409, reportedIntegrity: integrity },
   ])(
-    "refuses cached bytes for archive HEAD $status with integrity $reportedIntegrity",
+    "refuses cached bytes for malformed admission $status with integrity $reportedIntegrity",
     ({ status, reportedIntegrity }) =>
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
@@ -156,19 +159,21 @@ describe("Authorization for cached archives", () => {
         let archiveGets = 0;
         const http = HttpClient.make((request) =>
           Effect.sync(() => {
-            if (new URL(request.url).pathname === "/v1/resolutions/metadata") {
-              return HttpClientResponse.fromWeb(request, Response.json(metadata));
-            }
             if (request.method === "GET") {
               archiveGets += 1;
               return HttpClientResponse.fromWeb(request, new Response(archive));
             }
+            const body = {
+              ...admission,
+              results: admission.results.map((result) => ({
+                ...result,
+                accepted: { version: "1.0.0", integrity: reportedIntegrity },
+              })),
+            };
             return HttpClientResponse.fromWeb(
               request,
-              new Response(null, {
+              new Response(status === 204 || status === 304 ? null : JSON.stringify(body), {
                 status,
-                headers:
-                  reportedIntegrity === undefined ? {} : { "x-integrity": reportedIntegrity },
               }),
             );
           }),
@@ -181,8 +186,8 @@ describe("Authorization for cached archives", () => {
           exact: { version: exactVersion("1.0.0"), integrity, publisherBindingId: "hbnd_test" },
         };
         yield* client.getExtensionPackage(args);
-        const failure = yield* client.getExtensionPackage(args).pipe(Effect.flip);
-        expect(failure.metadata?.response?.status).toBe(status);
+        const result = yield* client.getExtensionPackage(args).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
         expect(archiveGets).toBe(1);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
@@ -202,13 +207,13 @@ describe("Authorization for cached archives", () => {
               requests.push(new URL(request.url).pathname);
               if (requests.length === 1)
                 return HttpClientResponse.fromWeb(request, new Response(archive, { status: 200 }));
-              expect(requests[1]).toBe("/v1/resolutions/metadata");
+              expect(requests[1]).toBe("/v1/resolutions");
               return HttpClientResponse.fromWeb(
                 request,
                 new Response(
                   JSON.stringify({
-                    schemaVersion: 1,
-                    selectionPolicyVersion: "1",
+                    schemaVersion: 2,
+                    purpose: "authorize-exact",
                     observedAt: "2026-10-16T00:00:00.000Z",
                     results: [{ key: "exact", outcome: "unavailable" }],
                   }),

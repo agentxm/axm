@@ -195,11 +195,11 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
               );
             }
             const results = yield* client.getResolutionMetadata({
-              schemaVersion: 1,
+              schemaVersion: 2,
+              purpose: "select",
               selectionPolicyVersion: "1",
               items: entries.map(({ request }, index) => ({
                 key: String(index),
-                purpose: "select" as const,
                 identity: {
                   owner: request.key.owner,
                   type: request.key.type,

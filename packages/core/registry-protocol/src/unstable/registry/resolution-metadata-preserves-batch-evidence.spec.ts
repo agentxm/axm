@@ -11,19 +11,20 @@ import { VersionSchema } from "@agentxm/extension-model/unstable/version-constra
 import { ExtensionIndexSchema } from "./schema.js";
 
 import {
-  MAX_RESOLUTION_METADATA_ITEMS,
-  MAX_RESOLUTION_METADATA_REQUEST_BYTES,
+  MAX_RESOLUTION_ITEMS,
+  MAX_RESOLUTION_REQUEST_BYTES,
   ResolutionMetadataRequestSchema,
   ResolutionMetadataResponseSchema,
-  decodeResolutionMetadataRequestBody,
   resolutionMetadataResponseMatchesRequest,
 } from "./resolution-metadata.js";
+
+import { decodeResolutionRequestBody } from "./resolutions.js";
 
 export const specification = defineSpecification({
   requirement: "registry/resolution-metadata-preserves-batch-evidence",
   title: "Resolution metadata keeps batch evidence complete and attributable",
   statement:
-    "A Registry batch metadata exchange shall use one unique caller key per bounded request item and one ordered outcome per key, shall distinguish complete metadata from a page requiring continuation, and shall reject a continued page whose revision differs from the request so AXM cannot select from incomplete or mixed evidence.",
+    "A Registry batch metadata exchange shall use one unique caller key per bounded request item and exactly one outcome per key regardless of response order, shall distinguish complete metadata from a page requiring continuation, and shall reject a continued page whose revision differs from the request so AXM cannot select from incomplete or mixed evidence.",
   class: "constraint",
   role: "interface",
   goals: ["trustworthy-distribution", "dependable-change-process"],
@@ -75,11 +76,11 @@ const selectorVectors = Schema.decodeUnknownSync(SelectorVectorsSchema)(
 const selectItem = (key: string) => ({
   key,
   identity: { owner: "@acme", type: "skill", name: "review" },
-  purpose: "select",
 });
 
 const request = (items: ReadonlyArray<unknown>) => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
+  purpose: "select",
   selectionPolicyVersion: "1",
   items,
 });
@@ -115,7 +116,8 @@ const metadata = (key: string, continuation: string | null = null) => ({
 });
 
 const response = (results: ReadonlyArray<unknown>) => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
+  purpose: "select",
   selectionPolicyVersion: "1",
   observedAt: "2026-09-22T12:00:00Z",
   results,
@@ -166,17 +168,17 @@ describe("resolution metadata batch evidence", () => {
   it.effect("classifies bounded request envelopes before item work", () =>
     Effect.sync(() => {
       const encoder = new TextEncoder();
-      const valid = decodeResolutionMetadataRequestBody(
+      const valid = decodeResolutionRequestBody(
         encoder.encode(JSON.stringify(request([selectItem("review")]))),
       );
       expect(Result.isSuccess(valid)).toBe(true);
 
-      const oversized = decodeResolutionMetadataRequestBody(
-        new Uint8Array(MAX_RESOLUTION_METADATA_REQUEST_BYTES + 1),
+      const oversized = decodeResolutionRequestBody(
+        new Uint8Array(MAX_RESOLUTION_REQUEST_BYTES + 1),
       );
       expect(Result.isFailure(oversized) && oversized.failure.code).toBe("request-too-large");
 
-      const unsupported = decodeResolutionMetadataRequestBody(
+      const unsupported = decodeResolutionRequestBody(
         encoder.encode(
           JSON.stringify({ ...request([selectItem("review")]), selectionPolicyVersion: "2" }),
         ),
@@ -185,7 +187,7 @@ describe("resolution metadata batch evidence", () => {
         "unsupported-selection-policy-version",
       );
 
-      const invalid = decodeResolutionMetadataRequestBody(
+      const invalid = decodeResolutionRequestBody(
         encoder.encode(JSON.stringify(request([selectItem("same"), selectItem("same")]))),
       );
       expect(Result.isFailure(invalid) && invalid.failure.code).toBe("invalid-request");
@@ -213,40 +215,18 @@ describe("resolution metadata batch evidence", () => {
       expect(() =>
         decodeRequest(
           request(
-            Array.from({ length: MAX_RESOLUTION_METADATA_ITEMS + 1 }, (_, i) =>
-              selectItem(`key-${i}`),
-            ),
+            Array.from({ length: MAX_RESOLUTION_ITEMS + 1 }, (_, i) => selectItem(`key-${i}`)),
           ),
         ),
       ).toThrow();
       expect(() =>
         decodeRequest({ ...request([selectItem("one")]), selectionPolicyVersion: "future" }),
       ).toThrow();
-      expect(() => decodeRequest({ ...request([selectItem("one")]), schemaVersion: 2 })).toThrow();
+      expect(() => decodeRequest({ ...request([selectItem("one")]), schemaVersion: 1 })).toThrow();
     }),
   );
 
-  it.effect("requires an accepted exact identity for exact restoration", () =>
-    Effect.sync(() => {
-      expect(() =>
-        decodeRequest(request([{ ...selectItem("review"), purpose: "restore-exact" }])),
-      ).toThrow();
-      expect(
-        decodeRequest(
-          request([
-            {
-              ...selectItem("review"),
-              purpose: "restore-exact",
-              accepted: { version: "1.2.3", integrity: "sha512-accepted" },
-              expectedPublisherBinding: "hbnd_example",
-            },
-          ]),
-        ).items[0]?.purpose,
-      ).toBe("restore-exact");
-    }),
-  );
-
-  it.effect("checks every result's caller key in request order", () =>
+  it.effect("matches each caller key independently of response order", () =>
     Effect.sync(() => {
       const submitted = decodeRequest(request([selectItem("first"), selectItem("second")]));
       const matching = decodeResponse(
@@ -256,7 +236,70 @@ describe("resolution metadata batch evidence", () => {
         response([{ key: "second", outcome: "unavailable" }, metadata("first")]),
       );
       expect(resolutionMetadataResponseMatchesRequest(submitted, matching)).toBe(true);
-      expect(resolutionMetadataResponseMatchesRequest(submitted, reversed)).toBe(false);
+      expect(resolutionMetadataResponseMatchesRequest(submitted, reversed)).toBe(true);
+    }),
+  );
+
+  it.effect("rejects duplicate, missing, and unsolicited outcomes", () =>
+    Effect.sync(() => {
+      const submitted = decodeRequest(request([selectItem("first"), selectItem("second")]));
+      for (const results of [
+        [metadata("first")],
+        [metadata("first"), metadata("first")],
+        [metadata("first"), metadata("unknown")],
+      ])
+        expect(
+          resolutionMetadataResponseMatchesRequest(submitted, decodeResponse(response(results))),
+        ).toBe(false);
+    }),
+  );
+
+  it.effect("requires the conditional revision and expected publisher to match", () =>
+    Effect.sync(() => {
+      const unchanged = decodeResponse(
+        response([{ key: "review", outcome: "unchanged", ...evidence }]),
+      );
+      expect(
+        resolutionMetadataResponseMatchesRequest(
+          decodeRequest(
+            request([
+              {
+                ...selectItem("review"),
+                knownRevision: "revision-one",
+                expectedPublisherBinding: "hbnd_other",
+              },
+            ]),
+          ),
+          unchanged,
+        ),
+      ).toBe(false);
+
+      expect(
+        resolutionMetadataResponseMatchesRequest(
+          decodeRequest(request([selectItem("review")])),
+          unchanged,
+        ),
+      ).toBe(false);
+      expect(
+        resolutionMetadataResponseMatchesRequest(
+          decodeRequest(request([{ ...selectItem("review"), knownRevision: "revision-one" }])),
+          unchanged,
+        ),
+      ).toBe(true);
+      expect(
+        resolutionMetadataResponseMatchesRequest(
+          decodeRequest(request([{ ...selectItem("review"), knownRevision: "revision-two" }])),
+          unchanged,
+        ),
+      ).toBe(false);
+      expect(
+        resolutionMetadataResponseMatchesRequest(
+          decodeRequest(
+            request([{ ...selectItem("review"), expectedPublisherBinding: "hbnd_other" }]),
+          ),
+          decodeResponse(response([metadata("review")])),
+        ),
+      ).toBe(false);
     }),
   );
 
@@ -309,7 +352,6 @@ describe("resolution metadata batch evidence", () => {
         for (const outcome of [
           { key: "review", outcome: "unavailable" },
           { key: "review", outcome: "binding-conflict", publisherBindingId: "hbnd_changed" },
-          { key: "review", outcome: "exact-conflict", reason: "integrity-mismatch" },
           { key: "review", outcome: "unchanged", ...evidence },
         ]) {
           expect(decodeResponse(response([outcome])).results).toHaveLength(1);

@@ -1,3 +1,5 @@
+import { chunksOf } from "effect/Array";
+import { MAX_RESOLUTION_ITEMS } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import {
   parseRegistryEndpoint,
@@ -54,6 +56,17 @@ const RegistryIndexRequest = Request.tagged<RegistryIndexRequest>("RegistryIndex
 
 export interface RegistryReadPhaseService {
   readonly clear: Effect.Effect<void>;
+  readonly getMany: (
+    endpoint: RegistryEndpoint,
+    args: ReadonlyArray<GetExtensionIndexArgs>,
+    policy?: string,
+  ) => Effect.Effect<
+    ReadonlyArray<
+      Result.Result<Option.Option<ExtensionIndex>, RegistryClientFailure | Config.ConfigError>
+    >,
+    RegistryClientFailure
+  >;
+
   readonly get: (
     endpoint: RegistryEndpoint,
     args: GetExtensionIndexArgs,
@@ -83,74 +96,94 @@ export const makeRegistryReadPhase = <R>(
       timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
     },
   ).pipe(
-    Effect.map(
-      (cache) =>
-        ({
-          clear: Cache.invalidateAll(cache),
-          get: (endpoint, args, policy = "default") =>
-            Effect.gen(function* () {
-              for (let attempt = 0; attempt < 3; attempt += 1) {
-                const authority = yield* authorityContext(endpoint);
-                const key = new RegistryIndexKey({
-                  location: endpoint.href,
-                  authority,
-                  policy,
-                  ...args,
+    Effect.map((cache) => {
+      const get = (
+        endpoint: RegistryEndpoint,
+        args: GetExtensionIndexArgs,
+        policy = "default",
+        initialAuthority?: RegistryAuthorityContext,
+      ) =>
+        Effect.gen(function* () {
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            const authority =
+              attempt === 0 && initialAuthority !== undefined
+                ? initialAuthority
+                : yield* authorityContext(endpoint);
+            const key = new RegistryIndexKey({
+              location: endpoint.href,
+              authority,
+              policy,
+              ...args,
+            });
+            const result = yield* Effect.result(
+              Effect.gen(function* () {
+                // This cache retains only successful results indefinitely. Failed
+                // lookups are removed immediately; observing its public entry map
+                // neither performs another lookup nor changes the sharing policy.
+                const entry = MutableHashMap.get(cache.map, key);
+                const outcome = Option.isNone(entry)
+                  ? "miss"
+                  : entry.value.fiber.pollUnsafe() === undefined
+                    ? "coalesced"
+                    : "hit";
+                const request = { executed: false };
+                yield* annotateWork({
+                  "axm.cache.outcome": outcome,
+                  "axm.work.executed": 0,
+                  "axm.work.reused-count": 0,
                 });
-                const result = yield* Effect.result(
-                  Effect.gen(function* () {
-                    // This cache retains only successful results indefinitely. Failed
-                    // lookups are removed immediately; observing its public entry map
-                    // neither performs another lookup nor changes the sharing policy.
-                    const entry = MutableHashMap.get(cache.map, key);
-                    const outcome = Option.isNone(entry)
-                      ? "miss"
-                      : entry.value.fiber.pollUnsafe() === undefined
-                        ? "coalesced"
-                        : "hit";
-                    const request = { executed: false };
-                    yield* annotateWork({
-                      "axm.cache.outcome": outcome,
-                      "axm.work.executed": 0,
-                      "axm.work.reused-count": 0,
-                    });
-                    return yield* Cache.get(cache, key).pipe(
-                      Effect.provideService(CurrentRegistryIndexRequest, request),
-                      Effect.onExit((exit) =>
-                        // The map snapshot can become stale before Cache.get runs.
-                        // Only the source actually started by this requester is work;
-                        // only a delivered result from another source is reuse.
-                        annotateWork({
-                          "axm.cache.outcome": request.executed
-                            ? "miss"
-                            : outcome === "miss"
-                              ? "coalesced"
-                              : outcome,
-                          "axm.work.executed": request.executed ? 1 : 0,
-                          "axm.work.reused-count":
-                            !request.executed && !Exit.hasInterrupts(exit) ? 1 : 0,
-                        }),
-                      ),
-                    );
-                  }).pipe((effect) =>
-                    withWork("axm.registry.metadata-reuse", effect, {
-                      attributes: { "axm.work.requested": 1 },
+                return yield* Cache.get(cache, key).pipe(
+                  Effect.provideService(CurrentRegistryIndexRequest, request),
+                  Effect.onExit((exit) =>
+                    // The map snapshot can become stale before Cache.get runs.
+                    // Only the source actually started by this requester is work;
+                    // only a delivered result from another source is reuse.
+                    annotateWork({
+                      "axm.cache.outcome": request.executed
+                        ? "miss"
+                        : outcome === "miss"
+                          ? "coalesced"
+                          : outcome,
+                      "axm.work.executed": request.executed ? 1 : 0,
+                      "axm.work.reused-count":
+                        !request.executed && !Exit.hasInterrupts(exit) ? 1 : 0,
                     }),
                   ),
                 );
-                const current = yield* authorityContext(endpoint);
-                if (current.id === authority.id && current.generation === authority.generation)
-                  return yield* Result.isFailure(result)
-                    ? Effect.fail(result.failure)
-                    : Effect.succeed(result.success);
-              }
-              return yield* new RegistryRequestFailed({
-                category: "conflict",
-                detail: "Registry credentials changed repeatedly during metadata selection.",
-              });
-            }),
-        }) satisfies RegistryReadPhaseService,
-    ),
+              }).pipe((effect) =>
+                withWork("axm.registry.metadata-reuse", effect, {
+                  attributes: { "axm.work.requested": 1 },
+                }),
+              ),
+            );
+            const current = yield* authorityContext(endpoint);
+            if (current.id === authority.id && current.generation === authority.generation)
+              return yield* Result.isFailure(result)
+                ? Effect.fail(result.failure)
+                : Effect.succeed(result.success);
+          }
+          return yield* new RegistryRequestFailed({
+            category: "conflict",
+            detail: "Registry credentials changed repeatedly during metadata selection.",
+          });
+        });
+      return {
+        clear: Cache.invalidateAll(cache),
+        get,
+        getMany: (endpoint, args, policy) =>
+          Effect.gen(function* () {
+            if (args.length === 0) return [];
+            const authority = yield* authorityContext(endpoint);
+            return (yield* Effect.forEach(chunksOf(args, MAX_RESOLUTION_ITEMS), (batch) =>
+              Effect.forEach(
+                batch,
+                (identity) => Effect.result(get(endpoint, identity, policy, authority)),
+                { concurrency: batch.length },
+              ),
+            )).flat();
+          }),
+      } satisfies RegistryReadPhaseService;
+    }),
   );
 
 export const makeLiveRegistryReadPhase = (

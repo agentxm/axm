@@ -48,9 +48,12 @@ import {
   normalizePublishInput,
   type ValidatedArchive,
 } from "@agentxm/extension-content";
-import { archiveSha256Hex } from "@agentxm/registry-protocol/unstable/registry";
+import {
+  archiveSha256Hex,
+  type ExtensionIndex,
+} from "@agentxm/registry-protocol/unstable/registry";
 import { inspectKnowledgeBundle } from "@agentxm/extension-content/knowledge";
-import { RegistryClientFactory, RegistryContext } from "@agentxm/registry-client";
+import { RegistryContext } from "@agentxm/registry-client";
 import {
   SettingsReader,
   acceptedCanonicalObservation,
@@ -762,8 +765,6 @@ const envelopePattern = (value: string): string => {
 
 export const decodeCandidate = Effect.fn("axm.publish.prepare")(function* (
   selected: SelectedEntry,
-  registry: TargetRegistry,
-  backfillRequested: boolean,
 ) {
   if (selected.skipReason === "not_authored" && selected.includedDependency !== true) {
     return yield* Effect.fail(
@@ -854,12 +855,17 @@ export const decodeCandidate = Effect.fn("axm.publish.prepare")(function* (
       validation(`Manifest identity does not match configured extension ${selected.fqn}`),
     );
   }
-  const client = yield* (yield* RegistryClientFactory).forEndpoint(registry.endpoint);
-  const index = yield* client.getExtensionIndex({
-    owner: selected.owner,
-    type: selected.type,
-    name: manifest.name,
-  });
+  return { selected, manifest, manifestJson, manifestPath, extensionDir };
+});
+
+export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(function* (
+  candidate: NonNullable<Effect.Success<ReturnType<typeof decodeCandidate>>>,
+  index: Option.Option<ExtensionIndex>,
+  backfillRequested: boolean,
+) {
+  const { selected, manifest, manifestJson, manifestPath, extensionDir } = candidate;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
   const version = {
     ...selected,
     type: selected.type,

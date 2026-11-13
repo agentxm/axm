@@ -1,3 +1,6 @@
+import { chunksOf } from "effect/Array";
+import { MAX_RESOLUTION_ITEMS } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
+import { withWorkspaceReadView } from "@agentxm/workspace-kernel/workspace-state";
 /**
  * `PublishExtensions`: the application API for publishing workspace-authored
  * extensions to a Registry.
@@ -110,6 +113,7 @@ import type { PublishSettlement } from "../settlement.js";
 import {
   catalogEntries,
   decodeCandidate,
+  prepareCandidate,
   resolveTargetRegistry,
   selectEntries,
   type PublishCandidate,
@@ -297,9 +301,62 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
           client,
         );
       }
-      const decoded = yield* Effect.forEach(
+      const manifests = yield* Effect.forEach(
         selection.entries,
-        (entry) => Effect.result(decodeCandidate(entry, registry, request.backfill)),
+        (entry) => Effect.result(decodeCandidate(entry)),
+        { concurrency: 4 },
+      );
+      const client = yield* (yield* RegistryClientFactory).forEndpoint(registry.endpoint);
+      const observed = (yield* Effect.forEach(chunksOf(manifests, MAX_RESOLUTION_ITEMS), (batch) =>
+        Effect.gen(function* () {
+          const candidates = batch.flatMap((result) =>
+            Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
+          );
+          const indexes = yield* Effect.result(
+            client.selectMany(
+              candidates.map(({ selected, manifest }) => ({
+                owner: selected.owner,
+                type: manifest.type,
+                name: manifest.name,
+              })),
+            ),
+          );
+          const byCandidate = new Map(
+            candidates.map((candidate, position) => [
+              candidate,
+              Result.isFailure(indexes) ? Result.fail(indexes.failure) : indexes.success[position],
+            ]),
+          );
+          return yield* Effect.forEach(batch, (result) =>
+            Effect.result(
+              Effect.gen(function* () {
+                if (Result.isFailure(result)) return yield* Effect.fail(result.failure);
+                const candidate = result.success;
+                if (candidate === undefined) return undefined;
+                const index = byCandidate.get(candidate);
+                if (index === undefined)
+                  return yield* Effect.die("Registry selection omitted a publication candidate");
+                return { candidate, index: yield* Effect.fromResult(index) };
+              }),
+            ),
+          );
+        }),
+      )).flat();
+      // Archive construction remains bounded independently of metadata batching.
+      const decoded = yield* Effect.forEach(
+        observed,
+        (result) =>
+          Effect.result(
+            Effect.gen(function* () {
+              if (Result.isFailure(result)) return yield* Effect.fail(result.failure);
+              if (result.success === undefined) return undefined;
+              return yield* prepareCandidate(
+                result.success.candidate,
+                result.success.index,
+                request.backfill,
+              );
+            }),
+          ),
         { concurrency: 4 },
       );
       return { selection, decoded };
@@ -619,7 +676,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
     },
   };
   return preparation;
-});
+}, withWorkspaceReadView);
 
 /**
  * Present the prepared candidate and, on apply, authorize, revalidate, and

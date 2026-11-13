@@ -171,6 +171,19 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
             const guarded = {
               invalidate: Scope.close(scope, Exit.void),
               clear: phase.clear,
+              getMany: (endpoint, args, policy) =>
+                Effect.gen(function* () {
+                  if (!(yield* Ref.get(open)))
+                    return yield* new RegistryRequestFailed({
+                      category: "conflict",
+                      detail: "Registry metadata read phase has ended.",
+                    });
+                  return yield* Effect.acquireUseRelease(
+                    Effect.forkIn(phase.getMany(endpoint, args, policy), scope),
+                    Fiber.join,
+                    Fiber.interrupt,
+                  );
+                }),
               get: (endpoint, args, policy) =>
                 Effect.gen(function* () {
                   if (!(yield* Ref.get(open)))
@@ -222,7 +235,34 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
             ),
           );
         };
-        return { ...client, getExtensionIndex } satisfies RegistryClient;
+        const selectMany: RegistryClient["selectMany"] = (args) => {
+          const read = Effect.flatMap(currentPhase, (phase) =>
+            phase === undefined
+              ? withReadPhase(
+                  Effect.flatMap(currentPhase, (active) =>
+                    active === undefined
+                      ? Effect.die("Registry read phase was not installed")
+                      : active.getMany(endpoint, args, policy),
+                  ),
+                )
+              : phase.getMany(endpoint, args, policy),
+          );
+          return read.pipe(
+            Effect.map((results) =>
+              results.map((result) =>
+                Result.mapError(result, (failure) =>
+                  failure._tag === "ConfigError"
+                    ? new RegistryRequestFailed({
+                        category: "internal",
+                        detail: "Registry client configuration is unavailable.",
+                      })
+                    : failure,
+                ),
+              ),
+            ),
+          );
+        };
+        return { ...client, getExtensionIndex, selectMany } satisfies RegistryClient;
       });
 
     return {

@@ -1,3 +1,6 @@
+import * as Schema from "effect/Schema";
+import * as Result from "effect/Result";
+import { ResolutionMetadataRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import * as Exit from "effect/Exit";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -377,4 +380,67 @@ it.effect(
         ),
       );
     }),
+);
+
+it.effect("known sets and individual reads share the same phase cache", () =>
+  Effect.gen(function* () {
+    const sizes: number[] = [];
+    const http = HttpClient.make((request) =>
+      Effect.sync(() => {
+        if (request.body._tag !== "Uint8Array") throw new Error("Expected selection body");
+        const body = Schema.decodeUnknownSync(
+          Schema.fromJsonString(ResolutionMetadataRequestSchema),
+        )(new TextDecoder().decode(request.body.body));
+        sizes.push(body.items.length);
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(
+            JSON.stringify({
+              schemaVersion: 2,
+              purpose: "select",
+              selectionPolicyVersion: "1",
+              observedAt,
+              results: body.items.map(({ key }) => ({ key, outcome: "metadata", page })),
+            }),
+            { status: 200 },
+          ),
+        );
+      }),
+    );
+    yield* Effect.gen(function* () {
+      const factory = yield* RegistryClientFactory;
+      const client = yield* factory.forEndpoint(testRegistryEndpoint);
+      const first = {
+        owner: handle("@acme"),
+        type: "skill" as const,
+        name: extensionName("first"),
+      };
+      const second = { ...first, name: extensionName("second") };
+      yield* factory.withReadPhase(
+        Effect.gen(function* () {
+          const results = yield* client.selectMany([first, second, first]);
+          expect(
+            results.map((result) =>
+              Result.map(result, (index) => Option.map(index, (value) => value.name)),
+            ),
+          ).toEqual([
+            Result.succeed(Option.some(first.name)),
+            Result.succeed(Option.some(second.name)),
+            Result.succeed(Option.some(first.name)),
+          ]);
+          expect(yield* client.getExtensionIndex(first)).toMatchObject({ _tag: "Some" });
+          expect(sizes).toEqual([2]);
+        }),
+      );
+      yield* client.selectMany([first]);
+      expect(sizes).toEqual([2, 1]);
+    }).pipe(
+      Effect.provide(
+        Layer.provideMerge(
+          RegistryTransportTest(Layer.succeed(HttpClient.HttpClient, http)),
+          NodeServices.layer,
+        ),
+      ),
+    );
+  }),
 );

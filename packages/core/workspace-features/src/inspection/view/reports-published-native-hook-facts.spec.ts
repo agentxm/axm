@@ -71,10 +71,15 @@ describe("Published native Hook facts", () => {
               hookContext: { scope: "project", agents: ["claude-code", "cursor"] },
             });
             if (scenario !== "valid") {
-              expect(yield* query.pipe(Effect.flip)).toMatchObject({
-                _tag: "PublishedMetadataUnavailable",
-                reason: "field-unavailable",
-              });
+              expect(yield* query.pipe(Effect.flip)).toMatchObject(
+                scenario === "changed-archive"
+                  ? {
+                      _tag: "RegistryOperationFailed",
+                      category: "conflict",
+                      detail: expect.stringContaining("integrity"),
+                    }
+                  : { _tag: "PublishedMetadataUnavailable", reason: "field-unavailable" },
+              );
               expect(fs.existsSync(sentinel)).toBe(false);
               return;
             }

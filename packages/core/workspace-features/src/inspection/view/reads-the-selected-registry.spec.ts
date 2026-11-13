@@ -7,7 +7,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import { resolveViewRegistry, ViewExtension } from "./view-extension.js";
-import { inspectionRegistryUrl, makeInspectionFixture } from "../testing.js";
+import {
+  inspectionRegistryUrl,
+  makeInspectionFixture,
+  publishedSkillSelection,
+} from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/view/reads-the-selected-registry",
@@ -57,7 +61,7 @@ describe("Registry-selected extension view", () => {
     it.effect(named ? "named Registry" : "default Registry", () => {
       const fixture = makeInspectionFixture({
         settings: { sources: configuredSources },
-        respond: () => ({ body: publishedIndex }),
+        respond: (request) => ({ body: publishedSkillSelection(request, publishedIndex) }),
       });
       const parts = parseExtensionFqnParts(handle);
       if (parts === undefined) throw new Error("Expected a fully qualified handle");
@@ -79,7 +83,7 @@ describe("Registry-selected extension view", () => {
               type: "skill",
             });
             expect(fixture.requests.map((request) => request.url)).toEqual([
-              `${named ? companyRegistry : inspectionRegistryUrl}/v1/extensions/%40acme/skills/review`,
+              `${named ? companyRegistry : inspectionRegistryUrl}/v1/resolutions`,
             ]);
           }),
         )
@@ -90,7 +94,7 @@ describe("Registry-selected extension view", () => {
     it.effect(`does not substitute a Registry for unavailable named source ${registry}`, () => {
       const fixture = makeInspectionFixture({
         settings: { sources: configuredSources },
-        respond: () => ({ body: publishedIndex }),
+        respond: (request) => ({ body: publishedSkillSelection(request, publishedIndex) }),
       });
       return fixture
         .provide(

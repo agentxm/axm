@@ -7,7 +7,12 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import { resolveViewHandle, resolveViewRegistry, ViewExtension } from "./view-extension.js";
-import { inspectionRegistryUrl, makeInspectionFixture } from "../testing.js";
+import {
+  inspectionRegistryUrl,
+  makeInspectionFixture,
+  publishedSkillSelection,
+  type ObservedRegistryRequest,
+} from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/view/reports-missing-targets-and-fields",
@@ -32,29 +37,8 @@ export const specification = defineSpecification({
 
 const handle = "@acme/skills/review";
 
-/** A published index whose only distinguishing trait is its version list. */
-const publishedIndex = (versions: ReadonlyArray<string>) => ({
-  owner: "@acme",
-  type: "skill",
-  name: "review",
-  description: "Review guidance",
-  publisherBindingId: "hbnd_read_fixture",
-  visibility: "public",
-  archival: null,
-  deprecation: null,
-  versions: versions.map((version, index) => ({
-    version,
-    published: `2026-0${String(index + 1)}-01T00:00:00.000Z`,
-    integrity: "sha512-AAAA==",
-  })),
-});
-
-const notFoundBody = {
-  type: "https://registry.agentxm.ai/v1/problems/not_found",
-  title: "Not Found",
-  status: 404,
-  code: "extension_not_found",
-  detail: "Fixture extension not found",
+const publishedIndex = {
+  versions: [{ version: "1.1.0", published: "2026-01-01T00:00:00.000Z" }],
 };
 
 /**
@@ -66,19 +50,34 @@ const conditions = [
   {
     name: "an absent Registry extension yields no document",
     field: Option.none<string>(),
-    respond: () => ({ status: 404, body: notFoundBody }),
+    respond: (request: ObservedRegistryRequest) => {
+      if (request.selection === undefined) throw new Error("Expected selection request");
+      return {
+        body: {
+          schemaVersion: 2,
+          purpose: "select",
+          selectionPolicyVersion: "1",
+          observedAt: "2026-11-13T12:00:00Z",
+          results: request.selection.items.map(({ key }) => ({ key, outcome: "unavailable" })),
+        },
+      };
+    },
     reason: "not-found",
   },
   {
     name: "an unsupported field name yields no field value",
     field: Option.some("unsupported"),
-    respond: () => ({ body: publishedIndex(["1.1.0"]) }),
+    respond: (request: ObservedRegistryRequest) => ({
+      body: publishedSkillSelection(request, publishedIndex),
+    }),
     reason: "unknown-field",
   },
   {
     name: "a reportable field the extension has no value for yields no field value",
-    field: Option.some("version"),
-    respond: () => ({ body: publishedIndex([]) }),
+    field: Option.some("description"),
+    respond: (request: ObservedRegistryRequest) => ({
+      body: publishedSkillSelection(request, publishedIndex),
+    }),
     reason: "field-unavailable",
   },
 ] as const;

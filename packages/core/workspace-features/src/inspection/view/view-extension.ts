@@ -16,7 +16,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { platform } from "node:os";
-import { computeIntegrity } from "@agentxm/host-primitives";
 import { normalizePublishInput } from "@agentxm/extension-content";
 import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import {
@@ -266,11 +265,6 @@ export const ViewExtension = {
         },
         usagePurpose: "verification",
       });
-      if ((yield* computeIntegrity(archive)) !== latest.integrity)
-        return yield* new PublishedMetadataUnavailable({
-          reason: "field-unavailable",
-          detail: "Published Hook archive integrity does not match its selected version.",
-        });
       const normalized = yield* normalizePublishInput({
         declaredIdentity: {
           owner: index.value.owner,

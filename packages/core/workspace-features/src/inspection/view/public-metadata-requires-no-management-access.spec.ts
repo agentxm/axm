@@ -8,7 +8,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { ViewExtension } from "./view-extension.js";
-import { inspectionRegistryUrl, makeRecordedRegistryPort } from "../testing.js";
+import {
+  inspectionRegistryUrl,
+  makeRecordedRegistryPort,
+  publishedSkillSelection,
+} from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/view/public-metadata-requires-no-management-access",
@@ -44,7 +48,9 @@ const publishedIndex = {
 
 describe("Anonymous public view", () => {
   it.effect("reads a public index without a workspace service", () => {
-    const registry = makeRecordedRegistryPort(() => ({ body: publishedIndex }));
+    const registry = makeRecordedRegistryPort((request) => ({
+      body: publishedSkillSelection(request, publishedIndex),
+    }));
     const handle = "@acme/skills/review";
     const parts = parseExtensionFqnParts(handle);
     if (parts === undefined) throw new Error("Expected a fully qualified handle");
@@ -62,8 +68,8 @@ describe("Anonymous public view", () => {
       expect(result.document).toMatchObject({ fqn: handle, visibility: "public" });
       expect(registry.requests).toHaveLength(1);
       expect(registry.requests[0]).toMatchObject({
-        method: "GET",
-        url: `${inspectionRegistryUrl}/v1/extensions/%40acme/skills/review`,
+        method: "POST",
+        url: `${inspectionRegistryUrl}/v1/resolutions`,
         hasAuthorization: false,
       });
     }).pipe(Effect.provide(Layer.provideMerge(registry.layer, NodeServices.layer)));

@@ -10,7 +10,11 @@ import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extens
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 import { ViewExtension } from "./view-extension.js";
-import { inspectionRegistryUrl, makeRecordedRegistryPort } from "../testing.js";
+import {
+  inspectionRegistryUrl,
+  makeRecordedRegistryPort,
+  publishedSkillSelection,
+} from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/view/reports-archival-and-effective-lifecycle-state",
@@ -35,13 +39,8 @@ describe("Extension archival details", () => {
     const handle = "@acme/skills/review";
     const parts = parseExtensionFqnParts(handle);
     if (parts === undefined) throw new Error("Expected a fully qualified handle");
-    const registry = makeRecordedRegistryPort(() => ({
-      body: {
-        owner: "@acme",
-        type: "skill",
-        name: "review",
-        publisherBindingId: "hbnd_read_fixture",
-        visibility: "public",
+    const registry = makeRecordedRegistryPort((request) => ({
+      body: publishedSkillSelection(request, {
         archival: {
           archivedAt: "2026-09-19T00:00:00.000Z",
           message: "No longer maintained",
@@ -55,10 +54,9 @@ describe("Extension archival details", () => {
           {
             version: "1.0.0",
             published: "2026-01-01T00:00:00.000Z",
-            integrity: "sha512-AAAA==",
           },
         ],
-      },
+      }),
     }));
 
     return Effect.gen(function* () {

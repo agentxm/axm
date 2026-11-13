@@ -9,7 +9,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { ViewExtension } from "./view-extension.js";
-import { inspectionRegistryUrl, makeRecordedRegistryPort } from "../testing.js";
+import {
+  inspectionRegistryUrl,
+  makeRecordedRegistryPort,
+  publishedSkillSelection,
+} from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/view/reports-deprecation-and-replacement-availability",
@@ -51,8 +55,8 @@ describe("Extension deprecation details", () => {
     { status: "unavailable" },
   ] as const)
     it.effect(replacement.status, () => {
-      const registry = makeRecordedRegistryPort(() => ({
-        body: {
+      const registry = makeRecordedRegistryPort((request) => ({
+        body: publishedSkillSelection(request, {
           ...publishedIndex,
           deprecation: {
             deprecatedAt: "2026-03-01T00:00:00.000Z",
@@ -60,7 +64,7 @@ describe("Extension deprecation details", () => {
             message: "Use the replacement when available.",
             replacement,
           },
-        },
+        }),
       }));
       const parts = parseExtensionFqnParts(handle);
       if (parts === undefined) throw new Error("Expected a fully qualified handle");

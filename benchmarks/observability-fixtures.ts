@@ -219,9 +219,10 @@ export const verifyAdoptionFailureDiagnostic: NonNullable<ObservabilityScenario[
     const output = yield* Schema.decodeUnknownEffect(
       Schema.Struct({
         ok: Schema.Literal(false),
+        mode: Schema.Literal("apply"),
+        outcome: Schema.Literal("failed"),
         diagnosticId: uuid,
         result: Schema.Struct({
-          outcome: Schema.Literal("failed"),
           failure: Schema.Struct({ code: Schema.Literal("internal"), message: Schema.String }),
         }),
       }),
@@ -1076,9 +1077,10 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
               const document = yield* Schema.decodeUnknownEffect(
                 Schema.Struct({
                   ok: Schema.Boolean,
+                  mode: Schema.Literal("apply"),
+                  outcome: Schema.Literals(["applied", "failed"]),
                   result: Schema.Struct({
                     contract: Schema.Literal("plan-result-v4"),
-                    outcome: Schema.String,
                     failure: Schema.optional(
                       Schema.Struct({ code: Schema.String, message: Schema.String }),
                     ),
@@ -1105,7 +1107,7 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
                 acquiredDigest, "Adoption did not preserve the independently recorded package bytes.");
               if (enabled) {
                 yield* require(!document.ok &&
-                  document.result.outcome === "failed" &&
+                  document.outcome === "failed" &&
                   document.result.failure?.code === "internal" &&
                   document.result.failure.message.startsWith(
                     "Preserved unowned skill artifact at ",
@@ -1207,7 +1209,7 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
               )(fs.readFileSync(path.join(fixture.workspace, "axm.json"), "utf8"));
               yield* require(settings.skills["bench-001"].enabled === false &&
                 document.ok &&
-                document.result.outcome === "applied" &&
+                document.outcome === "applied" &&
                 !fs.existsSync(
                   original,
                 ), "Disabled acquired adoption did not move the package and preserve its declared activation.");

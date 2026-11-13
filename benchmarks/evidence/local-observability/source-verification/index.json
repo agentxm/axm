@@ -1,0 +1,726 @@
+{
+  "schemaVersion": 1,
+  "status": "reviewed-source-verification-evidence",
+  "preparedAt": "2026-11-13T07:42:27.206914+00:00",
+  "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+  "baseRevision": "187ebf03a2bb81c140ed135689e9af269914f516",
+  "sourceDirtyAfter": false,
+  "command": "NX_BASE=187ebf03a2bb81c140ed135689e9af269914f516 NX_HEAD=700aa5ecf0908411a7cd2e4dbb93c0f36907b62d NX_TUI=false NX_DEFAULT_OUTPUT_STYLE=static NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false pnpm run verify:integration:source",
+  "exitCode": 0,
+  "finalSourceGraph": {
+    "tasks": 89,
+    "projects": 20,
+    "cachedTasks": 42,
+    "scope": "Final selected source target graph; preceding prerequisite stages remain in the log."
+  },
+  "archive": {
+    "path": "source-verification-700aa5ecf.tar.gz",
+    "bytes": 466329,
+    "sha256": "5629e1f8c7e70bf301f3c66deeb6d520e06045aa471a2c18b3f020b6fb58e808",
+    "entryCount": 19
+  },
+  "files": [
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/provenance.json",
+      "path": "provenance.json",
+      "bytes": 4925,
+      "sha256": "f847255b7b89cef2b862373da51970a59fbc4129ce50ff0ef215bd1d2119c6b9",
+      "kind": "original-provenance"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/source-gate.log",
+      "path": "source-gate.public-projection.log",
+      "bytes": 456030,
+      "sha256": "e75b3253ea2ae8094ac0d7c7c56631f45495e0fc286b06f1d070c4537d2556be",
+      "kind": "projected-gate-log",
+      "originalBytes": 456765,
+      "originalSha256": "640b24adb39fbc6eab68a9cbaa12d41223192a38b6d2b0d116e895425c829895"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/scripts/junit.xml",
+      "path": "reports/scripts/junit.xml",
+      "bytes": 143946,
+      "sha256": "7af08b73d1258b0788e7563e055c1ff65e7d8414623179d261540a60e0fae577",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/extension-model/junit.xml",
+      "path": "reports/extension-model/junit.xml",
+      "bytes": 222251,
+      "sha256": "e0323232d28ca2422d3151c970e671821e92d4c8d5bd3695bacbdca5e53b87c2",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/cli/junit.xml",
+      "path": "reports/cli/junit.xml",
+      "bytes": 1008143,
+      "sha256": "32e9f8831cdd7b8aa69f2dcd3e504bdbb0656228742a3a377185ab26d175003d",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/host-primitives/junit.xml",
+      "path": "reports/host-primitives/junit.xml",
+      "bytes": 17503,
+      "sha256": "12fe4538b843e62e2ad5c722b4298a9d8b3f3908741c5c588d6ee4ad9e8afef1",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/extension-kinds/junit.xml",
+      "path": "reports/extension-kinds/junit.xml",
+      "bytes": 38462,
+      "sha256": "cc8621aa1732b5727f72f4b9a189b5e59344459c435b77324b5a0cbc912c3755",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/test-support/junit.xml",
+      "path": "reports/test-support/junit.xml",
+      "bytes": 1911,
+      "sha256": "06f69b1b8607573edb2b3b7bb6d98fe581d125b3fd8409fbcd33f621634df257",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/workspace-kernel/junit.xml",
+      "path": "reports/workspace-kernel/junit.xml",
+      "bytes": 728013,
+      "sha256": "e71bbfb7ba8d37cdee57ffd7a109f0e81baa462e044bfe20ba7751bfaa9fc293",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/extension-content/junit.xml",
+      "path": "reports/extension-content/junit.xml",
+      "bytes": 93895,
+      "sha256": "879dd785c8ae5fe1575edc2da04f0b0d53aaeb3aa3add0648352e70ac3187dd5",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/registry-protocol/junit.xml",
+      "path": "reports/registry-protocol/junit.xml",
+      "bytes": 17509,
+      "sha256": "a38e3c78a5ade01b584b7a941538ac322338ba495c8e4b92de2139a7188a1e8a",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/cli-maintenance/junit.xml",
+      "path": "reports/cli-maintenance/junit.xml",
+      "bytes": 70329,
+      "sha256": "788d7066abdcf0b8fb457c5610110fb9dde7378b491f404de76f5961724dba7d",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/specification-metadata/junit.xml",
+      "path": "reports/specification-metadata/junit.xml",
+      "bytes": 3879,
+      "sha256": "3360c5c1b4d62f78b51e0568b9b8d61a62cc09116529c9cb178323d1185ace60",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/workspace-features/junit.xml",
+      "path": "reports/workspace-features/junit.xml",
+      "bytes": 967188,
+      "sha256": "ec77723b3f03377c6651d2119ec857e035f616fcec9b6c240e3aa4fc4d0dd5e0",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/test-reporting/junit.xml",
+      "path": "reports/test-reporting/junit.xml",
+      "bytes": 5476,
+      "sha256": "03b8046280a39f75a31d9c854f74d284f50fc878fd05a900d2407d8b2d8c8b78",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/extension-type-parity/junit.xml",
+      "path": "reports/extension-type-parity/junit.xml",
+      "bytes": 491,
+      "sha256": "d9a6473e30f8b840c82a41a80146d183c4e9395426115d0b0889f83947cdf61d",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/registry-access/junit.xml",
+      "path": "reports/registry-access/junit.xml",
+      "bytes": 92507,
+      "sha256": "1de6482b3ce3f979388c11b48a93e9e2710a6aee26f8e2d945cb0ea935e2ac59",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/registry-client/junit.xml",
+      "path": "reports/registry-client/junit.xml",
+      "bytes": 86509,
+      "sha256": "faf07e32db0c0d771d26d7911f6ff1202b5a6a46cad18697833816ae1b27becd",
+      "kind": "original-selected-junit"
+    },
+    {
+      "sourcePath": "/tmp/axm-observability-source-gate-dmgb2gfg/reports/e2e-utils/junit.xml",
+      "path": "reports/e2e-utils/junit.xml",
+      "bytes": 3292,
+      "sha256": "76aff25ea8f83a5e50323831399cfbb6d84884a1170a078b9745b9a552f3cbeb",
+      "kind": "original-selected-junit"
+    }
+  ],
+  "selectedTestTargets": [
+    {
+      "target": "axm:test:integration-hook",
+      "execution": "input-cache-hit",
+      "sourceLogLine": 374,
+      "reportPaths": [],
+      "summaries": []
+    },
+    {
+      "target": "specification-metadata:test",
+      "execution": "executed",
+      "sourceLogLine": 648,
+      "reportPaths": [
+        "reports/specification-metadata/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  1 passed (1)",
+        "Tests  19 passed (19)"
+      ]
+    },
+    {
+      "target": "test-reporting:test",
+      "execution": "executed",
+      "sourceLogLine": 682,
+      "reportPaths": [
+        "reports/test-reporting/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  4 passed (4)",
+        "Tests  21 passed (21)"
+      ]
+    },
+    {
+      "target": "extension-model:test",
+      "execution": "executed",
+      "sourceLogLine": 718,
+      "reportPaths": [
+        "reports/extension-model/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  50 passed (50)",
+        "Tests  1022 passed (1022)"
+      ]
+    },
+    {
+      "target": "host-primitives:test",
+      "execution": "executed",
+      "sourceLogLine": 889,
+      "reportPaths": [
+        "reports/host-primitives/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  13 passed (13)",
+        "Tests  80 passed | 1 skipped (81)"
+      ]
+    },
+    {
+      "target": "registry-protocol:test",
+      "execution": "executed",
+      "sourceLogLine": 952,
+      "reportPaths": [
+        "reports/registry-protocol/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  8 passed (8)",
+        "Tests  73 passed (73)"
+      ]
+    },
+    {
+      "target": "test-support:test",
+      "execution": "executed",
+      "sourceLogLine": 1007,
+      "reportPaths": [
+        "reports/test-support/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  3 passed (3)",
+        "Tests  6 passed (6)"
+      ]
+    },
+    {
+      "target": "registry-client:test",
+      "execution": "executed",
+      "sourceLogLine": 1033,
+      "reportPaths": [
+        "reports/registry-client/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  33 passed (33)",
+        "Tests  401 passed (401)"
+      ]
+    },
+    {
+      "target": "registry-access:test",
+      "execution": "executed",
+      "sourceLogLine": 1160,
+      "reportPaths": [
+        "reports/registry-access/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  51 passed (51)",
+        "Tests  373 passed (373)"
+      ]
+    },
+    {
+      "target": "extension-content:test",
+      "execution": "executed",
+      "sourceLogLine": 1341,
+      "reportPaths": [
+        "reports/extension-content/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  30 passed (30)",
+        "Tests  432 passed (432)"
+      ]
+    },
+    {
+      "target": "cli-maintenance:test",
+      "execution": "executed",
+      "sourceLogLine": 1459,
+      "reportPaths": [
+        "reports/cli-maintenance/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  31 passed (31)",
+        "Tests  272 passed (272)"
+      ]
+    },
+    {
+      "target": "extension-kinds:test",
+      "execution": "executed",
+      "sourceLogLine": 1573,
+      "reportPaths": [
+        "reports/extension-kinds/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  25 passed (25)",
+        "Tests  150 passed (150)"
+      ]
+    },
+    {
+      "target": "workspace-kernel:test",
+      "execution": "executed",
+      "sourceLogLine": 1672,
+      "reportPaths": [
+        "reports/workspace-kernel/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  312 passed | 1 skipped (313)",
+        "Tests  2914 passed | 4 skipped (2918)"
+      ]
+    },
+    {
+      "target": "extension-type-parity:test",
+      "execution": "executed",
+      "sourceLogLine": 2649,
+      "reportPaths": [
+        "reports/extension-type-parity/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  1 passed (1)",
+        "Tests  1 passed (1)"
+      ]
+    },
+    {
+      "target": "workspace-features:test:policy-coverage",
+      "execution": "executed",
+      "sourceLogLine": 2676,
+      "reportPaths": [],
+      "summaries": [
+        "Test Files  1 passed (1)",
+        "Tests  29 passed (29)"
+      ]
+    },
+    {
+      "target": "cli:test",
+      "execution": "executed",
+      "sourceLogLine": 2705,
+      "reportPaths": [
+        "reports/cli/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  292 passed (292)",
+        "Tests  4220 passed (4220)"
+      ]
+    },
+    {
+      "target": "e2e-utils:test",
+      "execution": "executed",
+      "sourceLogLine": 3635,
+      "reportPaths": [
+        "reports/e2e-utils/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  3 passed (3)",
+        "Tests  16 passed (16)"
+      ]
+    },
+    {
+      "target": "workspace-conventions:test",
+      "execution": "executed",
+      "sourceLogLine": 3661,
+      "reportPaths": [],
+      "summaries": []
+    },
+    {
+      "target": "architecture:test",
+      "execution": "executed",
+      "sourceLogLine": 3750,
+      "reportPaths": [],
+      "summaries": []
+    },
+    {
+      "target": "axm:test",
+      "execution": "executed",
+      "sourceLogLine": 3836,
+      "reportPaths": [
+        "reports/scripts/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  68 passed (68)",
+        "Tests  634 passed (634)"
+      ]
+    },
+    {
+      "target": "workspace-features:test",
+      "execution": "executed",
+      "sourceLogLine": 4134,
+      "reportPaths": [
+        "reports/workspace-features/junit.xml"
+      ],
+      "summaries": [
+        "Test Files  414 passed (414)",
+        "Tests  3558 passed | 1 skipped (3559)"
+      ]
+    }
+  ],
+  "selectedReports": [
+    {
+      "path": "reports/scripts/junit.xml",
+      "sha256": "7af08b73d1258b0788e7563e055c1ff65e7d8414623179d261540a60e0fae577",
+      "mtimeNs": 1794555002987169690,
+      "target": "axm:test",
+      "execution": "executed",
+      "testcases": 634,
+      "passed": 634,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/extension-model/junit.xml",
+      "sha256": "e0323232d28ca2422d3151c970e671821e92d4c8d5bd3695bacbdca5e53b87c2",
+      "mtimeNs": 1794554379318774056,
+      "target": "extension-model:test",
+      "execution": "executed",
+      "testcases": 1022,
+      "passed": 1022,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/cli/junit.xml",
+      "sha256": "32e9f8831cdd7b8aa69f2dcd3e504bdbb0656228742a3a377185ab26d175003d",
+      "mtimeNs": 1794554864543084895,
+      "target": "cli:test",
+      "execution": "executed",
+      "testcases": 4220,
+      "passed": 4220,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/host-primitives/junit.xml",
+      "sha256": "12fe4538b843e62e2ad5c722b4298a9d8b3f3908741c5c588d6ee4ad9e8afef1",
+      "mtimeNs": 1794554382074775910,
+      "target": "host-primitives:test",
+      "execution": "executed",
+      "testcases": 81,
+      "passed": 80,
+      "skipped": [
+        {
+          "name": "file locations > round-trips a Windows drive path",
+          "classname": "src/file-location.test.ts"
+        }
+      ],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/extension-kinds/junit.xml",
+      "sha256": "cc8621aa1732b5727f72f4b9a189b5e59344459c435b77324b5a0cbc912c3755",
+      "mtimeNs": 1794554435362811507,
+      "target": "extension-kinds:test",
+      "execution": "executed",
+      "testcases": 150,
+      "passed": 150,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/test-support/junit.xml",
+      "sha256": "06f69b1b8607573edb2b3b7bb6d98fe581d125b3fd8409fbcd33f621634df257",
+      "mtimeNs": 1794554391522782256,
+      "target": "test-support:test",
+      "execution": "executed",
+      "testcases": 6,
+      "passed": 6,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/workspace-kernel/junit.xml",
+      "sha256": "e71bbfb7ba8d37cdee57ffd7a109f0e81baa462e044bfe20ba7751bfaa9fc293",
+      "mtimeNs": 1794554551726887712,
+      "target": "workspace-kernel:test",
+      "execution": "executed",
+      "testcases": 2918,
+      "passed": 2914,
+      "skipped": [
+        {
+          "name": "Linux casefold native spelling > agrees with directory-entry spelling for case and Unicode aliases without listings",
+          "classname": "src/locations/folding-native-path.test.ts"
+        },
+        {
+          "name": "refuses existing case aliases on a case-folding volume",
+          "classname": "src/settlement/authorities-refuse-overlapping-physical-boundaries.spec.ts"
+        },
+        {
+          "name": "refuses existing parent-case aliases with parent admitted first",
+          "classname": "src/settlement/authorities-refuse-overlapping-physical-boundaries.spec.ts"
+        },
+        {
+          "name": "refuses existing parent-case aliases with child admitted first",
+          "classname": "src/settlement/authorities-refuse-overlapping-physical-boundaries.spec.ts"
+        }
+      ],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/extension-content/junit.xml",
+      "sha256": "879dd785c8ae5fe1575edc2da04f0b0d53aaeb3aa3add0648352e70ac3187dd5",
+      "mtimeNs": 1794554407958793260,
+      "target": "extension-content:test",
+      "execution": "executed",
+      "testcases": 432,
+      "passed": 432,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/registry-protocol/junit.xml",
+      "sha256": "a38e3c78a5ade01b584b7a941538ac322338ba495c8e4b92de2139a7188a1e8a",
+      "mtimeNs": 1794554384522777556,
+      "target": "registry-protocol:test",
+      "execution": "executed",
+      "testcases": 73,
+      "passed": 73,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/cli-maintenance/junit.xml",
+      "sha256": "788d7066abdcf0b8fb457c5610110fb9dde7378b491f404de76f5961724dba7d",
+      "mtimeNs": 1794554413830797181,
+      "target": "cli-maintenance:test",
+      "execution": "executed",
+      "testcases": 272,
+      "passed": 272,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/specification-metadata/junit.xml",
+      "sha256": "3360c5c1b4d62f78b51e0568b9b8d61a62cc09116529c9cb178323d1185ace60",
+      "mtimeNs": 1794554366726765567,
+      "target": "specification-metadata:test",
+      "execution": "executed",
+      "testcases": 19,
+      "passed": 19,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/workspace-features/junit.xml",
+      "sha256": "ec77723b3f03377c6651d2119ec857e035f616fcec9b6c240e3aa4fc4d0dd5e0",
+      "mtimeNs": 1794555302063349697,
+      "target": "workspace-features:test",
+      "execution": "executed",
+      "testcases": 3559,
+      "passed": 3558,
+      "skipped": [
+        {
+          "name": "chrome-devtools-mcp live smoke > installs then uninstalls with live registry fetch when gate is enabled",
+          "classname": "src/lifecycle/install/mcp-connections/chrome-devtools-live-smoke.test.ts"
+        }
+      ],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/test-reporting/junit.xml",
+      "sha256": "03b8046280a39f75a31d9c854f74d284f50fc878fd05a900d2407d8b2d8c8b78",
+      "mtimeNs": 1794554369834767664,
+      "target": "test-reporting:test",
+      "execution": "executed",
+      "testcases": 21,
+      "passed": 21,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/extension-type-parity/junit.xml",
+      "sha256": "d9a6473e30f8b840c82a41a80146d183c4e9395426115d0b0889f83947cdf61d",
+      "mtimeNs": 1794554593954914916,
+      "target": "extension-type-parity:test",
+      "execution": "executed",
+      "testcases": 1,
+      "passed": 1,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/registry-access/junit.xml",
+      "sha256": "1de6482b3ce3f979388c11b48a93e9e2710a6aee26f8e2d945cb0ea935e2ac59",
+      "mtimeNs": 1794554402206789416,
+      "target": "registry-access:test",
+      "execution": "executed",
+      "testcases": 373,
+      "passed": 373,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/registry-client/junit.xml",
+      "sha256": "faf07e32db0c0d771d26d7911f6ff1202b5a6a46cad18697833816ae1b27becd",
+      "mtimeNs": 1794554391570782290,
+      "target": "registry-client:test",
+      "execution": "executed",
+      "testcases": 401,
+      "passed": 401,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "path": "reports/e2e-utils/junit.xml",
+      "sha256": "76aff25ea8f83a5e50323831399cfbb6d84884a1170a078b9745b9a552f3cbeb",
+      "mtimeNs": 1794554917347117375,
+      "target": "e2e-utils:test",
+      "execution": "executed",
+      "testcases": 16,
+      "passed": 16,
+      "skipped": [],
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "omittedReports": [
+    {
+      "path": "reports/cli-e2e-tracing/junit.xml",
+      "sha256": "58de24fd0525ab9c8eba7c89586b612dbff79d4d8ed866d7b40840413eb7cd26",
+      "mtimeNs": 1794541687346599548,
+      "reason": "Unselected older CLI E2E report. The source gate selected cli-e2e lint/typecheck, not this E2E execution; this report is not current gate evidence."
+    },
+    {
+      "path": "reports/cli-e2e-binary/junit.xml",
+      "sha256": "eed4699df788a9010c7151b21430bf5755d61ba6ed57ca9b8e7f0ebbb459a392",
+      "mtimeNs": 1794497637429900679,
+      "reason": "Unselected older CLI E2E report. The source gate selected cli-e2e lint/typecheck, not this E2E execution; this report is not current gate evidence."
+    },
+    {
+      "path": "reports/cli-e2e-performance/junit.xml",
+      "sha256": "dafe3e38535e2d8207cb21c25d651129760ec8fd50de04632c3c6ba2e45aa022",
+      "mtimeNs": 1794498493946868944,
+      "reason": "Unselected older CLI E2E report. The source gate selected cli-e2e lint/typecheck, not this E2E execution; this report is not current gate evidence."
+    },
+    {
+      "path": "reports/cli-e2e-install/junit.xml",
+      "sha256": "bfb9e5327c87a8e83a2325524322989906598145bbd38b97c02d5f98ece840ff",
+      "mtimeNs": 1794498457786789284,
+      "reason": "Unselected older CLI E2E report. The source gate selected cli-e2e lint/typecheck, not this E2E execution; this report is not current gate evidence."
+    },
+    {
+      "path": "reports/cli-e2e/junit.xml",
+      "sha256": "8975812fa2853ddb8c22cd6eb1c37f755ea6f6d09fb063b544bdde75b92c7fc8",
+      "mtimeNs": 1794498448562768518,
+      "reason": "Unselected older CLI E2E report. The source gate selected cli-e2e lint/typecheck, not this E2E execution; this report is not current gate evidence."
+    }
+  ],
+  "privacyProjections": [
+    {
+      "originalPath": "/tmp/axm-observability-source-gate-dmgb2gfg/source-gate.log",
+      "originalBytes": 456765,
+      "originalSha256": "640b24adb39fbc6eab68a9cbaa12d41223192a38b6d2b0d116e895425c829895",
+      "projectedPath": "source-gate.public-projection.log",
+      "projectedBytes": 456030,
+      "projectedSha256": "e75b3253ea2ae8094ac0d7c7c56631f45495e0fc286b06f1d070c4537d2556be",
+      "operation": "Replace only the exact absolute checkout-root prefix with <repository-root>; retain every other byte.",
+      "omittedValueBytes": 38,
+      "omittedValueSha256": "254cd97a0e192fb988a1c207a206d949b552034da0531073ed44bec79f1725b6",
+      "occurrences": 35,
+      "affectedLines": [
+        655,
+        666,
+        689,
+        709,
+        725,
+        887,
+        896,
+        943,
+        959,
+        991,
+        1014,
+        1031,
+        1040,
+        1151,
+        1167,
+        1332,
+        1348,
+        1450,
+        1466,
+        1571,
+        1580,
+        1663,
+        1679,
+        2640,
+        2656,
+        2667,
+        2683,
+        2712,
+        3619,
+        3642,
+        3659,
+        3843,
+        4094,
+        4141,
+        6239
+      ]
+    }
+  ],
+  "readback": {
+    "verified": true,
+    "entries": 19,
+    "encoding": "Sorted POSIX pax entries in gzip; owner/group0, mode0644, timestamp0; no gzip filename.",
+    "method": "Full gzip decompression and CRC check, followed by exact entry order/header/length/SHA-256 comparisons."
+  },
+  "limits": [
+    "Evidence applies to the clean completed source gate at700aa5ecf0908411a7cd2e4dbb93c0f36907b62d; it does not qualify later harness edits.",
+    "Original provenance records clean state after completion; current checkout state was not substituted for that recorded checkpoint.",
+    "The log establishes executed versus input-cache-hit tasks; original JUnit mtime alone is not execution evidence. axm:test uses reports/scripts/junit.xml.",
+    "All17 selected JUnit reports are retained exactly; architecture:test, workspace-conventions:test and policy-coverage execution evidence is in the log, without invented JUnit reports.",
+    "The integration-hook prerequisite is an input-cache hit. This is source-only verification; no final main integration gate, CLI E2E execution or timing qualification is claimed.",
+    "Five older unselected CLI E2E reports are omitted with original hashes/mtimes. Their descriptors remain in the unmodified original provenance."
+  ]
+}

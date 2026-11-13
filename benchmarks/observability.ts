@@ -22,12 +22,19 @@ import {
   assessScenarioTiming,
   observationLimitIssues,
   observationPairIssues,
+  compareSummaryDetailWork,
+  nativeReceiptByteField,
+  nativeReceiptByteRowKey,
   timingBlockOrder,
   traceModes,
   verifyBinaryIdentity,
   type BinaryManifest,
   type ObservationSample,
   type TraceMode,
+  type NativeReceiptByteRow,
+  type NativeReceiptSerialization,
+  type NativeSerializationWork,
+  type WorkComparison,
 } from "./observability-contract.js";
 import {
   discoverObservabilityRoutes,
@@ -257,7 +264,9 @@ export const automaticCacheMaintenanceWork = (
   });
 
 /** Compare deterministic work; preserve duration-dependent maintenance separately. */
-export const workDigest = (work: ReadonlyArray<TraceWorkSummary>): string => {
+const workComparisonFacts = (work: ReadonlyArray<TraceWorkSummary>, scenario?: string) => {
+  const byteRows = new Map<string, NativeReceiptByteRow>();
+  const byteStrict = new Set<string>();
   const groups = new Map<string, Array<number | null>>();
   const measured = new Map<
     string,
@@ -281,6 +290,35 @@ export const workDigest = (work: ReadonlyArray<TraceWorkSummary>): string => {
         )
         .sort(([a], [b]) => a.localeCompare(b)),
     ]);
+    const field = scenario === undefined ? undefined : nativeReceiptByteField(scenario, row);
+    const measuredBytes = field === undefined ? undefined : row.measurements[field.measurement];
+    const value = field === undefined ? undefined : row[field.field];
+    if (
+      field === undefined ||
+      measuredBytes === undefined ||
+      value === null ||
+      value === undefined ||
+      measuredBytes.total !== value ||
+      measuredBytes.measured !== row.count ||
+      measuredBytes.occurrences !== row.count ||
+      row.count <= 0
+    ) {
+      byteStrict.add(key);
+      byteRows.delete(key);
+    } else if (!byteStrict.has(key)) {
+      const prior = byteRows.get(key);
+      byteRows.set(key, {
+        kind: row.kind,
+        ownerName: row.ownerName,
+        dimensions: row.dimensions,
+        ...field,
+        value: (prior?.value ?? 0) + value,
+        total: (prior?.total ?? 0) + measuredBytes.total,
+        count: (prior?.count ?? 0) + row.count,
+        measured: (prior?.measured ?? 0) + measuredBytes.measured,
+        occurrences: (prior?.occurrences ?? 0) + measuredBytes.occurrences,
+      });
+    }
     const totals = groups.get(key) ?? [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     const values = [
       row.count,
@@ -317,17 +355,56 @@ export const workDigest = (work: ReadonlyArray<TraceWorkSummary>): string => {
       }),
     );
   }
-  return digest(
-    JSON.stringify(
-      [...groups]
-        .map(([key, totals]) => [
-          key,
-          totals,
-          [...(measured.get(key) ?? [])].sort(([a], [b]) => a.localeCompare(b)),
-        ])
-        .sort(([a], [b]) => String(a).localeCompare(String(b))),
+  const inconclusive = "<native-allocation-byte-equivalence-unproven>";
+  return {
+    digest: digest(
+      JSON.stringify(
+        [...groups]
+          .map(([key, totals]) => {
+            const field = byteRows.get(key);
+            return [
+              key,
+              totals.map((value, index) =>
+                field !== undefined && index === (field.field === "bytes" ? 4 : 5)
+                  ? inconclusive
+                  : value,
+              ),
+              [...(measured.get(key) ?? [])]
+                .map(
+                  ([name, observation]) =>
+                    [
+                      name,
+                      name === field?.measurement
+                        ? { ...observation, total: inconclusive }
+                        : observation,
+                    ] as const,
+                )
+                .sort(([a], [b]) => a.localeCompare(b)),
+            ];
+          })
+          .sort(([a], [b]) => String(a).localeCompare(String(b))),
+      ),
     ),
-  );
+    byteRows: [...byteRows.values()].sort((a, b) =>
+      nativeReceiptByteRowKey(a).localeCompare(nativeReceiptByteRowKey(b)),
+    ),
+  };
+};
+
+/** The original complete quantitative digest is retained even when byte equivalence is unproven. */
+export const workDigest = (work: ReadonlyArray<TraceWorkSummary>): string =>
+  workComparisonFacts(work).digest;
+
+/** Also usable against retained inspections; it neither recaptures work nor changes raw records. */
+export const nativeSerializationWork = (
+  scenario: string,
+  work: ReadonlyArray<TraceWorkSummary>,
+  receipt: NativeReceiptSerialization | undefined,
+): NativeSerializationWork | undefined => {
+  if (receipt === undefined) return undefined;
+  const facts = workComparisonFacts(work, scenario);
+  if (facts.byteRows.length === 0) return undefined;
+  return { strictDigest: facts.digest, byteRows: facts.byteRows, receipt };
 };
 
 const childEnvironment = (
@@ -458,6 +535,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
           comparisonVerified: boolean;
           comparisonIssues: ReadonlyArray<string>;
           trace?: ObservationSample["trace"];
+          workComparison?: WorkComparison;
         }> = [];
         let coverage = makeObservabilityCoverage([]);
         let scenarioIds: string[] = [];
@@ -1154,12 +1232,19 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                   );
                 const automaticCacheMaintenance = yield* automaticCacheMaintenanceWork(inspected);
                 const variableRows = new Set(automaticCacheMaintenance);
+                const comparedWork = inspected.work.filter((row) => !variableRows.has(row));
+                const nativeWork = nativeSerializationWork(
+                  scenario.id,
+                  comparedWork,
+                  receiptVerification?.nativeReceiptSerialization,
+                );
                 trace = {
                   ...trace,
                   delivery: "inspected",
                   retainedDetailSpanCount: inspected.evidence.retainedDetailSpanCount,
                   summaryGroups: inspected.evidence.aggregateEventCount,
-                  workDigest: workDigest(inspected.work.filter((row) => !variableRows.has(row))),
+                  workDigest: workDigest(comparedWork),
+                  ...(nativeWork === undefined ? {} : { nativeSerializationWork: nativeWork }),
                   periodicMaintenance: periodicMaintenanceWork(inspected.work),
                   automaticCacheMaintenance,
                   retrievalBytes: Buffer.byteLength(retrieved.stdout),
@@ -1250,7 +1335,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               0,
               false,
             );
-            let summaryWork: string | undefined;
+            let summaryTrace: ObservationSample["trace"];
             for (const mode of traceModes) {
               const result = yield* execute(
                 scenario,
@@ -1262,12 +1347,12 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 false,
               );
               const comparisonIssues = [...observationPairIssues(before, result)];
-              if (mode === "summary") summaryWork = result.trace?.workDigest;
-              if (
-                mode === "detail" &&
-                (summaryWork === undefined || result.trace?.workDigest !== summaryWork)
-              )
-                comparisonIssues.push("Summary/detail work mismatch: " + scenario.id);
+              if (mode === "summary") summaryTrace = result.trace;
+              const workComparison =
+                mode === "detail"
+                  ? compareSummaryDetailWork(scenario.id, summaryTrace, result.trace)
+                  : undefined;
+              if (workComparison !== undefined) comparisonIssues.push(...workComparison.issues);
               fixtureChecks.push({
                 scenario: scenario.id,
                 mode,
@@ -1276,6 +1361,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 baselineArtifacts: before.artifacts,
                 comparisonVerified: comparisonIssues.length === 0,
                 comparisonIssues,
+                ...(workComparison === undefined ? {} : { workComparison }),
                 ...(result.trace === undefined ? {} : { trace: result.trace }),
               });
               save(false);

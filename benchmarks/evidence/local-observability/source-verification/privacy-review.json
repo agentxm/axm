@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "status": "review-complete-no-unresolved-private-context",
+  "auditedAt": "2026-11-13T07:42:27.207850+00:00",
+  "payloadFilesInspected": 19,
+  "utf8BytesInspected": 3962259,
+  "checks": [
+    "Every selected payload decoded as UTF-8; all17 XML reports parsed.",
+    "Private repository/provider/tracker markers, actual home-like paths, private keys, common credential prefixes, credential-bearing URLs and token-shaped values inspected.",
+    "All home-like test-name literals were validated against the exact frozen source; only the log checkout prefix required projection."
+  ],
+  "resolvedFindings": [
+    {
+      "path": "reports/extension-model/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/unstable/sources/parser.test.ts",
+      "matchSha256": "2b502b04fb05fb92f4d7932897d6f3d1715f37e4f180c82f7850814a6af47455",
+      "source": "packages/core/extension-model/src/unstable/sources/parser.test.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "a32a1ccb3a3a2439505a933e3903de075f74fecd766be20f2d743404a241df18",
+      "resolution": "Synthetic path literal in the frozen test source; original JUnit bytes retained."
+    },
+    {
+      "path": "reports/extension-model/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/unstable/sources/printer.test.ts",
+      "matchSha256": "d9f431e686d5e35c65bd96a875db5558a786db719e6198d6f504fc7bbb0f5df5",
+      "source": "packages/core/extension-model/src/unstable/sources/printer.test.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "b4223d4ae04a923e41a4c93aeadd2fa9f8fbfaee128a27eb9237f13f0b5b6c79",
+      "resolution": "Synthetic path literal in the frozen test source; original JUnit bytes retained."
+    },
+    {
+      "path": "reports/cli/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/telemetry/skill-install-telemetry.spec.ts",
+      "matchSha256": "23e959658f5082a89c6db72c842271a117887b8658ab703f60eaba650b3d5f20",
+      "source": "apps/cli/src/telemetry/skill-install-telemetry.spec.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "2d089f96364dc5f180b8589af5cac3fd00fc5f91e5c4695e6720dda18967b661",
+      "resolution": "Synthetic path literal in the frozen test source; original JUnit bytes retained."
+    },
+    {
+      "path": "reports/cli/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/telemetry/skill-install-telemetry.spec.ts",
+      "matchSha256": "67e99cdc8b7d7656e5409eb6b8710561d6b67bd0f64b236b372e5f8b098a3de5",
+      "source": "apps/cli/src/telemetry/skill-install-telemetry.spec.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "2d089f96364dc5f180b8589af5cac3fd00fc5f91e5c4695e6720dda18967b661",
+      "resolution": "Synthetic path literal in the frozen test source; original JUnit bytes retained."
+    },
+    {
+      "path": "reports/workspace-kernel/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/sources/local-source-path.test.ts",
+      "matchSha256": "2d0ea78f3ec9fa201bf313109c59ad733d7ce0b4a261846cedd7123ac971eae7",
+      "source": "packages/core/workspace-kernel/src/sources/local-source-path.test.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "702434b55727f8250e7355eadf0482a1b132d5ce7bc39dae3bebffb8a2b4a8cf",
+      "resolution": "Synthetic path literal in the frozen test source; original JUnit bytes retained."
+    },
+    {
+      "path": "reports/workspace-kernel/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/sources/local-source-path.test.ts",
+      "matchSha256": "63916cb2d929a80396121f4e05dead059aff05dae9bc77b8790acdb78ea42751",
+      "source": "packages/core/workspace-kernel/src/sources/local-source-path.test.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "702434b55727f8250e7355eadf0482a1b132d5ce7bc39dae3bebffb8a2b4a8cf",
+      "resolution": "Synthetic path literal in the frozen test source; original JUnit bytes retained."
+    },
+    {
+      "path": "reports/workspace-features/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/authoring/hooks/exports-self-contained-native-bundles.spec.ts",
+      "matchSha256": "0334dc7eb6f678dbea4f9ffdc6b0bb192379445b335d5df4e5de1bb45d4aeb7f",
+      "source": "packages/core/workspace-features/src/authoring/hooks/exports-self-contained-native-bundles.spec.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "45f49e9e0945ab94a22e4cb81869fcf1a6d4beb7279217a4a7619438029d9723",
+      "resolution": "Synthetic path literal in the frozen test source; original JUnit bytes retained."
+    },
+    {
+      "path": "reports/workspace-kernel/junit.xml",
+      "field": "testsuite[name] and testcase[classname]",
+      "resolution": "Broad sk- detector matched the suffix of disk-exhaustion-preserves-canonical.spec.ts. This is a test filename, not a credential."
+    },
+    {
+      "path": "reports/scripts/junit.xml",
+      "field": "testcase[name]",
+      "classname": "registry-network.spec.ts",
+      "matchSha256": "9ad324e434b0bdd94e965a143576748767998f4954c77b11a159ea9faa24cb9c",
+      "source": "scripts/registry-network.spec.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "c4846cca273b3bd9c87b6fe51cbad9b28248a096775e06beb86d9a0cd3e42afe",
+      "resolution": "Synthetic refusal-test URL validated in frozen source; the CLI parameterized title retains its exact truncated prefix with ellipsis."
+    },
+    {
+      "path": "reports/cli/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/settings-select-default-registry.spec.ts",
+      "matchSha256": "d76100cc8d27c1049cdb5e45f234e3d48f63dc00a6bbdea239a1ab1b4061ce5b",
+      "source": "apps/cli/src/settings-select-default-registry.spec.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "c5e4b34b5258e71261d09daf453efac25dbb84e5c8adedc31be5164396556b6f",
+      "resolution": "Synthetic refusal-test URL validated in frozen source; the CLI parameterized title retains its exact truncated prefix with ellipsis."
+    },
+    {
+      "path": "reports/workspace-kernel/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/agent-adapters/mcps/plugin-mcps-preserve-selected-transport.spec.ts",
+      "matchSha256": "d49e58a6708f16d3f1016407723f4693849c59f77b47e0e9f26759cbea3ed688",
+      "source": "packages/core/workspace-kernel/src/agent-adapters/mcps/plugin-mcps-preserve-selected-transport.spec.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "23d81f7dcfb81c791607f54e36e5397df8097056d0943ed7fd929a478ec5a535",
+      "resolution": "Synthetic refusal-test URL validated in frozen source; the CLI parameterized title retains its exact truncated prefix with ellipsis."
+    },
+    {
+      "path": "reports/workspace-features/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/publishing/target/publication-uses-explicit-registry-target.spec.ts",
+      "matchSha256": "f6729932bd0216a9ced489911667e48ede49c4c0c9886343567e8abee5e4a2b6",
+      "source": "packages/core/workspace-features/src/publishing/target/publication-uses-explicit-registry-target.spec.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "03aa222226b899dd14d691603ee40baf402069f07707147a2c1a10f2ccef0750",
+      "resolution": "Synthetic refusal-test URL validated in frozen source; the CLI parameterized title retains its exact truncated prefix with ellipsis."
+    },
+    {
+      "path": "reports/registry-access/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/adapters/request-authorization.test.ts",
+      "matchSha256": "e8d817b16a62064004462dfcb5d6881a4e133b8af15db24694056aa39fbfb70b",
+      "source": "packages/supporting/registry-access/src/adapters/request-authorization.test.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "c01e599025f795f06b2c7508be5c5d47bef32500d0e04adc8f68e07a8fad4f04",
+      "resolution": "Literal phrase Bearer header in the test title, validated in frozen source; no credential value."
+    },
+    {
+      "path": "reports/registry-access/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/adapters/request-authorization.test.ts",
+      "matchSha256": "e8d817b16a62064004462dfcb5d6881a4e133b8af15db24694056aa39fbfb70b",
+      "source": "packages/supporting/registry-access/src/adapters/request-authorization.test.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "c01e599025f795f06b2c7508be5c5d47bef32500d0e04adc8f68e07a8fad4f04",
+      "resolution": "Literal phrase Bearer header in the test title, validated in frozen source; no credential value."
+    },
+    {
+      "path": "reports/registry-access/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/adapters/request-authorization.test.ts",
+      "matchSha256": "e8d817b16a62064004462dfcb5d6881a4e133b8af15db24694056aa39fbfb70b",
+      "source": "packages/supporting/registry-access/src/adapters/request-authorization.test.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "c01e599025f795f06b2c7508be5c5d47bef32500d0e04adc8f68e07a8fad4f04",
+      "resolution": "Literal phrase Bearer header in the test title, validated in frozen source; no credential value."
+    },
+    {
+      "path": "reports/registry-access/junit.xml",
+      "field": "testcase[name]",
+      "classname": "src/adapters/request-authorization.test.ts",
+      "matchSha256": "e8d817b16a62064004462dfcb5d6881a4e133b8af15db24694056aa39fbfb70b",
+      "source": "packages/supporting/registry-access/src/adapters/request-authorization.test.ts",
+      "sourceRevision": "700aa5ecf0908411a7cd2e4dbb93c0f36907b62d",
+      "sourceSha256": "c01e599025f795f06b2c7508be5c5d47bef32500d0e04adc8f68e07a8fad4f04",
+      "resolution": "Literal phrase Bearer header in the test title, validated in frozen source; no credential value."
+    }
+  ],
+  "unresolvedFindings": [],
+  "metadataReview": "Final index, this privacy review and README inspected for private context; original hashes retained.",
+  "limits": "Bounded source-scoped review of selected evidence, not a universal secret detector. No unrelated reports, coverage trees, fixture homes or host process inventories included."
+}

@@ -383,7 +383,8 @@ pnpm run bench
 
 Fixture mode runs one disabled baseline and candidate disabled, summary and
 detail invocations for each scenario. It checks output, exit, independent work,
-resulting state, exact receiver/receipt identity and summary/detail work parity.
+resulting state, exact receiver/receipt identity and summary/detail work
+reconciliation under the comparability rules below.
 The benchmark's detail subject selects `io`. Registry sync restoration selects
 the acquisition phase consistently across its 1/10/50-extension and cold/warm
 cases; preview derivatives retain unscoped I/O because they do not acquire.
@@ -537,6 +538,30 @@ the removed entry is explicitly not post-stat verifiable. Arbitrary missing
 directories cannot qualify as history. Devices, permissions, paths, aliases,
 ownership, ordering and every unrelated field remain strict in both cases.
 Raw receipts and classifications are retained; this audit runs only in preflight.
+
+Exact byte accounting belongs to each invocation. Independent native allocations
+can serialize different inode or creation-time widths even when their verified
+product states are equivalent. Four identified fixtures have a bounded comparison
+disposition for this: `typed/subagents/install`, `typed/knowledge/install`,
+`typed/packs/install`, and `typed/knowledge/new`.
+
+Their full work digests and byte totals remain unchanged. Only the identified
+successful publication/preimage byte fields can be marked inconclusive, after
+both native receipt audits pass, projected receipts match, and the raw receipt
+length difference reconciles exactly with the approved scalar widths. Owners,
+dimensions, counts, outcomes, measurement coverage, non-byte quantities and all
+other rows remain strict. Fixed-byte inputs and every other fixture remain strict.
+The comparator retains each differing row and reports
+`byteEquivalence: "unproven"` and `completeAttribution: "unproven"`.
+
+As a conservative admission restriction, each differing row must also fit its
+measured occurrence count times the sum of absolute paired final-field width
+differences. Final receipt fields do not bound every intermediate serialization;
+this restriction does not prove attribution. The result certifies the retained
+behavior and per-invocation accounting claims, without claiming identical byte
+work or efficiency. Original failed equality reports remain failed; a separate
+reconciliation records their disposition under this clarified method. Existing
+independent byte-owner controls and all numeric limits remain required.
 
 Native skill/subagent imports include an independently allocated temporary
 staging path in the candidate fingerprint. For those two fixtures and their

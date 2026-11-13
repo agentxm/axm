@@ -21,7 +21,7 @@ import { prepareTypedObservabilityFixtures } from "./observability-typed-fixture
 import { prepareAuthObservabilityFixtures } from "./observability-auth-fixtures.js";
 import { prepareMaintenanceObservabilityFixtures } from "./observability-maintenance-fixtures.js";
 import { observabilityRiskScenarios } from "./observability-coverage.js";
-import { fixtureFailure } from "./observability-contract.js";
+import { fixtureFailure, type NativeReceiptSerialization } from "./observability-contract.js";
 import {
   digest,
   normalizeObservation,
@@ -419,13 +419,13 @@ export const captureContainerReceiptEvidence = (options: {
     fs.writeFileSync(path.join(directory, "presence.json"), JSON.stringify({ present }) + "\n");
     if (!present) {
       fs.rmSync(path.join(directory, "projection-containers.json"), { force: true });
-      return { directory, present, sha256: undefined };
+      return { directory, present, sha256: undefined, bytes: undefined };
     }
     if (!info.isFile())
       throw fixtureFailure("The workspace receipt store is not an ordinary file.");
     const bytes = fs.readFileSync(source);
     fs.writeFileSync(path.join(directory, "projection-containers.json"), bytes);
-    return { directory, present, sha256: digest(bytes) };
+    return { directory, present, sha256: digest(bytes), bytes: bytes.length };
   });
 
 /** Native metadata is checked independently of the product's receipt verifier. */
@@ -528,6 +528,7 @@ type ContainerReceiptVerification = Effect.Success<
   ReturnType<NonNullable<ObservabilityScenario["verify"]>>
 > & {
   readonly verifiedIdentities?: ReadonlyArray<VerifiedContainerReceiptIdentity>;
+  readonly nativeReceiptSerialization?: NativeReceiptSerialization;
 };
 
 export const verifyContainerReceiptEvidence =
@@ -685,6 +686,10 @@ export const verifyContainerReceiptEvidence =
         );
       let projected: unknown = after;
       let projectedRows = 0;
+      let projectedScalarBytes = 0;
+      let projectedFieldCount = 0;
+      let historicalFieldCount = 0;
+      const projectedFields: Array<{ path: string; bytes: number; historical: boolean }> = [];
       const verifiedIdentities: VerifiedContainerReceiptIdentity[] = [];
       const identities = [
         ...after.entries.map((entry, index) => ({
@@ -734,13 +739,24 @@ export const verifyContainerReceiptEvidence =
                   : liveProof,
           },
         ])
-          for (const field of ["inode", "birthtime"] as const)
+          for (const field of ["inode", "birthtime"] as const) {
+            const bytes = Buffer.byteLength(JSON.stringify(part.value[field]));
+            const historical = part.proof.includes("historical");
+            projectedScalarBytes += bytes;
+            projectedFieldCount++;
+            if (historical) historicalFieldCount++;
+            projectedFields.push({
+              path: [...fields, ...part.fields, field].join("/"),
+              bytes,
+              historical,
+            });
             projected = projectComparisonField(
               projected,
               [...fields, ...part.fields, field],
               part.value[field],
               "<receipt-" + part.proof + "-" + field + ">",
             );
+          }
         projectedRows++;
       }
       const comparison = JSON.stringify(
@@ -765,6 +781,23 @@ export const verifyContainerReceiptEvidence =
           "Only inode/birthtime of independently matched new/refreshed live identities, exact scratch history and exact setup-verified identities from the operation preimage are projected, with distinct current/preparation and live/historical tokens; unverified inherited proofs and all other receipt fields remain strict.",
         ],
         verifiedIdentities,
+        ...(projectedRows === 0 ||
+        captured.after.sha256 === undefined ||
+        captured.after.bytes === undefined
+          ? {}
+          : {
+              nativeReceiptSerialization: {
+                path: ".axm/projection-containers.json" as const,
+                rawSha256: captured.after.sha256,
+                rawBytes: captured.after.bytes,
+                comparisonSha256: digest(comparison),
+                projectedScalarBytes,
+                projectedFieldCount,
+                historicalFieldCount,
+                projectedFields,
+                validation: "native-metadata-and-bounded-cleanup" as const,
+              },
+            }),
         fileComparisons:
           projectedRows === 0
             ? []

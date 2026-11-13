@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect";
 import { MachineEventSchema, type MachineEvent, type TraceWorkSummary } from "axm.sh/runtime";
 import {
   assessObservabilityEvidence,
+  compareSummaryDetailWork,
   assessScenarioTiming,
   timingBlockOrder,
   timingSubjects,
@@ -17,6 +18,7 @@ import {
   traceModes,
   type ObservationSample,
   type PreflightCheck,
+  type NativeReceiptSerialization,
 } from "../benchmarks/observability-contract.js";
 import {
   compressObservationArtifacts,
@@ -45,6 +47,7 @@ import {
   automaticCacheMaintenanceWork,
   periodicMaintenanceWork,
   workDigest,
+  nativeSerializationWork,
 } from "../benchmarks/observability.js";
 
 const budgets = Schema.decodeUnknownSync(Schema.fromJsonString(ObservabilityBudgetsSchema))(
@@ -737,6 +740,195 @@ describe("independent comparison artifacts", () => {
     expect(workDigest([work])).not.toBe(
       workDigest([{ ...work, ownerName: "axm.operation.phase" }]),
     );
+  });
+
+  it("keeps exact bytes while bounding native-allocation byte uncertainty to proved cases and rows", () => {
+    // This checks the comparison method; the runtime receipt-publication test owns real FS byte accounting.
+    const receipt = (inode: string): NativeReceiptSerialization => {
+      const raw = JSON.stringify({ inode, birthtime: 1234567890123 });
+      return {
+        path: ".axm/projection-containers.json",
+        rawSha256: digest(raw),
+        rawBytes: Buffer.byteLength(raw),
+        comparisonSha256: digest(JSON.stringify({ inode: "<verified>", birthtime: "<verified>" })),
+        projectedScalarBytes: Buffer.byteLength(JSON.stringify(inode)) + 13,
+        projectedFieldCount: 2,
+        historicalFieldCount: 0,
+        projectedFields: [
+          {
+            path: "entries/0/identity/entry/inode",
+            bytes: Buffer.byteLength(JSON.stringify(inode)),
+            historical: false,
+          },
+          { path: "entries/0/identity/entry/birthtime", bytes: 13, historical: false },
+        ],
+        validation: "native-metadata-and-bounded-cleanup",
+      };
+    };
+    const a = receipt("123456");
+    const b = receipt("1234567");
+    const row = (bytes: number): TraceWorkSummary => ({
+      ...deliveredReuse("hit"),
+      kind: "axm.io.read-file",
+      dimensions: { "axm.work.owner": "axm.publish.file", "axm.outcome": "success" },
+      requested: null,
+      reused: null,
+      executed: 1,
+      ioBytes: bytes,
+      measurements: {
+        "axm.work.executed": { total: 1, measured: 1, occurrences: 1 },
+        "axm.io.bytes": { total: bytes, measured: 1, occurrences: 1 },
+      },
+    });
+    const trace = (
+      scenario: string,
+      work: ReadonlyArray<TraceWorkSummary>,
+      proof: NativeReceiptSerialization | undefined,
+    ): NonNullable<ObservationSample["trace"]> => {
+      const native = nativeSerializationWork(scenario, work, proof);
+      return {
+        complete: true,
+        delivery: "inspected",
+        periodicMaintenance: [],
+        automaticCacheMaintenance: [],
+        retainedSpanCount: 3,
+        retainedDetailSpanCount: 1,
+        summaryGroups: 1,
+        diagnosticShutdownMillis: 1,
+        exportFinalizationMillis: 1,
+        traceId: "0123456789abcdef0123456789abcdef",
+        rootSpanId: "0123456789abcdef",
+        workDigest: workDigest(work),
+        ...(native === undefined ? {} : { nativeSerializationWork: native }),
+      };
+    };
+    const workA = [row(a.rawBytes)];
+    const workB = [row(b.rawBytes)];
+    const unchanged = JSON.stringify({ a, b, workA, workB });
+    for (const scenario of [
+      "typed/subagents/install",
+      "typed/knowledge/install",
+      "typed/packs/install",
+      "typed/knowledge/new",
+    ]) {
+      const summary = trace(scenario, workA, a);
+      const detail = trace(scenario, workB, b);
+      const comparison = compareSummaryDetailWork(scenario, summary, detail);
+      expect(summary.workDigest).not.toBe(detail.workDigest);
+      expect(comparison).toMatchObject({
+        status: "native-serialization-bytes-inconclusive",
+        byteEquivalence: "unproven",
+        completeAttribution: "unproven",
+        issues: [],
+        summaryWorkDigest: summary.workDigest,
+        detailWorkDigest: detail.workDigest,
+      });
+      expect(comparison.differences).toHaveLength(1);
+      expect(comparison.differences[0]?.summary.value).toBe(a.rawBytes);
+      expect(comparison.differences[0]?.detail.value).toBe(b.rawBytes);
+      expect(compareSummaryDetailWork(scenario, summary, summary).status).toBe("equal");
+    }
+    const scenario = "typed/subagents/install";
+    const summary = trace(scenario, workA, a);
+    for (const proof of [
+      undefined,
+      { ...b, rawBytes: a.rawBytes },
+      { ...b, rawSha256: a.rawSha256 },
+      { ...b, projectedScalarBytes: a.projectedScalarBytes },
+      { ...b, comparisonSha256: digest("different protected content") },
+      { ...b, projectedFieldCount: 0 },
+      { ...b, historicalFieldCount: 1 },
+      { ...b, rawBytes: Number.NaN },
+      { ...b, projectedFields: [] },
+      { ...b, projectedFields: [...b.projectedFields, ...b.projectedFields] },
+    ])
+      expect(
+        compareSummaryDetailWork(scenario, summary, trace(scenario, workB, proof)).status,
+      ).toBe("different");
+    expect(
+      compareSummaryDetailWork(scenario, summary, trace(scenario, [row(b.rawBytes + 1000)], b))
+        .status,
+    ).toBe("different");
+    const changed = row(b.rawBytes);
+    for (const work of [
+      [changed, changed],
+      [{ ...changed, count: 2 }],
+      [{ ...changed, requested: 1 }],
+      [{ ...changed, ownerName: "axm.cli.command" }],
+      [{ ...changed, dimensions: { ...changed.dimensions, "axm.outcome": "failure" } }],
+      [{ ...changed, dimensions: { ...changed.dimensions, "axm.work.owner": "unrecognized" } }],
+      [{ ...changed, dimensions: { ...changed.dimensions, "axm.unknown": true } }],
+      [{ ...changed, archiveBytes: 1 }],
+      [{ ...changed, ioBytes: null }],
+      [
+        {
+          ...changed,
+          measurements: {
+            ...changed.measurements,
+            "axm.io.bytes": { total: b.rawBytes, measured: 0, occurrences: 1 },
+          },
+        },
+      ],
+      [
+        {
+          ...changed,
+          measurements: {
+            ...changed.measurements,
+            "axm.unknown.bytes": { total: 1, measured: 1, occurrences: 1 },
+          },
+        },
+      ],
+    ])
+      expect(compareSummaryDetailWork(scenario, summary, trace(scenario, work, b)).status).toBe(
+        "different",
+      );
+    expect(
+      compareSummaryDetailWork(
+        "typed/rules/install",
+        trace("typed/rules/install", workA, a),
+        trace("typed/rules/install", workB, b),
+      ).status,
+    ).toBe("different");
+    const fixedA = { ...row(a.rawBytes), ownerName: "axm.cli.command" };
+    const fixedB = { ...fixedA, ioBytes: b.rawBytes, measurements: row(b.rawBytes).measurements };
+    expect(
+      compareSummaryDetailWork(scenario, trace(scenario, [fixedA], a), trace(scenario, [fixedB], b))
+        .status,
+    ).toBe("different");
+    const detail = trace(scenario, workB, b);
+    if (detail.nativeSerializationWork === undefined)
+      throw new Error("Missing test comparison evidence");
+    expect(
+      compareSummaryDetailWork(scenario, summary, {
+        ...detail,
+        nativeSerializationWork: {
+          ...detail.nativeSerializationWork,
+          byteRows: [
+            ...detail.nativeSerializationWork.byteRows,
+            ...detail.nativeSerializationWork.byteRows,
+          ],
+        },
+      }).status,
+    ).toBe("different");
+    const checks = preflight().map((check) => ({
+      ...check,
+      scenario,
+      ...(check.mode === "summary"
+        ? { trace: summary }
+        : check.mode === "detail"
+          ? { trace: detail }
+          : {}),
+    }));
+    const assessment = assessObservabilityEvidence(
+      budgets,
+      [{ command: "install", variant: "default", scenarios: [scenario], status: "implemented" }],
+      [scenario],
+      samples().map((sample) => ({ ...sample, scenario })),
+      checks,
+    );
+    expect(assessment.passed).toBe(true);
+    expect(assessment.workComparisons[0]?.status).toBe("native-serialization-bytes-inconclusive");
+    expect(JSON.stringify({ a, b, workA, workB })).toBe(unchanged);
   });
 
   it("compares delivered reuse across completion schedules without changing raw facts", () => {

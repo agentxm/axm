@@ -120,9 +120,250 @@ export interface ObservationSample {
     readonly traceId: string;
     readonly rootSpanId: string;
     readonly workDigest?: string;
+    readonly nativeSerializationWork?: NativeSerializationWork;
     readonly retrievalBytes?: number;
   };
 }
+
+/** Four observed allocation-sensitive fixtures; every other scenario remains byte-strict. */
+const nativeReceiptInstallOwners = new Map<string, ReadonlyArray<string>>([
+  ["axm.hash.preimage", ["axm.publish.file", "axm.publish.snapshot", "axm.verify.publication"]],
+  [
+    "axm.io.read-file",
+    [
+      "axm.publish.file",
+      "axm.publish.prepare-document",
+      "axm.publish.receipts",
+      "axm.publish.snapshot",
+    ],
+  ],
+  ["axm.io.write-file", ["axm.operation.phase", "axm.publish.receipts"]],
+]);
+
+export const nativeReceiptByteField = (
+  scenario: string,
+  row: {
+    readonly kind: string;
+    readonly ownerName: string;
+    readonly dimensions: Readonly<Record<string, string | number | boolean>>;
+  },
+):
+  | { readonly field: "bytes" | "ioBytes"; readonly measurement: "axm.work.bytes" | "axm.io.bytes" }
+  | undefined => {
+  if (
+    row.ownerName !== "axm.operation.phase" ||
+    Object.keys(row.dimensions).length !== 2 ||
+    row.dimensions["axm.outcome"] !== "success"
+  )
+    return undefined;
+  const owner = row.dimensions["axm.work.owner"];
+  if (typeof owner !== "string") return undefined;
+  const admitted =
+    scenario === "typed/knowledge/new"
+      ? (row.kind === "axm.hash.preimage" &&
+          ["axm.publish.file", "axm.verify.publication"].includes(owner)) ||
+        (row.kind === "axm.io.read-file" && owner === "axm.publish.file") ||
+        (row.kind === "axm.io.write-file" && owner === "axm.publish.receipts")
+      : ["typed/subagents/install", "typed/knowledge/install", "typed/packs/install"].includes(
+          scenario,
+        ) &&
+        ((nativeReceiptInstallOwners.get(row.kind)?.includes(owner) ?? false) ||
+          (scenario === "typed/subagents/install" &&
+            owner === "axm.subagent.apply" &&
+            ["axm.io.read-file", "axm.io.write-file"].includes(row.kind)));
+  if (!admitted) return undefined;
+  return row.kind === "axm.hash.preimage"
+    ? { field: "bytes", measurement: "axm.work.bytes" }
+    : { field: "ioBytes", measurement: "axm.io.bytes" };
+};
+
+const NativeReceiptSerializationSchema = Schema.Struct({
+  path: Schema.Literal(".axm/projection-containers.json"),
+  rawSha256: sha256,
+  rawBytes: count,
+  comparisonSha256: sha256,
+  projectedScalarBytes: count,
+  projectedFieldCount: count.check(Schema.isGreaterThan(0)),
+  historicalFieldCount: count,
+  projectedFields: Schema.Array(
+    Schema.Struct({
+      path: Schema.String.check(
+        Schema.isPattern(
+          /^(?:entries\/\d+\/identity|createdDirectories\/\d+)\/(?:entry|owner\/identity|root\/identity|parents\/\d+\/identity)\/(?:inode|birthtime)$/u,
+        ),
+      ),
+      bytes: count.check(Schema.isGreaterThan(0)),
+      historical: Schema.Boolean,
+    }),
+  ),
+  validation: Schema.Literal("native-metadata-and-bounded-cleanup"),
+});
+export type NativeReceiptSerialization = typeof NativeReceiptSerializationSchema.Type;
+
+const NativeReceiptByteRowSchema = Schema.Struct({
+  kind: Schema.String,
+  ownerName: Schema.String,
+  dimensions: Schema.Record(
+    Schema.String,
+    Schema.Union([Schema.String, Schema.Number, Schema.Boolean]),
+  ),
+  field: Schema.Literals(["bytes", "ioBytes"]),
+  measurement: Schema.Literals(["axm.work.bytes", "axm.io.bytes"]),
+  value: count,
+  total: count,
+  count: count.check(Schema.isGreaterThan(0)),
+  measured: count,
+  occurrences: count,
+});
+export type NativeReceiptByteRow = typeof NativeReceiptByteRowSchema.Type;
+
+const NativeSerializationWorkSchema = Schema.Struct({
+  strictDigest: sha256,
+  receipt: NativeReceiptSerializationSchema,
+  byteRows: Schema.Array(NativeReceiptByteRowSchema),
+});
+export type NativeSerializationWork = typeof NativeSerializationWorkSchema.Type;
+
+export const nativeReceiptByteRowKey = (row: NativeReceiptByteRow): string =>
+  JSON.stringify([
+    row.kind,
+    row.ownerName,
+    Object.entries(row.dimensions).sort(([a], [b]) => a.localeCompare(b)),
+    row.field,
+    row.measurement,
+  ]);
+
+export interface WorkComparison {
+  readonly status: "equal" | "different" | "native-serialization-bytes-inconclusive";
+  readonly byteEquivalence: "equal" | "unproven";
+  readonly completeAttribution: "unproven";
+  readonly summaryWorkDigest: string | undefined;
+  readonly detailWorkDigest: string | undefined;
+  readonly issues: ReadonlyArray<string>;
+  readonly differences: ReadonlyArray<{
+    readonly summary: NativeReceiptByteRow;
+    readonly detail: NativeReceiptByteRow;
+  }>;
+  readonly receipts?: {
+    readonly summary: NativeReceiptSerialization;
+    readonly detail: NativeReceiptSerialization;
+  };
+  readonly finalReceiptWidthEnvelope?: {
+    readonly scalarWidthDifference: number;
+    readonly interpretation: "Conservative comparison eligibility only; final fields do not bound intermediate writes or establish complete attribution.";
+  };
+}
+
+/** One guard shared by live preflight and final assessment; raw byte equality is never relabelled. */
+export const compareSummaryDetailWork = (
+  scenario: string,
+  summary: ObservationSample["trace"],
+  detail: ObservationSample["trace"],
+): WorkComparison => {
+  const identity = {
+    summaryWorkDigest: summary?.workDigest,
+    detailWorkDigest: detail?.workDigest,
+    completeAttribution: "unproven" as const,
+  };
+  const failed = (): WorkComparison => ({
+    ...identity,
+    status: "different",
+    byteEquivalence: "unproven",
+    differences: [],
+    issues: ["Summary/detail work mismatch: " + scenario],
+  });
+  if (summary?.workDigest === undefined || detail?.workDigest === undefined) return failed();
+  if (summary.workDigest === detail.workDigest)
+    return { ...identity, status: "equal", byteEquivalence: "equal", differences: [], issues: [] };
+  const left = summary.nativeSerializationWork;
+  const right = detail.nativeSerializationWork;
+  if (
+    !Schema.is(NativeSerializationWorkSchema)(left) ||
+    !Schema.is(NativeSerializationWorkSchema)(right)
+  )
+    return failed();
+  const a = left.receipt;
+  const b = right.receipt;
+  if (
+    summary.delivery !== "inspected" ||
+    detail.delivery !== "inspected" ||
+    !summary.complete ||
+    !detail.complete ||
+    left.strictDigest !== right.strictDigest ||
+    a.comparisonSha256 !== b.comparisonSha256 ||
+    a.rawSha256 === b.rawSha256 ||
+    a.rawBytes === b.rawBytes ||
+    b.rawBytes - a.rawBytes !== b.projectedScalarBytes - a.projectedScalarBytes ||
+    a.projectedFieldCount !== b.projectedFieldCount ||
+    a.historicalFieldCount !== b.historicalFieldCount ||
+    a.historicalFieldCount > a.projectedFieldCount ||
+    left.byteRows.length === 0 ||
+    left.byteRows.length !== right.byteRows.length
+  )
+    return failed();
+  const validFields = (receipt: NativeReceiptSerialization) =>
+    receipt.projectedFields.length === receipt.projectedFieldCount &&
+    new Set(receipt.projectedFields.map((field) => field.path)).size ===
+      receipt.projectedFieldCount &&
+    receipt.projectedFields.reduce((sum, field) => sum + field.bytes, 0) ===
+      receipt.projectedScalarBytes &&
+    receipt.projectedFields.filter((field) => field.historical).length ===
+      receipt.historicalFieldCount;
+  if (!validFields(a) || !validFields(b)) return failed();
+  const rightFields = new Map(b.projectedFields.map((field) => [field.path, field]));
+  let scalarWidthDifference = 0;
+  for (const field of a.projectedFields) {
+    const other = rightFields.get(field.path);
+    if (other === undefined || other.historical !== field.historical) return failed();
+    scalarWidthDifference += Math.abs(other.bytes - field.bytes);
+  }
+  if (scalarWidthDifference === 0) return failed();
+  const valid = (row: NativeReceiptByteRow) => {
+    const field = nativeReceiptByteField(scenario, row);
+    return (
+      field?.field === row.field &&
+      field.measurement === row.measurement &&
+      row.value === row.total &&
+      row.measured === row.count &&
+      row.occurrences === row.count
+    );
+  };
+  if (!left.byteRows.every(valid) || !right.byteRows.every(valid)) return failed();
+  const rightRows = new Map(right.byteRows.map((row) => [nativeReceiptByteRowKey(row), row]));
+  if (
+    rightRows.size !== right.byteRows.length ||
+    new Set(left.byteRows.map(nativeReceiptByteRowKey)).size !== left.byteRows.length
+  )
+    return failed();
+  const differences: Array<{ summary: NativeReceiptByteRow; detail: NativeReceiptByteRow }> = [];
+  for (const row of left.byteRows) {
+    const other = rightRows.get(nativeReceiptByteRowKey(row));
+    if (
+      other === undefined ||
+      row.count !== other.count ||
+      row.measured !== other.measured ||
+      row.occurrences !== other.occurrences
+    )
+      return failed();
+    // Final fields are a conservative eligibility envelope, not a bound on intermediate writes.
+    if (Math.abs(other.value - row.value) > row.measured * scalarWidthDifference) return failed();
+    if (row.value !== other.value) differences.push({ summary: row, detail: other });
+  }
+  if (differences.length === 0) return failed();
+  return {
+    ...identity,
+    status: "native-serialization-bytes-inconclusive",
+    byteEquivalence: "unproven",
+    issues: [],
+    differences,
+    receipts: { summary: a, detail: b },
+    finalReceiptWidthEnvelope: {
+      scalarWidthDifference,
+      interpretation:
+        "Conservative comparison eligibility only; final fields do not bound intermediate writes or establish complete attribution.",
+    },
+  };
+};
 
 /** Fixture validation and measured evidence use the same product-behavior comparison. */
 export const observationPairIssues = (
@@ -173,6 +414,7 @@ export interface PreflightCheck {
   readonly mode: TraceMode;
   readonly comparisonVerified: boolean;
   readonly trace?: ObservationSample["trace"];
+  readonly workComparison?: WorkComparison;
 }
 
 export const observationLimitIssues = (
@@ -360,6 +602,7 @@ export const assessObservabilityEvidence = (
   preflight: ReadonlyArray<PreflightCheck> = [],
 ) => {
   const issues: string[] = [];
+  const workComparisons: Array<WorkComparison & { readonly scenario: string }> = [];
   const comparisons: Array<
     ReturnType<typeof assessScenarioTiming>["comparisons"][number] & {
       scenario: string;
@@ -414,8 +657,9 @@ export const assessObservabilityEvidence = (
     }
     const summary = checks.find((check) => check.mode === "summary")?.trace;
     const detail = checks.find((check) => check.mode === "detail")?.trace;
-    if (summary !== undefined && detail !== undefined && summary.workDigest !== detail.workDigest)
-      issues.push("Summary/detail work mismatch: " + scenario);
+    const workComparison = compareSummaryDetailWork(scenario, summary, detail);
+    workComparisons.push({ scenario, ...workComparison });
+    issues.push(...workComparison.issues);
     const own = samples.filter((sample) => sample.scenario === scenario);
     const assessment = assessScenarioTiming(budgets, own);
     if (!assessment.complete) issues.push("Incomplete measured blocks: " + scenario);
@@ -468,5 +712,5 @@ export const assessObservabilityEvidence = (
         issues.push("Performance budget exceeded: " + scenario + "/" + comparison.mode);
     }
   }
-  return { passed: issues.length === 0, issues, comparisons };
+  return { passed: issues.length === 0, issues, comparisons, workComparisons };
 };

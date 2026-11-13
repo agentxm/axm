@@ -260,74 +260,79 @@ it.effect.each([1, 2])(
     }),
 );
 
-it.effect("keeps a running batch alive for a remaining requester", () =>
-  Effect.gen(function* () {
-    const started = yield* Deferred.make<void>();
-    const release = yield* Deferred.make<void>();
-    let requests = 0;
-    let interrupted = false;
-    const http = HttpClient.make((request) =>
-      Effect.gen(function* () {
-        requests += 1;
-        yield* Deferred.succeed(started, undefined);
-        yield* Deferred.await(release).pipe(
-          Effect.onInterrupt(() =>
-            Effect.sync(() => {
-              interrupted = true;
-            }),
-          ),
-        );
-        return HttpClientResponse.fromWeb(
-          request,
-          new Response(
-            JSON.stringify({
-              schemaVersion: 2,
-              purpose: "select",
-              selectionPolicyVersion: "1",
-              observedAt,
-              results: [
-                { key: "0", outcome: "metadata", page },
-                { key: "1", outcome: "metadata", page },
-              ],
-            }),
-            { status: 200 },
-          ),
-        );
-      }),
-    );
-    yield* Effect.gen(function* () {
-      const factory = yield* RegistryClientFactory;
-      const client = yield* factory.forEndpoint(testRegistryEndpoint);
-      const read = (name: string) =>
-        client.getExtensionIndex({
-          owner: handle("@acme"),
-          type: "skill",
-          name: extensionName(name),
-        });
-      yield* factory.withReadPhase(
+it.effect.each(["shared identity", "distinct identities"])(
+  "keeps %s alive for a remaining requester",
+  (mode) =>
+    Effect.gen(function* () {
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      let requests = 0;
+      let interrupted = false;
+      const http = HttpClient.make((request) =>
         Effect.gen(function* () {
-          const first = yield* Effect.forkChild(read("first"));
-          const second = yield* Effect.forkChild(read("second"));
-          yield* Deferred.await(started);
-          yield* Fiber.interrupt(first);
-          yield* Deferred.succeed(release, undefined);
-          const result = yield* Fiber.join(second);
-          expect(Option.map(result, (index) => index.name)).toEqual(
-            Option.some(extensionName("second")),
+          requests += 1;
+          yield* Deferred.succeed(started, undefined);
+          yield* Deferred.await(release).pipe(
+            Effect.onInterrupt(() =>
+              Effect.sync(() => {
+                interrupted = true;
+              }),
+            ),
           );
-          expect(interrupted).toBe(false);
-          expect(requests).toBe(1);
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(
+              JSON.stringify({
+                schemaVersion: 2,
+                purpose: "select",
+                selectionPolicyVersion: "1",
+                observedAt,
+                results: [
+                  { key: "0", outcome: "metadata", page },
+                  ...(mode === "distinct identities"
+                    ? [{ key: "1", outcome: "metadata", page }]
+                    : []),
+                ],
+              }),
+              { status: 200 },
+            ),
+          );
         }),
       );
-    }).pipe(
-      Effect.provide(
-        Layer.provideMerge(
-          RegistryTransportTest(Layer.succeed(HttpClient.HttpClient, http)),
-          NodeServices.layer,
+      yield* Effect.gen(function* () {
+        const factory = yield* RegistryClientFactory;
+        const client = yield* factory.forEndpoint(testRegistryEndpoint);
+        const read = (name: string) =>
+          client.getExtensionIndex({
+            owner: handle("@acme"),
+            type: "skill",
+            name: extensionName(name),
+          });
+        yield* factory.withReadPhase(
+          Effect.gen(function* () {
+            const first = yield* Effect.forkChild(read("first"));
+            const secondName = mode === "shared identity" ? "first" : "second";
+            const second = yield* Effect.forkChild(read(secondName));
+            yield* Deferred.await(started);
+            yield* Fiber.interrupt(first);
+            yield* Deferred.succeed(release, undefined);
+            const result = yield* Fiber.join(second);
+            expect(Option.map(result, (index) => index.name)).toEqual(
+              Option.some(extensionName(secondName)),
+            );
+            expect(interrupted).toBe(false);
+            expect(requests).toBe(1);
+          }),
+        );
+      }).pipe(
+        Effect.provide(
+          Layer.provideMerge(
+            RegistryTransportTest(Layer.succeed(HttpClient.HttpClient, http)),
+            NodeServices.layer,
+          ),
         ),
-      ),
-    );
-  }),
+      );
+    }),
 );
 
 it.effect(

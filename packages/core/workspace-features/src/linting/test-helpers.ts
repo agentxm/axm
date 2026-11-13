@@ -43,6 +43,7 @@ export const OfflineHttpClient: Layer.Layer<HttpClient.HttpClient> = Layer.succe
 
 // The workspace fixture composes source services, but local lint must never use them.
 const UnusedRegistryClients = Layer.succeed(RegistryClientFactory, {
+  authorityContext: () => Effect.die("Unexpected Registry authority lookup"),
   forEndpoint: () => Effect.die("Local lint requested Registry content"),
   lifecycle: () => Effect.die("Local lint requested Registry lifecycle"),
   wire: () => Effect.die("Local lint requested Registry transport"),

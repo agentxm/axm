@@ -204,9 +204,7 @@ const readRegistryIndex = (
 ) =>
   Effect.serviceOption(RegistryIndexMemo).pipe(
     Effect.flatMap((memo) =>
-      Option.isSome(memo)
-        ? memo.value.get(source.location, source.name, args)
-        : client.getExtensionIndex(args),
+      Option.isSome(memo) ? memo.value.get(source.location, args) : client.getExtensionIndex(args),
     ),
   );
 

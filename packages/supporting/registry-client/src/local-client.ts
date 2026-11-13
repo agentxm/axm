@@ -10,7 +10,8 @@
 
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { RegistryAuthorityContext } from "./registry-transport.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -1257,6 +1258,7 @@ export const createLocalRegistryClient = (
   const withAccessibleContent = makeAccessibleContent(
     client.validateExtensionAccessBatch,
     client.getExtensionPackage,
+    Effect.succeed(new RegistryAuthorityContext({ id: randomUUID(), generation: 0 })),
   );
   return {
     ...client,

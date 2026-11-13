@@ -43,6 +43,7 @@ import type { ArchiveDownloadProgress } from "./client.js";
 import type { RegistryClientFailure } from "./errors.js";
 import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import {
+  testRegistryAuthority,
   admittedContentResponse,
   extensionName,
   exactVersion,
@@ -75,6 +76,7 @@ const createRemoteRegistryClient = (
   createRemoteRegistryClientWithPolicy(
     decodeHttpRegistryEndpointSync(baseUrl),
     httpClient,
+    testRegistryAuthority,
     archiveCache,
     requestPolicy,
   );

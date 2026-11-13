@@ -1,5 +1,6 @@
 import { RegistryRequestAttempt } from "./request-attempt.js";
 import { computeIntegrity } from "@agentxm/host-primitives";
+import type { RegistryAuthorityContext } from "./registry-transport.js";
 // @effect-diagnostics anyUnknownInErrorContext:off — generated HTTP response errors are translated to typed registry failures by this registry adapter
 /**
  * Remote HTTPS registry client.
@@ -480,6 +481,7 @@ const registryRequestMetadata = (method: string, url: string): RegistryRequestMe
 export const createRemoteRegistryClient = (
   endpoint: HttpRegistryEndpoint,
   httpClient: HttpClient.HttpClient,
+  authorityContext: Effect.Effect<RegistryAuthorityContext, RegistryClientFailure>,
   archiveCache?: ArchiveCache,
   requestPolicy?: RegistryRequestPolicy,
 ): RegistryClient => {
@@ -1095,6 +1097,7 @@ export const createRemoteRegistryClient = (
   const withAccessibleContent = makeAccessibleContent(
     validateExtensionAccessBatch,
     readExactPackage,
+    authorityContext,
   );
 
   /**

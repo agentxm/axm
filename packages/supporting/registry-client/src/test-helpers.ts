@@ -7,6 +7,14 @@ import { ExactContentRequestSchema } from "@agentxm/registry-protocol/unstable/r
 import { pathToFileURL } from "node:url";
 
 import * as Effect from "effect/Effect";
+import { RegistryAuthorityContext } from "./registry-transport.js";
+
+export const testRegistryAuthority = Effect.succeed(
+  new RegistryAuthorityContext({
+    id: "fixed-test-authority",
+    generation: 0,
+  }),
+);
 import * as ConfigProvider from "effect/ConfigProvider";
 import type * as FileSystem from "effect/FileSystem";
 import * as HttpClient from "effect/http/HttpClient";

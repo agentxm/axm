@@ -51,12 +51,12 @@ describe("Registry planning metadata batches", () => {
         const memo = yield* makeLiveRegistryIndexMemo();
         return yield* Effect.all(
           [
-            memo.get(testRegistryEndpoint, "trusted", {
+            memo.get(testRegistryEndpoint, {
               owner: handle("@acme"),
               type: "skill",
               name: extensionName("first"),
             }),
-            memo.get(testRegistryEndpoint, "trusted", {
+            memo.get(testRegistryEndpoint, {
               owner: handle("@acme"),
               type: "skill",
               name: extensionName("second"),

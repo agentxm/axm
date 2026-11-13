@@ -1,3 +1,4 @@
+import { RegistryAuthorityContext } from "@agentxm/registry-client";
 import { withDetailedWork, workObservations } from "../../../locations/testing.js";
 import { expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
@@ -20,13 +21,16 @@ for (const detail of [false, true]) {
         const observations = workObservations(detail);
         let lookups = 0;
         const results = yield* Effect.gen(function* () {
-          const memo = yield* makeRegistryIndexMemo(() =>
-            Effect.sync(() => {
-              lookups += 1;
-              return Option.none();
-            }),
+          const memo = yield* makeRegistryIndexMemo(
+            () =>
+              Effect.succeed(new RegistryAuthorityContext({ id: "test-authority", generation: 0 })),
+            () =>
+              Effect.sync(() => {
+                lookups += 1;
+                return Option.none();
+              }),
           );
-          const get = memo.get(testRegistryEndpoint, "private-source", {
+          const get = memo.get(testRegistryEndpoint, {
             owner: handle("@private-owner"),
             type: "skill",
             name: extensionName("private-input"),
@@ -78,20 +82,23 @@ it.effect(
       let lookups = 0;
       let failures = 0;
       yield* Effect.gen(function* () {
-        const memo = yield* makeRegistryIndexMemo(() =>
-          Effect.gen(function* () {
-            lookups += 1;
-            yield* Deferred.succeed(started, undefined);
-            yield* Deferred.await(release);
-            return Option.none();
-          }),
+        const memo = yield* makeRegistryIndexMemo(
+          () =>
+            Effect.succeed(new RegistryAuthorityContext({ id: "test-authority", generation: 0 })),
+          () =>
+            Effect.gen(function* () {
+              lookups += 1;
+              yield* Deferred.succeed(started, undefined);
+              yield* Deferred.await(release);
+              return Option.none();
+            }),
         );
         const args = {
           owner: handle("@private-owner"),
           type: "skill" as const,
           name: extensionName("private-input"),
         };
-        const get = memo.get(testRegistryEndpoint, "private-source", args);
+        const get = memo.get(testRegistryEndpoint, args);
         const first = yield* get.pipe(Effect.forkChild({ startImmediately: true }));
         yield* Deferred.await(started);
         const cancelled = yield* get.pipe(Effect.forkChild({ startImmediately: true }));
@@ -102,16 +109,19 @@ it.effect(
         expect(yield* Fiber.join(first)).toEqual(Option.none());
         expect(yield* Fiber.join(second)).toEqual(Option.none());
         expect(yield* get).toEqual(Option.none());
-        const failing = yield* makeRegistryIndexMemo(() =>
-          Effect.suspend(() => {
-            failures += 1;
-            return Effect.fail(
-              new RegistryOperationFailed({ category: "network", detail: "private-failure" }),
-            );
-          }),
+        const failing = yield* makeRegistryIndexMemo(
+          () =>
+            Effect.succeed(new RegistryAuthorityContext({ id: "test-authority", generation: 0 })),
+          () =>
+            Effect.suspend(() => {
+              failures += 1;
+              return Effect.fail(
+                new RegistryOperationFailed({ category: "network", detail: "private-failure" }),
+              );
+            }),
         );
-        yield* failing.get(testRegistryEndpoint, "private-source", args).pipe(Effect.result);
-        yield* failing.get(testRegistryEndpoint, "private-source", args).pipe(Effect.result);
+        yield* failing.get(testRegistryEndpoint, args).pipe(Effect.result);
+        yield* failing.get(testRegistryEndpoint, args).pipe(Effect.result);
         // Missing trace context cannot introduce a product failure.
         expect(yield* get.pipe(Effect.withTracerEnabled(false))).toEqual(Option.none());
       }).pipe(withDetailedWork(tracer));

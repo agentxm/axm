@@ -40,12 +40,17 @@ it.effect("admits file Registry items independently without HTTP or credential l
       path,
       httpClient: HttpClient.make(() => Effect.die("Unexpected HTTP request")),
       authorization: {
+        currentContext: () => Effect.die("Unexpected credential context lookup"),
         authorize: () => {
           throw new Error("Unexpected credential lookup");
         },
       },
     });
-    const client = yield* factory.forEndpoint(decodeRegistryEndpointSync(pathToFileURL(root).href));
+    const endpoint = decodeRegistryEndpointSync(pathToFileURL(root).href);
+    expect(yield* factory.authorityContext(endpoint)).toEqual(
+      yield* factory.authorityContext(endpoint),
+    );
+    const client = yield* factory.forEndpoint(endpoint);
     const args = ["first", "second"].map((name) => ({
       owner: handle("@acme"),
       type: "skill" as const,

@@ -24,7 +24,11 @@ import { computeIntegrity } from "@agentxm/host-primitives";
 import { admittedContentResponse, exactVersion } from "./test-helpers.js";
 
 import { RegistryClientFactory, RegistryClientFactoryLive } from "./registry-client-factory.js";
-import { RegistryHttpClient, RegistryRequestAuthorization } from "./registry-transport.js";
+import {
+  RegistryAuthorityContext,
+  RegistryHttpClient,
+  RegistryRequestAuthorization,
+} from "./registry-transport.js";
 
 const fileEndpoint = (directory: string) =>
   decodeRegistryEndpointSync(pathToFileURL(directory).href);
@@ -45,6 +49,8 @@ const recorded = (status = 200, headers: Record<string, string> = {}) => {
 
 /** Like the real authorization, it supplies a credential and never replaces one. */
 const presentingToken = Layer.succeed(RegistryRequestAuthorization, {
+  currentContext: () =>
+    Effect.succeed(new RegistryAuthorityContext({ id: "presenting-test-token", generation: 0 })),
   authorize: (_endpoint, client) =>
     client.pipe(
       HttpClient.mapRequest((request) =>

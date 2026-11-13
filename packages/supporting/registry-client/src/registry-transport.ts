@@ -12,6 +12,7 @@
  */
 
 import * as ServiceMap from "effect/Context";
+import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientError from "effect/http/HttpClientError";
@@ -34,12 +35,21 @@ export class RegistryHttpClient extends ServiceMap.Service<
   HttpClient.HttpClient
 >()("@agentxm/registry-client/registry-transport/RegistryHttpClient") {}
 
+/** Invocation-local identity, independent of token values and unsuitable as access evidence. */
+export class RegistryAuthorityContext extends Data.Class<{
+  readonly id: string;
+  readonly generation: number;
+}> {}
+
 /**
  * How a request to one Registry acquires its credential. The Registry access
  * capability provides it; the client factory applies it to the transport of
  * every client it builds for an HTTP(S) Registry.
  */
 export interface RegistryRequestAuthorizationService {
+  readonly currentContext: (
+    endpoint: HttpRegistryEndpoint,
+  ) => Effect.Effect<RegistryAuthorityContext, RegistryRequestFailed>;
   readonly authorize: (
     endpoint: HttpRegistryEndpoint,
     client: HttpClient.HttpClient,

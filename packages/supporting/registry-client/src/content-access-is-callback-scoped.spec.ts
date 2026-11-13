@@ -10,6 +10,8 @@ import { makeAccessibleContent } from "./accessible-content.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
+import * as Ref from "effect/Ref";
+import { RegistryAuthorityContext } from "./registry-transport.js";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
@@ -17,14 +19,14 @@ import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstabl
 import { ExactContentRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolutions";
 import { makeArchiveCache } from "./archive-cache.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
-import { exactVersion, extensionName, handle } from "./test-helpers.js";
+import { testRegistryAuthority, exactVersion, extensionName, handle } from "./test-helpers.js";
 import type { ValidateExtensionAccessArgs } from "./client.js";
 
 export const specification = defineSpecification({
   requirement: "registry-client/content-access-is-callback-scoped",
   title: "Content admission owns one callback and all byte access within it",
   statement:
-    "AXM shall admit the complete exact-content set before invoking its content callback, allow byte reads only for admitted identities while that callback is active, and require fresh admission for each subsequent callback without a per-archive authorization round inside the cache.",
+    "AXM shall admit the complete exact-content set under a stable credential context before invoking its content callback, allow byte reads only for admitted identities while that callback and credential context remain active, and require fresh admission after credential refresh or for each subsequent callback without a per-archive authorization round inside the cache.",
   class: "functional",
   role: "interface",
   goals: ["trustworthy-distribution"],
@@ -53,7 +55,7 @@ const fixture = Effect.gen(function* () {
   const cache = yield* makeArchiveCache(fs, path, root);
   yield* cache.write(integrity, bytes);
   const batches: number[] = [];
-  const authority = { allowed: true };
+  const authority = { allowed: true, generation: 0, refreshes: 0 };
   const client = createRemoteRegistryClient(
     decodeHttpRegistryEndpointSync("https://registry.example.test"),
     HttpClient.make((request) =>
@@ -65,6 +67,10 @@ const fixture = Effect.gen(function* () {
           new TextDecoder().decode(request.body.body),
         );
         batches.push(input.items.length);
+        if (authority.refreshes > 0) {
+          authority.generation += 1;
+          authority.refreshes -= 1;
+        }
         const observedAt = "2026-11-13T12:00:00Z";
         return HttpClientResponse.fromWeb(
           request,
@@ -89,12 +95,92 @@ const fixture = Effect.gen(function* () {
         );
       }),
     ),
+    Effect.sync(
+      () =>
+        new RegistryAuthorityContext({
+          id: "callback-test-authority",
+          generation: authority.generation,
+        }),
+    ),
     cache,
   );
   return { client, batches, authority };
 });
 
 describe("callback-owned content admission", () => {
+  it.effect("re-admits after refresh before invoking the callback once", () =>
+    Effect.gen(function* () {
+      const { client, authority, batches } = yield* fixture;
+      authority.refreshes = 1;
+      let callbacks = 0;
+      const result = yield* client.withAccessibleContent([args("first")], (content) => {
+        callbacks += 1;
+        return content.read(args("first"));
+      });
+      expect(result.archive).toEqual(bytes);
+      expect(callbacks).toBe(1);
+      expect(batches).toEqual([1, 1]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+  it.effect("invalidates an admitted warm reader when credentials change", () =>
+    Effect.gen(function* () {
+      const { client, authority, batches } = yield* fixture;
+      yield* client.withAccessibleContent([args("first")], (content) =>
+        Effect.gen(function* () {
+          authority.generation += 1;
+          expect(yield* content.read(args("first")).pipe(Effect.flip)).toMatchObject({
+            category: "conflict",
+          });
+        }),
+      );
+      expect((yield* client.getExtensionPackage(args("first"))).archive).toEqual(bytes);
+      expect(batches).toEqual([1, 1]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+  it.effect("bounds admission retries when credentials keep changing", () =>
+    Effect.gen(function* () {
+      const { client, authority, batches } = yield* fixture;
+      authority.refreshes = 4;
+      const failure = yield* client
+        .withAccessibleContent([args("first")], () =>
+          Effect.die("Unstable admission invoked its callback"),
+        )
+        .pipe(Effect.flip);
+      expect(failure.category).toBe("conflict");
+      expect(batches).toEqual([1, 1, 1]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+  it.effect("refuses bytes when credentials change during their acquisition", () =>
+    Effect.gen(function* () {
+      const context = yield* Ref.make(
+        new RegistryAuthorityContext({ id: "read-authority", generation: 0 }),
+      );
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const withContent = makeAccessibleContent(
+        (items) => Effect.succeed(items.map(() => Result.succeed(undefined))),
+        () =>
+          Deferred.succeed(started, undefined).pipe(
+            Effect.andThen(Deferred.await(release)),
+            Effect.as({ archive: bytes }),
+          ),
+        Ref.get(context),
+      );
+      yield* withContent([args("first")], (content) =>
+        Effect.gen(function* () {
+          const reader = yield* content.read(args("first")).pipe(Effect.result, Effect.forkChild);
+          yield* Deferred.await(started);
+          yield* Ref.set(
+            context,
+            new RegistryAuthorityContext({ id: "read-authority", generation: 1 }),
+          );
+          yield* Deferred.succeed(release, undefined);
+          const result = yield* Fiber.join(reader);
+          expect(Result.isFailure(result) && result.failure.category).toBe("conflict");
+        }),
+      );
+    }),
+  );
   it.effect("reads ten warm identities under one admission and rechecks in the next stage", () =>
     Effect.gen(function* () {
       const { client, batches } = yield* fixture;
@@ -148,6 +234,7 @@ describe("callback-owned content admission", () => {
             Effect.andThen(Effect.never),
             Effect.ensuring(Deferred.succeed(stopped, undefined)),
           ),
+        testRegistryAuthority,
       );
       const reader = yield* withContent([args("first")], (content) =>
         Effect.gen(function* () {

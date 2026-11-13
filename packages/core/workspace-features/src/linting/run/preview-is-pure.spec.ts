@@ -46,6 +46,7 @@ describe("Lint normalization preview", () => {
       const settingsBefore = workspace.readFile("axm.json");
       const selection = projectSelection(workspace, true);
       const noRegistryAccess = {
+        authorityContext: () => Effect.die("Unexpected Registry authority lookup"),
         forEndpoint: () => Effect.die("Lint normalization accessed a registry"),
         lifecycle: () => Effect.die("Lint normalization managed a registry"),
         wire: () => Effect.die("Lint normalization authenticated with a registry"),

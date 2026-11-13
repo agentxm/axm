@@ -20,7 +20,7 @@ import {
 import { RegistryClientFactory } from "./registry-client-factory.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import { makeFileRegistry, OfflineHttpClient, RegistryClientFactoryTest } from "./testing.js";
-import { extensionName, handle } from "./test-helpers.js";
+import { testRegistryAuthority, extensionName, handle } from "./test-helpers.js";
 
 const identity = (name: string) => ({
   owner: handle("@acme"),
@@ -101,6 +101,7 @@ for (const malformed of [false, true]) {
         const client = createRemoteRegistryClient(
           decodeHttpRegistryEndpointSync("https://registry.example.test"),
           http,
+          testRegistryAuthority,
         );
         const results = yield* client.selectMany(
           Array.from({ length: 101 }, (_, index) => identity(`skill-${index}`)),

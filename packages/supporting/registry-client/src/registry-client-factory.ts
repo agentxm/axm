@@ -20,6 +20,7 @@
  */
 
 import * as ServiceMap from "effect/Context";
+import { randomUUID } from "node:crypto";
 import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -40,16 +41,20 @@ import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import { makeRegistryLifecycleClient, type RegistryLifecycleClient } from "./admin-client.js";
 import { requireHttpRegistryEndpoint } from "./capabilities.js";
-import type { RegistryOperationUnsupported } from "./errors.js";
+import type { RegistryOperationUnsupported, RegistryRequestFailed } from "./errors.js";
 import type { RegistryRequestPolicy } from "./request-policy.js";
 import {
   RegistryHttpClient,
   RegistryRequestAuthorization,
+  RegistryAuthorityContext,
   registryWire,
   type RegistryRequestAuthorizationService,
 } from "./registry-transport.js";
 
 export interface RegistryClientFactoryService {
+  readonly authorityContext: (
+    endpoint: RegistryEndpoint,
+  ) => Effect.Effect<RegistryAuthorityContext, RegistryRequestFailed>;
   /**
    * A client for one Registry. Every transport serves its reads,
    * publication, and visibility, so building one is never refused.
@@ -93,6 +98,7 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
     readonly path: Path.Path;
     readonly authorization: RegistryRequestAuthorizationService;
   }) {
+    const fileAuthority = new RegistryAuthorityContext({ id: randomUUID(), generation: 0 });
     // Cache availability belongs to this invocation. A failed cache configuration
     // disables remote archive clients without preventing file, lifecycle, or auth
     // operations that never use the cache. Every remote client shares this result
@@ -118,12 +124,17 @@ export const makeRegistryClientFactory = Effect.fn("RegistryClientFactory.make")
         return createRemoteRegistryClient(
           endpoint,
           transport(endpoint),
+          services.authorization.currentContext(endpoint),
           archiveCache.success,
           options?.requestPolicy,
         );
       });
 
     return {
+      authorityContext: (endpoint) =>
+        isHttpRegistryEndpoint(endpoint)
+          ? services.authorization.currentContext(endpoint)
+          : Effect.succeed(fileAuthority),
       forEndpoint,
       lifecycle: (endpoint, operation) =>
         Effect.map(requireHttpRegistryEndpoint(endpoint, "lifecycle", operation), (http) =>

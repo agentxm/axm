@@ -20,7 +20,13 @@ import { makeRegistryLifecycleClient, type RegistryLifecycleClient } from "./adm
 import type { RegistryClientFailure } from "./errors.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
 import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
-import { exactVersion, extensionName, handle, packageUrl } from "./test-helpers.js";
+import {
+  testRegistryAuthority,
+  exactVersion,
+  extensionName,
+  handle,
+  packageUrl,
+} from "./test-helpers.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const REGISTRY = decodeHttpRegistryEndpointSync(REGISTRY_URL);
@@ -68,7 +74,7 @@ const strictly = <S extends Schema.Decoder<unknown>>(schema: S, body: unknown) =
   Schema.decodeUnknownSync(schema)(body, { onExcessProperty: "error" });
 
 const remote = (httpClient: HttpClient.HttpClient) =>
-  createRemoteRegistryClient(REGISTRY, httpClient, undefined, {
+  createRemoteRegistryClient(REGISTRY, httpClient, testRegistryAuthority, undefined, {
     requestTimeout: "1 second",
     totalDeadline: "2 seconds",
     maxAttempts: 1,

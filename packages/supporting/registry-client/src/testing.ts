@@ -42,7 +42,10 @@ import {
   makeFixedRegistryContext,
   type BoundRegistry,
 } from "./registry-context.js";
-import type { RegistryRequestAuthorizationService } from "./registry-transport.js";
+import {
+  RegistryAuthorityContext,
+  type RegistryRequestAuthorizationService,
+} from "./registry-transport.js";
 
 /** The endpoint fixtures name when the test does not care which Registry it is. */
 export const testRegistryUrl = "https://registry.example.test";
@@ -67,6 +70,8 @@ export const RegistryContextTest = (url: string = testRegistryUrl): Layer.Layer<
  * authorizes is returned unchanged.
  */
 export const passThroughRegistryAuthorization: RegistryRequestAuthorizationService = {
+  currentContext: () =>
+    Effect.succeed(new RegistryAuthorityContext({ id: "anonymous-test-authority", generation: 0 })),
   authorize: (_endpoint, client) => client,
 };
 

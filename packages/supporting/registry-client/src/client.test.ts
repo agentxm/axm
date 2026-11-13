@@ -40,6 +40,7 @@ import {
   type CompanionPackage,
 } from "@agentxm/extension-model/unstable/package-urls";
 import {
+  testRegistryAuthority,
   at,
   dependencyConstraints,
   admittedContentResponse,
@@ -1766,6 +1767,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
       const client = createRemoteRegistryClient(
         decodeHttpRegistryEndpointSync("https://registry.example.com"),
         stubHttpClient,
+        testRegistryAuthority,
       );
 
       it.effect("getExtensions supports list mode discovery", () =>
@@ -1821,6 +1823,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           const publishClient = createRemoteRegistryClient(
             decodeHttpRegistryEndpointSync("https://registry.example.com"),
             publishHttpClient,
+            testRegistryAuthority,
           );
           const result = yield* publishClient.publishExtension(
             makeRemotePublishArgs(new Uint8Array([0x50, 0x4b]), makeVersionEntry()),

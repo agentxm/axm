@@ -7213,7 +7213,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `registry-client/content-access-is-callback-scoped`
 - Owner: `registry-client`
-- Statement: AXM shall admit the complete exact-content set before invoking its content callback, allow byte reads only for admitted identities while that callback is active, and require fresh admission for each subsequent callback without a per-archive authorization round inside the cache.
+- Statement: AXM shall admit the complete exact-content set under a stable credential context before invoking its content callback, allow byte reads only for admitted identities while that callback and credential context remain active, and require fresh admission after credential refresh or for each subsequent callback without a per-archive authorization round inside the cache.
 - Class: functional
 - Role: interface
 - Product goals: `trustworthy-distribution`

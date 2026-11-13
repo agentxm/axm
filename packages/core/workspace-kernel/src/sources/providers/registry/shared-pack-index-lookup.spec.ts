@@ -1,3 +1,4 @@
+import { RegistryAuthorityContext } from "@agentxm/registry-client";
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -89,13 +90,15 @@ describe("Shared Registry index for pack planning", () => {
       const started = yield* Deferred.make<void>();
       const release = yield* Deferred.make<void>();
       let reads = 0;
-      const memo = yield* makeRegistryIndexMemo(() =>
-        Effect.gen(function* () {
-          reads += 1;
-          yield* Deferred.succeed(started, undefined);
-          yield* Deferred.await(release);
-          return Option.some(index);
-        }),
+      const memo = yield* makeRegistryIndexMemo(
+        () => Effect.succeed(new RegistryAuthorityContext({ id: "test-authority", generation: 0 })),
+        () =>
+          Effect.gen(function* () {
+            reads += 1;
+            yield* Deferred.succeed(started, undefined);
+            yield* Deferred.await(release);
+            return Option.some(index);
+          }),
       );
       const first = yield* provider
         .resolveNamed(source, options("^1.0.0"))
@@ -127,18 +130,21 @@ describe("Shared Registry index for pack planning", () => {
   it.effect("retries a transient index failure within the planning phase", () =>
     Effect.gen(function* () {
       let reads = 0;
-      const memo = yield* makeRegistryIndexMemo(() => {
-        reads += 1;
-        return reads === 1
-          ? Effect.fail(
-              new RegistryOperationFailed({ category: "network", detail: "temporary failure" }),
-            )
-          : Effect.succeed(Option.some(index));
-      });
+      const memo = yield* makeRegistryIndexMemo(
+        () => Effect.succeed(new RegistryAuthorityContext({ id: "test-authority", generation: 0 })),
+        () => {
+          reads += 1;
+          return reads === 1
+            ? Effect.fail(
+                new RegistryOperationFailed({ category: "network", detail: "temporary failure" }),
+              )
+            : Effect.succeed(Option.some(index));
+        },
+      );
       const args = { owner: index.owner, type: index.type, name: index.name };
-      const failure = yield* memo.get(source.location, source.name, args).pipe(Effect.flip);
+      const failure = yield* memo.get(source.location, args).pipe(Effect.flip);
       expect(failure).toMatchObject({ category: "network" });
-      expect(yield* memo.get(source.location, source.name, args)).toEqual(Option.some(index));
+      expect(yield* memo.get(source.location, args)).toEqual(Option.some(index));
       expect(reads).toBe(2);
     }),
   );

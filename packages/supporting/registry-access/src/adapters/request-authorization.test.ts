@@ -100,7 +100,8 @@ const makeTestLayers = (
   /** The Registry the client is built for; the default stays REGISTRY_URL. */
   boundRegistry: string = REGISTRY_URL,
 ) => {
-  const baseClientLayer = mockTransportLayer(makeMockHttpClient(handler));
+  const baseClient = makeMockHttpClient(handler);
+  const baseClientLayer = mockTransportLayer(baseClient);
   const rawCredStoreLayer =
     credentialStoreService === undefined
       ? CredentialStoreTest("restricted-file", credentialData)
@@ -131,6 +132,7 @@ const makeTestLayers = (
 
   // Merge credential store and the authorization so tests can reach them
   return Layer.mergeAll(
+    Layer.succeed(RegistryHttpClient, baseClient),
     middlewareLayer,
     authorizationLayer,
     credStoreLayer,
@@ -201,6 +203,43 @@ const makeCountingCredentialStore = (
 // -----------------------------------------------------------------------------
 
 describe("RegistryRequestAuthorization", () => {
+  it.effect(
+    "keeps authority contexts opaque and changes generation with the presented credential",
+    () =>
+      Effect.gen(function* () {
+        const authorization = yield* RegistryRequestAuthorization;
+        const endpoint = decodeHttpRegistryEndpointSync(REGISTRY_URL);
+        const anonymous = yield* authorization.currentContext(endpoint);
+        const first = yield* authorization
+          .currentContext(endpoint)
+          .pipe(withEnvironment({ AXM_TOKEN: "first-secret" }));
+        const same = yield* authorization
+          .currentContext(endpoint)
+          .pipe(withEnvironment({ AXM_TOKEN: "first-secret" }));
+        const second = yield* authorization
+          .currentContext(endpoint)
+          .pipe(withEnvironment({ AXM_TOKEN: "second-secret" }));
+        const other = yield* authorization.currentContext(
+          decodeHttpRegistryEndpointSync("https://other.example.test"),
+        );
+        expect(first.id).toBe(anonymous.id);
+        expect(first.generation).toBe(anonymous.generation + 1);
+        expect(same).toEqual(first);
+        expect(second.id).toBe(first.id);
+        expect(second.generation).toBe(first.generation + 1);
+        expect(other.id).not.toBe(first.id);
+        expect(JSON.stringify([anonymous, first, same, second, other])).not.toContain("secret");
+        expect(yield* authorization.currentContext(endpoint).pipe(Effect.flip)).toMatchObject({
+          category: "auth",
+        });
+      }).pipe(
+        Effect.provide(
+          makeTestLayers(() => {
+            throw new Error("Context lookup must not send HTTP");
+          }),
+        ),
+      ),
+  );
   // ---------------------------------------------------------------------------
   // Header injection
   // ---------------------------------------------------------------------------
@@ -304,7 +343,7 @@ describe("RegistryRequestAuthorization", () => {
   // ---------------------------------------------------------------------------
 
   describe("automatic refresh on 401", () => {
-    it.effect("refreshes and retries on 401 for credential store tokens", () => {
+    it.effect("refreshes and retries on 401 while advancing the credential generation", () => {
       let requestCount = 0;
 
       const layers = makeTestLayers((req) => {
@@ -333,10 +372,16 @@ describe("RegistryRequestAuthorization", () => {
       }, storedCredentials());
 
       return Effect.gen(function* () {
-        const client = yield* HttpClient.HttpClient;
+        const authorization = yield* RegistryRequestAuthorization;
+        const endpoint = decodeHttpRegistryEndpointSync(REGISTRY_URL);
+        const before = yield* authorization.currentContext(endpoint);
+        const client = authorization.authorize(endpoint, yield* RegistryHttpClient);
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         const response = yield* client.execute(request);
         expect(response.status).toBe(200);
+        const after = yield* authorization.currentContext(endpoint);
+        expect(after.id).toBe(before.id);
+        expect(after.generation).toBe(before.generation + 1);
         // 1 original + 1 refresh + 1 retry = 3
         expect(requestCount).toBe(3);
       }).pipe(Effect.provide(layers));

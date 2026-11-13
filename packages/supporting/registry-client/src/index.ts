@@ -95,6 +95,7 @@ export {
 export { requireHttpRegistryEndpoint } from "./capabilities.js";
 export {
   RegistryHttpClient,
+  RegistryAuthorityContext,
   RegistryRequestAuthorization,
   refuseRegistryRedirects,
   registryWire,

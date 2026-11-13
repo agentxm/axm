@@ -9,7 +9,7 @@ import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstabl
 import { ExactContentRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolutions";
 import { MAX_RESOLUTION_REQUEST_BYTES } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import { createRemoteRegistryClient } from "./remote-client.js";
-import { exactVersion, extensionName, handle } from "./test-helpers.js";
+import { testRegistryAuthority, exactVersion, extensionName, handle } from "./test-helpers.js";
 import type { ValidateExtensionAccessArgs } from "./client.js";
 
 export const specification = defineSpecification({
@@ -82,6 +82,7 @@ const fixture = (mode: "mixed" | "duplicate" | "wrong-identity" = "mixed") => {
         );
       }),
     ),
+    testRegistryAuthority,
     undefined,
     {
       maxAttempts: 1,

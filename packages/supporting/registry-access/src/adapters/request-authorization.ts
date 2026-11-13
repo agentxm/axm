@@ -31,6 +31,10 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
+import * as Redacted from "effect/Redacted";
+import * as Result from "effect/Result";
+import { randomUUID } from "node:crypto";
 
 import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
@@ -41,12 +45,13 @@ import {
   REGISTRY_ERROR_CATEGORIES,
   RegistryContext,
   RegistryRequestAuthorization,
+  RegistryAuthorityContext,
   RegistryRequestFailed,
   type RegistryErrorCategory,
 } from "@agentxm/registry-client";
 import type { HttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { RegistryAccessFailed, SessionEnded } from "../authentication/errors.js";
-import type { CredentialStoreTokenSource } from "../credentials/schema.js";
+import type { CredentialStoreTokenSource, TokenSource } from "../credentials/schema.js";
 import { resolvePresentedToken } from "../credentials/token-resolution.js";
 import { WorkloadCredentials } from "../credentials/workload-credentials.js";
 
@@ -148,6 +153,12 @@ const selectionUnavailable = (request: HttpClientRequest.HttpClientRequest, deta
     metadata: requestMetadata(request),
   });
 
+interface ObservedAuthority {
+  readonly context: RegistryAuthorityContext;
+  readonly kind: TokenSource["_tag"] | undefined;
+  readonly token: Redacted.Redacted<string> | undefined;
+}
+
 /** The request authorization layer: presents the credential each Registry is owed. */
 export const RegistryRequestAuthorizationLive = Layer.effect(
   RegistryRequestAuthorization,
@@ -156,6 +167,64 @@ export const RegistryRequestAuthorizationLive = Layer.effect(
     const workload = yield* WorkloadCredentials;
     const refresher = yield* SessionRefresher;
     const context = yield* RegistryContext;
+    const authorities = yield* Ref.make(new Map<string, ObservedAuthority>());
+    const observeAuthority = (endpoint: HttpRegistryEndpoint, source: Option.Option<TokenSource>) =>
+      Ref.modify(
+        authorities,
+        (
+          current,
+        ): readonly [
+          Result.Result<RegistryAuthorityContext, RegistryRequestFailed>,
+          Map<string, ObservedAuthority>,
+        ] => {
+          const previous = current.get(endpoint.href);
+          const presented = Option.getOrUndefined(source);
+          if (previous?.token !== undefined && presented === undefined) {
+            return [
+              Result.fail(
+                new RegistryRequestFailed({
+                  category: "auth",
+                  detail:
+                    "The Registry credential is no longer available. The operation cannot continue anonymously.",
+                }),
+              ),
+              current,
+            ];
+          }
+          if (
+            previous !== undefined &&
+            previous.kind === presented?._tag &&
+            (previous.token === undefined ? undefined : Redacted.value(previous.token)) ===
+              presented?.token
+          ) {
+            return [Result.succeed(previous.context), current];
+          }
+          const next = new RegistryAuthorityContext({
+            id: previous?.context.id ?? randomUUID(),
+            generation: previous === undefined ? 0 : previous.context.generation + 1,
+          });
+          return [
+            Result.succeed(next),
+            new Map(current).set(endpoint.href, {
+              context: next,
+              kind: presented?._tag,
+              token: presented === undefined ? undefined : Redacted.make(presented.token),
+            }),
+          ];
+        },
+      ).pipe(
+        Effect.flatMap((result) =>
+          Result.isFailure(result) ? Effect.fail(result.failure) : Effect.succeed(result.success),
+        ),
+      );
+    const observeRequestAuthority = (
+      request: HttpClientRequest.HttpClientRequest,
+      endpoint: HttpRegistryEndpoint,
+      source: Option.Option<TokenSource>,
+    ) =>
+      observeAuthority(endpoint, source).pipe(
+        Effect.mapError((failure) => asTransportFailure(request, failure.detail, failure)),
+      );
     const fs = yield* Effect.serviceOption(FileSystem.FileSystem);
     const storeLayerBase = Layer.merge(
       Layer.succeed(CredentialStore, store),
@@ -206,23 +275,11 @@ export const RegistryRequestAuthorizationLive = Layer.effect(
       request: HttpClientRequest.HttpClientRequest,
     ) =>
       context.defaultBound.pipe(
-        Effect.mapError((error) =>
-          asTransportFailure(
-            request,
-            "The default Registry could not be decided.",
-            selectionUnavailable(request, error.detail),
-          ),
-        ),
+        Effect.mapError((error) => selectionUnavailable(request, error.detail)),
         Effect.flatMap((defaultBound) =>
           resolvePresentedToken(endpoint, defaultBound.endpoint).pipe(
             Effect.provide(storeLayer),
-            Effect.mapError((error) =>
-              asTransportFailure(
-                request,
-                "The credential for this request could not be read.",
-                credentialUnreadable(request, error),
-              ),
-            ),
+            Effect.mapError((error) => credentialUnreadable(request, error)),
           ),
         ),
       );
@@ -241,7 +298,10 @@ export const RegistryRequestAuthorizationLive = Layer.effect(
             return yield* client.execute(request);
           }
 
-          const maybeToken = yield* credentialFor(endpoint, request);
+          const maybeToken = yield* credentialFor(endpoint, request).pipe(
+            Effect.mapError((failure) => asTransportFailure(request, failure.detail, failure)),
+          );
+          yield* observeRequestAuthority(request, endpoint, maybeToken);
           if (Option.isNone(maybeToken)) {
             return yield* client.execute(request);
           }
@@ -253,18 +313,26 @@ export const RegistryRequestAuthorizationLive = Layer.effect(
 
           const fresh = yield* renewed(request, refresher.fresh(tokenSource));
           const current = Option.getOrElse(fresh, () => tokenSource);
+          yield* observeRequestAuthority(request, endpoint, Option.some(current));
           const response = yield* client.execute(
             HttpClientRequest.bearerToken(request, current.token),
           );
           if (response.status !== 401) return response;
 
           const again = yield* renewed(request, refresher.renew(current));
+          if (Option.isSome(again)) yield* observeRequestAuthority(request, endpoint, again);
           return Option.isNone(again)
             ? response
             : yield* client.execute(HttpClientRequest.bearerToken(request, again.value.token));
         }),
       );
 
-    return { authorize };
+    return {
+      authorize,
+      currentContext: (endpoint: HttpRegistryEndpoint) =>
+        credentialFor(endpoint, HttpClientRequest.get(endpoint.href)).pipe(
+          Effect.flatMap((source) => observeAuthority(endpoint, source)),
+        ),
+    };
   }),
 );

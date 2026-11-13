@@ -6,15 +6,16 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import type { ContainerIdentity } from "@agentxm/workspace-kernel/locations";
 import {
-  verifyForkReceipts,
+  captureContainerReceiptEvidence,
+  verifyContainerReceiptEvidence,
   type WorkspaceTemplate,
 } from "../benchmarks/observability-fixtures.js";
 
 const temporaryRoot = Effect.acquireRelease(
-  Effect.try(() => fs.mkdtempSync(path.join(os.tmpdir(), "axm-fork-receipt-oracle-"))),
+  Effect.try(() => fs.mkdtempSync(path.join(os.tmpdir(), "axm-receipt-oracle-"))),
   (root, exit) =>
     Exit.isFailure(exit)
-      ? Effect.logError("Fork fixture native evidence retained at " + root)
+      ? Effect.logError("Receipt fixture native evidence retained at " + root)
       : Effect.sync(() => fs.rmSync(root, { recursive: true, force: true })),
 );
 
@@ -78,7 +79,7 @@ const makeSample = (root: string, name: string, template: WorkspaceTemplate) => 
   const inherited = directoryProof(template.workspace, path.join(template.workspace, ".axm"), []);
   const before = { version: 1, entries: [], createdDirectories: [inherited] };
   const after = { ...before, createdDirectories: [inherited, history] };
-  const beforePath = path.join(root, name, "fork-receipts-before/projection-containers.json");
+  const beforePath = path.join(root, name, "before-receipt.json");
   const afterPath = path.join(runtime, "projection-containers.json");
   fs.mkdirSync(path.dirname(beforePath), { recursive: true });
   fs.writeFileSync(beforePath, JSON.stringify(before));
@@ -95,7 +96,100 @@ const makeSample = (root: string, name: string, template: WorkspaceTemplate) => 
   return { before, after, history, beforePath, afterPath, observed };
 };
 
-describe("fork native receipt comparison", () => {
+const verifySample = (
+  template: WorkspaceTemplate,
+  sample: ReturnType<typeof makeSample>,
+  phase: "preflight" | "timing" = "preflight",
+) =>
+  Effect.gen(function* () {
+    const observed = { ...sample.observed, phase };
+    const postimage = phase === "preflight" ? fs.readFileSync(sample.afterPath) : undefined;
+    if (postimage !== undefined) fs.copyFileSync(sample.beforePath, sample.afterPath);
+    const before = yield* captureContainerReceiptEvidence({ ...observed, stage: "before" });
+    if (postimage !== undefined) fs.writeFileSync(sample.afterPath, postimage);
+    const after = yield* captureContainerReceiptEvidence({ ...observed, stage: "after" });
+    return yield* verifyContainerReceiptEvidence(template, { before, after })(observed);
+  });
+
+describe("preflight native receipt comparison", () => {
+  it.effect(
+    "retains genuine absence and validates new live proof without projecting its native IDs",
+    () =>
+      Effect.gen(function* () {
+        const root = yield* temporaryRoot;
+        const template = makeTemplate(root);
+        const sample = makeSample(root, "sample", template);
+        fs.rmSync(sample.afterPath);
+        const before = yield* captureContainerReceiptEvidence({
+          ...sample.observed,
+          stage: "before",
+        });
+        const missingAfter = yield* captureContainerReceiptEvidence({
+          ...sample.observed,
+          stage: "after",
+        });
+        const absent = yield* verifyContainerReceiptEvidence(template, {
+          before,
+          after: missingAfter,
+        })(sample.observed);
+        expect(absent.fileComparisons).toBeUndefined();
+        expect(before?.present).toBe(false);
+        expect(missingAfter?.present).toBe(false);
+        const retained = path.join(sample.observed.artifacts, "retained");
+        expect(
+          fs.readFileSync(path.join(retained, "container-receipts-before/presence.json"), "utf8"),
+        ).toBe('{"present":false}\n');
+        expect(
+          fs.existsSync(
+            path.join(retained, "container-receipts-before/projection-containers.json"),
+          ),
+        ).toBe(false);
+        const runtime = path.join(sample.observed.fixture.workspace, ".axm");
+        const target = path.join(runtime, "live");
+        fs.mkdirSync(target);
+        const live = directoryProof(sample.observed.fixture.workspace, target, [runtime]);
+        fs.writeFileSync(
+          sample.afterPath,
+          JSON.stringify({ version: 1, entries: [], createdDirectories: [live] }),
+        );
+        const after = yield* captureContainerReceiptEvidence({
+          ...sample.observed,
+          stage: "after",
+        });
+        const checked = yield* verifyContainerReceiptEvidence(template, { before, after })(
+          sample.observed,
+        );
+        expect(checked.fileComparisons).toEqual([]);
+        expect(fs.existsSync(path.join(retained, "container-receipts-comparison.json"))).toBe(
+          false,
+        );
+        expect(
+          fs.readFileSync(
+            path.join(retained, "container-receipt-native-observations.json"),
+            "utf8",
+          ),
+        ).toContain('"matchesSample": true');
+      }).pipe(Effect.scoped),
+  );
+
+  it.effect("keeps unchanged receipt bytes strict without claiming a fresh native audit", () =>
+    Effect.gen(function* () {
+      const root = yield* temporaryRoot;
+      const template = makeTemplate(root);
+      const sample = makeSample(root, "unchanged", template);
+      fs.copyFileSync(sample.beforePath, sample.afterPath);
+      const verified = yield* verifySample(template, sample);
+      expect(verified.fileComparisons).toBeUndefined();
+      const retained = path.join(sample.observed.artifacts, "retained");
+      expect(fs.existsSync(path.join(retained, "container-receipt-native-observations.json"))).toBe(
+        false,
+      );
+      expect(
+        fs.readFileSync(path.join(retained, "container-receipts-after/projection-containers.json")),
+      ).toEqual(fs.readFileSync(sample.beforePath));
+    }).pipe(Effect.scoped),
+  );
+
   it.effect(
     "compares fresh native allocations while retaining raw receipts and historical uncertainty",
     () =>
@@ -108,26 +202,33 @@ describe("fork native receipt comparison", () => {
           candidate.history.owner.identity.inode,
         );
         const raw = fs.readFileSync(candidate.afterPath);
-        const first = yield* verifyForkReceipts(template)(baseline.observed);
-        const second = yield* verifyForkReceipts(template)(candidate.observed);
+        const first = yield* verifySample(template, baseline);
+        const second = yield* verifySample(template, candidate);
         expect(first.fileComparisons?.[0]?.sha256).toBeDefined();
         expect(first.fileComparisons?.[0]?.sha256).toBe(second.fileComparisons?.[0]?.sha256);
         expect(fs.readFileSync(candidate.afterPath)).toEqual(raw);
         const retained = path.join(candidate.observed.artifacts, "retained");
         expect(
-          fs.readFileSync(path.join(retained, "fork-receipts-after/projection-containers.json")),
+          fs.readFileSync(
+            path.join(retained, "container-receipts-after/projection-containers.json"),
+          ),
         ).toEqual(raw);
         expect(
-          fs.readFileSync(path.join(retained, "fork-receipts-before/projection-containers.json")),
+          fs.readFileSync(
+            path.join(retained, "container-receipts-before/projection-containers.json"),
+          ),
         ).toEqual(fs.readFileSync(candidate.beforePath));
         const projection = fs.readFileSync(
-          path.join(retained, "fork-receipts-comparison.json"),
+          path.join(retained, "container-receipts-comparison.json"),
           "utf8",
         );
-        expect(projection).toContain("<fork-live-verified-inode>");
-        expect(projection).toContain("<fork-historical-not-poststat-verified-inode>");
+        expect(projection).toContain("<receipt-live-verified-inode>");
+        expect(projection).toContain("<receipt-historical-not-poststat-verified-inode>");
         expect(
-          fs.readFileSync(path.join(retained, "fork-receipt-native-observations.json"), "utf8"),
+          fs.readFileSync(
+            path.join(retained, "container-receipt-native-observations.json"),
+            "utf8",
+          ),
         ).toContain("historical-runtime-cleanup-not-poststat-verifiable");
       }).pipe(Effect.scoped),
   );
@@ -192,19 +293,19 @@ describe("fork native receipt comparison", () => {
                   createdDirectories: [...sample.before.createdDirectories, history],
                 };
           fs.writeFileSync(sample.afterPath, JSON.stringify(after));
-          const result = yield* verifyForkReceipts(template)(sample.observed).pipe(Effect.result);
+          const result = yield* verifySample(template, sample).pipe(Effect.result);
           expect(result._tag, name).toBe("Failure");
           expect(
             fs.readFileSync(
               path.join(
                 sample.observed.artifacts,
-                "retained/fork-receipts-after/projection-containers.json",
+                "retained/container-receipts-after/projection-containers.json",
               ),
             ),
           ).toEqual(fs.readFileSync(sample.afterPath));
           expect(
             fs.existsSync(
-              path.join(sample.observed.artifacts, "retained/fork-receipts-comparison.json"),
+              path.join(sample.observed.artifacts, "retained/container-receipts-comparison.json"),
             ),
           ).toBe(false);
         }
@@ -218,7 +319,7 @@ describe("fork native receipt comparison", () => {
         const root = yield* temporaryRoot;
         const template = makeTemplate(root);
         const baseline = makeSample(root, "baseline", template);
-        const original = yield* verifyForkReceipts(template)(baseline.observed);
+        const original = yield* verifySample(template, baseline);
         for (const field of [
           "mode",
           "inherited-inode",
@@ -265,7 +366,7 @@ describe("fork native receipt comparison", () => {
               createdDirectories: field === "order" ? [history, changed] : [changed, history],
             }),
           );
-          const compared = yield* verifyForkReceipts(template)(sample.observed);
+          const compared = yield* verifySample(template, sample);
           expect(compared.fileComparisons?.[0]?.sha256, field).toBeDefined();
           expect(compared.fileComparisons?.[0]?.sha256, field).not.toBe(
             original.fileComparisons?.[0]?.sha256,
@@ -282,24 +383,22 @@ describe("fork native receipt comparison", () => {
         const template = makeTemplate(root);
         const sample = makeSample(root, "sample", template);
         fs.writeFileSync(sample.afterPath, "{broken");
-        const timing = yield* verifyForkReceipts(template)({ ...sample.observed, phase: "timing" });
+        const timing = yield* verifySample(template, sample, "timing");
         expect(timing.fileComparisons).toBeUndefined();
         expect(fs.existsSync(sample.observed.artifacts)).toBe(false);
-        const preflight = yield* verifyForkReceipts(template)(sample.observed).pipe(Effect.result);
+        const preflight = yield* verifySample(template, sample).pipe(Effect.result);
         expect(preflight._tag).toBe("Failure");
         expect(
           fs.readFileSync(
             path.join(
               sample.observed.artifacts,
-              "retained/fork-receipts-after/projection-containers.json",
+              "retained/container-receipts-after/projection-containers.json",
             ),
             "utf8",
           ),
         ).toBe("{broken");
         fs.writeFileSync(sample.afterPath, JSON.stringify({ ...sample.after, unexpected: true }));
-        const invalidSchema = yield* verifyForkReceipts(template)(sample.observed).pipe(
-          Effect.result,
-        );
+        const invalidSchema = yield* verifySample(template, sample).pipe(Effect.result);
         expect(invalidSchema._tag).toBe("Failure");
       }).pipe(Effect.scoped),
   );

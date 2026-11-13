@@ -171,11 +171,38 @@ const localCondition = {
   archiveBodyDelayMillis: 0,
 } as const;
 
-const forkBeforeReceipts = (fixture: WorkspaceTemplate) =>
-  path.join(path.dirname(fixture.workspace), "fork-receipts-before", "projection-containers.json");
+/** One known product receipt store, retained before semantic validators run. */
+export const captureContainerReceiptEvidence = (options: {
+  readonly fixture: WorkspaceTemplate;
+  readonly artifacts: string;
+  readonly phase: "preflight" | "timing";
+  readonly stage: "before" | "after";
+}) =>
+  Effect.try(() => {
+    if (options.phase === "timing") return undefined;
+    const directory = path.join(
+      options.artifacts,
+      "retained",
+      "container-receipts-" + options.stage,
+    );
+    fs.mkdirSync(directory, { recursive: true });
+    const source = path.join(options.fixture.workspace, ".axm", "projection-containers.json");
+    const info = fs.lstatSync(source, { throwIfNoEntry: false });
+    const present = info !== undefined;
+    fs.writeFileSync(path.join(directory, "presence.json"), JSON.stringify({ present }) + "\n");
+    if (!present) {
+      fs.rmSync(path.join(directory, "projection-containers.json"), { force: true });
+      return { directory, present, sha256: undefined };
+    }
+    if (!info.isFile())
+      throw fixtureFailure("The workspace receipt store is not an ordinary file.");
+    const bytes = fs.readFileSync(source);
+    fs.writeFileSync(path.join(directory, "projection-containers.json"), bytes);
+    return { directory, present, sha256: digest(bytes) };
+  });
 
 /** Native metadata is checked independently of the product's receipt verifier. */
-const observeForkIdentity = (identity: ContainerIdentity, fixture: WorkspaceTemplate) => {
+const observeReceiptIdentity = (identity: ContainerIdentity, fixture: WorkspaceTemplate) => {
   const insideSample = (target: string) =>
     [fixture.workspace, fixture.home].some((root) => {
       const relative = path.relative(root, target);
@@ -252,8 +279,9 @@ const observeForkIdentity = (identity: ContainerIdentity, fixture: WorkspaceTemp
   return { matchesSample: checks.every((check) => check.matches), outsideSample, checks };
 };
 
-export const forkReceiptComparison = {
-  scope: "authoring/fork: newly recorded, exactly classified .axm/tmp cleanup history only",
+export const containerReceiptComparison = {
+  scope:
+    "Preflight workspace receipt store: newly recorded, exactly classified .axm/tmp cleanup history only",
   fields:
     "inode and birthtime of its live-verified owner/root/sole parent and separately classified removed scratch entry",
   retained:
@@ -264,8 +292,14 @@ export const forkReceiptComparison = {
     "Inherited proofs, devices, modes, ownership, paths, aliases, receipt order and every other field",
 };
 
-export const verifyForkReceipts =
-  (template: WorkspaceTemplate): NonNullable<ObservabilityScenario["verify"]> =>
+export const verifyContainerReceiptEvidence =
+  (
+    template: WorkspaceTemplate,
+    captured: {
+      readonly before: Effect.Success<ReturnType<typeof captureContainerReceiptEvidence>>;
+      readonly after: Effect.Success<ReturnType<typeof captureContainerReceiptEvidence>>;
+    },
+  ): NonNullable<ObservabilityScenario["verify"]> =>
   ({ fixture, artifacts, phase, startedAtMillis, endedAtMillis }) =>
     Effect.gen(function* () {
       if (phase === "timing")
@@ -275,33 +309,29 @@ export const verifyForkReceipts =
           ],
         };
       const retained = path.join(artifacts, "retained");
-      const beforeDirectory = path.join(retained, "fork-receipts-before");
-      const afterDirectory = path.join(retained, "fork-receipts-after");
-      // Copy both raw documents before decoding or checking native identity. Failed
-      // verification must retain the evidence that was missing from the first run.
-      yield* Effect.try(() => {
-        fs.mkdirSync(beforeDirectory, { recursive: true });
-        fs.mkdirSync(afterDirectory, { recursive: true });
-        fs.copyFileSync(
-          forkBeforeReceipts(fixture),
-          path.join(beforeDirectory, "projection-containers.json"),
-        );
-        fs.copyFileSync(
-          path.join(fixture.workspace, ".axm", "projection-containers.json"),
-          path.join(afterDirectory, "projection-containers.json"),
-        );
-      });
-      // Both retained files must exist after successful copies. The public reader
-      // fails malformed JSON/schema; its empty-store fallback applies only to absence.
-      const before = yield* readContainerReceipts(beforeDirectory).pipe(
-        Effect.provide(NodeServices.layer),
-      );
-      const after = yield* readContainerReceipts(afterDirectory).pipe(
-        Effect.provide(NodeServices.layer),
-      );
+      if (captured.before === undefined || captured.after === undefined)
+        return yield* fixtureFailure("Preflight requires both receipt presence observations.");
+      // Decode only genuinely present retained files; absence is evidence, never
+      // a fabricated empty receipt document. Malformed present files still fail.
+      const before = captured.before.present
+        ? yield* readContainerReceipts(captured.before.directory).pipe(
+            Effect.provide(NodeServices.layer),
+          )
+        : undefined;
+      const after = captured.after.present
+        ? yield* readContainerReceipts(captured.after.directory).pipe(
+            Effect.provide(NodeServices.layer),
+          )
+        : undefined;
+      if (after === undefined || captured.before.sha256 === captured.after.sha256)
+        return {
+          assertions: [
+            "Raw receipt presence/absence and present bytes retained; absent or byte-unchanged stores keep strict state comparison without a fresh native-identity audit claim.",
+          ],
+        };
       const inherited = new Set([
-        ...before.entries.map((entry) => JSON.stringify(entry.identity)),
-        ...before.createdDirectories.map((identity) => JSON.stringify(identity)),
+        ...(before?.entries ?? []).map((entry) => JSON.stringify(entry.identity)),
+        ...(before?.createdDirectories ?? []).map((identity) => JSON.stringify(identity)),
       ]);
       const observations = [
         ...after.entries.map((entry, index) => ({
@@ -314,7 +344,7 @@ export const verifyForkReceipts =
         })),
       ].map(({ location, identity }) => {
         const unchanged = inherited.has(JSON.stringify(identity));
-        const observed = observeForkIdentity(identity, fixture);
+        const observed = observeReceiptIdentity(identity, fixture);
         const scratch = path.join(fixture.workspace, ".axm", "tmp");
         // Admission persists exclusive creation proof before its finalizer removes
         // the empty scratch directory. The existing runtime-directories-retire-
@@ -375,7 +405,7 @@ export const verifyForkReceipts =
       });
       yield* Effect.try(() =>
         fs.writeFileSync(
-          path.join(retained, "fork-receipt-native-observations.json"),
+          path.join(retained, "container-receipt-native-observations.json"),
           JSON.stringify(
             {
               observation:
@@ -390,7 +420,7 @@ export const verifyForkReceipts =
       );
       if (observations.some((observation) => !observation.valid))
         return yield* fixtureFailure(
-          "Fork wrote a new or refreshed container identity that does not match the actual sample filesystem; raw receipts and independent native observations are retained.",
+          "A new or refreshed container identity does not match the actual sample filesystem; raw receipts and independent native observations are retained.",
         );
       let projected: unknown = after;
       let projectedRows = 0;
@@ -417,7 +447,7 @@ export const verifyForkReceipts =
               projected,
               ["createdDirectories", String(index), ...part.fields, field],
               part.value[field],
-              "<fork-" + part.proof + "-" + field + ">",
+              "<receipt-" + part.proof + "-" + field + ">",
             );
         projectedRows++;
       }
@@ -431,7 +461,10 @@ export const verifyForkReceipts =
       );
       if (projectedRows > 0)
         yield* Effect.try(() =>
-          fs.writeFileSync(path.join(retained, "fork-receipts-comparison.json"), comparison + "\n"),
+          fs.writeFileSync(
+            path.join(retained, "container-receipts-comparison.json"),
+            comparison + "\n",
+          ),
         );
       return {
         assertions: [
@@ -447,7 +480,7 @@ export const verifyForkReceipts =
                   container: "workspace" as const,
                   path: ".axm/projection-containers.json",
                   sha256: digest(comparison),
-                  reason: JSON.stringify(forkReceiptComparison),
+                  reason: JSON.stringify(containerReceiptComparison),
                 },
               ],
       };
@@ -962,16 +995,6 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
           args: ["fork", "workspace:@acme/skills/bench-authored", "@acme/skills/bench-fork"],
           template: authored,
           condition: { ...localCondition, source: "authored", extensions: 1 },
-          prepare: (fixture) =>
-            Effect.try(() => {
-              const before = forkBeforeReceipts(fixture);
-              fs.mkdirSync(path.dirname(before), { recursive: true });
-              fs.copyFileSync(
-                path.join(fixture.workspace, ".axm", "projection-containers.json"),
-                before,
-              );
-            }),
-          verify: verifyForkReceipts(authored),
         },
       );
     }

@@ -35,7 +35,9 @@ import {
 } from "./observability-coverage.js";
 import {
   copyTemplate,
-  forkReceiptComparison,
+  captureContainerReceiptEvidence,
+  containerReceiptComparison,
+  verifyContainerReceiptEvidence,
   prepareObservabilityFixtures,
   type ObservabilityScenario,
   type PrepareInvocation,
@@ -413,7 +415,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             progress: progressComparisonNormalization,
             deliveredReuse: deliveredReuseComparison,
             periodicMaintenance: periodicMaintenanceComparison,
-            forkReceipts: forkReceiptComparison,
+            containerReceipts: containerReceiptComparison,
             fixtureRoots:
               "Temporary workspace/home roots normalize to indexed markers; raw bytes and hashes are retained.",
             requestOrder:
@@ -649,6 +651,12 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             const fixture = copyTemplate(scenario.template, sampleRoot);
             if (scenario.prepare !== undefined) yield* scenario.prepare(fixture, prepare);
             if (scenario.external !== undefined) yield* scenario.external.reset;
+            const receiptBefore = yield* captureContainerReceiptEvidence({
+              fixture,
+              artifacts,
+              phase,
+              stage: "before",
+            });
             const roots = [
               fixture.workspace,
               fixture.home,
@@ -706,6 +714,12 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               artifacts,
             });
             const endedAtMillis = Date.now();
+            const receiptAfter = yield* captureContainerReceiptEvidence({
+              fixture,
+              artifacts,
+              phase,
+              stage: "after",
+            });
             if (phase === "preflight")
               writeJson(path.join(artifacts, "host-after.json"), hostResourceSnapshot(artifacts));
             const after =
@@ -771,7 +785,22 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                   result.exitCode +
                   "). Raw output is retained.",
               );
-            const verification =
+            const receiptVerification =
+              phase === "preflight"
+                ? yield* verifyContainerReceiptEvidence(scenario.template, {
+                    before: receiptBefore,
+                    after: receiptAfter,
+                  })({
+                    fixture,
+                    phase,
+                    artifacts,
+                    stdout: result.stdout,
+                    stderr: result.stderr,
+                    startedAtMillis,
+                    endedAtMillis,
+                  })
+                : undefined;
+            const operationVerification =
               scenario.verify === undefined
                 ? undefined
                 : yield* scenario.verify({
@@ -783,6 +812,30 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                     startedAtMillis,
                     endedAtMillis,
                   });
+            const verification =
+              receiptVerification === undefined
+                ? operationVerification
+                : {
+                    ...operationVerification,
+                    assertions: [
+                      ...receiptVerification.assertions,
+                      ...(operationVerification?.assertions ?? [
+                        "Declared process outcome and raw output/request evidence retained for comparison.",
+                      ]),
+                    ],
+                    fileComparisons: [
+                      ...(receiptVerification.fileComparisons ?? []),
+                      ...(operationVerification?.fileComparisons ?? []),
+                    ],
+                  };
+            const comparisonTargets =
+              verification?.fileComparisons?.map((entry) => entry.container + "/" + entry.path) ??
+              [];
+            if (new Set(comparisonTargets).size !== comparisonTargets.length)
+              return yield* fail(
+                "comparison-projection",
+                "Receipt and operation verifiers cannot project the same product file twice.",
+              );
             writeJson(
               path.join(artifacts, "semantic-verification.json"),
               verification ?? {

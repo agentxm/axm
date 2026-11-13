@@ -2,7 +2,8 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 
-import { DesiredStateReader } from "@agentxm/workspace-kernel/workspace-state";
+import * as Tracer from "effect/Tracer";
+import { withDetailedWork } from "@agentxm/workspace-kernel/locations/testing";
 import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 import { configuredUpdateRequest } from "./test-helpers.js";
 import { UpdateExtensions } from "./update-extensions.js";
@@ -27,20 +28,19 @@ it.effect("reads the desired graph once across a configured update sweep", () =>
           ]);
         }
 
-        const desiredState = yield* DesiredStateReader;
-        let graphReads = 0;
-        const observedGraph = {
-          ...desiredState,
-          graph: (options) =>
-            Effect.sync(() => {
-              graphReads += 1;
-            }).pipe(Effect.andThen(desiredState.graph(options))),
-        } satisfies typeof desiredState;
+        const spans: Tracer.NativeSpan[] = [];
+        const tracer = Tracer.make({
+          span(options) {
+            const span = new Tracer.NativeSpan(options);
+            spans.push(span);
+            return span;
+          },
+        });
         const candidate = yield* UpdateExtensions.prepare(
           configuredUpdateRequest({ type: "skill" }),
-        ).pipe(Effect.provideService(DesiredStateReader, observedGraph));
+        ).pipe(withDetailedWork(tracer));
         expect(candidate.outcome).toBe("planned");
-        expect(graphReads).toBe(1);
+        expect(spans.filter((span) => span.name === "DesiredStateReader.evaluate")).toHaveLength(1);
       }),
     )
     .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));

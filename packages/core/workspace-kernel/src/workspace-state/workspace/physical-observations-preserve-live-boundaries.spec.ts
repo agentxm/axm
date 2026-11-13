@@ -1,3 +1,4 @@
+import { defineSpecification } from "@agentxm/specification-metadata";
 import { withDetailedWork, workObservations } from "../../locations/testing.js";
 import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -12,6 +13,24 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { CanonicalNativePath } from "../../locations/index.js";
 import { makeObservationReadView } from "./observation-read-view.js";
+
+export const specification = defineSpecification({
+  requirement: "workspace/workspace-state/physical-observations-preserve-live-boundaries",
+  title: "Physical observation reuse preserves isolation and live boundaries",
+  statement:
+    "A stable physical observation phase shall coalesce equivalent reads and completed local failures while preserving exact path spelling, encoding and directory-option semantics; mutable byte buffers and directory results shall be independently owned by callers; mutation shall invalidate observations before writing, expired ports shall read live, and new phases shall retry local failures; cancelling a waiter shall preserve surviving demand; abandoned demand shall be retryable, with truthful execution and reuse accounting independent of tracing.",
+  class: "functional",
+  role: "supporting",
+  goals: ["workspace-intent-fidelity", "safe-repetition"],
+  boundary: "platform",
+  boundaryRationale:
+    "Production observation ports read and mutate real files; counted and deferred filesystem calls make coalescing, failure reuse, cancellation and accounting observable.",
+  methods: ["example", "decision-table"],
+  derivedFrom: [],
+  supersedes: [],
+  assumptions: [],
+  openQuestions: [],
+});
 
 describe("query observation sharing", () => {
   it.effect(

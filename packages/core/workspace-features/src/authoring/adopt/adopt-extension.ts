@@ -71,6 +71,7 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import type { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
+  withWorkspaceReadView,
   DesiredStateReader,
   LockfileReader,
   AcceptedResolutionWriter,
@@ -549,7 +550,7 @@ const prepareAdoptExtension: (
     enabled,
     execution: yield* prepareExecutionCandidate(plan),
   } satisfies AdoptExtensionCandidate;
-});
+}, withWorkspaceReadView);
 
 // -----------------------------------------------------------------------------
 // previewOrApply

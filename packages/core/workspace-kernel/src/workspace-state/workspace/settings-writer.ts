@@ -33,7 +33,7 @@ type Write<A = void, E = never> = Effect.Effect<A, WorkspaceSettingsMutationFail
 export interface SettingsWriterService {
   /** Record the owner in the selected scope's settings and in the resolved layout. */
   readonly setOwner: (owner: Handle) => Write<WorkspaceLayout>;
-  /** Append a source to the selected scope's settings and drop the merged-source cache. */
+  /** Append a source to the selected scope's settings. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Write;
   /** Set instruction-file config. `false` is explicit manual mode. */
   readonly setInstructionsConfig: (config: InstructionsConfigValue) => Write;
@@ -78,7 +78,6 @@ const makeSettingsWriter = (
   location: WorkspaceLocationService,
   documents: WorkspaceDocumentsService,
   mutex: Semaphore.Semaphore,
-  invalidateSources: Effect.Effect<void>,
 ): SettingsWriterService => {
   const current = documents.settings();
   const write = documents.writeSettings;
@@ -103,7 +102,6 @@ const makeSettingsWriter = (
         Effect.gen(function* () {
           const settings = yield* current;
           yield* write({ ...settings, sources: [...(settings.sources ?? []), source] });
-          yield* invalidateSources;
         }),
       ).pipe(Effect.withSpan("SettingsWriter.addConfiguredSource")),
     setInstructionsConfig: (config) =>
@@ -173,11 +171,6 @@ export const SettingsWriterLive: Layer.Layer<
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const shared = yield* WorkspaceStateShared;
-    return makeSettingsWriter(
-      location,
-      yield* WorkspaceDocuments,
-      shared.mutex,
-      Ref.set(shared.sourcesCache, Option.none()),
-    );
+    return makeSettingsWriter(location, yield* WorkspaceDocuments, shared.mutex);
   }),
 );

@@ -28,7 +28,7 @@ import {
 import { NativeWriteAuthority } from "../agent-adapters/index.js";
 import {
   ConfiguredAgentOutcomesProvider,
-  CurrentWorkspaceReadPhase,
+  workspaceReadPhaseFor,
   ConfiguredAgentOutcomesUnavailable,
   DesiredStateReader,
   usableAcceptedCanonicalRef,
@@ -65,18 +65,19 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
     const locks = yield* LockfileReader;
     const desired = yield* DesiredStateReader;
     const liveFileSystem = yield* FileSystem.FileSystem;
+    const location = yield* WorkspaceLocation;
     const managerLayer = Layer.mergeAll(
       Layer.succeed(CodingAgentRepository, yield* CodingAgentRepository),
       Layer.succeed(Path.Path, yield* Path.Path),
       Layer.succeed(NativeEntryRemoval, yield* NativeEntryRemoval),
       Layer.succeed(RegistryClientFactory, yield* RegistryClientFactory),
       Layer.succeed(NativeWriteAuthority, yield* NativeWriteAuthority),
-      Layer.succeed(WorkspaceLocation, yield* WorkspaceLocation),
+      Layer.succeed(WorkspaceLocation, location),
     );
     const managerLayerFor = (request: ConfiguredAgentOutcomesRequest) =>
       Layer.unwrap(
         Effect.gen(function* () {
-          const phase = yield* CurrentWorkspaceReadPhase;
+          const phase = yield* workspaceReadPhaseFor(location);
           const readers = request.readers ?? phase?.readers;
           return Layer.mergeAll(
             managerLayer,

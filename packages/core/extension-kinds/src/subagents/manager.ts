@@ -20,6 +20,7 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
+  workspaceReadPhaseFor,
   WorkspaceRecords,
   computeExtensionPathsForLayout,
   sanitizeName,
@@ -355,11 +356,12 @@ export const SubagentManagerLive = Layer.effect(
       options?: { readonly sourceRoot?: string },
     ) =>
       Effect.gen(function* () {
+        const readFs = (yield* workspaceReadPhaseFor(location))?.fileSystem ?? fs;
         if (options?.sourceRoot !== undefined) return yield* readPackage(options.sourceRoot);
         const canonical = getCanonicalPaths(ref).canonicalPath;
         if (
           state === "current" &&
-          (yield* fs.exists(path.join(canonical, manifestFilenameForType("subagent"))))
+          (yield* readFs.exists(path.join(canonical, manifestFilenameForType("subagent"))))
         )
           return yield* readPackage(canonical);
         if (ref.refType === "registry" || ref.refType === "http")
@@ -384,10 +386,13 @@ export const SubagentManagerLive = Layer.effect(
     ) =>
       Effect.scoped(
         Effect.gen(function* () {
+          const phase = yield* workspaceReadPhaseFor(location);
+          const configuredAgents =
+            options?.configuredAgents ??
+            (yield* (phase?.readers.settings ?? settings).configuredAgents);
           const pkg = yield* readPackageForRef(ref, state, options);
-          if (options?.validateDestinations === true)
-            yield* preflight(ref, pkg, options.configuredAgents);
-          return (yield* preparedTargets(ref, pkg, options?.configuredAgents)).map((target) =>
+          if (options?.validateDestinations === true) yield* preflight(ref, pkg, configuredAgents);
+          return (yield* preparedTargets(ref, pkg, configuredAgents)).map((target) =>
             outcomeForTarget(ref, target, state),
           );
         }),
@@ -853,10 +858,15 @@ export const SubagentManagerLive = Layer.effect(
       });
     const projectionObservation: SubagentManagerService["projectionObservation"] = (ref, options) =>
       Effect.gen(function* () {
+        const phase = yield* workspaceReadPhaseFor(location);
+        const readFs = phase?.fileSystem ?? fs;
+        const configuredAgents =
+          options?.configuredAgents ??
+          (yield* (phase?.readers.settings ?? settings).configuredAgents);
         const pkg = yield* readPackage(options?.sourceRoot ?? getCanonicalPaths(ref).canonicalPath);
         // Observation reports an unrecorded file as not current; only a write refuses it.
-        yield* preflight(ref, pkg, options?.configuredAgents, "report");
-        const targets = yield* preparedTargets(ref, pkg, options?.configuredAgents);
+        yield* preflight(ref, pkg, configuredAgents, "report");
+        const targets = yield* preparedTargets(ref, pkg, configuredAgents);
         const rows = yield* subagentRows;
         const planned = yield* plannedFiles(ref, targets);
         const allAgents = yield* agentRepo.all;
@@ -877,7 +887,7 @@ export const SubagentManagerLive = Layer.effect(
               baseDir,
             );
             const planFile = planned.get(address.referentPath ?? address.entryPath);
-            const present = yield* fs.exists(file).pipe(
+            const present = yield* readFs.exists(file).pipe(
               Effect.mapError(
                 (cause) =>
                   new SubagentDefinitionInvalid({
@@ -948,7 +958,7 @@ export const SubagentManagerLive = Layer.effect(
             projectionIsCurrent(
               recorded,
               file.gen,
-              yield* fs.exists(destination).pipe(
+              yield* readFs.exists(destination).pipe(
                 Effect.mapError(
                   (cause) =>
                     new SubagentDefinitionInvalid({
@@ -963,7 +973,7 @@ export const SubagentManagerLive = Layer.effect(
           const decision = yield* decideWholeFileWrite({
             recorded,
             gen: file.gen,
-            bytes: yield* fs.readFileString(destination).pipe(Effect.option),
+            bytes: yield* readFs.readFileString(destination).pipe(Effect.option),
             rendered: file.content,
             replaceUnrecorded: replaceUnrecorded === true,
           });
@@ -999,6 +1009,7 @@ export const SubagentManagerLive = Layer.effect(
       projectionObservation,
       configuredAgentOutcomesForRef,
       ...makeBaseManagerMembers({
+        location,
         type: "subagent",
         spanPrefix: "SubagentManager",
         records,
@@ -1023,11 +1034,20 @@ export const SubagentManagerLive = Layer.effect(
           };
         }),
       listMaterializable: () =>
-        listMaterializableFromDisk({
-          type: "subagent",
-          records,
-          toDiskRefs: configuredSubagentsToDiskRefs,
-          env: { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
+        Effect.gen(function* () {
+          const phase = yield* workspaceReadPhaseFor(location);
+          return yield* listMaterializableFromDisk({
+            type: "subagent",
+            records: phase?.records ?? records,
+            toDiskRefs: configuredSubagentsToDiskRefs,
+            env: {
+              fs: phase?.fileSystem ?? fs,
+              path,
+              baseDir,
+              scope: location.scope,
+              layout: currentLayout(),
+            },
+          });
         }),
       materializeUninstall: makeMaterializeRemoval(false),
       materializeDeactivate: makeMaterializeRemoval(true),

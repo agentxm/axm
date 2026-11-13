@@ -14,6 +14,8 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  workspaceReadPhaseFor,
+  type WorkspaceLocationService,
   configuredRowsByName,
   isObservedInstalled,
   prepareAcceptedCanonicalTransition,
@@ -45,6 +47,7 @@ export interface BaseManagerMembersArgs<
 > {
   readonly type: T;
   readonly spanPrefix: string;
+  readonly location: WorkspaceLocationService;
   readonly records: WorkspaceRecordsService;
   readonly settings: SettingsReaderService;
   readonly refName: (ref: RefFor<T>) => string;
@@ -67,9 +70,10 @@ export const makeBaseManagerMembers = <
   args: BaseManagerMembersArgs<T, TFacts, R>,
 ) => ({
   isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
-    isObservedInstalled(args.records, args.type, target.name).pipe(
-      Effect.withSpan(`${args.spanPrefix}.isInstalled`),
-    ),
+    Effect.gen(function* () {
+      const phase = yield* workspaceReadPhaseFor(args.location);
+      return yield* isObservedInstalled(phase?.records ?? args.records, args.type, target.name);
+    }).pipe(Effect.withSpan(`${args.spanPrefix}.isInstalled`)),
   materializeRetained: ({ target }: { readonly target: TargetFor<T> }) =>
     Effect.gen(function* () {
       const canonical = yield* usableAcceptedCanonical({ type: args.type, name: target.name });
@@ -94,10 +98,11 @@ export const makeBaseManagerMembers = <
       ref,
     }).pipe(Effect.withSpan(`${args.spanPrefix}.prepareSourceTransition`)),
   getConfiguredSource: ({ target }: { readonly target: ExtensionTarget }) =>
-    args.settings.entries(args.type).pipe(
-      Effect.map((configured) => Option.fromUndefinedOr(configured[target.name]?.source)),
-      Effect.withSpan(`${args.spanPrefix}.getConfiguredSource`),
-    ),
+    Effect.gen(function* () {
+      const phase = yield* workspaceReadPhaseFor(args.location);
+      const configured = yield* (phase?.readers.settings ?? args.settings).entries(args.type);
+      return Option.fromUndefinedOr(configured[target.name]?.source);
+    }).pipe(Effect.withSpan(`${args.spanPrefix}.getConfiguredSource`)),
   /** A withdrawn extension releases the accepted resolution recorded under its own name. */
   withdrawnResolutionKeys: ({ target }: { readonly target: ExtensionTarget }) =>
     Effect.succeed([target.name]),
@@ -133,7 +138,25 @@ export const captureManagerServices = Effect.gen(function* () {
     records,
     sources,
     catalog,
+    /** Mutation members retain the live construction dependencies. */
     provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provideContext(effect, services),
+    /** Planning helpers resolve the executing phase before composing their dependencies. */
+    provideRead: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      workspaceReadPhaseFor(location).pipe(
+        Effect.flatMap((phase) =>
+          Effect.provideContext(
+            effect,
+            phase === undefined
+              ? services
+              : services.pipe(
+                  Context.add(SettingsReader, phase.readers.settings),
+                  Context.add(LockfileReader, phase.readers.locks),
+                  Context.add(DesiredStateReader, phase.readers.desired),
+                  Context.add(WorkspaceRecords, phase.records),
+                ),
+          ),
+        ),
+      ),
   };
 });
 

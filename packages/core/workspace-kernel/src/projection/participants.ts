@@ -26,6 +26,7 @@ import type { NativeWriteAuthority } from "../agent-adapters/index.js";
 import type { ConfiguredAgentOutcome, JobStepArtifactTarget } from "../operations/index.js";
 import type {
   DesiredStateReader,
+  DesiredStateGraph,
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
@@ -73,7 +74,9 @@ export type ParticipantProjectionPlans = Effect.Effect<
  */
 export interface ProjectionParticipant {
   readonly units: ReadonlyArray<AggregateOwnershipUnitId>;
-  readonly projectionPlans: () => ParticipantProjectionPlans;
+  readonly projectionPlans: (options?: {
+    readonly desiredGraph?: DesiredStateGraph;
+  }) => ParticipantProjectionPlans;
 }
 
 /** What a subagent's owner reports about one rendered native profile. */

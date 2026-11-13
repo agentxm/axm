@@ -33,6 +33,7 @@ import {
   SettingsWriter,
   type SettingsWriterService,
   type WorkspaceSettingsReadFailure,
+  withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
@@ -414,7 +415,7 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
     authoredPath: authoredDir,
     execution: yield* prepareExecutionCandidate(plan),
   } satisfies DemoteCandidate;
-});
+}, withWorkspaceReadView);
 
 const prepareDemote: (
   request: DemoteRequest,

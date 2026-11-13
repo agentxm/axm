@@ -82,7 +82,11 @@ import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
-import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  SettingsReader,
+  withWorkspaceReadView,
+  withLiveWorkspaceObservations,
+} from "@agentxm/workspace-kernel/workspace-state";
 import {
   FootprintRecorder,
   makeFootprintRecorder,
@@ -277,349 +281,358 @@ const workspaceReachability = (
   return buildPackDependencyReachability({ packs, members });
 };
 
-export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request: PublishRequest) {
-  const registry = yield* observeUnit(
-    { id: "registry", label: "publish registry" },
-    resolveTargetRegistry(request.registry),
-  );
-  const settings = yield* SettingsReader;
-  const remoteRegistry = isHttpRegistryEndpoint(registry.endpoint);
+export const prepare = Effect.fn("PublishExtensions.prepare")(
+  function* (request: PublishRequest) {
+    const registry = yield* observeUnit(
+      { id: "registry", label: "publish registry" },
+      resolveTargetRegistry(request.registry),
+    );
+    const settings = yield* SettingsReader;
+    const remoteRegistry = isHttpRegistryEndpoint(registry.endpoint);
 
-  const prepared = yield* observeUnit(
-    { id: "candidates", label: "publish candidates" },
-    Effect.gen(function* () {
-      const catalog = request.from === undefined ? yield* catalogEntries() : [];
-      const selection = yield* selectEntries(catalog, request);
-      if (remoteRegistry && selection.entries.length > 0) {
-        const client = yield* (yield* RegistryClientFactory).forEndpoint(registry.endpoint);
-        yield* validatePublishOwners(
-          selection.entries.map((entry) => entry.owner),
-          client,
-        );
-      }
-      const decoded = yield* Effect.forEach(
-        selection.entries,
-        (entry) => Effect.result(decodeCandidate(entry, registry, request.backfill)),
-        { concurrency: 4 },
-      );
-      return { selection, decoded };
-    }),
-  );
-  const selection = prepared.selection;
-  const selected = selection.entries;
-  const decoded: ReadonlyArray<
-    Result.Result<PublishCandidate | undefined, PublishFailure | PublishPreparationFailure>
-  > = prepared.decoded;
-  const decodedCandidates = decoded.flatMap((result) =>
-    Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
-  );
-  const decodedPreflightFailures = decoded.flatMap((result) =>
-    Result.isFailure(result) ? [preparationFailureOf(result.failure)] : [],
-  );
-  const sourceAssessments = yield* Effect.forEach(decodedCandidates, (candidate) =>
-    Effect.result(
+    const prepared = yield* observeUnit(
+      { id: "candidates", label: "publish candidates" },
       Effect.gen(function* () {
-        if (candidate.action === "skip") return candidate;
-        const sourceAssessment = yield* assessPublishSourceState({
-          directory: candidate.extensionDir,
-          archivePlan: candidate.archivePlan,
-          ...(candidate.existingDirectoryVersion === undefined ? {} : { payloadPrefix: "src/" }),
-          selection: candidate.fileSelection,
-        }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
-        return { ...candidate, sourceAssessment } satisfies PublishCandidate;
-      }),
-    ),
-  );
-  const sourceFailuresByMember = new Map<string, PublishFailure>(
-    sourceAssessments.flatMap((result, index) => {
-      const candidate = decodedCandidates[index];
-      return candidate === undefined || Result.isSuccess(result)
-        ? []
-        : [[candidate.fqn, result.failure] as const];
-    }),
-  );
-  const sourceAssessedCandidates = sourceAssessments.flatMap((result) =>
-    Result.isSuccess(result) ? [result.success] : [],
-  );
-  const packDependencyReachability = sourceAssessedCandidates.some(
-    (candidate) => candidate.authored,
-  )
-    ? workspaceReachability(selection)
-    : [];
-  const localConstraintFacts = makeProspectiveExtensionConstraintFacts({
-    candidates: sourceAssessedCandidates.filter(
-      (candidate) => candidate.type === "pack" || candidate.authored,
-    ),
-    reachability: packDependencyReachability,
-  });
-  // A constraint excludes a member only from an upload: a member version the
-  // Registry already has stays a successful skip whatever a local Pack declares.
-  const alreadyPublished = new Set(
-    sourceAssessedCandidates.flatMap((candidate) =>
-      candidate.action === "skip" ? [candidate.fqn] : [],
-    ),
-  );
-  const localFailuresByMember = new Map(
-    [...localPackConstraintFailures(localConstraintFacts)].filter(
-      ([member]) => !alreadyPublished.has(member),
-    ),
-  );
-  const preflightFailures: ReadonlyArray<PublishFailure> = [
-    ...decodedPreflightFailures,
-    ...sourceFailuresByMember.values(),
-    ...localFailuresByMember.values(),
-  ];
-  const selectionOutput: PublishSelectionSummary = {
-    mode: selection.mode,
-    scope: request.scope,
-    owners: [...new Set(selected.map((entry) => entry.owner))],
-    types: [...new Set(selected.map((entry) => entry.type))],
-    registry: registry.name,
-    decisions: selection.decisions,
-  };
-  if (selected.length === 0) {
-    const preparation: PublishPreparation = {
-      _tag: "Settled",
-      outcome: {
-        mode: request.preview ? "preview" : "apply",
-        selection: selectionOutput,
-        publicationSet: publicationSetResult({ candidates: [] }),
-        results: [],
-        suggestions: [],
-        disposition: { _tag: "Completed" },
-      },
-    };
-    return preparation;
-  }
-
-  // The same eligibility the transport applies: ambient credentials only for
-  // the settings-selected default Registry, else that Registry's own session.
-  const defaultBound = yield* (yield* RegistryContext).defaultBound;
-  const storedToken = isHttpRegistryEndpoint(registry.endpoint)
-    ? yield* resolveRequestToken(registry.endpoint, defaultBound.endpoint)
-    : Option.none();
-  // Publishing is a write the person makes as themselves. A signed-out apply
-  // says so before anything is previewed or uploaded, so no server state is
-  // created and nothing has to be undone. A preview stays available and
-  // reports the same requirement as an unmet precondition.
-  if (
-    !request.preview &&
-    remoteRegistry &&
-    Option.isNone(storedToken) &&
-    sourceAssessedCandidates.length > 0
-  ) {
-    return yield* Effect.fail(publishingSignedOut(registry));
-  }
-  const workspaceDefaultVisibility = yield* settings.publishDefaultVisibility;
-  const shouldPreviewAuthoritatively =
-    preflightFailures.length === 0 &&
-    sourceAssessedCandidates.length > 0 &&
-    (!remoteRegistry || Option.isSome(storedToken));
-  const authoritativePreview: Result.Result<
-    {
-      readonly candidates: ReadonlyArray<PublishCandidate>;
-      readonly publicationSet: PreviewPublicationSetRequest;
-      readonly preview?: PreviewPublicationSetResponse;
-    },
-    PublishFailure
-  > = shouldPreviewAuthoritatively
-    ? yield* Effect.result(
-        Effect.gen(function* () {
+        const catalog = request.from === undefined ? yield* catalogEntries() : [];
+        const selection = yield* selectEntries(catalog, request);
+        if (remoteRegistry && selection.entries.length > 0) {
           const client = yield* (yield* RegistryClientFactory).forEndpoint(registry.endpoint);
-          return yield* previewPublishCandidates(
-            sourceAssessedCandidates,
+          yield* validatePublishOwners(
+            selection.entries.map((entry) => entry.owner),
             client,
-            request.visibility,
-            workspaceDefaultVisibility,
           );
-        }),
-      )
-    : yield* Effect.result(
+        }
+        const decoded = yield* Effect.forEach(
+          selection.entries,
+          (entry) => Effect.result(decodeCandidate(entry, registry, request.backfill)),
+          { concurrency: 4 },
+        );
+        return { selection, decoded };
+      }),
+    );
+    const selection = prepared.selection;
+    const selected = selection.entries;
+    const decoded: ReadonlyArray<
+      Result.Result<PublishCandidate | undefined, PublishFailure | PublishPreparationFailure>
+    > = prepared.decoded;
+    const decodedCandidates = decoded.flatMap((result) =>
+      Result.isSuccess(result) && result.success !== undefined ? [result.success] : [],
+    );
+    const decodedPreflightFailures = decoded.flatMap((result) =>
+      Result.isFailure(result) ? [preparationFailureOf(result.failure)] : [],
+    );
+    const sourceAssessments = yield* Effect.forEach(decodedCandidates, (candidate) =>
+      Effect.result(
         Effect.gen(function* () {
-          return {
-            candidates: sourceAssessedCandidates,
-            publicationSet: yield* publicationSetForCandidates(
+          if (candidate.action === "skip") return candidate;
+          const sourceAssessment = yield* assessPublishSourceState({
+            directory: candidate.extensionDir,
+            archivePlan: candidate.archivePlan,
+            ...(candidate.existingDirectoryVersion === undefined ? {} : { payloadPrefix: "src/" }),
+            selection: candidate.fileSelection,
+          }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
+          return { ...candidate, sourceAssessment } satisfies PublishCandidate;
+        }),
+      ),
+    );
+    const sourceFailuresByMember = new Map<string, PublishFailure>(
+      sourceAssessments.flatMap((result, index) => {
+        const candidate = decodedCandidates[index];
+        return candidate === undefined || Result.isSuccess(result)
+          ? []
+          : [[candidate.fqn, result.failure] as const];
+      }),
+    );
+    const sourceAssessedCandidates = sourceAssessments.flatMap((result) =>
+      Result.isSuccess(result) ? [result.success] : [],
+    );
+    const packDependencyReachability = sourceAssessedCandidates.some(
+      (candidate) => candidate.authored,
+    )
+      ? workspaceReachability(selection)
+      : [];
+    const localConstraintFacts = makeProspectiveExtensionConstraintFacts({
+      candidates: sourceAssessedCandidates.filter(
+        (candidate) => candidate.type === "pack" || candidate.authored,
+      ),
+      reachability: packDependencyReachability,
+    });
+    // A constraint excludes a member only from an upload: a member version the
+    // Registry already has stays a successful skip whatever a local Pack declares.
+    const alreadyPublished = new Set(
+      sourceAssessedCandidates.flatMap((candidate) =>
+        candidate.action === "skip" ? [candidate.fqn] : [],
+      ),
+    );
+    const localFailuresByMember = new Map(
+      [...localPackConstraintFailures(localConstraintFacts)].filter(
+        ([member]) => !alreadyPublished.has(member),
+      ),
+    );
+    const preflightFailures: ReadonlyArray<PublishFailure> = [
+      ...decodedPreflightFailures,
+      ...sourceFailuresByMember.values(),
+      ...localFailuresByMember.values(),
+    ];
+    const selectionOutput: PublishSelectionSummary = {
+      mode: selection.mode,
+      scope: request.scope,
+      owners: [...new Set(selected.map((entry) => entry.owner))],
+      types: [...new Set(selected.map((entry) => entry.type))],
+      registry: registry.name,
+      decisions: selection.decisions,
+    };
+    if (selected.length === 0) {
+      const preparation: PublishPreparation = {
+        _tag: "Settled",
+        outcome: {
+          mode: request.preview ? "preview" : "apply",
+          selection: selectionOutput,
+          publicationSet: publicationSetResult({ candidates: [] }),
+          results: [],
+          suggestions: [],
+          disposition: { _tag: "Completed" },
+        },
+      };
+      return preparation;
+    }
+
+    // The same eligibility the transport applies: ambient credentials only for
+    // the settings-selected default Registry, else that Registry's own session.
+    const defaultBound = yield* (yield* RegistryContext).defaultBound;
+    const storedToken = isHttpRegistryEndpoint(registry.endpoint)
+      ? yield* resolveRequestToken(registry.endpoint, defaultBound.endpoint)
+      : Option.none();
+    // Publishing is a write the person makes as themselves. A signed-out apply
+    // says so before anything is previewed or uploaded, so no server state is
+    // created and nothing has to be undone. A preview stays available and
+    // reports the same requirement as an unmet precondition.
+    if (
+      !request.preview &&
+      remoteRegistry &&
+      Option.isNone(storedToken) &&
+      sourceAssessedCandidates.length > 0
+    ) {
+      return yield* Effect.fail(publishingSignedOut(registry));
+    }
+    const workspaceDefaultVisibility = yield* settings.publishDefaultVisibility;
+    const shouldPreviewAuthoritatively =
+      preflightFailures.length === 0 &&
+      sourceAssessedCandidates.length > 0 &&
+      (!remoteRegistry || Option.isSome(storedToken));
+    const authoritativePreview: Result.Result<
+      {
+        readonly candidates: ReadonlyArray<PublishCandidate>;
+        readonly publicationSet: PreviewPublicationSetRequest;
+        readonly preview?: PreviewPublicationSetResponse;
+      },
+      PublishFailure
+    > = shouldPreviewAuthoritatively
+      ? yield* Effect.result(
+          Effect.gen(function* () {
+            const client = yield* (yield* RegistryClientFactory).forEndpoint(registry.endpoint);
+            return yield* previewPublishCandidates(
               sourceAssessedCandidates,
+              client,
               request.visibility,
               workspaceDefaultVisibility,
-            ),
-          };
-        }),
-      );
-  const authoritativeFailure = Result.isFailure(authoritativePreview)
-    ? authoritativePreview.failure
-    : undefined;
-  const authoritativeFailurePreview =
-    authoritativeFailure === undefined || !isPublishRefusal(authoritativeFailure)
-      ? undefined
-      : Option.getOrUndefined(
-          Schema.decodeUnknownOption(PreviewPublicationSetResponseSchema)(
-            authoritativeFailure.cause,
-          ),
+            );
+          }),
+        )
+      : yield* Effect.result(
+          Effect.gen(function* () {
+            return {
+              candidates: sourceAssessedCandidates,
+              publicationSet: yield* publicationSetForCandidates(
+                sourceAssessedCandidates,
+                request.visibility,
+                workspaceDefaultVisibility,
+              ),
+            };
+          }),
         );
-  const candidates: ReadonlyArray<PublishCandidate> = Result.isSuccess(authoritativePreview)
-    ? authoritativePreview.success.candidates
-    : sourceAssessedCandidates;
-  const publicationSet = Result.isSuccess(authoritativePreview)
-    ? authoritativePreview.success.publicationSet
-    : undefined;
-  const packDivergenceFindings = findPackPublishDivergenceFindings({
-    candidates,
-    reachability: packDependencyReachability,
-    packs:
-      Result.isSuccess(authoritativePreview) && authoritativePreview.success.preview !== undefined
-        ? authoritativePreview.success.preview.packs
-        : [],
-  });
-  const publicationSetOutput = publicationSetResult({
-    candidates,
-    ...(Result.isSuccess(authoritativePreview) && authoritativePreview.success.preview !== undefined
-      ? { preview: authoritativePreview.success.preview }
-      : authoritativeFailurePreview === undefined
-        ? {}
-        : { preview: authoritativeFailurePreview }),
-    ...(authoritativeFailure === undefined ? {} : { blocked: authoritativeFailure }),
-  });
-  const candidatesByTarget = new Map(
-    candidates.map((candidate) => [publishTargetKey(candidate), candidate]),
-  );
-
-  const initialPreflightResults = selected.map((entry, index) => {
-    const decodedResult = decoded[index];
-    if (decodedResult === undefined) return selectedResult(entry, undefined);
-    if (Result.isFailure(decodedResult)) return failedSelectedResult(entry, decodedResult.failure);
-    const candidate = decodedResult.success;
-    if (candidate !== undefined) {
-      const sourceFailure = sourceFailuresByMember.get(candidate.fqn);
-      if (sourceFailure !== undefined) return failedCandidateResult(candidate, sourceFailure);
-      const localFailure = localFailuresByMember.get(candidate.fqn);
-      if (localFailure !== undefined) return failedCandidateResult(candidate, localFailure);
-    }
-    const item = selectedResult(
-      entry,
-      candidate === undefined
+    const authoritativeFailure = Result.isFailure(authoritativePreview)
+      ? authoritativePreview.failure
+      : undefined;
+    const authoritativeFailurePreview =
+      authoritativeFailure === undefined || !isPublishRefusal(authoritativeFailure)
         ? undefined
-        : (candidatesByTarget.get(publishTargetKey(candidate)) ?? candidate),
-    );
-    const findings =
-      candidate === undefined ? undefined : packDivergenceFindings.get(candidate.fqn);
-    return findings === undefined ? item : { ...item, findings };
-  });
-  const localPreflightFailureIds = initialPreflightResults
-    .filter((result) => result.status === "failed")
-    .map((result) => result.id);
-  const preflightResults = initialPreflightResults.map((result): PublishResultItem => {
-    if (preflightFailures.length > 0) {
-      return result.action === "publish"
-        ? {
-            ...result,
-            status: "blocked",
-            reason: "blocked_by_preflight",
-            message: "Not attempted because another selected extension failed preflight",
-            blockedBy:
-              localPreflightFailureIds.length === 0
-                ? ["local-publication-preflight"]
-                : localPreflightFailureIds,
-          }
-        : result;
-    }
-    // A version the Registry already has stays a successful skip: a refused
-    // publication set blocks only the versions it would have uploaded.
-    if (
-      authoritativeFailure === undefined ||
-      result.version === undefined ||
-      result.action === "skip"
-    ) {
-      return result;
-    }
-    const causalFindings = publicationSetOutput.findings
-      .filter((finding) => finding.targetId === result.id)
-      .map((finding) => finding.id);
-    return {
-      ...result,
-      action: "error",
-      phase: "authoritative_preflight",
-      status: "blocked",
-      reason: "blocked_by_preflight",
-      message: "Not attempted because authoritative publish preflight failed",
-      blockedBy: causalFindings.length === 0 ? ["authoritative-publication-set"] : causalFindings,
-    };
-  });
-  const allPreflightFailures = [
-    ...preflightFailures,
-    ...(authoritativeFailure === undefined ? [] : [authoritativeFailure]),
-  ];
-  if (allPreflightFailures.length > 0) {
-    const preparation: PublishPreparation = {
-      _tag: "Settled",
-      outcome: {
-        mode: request.preview ? "preview" : "apply",
-        selection: selectionOutput,
-        publicationSet: publicationSetOutput,
-        results: preflightResults,
-        ...(authoritativeFailure === undefined
-          ? {}
-          : { failure: publishCause(authoritativeFailure) }),
-        suggestions: [],
-        disposition: {
-          _tag: "Failed",
-          failure: aggregatePublishFailure(allPreflightFailures.length, allPreflightFailures),
-        },
-      },
-    };
-    return preparation;
-  }
-
-  const uploadCandidates = candidates.filter(
-    (candidate): candidate is UploadCandidate => candidate.action === "publish",
-  );
-  const preconditions = publishAuthenticationPreconditions({
-    preview: request.preview,
-    remoteRegistry,
-    authenticated: Option.isSome(storedToken),
-    hasPublishCandidates: uploadCandidates.length > 0,
-  });
-  if (uploadCandidates.length === 0) {
-    const preparation: PublishPreparation = {
-      _tag: "Settled",
-      outcome: {
-        mode: request.preview ? "preview" : "apply",
-        selection: selectionOutput,
-        publicationSet: publicationSetOutput,
-        results: preflightResults,
-        suggestions: [],
-        disposition: { _tag: "Completed" },
-      },
-    };
-    return preparation;
-  }
-
-  const riskConditions = uploadCandidates.flatMap((candidate) => {
-    const condition = publishSourceRiskCondition(candidate.fqn, candidate.sourceAssessment?.state);
-    return condition === undefined ? [] : [condition];
-  });
-
-  const preparation: PublishPreparation = {
-    _tag: "Ready",
-    candidate: {
-      request,
-      registry,
-      selection: selectionOutput,
-      publicationSetOutput,
-      preflightResults,
+        : Option.getOrUndefined(
+            Schema.decodeUnknownOption(PreviewPublicationSetResponseSchema)(
+              authoritativeFailure.cause,
+            ),
+          );
+    const candidates: ReadonlyArray<PublishCandidate> = Result.isSuccess(authoritativePreview)
+      ? authoritativePreview.success.candidates
+      : sourceAssessedCandidates;
+    const publicationSet = Result.isSuccess(authoritativePreview)
+      ? authoritativePreview.success.publicationSet
+      : undefined;
+    const packDivergenceFindings = findPackPublishDivergenceFindings({
       candidates,
-      uploadCandidates,
-      publicationSet,
-      packDependencyReachability,
-      preconditions,
-      riskConditions,
+      reachability: packDependencyReachability,
+      packs:
+        Result.isSuccess(authoritativePreview) && authoritativePreview.success.preview !== undefined
+          ? authoritativePreview.success.preview.packs
+          : [],
+    });
+    const publicationSetOutput = publicationSetResult({
+      candidates,
+      ...(Result.isSuccess(authoritativePreview) &&
+      authoritativePreview.success.preview !== undefined
+        ? { preview: authoritativePreview.success.preview }
+        : authoritativeFailurePreview === undefined
+          ? {}
+          : { preview: authoritativeFailurePreview }),
+      ...(authoritativeFailure === undefined ? {} : { blocked: authoritativeFailure }),
+    });
+    const candidatesByTarget = new Map(
+      candidates.map((candidate) => [publishTargetKey(candidate), candidate]),
+    );
+
+    const initialPreflightResults = selected.map((entry, index) => {
+      const decodedResult = decoded[index];
+      if (decodedResult === undefined) return selectedResult(entry, undefined);
+      if (Result.isFailure(decodedResult))
+        return failedSelectedResult(entry, decodedResult.failure);
+      const candidate = decodedResult.success;
+      if (candidate !== undefined) {
+        const sourceFailure = sourceFailuresByMember.get(candidate.fqn);
+        if (sourceFailure !== undefined) return failedCandidateResult(candidate, sourceFailure);
+        const localFailure = localFailuresByMember.get(candidate.fqn);
+        if (localFailure !== undefined) return failedCandidateResult(candidate, localFailure);
+      }
+      const item = selectedResult(
+        entry,
+        candidate === undefined
+          ? undefined
+          : (candidatesByTarget.get(publishTargetKey(candidate)) ?? candidate),
+      );
+      const findings =
+        candidate === undefined ? undefined : packDivergenceFindings.get(candidate.fqn);
+      return findings === undefined ? item : { ...item, findings };
+    });
+    const localPreflightFailureIds = initialPreflightResults
+      .filter((result) => result.status === "failed")
+      .map((result) => result.id);
+    const preflightResults = initialPreflightResults.map((result): PublishResultItem => {
+      if (preflightFailures.length > 0) {
+        return result.action === "publish"
+          ? {
+              ...result,
+              status: "blocked",
+              reason: "blocked_by_preflight",
+              message: "Not attempted because another selected extension failed preflight",
+              blockedBy:
+                localPreflightFailureIds.length === 0
+                  ? ["local-publication-preflight"]
+                  : localPreflightFailureIds,
+            }
+          : result;
+      }
+      // A version the Registry already has stays a successful skip: a refused
+      // publication set blocks only the versions it would have uploaded.
+      if (
+        authoritativeFailure === undefined ||
+        result.version === undefined ||
+        result.action === "skip"
+      ) {
+        return result;
+      }
+      const causalFindings = publicationSetOutput.findings
+        .filter((finding) => finding.targetId === result.id)
+        .map((finding) => finding.id);
+      return {
+        ...result,
+        action: "error",
+        phase: "authoritative_preflight",
+        status: "blocked",
+        reason: "blocked_by_preflight",
+        message: "Not attempted because authoritative publish preflight failed",
+        blockedBy: causalFindings.length === 0 ? ["authoritative-publication-set"] : causalFindings,
+      };
+    });
+    const allPreflightFailures = [
+      ...preflightFailures,
+      ...(authoritativeFailure === undefined ? [] : [authoritativeFailure]),
+    ];
+    if (allPreflightFailures.length > 0) {
+      const preparation: PublishPreparation = {
+        _tag: "Settled",
+        outcome: {
+          mode: request.preview ? "preview" : "apply",
+          selection: selectionOutput,
+          publicationSet: publicationSetOutput,
+          results: preflightResults,
+          ...(authoritativeFailure === undefined
+            ? {}
+            : { failure: publishCause(authoritativeFailure) }),
+          suggestions: [],
+          disposition: {
+            _tag: "Failed",
+            failure: aggregatePublishFailure(allPreflightFailures.length, allPreflightFailures),
+          },
+        },
+      };
+      return preparation;
+    }
+
+    const uploadCandidates = candidates.filter(
+      (candidate): candidate is UploadCandidate => candidate.action === "publish",
+    );
+    const preconditions = publishAuthenticationPreconditions({
+      preview: request.preview,
       remoteRegistry,
       authenticated: Option.isSome(storedToken),
-      candidateFqns: candidates.map((candidate) => candidate.fqn),
-    },
-  };
-  return preparation;
-});
+      hasPublishCandidates: uploadCandidates.length > 0,
+    });
+    if (uploadCandidates.length === 0) {
+      const preparation: PublishPreparation = {
+        _tag: "Settled",
+        outcome: {
+          mode: request.preview ? "preview" : "apply",
+          selection: selectionOutput,
+          publicationSet: publicationSetOutput,
+          results: preflightResults,
+          suggestions: [],
+          disposition: { _tag: "Completed" },
+        },
+      };
+      return preparation;
+    }
+
+    const riskConditions = uploadCandidates.flatMap((candidate) => {
+      const condition = publishSourceRiskCondition(
+        candidate.fqn,
+        candidate.sourceAssessment?.state,
+      );
+      return condition === undefined ? [] : [condition];
+    });
+
+    const preparation: PublishPreparation = {
+      _tag: "Ready",
+      candidate: {
+        request,
+        registry,
+        selection: selectionOutput,
+        publicationSetOutput,
+        preflightResults,
+        candidates,
+        uploadCandidates,
+        publicationSet,
+        packDependencyReachability,
+        preconditions,
+        riskConditions,
+        remoteRegistry,
+        authenticated: Option.isSome(storedToken),
+        candidateFqns: candidates.map((candidate) => candidate.fqn),
+      },
+    };
+    return preparation;
+  },
+  withWorkspaceReadView,
+  withLiveWorkspaceObservations,
+);
 
 /**
  * Present the prepared candidate and, on apply, authorize, revalidate, and
@@ -749,7 +762,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         }
       }),
     { discard: true },
-  ).pipe(Effect.withSpan("axm.publish.validate-source"));
+  ).pipe(withLiveWorkspaceObservations, Effect.withSpan("axm.publish.validate-source"));
 
   // The journal and the footprint recorder are this run's own: the journal
   // records per-unit started and resolved facts through the apply so an

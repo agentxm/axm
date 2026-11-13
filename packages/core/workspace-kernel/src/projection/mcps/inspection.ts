@@ -14,14 +14,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Context from "effect/Context";
-import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { isNotFound, readFileStringIfPresent } from "@agentxm/host-primitives";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { McpInspectionError } from "./errors.js";
 import type { ConfiguredAgentOutcome } from "../../operations/index.js";
-import type { McpServerEntry } from "../../workspace-state/index.js";
+import { CurrentWorkspaceReadPhase, type McpServerEntry } from "../../workspace-state/index.js";
 import {
   withNativeConfigReadView,
   decodeMcpServerManifestAt,
@@ -723,17 +722,44 @@ class McpInspectionReadView extends Context.Service<
   McpInspectionReadView,
   {
     readonly inspect: typeof inspectDesiredMcpServerUncached;
+    readonly phase: Effect.Success<typeof CurrentWorkspaceReadPhase>;
+    readonly isActive: () => boolean;
+    readonly close: () => void;
   }
 >()("@agentxm/workspace-kernel/projection/McpInspectionReadView") {}
+
+/** Native document payloads belong to each consumer, not to the reusable observation. */
+const copyMcpInspection = (value: DesiredMcpServerInspection): DesiredMcpServerInspection => ({
+  ...value,
+  inspections: structuredClone(value.inspections),
+  nativeLocations: structuredClone(value.nativeLocations),
+  outcomes: structuredClone(value.outcomes),
+  conflict: Option.map(value.conflict, (message) => message),
+  ...(value.sourceDiagnostics === undefined
+    ? {}
+    : { sourceDiagnostics: [...value.sourceDiagnostics] }),
+});
 
 /** Share detailed MCP observations only for the duration of one read phase. */
 export const withMcpInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
-    const cells = yield* Ref.make(
-      new Map<string, ReturnType<typeof inspectDesiredMcpServerUncached>>(),
-    );
+    const phase = yield* CurrentWorkspaceReadPhase;
+    const inherited = yield* Effect.serviceOption(McpInspectionReadView);
+    if (Option.isSome(inherited)) {
+      if (inherited.value.isActive() && inherited.value.phase === phase) return yield* effect;
+      inherited.value.close();
+    }
+    const cells = new Map<string, ReturnType<typeof inspectDesiredMcpServerUncached>>();
+    let active = true;
+    const isActive = () => active && (phase === undefined || phase.isActive());
+    const close = () => {
+      active = false;
+      cells.clear();
+    };
     const inspect: typeof inspectDesiredMcpServerUncached = (args) =>
       Effect.gen(function* () {
+        if (!isActive() || (yield* CurrentWorkspaceReadPhase) !== phase)
+          return yield* inspectDesiredMcpServerUncached(args);
         const key = JSON.stringify({
           nativeDirectoryInputs: args.nativeDirectoryInputs,
           workspaceRoot: args.workspaceRoot,
@@ -744,17 +770,18 @@ export const withMcpInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R
           canonicalPaths: args.canonicalPaths,
           state: args.state ?? "current",
         });
+        const previous = cells.get(key);
+        if (previous !== undefined) return yield* previous;
         const cell = yield* Effect.cached(inspectDesiredMcpServerUncached(args));
-        const selected = yield* Ref.modify(cells, (current) => {
-          const existing = current.get(key);
-          if (existing !== undefined) return [existing, current] as const;
-          return [cell, new Map(current).set(key, cell)] as const;
-        });
+        const selected = cells.get(key) ?? cell;
+        if (isActive()) cells.set(key, selected);
         return yield* selected;
-      });
+      }).pipe(Effect.map(copyMcpInspection));
     return yield* withNativeConfigReadView(
-      effect.pipe(Effect.provideService(McpInspectionReadView, { inspect })),
-    );
+      effect.pipe(
+        Effect.provideService(McpInspectionReadView, { inspect, phase, isActive, close }),
+      ),
+    ).pipe(Effect.ensuring(Effect.sync(close)));
   });
 
 /** Use the phase's detailed observation when one is explicitly in scope. */

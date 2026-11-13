@@ -57,21 +57,21 @@ it.effect("batches configured Pack indexes despite uneven workspace read complet
         const releaseFirst = yield* Deferred.make<void>();
         const firstHeld = yield* Deferred.make<void>();
         const secondReady = yield* Deferred.make<void>();
-        let secondReads = 0;
-        // Hold the first Pack's accepted-resolution read, and note when the
-        // second Pack's has been read twice, whichever accessor reads it.
+        // Hold the first Pack's accepted-resolution read while the second
+        // finishes local preparation, regardless of which accessor reads it.
         const gate = (type: string, name: string) =>
           Effect.gen(function* () {
             if (type === "pack" && name === "first") {
               yield* Deferred.succeed(firstHeld, undefined);
               yield* Deferred.await(releaseFirst);
             }
-            if (type === "pack" && name === "second" && ++secondReads === 2)
+            if (type === "pack" && name === "second")
               yield* Deferred.succeed(secondReady, undefined);
           });
         const budget = yield* makeOperationRequestBudget({ invocation: 2, origin: 2 });
         const planning = yield* SyncWorkspace.prepare(syncRequest()).pipe(
           Effect.provideService(WorkspaceReadViews, {
+            ...views,
             capture: (options) =>
               views.capture(options).pipe(
                 Effect.map((context) => {

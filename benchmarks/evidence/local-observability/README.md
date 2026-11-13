@@ -181,6 +181,59 @@ Artifacts: `/tmp/axm-seq-auth-final-readiness-oNT2m9o8` and
 `test-results/cli-e2e-tracing/evidence/identity-kU7byI`. This closes the specific
 query-readiness/authenticated capture replay, not the full operation matrix.
 
+At clean checkpoint `08befbe1662033dc2faab44bc2ace3c900a23578`, the entire real-Seq
+suite passed all six cases. The rejection/stall cleanup upper bounds were
+290.053388 ms and 289.222285 ms, below the unchanged 500 ms bound. These are
+observed conservative cleanup bounds on the contended VM, not isolated repeated
+elapsed/RSS qualification. Logs: `/tmp/observability-final-seq-suite.log`;
+evaluation: `/tmp/axm-observability-final-mdkja07w/shutdown-evaluation.json`.
+
+The full preflight at that checkpoint passed 20 scenarios in all candidate modes
+with 40 exact receiver inspections, then failed the fork state comparison. Its
+original artifacts remain failed at
+`/tmp/axm-observability-final-mdkja07w/full-preflight`. A focused replay retaining
+raw native receipts established exactly five allocation-specific differences in
+the new historical `.axm/tmp` record; all other state matched. The independently
+validated live ancestors and the removed historical entry remain distinguished.
+The narrow comparison rule is documented in the tracing guide. Earlier failed
+captures are not relabelled, and applicable scenarios still require replay.
+
+Required Windows verification exposed a pre-existing publication failure. The
+native owner regression confirmed creation-time tunneling on rename: inode was
+unchanged, while the file inherited the deleted destination's creation time.
+Publication now obtains that timestamp from a retained staged handle on Windows,
+preserving all other staged identity/content checks. Linux filesystem calls are
+unchanged, with a shared lexical publication scope; earlier assembled evidence
+needs an explicit applicability audit. Fourteen atomic-write and three real
+interference owner cases passed locally. Windows fixture paths were canonicalized
+and same-bytes foreign replacement uses move-aside followed by rename, retaining
+strict rejection and recovery checks. Windows qualification passed at
+`99856a289d1f416d4f59a7e6b26d18d76250b4f5`: 98 owner checks, 11 CLI E2E checks,
+and published-package launcher isolation. Two owner cases are inapplicable on
+that folding Windows volume (Linux casefold lookup and distinct existing case
+entries); they are not Windows passes. The actual job is
+[Windows workspace lifecycle](https://github.com/agentxm/axm/actions/runs/43364797814/job/131687353524).
+Earlier failed and superseded CI runs remain failed/cancelled.
+
+The source-impact audit retains only 13 unaffected query/group scenarios from
+the original Linux preflight, with their original `08befbe16` binary/receipts.
+The seven earlier publication scenarios require replay because the common lexical
+scope changed. Together with the 229 previously unreached cases, the remaining
+selection schedules 944 workload invocations and 472 exact inspections. The 13
+reused cases contribute 52 invocations and 26 inspections. This is behavioral
+impact analysis, not current-binary execution or an Nx cache-validity claim.
+Selection and source bindings are retained in
+`/tmp/axm-observability-final-mdkja07w/final-preflight-selection.json`.
+
+Four focused native-fixture controls now pass for the fork comparison, including
+raw retention, invalid identity/history rejection, strict unrelated fields and
+timing exclusion. Their initial synthetic process window was too narrow for
+filesystem timestamp quantization; only the unit fixture window changed, and
+production capture bounds remain unchanged. Logs:
+`/tmp/observability-fork-projection-tests2.log` and
+`/tmp/observability-fork-projection-checks2.log`. Actual fork replay and remaining
+operation coverage are still required.
+
 The coordination correction passed focused owner checks: 13 request/recorder,
 15 archive admission/acquisition, 25 ledger/native-lock, 50 runtime/inspector, and
 25 benchmark-method tests. Type/lint passed across five affected projects and

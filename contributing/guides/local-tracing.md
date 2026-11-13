@@ -485,6 +485,18 @@ The owning lock test independently observes actual heartbeat/mtime refresh with
 tracing enabled and disabled. This distinction does not permit missing accounting
 or a performance claim from unequal-duration diagnostics.
 
+Fork fixtures retain raw before/after native-directory receipts. Independent
+filesystem checks distinguish unchanged copied proofs from new live identities.
+The exact `.axm/tmp` creation-history record can remain after its empty directory
+is retired. That narrow case requires matching live ancestors, confirmed absence,
+the expected directory/alias shape and creation time inside the invocation.
+Comparison projects only inode and creation-time fields within that validated
+record, using distinct markers for live-verified ancestors and the removed
+historical entry. The latter is explicitly not post-stat verifiable. Inherited
+proofs, devices, permissions, paths, aliases, ownership, ordering and other fields
+remain strict. Raw receipts and classifications are retained; this full audit
+runs only in preflight.
+
 Keep `report.json`, raw-artifact hashes, receipts and independent oracle records.
 `harness-modules.json` identifies the complete statically resolvable module
 closure, including public fixture implementations and explicit unavailable

@@ -35,6 +35,7 @@ import {
 } from "./observability-coverage.js";
 import {
   copyTemplate,
+  forkReceiptComparison,
   prepareObservabilityFixtures,
   type ObservabilityScenario,
   type PrepareInvocation,
@@ -412,6 +413,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             progress: progressComparisonNormalization,
             deliveredReuse: deliveredReuseComparison,
             periodicMaintenance: periodicMaintenanceComparison,
+            forkReceipts: forkReceiptComparison,
             fixtureRoots:
               "Temporary workspace/home roots normalize to indexed markers; raw bytes and hashes are retained.",
             requestOrder:

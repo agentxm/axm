@@ -24,6 +24,7 @@ import { observabilityRiskScenarios } from "./observability-coverage.js";
 import { fixtureFailure } from "./observability-contract.js";
 import {
   digest,
+  normalizeObservation,
   projectComparisonField,
   snapshotDigest,
   snapshotTree,
@@ -251,146 +252,206 @@ const observeForkIdentity = (identity: ContainerIdentity, fixture: WorkspaceTemp
   return { matchesSample: checks.every((check) => check.matches), outsideSample, checks };
 };
 
-const verifyForkReceipts: NonNullable<ObservabilityScenario["verify"]> = ({
-  fixture,
-  artifacts,
-  phase,
-  startedAtMillis,
-  endedAtMillis,
-}) =>
-  Effect.gen(function* () {
-    if (phase === "timing")
-      return {
-        assertions: [
-          "Timing retains the runner's declared process outcome and output comparison; full receipt/native audit belongs to preflight.",
-        ],
-      };
-    const retained = path.join(artifacts, "retained");
-    const beforeDirectory = path.join(retained, "fork-receipts-before");
-    const afterDirectory = path.join(retained, "fork-receipts-after");
-    // Copy both raw documents before decoding or checking native identity. Failed
-    // verification must retain the evidence that was missing from the first run.
-    yield* Effect.try(() => {
-      fs.mkdirSync(beforeDirectory, { recursive: true });
-      fs.mkdirSync(afterDirectory, { recursive: true });
-      fs.copyFileSync(
-        forkBeforeReceipts(fixture),
-        path.join(beforeDirectory, "projection-containers.json"),
+export const forkReceiptComparison = {
+  scope: "authoring/fork: newly recorded, exactly classified .axm/tmp cleanup history only",
+  fields:
+    "inode and birthtime of its live-verified owner/root/sole parent and separately classified removed scratch entry",
+  retained:
+    "Raw before/after receipts, native observations, process window and projected comparison document",
+  limitation:
+    "Removed scratch entry identity is not post-stat verifiable; only the bounded historical shape, live ancestors, absence and process-bounded creation time are verified.",
+  strict:
+    "Inherited proofs, devices, modes, ownership, paths, aliases, receipt order and every other field",
+};
+
+export const verifyForkReceipts =
+  (template: WorkspaceTemplate): NonNullable<ObservabilityScenario["verify"]> =>
+  ({ fixture, artifacts, phase, startedAtMillis, endedAtMillis }) =>
+    Effect.gen(function* () {
+      if (phase === "timing")
+        return {
+          assertions: [
+            "Timing retains the runner's declared process outcome and output comparison; full receipt/native audit belongs to preflight.",
+          ],
+        };
+      const retained = path.join(artifacts, "retained");
+      const beforeDirectory = path.join(retained, "fork-receipts-before");
+      const afterDirectory = path.join(retained, "fork-receipts-after");
+      // Copy both raw documents before decoding or checking native identity. Failed
+      // verification must retain the evidence that was missing from the first run.
+      yield* Effect.try(() => {
+        fs.mkdirSync(beforeDirectory, { recursive: true });
+        fs.mkdirSync(afterDirectory, { recursive: true });
+        fs.copyFileSync(
+          forkBeforeReceipts(fixture),
+          path.join(beforeDirectory, "projection-containers.json"),
+        );
+        fs.copyFileSync(
+          path.join(fixture.workspace, ".axm", "projection-containers.json"),
+          path.join(afterDirectory, "projection-containers.json"),
+        );
+      });
+      // Both retained files must exist after successful copies. The public reader
+      // fails malformed JSON/schema; its empty-store fallback applies only to absence.
+      const before = yield* readContainerReceipts(beforeDirectory).pipe(
+        Effect.provide(NodeServices.layer),
       );
-      fs.copyFileSync(
-        path.join(fixture.workspace, ".axm", "projection-containers.json"),
-        path.join(afterDirectory, "projection-containers.json"),
+      const after = yield* readContainerReceipts(afterDirectory).pipe(
+        Effect.provide(NodeServices.layer),
       );
-    });
-    // Both retained files must exist after successful copies. The public reader
-    // fails malformed JSON/schema; its empty-store fallback applies only to absence.
-    const before = yield* readContainerReceipts(beforeDirectory).pipe(
-      Effect.provide(NodeServices.layer),
-    );
-    const after = yield* readContainerReceipts(afterDirectory).pipe(
-      Effect.provide(NodeServices.layer),
-    );
-    const inherited = new Set([
-      ...before.entries.map((entry) => JSON.stringify(entry.identity)),
-      ...before.createdDirectories.map((identity) => JSON.stringify(identity)),
-    ]);
-    const observations = [
-      ...after.entries.map((entry, index) => ({
-        location: "entries/" + index,
-        identity: entry.identity,
-      })),
-      ...after.createdDirectories.map((identity, index) => ({
-        location: "createdDirectories/" + index,
-        identity,
-      })),
-    ].map(({ location, identity }) => {
-      const unchanged = inherited.has(JSON.stringify(identity));
-      const observed = observeForkIdentity(identity, fixture);
-      const scratch = path.join(fixture.workspace, ".axm", "tmp");
-      // Admission persists exclusive creation proof before its finalizer removes
-      // the empty scratch directory. The existing runtime-directories-retire-
-      // after-withdrawal owner spec covers this historical receipt lifecycle.
-      const historicalScratch =
-        !unchanged &&
-        location.startsWith("createdDirectories/") &&
-        identity.nativeRoot === fixture.workspace &&
-        identity.ownerRoot === fixture.workspace &&
-        identity.identityOwnerRoot === fixture.workspace &&
-        identity.owner.path === fixture.workspace &&
-        identity.root.path === fixture.workspace &&
-        identity.target === scratch &&
-        identity.physicalPath === scratch &&
-        identity.parents.length === 1 &&
-        identity.parents[0]?.path === path.join(fixture.workspace, ".axm") &&
-        identity.aliases.length === 1 &&
-        identity.aliases[0]?.path === scratch &&
-        identity.aliases[0]?.entryPath === scratch &&
-        identity.aliases[0]?.referentPath === scratch &&
-        identity.aliases[0]?.linkTarget === undefined &&
-        identity.entry.device === identity.parents[0]?.identity.device &&
-        /^[1-9]\d*$/.test(identity.entry.inode) &&
-        Number.isSafeInteger(identity.entry.mode) &&
-        identity.entry.mode >= 0 &&
-        (identity.entry.mode & 0o170000) === 0o040000 &&
-        Number.isSafeInteger(identity.entry.birthtime) &&
-        identity.entry.birthtime >= startedAtMillis &&
-        identity.entry.birthtime <= endedAtMillis &&
-        observed.outsideSample.length === 0 &&
-        observed.checks.some(
-          (check) =>
-            check.field === "entry-present" &&
-            check.observed === false &&
-            check.error === undefined,
-        ) &&
-        observed.checks.every(
-          (check) =>
-            check.matches ||
-            [
-              "entry",
-              "entry-present",
-              "target-referent",
-              "aliases/0/referent",
-              "aliases/0/link",
-            ].includes(check.field),
+      const inherited = new Set([
+        ...before.entries.map((entry) => JSON.stringify(entry.identity)),
+        ...before.createdDirectories.map((identity) => JSON.stringify(identity)),
+      ]);
+      const observations = [
+        ...after.entries.map((entry, index) => ({
+          location: "entries/" + index,
+          identity: entry.identity,
+        })),
+        ...after.createdDirectories.map((identity, index) => ({
+          location: "createdDirectories/" + index,
+          identity,
+        })),
+      ].map(({ location, identity }) => {
+        const unchanged = inherited.has(JSON.stringify(identity));
+        const observed = observeForkIdentity(identity, fixture);
+        const scratch = path.join(fixture.workspace, ".axm", "tmp");
+        // Admission persists exclusive creation proof before its finalizer removes
+        // the empty scratch directory. The existing runtime-directories-retire-
+        // after-withdrawal owner spec covers this historical receipt lifecycle.
+        const historicalScratch =
+          !unchanged &&
+          location.startsWith("createdDirectories/") &&
+          identity.nativeRoot === fixture.workspace &&
+          identity.ownerRoot === fixture.workspace &&
+          identity.identityOwnerRoot === fixture.workspace &&
+          identity.owner.path === fixture.workspace &&
+          identity.root.path === fixture.workspace &&
+          identity.target === scratch &&
+          identity.physicalPath === scratch &&
+          identity.parents.length === 1 &&
+          identity.parents[0]?.path === path.join(fixture.workspace, ".axm") &&
+          identity.aliases.length === 1 &&
+          identity.aliases[0]?.path === scratch &&
+          identity.aliases[0]?.entryPath === scratch &&
+          identity.aliases[0]?.referentPath === scratch &&
+          identity.aliases[0]?.linkTarget === undefined &&
+          identity.entry.device === identity.parents[0]?.identity.device &&
+          /^[1-9]\d*$/.test(identity.entry.inode) &&
+          Number.isSafeInteger(identity.entry.mode) &&
+          identity.entry.mode >= 0 &&
+          (identity.entry.mode & 0o170000) === 0o040000 &&
+          Number.isSafeInteger(identity.entry.birthtime) &&
+          identity.entry.birthtime >= startedAtMillis &&
+          identity.entry.birthtime <= endedAtMillis &&
+          observed.outsideSample.length === 0 &&
+          observed.checks.some(
+            (check) =>
+              check.field === "entry-present" &&
+              check.observed === false &&
+              check.error === undefined,
+          ) &&
+          observed.checks.every(
+            (check) =>
+              check.matches ||
+              [
+                "entry",
+                "entry-present",
+                "target-referent",
+                "aliases/0/referent",
+                "aliases/0/link",
+              ].includes(check.field),
+          );
+        return {
+          location,
+          classification: unchanged
+            ? "inherited-unchanged"
+            : historicalScratch
+              ? "historical-runtime-cleanup-not-poststat-verifiable"
+              : "new-or-refreshed",
+          ...observed,
+          valid: unchanged || observed.matchesSample || historicalScratch,
+        };
+      });
+      yield* Effect.try(() =>
+        fs.writeFileSync(
+          path.join(retained, "fork-receipt-native-observations.json"),
+          JSON.stringify(
+            {
+              observation:
+                "Node native metadata and aliases in the actual sample. Exact unchanged before identities may retain expired copied proof. A new exact .axm/tmp creation history may be absent after cleanup only with verified live ancestors, absence and birthtime in the process interval; its removed entry identity is explicitly not post-stat verifiable.",
+              processWindow: { startedAtMillis, endedAtMillis },
+              observations,
+            },
+            null,
+            2,
+          ) + "\n",
+        ),
+      );
+      if (observations.some((observation) => !observation.valid))
+        return yield* fixtureFailure(
+          "Fork wrote a new or refreshed container identity that does not match the actual sample filesystem; raw receipts and independent native observations are retained.",
+        );
+      let projected: unknown = after;
+      let projectedRows = 0;
+      for (const [index, identity] of after.createdDirectories.entries()) {
+        if (
+          !observations.some(
+            (observation) =>
+              observation.location === "createdDirectories/" + index &&
+              observation.classification === "historical-runtime-cleanup-not-poststat-verifiable",
+          )
+        )
+          continue;
+        const parent = identity.parents[0];
+        if (parent === undefined)
+          return yield* fixtureFailure("Validated scratch history lost its required parent.");
+        for (const part of [
+          { fields: ["owner", "identity"], value: identity.owner.identity, proof: "live-verified" },
+          { fields: ["root", "identity"], value: identity.root.identity, proof: "live-verified" },
+          { fields: ["parents", "0", "identity"], value: parent.identity, proof: "live-verified" },
+          { fields: ["entry"], value: identity.entry, proof: "historical-not-poststat-verified" },
+        ])
+          for (const field of ["inode", "birthtime"] as const)
+            projected = projectComparisonField(
+              projected,
+              ["createdDirectories", String(index), ...part.fields, field],
+              part.value[field],
+              "<fork-" + part.proof + "-" + field + ">",
+            );
+        projectedRows++;
+      }
+      const comparison = JSON.stringify(
+        normalizeObservation(projected, [
+          fixture.workspace,
+          fixture.home,
+          template.workspace,
+          template.home,
+        ]),
+      );
+      if (projectedRows > 0)
+        yield* Effect.try(() =>
+          fs.writeFileSync(path.join(retained, "fork-receipts-comparison.json"), comparison + "\n"),
         );
       return {
-        location,
-        classification: unchanged
-          ? "inherited-unchanged"
-          : historicalScratch
-            ? "historical-runtime-cleanup-not-poststat-verifiable"
-            : "new-or-refreshed",
-        ...observed,
-        valid: unchanged || observed.matchesSample || historicalScratch,
+        assertions: [
+          "Raw before/after projection-container receipts retained before independent verification.",
+          "New or refreshed identities match sample native metadata and aliases, except exact .axm/tmp cleanup history with verified live ancestors, absence and creation time; expired inherited identities are permitted only when unchanged from before.",
+          "Only inode/birthtime in the classified scratch history are projected with distinct live-verified and historical-not-poststat-verified tokens; all other receipt fields remain strict.",
+        ],
+        fileComparisons:
+          projectedRows === 0
+            ? []
+            : [
+                {
+                  container: "workspace" as const,
+                  path: ".axm/projection-containers.json",
+                  sha256: digest(comparison),
+                  reason: JSON.stringify(forkReceiptComparison),
+                },
+              ],
       };
     });
-    yield* Effect.try(() =>
-      fs.writeFileSync(
-        path.join(retained, "fork-receipt-native-observations.json"),
-        JSON.stringify(
-          {
-            observation:
-              "Node native metadata and aliases in the actual sample. Exact unchanged before identities may retain expired copied proof. A new exact .axm/tmp creation history may be absent after cleanup only with verified live ancestors, absence and birthtime in the process interval; its removed entry identity is explicitly not post-stat verifiable. No comparison projection.",
-            processWindow: { startedAtMillis, endedAtMillis },
-            observations,
-          },
-          null,
-          2,
-        ) + "\n",
-      ),
-    );
-    if (observations.some((observation) => !observation.valid))
-      return yield* fixtureFailure(
-        "Fork wrote a new or refreshed container identity that does not match the actual sample filesystem; raw receipts and independent native observations are retained.",
-      );
-    return {
-      assertions: [
-        "Raw before/after projection-container receipts retained before independent verification.",
-        "New or refreshed identities match sample native metadata and aliases, except exact .axm/tmp cleanup history with verified live ancestors, absence and creation time; expired inherited identities are permitted only when unchanged from before.",
-        "Receipt bytes remain subject to the unchanged exact state comparison.",
-      ],
-    };
-  });
 
 export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
   root: string,
@@ -910,7 +971,7 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
                 before,
               );
             }),
-          verify: verifyForkReceipts,
+          verify: verifyForkReceipts(authored),
         },
       );
     }

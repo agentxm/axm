@@ -52,7 +52,7 @@ jobs:
             cp apps/cli/dist/host-bin/axm-linux-x64 "$qualification_root/baseline/axm-linux-x64"
           )
           git rev-parse HEAD > "$qualification_root/harness-revision.txt"
-          git worktree add --detach "$RUNNER_TEMP/phase-candidate" 9f808886f3a2925bcd73418d8c835e73c95f10d8
+          git worktree add --detach "$RUNNER_TEMP/phase-candidate" c2c1ba03afc94602e475462c99643d42b3e45a57
           (
             cd "$RUNNER_TEMP/phase-candidate"
             pnpm install --frozen-lockfile
@@ -64,7 +64,7 @@ jobs:
           python3 - <<'PY'
           import hashlib,json,os,pathlib
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'phase-qualification'
-          for subject,revision in [('baseline','8ef89852780b4274ac7f4694528791bc805ae60c'),('candidate','9f808886f3a2925bcd73418d8c835e73c95f10d8')]:
+          for subject,revision in [('baseline','8ef89852780b4274ac7f4694528791bc805ae60c'),('candidate','c2c1ba03afc94602e475462c99643d42b3e45a57')]:
               binary=root/subject/'axm-linux-x64'
               manifest={'binaryPath':str(binary),'binarySha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'sourceRevision':revision,'sourceDirty':False}
               (root/subject/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')

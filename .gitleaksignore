@@ -28,3 +28,9 @@ b358bae8413b11ee712d30dec35956f39b78d971:specifications/support/telemetry-harnes
 # Synthetic token resource ID, not a credential, in the loopback device-auth fixture.
 # tools/test-support/src/device-auth-server.ts
 d2a0b59214949382b64b73868a43344774f75c13:tools/test-support/src/device-auth-server.ts:generic-api-key:26
+
+# Reviewed 2026-11-13: Git commit identities in the source-verification evidence
+# manifest and its exact NX_BASE/NX_HEAD command, not Sourcegraph credentials.
+4fa487526f17031a8ef8f399154a00412e718e93:benchmarks/evidence/local-observability/source-verification/index.json:sourcegraph-access-token:5
+4fa487526f17031a8ef8f399154a00412e718e93:benchmarks/evidence/local-observability/source-verification/index.json:sourcegraph-access-token:6
+4fa487526f17031a8ef8f399154a00412e718e93:benchmarks/evidence/local-observability/source-verification/index.json:sourcegraph-access-token:8

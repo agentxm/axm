@@ -1,3 +1,17 @@
+## 0.52.0 (2026-11-13)
+
+### 🩹 Fixes
+
+- Upgrade the shared Effect runtime to 4.1.1. ([999b6d54d](https://github.com/agentxm/axm/commit/999b6d54d))
+
+### ⚠️ Breaking Changes
+
+- Unify CLI Registry reads and exact-content admission across commands. Batch known identities, revalidate cached content before exposure, enforce invocation-wide offline behavior, and settle ambiguous publication by readback. Requires the coordinated Registry resolution contract update; older Registry contracts are unsupported. ([65d59372f](https://github.com/agentxm/axm/commit/65d59372f))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.51.0 (2026-10-30)
 
 ### 🩹 Fixes

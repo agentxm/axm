@@ -34,8 +34,10 @@ it.effect(
         write(source, native);
         const run = (args: ReadonlyArray<string>, expected = 0) =>
           Effect.promise(async () => {
+            // Retain the original failure's nested cause before fixture cleanup;
+            // never replay a mutation for diagnostics.
             const result = await runCli(
-              ["-C", fixture.selected, ...args, "--json", "--non-interactive"],
+              ["-C", fixture.selected, ...args, "--json", "--non-interactive", "--debug"],
               {
                 cwd: fixture.invoking,
                 env: {

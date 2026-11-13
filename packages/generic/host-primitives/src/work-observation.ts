@@ -110,7 +110,7 @@ export const workKinds = [
 ] as const;
 
 export type WorkKind = (typeof workKinds)[number];
-export type WorkOutcome = "success" | "failure" | "interrupted";
+type WorkOutcome = "success" | "failure" | "interrupted";
 
 /** Missing counters are unmeasured, including bytes that a failed API did not expose. */
 export interface WorkAttributes {

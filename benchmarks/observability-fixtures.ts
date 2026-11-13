@@ -973,6 +973,7 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
     // Additional routes use the same real accepted package, with independent copied state.
     if (count === 1) {
       for (const item of [
+        { command: "show", args: ["show", "@acme/skills/bench-001"] },
         { command: "skills list", args: ["skills", "list"] },
         { command: "skills show", args: ["skills", "show", "bench-001"] },
         { command: "skills install", args: ["skills", "install", "@acme/skills/bench-001"] },
@@ -1290,6 +1291,7 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
   });
   for (const item of [
     { command: "help", args: ["help"] },
+    { command: "schema", args: ["schema", "show"] },
     { command: "discover", args: ["discover"] },
     { command: "lint", args: ["lint"] },
     { command: "agents list", args: ["agents", "list"] },

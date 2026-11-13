@@ -13,6 +13,7 @@ import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { resolveAxmCacheRootPure } from "@agentxm/host-primitives";
 import { controlNetwork } from "../scripts/registry-network/control.js";
 import { startLifecycleRegistry } from "./lifecycle-registry.js";
+import { hostResourceSnapshot, runObservedProcess } from "./observability-process.js";
 
 class BenchmarkError extends Data.TaggedError("NetworkBenchmarkError")<{
   readonly message: string;
@@ -72,6 +73,7 @@ const program = Effect.gen(function* () {
     sizes,
     operationFilter: operationFilter ?? null,
     profileFilter: profileFilter ?? null,
+    memoryMeasurement: process.platform === "linux" ? "GNU time peak RSS bytes" : "unavailable",
     archiveBodyDelayMs: 100,
     upstream: "synthetic loopback Registry",
     cacheMeaning:
@@ -81,65 +83,56 @@ const program = Effect.gen(function* () {
     fs.writeFileSync(output, `${JSON.stringify({ ...provenance, complete, samples }, null, 2)}\n`);
   let invocationCount = 0;
   const invoke = (workspace: string, home: string, args: ReadonlyArray<string>, receipt?: string) =>
-    Effect.tryPromise({
-      try: async (signal) => {
-        const invocation = path.join(`${output}.invocations`, String(invocationCount++));
-        fs.mkdirSync(invocation, { recursive: true });
-        const started = performance.now();
-        const child = Bun.spawn([binary, ...args, "--json", "--non-interactive"], {
-          cwd: workspace,
-          env: {
-            PATH: process.env["PATH"],
-            HOME: home,
-            AXM_USER_HOME: home,
-            XDG_CACHE_HOME: path.join(home, "cache"),
-            AXM_NO_UPDATE_CHECK: "1",
-            AXM_TELEMETRY: "0",
-            CI: "1",
-            NO_COLOR: "1",
-            ...(receipt === undefined ? {} : { AXM_TRACE: "1", AXM_TRACE_RECEIPT: receipt }),
-          },
-          stdin: "ignore",
-          stdout: "pipe",
-          stderr: "pipe",
+    Effect.gen(function* () {
+      const invocation = path.join(`${output}.invocations`, String(invocationCount++));
+      fs.mkdirSync(invocation, { recursive: true });
+      fs.writeFileSync(
+        path.join(invocation, "host-before.json"),
+        `${JSON.stringify(hostResourceSnapshot(invocation), null, 2)}\n`,
+      );
+      const observed = yield* runObservedProcess({
+        executable: binary,
+        args: [...args, "--json", "--non-interactive"],
+        cwd: workspace,
+        artifacts: invocation,
+        measureRss: process.platform === "linux",
+        environment: {
+          PATH: process.env["PATH"],
+          HOME: home,
+          AXM_USER_HOME: home,
+          XDG_CACHE_HOME: path.join(home, "cache"),
+          AXM_NO_UPDATE_CHECK: "1",
+          AXM_TELEMETRY: "0",
+          CI: "1",
+          NO_COLOR: "1",
+          ...(receipt === undefined ? {} : { AXM_TRACE: "1", AXM_TRACE_RECEIPT: receipt }),
+        },
+      });
+      const { durationMs, peakRssBytes, exitCode } = observed;
+      fs.writeFileSync(
+        path.join(invocation, "host-after.json"),
+        `${JSON.stringify(hostResourceSnapshot(invocation), null, 2)}\n`,
+      );
+      fs.writeFileSync(
+        path.join(invocation, "result.json"),
+        `${JSON.stringify({ args, workspace, exitCode, durationMs, peakRssBytes, receipt }, null, 2)}\n`,
+      );
+      if (exitCode !== 0)
+        return yield* new BenchmarkError({
+          message: `${args.join(" ")} failed (${exitCode}); full output retained at ${invocation}.`,
         });
-        const abort = () => child.kill("SIGKILL");
-        signal.addEventListener("abort", abort, { once: true });
-        const timeout = setTimeout(abort, 120_000);
-        try {
-          const [exitCode, stdout, stderr] = await Promise.all([
-            child.exited,
-            new Response(child.stdout).text(),
-            new Response(child.stderr).text(),
-          ]);
-          const durationMs = performance.now() - started;
-          fs.writeFileSync(path.join(invocation, "stdout.txt"), stdout);
-          fs.writeFileSync(path.join(invocation, "stderr.txt"), stderr);
-          fs.writeFileSync(
-            path.join(invocation, "result.json"),
-            `${JSON.stringify({ args, workspace, exitCode, durationMs, receipt }, null, 2)}\n`,
-          );
-          if (exitCode !== 0)
-            throw new BenchmarkError({
-              message: `${args.join(" ")} failed (${exitCode}); full output retained at ${invocation}.`,
-            });
-          return {
-            durationMs,
-            invocation,
-            exitCode,
-            trace:
-              receipt === undefined
-                ? null
-                : Schema.decodeUnknownSync(Schema.fromJsonString(Receipt))(
-                    fs.readFileSync(receipt, "utf8"),
-                  ),
-          };
-        } finally {
-          clearTimeout(timeout);
-          signal.removeEventListener("abort", abort);
-        }
-      },
-      catch: (cause) => new BenchmarkError({ message: String(cause) }),
+      return {
+        durationMs,
+        peakRssBytes,
+        invocation,
+        exitCode,
+        trace:
+          receipt === undefined
+            ? null
+            : Schema.decodeUnknownSync(Schema.fromJsonString(Receipt))(
+                fs.readFileSync(receipt, "utf8"),
+              ),
+      };
     });
   const copy = (from: string, to: string) =>
     fs.cpSync(from, to, { recursive: true, verbatimSymlinks: true });

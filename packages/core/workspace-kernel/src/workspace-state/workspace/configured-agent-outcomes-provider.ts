@@ -1,3 +1,5 @@
+import type { WorkspaceReadViewReaders } from "./read-contracts.js";
+export type { WorkspaceReadViewReaders } from "./read-contracts.js";
 /**
  * Configured-agent-outcomes provider port.
  *
@@ -16,10 +18,7 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { ConfiguredAgentOutcome, ErrorCode } from "../../operations/index.js";
 import type { NativeLocationOutcome } from "../../locations/index.js";
-import type { DesiredStateReaderService } from "./desired-state-reader.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
-import type { LockfileReaderService } from "./lockfile-reader.js";
-import type { SettingsReaderService } from "./settings-reader.js";
 import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
 
 /**
@@ -60,12 +59,6 @@ export class ConfiguredAgentOutcomesProvider extends ServiceMap.Service<
 >()(
   "@agentxm/workspace-kernel/workspace-state/workspace/configured-agent-outcomes-provider/ConfiguredAgentOutcomesProvider",
 ) {}
-
-export interface WorkspaceReadViewReaders {
-  readonly settings: SettingsReaderService;
-  readonly locks: LockfileReaderService;
-  readonly desired: DesiredStateReaderService;
-}
 
 export interface ConfiguredAgentOutcomesRequest {
   /** Complete prepared graph when observing a closure before independent closures settle. */

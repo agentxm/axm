@@ -54,7 +54,9 @@ const toParticipantFailure =
         });
 
 interface ProjectionPlanningManager {
-  readonly projectionPlans: () => Effect.Effect<
+  readonly projectionPlans: (
+    options?: Parameters<ProjectionParticipant["projectionPlans"]>[0],
+  ) => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
     ExtensionManagerFailure,
     ManagerRequirements
@@ -69,8 +71,8 @@ const participant = (args: {
   const onFailure = toParticipantFailure(args.failureUnitId);
   return {
     units: args.units,
-    projectionPlans: (): ParticipantProjectionPlans =>
-      args.manager.projectionPlans().pipe(
+    projectionPlans: (options): ParticipantProjectionPlans =>
+      args.manager.projectionPlans(options).pipe(
         Effect.map((plans) => plans.map((plan) => mapProjectionPlanFailure(plan, onFailure))),
         Effect.mapError(onFailure),
       ),

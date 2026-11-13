@@ -27,6 +27,7 @@ import {
   isSourcedDesiredExtension,
   type DesiredStateGraph,
   type ResolvedKnowledgeDiscoveryConfig,
+  workspaceReadPhaseFor,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -132,8 +133,11 @@ const describeKnowledgeFailure = (
 export const KnowledgeManagerLive = Layer.effect(
   KnowledgeManager,
   Effect.gen(function* () {
-    const { location, settings, lockfile, desiredState, records, sources, provide } =
+    const { location, settings, lockfile, desiredState, records, sources, provide, provideRead } =
       yield* captureManagerServices;
+    const planningSettings = workspaceReadPhaseFor(location).pipe(
+      Effect.map((phase) => phase?.readers.settings ?? settings),
+    );
     const accepted = yield* AcceptedResolutionWriter;
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
@@ -298,7 +302,8 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const getInstructionsTarget = () =>
       Effect.gen(function* () {
-        const config = yield* settings.instructionsConfig;
+        const phase = yield* workspaceReadPhaseFor(location);
+        const config = yield* (phase?.readers.settings ?? settings).instructionsConfig;
         const enabled = Option.isSome(config) && config.value !== false;
         const resolved = resolveInstructionsConfig(enabled ? config.value : undefined);
         const relative = makeWorkspaceRelativePath(path, baseDir, resolved.fileName);
@@ -341,7 +346,7 @@ export const KnowledgeManagerLive = Layer.effect(
       node: DesiredExtensionNode,
       locked: KnowledgeLockEntry | undefined,
     ) =>
-      provide(
+      provideRead(
         observeCanonicalExtension({ layout: currentLayout(), desired: node, accepted: locked }),
       );
 
@@ -364,7 +369,8 @@ export const KnowledgeManagerLive = Layer.effect(
     // contributor set is: a problem about another type does not hide it.
     const activeKnowledgeNodes = (proposedGraph?: DesiredStateGraph) =>
       Effect.gen(function* () {
-        const graph = proposedGraph ?? (yield* desiredState.graph());
+        const phase = yield* workspaceReadPhaseFor(location);
+        const graph = proposedGraph ?? (yield* (phase?.readers.desired ?? desiredState).graph());
         if (!contributorSetComplete(contributorSetBlockers(graph, "knowledge"))) {
           return yield* new KnowledgeDesiredStateUnreconcilable();
         }
@@ -479,10 +485,14 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const resolveKnowledgeProjection = (options?: NativeProjectionOptions) =>
       Effect.gen(function* () {
-        const graph = options?.desiredGraph ?? (yield* desiredState.graph());
-        const locked = yield* lockfile.entries("knowledge");
-        const configured = yield* settings.entries("knowledge");
-        const config = yield* settings.knowledgeDiscoveryConfig;
+        const phase = yield* workspaceReadPhaseFor(location);
+        const currentSettings = phase?.readers.settings ?? settings;
+        const currentLocks = phase?.readers.locks ?? lockfile;
+        const graph =
+          options?.desiredGraph ?? (yield* (phase?.readers.desired ?? desiredState).graph());
+        const locked = yield* currentLocks.entries("knowledge");
+        const configured = yield* currentSettings.entries("knowledge");
+        const config = yield* currentSettings.knowledgeDiscoveryConfig;
         const instructionsTarget = yield* getInstructionsTarget();
         return { graph, locked, configured, config, instructionsTarget };
       });
@@ -553,7 +563,8 @@ export const KnowledgeManagerLive = Layer.effect(
       Effect.gen(function* () {
         const { graph, locked, configured, config, instructionsTarget } =
           yield* resolveKnowledgeProjection(options);
-        const configuredAgents = options?.configuredAgents ?? (yield* settings.configuredAgents);
+        const configuredAgents =
+          options?.configuredAgents ?? (yield* (yield* planningSettings).configuredAgents);
         const accepted = yield* captureAgentOutputAuthority();
         const ownership = [
           ...accepted.expectedRegions.knowledge,
@@ -741,7 +752,8 @@ export const KnowledgeManagerLive = Layer.effect(
         const exclusions = selection.exclusions;
         const authority = yield* captureAgentOutputAuthority();
         const configuredAgents =
-          options?.nativeProjection?.configuredAgents ?? (yield* settings.configuredAgents);
+          options?.nativeProjection?.configuredAgents ??
+          (yield* (yield* planningSettings).configuredAgents);
         const eligible =
           contributors.some(({ name }) =>
             options?.nativeProjection?.nativeInsertionEligibleNames?.has(name),
@@ -941,6 +953,7 @@ export const KnowledgeManagerLive = Layer.effect(
               }),
             ),
       ...makeBaseManagerMembers({
+        location,
         type: "knowledge",
         spanPrefix: "KnowledgeManager",
         records,

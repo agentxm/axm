@@ -1,3 +1,7 @@
+import type { SettingsReaderService } from "./read-contracts.js";
+export type { SettingsReaderService } from "./read-contracts.js";
+import { copyWorkspaceDocument } from "../desired/copy-document.js";
+import { freezeWorkspaceValue } from "../desired/freeze-value.js";
 /**
  * Settings reader: the selected scope's desired-state document and the
  * settings-derived facts commands consult — merged registries, owner,
@@ -5,7 +9,7 @@
  * and Knowledge discovery configuration, and the per-type entry maps.
  *
  * Persistence is supplied through the workspace's document operations; this
- * reader owns precedence, defaults, and the shared source cache.
+ * reader owns precedence, defaults, and phase-local source reuse.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -16,40 +20,21 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 
-import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { ScopedReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions/release-age";
-import {
-  resolveKnowledgeDiscoveryConfig,
-  type ResolvedKnowledgeDiscoveryConfig,
-} from "../desired/discovery-config.js";
+import { resolveKnowledgeDiscoveryConfig } from "../desired/discovery-config.js";
 import { DEFAULT_MINIMUM_RELEASE_AGE } from "../desired/settings/index.js";
-import type {
-  InstructionsConfigValue,
-  MinimumReleaseAge,
-  Settings,
-  SourceHostConfig,
-} from "../desired/settings/index.js";
-import { settingsEntries, type SettingsEntriesOf } from "./entry-accessors.js";
+import type { MinimumReleaseAge, SourceHostConfig } from "../desired/settings/index.js";
+import { settingsEntries } from "./entry-accessors.js";
 import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import type { WorkspaceSettingsReadFailure } from "./contracts.js";
-import { WorkspaceStateShared } from "./shared.js";
 import { defaultRegistrySelection, mergeSources } from "./registry-selection.js";
 
 type Read<A> = Effect.Effect<A, WorkspaceSettingsReadFailure>;
 
 /** A configured Registry host. */
 type RegistrySourceHost = Extract<SourceHostConfig, { readonly type: "registry" }>;
-
-/** A Registry locator bound to the configured source that serves it. */
-interface BoundRegistrySource {
-  /** The source the locator spells, or the effective default Registry when it spells none. */
-  readonly sourceName: string;
-  /** The configured Registry host of that name, when one is configured. */
-  readonly host: Option.Option<RegistrySourceHost>;
-}
 
 /**
  * Bind a Registry locator's source: the one place an unqualified `@owner/...`
@@ -62,39 +47,6 @@ export const bindRegistrySource = (
   sourceName: Option.Option<string>,
   defaultRegistry: string,
 ): string => Option.getOrElse(sourceName, () => defaultRegistry);
-export interface SettingsReaderService {
-  /** The selected scope's settings, defaulting when the file is absent. */
-  readonly settings: Read<Settings>;
-  /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
-  readonly configuredSources: Read<ReadonlyArray<SourceHostConfig>>;
-  readonly sourceByName: (name: string) => Read<Option.Option<SourceHostConfig>>;
-  readonly registrySourceHosts: Read<
-    ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>
-  >;
-  /** defaultRegistry: project settings, then user-scope settings, then agentxm. */
-  readonly defaultRegistry: Read<string>;
-  /**
-   * The configured Registry a parsed locator names: its spelled source, or
-   * the effective default Registry when it spells none, with that source's
-   * configured host.
-   */
-  readonly bindRegistrySource: (locator: {
-    readonly sourceName: Option.Option<string>;
-  }) => Read<BoundRegistrySource>;
-  /** Owner: project settings, then user-scope settings, then none. */
-  readonly owner: Read<Option.Option<Handle>>;
-  /** Repository publication default for this exact workspace scope. */
-  readonly publishDefaultVisibility: Read<Option.Option<ExtensionVisibility>>;
-  /** minimumReleaseAge: project settings, then user-scope settings, then the default. */
-  readonly minimumReleaseAge: Read<MinimumReleaseAge>;
-  /** minimumReleaseAgeExclude with the same precedence; an explicit [] wins. */
-  readonly minimumReleaseAgeExclude: Read<ReadonlyArray<ScopedReleaseAgeExcludePattern>>;
-  readonly configuredAgents: Read<ReadonlyArray<string>>;
-  readonly instructionsConfig: Read<Option.Option<InstructionsConfigValue>>;
-  readonly knowledgeDiscoveryConfig: Read<ResolvedKnowledgeDiscoveryConfig>;
-  /** The configured entries of one type, defaulting to `{}`. */
-  readonly entries: <T extends InstallableExtensionType>(type: T) => Read<SettingsEntriesOf<T>>;
-}
 
 export class SettingsReader extends ServiceMap.Service<SettingsReader, SettingsReaderService>()(
   "@agentxm/workspace-kernel/workspace-state/SettingsReader",
@@ -103,7 +55,7 @@ export class SettingsReader extends ServiceMap.Service<SettingsReader, SettingsR
 export const makeSettingsReader = (
   location: WorkspaceLocationService,
   documents: WorkspaceDocumentsService,
-  sourcesCache: Ref.Ref<Option.Option<ReadonlyArray<SourceHostConfig>>>,
+  sourcesCache?: Ref.Ref<Option.Option<ReadonlyArray<SourceHostConfig>>>,
   isActive: () => boolean = () => true,
 ): SettingsReaderService => {
   const settings = documents.settings();
@@ -115,14 +67,18 @@ export const makeSettingsReader = (
   }).pipe(Effect.withSpan("SettingsReader.defaultRegistry"));
 
   const configuredSources: Read<ReadonlyArray<SourceHostConfig>> = Effect.gen(function* () {
-    const cached = yield* Ref.get(sourcesCache);
+    const cached = sourcesCache === undefined ? Option.none() : yield* Ref.get(sourcesCache);
     if (isActive() && Option.isSome(cached)) return cached.value;
     const merged = mergeSources(
       (yield* projectSettings).sources ?? [],
       (yield* userSettings).sources ?? [],
       location.builtInSources,
     );
-    if (isActive()) yield* Ref.set(sourcesCache, Option.some(merged));
+    if (sourcesCache !== undefined && isActive()) {
+      const shared = freezeWorkspaceValue(merged.map(copyWorkspaceDocument));
+      yield* Ref.set(sourcesCache, Option.some(shared));
+      return shared;
+    }
     return merged;
   }).pipe(Effect.withSpan("SettingsReader.configuredSources"));
 
@@ -212,12 +168,11 @@ export const makeSettingsReader = (
 export const SettingsReaderLive: Layer.Layer<
   SettingsReader,
   never,
-  WorkspaceLocation | WorkspaceDocuments | WorkspaceStateShared
+  WorkspaceLocation | WorkspaceDocuments
 > = Layer.effect(
   SettingsReader,
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
-    const shared = yield* WorkspaceStateShared;
-    return makeSettingsReader(location, yield* WorkspaceDocuments, shared.sourcesCache);
+    return makeSettingsReader(location, yield* WorkspaceDocuments);
   }),
 );

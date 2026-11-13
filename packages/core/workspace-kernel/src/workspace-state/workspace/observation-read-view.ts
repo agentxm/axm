@@ -7,7 +7,7 @@ import {
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
-import { CurrentWorkspaceReadRequest } from "./read-phase.js";
+import { CurrentWorkspaceReadRequest, type WorkspaceReadPhaseEnd } from "./read-phase.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Sink from "effect/Sink";
 import { CanonicalNativePath } from "../../locations/index.js";
@@ -17,6 +17,7 @@ export const makeObservationReadView = (
   canonical: Context.Service.Shape<typeof CanonicalNativePath>,
   isActive: () => boolean = () => true,
   invalidate: () => void = () => undefined,
+  endedBy: () => WorkspaceReadPhaseEnd | undefined = () => undefined,
 ) => {
   let valid = true;
   const close = () => {
@@ -55,7 +56,7 @@ export const makeObservationReadView = (
         if (!valid || !isActive()) {
           yield* annotateWork({
             "axm.cache.outcome": "bypass",
-            "axm.invalidation.reason": !valid ? "mutation" : "phase-exit",
+            "axm.invalidation.reason": !valid ? "mutation" : (endedBy() ?? "phase-exit"),
             "axm.work.executed": 1,
             "axm.work.reused-count": 0,
           });

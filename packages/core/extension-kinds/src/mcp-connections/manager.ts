@@ -16,6 +16,7 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
+  workspaceReadPhaseFor,
   WorkspaceRecords,
   type McpServerLockEntry,
   type McpServerExtensionTarget,
@@ -373,9 +374,11 @@ export const McpServerManagerLive = Layer.effect(
       selection,
     ) =>
       Effect.gen(function* () {
-        const configuredAgentIds = yield* settings.configuredAgents;
-        const entries = yield* settings.entries("mcp-server");
-        const graph = proposedGraph ?? (yield* desiredState.graph());
+        const phase = yield* workspaceReadPhaseFor(location);
+        const currentSettings = phase?.readers.settings ?? settings;
+        const configuredAgentIds = yield* currentSettings.configuredAgents;
+        const entries = yield* currentSettings.entries("mcp-server");
+        const graph = proposedGraph ?? (yield* (phase?.readers.desired ?? desiredState).graph());
         const nodes = graph.nodes.filter(
           (node) =>
             node.type === "mcp-server" &&
@@ -422,6 +425,7 @@ export const McpServerManagerLive = Layer.effect(
 
     const service: McpServerManagerService = {
       ...makeBaseManagerMembers({
+        location,
         type: "mcp-server",
         spanPrefix: "McpServerManager",
         records,
@@ -432,15 +436,25 @@ export const McpServerManagerLive = Layer.effect(
       materializeInstall,
       acquireCanonical: materializeInstall,
       isConfigured: Effect.fn("McpServerManager.isConfigured")(function* ({ target }) {
-        const configured = yield* settings.entries("mcp-server");
+        const phase = yield* workspaceReadPhaseFor(location);
+        const configured = yield* (phase?.readers.settings ?? settings).entries("mcp-server");
         return configured[target.name] !== undefined;
       }),
       listMaterializable: () =>
-        listMaterializableFromDisk({
-          type: "mcp-server",
-          records,
-          toDiskRefs: configuredMcpServersToDiskRefs,
-          env: { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
+        Effect.gen(function* () {
+          const phase = yield* workspaceReadPhaseFor(location);
+          return yield* listMaterializableFromDisk({
+            type: "mcp-server",
+            records: phase?.records ?? records,
+            toDiskRefs: configuredMcpServersToDiskRefs,
+            env: {
+              fs: phase?.fileSystem ?? fs,
+              path,
+              baseDir,
+              scope: location.scope,
+              layout: currentLayout(),
+            },
+          });
         }),
       materializeUninstall,
       materializeDeactivate,

@@ -1,3 +1,5 @@
+import type { WorkspaceRecordsService } from "./read-contracts.js";
+export type { WorkspaceRecordsService } from "./read-contracts.js";
 /** Inventory and lifecycle rows for the selected workspace scope. */
 
 import * as ServiceMap from "effect/Context";
@@ -27,7 +29,6 @@ import { LockfileReader, type LockfileReaderService } from "./lockfile-reader.js
 import {
   countExtensionInventory,
   projectExtensionInventory,
-  type ExtensionInventory,
 } from "../observed/extensions/inventory.js";
 import { projectWorkspaceRecords } from "../observed/record-projection.js";
 import type { WorkspaceRecordRow } from "../observed/records.js";
@@ -43,20 +44,6 @@ import { readScopedModel } from "./state-cells.js";
 
 type Read<A> = Effect.Effect<A, WorkspaceStateReadFailure, FileSystem.FileSystem | Path.Path>;
 
-export interface WorkspaceRecordsService {
-  /** Inventory across every installable extension type, or a selected set of types. */
-  readonly getInventory: (options: {
-    readonly types?: ReadonlyArray<InstallableExtensionType>;
-  }) => Read<ExtensionInventory>;
-  /** Physical inventory and associations; native currency requires explicit details. */
-  readonly getExtensionInventory: (
-    type: InstallableExtensionType,
-    options: { readonly agents?: ReadonlyArray<string>; readonly details?: boolean },
-  ) => Read<ExtensionInventory>;
-  /** Lifecycle records without configured-agent outcomes. */
-  readonly rows: (type: InstallableExtensionType) => Read<ReadonlyArray<WorkspaceRecordRow>>;
-}
-
 export class WorkspaceRecords extends ServiceMap.Service<
   WorkspaceRecords,
   WorkspaceRecordsService
@@ -67,7 +54,7 @@ export const makeWorkspaceRecords = (
   desiredState: DesiredStateReaderService,
   locks: Pick<LockfileReaderService, "lockfile">,
   view?: {
-    readonly model: WorkspaceReadModel;
+    readonly model: Read<WorkspaceReadModel>;
     readonly installRoot: Read<InstallRootInventory>;
     readonly readers: WorkspaceReadViewReaders;
   },
@@ -146,7 +133,7 @@ export const makeWorkspaceRecords = (
       return yield* provide(
         view === undefined
           ? readScopedModel(location, location.runtimeDir, useModel)
-          : useModel(view.model),
+          : view.model.pipe(Effect.flatMap(useModel)),
       );
     });
 

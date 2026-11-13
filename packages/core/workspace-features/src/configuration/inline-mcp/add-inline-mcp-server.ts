@@ -51,6 +51,7 @@ import {
   type PlanResolutionFailure,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  withWorkspaceReadView,
   ConfiguredAgentOutcomesProvider,
   LockfileReader,
   SettingsReader,
@@ -202,7 +203,7 @@ const prepareAddInlineMcpServer = (
       replacesExistingEntry: existing !== undefined,
       scope: location.scope,
     });
-  });
+  }).pipe(withWorkspaceReadView);
 
 const configArtifact = (
   scope: WorkspaceScope,

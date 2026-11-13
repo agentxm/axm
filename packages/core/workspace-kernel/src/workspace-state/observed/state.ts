@@ -16,6 +16,7 @@ import { decodeSettingsBytes, readSettingsBytes } from "../desired/settings/read
 import type { Settings } from "../desired/settings/schema.js";
 import type { RawSourceBytes } from "../desired/source-bytes.js";
 import type { Scope } from "./types.js";
+import { freezeWorkspaceValue } from "../desired/freeze-value.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -56,7 +57,9 @@ const loadSettings = Effect.fn("workspace.read-model.state.settings")(function* 
 ): Effect.fn.Return<Option.Option<DecodedSettings>, SettingsReadError> {
   const rawOpt = yield* rawCell;
   if (Option.isNone(rawOpt)) return Option.none<DecodedSettings>();
-  return Option.some(yield* decodeSettingsBytes(rawOpt.value.path, rawOpt.value.bytes));
+  return Option.some(
+    freezeWorkspaceValue(yield* decodeSettingsBytes(rawOpt.value.path, rawOpt.value.bytes)),
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -69,7 +72,9 @@ const loadLockfile = Effect.fn("workspace.read-model.state.lockfile")(function* 
 ): Effect.fn.Return<Option.Option<DecodedLockfile>, LockfileReadError> {
   const rawOpt = yield* rawCell;
   if (Option.isNone(rawOpt)) return Option.none<DecodedLockfile>();
-  return Option.some(yield* decodeLockfileBytes(rawOpt.value.path, rawOpt.value.bytes));
+  return Option.some(
+    freezeWorkspaceValue(yield* decodeLockfileBytes(rawOpt.value.path, rawOpt.value.bytes)),
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -82,13 +87,17 @@ export const makeScopedStateApi = Effect.fnUntraced(function* (
   deps: ScopedStateDeps,
 ): Effect.fn.Return<ScopedStateLoaders> {
   const { fs, settingsPath, lockfilePath } = deps;
-  const settingsRaw = yield* Effect.cached(readSettingsBytes({ fs, settingsPath }));
+  const settingsRaw = yield* Effect.cached(
+    readSettingsBytes({ fs, settingsPath }).pipe(Effect.map(Option.map(freezeWorkspaceValue))),
+  );
   const settings = yield* Effect.cached(loadSettings(settingsRaw));
 
   const lockfileRaw: ScopedStateLoaders["lockfileRaw"] =
     lockfilePath === null
       ? Effect.succeed(Option.none<RawSourceBytes>())
-      : yield* Effect.cached(readLockfileBytes(fs, lockfilePath));
+      : yield* Effect.cached(
+          readLockfileBytes(fs, lockfilePath).pipe(Effect.map(Option.map(freezeWorkspaceValue))),
+        );
   const lockfile: ScopedStateLoaders["lockfile"] =
     lockfilePath === null
       ? Effect.succeed(Option.none<DecodedLockfile>())

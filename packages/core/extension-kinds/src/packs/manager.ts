@@ -25,6 +25,7 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
+  workspaceReadPhaseFor,
   WorkspaceRecords,
   type SetPackArgs,
   computePackPathsForLayout,
@@ -337,6 +338,7 @@ export const PackManagerLive = Layer.effect(
 
     return {
       ...makeBaseManagerMembers({
+        location,
         type: "pack",
         spanPrefix: "PackManager",
         records,
@@ -349,11 +351,20 @@ export const PackManagerLive = Layer.effect(
       materializeInstall,
       acquireCanonical: materializeInstall,
       listMaterializable: () =>
-        listMaterializableFromDisk({
-          type: "pack",
-          records,
-          toDiskRefs: configuredPacksToDiskRefs,
-          env: { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
+        Effect.gen(function* () {
+          const phase = yield* workspaceReadPhaseFor(location);
+          return yield* listMaterializableFromDisk({
+            type: "pack",
+            records: phase?.records ?? records,
+            toDiskRefs: configuredPacksToDiskRefs,
+            env: {
+              fs: phase?.fileSystem ?? fs,
+              path,
+              baseDir,
+              scope: location.scope,
+              layout: currentLayout(),
+            },
+          });
         }),
       materializeUninstall,
 

@@ -6,6 +6,7 @@ import * as Option from "effect/Option";
 import {
   SettingsReader,
   WorkspaceRecords,
+  WorkspaceLocation,
   createDefaultSettings,
   countExtensionInventory,
 } from "../workspace-state/index.js";
@@ -18,6 +19,7 @@ describe("shared manager members", () => {
       const records = yield* WorkspaceRecords;
       const settings = yield* SettingsReader;
       const members = makeBaseManagerMembers({
+        location: yield* WorkspaceLocation,
         type: "hook",
         spanPrefix: "HookManager",
         records,

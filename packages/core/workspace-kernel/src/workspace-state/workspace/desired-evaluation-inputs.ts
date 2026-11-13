@@ -18,6 +18,19 @@ import type { Lockfile } from "../desired/lockfile/schema.js";
 import type { Settings } from "../desired/settings/schema.js";
 import type { ProspectivePackRef } from "./desired-state-graph.js";
 import type { PackManifestObservation } from "./pack-manifests.js";
+import { copyWorkspaceDocument } from "../desired/copy-document.js";
+
+/** Resolved references can carry capabilities; evaluation owns only manifest facts. */
+export const copyProspectivePack = (ref: ProspectivePackRef): ProspectivePackRef =>
+  copyWorkspaceDocument({
+    owner: ref.owner,
+    version: ref.version,
+    pack: {
+      name: ref.pack.name,
+      dependencies: ref.pack.dependencies,
+      ...(ref.pack.description === undefined ? {} : { description: ref.pack.description }),
+    },
+  });
 
 /** Where a Pack document observation came from. */
 type PackDocumentProvenance =

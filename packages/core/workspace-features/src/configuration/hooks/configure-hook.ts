@@ -17,6 +17,7 @@ import {
 import { projectionExposureRefs } from "@agentxm/workspace-kernel/reconciliation";
 import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
 import {
+  withWorkspaceReadView,
   DesiredStateReader,
   SettingsReader,
   SettingsWriter,
@@ -143,7 +144,7 @@ export const prepareConfigureHook = Effect.fn("Hook.prepareConfiguration")(funct
       },
     ],
   });
-});
+}, withWorkspaceReadView);
 
 export const ConfigureHook = {
   prepare: prepareConfigureHook,

@@ -15,6 +15,7 @@ import {
   computeMaterializedTreeIntegrity,
   SettingsReader,
   WorkspaceLocation,
+  withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
   installRefused,
@@ -272,7 +273,7 @@ export const prepareHandoff = Effect.fn("Handoff.prepare")(function* (request: H
     jobs: [{ concurrency: 1, steps }],
   };
   return yield* prepareExecutionCandidate(plan);
-});
+}, withWorkspaceReadView);
 
 export const HandoffSkills = {
   prepare: prepareHandoff,

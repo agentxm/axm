@@ -40,6 +40,7 @@ import {
   resolveWorkspaceExtensionRef,
   SettingsReader,
   WorkspaceLocation,
+  workspaceReadPhaseFor,
   type DesiredStateGraph,
 } from "../workspace-state/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -241,37 +242,33 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
     const path = yield* Path.Path;
     const registryClients = yield* RegistryClientFactory;
     const nativeWriteAuthority = yield* NativeWriteAuthority;
-    const fsPathLayer = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(Path.Path, path),
-      Layer.succeed(NativeEntryRemoval, yield* NativeEntryRemoval),
-    );
-    const workspaceReadLayer = (observedGraph?: DesiredStateGraph) =>
-      Layer.mergeAll(
-        Layer.succeed(WorkspaceLocation, location),
-        Layer.succeed(
-          DesiredStateReader,
-          observedGraph === undefined
-            ? desiredState
-            : {
-                ...desiredState,
-                // Prospective graphs still read their explicit inputs; only the
-                // phase's ordinary current graph is shared with participants.
-                graph: (options) =>
-                  options === undefined
-                    ? Effect.succeed(observedGraph)
-                    : desiredState.graph(options),
-              },
-        ),
-        Layer.succeed(SettingsReader, settings),
-        Layer.succeed(LockfileReader, lockfile),
-        fsPathLayer,
-      );
+    const nativeEntryRemoval = yield* NativeEntryRemoval;
     // Participants keep their requirements explicit; the layer that evaluates
     // the facts is the boundary that composes them.
     const evaluate = (observedGraph?: DesiredStateGraph) =>
       Effect.gen(function* () {
-        const readLayer = workspaceReadLayer(observedGraph);
+        const phase = yield* workspaceReadPhaseFor(location);
+        const readers = phase?.readers ?? { desired: desiredState, settings, locks: lockfile };
+        const readLayer = Layer.mergeAll(
+          Layer.succeed(WorkspaceLocation, location),
+          Layer.succeed(
+            DesiredStateReader,
+            observedGraph === undefined
+              ? readers.desired
+              : {
+                  ...readers.desired,
+                  graph: (options) =>
+                    options === undefined
+                      ? Effect.succeed(observedGraph)
+                      : readers.desired.graph(options),
+                },
+          ),
+          Layer.succeed(SettingsReader, readers.settings),
+          Layer.succeed(LockfileReader, readers.locks),
+          Layer.succeed(FileSystem.FileSystem, phase?.fileSystem ?? fs),
+          Layer.succeed(Path.Path, path),
+          Layer.succeed(NativeEntryRemoval, nativeEntryRemoval),
+        );
         const participantLayer = Layer.mergeAll(
           readLayer,
           Layer.succeed(RegistryClientFactory, registryClients),
@@ -280,7 +277,9 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
         const observeParticipant = (participant: ProjectionParticipant) =>
           Effect.result(
             participant
-              .projectionPlans()
+              .projectionPlans(
+                observedGraph === undefined ? undefined : { desiredGraph: observedGraph },
+              )
               .pipe(Effect.flatMap(observeProjectionPlans), Effect.provide(participantLayer)),
           );
         const layout = yield* Ref.get(location.layout);
@@ -296,7 +295,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
         );
         const graph =
           observedGraph === undefined
-            ? yield* Effect.result(desiredState.graph())
+            ? yield* Effect.result(readers.desired.graph())
             : Result.succeed(observedGraph);
         // Subagent facts need the complete subagent contributor set, not a
         // settled graph: a problem about another type does not hide them.

@@ -96,6 +96,8 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import type { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
+  withWorkspaceReadView,
+  withLiveWorkspaceObservations,
   AcceptedResolutionWriter,
   DesiredStateWriter,
   SettingsWriter,
@@ -764,11 +766,13 @@ const prepareImportNativeExtension: (
         })
       : request.type === "hook"
         ? yield* hookConversion(request, target)
-        : yield* nativeConversion({
-            request,
-            target,
-            ...(updateExisting ? { existingPackagePath: targetDir } : {}),
-          });
+        : yield* withLiveWorkspaceObservations(
+            nativeConversion({
+              request,
+              target,
+              ...(updateExisting ? { existingPackagePath: targetDir } : {}),
+            }),
+          );
 
   const enabled =
     request.type === "hook"
@@ -935,7 +939,7 @@ const prepareImportNativeExtension: (
     enabled,
     execution: yield* prepareExecutionCandidate(plan),
   } satisfies ImportNativeExtensionCandidate;
-});
+}, withWorkspaceReadView);
 
 // -----------------------------------------------------------------------------
 // previewOrApply

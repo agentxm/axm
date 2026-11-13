@@ -3,6 +3,7 @@ import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { withWorkspaceObservationReadView } from "@agentxm/workspace-kernel/workspace-state";
 import { applyPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { prepare, previewOrApply } from "../index.js";
 import {
@@ -16,7 +17,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/prepared-distribution-is-revalidated",
   title: "Prepared publication refuses changed bytes or file-selection policy",
   statement:
-    "Before the first upload, publish shall rediscover its effective file-selection inputs and rebuild the selected distribution, refuse changed source bytes or policy with no upload, and publish the exact prepared archive when both remain unchanged.",
+    "Before the first upload, even within an enclosing observation phase, publish shall rediscover its effective file-selection inputs and rebuild the selected distribution, refuse changed source bytes or policy with no upload, and publish the exact prepared archive when both remain unchanged.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution"],
@@ -56,63 +57,70 @@ describe("prepared distribution freshness", () => {
           if (change === "edited-ancestor" || change === "removed-ancestor")
             fs.writeFileSync(policy, "missing-*\n");
           fs.writeFileSync(nodePath.join(packageRoot, "notes.txt"), "before");
-          const ready = yield* world.provide(prepare(requestFor(world, { preview: false })));
-          expect(ready._tag).toBe("Ready");
-          if (ready._tag !== "Ready") throw new Error("Expected a prepared candidate");
-          switch (change) {
-            case "manifest-policy": {
-              const file = nodePath.join(packageRoot, "skill.json");
-              fs.writeFileSync(
-                file,
-                fs.readFileSync(file, "utf8").replace("notes.txt", "other.txt"),
-              );
-              break;
-            }
-            case "bytes":
-              fs.appendFileSync(nodePath.join(packageRoot, "src", "SKILL.md"), "\nchanged\n");
-              break;
-            case "new-ancestor":
-              fs.writeFileSync(policy, "missing-*\n");
-              break;
-            case "edited-ancestor":
-              fs.writeFileSync(policy, "other-missing-*\n");
-              break;
-            case "removed-ancestor":
-              fs.unlinkSync(policy);
-              break;
-            case "new-nested":
-              fs.writeFileSync(nodePath.join(packageRoot, "src", ".gitignore"), "missing-*\n");
-              break;
-            case "standalone":
-              fs.writeFileSync(nodePath.join(packageRoot, ".gitignore"), "missing-*\n");
-              break;
-            case "excluded-bytes":
-              fs.writeFileSync(nodePath.join(packageRoot, "notes.txt"), "after");
-              break;
-            case "unchanged":
-              break;
-          }
-          const outcome = yield* world.provide(
-            previewOrApply(
-              ready.candidate,
-              applyPlanExecution({
-                approval: "preapproved",
-                acceptedPolicies: new Set(),
-                recovery: { command: [], arguments: [] },
+          yield* world.provide(
+            withWorkspaceObservationReadView(
+              Effect.gen(function* () {
+                const ready = yield* prepare(requestFor(world, { preview: false }));
+                expect(ready._tag).toBe("Ready");
+                if (ready._tag !== "Ready") throw new Error("Expected a prepared candidate");
+                switch (change) {
+                  case "manifest-policy": {
+                    const file = nodePath.join(packageRoot, "skill.json");
+                    fs.writeFileSync(
+                      file,
+                      fs.readFileSync(file, "utf8").replace("notes.txt", "other.txt"),
+                    );
+                    break;
+                  }
+                  case "bytes":
+                    fs.appendFileSync(nodePath.join(packageRoot, "src", "SKILL.md"), "\nchanged\n");
+                    break;
+                  case "new-ancestor":
+                    fs.writeFileSync(policy, "missing-*\n");
+                    break;
+                  case "edited-ancestor":
+                    fs.writeFileSync(policy, "other-missing-*\n");
+                    break;
+                  case "removed-ancestor":
+                    fs.unlinkSync(policy);
+                    break;
+                  case "new-nested":
+                    fs.writeFileSync(
+                      nodePath.join(packageRoot, "src", ".gitignore"),
+                      "missing-*\n",
+                    );
+                    break;
+                  case "standalone":
+                    fs.writeFileSync(nodePath.join(packageRoot, ".gitignore"), "missing-*\n");
+                    break;
+                  case "excluded-bytes":
+                    fs.writeFileSync(nodePath.join(packageRoot, "notes.txt"), "after");
+                    break;
+                  case "unchanged":
+                    break;
+                }
+                const outcome = yield* previewOrApply(
+                  ready.candidate,
+                  applyPlanExecution({
+                    approval: "preapproved",
+                    acceptedPolicies: new Set(),
+                    recovery: { command: [], arguments: [] },
+                  }),
+                );
+                const document = publishDocument(outcome);
+                if (change === "unchanged" || change === "excluded-bytes") {
+                  expect(document.counts.published).toBe(1);
+                  expect(new Uint8Array(world.archive("review"))).toEqual(
+                    ready.candidate.uploadCandidates[0]?.archive.copyBytes(),
+                  );
+                } else {
+                  expect(document.counts.published).toBe(0);
+                  expect(publishFailureOf(outcome).detail).toContain("changed");
+                  expect(world.target.storedFiles()).toEqual([]);
+                }
               }),
             ),
           );
-          const document = publishDocument(outcome);
-          if (change === "unchanged" || change === "excluded-bytes") {
-            expect(document.counts.published).toBe(1);
-            expect(new Uint8Array(world.archive("review"))).toEqual(
-              ready.candidate.uploadCandidates[0]?.archive.copyBytes(),
-            );
-          } else {
-            expect(document.counts.published).toBe(0);
-            expect(publishFailureOf(outcome).detail).toContain("changed");
-            expect(world.target.storedFiles()).toEqual([]);
-          }
         } finally {
           world.cleanup();
         }

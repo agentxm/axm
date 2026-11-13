@@ -1,3 +1,6 @@
+import type { DesiredStateReaderService } from "./read-contracts.js";
+export type { DesiredStateReaderService, DesiredStateEvaluation } from "./read-contracts.js";
+import { copyProspectivePack } from "./desired-evaluation-inputs.js";
 /**
  * Desired-state reader: captures the explicit input view one evaluation
  * derives from, evaluates it, and re-evaluates a captured base under a
@@ -20,15 +23,14 @@ import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { LOCKFILE_VERSION, type Lockfile } from "../desired/lockfile/index.js";
 import type { Settings, SourceHostConfig } from "../desired/settings/index.js";
-import type { ExtensionTarget, WorkspaceStateReadFailure } from "./contracts.js";
 import { configuredPackIdentity } from "./desired-configured-identity.js";
 import type {
   DesiredEvaluationInputs,
   DesiredInputRead,
   ObservedPackDocument,
 } from "./desired-evaluation-inputs.js";
-import { evaluateDesiredState } from "./desired-state-evaluation.js";
-import type { DesiredStateGraph, ProspectivePackRef } from "./desired-state-graph.js";
+import { ownDesiredStateEvaluation } from "./desired-state-snapshot.js";
+import type { ProspectivePackRef } from "./desired-state-graph.js";
 import { unresolvedPackRoutes } from "./desired-state-queries.js";
 import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import { DesiredPackGraphIncomplete } from "./errors.js";
@@ -40,44 +42,6 @@ import {
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import { PackManifests, type PackManifestsPort } from "./pack-manifests.js";
-
-/** Explicit candidate inputs for evaluating a proposal without publishing it. */
-interface DesiredStateCandidateInputs {
-  readonly settings?: Settings;
-  readonly acceptedResolutions?: Lockfile;
-  readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
-}
-
-/** One evaluation and the input view it was derived from. */
-export interface DesiredStateEvaluation {
-  readonly inputs: DesiredEvaluationInputs;
-  readonly graph: DesiredStateGraph;
-}
-
-export interface DesiredStateReaderService {
-  /** Capture the current input view (or the candidate's explicit inputs) and evaluate it. */
-  readonly evaluate: (
-    options?: DesiredStateCandidateInputs,
-  ) => Effect.Effect<DesiredStateEvaluation, WorkspaceStateReadFailure>;
-  /** The evaluated graph alone, for readers that need no input evidence. */
-  readonly graph: (
-    options?: DesiredStateCandidateInputs,
-  ) => Effect.Effect<DesiredStateGraph, WorkspaceStateReadFailure>;
-  /**
-   * Re-evaluate a captured base under proposed settings. The proposal keeps
-   * the base's inherited settings, accepted resolutions, and every authored Pack
-   * document it already observed; only a document the proposal relocates or
-   * adds is read.
-   */
-  readonly propose: (
-    base: DesiredStateEvaluation,
-    settings: Settings,
-  ) => Effect.Effect<DesiredStateEvaluation, WorkspaceStateReadFailure>;
-  /** Whether an installed Pack's dependency maps reference the target. */
-  readonly isRequiredByInstalledPack: (
-    target: ExtensionTarget,
-  ) => Effect.Effect<boolean, WorkspaceStateReadFailure | DesiredPackGraphIncomplete>;
-}
 
 export class DesiredStateReader extends ServiceMap.Service<
   DesiredStateReader,
@@ -139,7 +103,7 @@ export const captureDesiredStateInputs = Effect.fnUntraced(function* (
     lockfileVersion: LOCKFILE_VERSION,
     skills: {},
   };
-  const prospectivePacks = args.prospectivePacks ?? [];
+  const prospectivePacks = (args.prospectivePacks ?? []).map(copyProspectivePack);
   const reusable = new Map(
     (args.reuse?.packDocuments ?? [])
       .filter((document) => document.provenance.kind === "authored")
@@ -294,7 +258,7 @@ export const makeDesiredStateReader = (
           : { prospectivePacks: options.prospectivePacks }),
         readSet: authoritativeReads(yield* inheritedSettingsPath),
       });
-      return { inputs, graph: evaluateDesiredState(inputs) };
+      return ownDesiredStateEvaluation(inputs);
     },
   );
 
@@ -303,23 +267,24 @@ export const makeDesiredStateReader = (
 
   const propose: DesiredStateReaderService["propose"] = Effect.fn("DesiredStateReader.propose")(
     function* (base, settings) {
+      const baseInputs = base.inputs;
       const layout = yield* Ref.get(location.layout);
       const inputs = yield* captureDesiredStateInputs({
         manifests,
         baseDir: location.baseDir,
-        scope: base.inputs.scope,
+        scope: baseInputs.scope,
         settings,
-        inheritedSettings: base.inputs.inheritedSettings,
+        inheritedSettings: baseInputs.inheritedSettings,
         builtInSources: location.builtInSources,
         layout,
-        acceptedResolutions: base.inputs.acceptedResolutions,
-        prospectivePacks: base.inputs.packDocuments.flatMap((document) =>
+        acceptedResolutions: baseInputs.acceptedResolutions,
+        prospectivePacks: baseInputs.packDocuments.flatMap((document) =>
           document.provenance.kind === "proposed" ? [document.provenance.ref] : [],
         ),
-        reuse: base.inputs,
-        readSet: base.inputs.readSet.filter((read) => read.role !== "pack-manifest"),
+        reuse: baseInputs,
+        readSet: baseInputs.readSet.filter((read) => read.role !== "pack-manifest"),
       });
-      return { inputs, graph: evaluateDesiredState(inputs) };
+      return ownDesiredStateEvaluation(inputs);
     },
   );
 

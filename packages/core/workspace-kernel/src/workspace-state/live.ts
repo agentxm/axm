@@ -72,14 +72,14 @@ const stateServicesOver = (
   WorkspaceStateError,
   FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
 > => {
-  // The shared mutex and cache are composition-internal: one instance (the
+  // The shared write mutex is composition-internal: one instance (the
   // layer is memoized by reference within a build) provided to every service
   // that needs it and never published to consumers.
   const shared = Layer.effect(WorkspaceStateShared, makeWorkspaceStateShared);
   const documents = Layer.provideMerge(FilesystemWorkspaceDocuments, location);
   const base = Layer.provideMerge(
     Layer.provide(DesiredStateReaderLive, FilesystemPackManifests),
-    Layer.provideMerge(Layer.provide(SettingsReaderLive, shared), documents),
+    Layer.provideMerge(SettingsReaderLive, documents),
   );
   const readers = Layer.provideMerge(
     WorkspaceRecordsLive,
@@ -90,13 +90,17 @@ const stateServicesOver = (
     readers,
   );
   const withPaths = Layer.provideMerge(ExtensionPathsLive, withViews);
-  return Layer.provideMerge(
+  const services = Layer.provideMerge(
     Layer.provide(
       Layer.mergeAll(SettingsWriterLive, AcceptedResolutionWriterLive, DesiredStateWriterLive),
       shared,
     ),
     withPaths,
   );
+  // Each constructed workspace owns its service graph. Static reader layers
+  // must not reuse another workspace's captured ports in a shared MemoMap.
+  // The suspended outer layer still shares this graph among its consumers.
+  return Layer.suspend(() => Layer.fresh(services));
 };
 
 /**
@@ -144,7 +148,7 @@ export const layer = (
   WorkspaceStateServices | WorkspaceTransactionScope,
   WorkspaceStateError,
   FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval
-> => Layer.provideMerge(WorkspaceTransactionScopeLive, WorkspaceStateLive(options));
+> => Layer.provideMerge(Layer.fresh(WorkspaceTransactionScopeLive), WorkspaceStateLive(options));
 
 /**
  * Read the project and user settings that select an invocation's Registry,

@@ -6,7 +6,6 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import {
@@ -57,11 +56,7 @@ import {
   type RegistryPackLockEntry,
   type SkillLockEntry,
 } from "../desired/lockfile/index.js";
-import {
-  createDefaultSettings,
-  type Settings,
-  type SourceHostConfig,
-} from "../desired/settings/index.js";
+import { createDefaultSettings, type Settings } from "../desired/settings/index.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import type { PackManifest } from "@agentxm/extension-model/unstable/packs/manifest-schema";
@@ -251,11 +246,7 @@ export const WorkspaceReadTest = (
             ) ?? false,
           ),
       };
-      const settings = makeSettingsReader(
-        location,
-        documents,
-        yield* Ref.make<Option.Option<ReadonlyArray<SourceHostConfig>>>(Option.none()),
-      );
+      const settings = makeSettingsReader(location, documents);
       const lockfile = makeLockfileReader(documents, desired);
       return Layer.mergeAll(
         Layer.succeed(WorkspaceLocation, location),

@@ -1,3 +1,4 @@
+import { freezeWorkspaceValue } from "../../../desired/freeze-value.js";
 import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -57,6 +58,7 @@ export const FilesystemPackManifests = Layer.effect(
                       : { status: "unreadable", reason: error.reason._tag },
                   ),
               }),
+              Effect.map(freezeWorkspaceValue),
               (effect) =>
                 withWork("axm.observation.pack-document", effect, {
                   attributes: { "axm.work.count": 1 },
@@ -115,7 +117,7 @@ export const FilesystemPackManifests = Layer.effect(
             };
             const raced = phase.packDocuments.get(manifestPath);
             const selected = raced ?? created;
-            phase.packDocuments.set(manifestPath, selected);
+            if (phase.isActive()) phase.packDocuments.set(manifestPath, selected);
             yield* annotateWork({
               "axm.cache.outcome":
                 raced === undefined ? "miss" : raced.completed() ? "hit" : "coalesced",

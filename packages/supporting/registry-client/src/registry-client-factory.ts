@@ -306,9 +306,3 @@ export const RegistryClientFactoryLive: Layer.Layer<
     });
   }),
 );
-
-/** Start a fresh shared metadata observation at a feature boundary. */
-export const withRegistryReadPhase = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R | RegistryClientFactory> =>
-  Effect.flatMap(RegistryClientFactory, (factory) => factory.withReadPhase(effect));

@@ -17,7 +17,6 @@ export type {
   RegistryExtensionManifest,
   GetExtensionsByOwnerArgs,
   GetExtensionsByOwnerResponse,
-  GetExtensionIndexArgs,
   GetExtensionPackageArgs,
   ValidateExtensionAccessArgs,
   PublishExtensionArgs,
@@ -88,7 +87,6 @@ export { formatDeprecationWarning } from "./deprecation-warning.js";
 
 export {
   makeRegistryClientFactory,
-  withRegistryReadPhase,
   RegistryClientFactory,
   RegistryClientFactoryLive,
   type RegistryClientFactoryService,

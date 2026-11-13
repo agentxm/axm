@@ -509,6 +509,12 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             "host",
             "The declared reference campaign requires Linux x64 and GNU time.",
           );
+        const memoryPolicy = process.env["AXM_OBSERVABILITY_MEMORY_POLICY"] ?? "enforced";
+        if (memoryPolicy !== "enforced" && memoryPolicy !== "informational")
+          return yield* fail(
+            "configuration",
+            "AXM_OBSERVABILITY_MEMORY_POLICY must be enforced or informational.",
+          );
         const runMode = process.env["AXM_OBSERVABILITY_RUN"] ?? "fixtures";
         if (runMode !== "fixtures" && runMode !== "measure")
           return yield* fail("configuration", "AXM_OBSERVABILITY_RUN must be fixtures or measure.");
@@ -582,6 +588,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
         const provenance = {
           schemaVersion: 2,
           runMode,
+          memoryPolicy,
           startedAt: new Date().toISOString(),
           baseline,
           candidate,
@@ -653,6 +660,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               scenarioIds,
               samples,
               fixtureChecks,
+              memoryPolicy,
             ),
             ...(error === undefined ? {} : { error }),
           });
@@ -1453,8 +1461,9 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 for (const after of collected.filter((sample) => sample.subject === "candidate")) {
                   const issues = [...observationPairIssues(before, after)];
                   if (
+                    memoryPolicy === "enforced" &&
                     after.peakRssBytes - before.peakRssBytes >
-                    budgets.maximumAdditionalRssBytes[after.mode]
+                      budgets.maximumAdditionalRssBytes[after.mode]
                   )
                     issues.push("Memory budget exceeded: " + after.id);
                   if (issues.length > 0)
@@ -1473,6 +1482,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             let result = assessScenarioTiming(
               budgets,
               samples.filter((sample) => sample.scenario === scenario.id),
+              memoryPolicy,
             );
             if (result.needsEscalation) {
               for (
@@ -1484,6 +1494,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               result = assessScenarioTiming(
                 budgets,
                 samples.filter((sample) => sample.scenario === scenario.id),
+                memoryPolicy,
               );
             }
             save(false);
@@ -1499,6 +1510,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             scenarioIds,
             samples,
             fixtureChecks,
+            memoryPolicy,
           );
           save(assessment.passed);
           if (!assessment.passed)

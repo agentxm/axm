@@ -434,6 +434,19 @@ the existing bound. Stable median regressions fail without retrying to pass.
 Each escalation adds 20 invocations and retains all initial observations. Noise
 or drift remaining at ten makes the result inconclusive. Correctness, memory,
 volume and shutdown failures are handled separately; thresholds are unchanged.
+
+Memory enforcement defaults to `AXM_OBSERVABILITY_MEMORY_POLICY=enforced`.
+For a campaign whose acceptance criteria explicitly make memory informational,
+set `AXM_OBSERVABILITY_MEMORY_POLICY=informational`. The report records the policy
+and retains every raw RSS sample, the largest paired increment (including warmup),
+and whether it exceeded the existing threshold. Such exceedances neither abort
+collection nor fail the campaign or suppress required latency escalation. This
+policy does not change elapsed-time, correctness, evidence-completeness, volume,
+or shutdown gates. Historical failed campaigns keep their original verdicts.
+Investigate evidence of unbounded retention, data surviving its intended phase
+lifetime, or a substantial sustained increase separately; an informational RSS
+verdict does not prove their absence.
+
 This method applies only to the observability campaign. The accepted compiled
 `list` latency specification and its independent performance target retain their
 own sampling and gates.

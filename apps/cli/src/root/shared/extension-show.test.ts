@@ -9,10 +9,7 @@ import { afterEach, beforeEach } from "vitest";
 import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
-import {
-  ExtensionShowResultSchema,
-  EXTENSION_SHOW_ITEM_FIELDS,
-} from "@agentxm/workspace-features/inspection";
+import { LocalInspectionDocumentSchema } from "@agentxm/workspace-features/inspection";
 import { handleExtensionShow } from "./extension-show.js";
 import { paintText } from "../../screen/index.js";
 import { ConfiguredAgentOutcomesProvider } from "@agentxm/workspace-kernel/workspace-state";
@@ -122,7 +119,7 @@ describe("extension show", () => {
             );
             if (machine) {
               expect(rendererState.results[0]?.data).toMatchObject({
-                agentOutcomes: [{ hook, mechanism: "native-hook", nativeUnits }],
+                items: [{ agentOutcomes: [{ hook, mechanism: "native-hook", nativeUnits }] }],
               });
             } else {
               const stdout = rendererState.docs
@@ -169,7 +166,7 @@ describe("extension show", () => {
       );
     });
 
-    it.effect(`emits the shared item field set for ${type}`, () => {
+    it.effect(`keeps desired, accepted, and observed facts distinct for ${type}`, () => {
       const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), settingsFor[type]);
 
@@ -179,14 +176,24 @@ describe("extension show", () => {
 
           const document = rendererState.results[0]?.data;
           expect(document).toBeDefined();
-          expect(Object.keys(document ?? {})).toStrictEqual(
-            type === "mcp-server" ? ["item", "mcp", "agentOutcomes"] : ["item", "agentOutcomes"],
-          );
-          const decoded = Schema.decodeUnknownSync(ExtensionShowResultSchema)(document);
-          expect(Object.keys(decoded.item)).toStrictEqual(EXTENSION_SHOW_ITEM_FIELDS);
-          expect(document).toMatchObject({
-            item: { type, name: "thing", locked: false, version: null },
-          });
+          const decoded = Schema.decodeUnknownSync(LocalInspectionDocumentSchema)(document);
+          expect(decoded.requests).toMatchObject([
+            { kind: "identity", input: "thing", resolution: "resolved", code: 0 },
+          ]);
+          expect(decoded.items).toMatchObject([
+            {
+              identity: {
+                type,
+                name: "thing",
+                scope: "project",
+                source: { authority: "registry" },
+              },
+              desired: { state: "reached", direct: true, enabled: true },
+              accepted: { state: "absent" },
+              observed: { state: "unverified" },
+              runtime: { state: "not-checked" },
+            },
+          ]);
         }),
       );
     });

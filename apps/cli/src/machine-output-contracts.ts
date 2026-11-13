@@ -9,9 +9,10 @@
  * type table that also builds those groups; every other path is named here.
  *
  * The schema names refer to the named Effect Schema used at the renderer call
- * boundary. Success envelopes add `ok` and may add `summary` / `suggestions`.
- * Built-in help and version documents are formatter-owned exceptions. Standard
- * document exports name their external schema. Neither uses the success envelope.
+ * boundary. Ordinary envelopes add `ok`, `mode`, `outcome`, and optional
+ * `summary` / `suggestions`; promoted payload fields are removed once at that
+ * boundary. Formatter documents, schema exports, credential delivery, and
+ * external-standard exports retain their discriminated output policies.
  */
 
 import {
@@ -19,23 +20,56 @@ import {
   extensionTypes,
 } from "@agentxm/extension-model/unstable/extensions";
 
-type MachineOutputClass =
-  "formatter-help" | "structured-result" | "json-refused" | "external-document";
 type HumanOutputKind = "orientation" | "query" | "mutation" | "mixed";
 type LivenessClass = "immediate" | "progress";
 
-interface MachineOutputFamily {
+interface MachineOutputFamilyBase {
+  readonly modes: ReadonlyArray<"query" | "preview" | "apply">;
+  readonly effects: string;
+  readonly completionOwner: string;
   readonly id: string;
-  readonly outputClass: MachineOutputClass;
   readonly humanOutputKind: HumanOutputKind;
   readonly liveness: LivenessClass;
-  readonly schemaNames: ReadonlyArray<string>;
-  readonly externalSchema?: string;
   readonly requiredEnvelopeKeys: ReadonlyArray<string>;
   readonly requiredTopLevelKeys: ReadonlyArray<string>;
   readonly optionalTopLevelKeys: ReadonlyArray<string>;
   readonly rationale: string;
 }
+
+type StructuredResultFamily = MachineOutputFamilyBase & {
+  readonly outputClass: "structured-result";
+  readonly schemaNames: ReadonlyArray<string>;
+  readonly promotedResultFields: ReadonlyArray<"mode" | "outcome">;
+  readonly externalSchema?: never;
+};
+
+/** Output policy makes raw delivery and ordinary result projection mutually exclusive. */
+type MachineOutputFamily =
+  | StructuredResultFamily
+  | (MachineOutputFamilyBase & {
+      readonly promotedResultFields: readonly [];
+    } & (
+        | {
+            readonly outputClass: "formatter-help";
+            readonly schemaNames: ReadonlyArray<"JsonHelpDocSchema" | "JsonVersionDocSchema">;
+            readonly externalSchema?: never;
+          }
+        | {
+            readonly outputClass: "json-refused";
+            readonly schemaNames: readonly ["JsonErrorEnvelopeSchema"];
+            readonly externalSchema?: never;
+          }
+        | {
+            readonly outputClass: "external-document";
+            readonly schemaNames: readonly [];
+            readonly externalSchema: string;
+          }
+        | {
+            readonly outputClass: "json-schema-document";
+            readonly schemaNames: readonly ["JsonSchemaDocumentSchema"];
+            readonly externalSchema?: never;
+          }
+      ));
 
 export interface MachineOutputContractRow {
   readonly path: string;
@@ -45,6 +79,10 @@ export interface MachineOutputContractRow {
 
 const helpFamily = {
   id: "formatter-help",
+  modes: ["query"],
+  effects: "No persistent changes; passive command discovery.",
+  completionOwner: "formatter",
+  promotedResultFields: [],
   outputClass: "formatter-help",
   humanOutputKind: "orientation",
   liveness: "immediate",
@@ -58,12 +96,17 @@ const helpFamily = {
     "subcommands",
     "examples",
     "learnMore",
+    "output",
   ],
   rationale: "Effect CLI owns built-in help rendering before a command handler runs.",
 } satisfies MachineOutputFamily;
 
 const lockExportFamily = {
   id: "accepted-resolutions-cyclonedx",
+  modes: ["query"],
+  effects: "Read accepted resolutions; emit a standard document.",
+  completionOwner: "lock-export",
+  promotedResultFields: [],
   outputClass: "external-document",
   humanOutputKind: "query",
   liveness: "immediate",
@@ -78,11 +121,15 @@ const lockExportFamily = {
 
 const planFamily = {
   id: "plan-resolution",
+  modes: ["preview", "apply"],
+  effects: "Preview a candidate or apply its declared workspace or authored-source transition.",
+  completionOwner: "operation-resolution",
+  promotedResultFields: ["mode", "outcome"],
   outputClass: "structured-result",
   humanOutputKind: "mutation",
   liveness: "progress",
   schemaNames: ["PlanResolutionDocumentSchema"],
-  requiredEnvelopeKeys: ["ok", "result"],
+  requiredEnvelopeKeys: ["ok", "mode", "outcome", "result"],
   requiredTopLevelKeys: ["ok", "result"],
   optionalTopLevelKeys: ["summary", "suggestions"],
   rationale: "Mutations expose one durable plan-resolution result across all execution outcomes.",
@@ -90,11 +137,15 @@ const planFamily = {
 
 const publishFamily = {
   id: "publish",
+  modes: ["preview", "apply"],
+  effects: "Preview publication or upload selected packages to the Registry.",
+  completionOwner: "publish",
+  promotedResultFields: ["mode"],
   outputClass: "structured-result",
   humanOutputKind: "mutation",
   liveness: "progress",
   schemaNames: ["PublishResultSchema"],
-  requiredEnvelopeKeys: ["ok", "result"],
+  requiredEnvelopeKeys: ["ok", "mode", "outcome", "result"],
   requiredTopLevelKeys: [
     "ok",
     "contract",
@@ -116,14 +167,25 @@ const defineResultFamily = (input: {
   readonly optionalTopLevelKeys?: ReadonlyArray<string>;
   readonly rationale: string;
   readonly humanOutputKind?: HumanOutputKind;
+  readonly modes?: ReadonlyArray<"query" | "preview" | "apply">;
+  readonly effects?: string;
+  readonly promotedResultFields?: ReadonlyArray<"mode" | "outcome">;
   readonly liveness: LivenessClass;
-}): MachineOutputFamily => ({
+}): StructuredResultFamily => ({
   id: input.id,
+  modes: input.modes ?? [input.humanOutputKind === "mutation" ? "apply" : "query"],
+  effects:
+    input.effects ??
+    (input.humanOutputKind === "mutation"
+      ? "Apply the command’s declared persistent transition."
+      : "Read and report; no persistent domain changes."),
+  completionOwner: input.id,
+  promotedResultFields: input.promotedResultFields ?? [],
   outputClass: "structured-result",
   humanOutputKind: input.humanOutputKind ?? "query",
   liveness: input.liveness,
   schemaNames: input.schemaNames,
-  requiredEnvelopeKeys: ["ok", "result"],
+  requiredEnvelopeKeys: ["ok", "mode", "outcome", "result"],
   requiredTopLevelKeys: ["ok", ...input.requiredTopLevelKeys],
   optionalTopLevelKeys: ["summary", "suggestions", ...(input.optionalTopLevelKeys ?? [])],
   rationale: input.rationale,
@@ -194,7 +256,11 @@ const agentCapabilitiesFamily = defineResultFamily({
 const loginFamily = defineResultFamily({
   id: "login",
   liveness: "progress",
-  schemaNames: ["LoginDocumentSchema", "LoginNoOpDocumentSchema"],
+  schemaNames: [
+    "LoginDocumentSchema",
+    "LoginNoOpDocumentSchema",
+    "DeviceLoginPendingDocumentSchema",
+  ],
   requiredTopLevelKeys: ["result"],
   rationale: "Login reports the authoritative registry authentication transition.",
   humanOutputKind: "mutation",
@@ -221,6 +287,10 @@ const credentialExportFamily = (
 ) =>
   ({
     id,
+    modes: [humanOutputKind === "mutation" ? "apply" : "query"],
+    effects: "Credential export requires --plain; JSON is refused before credential access.",
+    completionOwner: id,
+    promotedResultFields: [],
     outputClass: "json-refused",
     humanOutputKind,
     liveness,
@@ -277,6 +347,8 @@ const cacheStatusFamily = defineResultFamily({
 
 const cacheVerifyFamily = defineResultFamily({
   id: "cache-verify",
+  humanOutputKind: "mutation",
+  effects: "Verify cached archives and remove corrupt entries.",
   liveness: "progress",
   schemaNames: ["CacheVerifyOutputSchema"],
   requiredTopLevelKeys: ["result"],
@@ -310,23 +382,33 @@ const inventoryFamily = defineResultFamily({
 });
 
 const extensionShowFamily = defineResultFamily({
-  id: "extension-show",
+  id: "local-inspection",
   liveness: "progress",
-  schemaNames: ["ExtensionShowResultSchema"],
-  requiredTopLevelKeys: ["item", "agentOutcomes"],
-  rationale: "Per-type show commands share the extension detail query contract.",
+  schemaNames: ["LocalInspectionDocumentSchema"],
+  requiredTopLevelKeys: [
+    "scope",
+    "requests",
+    "items",
+    "supportingSubjects",
+    "nativeLocations",
+    "nativeReaderDeclarations",
+    "observationDiagnostics",
+    "coverage",
+  ],
+  rationale:
+    "Local inspection answers ownership, editing authority, desired reachability, retention, and observation coverage.",
 });
 
-const mcpInventoryFamily: MachineOutputFamily = {
+const mcpInventoryFamily: StructuredResultFamily = {
   ...inventoryFamily,
   id: "mcp-inventory",
   schemaNames: ["McpServerListQueryResultSchema"],
 };
 
-const subagentShowFamily: MachineOutputFamily = {
+const subagentShowFamily: StructuredResultFamily = {
   ...extensionShowFamily,
   id: "subagent-show",
-  schemaNames: ["ExtensionShowResultSchema", "SubagentRenderResultSchema"],
+  schemaNames: ["LocalInspectionDocumentSchema", "SubagentRenderResultSchema"],
   requiredTopLevelKeys: [],
   optionalTopLevelKeys: [
     "item",
@@ -375,24 +457,6 @@ const registryTransitionFamily = defineResultFamily({
     "All published-extension Registry mutations report an acknowledged, non-restorable transition with action-specific before/after state and revision.",
 });
 
-const packShowFamily = defineResultFamily({
-  id: "pack-show",
-  liveness: "progress",
-  schemaNames: ["PackShowResultSchema"],
-  requiredTopLevelKeys: [
-    "pack",
-    "agentOutcomes",
-    "sourceAuthority",
-    "canonicalPath",
-    "manifestVersion",
-    "acceptedResolution",
-    "canonicalStatus",
-    "desiredDependencies",
-    "problems",
-  ],
-  rationale: "Pack inspection joins desired, accepted-resolution, and observed state.",
-});
-
 const helpTopicFamily = defineResultFamily({
   id: "help-topic",
   schemaNames: ["HelpIndexResultSchema", "HelpTopicResultSchema"],
@@ -427,7 +491,8 @@ const knowledgeConceptGetFamily = defineResultFamily({
   schemaNames: ["KnowledgeConceptGetOutputSchema", "KnowledgeConceptCorpusChangingFailureSchema"],
   requiredTopLevelKeys: ["outcome"],
   optionalTopLevelKeys: ["concept", "reason", "ref", "expectedRevision", "currentRevision"],
-  rationale: "Concept get returns exact source and resolved revision identity.",
+  rationale:
+    "Concept get returns exact source and resolved revision identity; --raw adds concept.raw to JSON and shows authored source in human output.",
 });
 
 const knowledgeConceptQueryFamily = defineResultFamily({
@@ -502,6 +567,8 @@ const knowledgeConceptCapabilitiesFamily = defineResultFamily({
 
 const lintFamily = defineResultFamily({
   id: "workspace-lint",
+  modes: ["query", "preview", "apply"],
+  effects: "Report findings; --fix --preview assesses normalization; --fix applies it.",
   liveness: "progress",
   schemaNames: ["LintResultDocumentSchema"],
   requiredTopLevelKeys: ["result"],
@@ -529,6 +596,9 @@ const instructionsFamily = defineResultFamily({
 
 const setupFamily = defineResultFamily({
   id: "setup",
+  modes: ["preview", "apply"],
+  promotedResultFields: ["outcome"],
+  effects: "Preview initialization or configure workspace projections and the bundled skill.",
   liveness: "progress",
   schemaNames: ["SetupDocumentSchema"],
   requiredTopLevelKeys: ["result"],
@@ -554,6 +624,9 @@ const shareFamily = defineResultFamily({
 
 const upgradeFamily = defineResultFamily({
   id: "upgrade",
+  modes: ["preview", "apply"],
+  promotedResultFields: ["outcome"],
+  effects: "Preview release selection or change the installed AXM executable.",
   liveness: "progress",
   schemaNames: ["UpgradeDocumentSchema"],
   requiredTopLevelKeys: ["result"],
@@ -592,6 +665,23 @@ const visibilityEvaluationFamily = defineResultFamily({
   rationale:
     "Visibility status reports repository intent and authoritative Registry state without mutation.",
 });
+
+const schemaFamily = {
+  id: "schema-document",
+  outputClass: "json-schema-document",
+  humanOutputKind: "orientation",
+  liveness: "immediate",
+  modes: ["query"],
+  effects: "Passive offline schema discovery; no command handler is invoked.",
+  completionOwner: "schema-discovery",
+  promotedResultFields: [],
+  schemaNames: ["JsonSchemaDocumentSchema"],
+  requiredEnvelopeKeys: [],
+  requiredTopLevelKeys: [],
+  optionalTopLevelKeys: ["$schema", "$defs", "$ref", "anyOf", "type"],
+  rationale:
+    "JSON emits a standalone schema; human output is a bounded outline or selected field description.",
+} satisfies MachineOutputFamily;
 
 /** Each extension type's command group, as the command tree registers it. */
 const typeRoutes = extensionTypes.map((type) => `axm ${extensionTypeToPlural[type]}`);
@@ -653,6 +743,7 @@ const rowsFor = (
 
 export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRow> = [
   ...rowsFor(helpFamily, formatterPaths),
+  ...rowsFor(schemaFamily, ["axm schema"]),
   ...rowsFor(lockExportFamily, ["axm lock export"]),
   ...rowsFor(helpFamily, ["axm visibility"]),
   ...rowsFor(helpFamily, ["axm knowledge concepts"]),
@@ -700,7 +791,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
     "axm skills show",
   ]),
   ...rowsFor(subagentShowFamily, ["axm subagents show"]),
-  ...rowsFor(packShowFamily, ["axm packs show"]),
+  ...rowsFor(extensionShowFamily, ["axm show", "axm packs show"]),
   ...rowsFor(helpTopicFamily, ["axm help"]),
   ...rowsFor(knowledgeLintFamily, ["axm knowledge lint"]),
   ...rowsFor(knowledgeListFamily, ["axm knowledge list"]),
@@ -723,6 +814,10 @@ export const FORMATTER_VERSION_CONTRACT = {
   path: "axm --version",
   family: {
     id: "formatter-version",
+    modes: ["query"],
+    effects: "No persistent changes.",
+    completionOwner: "formatter",
+    promotedResultFields: [],
     outputClass: "formatter-help",
     humanOutputKind: "orientation",
     liveness: "immediate",

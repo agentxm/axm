@@ -62,7 +62,7 @@ describe("JsonEnvelopeSchema", () => {
     expect(error.diagnostic).toEqual(diagnostic);
     const result = makeJsonSuccessEnvelope({
       payload: { outcome: "failed" },
-      ok: false,
+      completion: { mode: "apply", outcome: "failed", exitCode: 1 },
       diagnosticId,
     });
     expect(result).toMatchObject({ ok: false, diagnosticId, result: { outcome: "failed" } });
@@ -78,6 +78,7 @@ describe("JsonEnvelopeSchema", () => {
 
   it("decodes success envelopes with suggestions", () => {
     const envelope = makeJsonSuccessEnvelope({
+      completion: { mode: "query", outcome: "completed", exitCode: 0 },
       payload: { name: "code-reviewer" },
       summary: "Created subagent code-reviewer",
       suggestions: [
@@ -89,24 +90,47 @@ describe("JsonEnvelopeSchema", () => {
     expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(envelope)).toEqual(envelope);
     expect(envelope).toMatchObject({
       ok: true,
+      mode: "query",
+      outcome: "completed",
       result: { name: "code-reviewer" },
     });
   });
 
   it("keeps an existing result payload at the one documented envelope key", () => {
-    expect(makeJsonSuccessEnvelope({ payload: { result: { outcome: "applied" } } })).toEqual({
+    expect(
+      makeJsonSuccessEnvelope({
+        completion: { mode: "query", outcome: "completed", exitCode: 0 },
+        payload: { result: { outcome: "applied" } },
+      }),
+    ).toEqual({
       ok: true,
+      mode: "query",
+      outcome: "completed",
       result: { outcome: "applied" },
     });
   });
 
   it("places scalar payloads at the same result envelope key", () => {
-    expect(makeJsonSuccessEnvelope({ payload: "1.2.3" })).toEqual({
+    expect(
+      makeJsonSuccessEnvelope({
+        completion: { mode: "query", outcome: "completed", exitCode: 0 },
+        payload: "1.2.3",
+      }),
+    ).toEqual({
       ok: true,
+      mode: "query",
+      outcome: "completed",
       result: "1.2.3",
     });
-    expect(makeJsonSuccessEnvelope({ payload: null })).toEqual({
+    expect(
+      makeJsonSuccessEnvelope({
+        completion: { mode: "query", outcome: "completed", exitCode: 0 },
+        payload: null,
+      }),
+    ).toEqual({
       ok: true,
+      mode: "query",
+      outcome: "completed",
       result: null,
     });
   });

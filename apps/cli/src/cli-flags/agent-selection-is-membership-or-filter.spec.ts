@@ -52,6 +52,7 @@ export const specification = defineSpecification({
 const AGENT_SELECTION_COMMANDS = [
   "axm setup",
   "axm install",
+  "axm show",
   "axm skills handoff",
   "axm skills install",
   "axm subagents install",
@@ -128,6 +129,7 @@ describe("Unsupported agent identifiers", () => {
       args: ["setup", "--yes", "--scope", "project", "--non-interactive", "--agent", "bogus"],
     },
     { command: "axm install", args: ["install", "./skills", "--agent", "bogus"] },
+    { command: "axm show", args: ["show", "example", "--agent", "bogus"] },
     ...["skills", "subagents", "mcps", "rules", "hooks", "knowledge", "packs"].flatMap((group) => [
       { command: `axm ${group} list`, args: [group, "list", "--agent", "bogus"] },
       { command: `axm ${group} show`, args: [group, "show", "example", "--agent", "bogus"] },

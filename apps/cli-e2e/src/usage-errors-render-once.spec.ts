@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeOutputControlsFixture } from "./test-support/output-controls-harness.js";
+import { recordWireWitness } from "./test-support/wire-contracts.js";
 
 export const specification = defineSpecification({
   requirement: "cli/usage-errors-render-once",
@@ -40,6 +41,11 @@ describe("Usage error rendering", () => {
         expect(result.exitCode, result.stdout + result.stderr).toBe(2);
         if (format === "json") {
           expect(decodeFailure(result.stdout)).toMatchObject({ ok: false, code: "usage" });
+          // These required positional arguments are absent: the parser cannot
+          // invoke a target handler. The independent exit/error assertions
+          // above establish this boundary, rather than inferring it from the
+          // absence of progress on stderr.
+          recordWireWitness(result, "generic-error:before-operation");
         } else {
           expect(result.stdout).toBe("");
           expect(result.stderr).toContain("USAGE");

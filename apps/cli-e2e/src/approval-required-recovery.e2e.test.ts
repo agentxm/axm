@@ -77,10 +77,12 @@ describe("Advance-approval recovery over the built CLI", () => {
       const blockedDocument = Schema.decodeUnknownSync(PlanResolutionDocument)(
         JSON.parse(blocked.stdout),
       );
-      expect(blockedDocument.result).toMatchObject({
+      expect(blockedDocument).toMatchObject({
         outcome: "blocked",
-        counts: { committed: 0 },
-        blocking: { class: "approval-required", subject: "replace-workspace-authority" },
+        result: {
+          counts: { committed: 0 },
+          blocking: { class: "approval-required", subject: "replace-workspace-authority" },
+        },
       });
       expect(snapshotTree(fixture.invoking)).toEqual(before);
       const recovery = blockedDocument.result.blocking?.escape?.cmd;
@@ -95,7 +97,7 @@ describe("Advance-approval recovery over the built CLI", () => {
       const appliedDocument = Schema.decodeUnknownSync(PlanResolutionDocument)(
         JSON.parse(applied.stdout),
       );
-      expect(appliedDocument.result.outcome).toBe("applied");
+      expect(appliedDocument.outcome).toBe("applied");
       const settings: unknown = JSON.parse(
         fs.readFileSync(path.join(fixture.invoking, "axm.json"), "utf8"),
       );

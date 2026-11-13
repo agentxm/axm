@@ -512,7 +512,7 @@ and Knowledge discovery are absent.
 
 ## Configured-agent outcomes
 
-Lifecycle previews, applied results, and detailed extension inventory use the same
+Lifecycle previews, applied results, and local inspection use the same
 configured-agent outcome vocabulary:
 
 - `projected` — preview expects a supported agent projection.
@@ -532,11 +532,13 @@ such as hook mechanism and projection path remain additional evidence rather
 than replacing the common outcome.
 
 Ordinary inventory reports `agents.configured` and `agents.observed` separately
-from native outcomes. Its `inspection.state` is `not-requested`. With
-`--details`, `inspection` contains the native outcomes and reports `complete`,
-`partial`, or `not-applicable`. A complete inspection can still find missing or
-modified output. Knowledge counts appear in `inspection.knowledge` after
-content inspection. Remote `assessment` is independent.
+from native outcomes. Its `inspection.state` is `not-requested`. Use
+`axm show <identity>` or a typed command such as `axm skills show <name>` for
+local evidence; `--all` selects every local subject. Each inspection item
+separates desired, accepted, observed, retention, and native coverage. A complete
+inspection can still find missing or modified output. Knowledge counts appear
+in an inspected item's `knowledge` field after content inspection. Remote
+`assessment` is independent.
 
 Presence comes from current observations: the lockfile alone does not prove an
 installation exists. An unreadable observation can report `installed: null`

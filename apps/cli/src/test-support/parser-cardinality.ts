@@ -56,9 +56,13 @@ export const repeatedFlagControls = [
   control("mcps add", "arg", ["first", "second"], ["parser-fixture"]),
   control("mcps add", "header-env", ["X-One=ONE", "X-Two=TWO"], ["parser-fixture"]),
   control("mcps adopt", "name"),
+  control("show", "agent", ["claude-code", "codex"], ["parser-fixture"]),
+  control("show", "type", ["skill", "rule"], ["parser-fixture"]),
+  control("show", "path", [".agents/skills/one", ".mcp.json"]),
   ...["skills", "subagents", "mcps", "rules", "hooks", "knowledge", "packs"].flatMap((group) => [
     control(`${group} list`, "agent", ["claude-code", "codex"]),
     control(`${group} show`, "agent", ["claude-code", "codex"], ["parser-fixture"]),
+    control(`${group} show`, "path", ["./first", "./second"]),
   ]),
   control("mcps install", "bind", ["environment/ONE=1", "environment/TWO=2"]),
   control("mcps install", "bind-env", ["environment/ONE=ONE", "environment/TWO=TWO"]),

@@ -415,7 +415,20 @@ describe.skipIf(!ptyIsSupported)("a wait under a pseudo-terminal", () => {
       const started = await runCli(["login", "--device-code", "--json", "--non-interactive"], {
         env: { HOME: home, AXM_USER_HOME: home, ...env, NO_COLOR: "1" },
       });
-      expect(started.exitCode, started.stdout + started.stderr).toBe(0);
+      expect(started.exitCode, started.stdout + started.stderr).toBe(13);
+      expect(JSON.parse(started.stdout)).toMatchObject({
+        ok: false,
+        mode: "apply",
+        outcome: "pending-human",
+        result: {
+          status: "pending-human",
+          blockedOn: "human",
+          retryable: true,
+          flow: "started",
+          userCode: "ABCD-1234",
+          verificationUriComplete: `${auth.url}/device?user_code=ABCD-1234`,
+        },
+      });
 
       const result = await runCliUnderPty(["login", "--device-code", "--wait-for-human", "300"], {
         home,

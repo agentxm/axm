@@ -9,7 +9,7 @@ import * as Deferred from "effect/Deferred";
 import { writeSync } from "node:fs";
 
 import { processOutcome } from "./process-outcome.js";
-import { OperationExit, type OperationSettlement } from "./operation-exit.js";
+import { OperationExit, makeOperationExit } from "./operation-exit.js";
 import { recordInterruptionSignal } from "./interruption.js";
 import { interruptionFallback } from "../screen/index.js";
 
@@ -90,19 +90,19 @@ export const makeSignalShutdown = <A, E>(args: {
 export const withGracefulShutdown = <A, E, R>(program: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
     const services = yield* Effect.context<R>();
-    const reportedExit = yield* Ref.make(Option.none<OperationSettlement>());
+    const operationExit = yield* makeOperationExit;
     const signalFinalized = yield* Deferred.make<void>();
     const fiber = yield* Effect.forkChild(
-      program.pipe(Effect.provideService(OperationExit, { ref: reportedExit })),
+      program.pipe(Effect.provideService(OperationExit, operationExit)),
     );
     // eslint-disable-next-line no-restricted-syntax -- Signal callbacks are a sanctioned process-entry adapter.
     const runFork = Effect.runForkWith(services);
     const onSignal = makeSignalShutdown({
       fiber,
       runFork,
-      reportedExitCode: Ref.get(reportedExit).pipe(
-        Effect.map(Option.map((settlement) => settlement.exitCode)),
-      ),
+      // Lifecycle settlement alone is not a terminal document. A read which
+      // was interrupted still needs the explicit signal notice on stderr.
+      reportedExitCode: Ref.get(operationExit.processExitCode),
       finalized: Deferred.succeed(signalFinalized, undefined).pipe(Effect.asVoid),
     });
     let requestedExitCode: number | undefined;

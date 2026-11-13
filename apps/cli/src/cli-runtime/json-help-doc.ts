@@ -1,3 +1,9 @@
+import { CommandCapabilitiesAnnotation } from "../root/shared/command-capabilities.js";
+import {
+  OutputContractSummarySchema,
+  outputContractSummary,
+  type OutputContractSummary,
+} from "../output-discovery.js";
 import type { ParameterRecord } from "../cli-parameters.js";
 import * as ServiceMap from "effect/Context";
 import {
@@ -41,6 +47,7 @@ export interface JsonHelpDoc {
   readonly subcommands?: ReadonlyArray<JsonSubcommandGroupDoc> | undefined;
   readonly examples?: ReadonlyArray<JsonExampleDoc> | undefined;
   readonly learnMore?: string | undefined;
+  readonly output?: OutputContractSummary | undefined;
 }
 
 const JsonFlagDocSchema = ParameterSchema;
@@ -74,6 +81,7 @@ export const JsonHelpDocSchema = Schema.Struct({
   subcommands: Schema.optional(Schema.Array(JsonSubcommandGroupDocSchema)),
   examples: Schema.optional(Schema.Array(JsonExampleDocSchema)),
   learnMore: Schema.optional(Schema.String),
+  output: Schema.optional(OutputContractSummarySchema),
 });
 
 export const JsonVersionDocSchema = Schema.Struct({
@@ -123,6 +131,10 @@ export const toJsonHelpDoc = (
           .join("")}`;
   return {
     type: "help",
+    output: outputContractSummary(
+      path,
+      ServiceMap.get(doc.annotations, CommandCapabilitiesAnnotation),
+    ),
     description: doc.description,
     usage,
     flags: doc.flags.map(flagRecord),

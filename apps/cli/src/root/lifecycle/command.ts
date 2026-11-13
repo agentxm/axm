@@ -41,7 +41,13 @@ const categoryValues = ["broken", "security", "accidental", "other"] as const;
  */
 const emitRegistryTransition = (transition: RegistryTransition) =>
   Effect.gen(function* () {
-    yield* emitResult(transition, RegistryTransitionSchema, () => successDoc(transition.message));
+    yield* emitResult(transition, RegistryTransitionSchema, () => successDoc(transition.message), {
+      completion: {
+        mode: "apply",
+        outcome: transition.disposition === "already-current" ? "no-op" : "applied",
+        exitCode: 0,
+      },
+    });
   });
 
 export const handleYank = Effect.fn("Yank.handle")(
@@ -62,6 +68,11 @@ export const handleYank = Effect.fn("Yank.handle")(
           ...(category === undefined ? {} : { category }),
           ...(message === undefined ? {} : { message }),
         }),
+        (transition) => ({
+          mode: "apply",
+          outcome: transition.disposition === "already-current" ? "no-op" : "applied",
+          exitCode: 0,
+        }),
       ),
     );
   },
@@ -75,6 +86,11 @@ export const handleUnyank = Effect.fn("Unyank.handle")(
       yield* withLiveOperation(
         { name: `Restore ${ref}`, mode: "apply" },
         RetirePublishedVersion.unyank(ref),
+        (transition) => ({
+          mode: "apply",
+          outcome: transition.disposition === "already-current" ? "no-op" : "applied",
+          exitCode: 0,
+        }),
       ),
     );
   },
@@ -139,6 +155,13 @@ const emitDeprecationTransition = (
             )),
       ];
     },
+    {
+      completion: {
+        mode: "apply",
+        outcome: transition.disposition === "unchanged" ? "no-op" : "applied",
+        exitCode: 0,
+      },
+    },
   );
 
 export const handleDeprecate = Effect.fn("Deprecate.handle")(
@@ -153,6 +176,11 @@ export const handleDeprecate = Effect.fn("Deprecate.handle")(
     const written = yield* withLiveOperation(
       { name: `Deprecate ${input.ref}`, mode: "apply" },
       DeprecatePublishedExtension.deprecate(input),
+      (written) => ({
+        mode: "apply",
+        outcome: written.transition.disposition === "unchanged" ? "no-op" : "applied",
+        exitCode: 0,
+      }),
     );
     yield* emitDeprecationTransition("deprecate", written.registry, written.transition);
   },
@@ -165,6 +193,11 @@ export const handleUndeprecate = Effect.fn("Undeprecate.handle")(
     const written = yield* withLiveOperation(
       { name: `Restore ${ref}`, mode: "apply" },
       DeprecatePublishedExtension.undeprecate(ref),
+      (written) => ({
+        mode: "apply",
+        outcome: written.transition.disposition === "unchanged" ? "no-op" : "applied",
+        exitCode: 0,
+      }),
     );
     yield* emitDeprecationTransition("undeprecate", written.registry, written.transition);
   },
@@ -215,6 +248,13 @@ const emitArchivalTransition = (
           : headlineDoc("info", `Message: ${transition.after.message}`)),
       ];
     },
+    {
+      completion: {
+        mode: "apply",
+        outcome: transition.disposition === "unchanged" ? "no-op" : "applied",
+        exitCode: 0,
+      },
+    },
   );
 
 export const handleArchive = Effect.fn("Archive.handle")(
@@ -226,6 +266,11 @@ export const handleArchive = Effect.fn("Archive.handle")(
     const written = yield* withLiveOperation(
       { name: `Archive ${input.ref}`, mode: "apply" },
       ArchivePublishedExtension.archive(input),
+      (written) => ({
+        mode: "apply",
+        outcome: written.transition.disposition === "unchanged" ? "no-op" : "applied",
+        exitCode: 0,
+      }),
     );
     yield* emitArchivalTransition("archive", written.registry, written.transition);
   },
@@ -238,6 +283,11 @@ export const handleUnarchive = Effect.fn("Unarchive.handle")(
     const written = yield* withLiveOperation(
       { name: `Unarchive ${ref}`, mode: "apply" },
       ArchivePublishedExtension.unarchive(ref),
+      (written) => ({
+        mode: "apply",
+        outcome: written.transition.disposition === "unchanged" ? "no-op" : "applied",
+        exitCode: 0,
+      }),
     );
     yield* emitArchivalTransition("unarchive", written.registry, written.transition);
   },

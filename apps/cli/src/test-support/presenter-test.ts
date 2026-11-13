@@ -45,6 +45,7 @@ export interface TestRendererState {
     data: unknown;
     schema: Option.Option<Schema.Top>;
     ok?: boolean;
+    completion?: ResultOptions["completion"];
   }>;
   readonly markdown: Array<string>;
   /** Every lifecycle event observed, in order, across observed operations. */
@@ -286,7 +287,9 @@ const makeTestScreenService = (
       state.results.push({
         data,
         schema: Option.some(schema),
-        ...(options?.ok === undefined ? {} : { ok: options.ok }),
+        ...(options?.completion === undefined
+          ? {}
+          : { ok: options.completion.exitCode === 0, completion: options.completion }),
       });
       if (
         resultReturnValue &&

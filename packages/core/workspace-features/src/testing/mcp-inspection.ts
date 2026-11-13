@@ -6,13 +6,24 @@
  */
 import * as Effect from "effect/Effect";
 
-import { listMcpServers, ShowExtension } from "../inspection/index.js";
+import { LocalInspection } from "../inspection/index.js";
 
-/** The row `mcps list` reports for one MCP server, if it lists one. */
-export const listedMcpServer = (name: string) =>
-  listMcpServers({ details: true }).pipe(
-    Effect.map((listed) => listed.rows.find((candidate) => candidate.name === name)),
+/** The subject `mcps show --all` reports for one MCP server, if present. */
+export const inspectedMcpServer = (name: string) =>
+  LocalInspection.query({ selection: { kind: "all" }, types: ["mcp-server"] }).pipe(
+    Effect.map((listed) => listed.items.find((candidate) => candidate.identity.name === name)),
   );
 
 /** What `mcps show <name>` reports for one MCP server. */
-export const shownMcpServer = (name: string) => ShowExtension.query({ type: "mcp-server", name });
+export const shownMcpServer = (name: string) =>
+  LocalInspection.query({
+    selection: { kind: "identities", identities: [name] },
+    types: ["mcp-server"],
+  }).pipe(
+    Effect.flatMap((document) => {
+      const item = document.items[0];
+      return item === undefined
+        ? Effect.die(new Error(`Expected inspected MCP ${name}`))
+        : Effect.succeed(item);
+    }),
+  );

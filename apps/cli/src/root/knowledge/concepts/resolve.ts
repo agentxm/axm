@@ -45,6 +45,16 @@ export const handleKnowledgeConceptResolve = Effect.fnUntraced(function* (
       "KnowledgeCorpusUnavailable",
       (failure) => Effect.fail(knowledgeFailureToAppError(failure)),
     ),
+    (result) => ({
+      mode: "query",
+      outcome: "completed",
+      exitCode:
+        result.outcome === "not-found"
+          ? ExitCode.NotFound
+          : result.outcome === "corpus-changing" || result.document.outcome !== "resolved"
+            ? ExitCode.Conflict
+            : ExitCode.Success,
+    }),
   );
   if (resolved.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   if (resolved.outcome === "not-found") {
@@ -76,7 +86,13 @@ export const handleKnowledgeConceptResolve = Effect.fnUntraced(function* (
       }
       return [];
     },
-    { ok: success },
+    {
+      completion: {
+        mode: "query",
+        outcome: "completed",
+        exitCode: success ? ExitCode.Success : ExitCode.Conflict,
+      },
+    },
   );
   if (!success) {
     return processOutcome(ExitCode.Conflict);

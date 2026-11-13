@@ -250,7 +250,7 @@ describe("application exit-code contract", () => {
     },
   );
 
-  it("keeps cache status flat inside the ordinary result envelope", async () => {
+  it("reports empty cache status and no-op maintenance inside ordinary result envelopes", async () => {
     const home = createTempDir();
     try {
       const result = await runCli(["cache", "status", "--json"], {
@@ -264,6 +264,22 @@ describe("application exit-code contract", () => {
         result: { entries: 0, bytes: 0, maxBytes: 2_147_483_648, maxAgeDays: 90 },
       });
       expect(document).not.toHaveProperty("result.data");
+
+      for (const [command, expected] of [
+        ["verify", { checked: 0, valid: 0, corruptRemoved: 0 }],
+        ["prune", { removed: 0, bytesFreed: 0, remaining: 0, remainingBytes: 0 }],
+      ] as const) {
+        const maintenance = await runCli(["cache", command, "--json"], {
+          env: { AXM_USER_HOME: home.path },
+        });
+        expect(maintenance.exitCode, maintenance.stdout + maintenance.stderr).toBe(0);
+        expect(JSON.parse(maintenance.stdout)).toMatchObject({
+          ok: true,
+          mode: "apply",
+          outcome: "no-op",
+          result: expected,
+        });
+      }
     } finally {
       home.cleanup();
     }
@@ -589,9 +605,9 @@ describe("main CLI help", () => {
       const firstAdd = await runCli(addArgs, { cwd: workspace.path });
       const secondAdd = await runCli(addArgs, { cwd: workspace.path });
       expect(firstAdd.exitCode).toBe(0);
-      expect(JSON.parse(firstAdd.stdout)).toMatchObject({ result: { outcome: "applied" } });
+      expect(JSON.parse(firstAdd.stdout)).toMatchObject({ outcome: "applied" });
       expect(secondAdd.exitCode).toBe(0);
-      expect(JSON.parse(secondAdd.stdout)).toMatchObject({ result: { outcome: "no-op" } });
+      expect(JSON.parse(secondAdd.stdout)).toMatchObject({ outcome: "no-op" });
 
       const lint = await runCli(["lint", "--json"], { cwd: workspace.path });
       expect(lint.exitCode).toBe(0);
@@ -605,9 +621,9 @@ describe("main CLI help", () => {
       const firstUninstall = await runCli(uninstallArgs, { cwd: workspace.path });
       const secondUninstall = await runCli(uninstallArgs, { cwd: workspace.path });
       expect(firstUninstall.exitCode).toBe(0);
-      expect(JSON.parse(firstUninstall.stdout)).toMatchObject({ result: { outcome: "applied" } });
+      expect(JSON.parse(firstUninstall.stdout)).toMatchObject({ outcome: "applied" });
       expect(secondUninstall.exitCode).toBe(0);
-      expect(JSON.parse(secondUninstall.stdout)).toMatchObject({ result: { outcome: "no-op" } });
+      expect(JSON.parse(secondUninstall.stdout)).toMatchObject({ outcome: "no-op" });
 
       const afterUninstall = JSON.parse(fs.readFileSync(nativeConfigPath, "utf8"));
       expect(afterUninstall.mcpServers.demo).toBeUndefined();

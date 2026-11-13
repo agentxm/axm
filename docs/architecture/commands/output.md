@@ -103,6 +103,28 @@ interaction.
 Views do not write directly to process streams or derive machine data by parsing
 terminal text.
 
+Ordinary results share one typed completion decision across the stdout envelope,
+lifecycle settlement, semantic telemetry, and exit. Operation mode and outcome
+remain separate from the command verdict and the subject's health. A completed
+negative query is still completed; an indeterminate remote effect remains
+indeterminate. Output delivery failure may supersede the process exit without
+rewriting already settled effects. Pre-operation errors, formatter documents,
+credential delivery, raw content, and external documents retain their declared
+special contracts.
+
+Ordinary machine JSON is minified and ends with a newline. Feature owners remove
+repeated declarations and identical evidence at the document boundary, preserving
+actual observations, audiences, ownership, phases, exceptions, and complete
+selected rows. Result-local references resolve within that captured document.
+Human views consume these same facts and present a direct answer. They do not
+require readers to reconstruct ownership or parse labels to learn source and
+version transitions.
+
+Reference size budgets constrain representative workloads, including bulk
+inspection and restoration. They are not truncation limits on exact authored
+content, full schemas, arbitrary selected sets, or archive paths. Output size,
+token counts, task success, and elapsed time are separate evidence dimensions.
+
 Interactive and plain modes paint the same human document. Interactive mode
 may add color and animate the live frame only when the target stream is a TTY;
 plain mode emits static text without cursor movement. Color capability and
@@ -121,9 +143,12 @@ plan because it creates no local artifact.
 
 Effect schemas own published wire shapes. The single register in
 `apps/cli/src/machine-output-contracts.ts` classifies every command path by
-result family and explicit liveness. Tests compare it with the real command
-tree. Executable specifications and command tests own the human and machine
-scenarios each family must cover. Formatter help, version, usage errors, and
+result family, output policy, operation modes, completion owner, and explicit
+liveness. Coverage compares it with the real command tree and capabilities.
+Process checks validate actual stdout against the schemas discovered from the
+built CLI and check result, lifecycle, and exit agreement. Executable
+specifications own the required scenarios; command tests witness them.
+Formatter help, version, usage errors, and
 explicit raw credential output retain their own contracts.
 
 The executable specifications `cli/output-preserves-committed-history`,
@@ -197,7 +222,9 @@ Use `withLiveOperation` around observed work, preserving the core lifecycle
 stream and its drain-before-result boundary. Publish domain phases where the
 work happens; do not create fake units to obtain a spinner. A completed read,
 download, or verification is finished work, not evidence that an extension was
-installed. The typed domain result owns the verdict.
+installed. The typed domain result owns the verdict. Its completion adapter
+supplies the decision used by both lifecycle and result emission; presentation
+does not infer effects from labels, item success counts, or operation mode.
 
 Use `Screen.note` for durable context and diagnostics, `Screen.instruction`
 for required action, and `Screen.ask` or `Screen.wait` for interaction. Required

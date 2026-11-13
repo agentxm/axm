@@ -50,8 +50,8 @@ const BundleColumns = [
 
 const { handler, command } = makePerTypeListCommand({
   type: "knowledge",
-  query: (agents, details) =>
-    ListKnowledge.query({ agents, details }).pipe(Effect.mapError(inspectionFailureToAppError)),
+  query: (agents) =>
+    ListKnowledge.query({ agents }).pipe(Effect.mapError(inspectionFailureToAppError)),
   schema: KnowledgeListQueryResultSchema,
   columns: BundleColumns,
   summary: (_document, rows) => count(rows.length, "knowledge bundle"),

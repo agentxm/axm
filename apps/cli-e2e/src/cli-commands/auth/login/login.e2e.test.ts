@@ -69,13 +69,18 @@ describe("axm login", () => {
       const started = yield* invoke(["login", "--device-code", "--json", "--non-interactive"], {
         env,
       });
-      expect(started.exitCode).toBe(0);
-      expect(started.stdout).toContain('"status": "pending-human"');
-      expect(started.stdout).toContain('"userCode": "ABCD-1234"');
-      expect(started.stdout).toContain(
-        '"resume": "axm login --device-code --wait-for-human 300 --json"',
-      );
-      expect(started.stdout).toContain('"verificationUri": "' + auth.url + '/device"');
+      expect(started.exitCode).toBe(13);
+      expect(JSON.parse(started.stdout)).toMatchObject({
+        ok: false,
+        mode: "apply",
+        outcome: "pending-human",
+        result: {
+          status: "pending-human",
+          userCode: "ABCD-1234",
+          resume: "axm login --device-code --wait-for-human 300 --json",
+          verificationUri: `${auth.url}/device`,
+        },
+      });
       expect(started.stdout).toContain(auth.url + "/device?user_code=ABCD-1234");
 
       auth.setOutcome("approved");
@@ -121,20 +126,25 @@ describe("axm login", () => {
         (yield* invoke(["login", "--device-code", "--json", "--non-interactive"], {
           env,
         })).exitCode,
-      ).toBe(0);
+      ).toBe(13);
       const expired = yield* invoke(
         ["login", "--device-code", "--wait-for-human", "5", "--json", "--non-interactive"],
         { env, timeout: 10_000 },
       );
       expect(expired.exitCode).toBe(14);
-      expect(expired.stdout).toContain('"code": "auth_expired"');
+      expect(JSON.parse(expired.stdout)).toMatchObject({ ok: false, code: "auth_expired" });
 
       // The expired flow was cleared, so the next sign-in starts a new one.
       const restarted = yield* invoke(["login", "--device-code", "--json", "--non-interactive"], {
         env,
       });
-      expect(restarted.exitCode).toBe(0);
-      expect(restarted.stdout).toContain('"flow": "started"');
+      expect(restarted.exitCode).toBe(13);
+      expect(JSON.parse(restarted.stdout)).toMatchObject({
+        ok: false,
+        mode: "apply",
+        outcome: "pending-human",
+        result: { flow: "started" },
+      });
     }).pipe(Effect.scoped),
   );
 });

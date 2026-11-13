@@ -111,13 +111,30 @@ describe("toPlanResolutionResult", () => {
       blocked: 0,
       unverified: 0,
     });
-    const shared = result.nativeLocations.find(
+    const shared = result.nativeLocations.filter(
       (location) =>
         location.address.kind === "key-path" && location.address.keys[1] === "context#one",
     );
-    expect(shared?.aliases).toEqual(["/workspace/.cursor/mcp.json", "/workspace/.mcp.json"]);
-    expect(shared?.configuredConsumers).toEqual(["claude-code", "cursor"]);
-    expect(shared?.potentialReaders).toEqual(["unconfigured-reader"]);
+    expect(shared.map(({ aliases }) => aliases)).toEqual([
+      ["/workspace/.mcp.json"],
+      ["/workspace/.cursor/mcp.json"],
+    ]);
+    expect(shared.map(({ configuredConsumers }) => configuredConsumers)).toEqual([
+      ["claude-code"],
+      ["cursor"],
+    ]);
+    expect(
+      shared.every(
+        ({ readerDeclarationRef }) =>
+          result.nativeReaderDeclarations.find(({ id }) => id === readerDeclarationRef)
+            ?.potentialReaders[0] === "unconfigured-reader",
+      ),
+    ).toBe(true);
+    for (const item of result.units) {
+      expect(item.artifact).not.toHaveProperty("nativeLocations");
+      for (const id of item.artifact?.nativeLocationRefs ?? [])
+        expect(result.nativeLocations.some((record) => record.id === id)).toBe(true);
+    }
   });
 
   it.each(["rolled-back", "failed", "cancelled"] as const)(
@@ -139,9 +156,46 @@ describe("toPlanResolutionResult", () => {
       );
       expect(result.nativeLocations[0]?.state).toBe("unverified");
       expect(result.nativeLocationCounts.changed).toBe(0);
-      expect(result.units[0]?.artifact?.nativeLocations?.[0]?.state).toBe("unverified");
+      const nativeRef = result.units[0]?.artifact?.nativeLocationRefs?.[0];
+      expect(result.nativeLocations.find(({ id }) => id === nativeRef)?.state).toBe("unverified");
     },
   );
+
+  it("shares native evidence across units and nested closure members without losing proposals", () => {
+    const artifact: JobStepArtifact = {
+      path: "native.json",
+      scope: "project",
+      change: "created",
+      nativeLocations: [nativeLocation],
+    };
+    const preview = toPlanResolutionResult(
+      resolution({
+        mode: "preview",
+        units: [
+          unit("a", "ready", { artifact }),
+          unit("b", "ready", {
+            artifact: { ...artifact, members: [{ id: "member", changed: true, artifact }] },
+          }),
+        ],
+      }),
+    );
+    expect(preview.nativeLocations).toHaveLength(1);
+    expect(preview.nativeLocations[0]).toMatchObject({
+      phase: "proposal",
+      state: "created",
+      proof: "managed-mcp-entry",
+      mechanism: "structured-entry",
+    });
+    expect(preview.units.map(({ artifact }) => artifact?.nativeLocationRefs)).toEqual([
+      ["native-1"],
+      ["native-1"],
+    ]);
+    expect(preview.units[1]?.artifact?.members?.[0]?.artifact.nativeLocationRefs).toEqual([
+      "native-1",
+    ]);
+    expect(JSON.stringify(preview).match(/managed-mcp-entry/g)).toHaveLength(1);
+    expect(Schema.decodeUnknownSync(PlanResolutionResultSchema)(preview)).toEqual(preview);
+  });
 
   it("renders nested recovery and escape actions without exposing internal invocation data", () => {
     const invocation = {
@@ -311,6 +365,61 @@ describe("toPlanResolutionResult", () => {
         },
       ],
     });
+  });
+
+  it("preserves structured transition facts and redacts their locators without parsing labels", () => {
+    const value = resolution({
+      units: [
+        unit("review", "committed", {
+          label: "A display label without transition facts",
+          transitions: [
+            {
+              type: "skill",
+              name: "review",
+              previous: {
+                source: {
+                  kind: "registry",
+                  identity: "@acme/skills/review",
+                  locator: "https://person:SENTINEL_PRIOR@registry.example.com/",
+                },
+                version: "2.0.0",
+              },
+              proposed: {
+                source: {
+                  kind: "registry",
+                  identity: "@acme/skills/review",
+                  locator: "https://person:SENTINEL_NEXT@registry.example.com/",
+                },
+                version: "1.0.0",
+              },
+              observedReason: "missing",
+              downgrade: true,
+            },
+          ],
+          artifact: {
+            path: "skills/review",
+            scope: "project",
+            change: "updated",
+            source: {
+              type: "git",
+              origin: "https://person:SENTINEL_SOURCE@example.com/review.git",
+              ref: "token=SENTINEL_REF",
+            },
+          },
+        }),
+      ],
+    });
+    const result = Schema.decodeUnknownSync(PlanResolutionResultSchema)(
+      toPlanResolutionResult(value),
+    );
+    expect(result.units[0]?.transitions?.[0]).toMatchObject({
+      previous: { version: "2.0.0" },
+      proposed: { version: "1.0.0" },
+      observedReason: "missing",
+      downgrade: true,
+    });
+    expect(result.units[0]?.artifact?.source).toBeDefined();
+    expect(JSON.stringify(result)).not.toMatch(/SENTINEL_(PRIOR|NEXT|SOURCE|REF)/);
   });
 
   it("C-13: a fully unchanged resolution projects no-op with unchanged covering the total", () => {
@@ -876,7 +985,7 @@ describe("toPlanResolutionResult", () => {
     ]);
   });
 
-  it("includes artifact source details only in debug output", () => {
+  it("keeps artifact source facts complete at ordinary and debug verbosity", () => {
     const artifact: JobStepArtifact = {
       path: ".agents/skills/quality",
       scope: "project",
@@ -898,6 +1007,12 @@ describe("toPlanResolutionResult", () => {
       scope: "project",
       change: "created",
       fileCount: 9,
+      source: {
+        type: "github",
+        origin: "https://github.com/qualitymd/quality.md",
+        directory: ".",
+        gitTreeHash: "2ade2ca678e5f91a7d4dd31e74e84d1bcc3986eb",
+      },
     });
     expect(toPlanResolutionResult(value, { debug: true }).units[0]?.artifact).toEqual({
       path: ".agents/skills/quality",

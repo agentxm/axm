@@ -17,8 +17,14 @@ describe("machine-output document contract", () => {
   });
 
   it.each([
-    [{ ok: true, result: { items: [] } }, "result-envelope-v1"],
-    [{ ok: false, result: { outcome: "failed" } }, "result-envelope-v1"],
+    [
+      { ok: true, mode: "query", outcome: "completed", result: { items: [] } },
+      "result-envelope-v1",
+    ],
+    [
+      { ok: false, mode: "apply", outcome: "failed", result: { status: "failed" } },
+      "result-envelope-v1",
+    ],
     [
       { ok: false, code: "usage", title: "Usage Error", detail: "Invalid arguments" },
       "error-envelope-v1",

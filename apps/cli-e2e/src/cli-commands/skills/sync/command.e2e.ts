@@ -29,10 +29,10 @@ describe("axm sync configured skills", () => {
       expect(assertion.exitCode, `${assertion.stderr}\n${assertion.stdout}`).toBe(1);
       expect(JSON.parse(assertion.stdout)).toMatchObject({
         ok: false,
+        outcome: "previewed",
+        mode: "preview",
         result: {
           contract: "plan-result-v4",
-          outcome: "previewed",
-          mode: "preview",
           divergence: true,
           counts: { total: 1, ready: 1, committed: 0 },
           units: [{ id: "skill:my-skill", state: "ready" }],
@@ -68,11 +68,8 @@ describe("axm sync configured skills", () => {
       const convergedDocument = JSON.parse(converged.stdout);
       expect(convergedDocument).toMatchObject({
         ok: true,
-        result: {
-          contract: "plan-result-v4",
-          outcome: "no-op",
-          counts: { total: 0, committed: 0 },
-        },
+        outcome: "no-op",
+        result: { contract: "plan-result-v4", counts: { total: 0, committed: 0 } },
       });
       expect(convergedDocument.result).not.toHaveProperty("divergence");
     } finally {

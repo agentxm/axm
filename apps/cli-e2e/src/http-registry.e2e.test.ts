@@ -10,7 +10,7 @@ import {
   EXTENSION_TYPE_MATRIX,
   type MatrixExtensionType,
 } from "./__generated__/extension-type-matrix.js";
-import { startHttpRegistry, type HttpRegistry } from "./e2e/http-registry-server.js";
+import { startHttpRegistry, type HttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { createTempDir, runCli } from "./e2e/utils.js";
 import { ptyIsSupported, runCliUnderPty } from "./pty.js";
 import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
@@ -139,12 +139,12 @@ const configureMinimumReleaseAge = (workspacePath: string, value: string) => {
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
-const structuredPlanResult = (stdout: string): Record<string, unknown> => {
+const structuredPlanDocument = (stdout: string): Record<string, unknown> => {
   const output: unknown = JSON.parse(stdout);
   if (!isRecord(output) || !isRecord(output["result"])) {
     throw new Error("Expected structured plan result");
   }
-  return output["result"];
+  return output;
 };
 
 const snapshotDir = (rootDir: string): Readonly<Record<string, string>> => {
@@ -357,12 +357,14 @@ describe("HTTP registry transport", () => {
 
       const root = await runCli(["update", "--json"], { cwd: consumer.path, env });
       expect(root.exitCode, `${root.stderr}\n${root.stdout}`).toBe(0);
-      expect(structuredPlanResult(root.stdout)).toMatchObject({
+      expect(structuredPlanDocument(root.stdout)).toMatchObject({
         outcome: "no-op",
-        holdbackCount: 1,
-        holdbacks: [
-          { target: `${OWNER}/skills/review`, candidateVersion: secondPublished.version },
-        ],
+        result: {
+          holdbackCount: 1,
+          holdbacks: [
+            { target: `${OWNER}/skills/review`, candidateVersion: secondPublished.version },
+          ],
+        },
       });
 
       const targeted = await runCli(["update", `${OWNER}/skills/review`, "--json"], {
@@ -370,16 +372,18 @@ describe("HTTP registry transport", () => {
         env,
       });
       expect(targeted.exitCode, `${targeted.stderr}\n${targeted.stdout}`).toBe(0);
-      expect(structuredPlanResult(targeted.stdout)).toMatchObject({
+      expect(structuredPlanDocument(targeted.stdout)).toMatchObject({
         outcome: "no-op",
-        holdbacks: [
-          {
-            target: `${OWNER}/skills/review`,
-            currentVersion: firstPublished.version,
-            selectedVersion: firstPublished.version,
-            candidateVersion: secondPublished.version,
-          },
-        ],
+        result: {
+          holdbacks: [
+            {
+              target: `${OWNER}/skills/review`,
+              currentVersion: firstPublished.version,
+              selectedVersion: firstPublished.version,
+              candidateVersion: secondPublished.version,
+            },
+          ],
+        },
       });
 
       const bypass = await runCli(
@@ -387,12 +391,14 @@ describe("HTTP registry transport", () => {
         { cwd: consumer.path, env },
       );
       expect(bypass.exitCode, `${bypass.stderr}\n${bypass.stdout}`).toBe(0);
-      expect(structuredPlanResult(bypass.stdout)).toMatchObject({
+      expect(structuredPlanDocument(bypass.stdout)).toMatchObject({
         outcome: "applied",
-        releaseAgeBypassCount: 1,
-        releaseAgeBypasses: [
-          { target: `${OWNER}/skills/review`, candidateVersion: secondPublished.version },
-        ],
+        result: {
+          releaseAgeBypassCount: 1,
+          releaseAgeBypasses: [
+            { target: `${OWNER}/skills/review`, candidateVersion: secondPublished.version },
+          ],
+        },
       });
 
       const settingsAfterUpdate: unknown = JSON.parse(
@@ -407,7 +413,7 @@ describe("HTTP registry transport", () => {
         { cwd: consumer.path, env },
       );
       expect(secondRun.exitCode, `${secondRun.stderr}\n${secondRun.stdout}`).toBe(0);
-      expect(structuredPlanResult(secondRun.stdout)).toMatchObject({ outcome: "no-op" });
+      expect(structuredPlanDocument(secondRun.stdout)).toMatchObject({ outcome: "no-op" });
       const settingsAfterSecondRun: unknown = JSON.parse(
         fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
       );
@@ -785,6 +791,7 @@ describe("HTTP registry transport", () => {
         ],
       });
       expect(result["counts"]).toMatchObject({ published: 0, failed: 0, unknown: 1 });
+      expect(registry.requestStarts.filter((request) => request.method === "PUT")).toHaveLength(1);
       const recovery = result["recovery"];
       if (!isRecord(recovery) || typeof recovery["cmd"] !== "string") {
         throw new Error("Expected a credential-free recovery command");
@@ -802,6 +809,7 @@ describe("HTTP registry transport", () => {
       });
       expect(recovered.exitCode, recovered.stderr).toBe(0);
       expect(registry.publishes).toHaveLength(1);
+      expect(registry.requestStarts.filter((request) => request.method === "PUT")).toHaveLength(1);
       expect(JSON.parse(recovered.stdout).result.counts).toMatchObject({
         published: 0,
         alreadyPublished: 1,

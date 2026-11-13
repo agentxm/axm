@@ -20,16 +20,14 @@ describe("pack inspection output", () => {
             "@acme/packs/toolkit",
             "Source authority",
             "workspace",
+            "authored-source",
             "@acme/skills/review",
             ">=1.2.3",
-            "Declared source",
-            "inherited",
-            "Local names",
-            "Resolution",
-            "satisfying",
+            "Pack membership",
+            "known",
           ])
             expect(stdout).toContain(fact);
-          expect(streams.lines("stderr").join("\n")).toContain("Inspect pack");
+          expect(streams.lines("stderr").join("\n")).toContain("Inspect local subjects");
         }),
       )
       .pipe(Effect.provide(context.baseLayer), Effect.ensuring(Effect.sync(fixture.cleanup)));

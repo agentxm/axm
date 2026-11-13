@@ -96,7 +96,7 @@ describe("Quiet machine diagnostics", () => {
         ]),
       );
       const result: unknown = JSON.parse(streams.lines("stdout").join("\n"));
-      expect(result).toMatchObject({ ok: true, result: { outcome: "applied" } });
+      expect(result).toMatchObject({ ok: true, outcome: "applied" });
     }).pipe(Effect.provide(workspace.layer));
   });
 });

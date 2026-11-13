@@ -43,6 +43,11 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
         KnowledgeCorpusUnavailable: (failure) => Effect.fail(knowledgeFailureToAppError(failure)),
       },
     ),
+    (result) => ({
+      mode: "query",
+      outcome: "completed",
+      exitCode: result.errorCount > 0 ? ExitCode.Issues : ExitCode.Success,
+    }),
   );
   const document = result.document;
   yield* emitResult(
@@ -70,7 +75,13 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
           : []),
       ];
     },
-    { ok: document.valid },
+    {
+      completion: {
+        mode: "query",
+        outcome: "completed",
+        exitCode: result.errorCount > 0 ? ExitCode.Issues : ExitCode.Success,
+      },
+    },
   );
   // Exit non-zero without a second stdout document: the findings above are the
   // command's only output, so signal failure with an exit code rather than an

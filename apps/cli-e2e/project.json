@@ -43,6 +43,9 @@
         "hostPlatform",
         {
           "env": "AXM_E2E_CLI_SOURCE"
+        },
+        {
+          "env": "AXM_WIRE_REQUIRE_COMPLETE"
         }
       ],
       "outputs": ["{workspaceRoot}/test-results/cli-e2e"]

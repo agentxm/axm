@@ -8,6 +8,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
   ListExtensions,
+  LocalInspection,
   ListKnowledge,
   listSkills,
   listSubagents,
@@ -132,9 +133,9 @@ describe("Lightweight inventory", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const result = yield* ListExtensions.query({ filter: "all", details: true });
-          expect(result.document.items[0]?.inspection).toMatchObject({
-            state: "complete",
+          const result = yield* LocalInspection.query({ selection: { kind: "all" } });
+          expect(result.items[0]).toMatchObject({
+            nativeCoverage: { state: "complete" },
             agentOutcomes: [{ outcome: "failed", reasonCode: "projection-missing" }],
           });
         }).pipe(
@@ -168,7 +169,7 @@ describe("Lightweight inventory", () => {
       .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 
-  it.effect("does not read Knowledge documents until details are requested", () => {
+  it.effect("does not read Knowledge documents until inspection is requested", () => {
     const fixture = makeKnowledgeInventoryFixture({
       bundles: [
         {
@@ -199,8 +200,8 @@ describe("Lightweight inventory", () => {
             expect(reads).toBe(0);
             expect(root.document.items[0]?.inspection).toEqual({ state: "not-requested" });
             expect(typed.rows[0]?.concepts).toBeUndefined();
-            const detailed = yield* ListExtensions.query({ filter: "all", details: true });
-            expect(detailed.document.items[0]?.inspection).toMatchObject({
+            const detailed = yield* LocalInspection.query({ selection: { kind: "all" } });
+            expect(detailed.items[0]).toMatchObject({
               knowledge: { concepts: 2 },
             });
             expect(reads).toBeGreaterThan(0);

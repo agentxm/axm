@@ -46,3 +46,9 @@ in the engineering knowledge bundle.
 retain synthetic authoring artifacts, planning responses, consulted-source
 hashes, and limits. Evaluation records are repository-only and excluded from
 publication.
+
+[CLI self-sufficiency evidence](../../benchmarks/evidence/cli-self-sufficiency/README.md)
+records the built-output comparison, task and activation evaluations, and the
+instruction-by-instruction disposition behind the reduced skill. The CLI owns
+operational discovery and results; the skill retains request recognition and
+boundaries for conversation and direct editing.

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { startHttpRegistry } from "./e2e/http-registry-server.js";
+import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { createTempDir, runCli } from "./e2e/utils.js";
 import { initRegistryWorkspace } from "./test-support/registry-workspace.js";
 
@@ -144,7 +144,7 @@ describe("Shared configured Pack member", () => {
         );
         expect(JSON.parse(result.stdout)).toMatchObject({
           ok: true,
-          result: { outcome: "applied" },
+          outcome: "applied",
         });
         const requests = registry.requests.slice(start);
         const batches = registry.metadataRequests.slice(metadataStart);

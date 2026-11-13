@@ -24,6 +24,7 @@ import type * as Scope from "effect/Scope";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
 import { SourceHostProviders, WorkspaceCatalog } from "../sources/index.js";
 import * as semver from "semver";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
   PackManager,
   McpServerManager,
@@ -65,6 +66,8 @@ import {
   settingsEntries,
   type Settings,
   acceptedResolutionRef,
+  lockEntryToSourceParams,
+  lockEntryVersion,
   acceptedCanonicalObservation,
   observeDesiredCanonical,
   isSourcedDesiredExtension,
@@ -87,7 +90,6 @@ import {
   desiredMcpSourceKey,
   McpSourceKey,
   desiredPackageKey,
-  type DesiredNodeIdentity,
 } from "../workspace-state/index.js";
 import {
   acceptedResolutionIncompatibleRecovery,
@@ -113,6 +115,8 @@ import {
   type Plan,
   type PlannedJobStep,
   OperationRefused,
+  materializationTransitionLabel,
+  type MaterializationTransition,
 } from "../operations/index.js";
 
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -155,9 +159,6 @@ const isSubject = (
   selection.subjects?.some(
     (subject) => subject.type === node.type && subject.name === node.name,
   ) === true;
-
-const sourceTransitionIdentity = (authority: string, identity: DesiredNodeIdentity): string =>
-  authority === "workspace" ? "workspace" : `${authority}:${desiredPackageKey(identity)}`;
 
 export const selectedDesiredNodes = (
   graph: DesiredStateGraph,
@@ -906,6 +907,44 @@ export const collectMaterializeSteps = (args: {
             observation.status !== "usable" ||
             (node.enabled && !materializationObservation.current);
           const releaseAge = configuredReleaseAge(resolved);
+          const previousVersion =
+            accepted === undefined ? null : (lockEntryVersion(accepted) ?? null);
+          const proposedVersion =
+            ref.refType === "registry" || ref.refType === "workspace" ? ref.version : null;
+          const transition = {
+            type: node.type,
+            name: node.name,
+            previous:
+              accepted === undefined
+                ? null
+                : {
+                    source: {
+                      kind: accepted.source.type,
+                      identity: desiredPackageKey(node.identity),
+                      locator: printSourceParams(lockEntryToSourceParams(accepted)),
+                    },
+                    version: previousVersion,
+                  },
+            proposed: {
+              source: {
+                kind: ref.source.type,
+                identity: desiredPackageKey(node.identity),
+                locator:
+                  ref.source.type === "registry"
+                    ? ref.source.location.href
+                    : printSourceParams(ref.source),
+              },
+              version: proposedVersion,
+            },
+            observedReason:
+              observation.status !== "usable" ? observation.status : "stale-projection",
+            downgrade:
+              accepted === undefined
+                ? false
+                : previousVersion === null || proposedVersion === null
+                  ? null
+                  : semver.gt(previousVersion, proposedVersion),
+          } satisfies MaterializationTransition;
           return {
             ref,
             restoresAccepted: resolved.restoresAccepted,
@@ -920,26 +959,8 @@ export const collectMaterializeSteps = (args: {
             ),
             force: forceCanonical,
             materialize,
-            transitionLabel: [
-              node.name,
-              `previous source=${
-                accepted === undefined
-                  ? "none"
-                  : sourceTransitionIdentity(accepted.source.type, node.identity)
-              }`,
-              `proposed source=${sourceTransitionIdentity(ref.source.type, node.identity)}`,
-              `previous version=${accepted?.source.type === "registry" && "version" in accepted.resolved ? accepted.resolved.version : "none"}`,
-              `proposed version=${ref.refType === "registry" || ref.refType === "workspace" ? ref.version : "unversioned"}`,
-              `reason=${observation.status !== "usable" ? observation.status : "stale-projection"}`,
-              `downgrade=${
-                accepted?.source.type === "registry" &&
-                "version" in accepted.resolved &&
-                (ref.refType === "registry" || ref.refType === "workspace") &&
-                semver.gt(accepted.resolved.version, ref.version)
-                  ? "yes"
-                  : "no"
-              }`,
-            ].join("; "),
+            transition,
+            transitionLabel: materializationTransitionLabel(transition),
             releaseAge,
           };
         }).pipe(
@@ -950,6 +971,9 @@ export const collectMaterializeSteps = (args: {
     ).pipe(Effect.provideService(DesiredStateReader, phaseReader));
     const reconciled = evaluated.flatMap(({ node, result }) =>
       Result.isSuccess(result) ? [{ ...result.success, node }] : [],
+    );
+    const transitionsByUnit = new Map(
+      reconciled.map(({ ref, transition }) => [toStepKey(targetFromRef(ref)), transition]),
     );
     // Refs that restore the accepted resolution the planning observation
     // judged, rather than a first resolution of the configured source.
@@ -1540,84 +1564,90 @@ export const collectMaterializeSteps = (args: {
           ...(args.packRecovery?.releaseAge?.bypasses ?? []),
         ]),
       } satisfies ReleaseAgeOperationEvidence,
-      steps: [
-        ...problemSteps,
-        ...blockedSteps,
-        ...packRecoverySteps,
-        ...packRefs
-          .filter(({ materialize }) => materialize)
-          .map(({ ref, force }) =>
-            buildMaterializeOperation(packManager, {
-              ref,
-              force,
-              desiredActivation: false,
-              toStepFailure: args.adapter.toStepFailure,
-            }),
-          ),
-        ...skillSteps,
-        ...mcpServerRefs
-          .filter(({ materialize }) => materialize)
-          .map(({ ref, sourceKey, force, transitionLabel, nativeLocations }) =>
-            desiredActivation(ref)
-              ? buildMcpServerSyncOperation({
-                  manager: mcpManager,
-                  ref,
-                  sourceKey,
-                  nativeLocations,
-                  scope: location.scope,
-                  force,
-                  transitionLabel,
-                  adapter: args.adapter,
-                })
-              : buildMaterializeOperation(mcpManager, {
-                  ref,
-                  force,
-                  desiredActivation: false,
-                  toStepFailure: args.adapter.toStepFailure,
-                }),
-          ),
-        ...inlineMcpServerSteps,
-        ...disabledMcpSteps,
-        ...subagentRefs.filter(({ materialize }) => materialize).map(subagentMaterializeStep),
-        ...ruleRefs
-          .filter(({ materialize }) => materialize)
-          .map(({ ref, force, transitionLabel }) =>
-            buildMaterializeOperation(ruleManager, {
-              toStepFailure: args.adapter.toStepFailure,
-              ref,
-              desiredActivation: desiredActivation(ref),
-              validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
-              force,
-              label: transitionLabel,
-            }),
-          ),
-        ...hookRefs
-          .filter(({ materialize }) => materialize)
-          .map(({ ref, force, transitionLabel }) =>
-            buildMaterializeOperation(hookManager, {
-              toStepFailure: args.adapter.toStepFailure,
-              ref,
-              desiredActivation: desiredActivation(ref),
-              validateMaterialized: ({ materialization }) =>
-                Effect.gen(function* () {
-                  yield* validateAcceptedLocalMaterialization(ref);
-                  const expected = preparedHookProjection?.acquisitions.find(
-                    ({ name }) => name === ref.hook.name,
-                  );
-                  if (
-                    expected !== undefined &&
-                    Option.getOrUndefined(materialization.treeIntegrity) !== expected.treeIntegrity
-                  )
-                    return yield* syncRefused({
-                      category: "conflict",
-                      detail: `Hook ${ref.hook.name} changed after projection preparation`,
-                    });
-                }),
-              force,
-              label: transitionLabel,
-            }),
-          ),
-        ...knowledgeRefs.filter(({ materialize }) => materialize).map(knowledgeMaterializeStep),
-      ] satisfies ReadonlyArray<PlannedJobStep<MaterializeStepRequirements>>,
+      steps: (
+        [
+          ...problemSteps,
+          ...blockedSteps,
+          ...packRecoverySteps,
+          ...packRefs
+            .filter(({ materialize }) => materialize)
+            .map(({ ref, force }) =>
+              buildMaterializeOperation(packManager, {
+                ref,
+                force,
+                desiredActivation: false,
+                toStepFailure: args.adapter.toStepFailure,
+              }),
+            ),
+          ...skillSteps,
+          ...mcpServerRefs
+            .filter(({ materialize }) => materialize)
+            .map(({ ref, sourceKey, force, transitionLabel, nativeLocations }) =>
+              desiredActivation(ref)
+                ? buildMcpServerSyncOperation({
+                    manager: mcpManager,
+                    ref,
+                    sourceKey,
+                    nativeLocations,
+                    scope: location.scope,
+                    force,
+                    transitionLabel,
+                    adapter: args.adapter,
+                  })
+                : buildMaterializeOperation(mcpManager, {
+                    ref,
+                    force,
+                    desiredActivation: false,
+                    toStepFailure: args.adapter.toStepFailure,
+                  }),
+            ),
+          ...inlineMcpServerSteps,
+          ...disabledMcpSteps,
+          ...subagentRefs.filter(({ materialize }) => materialize).map(subagentMaterializeStep),
+          ...ruleRefs
+            .filter(({ materialize }) => materialize)
+            .map(({ ref, force, transitionLabel }) =>
+              buildMaterializeOperation(ruleManager, {
+                toStepFailure: args.adapter.toStepFailure,
+                ref,
+                desiredActivation: desiredActivation(ref),
+                validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
+                force,
+                label: transitionLabel,
+              }),
+            ),
+          ...hookRefs
+            .filter(({ materialize }) => materialize)
+            .map(({ ref, force, transitionLabel }) =>
+              buildMaterializeOperation(hookManager, {
+                toStepFailure: args.adapter.toStepFailure,
+                ref,
+                desiredActivation: desiredActivation(ref),
+                validateMaterialized: ({ materialization }) =>
+                  Effect.gen(function* () {
+                    yield* validateAcceptedLocalMaterialization(ref);
+                    const expected = preparedHookProjection?.acquisitions.find(
+                      ({ name }) => name === ref.hook.name,
+                    );
+                    if (
+                      expected !== undefined &&
+                      Option.getOrUndefined(materialization.treeIntegrity) !==
+                        expected.treeIntegrity
+                    )
+                      return yield* syncRefused({
+                        category: "conflict",
+                        detail: `Hook ${ref.hook.name} changed after projection preparation`,
+                      });
+                  }),
+                force,
+                label: transitionLabel,
+              }),
+            ),
+          ...knowledgeRefs.filter(({ materialize }) => materialize).map(knowledgeMaterializeStep),
+        ] satisfies ReadonlyArray<PlannedJobStep<MaterializeStepRequirements>>
+      ).map((step) => {
+        const transition = step.key === undefined ? undefined : transitionsByUnit.get(step.key);
+        return transition === undefined ? step : { ...step, transitions: [transition] };
+      }),
     };
   });

@@ -32,6 +32,7 @@ import type {
   RegistryLifecycleEvidence,
 } from "./plan.js";
 import type { ConfiguredAgentOutcome } from "./configured-agent-outcome.js";
+import type { MaterializationTransition } from "./materialization-transition.js";
 
 // -----------------------------------------------------------------------------
 // Canonical vocabulary
@@ -154,6 +155,7 @@ export interface OperationBlock {
 // -----------------------------------------------------------------------------
 
 export interface ResolvedUnit<Output = never> {
+  readonly transitions?: ReadonlyArray<MaterializationTransition>;
   /** Stable identity: the planned step key where one exists, else the label. */
   readonly id: string;
   readonly label: string;
@@ -380,6 +382,7 @@ export const plannedUnits = <Requirements, Output>(
       const base = {
         id: unitIdOf(step),
         label: step.label,
+        ...(step.transitions === undefined ? {} : { transitions: step.transitions }),
         ...(step.artifact === undefined ? {} : { artifact: step.artifact }),
         ...(step.agentOutcomes === undefined ? {} : { agentOutcomes: step.agentOutcomes }),
         ...(step.registryLifecycle === undefined
@@ -429,6 +432,7 @@ export const executedUnits = <Output>(
       const base = {
         id: unitIdOf(step),
         label: step.label,
+        ...(step.transitions === undefined ? {} : { transitions: step.transitions }),
         ...(step.agentOutcomes === undefined ? {} : { agentOutcomes: step.agentOutcomes }),
         ...(step.registryLifecycle === undefined
           ? {}

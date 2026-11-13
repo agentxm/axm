@@ -28,6 +28,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
 import { paintText } from "../../screen/index.js";
 import { handleList } from "./list.js";
+import { handleLocalInspection } from "../show/command.js";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 
 // -----------------------------------------------------------------------------
@@ -202,7 +203,11 @@ describe("list.handler", () => {
     return provide(
       Effect.gen(function* () {
         const views = yield* WorkspaceReadViews;
-        yield* handleList({ agents: [], details: true }).pipe(
+        yield* handleLocalInspection({
+          selection: { kind: "all" },
+          types: ["skill"],
+          agents: [],
+        }).pipe(
           Effect.provideService(ConfiguredAgentOutcomesProvider, {
             byExtensionType: {
               skill: () =>
@@ -240,15 +245,31 @@ describe("list.handler", () => {
           "Configured agents",
           "Native locations",
           "Discovery",
-          "Agent outcomes",
+          "Native coverage",
         ])
           expect(output).toContain(header);
         expect(output).toContain("cursor");
         expect(output).toContain("retained");
         expect(output).toContain("already");
-        expect(output).toContain("available");
+        expect(output).toContain("availability is not implied");
         expect(output).toContain("unverified");
-        expect(output).not.toContain("github-copilot-cli");
+        expect(output).toMatch(/Configured agents\s+cursor(?:\r?\n|$)/u);
+        expect(output).toContain("Potential readers");
+        expect(output).toContain("github-copilot-cli");
+        expect(rendererState.results[0]?.data).toMatchObject({
+          items: [
+            {
+              agents: { configured: ["cursor"] },
+              agentOutcomes: [expect.objectContaining({ agentId: "cursor", outcome: "current" })],
+            },
+          ],
+          nativeReaderDeclarations: [
+            expect.objectContaining({
+              potentialReaders: CLAUDE_SKILL_READERS,
+              availabilityDefault: { state: "unverified", appliesTo: ["cursor"] },
+            }),
+          ],
+        });
       }),
     );
   });

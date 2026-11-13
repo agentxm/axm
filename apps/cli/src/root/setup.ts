@@ -1,3 +1,4 @@
+import { withLiveOperation } from "../operation-lifecycle.js";
 import {
   recoveryOption,
   recoverySwitch,
@@ -224,155 +225,170 @@ export interface HandleSetupArgs {
 }
 
 export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetupArgs) {
-  const screen = yield* Screen;
-  const path = yield* Path.Path;
-  const executionDirectory = yield* ExecutionDirectory;
-  const verbosity = yield* Verbosity;
-  const json = yield* jsonFlag;
-  const machineOutput = Option.getOrElse(json, () => false);
-  const nonInteractive = !(yield* screen.canAsk);
-  const telemetryMode = yield* setupTelemetryMode;
-  const telemetryEnabled = telemetryMode !== "off";
+  return yield* withLiveOperation(
+    { name: "Configure AXM workspace", mode: args.preview === true ? "preview" : "apply" },
+    Effect.gen(function* () {
+      const screen = yield* Screen;
+      const path = yield* Path.Path;
+      const executionDirectory = yield* ExecutionDirectory;
+      const verbosity = yield* Verbosity;
+      const json = yield* jsonFlag;
+      const machineOutput = Option.getOrElse(json, () => false);
+      const nonInteractive = !(yield* screen.canAsk);
+      const telemetryMode = yield* setupTelemetryMode;
+      const telemetryEnabled = telemetryMode !== "off";
 
-  const prepared = yield* SetupWorkspace.prepare({
-    scope: args.scope,
-    ...(args.scopeExplicit === undefined ? {} : { scopeExplicit: args.scopeExplicit }),
-    ...(args.agents === undefined ? {} : { agents: args.agents }),
-    ...(args.instructions === undefined ? {} : { instructions: args.instructions }),
-    ...(args.yes === undefined ? {} : { yes: args.yes }),
-    ...(args.preview === undefined ? {} : { preview: args.preview }),
-    nonInteractive,
-    projectRoot: executionDirectory.path,
-    telemetryEnabled,
-  }).pipe(Effect.mapError(coerceConfigurationFailure));
-
-  if (prepared._tag === "ApprovalRequired") {
-    const suggestions = [
-      {
-        description: "Preview the setup candidate",
-        invocation: {
-          command: ["setup"],
-          arguments: [
-            recoverySwitch("--preview", true),
-            recoverySwitch("--non-interactive", true),
-            ...setupCandidateArguments({
-              scope: args.scope,
-              agentIds: args.agents ?? [],
-              instructions: args.instructions,
-              replaceUnrecorded: (yield* ProjectionOutputPosture).replaceUnrecorded === true,
-            }),
-          ],
-        },
-      },
-    ];
-    yield* emitResult(
-      { result: prepared.outcome },
-      SetupDocumentSchema,
-      () => errorDoc("Approval required — no changes applied", { suggestions }),
-      {
-        suggestions,
-        ok: false,
-      },
-    );
-    return processOutcome(ExitCode.Usage);
-  }
-
-  // A scope that is already set up changes nothing, so its verdict stands
-  // alone; a first setup opens its record with the title line, ahead of the
-  // questions it asks.
-  if (!prepared.settingsExist && !machineOutput && verbosity.level !== "quiet") {
-    yield* screen.note(
-      setupTitleDoc({
-        preview: args.preview === true,
-        where: formatDisplayPath(path, path.dirname(prepared.settingsPath)),
+      const prepared = yield* SetupWorkspace.prepare({
         scope: args.scope,
-      }),
-    );
-  }
+        ...(args.scopeExplicit === undefined ? {} : { scopeExplicit: args.scopeExplicit }),
+        ...(args.agents === undefined ? {} : { agents: args.agents }),
+        ...(args.instructions === undefined ? {} : { instructions: args.instructions }),
+        ...(args.yes === undefined ? {} : { yes: args.yes }),
+        ...(args.preview === undefined ? {} : { preview: args.preview }),
+        nonInteractive,
+        projectRoot: executionDirectory.path,
+        telemetryEnabled,
+      }).pipe(Effect.mapError(coerceConfigurationFailure));
 
-  if (args.preview === true && !machineOutput && verbosity.level !== "quiet") {
-    yield* screen.note([{ _tag: "paragraph", text: setupTelemetryNotice(telemetryMode) }]);
-  }
+      if (prepared._tag === "ApprovalRequired") {
+        const suggestions = [
+          {
+            description: "Preview the setup candidate",
+            invocation: {
+              command: ["setup"],
+              arguments: [
+                recoverySwitch("--preview", true),
+                recoverySwitch("--non-interactive", true),
+                ...setupCandidateArguments({
+                  scope: args.scope,
+                  agentIds: args.agents ?? [],
+                  instructions: args.instructions,
+                  replaceUnrecorded: (yield* ProjectionOutputPosture).replaceUnrecorded === true,
+                }),
+              ],
+            },
+          },
+        ];
+        yield* emitResult(
+          { result: prepared.outcome },
+          SetupDocumentSchema,
+          () => errorDoc("Approval required — no changes applied", { suggestions }),
+          {
+            suggestions,
+            completion: {
+              mode: args.preview === true ? "preview" : "apply",
+              outcome: "blocked",
+              exitCode: ExitCode.Usage,
+            },
+            promotedResultFields: ["outcome"],
+          },
+        );
+        return processOutcome(ExitCode.Usage);
+      }
 
-  // The bundled AXM skill is a lifecycle installation, not a configuration
-  // decision, so the application supplies it; setup applies it inside the
-  // initialization closure so a skill that cannot be installed leaves no
-  // half-initialized workspace behind.
-  const { result, transition } = yield* Effect.gen(function* () {
-    const transition = yield* SetupWorkspace.previewOrApply(prepared, {
-      bundledSkill: installBundledAxmSkill.pipe(
-        Effect.mapError(toAppError),
-        withWorkspace(args.scope),
-      ),
-    });
-    const result = yield* SetupWorkspace.report({
-      candidate: prepared,
-      transition,
-      bundledSkill: { installed: transition.initialized, version: AXM_SKILL_VERSION },
-    });
-    return { result, transition };
-  }).pipe(
-    Effect.provide(
-      setupProjectionLayer({ scope: args.scope, projectRoot: executionDirectory.path }),
-    ),
-    Effect.mapError(coerceConfigurationFailure),
+      // A scope that is already set up changes nothing, so its verdict stands
+      // alone; a first setup opens its record with the title line, ahead of the
+      // questions it asks.
+      if (!prepared.settingsExist && !machineOutput && verbosity.level !== "quiet") {
+        yield* screen.note(
+          setupTitleDoc({
+            preview: args.preview === true,
+            where: formatDisplayPath(path, path.dirname(prepared.settingsPath)),
+            scope: args.scope,
+          }),
+        );
+      }
+
+      if (args.preview === true && !machineOutput && verbosity.level !== "quiet") {
+        yield* screen.note([{ _tag: "paragraph", text: setupTelemetryNotice(telemetryMode) }]);
+      }
+
+      // The bundled AXM skill is a lifecycle installation, not a configuration
+      // decision, so the application supplies it; setup applies it inside the
+      // initialization closure so a skill that cannot be installed leaves no
+      // half-initialized workspace behind.
+      const { result, transition } = yield* Effect.gen(function* () {
+        const transition = yield* SetupWorkspace.previewOrApply(prepared, {
+          bundledSkill: installBundledAxmSkill.pipe(
+            Effect.mapError(toAppError),
+            withWorkspace(args.scope),
+          ),
+        });
+        const result = yield* SetupWorkspace.report({
+          candidate: prepared,
+          transition,
+          bundledSkill: { installed: transition.initialized, version: AXM_SKILL_VERSION },
+        });
+        return { result, transition };
+      }).pipe(
+        Effect.provide(
+          setupProjectionLayer({ scope: args.scope, projectRoot: executionDirectory.path }),
+        ),
+        Effect.mapError(coerceConfigurationFailure),
+      );
+
+      // Follow-up commands address the scope that was set up, where their route
+      // takes one; the running command tree says which routes do.
+      const scopedRoutes = Option.match(yield* Effect.serviceOption(ScopedRoutes), {
+        onNone: (): ReadonlySet<string> => new Set(),
+        onSome: ({ routes }) => routes,
+      });
+      const suggestions = [
+        ...suggestionsForScope(
+          setupSuggestions({
+            status: result.status,
+            blocked: result.blockedCount > 0,
+            instructions: result.instructions,
+            requestedInstructions: args.instructions,
+            replaceUnrecorded: (yield* ProjectionOutputPosture).replaceUnrecorded === true,
+            agentCount: result.agents.length,
+            agentIds: result.agents.map((agent) => agent.id),
+            scope: transition.location.scope,
+            telemetryMode,
+            completed: transition.completed,
+            instructionChoiceOpen:
+              result.status === "already-initialized" &&
+              transition.location.scope === "project" &&
+              result.instructions === undefined,
+          }),
+          transition.location.scope,
+          scopedRoutes,
+        ),
+      ];
+
+      const migratedAliases = result.steps
+        .filter((step) => step.label === "Instruction files")
+        .flatMap((step) => step.artifact?.targets ?? [])
+        .filter(
+          (target) => target.change === "updated" && target.path !== result.instructions?.fileName,
+        );
+      const migrationSuggestions =
+        result.status === "initialized"
+          ? migratedAliases.map((target) => ({
+              description: `If ${target.path} is tracked, stop tracking the generated alias; setup leaves the Git index unchanged`,
+              cmd: `git rm --cached -- '${target.path.replaceAll("'", "'\\''")}'`,
+            }))
+          : [];
+      suggestions.push(...migrationSuggestions);
+      const completion = {
+        mode: args.preview === true ? "preview" : "apply",
+        outcome: result.outcome,
+        exitCode: result.outcome === "failed" ? ExitCode.Issues : ExitCode.Success,
+      } satisfies import("../cli-runtime/result-completion.js").ResultCompletion;
+      yield* emitResult(
+        { result },
+        SetupDocumentSchema,
+        () =>
+          setupResultDoc(result, {
+            verbosity: verbosity.level,
+            suggestions,
+            displayDirectory: (directory) => formatDisplayPath(path, directory),
+          }),
+        { suggestions, completion, promotedResultFields: ["outcome"] },
+      );
+      return processOutcome(completion.exitCode);
+    }),
   );
-
-  // Follow-up commands address the scope that was set up, where their route
-  // takes one; the running command tree says which routes do.
-  const scopedRoutes = Option.match(yield* Effect.serviceOption(ScopedRoutes), {
-    onNone: (): ReadonlySet<string> => new Set(),
-    onSome: ({ routes }) => routes,
-  });
-  const suggestions = [
-    ...suggestionsForScope(
-      setupSuggestions({
-        status: result.status,
-        blocked: result.blockedCount > 0,
-        instructions: result.instructions,
-        requestedInstructions: args.instructions,
-        replaceUnrecorded: (yield* ProjectionOutputPosture).replaceUnrecorded === true,
-        agentCount: result.agents.length,
-        agentIds: result.agents.map((agent) => agent.id),
-        scope: transition.location.scope,
-        telemetryMode,
-        completed: transition.completed,
-        instructionChoiceOpen:
-          result.status === "already-initialized" &&
-          transition.location.scope === "project" &&
-          result.instructions === undefined,
-      }),
-      transition.location.scope,
-      scopedRoutes,
-    ),
-  ];
-
-  const migratedAliases = result.steps
-    .filter((step) => step.label === "Instruction files")
-    .flatMap((step) => step.artifact?.targets ?? [])
-    .filter(
-      (target) => target.change === "updated" && target.path !== result.instructions?.fileName,
-    );
-  const migrationSuggestions =
-    result.status === "initialized"
-      ? migratedAliases.map((target) => ({
-          description: `If ${target.path} is tracked, stop tracking the generated alias; setup leaves the Git index unchanged`,
-          cmd: `git rm --cached -- '${target.path.replaceAll("'", "'\\''")}'`,
-        }))
-      : [];
-  suggestions.push(...migrationSuggestions);
-  yield* emitResult(
-    { result },
-    SetupDocumentSchema,
-    () =>
-      setupResultDoc(result, {
-        verbosity: verbosity.level,
-        suggestions,
-        displayDirectory: (directory) => formatDisplayPath(path, directory),
-      }),
-    { suggestions },
-  );
-  return processOutcome(0);
 });
 
 const setupConfig = {

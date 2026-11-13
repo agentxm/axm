@@ -16,14 +16,9 @@ import { PublishResultSchema, type PublishResult } from "@agentxm/workspace-feat
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { emitResult } from "../../screen/index.js";
-import {
-  settleOperation,
-  awaitDrained,
-  type OperationRefused,
-} from "@agentxm/workspace-kernel/operations";
+import { type OperationRefused } from "@agentxm/workspace-kernel/operations";
 import { Verbosity } from "../../cli-flags/index.js";
 import {
-  setOperationSettlement,
   type CommandOutcomeSummary,
   type SubjectType,
   getCommandSemanticProperties,
@@ -31,6 +26,8 @@ import {
   summarizeCommandOutcome,
 } from "../../cli-runtime/index.js";
 import { publishDoc } from "./view.js";
+import { operationExitCode, type OperationVerdict } from "../../operation-exit-code.js";
+import { completeResult, type ResultCompletion } from "../../cli-runtime/result-completion.js";
 
 const publishBrowserSuggestions = (result: PublishResult): ReadonlyArray<SuggestedAction> =>
   result.execution.outcomes.flatMap((item) =>
@@ -41,7 +38,7 @@ const publishBrowserSuggestions = (result: PublishResult): ReadonlyArray<Suggest
 export const emitPublishResult = (
   result: PublishResult,
   options: {
-    readonly exitCode: number;
+    readonly verdict?: OperationVerdict;
     readonly elapsedMs?: number;
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
@@ -51,7 +48,8 @@ export const emitPublishResult = (
 ) =>
   Effect.gen(function* () {
     const verbosity = yield* Verbosity;
-    const code = appErrorCodeForExit(options.exitCode);
+    const completion = publishCompletion(result, options.verdict);
+    const code = appErrorCodeForExit(completion.exitCode);
     const failure =
       code === undefined || result.interruption !== undefined
         ? undefined
@@ -74,10 +72,6 @@ export const emitPublishResult = (
               ),
             ],
           );
-    yield* setOperationSettlement({
-      exitCode: options.exitCode,
-      ...(failure === undefined ? {} : { failure }),
-    });
     const browserSuggestions = publishBrowserSuggestions(result);
     const findingSuggestions = result.execution.outcomes.flatMap((item) =>
       (item.findings ?? []).flatMap((finding) => finding.suggestions),
@@ -89,7 +83,7 @@ export const emitPublishResult = (
       ...findingSuggestions,
       ...browserSuggestions,
     ];
-    const summary = publishResultToSummary(result);
+    const summary = publishResultToSummary(result, completion);
     const withoutSuggestions =
       options.withoutSuggestions === undefined
         ? {}
@@ -99,15 +93,14 @@ export const emitPublishResult = (
       ...existingSemanticProperties,
       ...summarizeCommandOutcome(summary),
     });
-    yield* settleOperation(summary.outcome);
-    yield* awaitDrained;
+    yield* completeResult({ ...completion, ...(failure === undefined ? {} : { failure }) });
     yield* emitResult(
       result,
       PublishResultSchema,
       () =>
         publishDoc(result, {
           verbosity: verbosity.level,
-          exitCode: options.exitCode,
+          exitCode: completion.exitCode,
           suggestions,
           ...(options.elapsedMs === undefined ? {} : { elapsedMs: options.elapsedMs }),
           ...withoutSuggestions,
@@ -118,59 +111,71 @@ export const emitPublishResult = (
           : {}),
         ...(suggestions.length === 0 ? {} : { suggestions }),
         ...withoutSuggestions,
-        ok:
-          result.execution.status !== "failed" &&
-          result.execution.status !== "partial" &&
-          result.execution.failure === undefined &&
-          summary.failedCount === 0,
+        completion: { ...completion, ...(failure === undefined ? {} : { failure }) },
+        promotedResultFields: ["mode"],
       },
     );
+    return completion;
   });
 
-/**
- * Convert a PublishResult to a CommandOutcomeSummary for telemetry.
- *
- * Outcome distinguishes applied, partial, failed, blocked and untouched work.
- *
- * Unconfirmed work is not "touched nothing": an indeterminate upload joins the
- * failed bucket because its settlement is unproven and needs attention, and an
- * item that never left the process joins the blocked bucket. Either keeps the
- * run out of `no-op`. An interrupted run still reports `interrupted`.
- */
-const publishResultToSummary = (result: PublishResult) => {
-  const appliedCount = result.counts.published;
-  // A preview leaves every selected item `pending` by construction, so only an
-  // apply carries unconfirmed work.
-  const unconfirmed =
-    result.mode === "apply"
-      ? { unknown: result.counts.unknown, pending: result.counts.pending }
-      : { unknown: 0, pending: 0 };
-  const failedCount =
-    result.counts.failed + unconfirmed.unknown + (result.execution.failure === undefined ? 0 : 1);
-  const blockedCount = result.counts.blocked + unconfirmed.pending;
+/** Derive completion from publication facts; telemetry consumes this decision. */
+const publishCompletion = (
+  result: PublishResult,
+  verdict: OperationVerdict = {},
+): ResultCompletion => {
+  const applied = result.counts.published;
+  const failed = result.counts.failed + (result.execution.failure === undefined ? 0 : 1);
+  const pending = result.mode === "apply" ? result.counts.pending : 0;
+  const blocked = result.counts.blocked + pending;
+  const unknown = result.mode === "apply" ? result.counts.unknown : 0;
+  const outcome: ResultCompletion["outcome"] =
+    result.interruption !== undefined
+      ? "interrupted"
+      : unknown > 0
+        ? applied > 0 ||
+          result.counts.alreadyPublished > 0 ||
+          result.counts.failed > 0 ||
+          blocked > 0
+          ? "partial"
+          : "indeterminate"
+        : applied > 0 && (failed > 0 || blocked > 0)
+          ? "partial"
+          : failed > 0
+            ? verdict.blocking === undefined
+              ? "failed"
+              : "blocked"
+            : blocked > 0
+              ? "blocked"
+              : result.mode === "preview"
+                ? "previewed"
+                : applied === 0
+                  ? "no-op"
+                  : "applied";
+  const effectiveVerdict = {
+    ...verdict,
+    ...(result.interruption === undefined ? {} : { interruption: result.interruption }),
+    ...(verdict.failure !== undefined || result.execution.failure === undefined
+      ? {}
+      : { failure: { category: result.execution.failure.code } }),
+  };
+  return { mode: result.mode, outcome, exitCode: operationExitCode(effectiveVerdict, outcome) };
+};
+
+/** Unknown uploads remain unknown; they are never counted as confirmed failures. */
+const publishResultToSummary = (
+  result: PublishResult,
+  completion: ResultCompletion,
+): CommandOutcomeSummary => {
   const types = new Set(result.execution.outcomes.map((item) => item.type));
   const [onlyType] = [...types];
   const subjectType: SubjectType =
     onlyType === undefined ? "unknown" : types.size === 1 ? onlyType : "mixed";
   return {
-    outcome:
-      result.interruption !== undefined
-        ? "interrupted"
-        : result.mode === "preview"
-          ? "previewed"
-          : appliedCount > 0 && (failedCount > 0 || blockedCount > 0)
-            ? "partial"
-            : failedCount > 0
-              ? "failed"
-              : blockedCount > 0
-                ? "blocked"
-                : appliedCount === 0
-                  ? "no-op"
-                  : "applied",
+    outcome: completion.outcome,
     subjectType,
     sourceKind: "workspace",
-    appliedCount,
-    failedCount,
-    blockedCount,
-  } satisfies CommandOutcomeSummary;
+    appliedCount: result.counts.published,
+    failedCount: result.counts.failed + (result.execution.failure === undefined ? 0 : 1),
+    blockedCount: result.counts.blocked + (result.mode === "apply" ? result.counts.pending : 0),
+  };
 };

@@ -31,7 +31,6 @@ export interface ListHandlerArgs {
   readonly outdated: boolean;
   readonly deprecated: boolean;
   readonly archived: boolean;
-  readonly details?: boolean;
 }
 
 /** Where an empty unfiltered inventory stands: no workspace, or one with nothing installed. */
@@ -76,7 +75,6 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
       ListExtensions.query({
         types: args.types,
         filter,
-        details: args.details ?? false,
       }).pipe(Effect.mapError(inspectionFailureToAppError)),
     ),
   );
@@ -87,7 +85,6 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
     result.items.length === 0 && filter === "all" ? yield* emptyInventory() : undefined;
   yield* screen.result([
     ...listDoc({
-      details: args.details ?? false,
       items: result.items,
       filter,
       ...(coverage === undefined ? {} : { coverage }),
@@ -98,10 +95,6 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
 });
 
 const listConfig = {
-  details: Flag.Boolean("details").pipe(
-    withParameterDescription("Inspect native locations and extension contents"),
-    withParameterDefault(false),
-  ),
   scope: scopeFlag,
   type: Flag.Literals("type", [...installableExtensionTypes]).pipe(
     withParameterDescription("Restrict to this extension type"),
@@ -124,8 +117,8 @@ const listConfig = {
 export const listCommand = Command.make(
   "list",
   listConfig,
-  ({ scope, type, outdated, deprecated, archived, details }) =>
-    handleList({ types: type, outdated, deprecated, archived, details }).pipe(
+  ({ scope, type, outdated, deprecated, archived }) =>
+    handleList({ types: type, outdated, deprecated, archived }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
       withRuntime(),
     ),

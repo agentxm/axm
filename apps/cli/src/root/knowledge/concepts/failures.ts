@@ -27,7 +27,7 @@ const failWithConflict = Effect.fnUntraced(function* (output: {
           ? "Knowledge cursor expired; restart the query"
           : "Knowledge corpus kept changing; retry after updates finish",
       ),
-    { ok: false },
+    { completion: { mode: "query", outcome: "completed", exitCode: ExitCode.Conflict } },
   );
   return processOutcome(ExitCode.Conflict);
 });

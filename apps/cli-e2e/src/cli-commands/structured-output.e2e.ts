@@ -64,7 +64,7 @@ describe("structured output (--json)", () => {
         },
         {
           type: "progress",
-          event: expect.objectContaining({ _tag: "OperationSettled", outcome: "completed" }),
+          event: expect.objectContaining({ _tag: "OperationSettled", outcome: "no-op" }),
         },
       ]);
     } finally {

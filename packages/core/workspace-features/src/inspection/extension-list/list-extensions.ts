@@ -1,4 +1,3 @@
-import { inspectInventory } from "../inventory-inspection.js";
 import { withInspectionReadView } from "../read-view.js";
 /**
  * The cross-type extension inventory behind `axm list`.
@@ -82,7 +81,6 @@ export interface ListExtensionsRequest {
   readonly types?: ReadonlyArray<InstallableExtensionType>;
   /** Which extensions the answer keeps; lifecycle is the union of deprecated and archived. */
   readonly filter: ExtensionListFilter;
-  readonly details?: boolean;
 }
 
 /**
@@ -141,8 +139,7 @@ export const ListExtensions = {
       ...raw,
       items: raw.items.filter((row) => selectedKeys.has(`${row.type}:${row.name}`)),
     };
-    const inspected = request.details === true ? yield* inspectInventory(selected) : selected;
-    const core = yield* buildInventoryDocument(inspected);
+    const core = yield* buildInventoryDocument(selected);
     const documentItems = items.map((item) => {
       const observed = core.items.find(
         (candidate) => candidate.type === item.type && candidate.name === item.name,
@@ -158,6 +155,8 @@ export const ListExtensions = {
           collected.length,
           request.filter,
           core.observationDiagnostics,
+          core.nativeLocations,
+          core.nativeReaderDeclarations,
         ),
         ...(request.filter === "all" ? {} : { coverage: coverageFor(assessed) }),
       },

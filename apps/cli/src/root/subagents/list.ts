@@ -25,7 +25,7 @@ const SubagentListColumns = [
 
 const { handler, command } = makePerTypeListCommand({
   type: "subagent",
-  ...inventoryList("subagent", (agents, details) => listSubagents({ agents, details })),
+  ...inventoryList("subagent", (agents) => listSubagents({ agents })),
   columns: SubagentListColumns,
 });
 

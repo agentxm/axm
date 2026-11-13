@@ -11,7 +11,7 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { McpSourceKey } from "@agentxm/workspace-kernel/workspace-state";
 import { makeRegistryMcpServerLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
-import { ShowExtension } from "./show/show-extension.js";
+import { LocalInspection } from "./index.js";
 import {
   AUTHORING_TYPES,
   authoredManifestPath,
@@ -29,7 +29,7 @@ export const specification = defineSpecification({
   requirement: "cli/type-shows-report-source-and-version",
   title: "Type inspection distinguishes source and observed version",
   statement:
-    "When inspecting one configured skill, MCP server, subagent, rule, hook, or Knowledge bundle, AXM shall report its local identity, activation, source, and version from the accepted resolution, or from the matching authored manifest when no resolution exists.",
+    "When inspecting one configured skill, MCP server, subagent, rule, hook, or Knowledge bundle, AXM shall report its local identity, activation, source, and accepted version separately from the matching observed manifest version.",
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -39,7 +39,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "apps/cli/src/root/shared/extension-show.test.ts",
-    "packages/core/workspace-features/src/inspection/show/show-extension.ts",
+    "packages/core/workspace-features/src/inspection/show/local-inspection.ts",
   ],
   supersedes: [],
   assumptions: [],
@@ -65,17 +65,22 @@ describe("Installed extension detail", () => {
       return fixture
         .provide(
           Effect.gen(function* () {
-            const result = yield* ShowExtension.query({ type, name: "example" });
-            expect(result.item).toEqual({
-              type,
-              name: "example",
-              enabled: true,
-              source: "workspace",
-              version: manifest.version,
-              scope: "project",
-              locked: false,
+            const result = yield* LocalInspection.query({
+              selection: { kind: "identities", identities: ["example"] },
+              types: [type],
             });
-            expect(Array.isArray(result.agentOutcomes)).toBe(true);
+            expect(result.items[0]).toMatchObject({
+              identity: {
+                type,
+                name: "example",
+                scope: "project",
+                source: { authority: "workspace" },
+              },
+              desired: { enabled: true },
+              accepted: { state: "not-applicable" },
+              observed: { manifestVersion: manifest.version },
+            });
+            expect(Array.isArray(result.items[0]?.agentOutcomes)).toBe(true);
           }),
         )
         .pipe(Effect.provide(NativePlatformTest), Effect.ensuring(Effect.sync(fixture.cleanup)));
@@ -125,12 +130,13 @@ describe("Installed extension detail", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const result = yield* ShowExtension.query({ type: "mcp-server", name: "context" });
-          expect(result.item).toMatchObject({
-            name: "context",
-            source: "@acme/mcps/context@^1.0.0",
-            version: "1.2.0",
-            locked: true,
+          const result = yield* LocalInspection.query({
+            selection: { kind: "identities", identities: ["context"] },
+            types: ["mcp-server"],
+          });
+          expect(result.items[0]).toMatchObject({
+            identity: { name: "context", source: { locator: "@acme/mcps/context@^1.0.0" } },
+            accepted: { state: "present", version: "1.2.0" },
           });
         }),
       )
@@ -148,12 +154,13 @@ describe("Installed extension detail", () => {
       .provide(
         Effect.gen(function* () {
           yield* installRegistrySkill({ name: "review", source: "test:@acme/skills/review" });
-          const result = yield* ShowExtension.query({ type: "skill", name: "review" });
-          expect(result.item).toMatchObject({
-            name: "review",
-            source: "test:@acme/skills/review",
-            version: "1.2.3",
-            locked: true,
+          const result = yield* LocalInspection.query({
+            selection: { kind: "identities", identities: ["review"] },
+            types: ["skill"],
+          });
+          expect(result.items[0]).toMatchObject({
+            identity: { name: "review", source: { locator: "test:@acme/skills/review" } },
+            accepted: { state: "present", version: "1.2.3" },
           });
         }),
       )

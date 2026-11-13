@@ -375,6 +375,33 @@ main-only integration gate; ordinary host-compatible E2E selection and CI's
 platform assurance remain unchanged. Passing this target establishes only its
 declared tracing boundary on the observed host, not a performance budget.
 
+## CLI output and agent evaluations
+
+`AXM_BENCHMARK_SUITE=output-contracts pnpm bench` captures complete human and
+machine output against explicitly supplied baseline and candidate binary
+manifests. It preserves raw stdout/stderr, source and binary identity, fixture
+state, and independent semantic checks. Capture-only runs make no performance
+claim. Comparative timing requires an isolated Linux reference host, the
+registered warmup and balanced blocks, and review of recorded contention,
+noise, and drift. Output budgets belong to executable specifications; they are
+never runtime truncation limits.
+
+`pnpm exec nx run axm:eval:cli` is an opt-in, uncached Linux agent evaluation.
+It consumes frozen CLI binaries, skill directories, and an explicitly pinned
+Codex distribution; it does not compile them or establish their build
+freshness. Public fixture helpers run from source under `axm-source` and their
+identities are retained. Every paired workspace and initial-context check must
+pass before any model starts. Scored runs require a frozen preregistration and
+digest; `AXM_AGENT_EVALUATION_PREPARE_ONLY=1` checks setup without running task
+models. Activation is a separate phase from announced CLI task trials.
+
+These trials retain transcripts, actual CLI captures, state differences, and
+execution failures for independent semantic review. Successful process exit
+does not assign a passing grade. Keep raw evaluation context private until it
+has been reviewed for credentials and private host instructions. Trials are
+outside the normal integration graph because they require model access and
+stochastic review. Their elapsed times do not establish CLI performance.
+
 ## Edit-loop targets
 
 Some targets exist to shorten the loop while a change is being made. They are

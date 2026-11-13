@@ -34,6 +34,7 @@ import {
   operationNativeLocations,
   settledUnitNativeLocations,
   ErrorCodeSchema,
+  MaterializationTransitionSchema,
 } from "@agentxm/workspace-kernel/operations";
 import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
 import type { CommandSettlementFailure } from "./cli-runtime/telemetry.js";
@@ -72,7 +73,7 @@ import {
   type SubjectType,
 } from "./cli-runtime/index.js";
 
-import { operationExitCode, operationOk } from "./operation-exit-code.js";
+import { operationExitCode } from "./operation-exit-code.js";
 
 import { SerializedErrorCauseSchema, serializeErrorCauseChain } from "./app-error/cause-chain.js";
 import {
@@ -82,7 +83,10 @@ import {
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
 import {
-  NativeLocationOutcomeSchema,
+  createNativeLocationTable,
+  NativeLocationRecordSchema,
+  NativeReaderDeclarationSchema,
+  NativeLocationReferenceSchema,
   type NativeLocationOutcome,
 } from "@agentxm/workspace-kernel/locations";
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
@@ -208,9 +212,9 @@ const SourceSwitchEvidenceSchema = Schema.Struct({
   packMembers: Schema.optional(Schema.Array(PackMemberSourceSwitchEvidenceSchema)),
 });
 
-const StepArtifactSchema = Schema.Struct({
+const StepArtifactCoreSchema = Schema.Struct({
   executionChanges: Schema.optional(Schema.Array(ExecutionChangeSchema)),
-  nativeLocations: Schema.optional(Schema.Array(NativeLocationOutcomeSchema)),
+  nativeLocationRefs: Schema.optional(Schema.Array(NativeLocationReferenceSchema)),
   path: Schema.optional(Schema.String),
   scope: Schema.Literals(["project", "user"] as const),
   agents: Schema.optional(Schema.Array(Schema.String)),
@@ -232,12 +236,42 @@ const StepArtifactSchema = Schema.Struct({
     }),
   ),
   sourceSwitch: Schema.optional(SourceSwitchEvidenceSchema),
+});
+interface StepArtifact extends Schema.Schema.Type<typeof StepArtifactCoreSchema> {
+  readonly members?:
+    | ReadonlyArray<{
+        readonly id: string;
+        readonly changed: boolean;
+        readonly artifact: StepArtifact;
+      }>
+    | undefined;
+}
+type StepArtifactCoreEncoded = typeof StepArtifactCoreSchema.Encoded;
+interface StepArtifactEncoded extends StepArtifactCoreEncoded {
+  readonly members?:
+    | ReadonlyArray<{
+        readonly id: string;
+        readonly changed: boolean;
+        readonly artifact: StepArtifactEncoded;
+      }>
+    | undefined;
+}
+const StepArtifactSchema: Schema.Codec<StepArtifact, StepArtifactEncoded> = Schema.Struct({
+  ...StepArtifactCoreSchema.fields,
+  members: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        id: Schema.String,
+        changed: Schema.Boolean,
+        artifact: Schema.suspend(() => StepArtifactSchema),
+      }),
+    ),
+  ),
 }).annotate({
   identifier: "StepArtifact",
   title: "Plan Step Artifact",
   description: "Optional artifact metadata describing what changed and where.",
 });
-type StepArtifact = typeof StepArtifactSchema.Type;
 
 const OperationFailureSchema = Schema.Struct({
   code: ErrorCodeSchema,
@@ -271,6 +305,7 @@ const OperationBlockSchema = Schema.Struct({
 const UnitSchema = Schema.Struct({
   id: Schema.String,
   label: Schema.String,
+  transitions: Schema.optional(Schema.Array(MaterializationTransitionSchema)),
   state: UnitStateSchema,
   disposition: Schema.optional(UnitDispositionSchema),
   blocking: Schema.optional(OperationBlockSchema),
@@ -461,7 +496,8 @@ export const PlanResolutionResultSchema = Schema.Struct({
   divergence: Schema.optional(Schema.Boolean),
   counts: UnitCountsSchema,
   units: Schema.Array(UnitSchema),
-  nativeLocations: Schema.Array(NativeLocationOutcomeSchema),
+  nativeLocations: Schema.Array(NativeLocationRecordSchema),
+  nativeReaderDeclarations: Schema.Array(NativeReaderDeclarationSchema),
   nativeLocationCounts: Schema.Struct({
     units: Schema.Number,
     physicalLocations: Schema.Number,
@@ -538,14 +574,39 @@ const nativeLocationForJson = (location: NativeLocationOutcome): NativeLocationO
 const artifactForJson = (
   artifact: JobStepArtifact,
   options: PlanResolutionResultOptions,
+  native: ReturnType<typeof createNativeLocationTable>,
+  unit: ResolvedUnit<unknown>,
+  mode: OperationResolution<unknown>["mode"],
 ): StepArtifact => {
-  const { targets, source, sourceSwitch, managedRegions, references, nativeLocations, ...base } =
-    artifact;
+  const {
+    targets,
+    source,
+    sourceSwitch,
+    managedRegions,
+    references,
+    nativeLocations,
+    members,
+    ...base
+  } = artifact;
   const sanitizedBase = {
     ...base,
     ...(nativeLocations === undefined
       ? {}
-      : { nativeLocations: nativeLocations.map(nativeLocationForJson) }),
+      : {
+          nativeLocationRefs: native.add(
+            settledUnitNativeLocations({ ...unit, artifact }, mode).map(nativeLocationForJson),
+            mode === "preview" ? "proposal" : "settlement",
+          ),
+        }),
+    ...(members === undefined
+      ? {}
+      : {
+          members: members.map((member) => ({
+            id: member.id,
+            changed: member.changed,
+            artifact: artifactForJson(member.artifact, options, native, unit, mode),
+          })),
+        }),
     ...(sourceSwitch === undefined
       ? {}
       : {
@@ -607,14 +668,16 @@ const artifactForJson = (
     source === undefined
       ? undefined
       : {
-          ...source,
+          type: source.type,
           origin: redactCredentialText(source.origin),
           ...(source.ref === undefined ? {} : { ref: redactCredentialText(source.ref) }),
+          ...(source.directory === undefined
+            ? {}
+            : { directory: redactCredentialText(source.directory) }),
+          ...(source.gitTreeHash === undefined ? {} : { gitTreeHash: source.gitTreeHash }),
         };
   const rest =
-    options.debug === true && sanitizedSource !== undefined
-      ? { ...sanitizedBase, source: sanitizedSource }
-      : sanitizedBase;
+    sanitizedSource !== undefined ? { ...sanitizedBase, source: sanitizedSource } : sanitizedBase;
   if (targets === undefined) return rest;
   const additionalTargets = artifact.targets?.filter(
     (target) => target.path !== artifact.path || target.unitId !== undefined,
@@ -660,12 +723,39 @@ const unitForJson = (
   unit: ResolvedUnit<unknown>,
   options: PlanResolutionResultOptions,
   mode: OperationResolution<unknown>["mode"],
+  native: ReturnType<typeof createNativeLocationTable>,
 ): Unit => {
   const includeErrorDetails = options.verbose === true || options.debug === true;
   const secrets = collectSensitiveStrings(unit.error?.metadata);
   return {
     id: unit.id,
-    label: unit.label,
+    label: redactCredentialText(unit.label),
+    ...(unit.transitions === undefined
+      ? {}
+      : {
+          transitions: unit.transitions.map((transition) => ({
+            ...transition,
+            previous:
+              transition.previous === null
+                ? null
+                : {
+                    ...transition.previous,
+                    source: {
+                      ...transition.previous.source,
+                      identity: redactCredentialText(transition.previous.source.identity),
+                      locator: redactCredentialText(transition.previous.source.locator),
+                    },
+                  },
+            proposed: {
+              ...transition.proposed,
+              source: {
+                ...transition.proposed.source,
+                identity: redactCredentialText(transition.proposed.source.identity),
+                locator: redactCredentialText(transition.proposed.source.locator),
+              },
+            },
+          })),
+        }),
     state: unit.state,
     ...(unit.disposition === undefined ? {} : { disposition: unit.disposition }),
     ...(unit.blocking === undefined
@@ -692,15 +782,7 @@ const unitForJson = (
     ...(unit.artifact === undefined
       ? {}
       : {
-          artifact: artifactForJson(
-            {
-              ...unit.artifact,
-              ...(unit.artifact.nativeLocations === undefined
-                ? {}
-                : { nativeLocations: settledUnitNativeLocations(unit, mode) }),
-            },
-            options,
-          ),
+          artifact: artifactForJson(unit.artifact, options, native, unit, mode),
         }),
     ...(unit.agentOutcomes === undefined ? {} : { agentOutcomes: unit.agentOutcomes }),
     ...(unit.registryLifecycle === undefined ? {} : { registryLifecycle: unit.registryLifecycle }),
@@ -725,8 +807,9 @@ export const toPlanResolutionResult = (
 ): PlanResolutionResult => {
   const outcome = deriveOperationOutcome(resolution);
   const counts = countUnitStates(resolution.units);
+  const native = createNativeLocationTable();
   const units = unitsByStableIdentity(resolution.units).map((unit) =>
-    unitForJson(unit, options, resolution.mode),
+    unitForJson(unit, options, resolution.mode, native),
   );
   const nativeLocations = operationNativeLocations(resolution).map(nativeLocationForJson);
   const description = Option.getOrUndefined(resolution.description);
@@ -772,7 +855,8 @@ export const toPlanResolutionResult = (
       warnings: counts.warnings,
     },
     units,
-    nativeLocations,
+    nativeLocations: native.records(),
+    nativeReaderDeclarations: native.readerDeclarations(),
     nativeLocationCounts: {
       units: nativeLocations.length,
       physicalLocations: new Set(
@@ -1101,7 +1185,6 @@ export const emitOperationResolution = (
     const verbosity = yield* Verbosity;
     const outcome = deriveOperationOutcome(resolution);
     const exitCode = operationExitCode(resolution, outcome);
-    const ok = operationOk(resolution, outcome);
 
     const offered =
       typeof options?.suggestions === "function"
@@ -1170,7 +1253,12 @@ export const emitOperationResolution = (
             ],
             [resolution.failure?.metadata, ...resolution.units.map((unit) => unit.error?.metadata)],
           );
-    yield* setOperationSettlement({ exitCode, ...(failure === undefined ? {} : { failure }) });
+    yield* setOperationSettlement({
+      mode: resolution.mode,
+      outcome,
+      exitCode,
+      ...(failure === undefined ? {} : { failure }),
+    });
 
     // Live-to-settled handoff: the terminal lifecycle event lands and every
     // lossless observer (frame collapse, machine writer) drains before the
@@ -1195,7 +1283,13 @@ export const emitOperationResolution = (
       },
       {
         ...(suggestions === undefined ? {} : { suggestions }),
-        ok,
+        completion: {
+          mode: resolution.mode,
+          outcome,
+          exitCode,
+          ...(failure === undefined ? {} : { failure }),
+        },
+        promotedResultFields: ["mode", "outcome"],
         ...(Option.isSome(diagnostic) ? { diagnosticId: diagnostic.value.eventId } : {}),
       },
     );

@@ -177,7 +177,7 @@ describe("Windows workspace mutation contract", () => {
       );
       expect(JSON.parse(projectMcp.stdout)).toMatchObject({
         ok: true,
-        result: { outcome: "applied" },
+        outcome: "applied",
       });
       expect(readJson(path.join(workspace.path, ".mcp.json"))).toMatchObject({
         mcpServers: { "windows-demo": { command: "node", args: ["server.js"] } },
@@ -384,7 +384,7 @@ describe("Windows workspace mutation contract", () => {
       );
       expect(JSON.parse(converged.stdout)).toMatchObject({
         ok: true,
-        result: { outcome: "no-op" },
+        outcome: "no-op",
       });
     } finally {
       workspace.cleanup();

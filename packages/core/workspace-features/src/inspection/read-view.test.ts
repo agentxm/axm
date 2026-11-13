@@ -5,7 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { makeRegistryMcpServerLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { ListExtensions } from "./extension-list/list-extensions.js";
-import { ShowExtension } from "./show/show-extension.js";
+import { LocalInspection } from "./index.js";
 import { listSkills } from "./type-list/type-lists.js";
 import {
   makeInstalledSkillFixture,
@@ -126,7 +126,10 @@ describe("inspection read phase", () => {
               assertDocumentReads();
 
               reads.clear();
-              yield* ShowExtension.query({ type: "skill", name: "review" });
+              yield* LocalInspection.query({
+                selection: { kind: "identities", identities: ["review"] },
+                types: ["skill"],
+              });
               assertDocumentReads();
 
               reads.clear();

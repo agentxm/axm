@@ -45,9 +45,9 @@ arguments, environment-variable references, headers, installation, and
 projection. Implementing or debugging the MCP server software itself is an
 ordinary software-development task, not an AXM management operation.
 
-Read the one relevant `axm help <topic>` or `axm <command> --help` entry after
-identifying the extension type and operation. Live help owns current command
-syntax, output fields, and recovery steps.
+Command help (`axm <command> --help`) describes the installed command's syntax,
+output meanings, and schema discovery route. Consult a topic with `axm help <topic>`
+when you need additional explanation.
 
 ## How AXM works
 
@@ -117,9 +117,18 @@ archive boundary.
 
 Use `axm list` for the fast, local inventory across all extension types. It combines
 accepted identity and version from the lockfile with current presence and agent
-associations. Add `--details` to any extension list for native ownership and
-currency findings and Knowledge document counts. `--verbose` changes presentation;
-it does not request inspection. A type's `show <name>` command inspects that item.
+associations. Use `axm show <name>` or a type's `show <name>` command for editing
+authority, desired and accepted state, native ownership, and retention. Use
+`axm show --all` for the complete local inventory, or `axm show --path <path>`
+for ownership at an exact path. Requests retain missing and ambiguous selections;
+uncertain ownership remains explicit. `--verbose` expands human presentation and
+redacted diagnostics without changing machine result completeness.
+
+`axm schema <command-path>` explains an output contract offline without target
+arguments, credentials, or a workspace. For example,
+`axm schema publish --field 'result.execution.outcomes[].status'` explains a
+specific field; `axm schema publish --json` exports the complete stdout schema.
+These are optional reference tools; ordinary results give their conclusions directly.
 
 Content
 desired state does not explain is `leftover` (installed but not configured;

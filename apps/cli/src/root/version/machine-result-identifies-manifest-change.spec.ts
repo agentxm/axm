@@ -1,3 +1,4 @@
+import { PlanWireDocumentSchema } from "../../test-support/plan-wire-document.js";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
@@ -5,7 +6,6 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { PlanResolutionDocumentSchema } from "../../operation-output.js";
 import { authoringTypes, writeAuthoringPackage } from "../../test-support/authoring-fixtures.js";
 import { makeSpecWorkspace } from "../../test-support/install-harness.js";
 import { handleRootVersion } from "./command.js";
@@ -60,8 +60,8 @@ describe("Machine version results", () => {
         }).pipe(Effect.provide(created.layer));
 
         const payload: unknown = JSON.parse((created.streams?.lines("stdout") ?? []).join("\n"));
-        const document = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(payload);
-        expect(document.result.outcome).toBe(changed ? "applied" : "no-op");
+        const document = yield* Schema.decodeUnknownEffect(PlanWireDocumentSchema)(payload);
+        expect(document.outcome).toBe(changed ? "applied" : "no-op");
         expect(document.result.units).toHaveLength(1);
         expect(document.result.units[0]).toMatchObject({
           id: "@acme/skills/review",

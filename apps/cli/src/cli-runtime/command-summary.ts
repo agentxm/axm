@@ -1,19 +1,12 @@
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { TelemetryProperties } from "../telemetry/index.js";
+import type { SettledOutcome } from "@agentxm/workspace-kernel/operations";
 
 // ---------------------------------------------------------------------------
 // Bounded vocabularies
 // ---------------------------------------------------------------------------
 
-type CommandOutcome =
-  | "applied"
-  | "previewed"
-  | "no-op"
-  | "cancelled"
-  | "partial"
-  | "failed"
-  | "blocked"
-  | "interrupted";
+type CommandOutcome = SettledOutcome;
 
 /**
  * What a command acted on, for telemetry and JSON output. Derived from the

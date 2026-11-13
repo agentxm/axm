@@ -3,14 +3,14 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { ListKnowledge } from "./list-knowledge.js";
+import { LocalInspection } from "../index.js";
 import { knowledgeDocument, makeKnowledgeInventoryFixture } from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/knowledge/list/reports-bundle-inspection",
   title: "Knowledge inventory counts every inspected document from current source",
   statement:
-    "When listing Knowledge bundles with details requested, AXM shall count every inspected document in the bundle, including its reserved index, and shall re-inspect current source on each detailed listing so concept and diagnostic counts follow repairs.",
+    "When inspecting Knowledge bundles with show --all, AXM shall count every inspected document in the bundle, including its reserved index, and shall re-inspect current source on each invocation so concept and diagnostic counts follow repairs.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
@@ -45,21 +45,22 @@ describe("Knowledge bundle inventory", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const first = yield* ListKnowledge.query({ details: true });
+          const first = yield* LocalInspection.query({
+            selection: { kind: "all" },
+            types: ["knowledge"],
+          });
           // Inspection counts the valid index and guide; the malformed document
           // is diagnosed. Concept-query defaults exclude index documents; this
           // inventory counts everything inspection found.
-          expect(first.document).toMatchObject({
-            count: 1,
+          expect(first).toMatchObject({
             items: [
               {
-                name: "platform",
-                sourceRoot: fixture.sourceRoot("platform"),
-                inspection: { knowledge: { concepts: 2 } },
+                identity: { name: "platform" },
+                knowledge: { concepts: 2 },
               },
             ],
           });
-          expect(first.rows[0]?.diagnostics).toBeGreaterThan(0);
+          expect(first.items[0]?.knowledge?.diagnostics).toBeGreaterThan(0);
 
           fixture.writeDocument("platform", "broken.md", knowledgeDocument("# Repaired\n"));
           fixture.writeDocument("platform", "added.md", knowledgeDocument("# Added\n"));
@@ -68,12 +69,12 @@ describe("Knowledge bundle inventory", () => {
             "index.md",
             '---\nokf_version: "0.2"\n---\n# Platform\n\n[Guide](guide.md)\n[Repaired](broken.md)\n[Added](added.md)\n',
           );
-          const repaired = yield* ListKnowledge.query({ details: true });
-          expect(repaired.document).toMatchObject({
-            count: 1,
-            items: [
-              { name: "platform", inspection: { knowledge: { concepts: 4, diagnostics: 0 } } },
-            ],
+          const repaired = yield* LocalInspection.query({
+            selection: { kind: "all" },
+            types: ["knowledge"],
+          });
+          expect(repaired).toMatchObject({
+            items: [{ identity: { name: "platform" }, knowledge: { concepts: 4, diagnostics: 0 } }],
           });
         }),
       )

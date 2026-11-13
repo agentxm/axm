@@ -221,5 +221,6 @@ are not continuously compared with the published ZIP digest.
 
 - `axm publish --help` — root selectors, filters, preview, and Registry options
 - `axm <type> publish --help` — type-specific selectors and options
+- `axm help environment` — trusted publishing setup, workflow permissions, and credential selection
 - `axm help workspace-state` — desired, accepted-resolution, and observed state
 - `axm help packs` — authored dependency inclusion and Registry validation

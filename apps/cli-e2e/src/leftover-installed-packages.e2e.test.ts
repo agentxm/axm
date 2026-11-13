@@ -168,7 +168,7 @@ describe("Leftover installed packages", () => {
 
       const converged = await run(["sync", "--preview", "--fail-on-change"]);
       expect(converged.exitCode, converged.stdout + converged.stderr).toBe(0);
-      expect(JSON.parse(converged.stdout).result.outcome).toBe("no-op");
+      expect(JSON.parse(converged.stdout).outcome).toBe("no-op");
       const relint = await run(["lint"]);
       const remaining: ReadonlyArray<Finding> = JSON.parse(relint.stdout).result.findings;
       expect(

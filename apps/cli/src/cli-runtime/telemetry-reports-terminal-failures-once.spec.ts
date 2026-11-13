@@ -44,6 +44,7 @@ import { baseLayer, withWorkspace, makeArtifactHttpClientLayer } from "../runtim
 import {
   OutputStreams,
   OutputWriteFailed,
+  ProgressEventSchema,
   QuestionCancelled,
   Screen,
   ScreenMachine,
@@ -94,6 +95,44 @@ interface RecordedWrite {
   readonly channel: "stdout" | "stderr";
   readonly content: string;
 }
+
+const decodeProgress = Schema.decodeUnknownSync(ProgressEventSchema, {
+  onExcessProperty: "error",
+});
+
+/** Preserve every stream byte except validated, invocation-local start IDs. */
+const normalizeOperationIds = (output: ReadonlyArray<RecordedWrite>) => {
+  const operationIds = new Map<string, string>();
+  return output.map((entry) => {
+    if (entry.channel !== "stderr") return entry;
+    const content = entry.content
+      .split("\n")
+      .map((line) => {
+        if (line.length === 0) return line;
+        const value: unknown = JSON.parse(line);
+        if (
+          typeof value !== "object" ||
+          value === null ||
+          !("type" in value) ||
+          value.type !== "progress"
+        )
+          return line;
+        const progress = decodeProgress(value);
+        if (progress.event._tag !== "OperationStarted") return line;
+        const original = progress.event.operationId;
+        let normalized = operationIds.get(original);
+        if (normalized === undefined) {
+          normalized = `operation-${operationIds.size + 1}`;
+          operationIds.set(original, normalized);
+        }
+        const field = `"operationId":${JSON.stringify(original)}`;
+        expect(line.split(field)).toHaveLength(2);
+        return line.replace(field, `"operationId":${JSON.stringify(normalized)}`);
+      })
+      .join("\n");
+    return { ...entry, content };
+  });
+};
 
 /** Output streams that record every write; stdout can be a closed pipe. */
 const recordingStreams = (brokenStdout: boolean, reason: OutputWriteFailed["reason"] = "EPIPE") => {
@@ -188,7 +227,7 @@ const reportsOf = <A, E, R>(
     const observed = yield* observe(invocation, { ...options, mode: "all" });
     expect(baseline.reports).toEqual([]);
     expect(observed.result).toEqual(baseline.result);
-    expect(observed.output).toEqual(baseline.output);
+    expect(normalizeOperationIds(observed.output)).toEqual(normalizeOperationIds(baseline.output));
     const reports = yield* Effect.forEach(observed.reports, ({ body }) => decodeErrorReport(body));
     for (const report of reports) {
       expect(observed.diagnostic._tag).toBe("Some");
@@ -314,12 +353,28 @@ describe("Terminal failure reporting", () => {
           .join("");
         expect(stdout).toContain('"workspace/initialized"');
         expect(stdout).not.toContain('"suggestions"');
+        const document: unknown = JSON.parse(stdout);
+        expect(document).toMatchObject({ ok: false, mode: "query", outcome: "completed" });
+        // Every stderr line must be lifecycle progress, never a diagnostic or error.
+        const events = observed.output
+          .filter((entry) => entry.channel === "stderr")
+          .flatMap((entry) => entry.content.split("\n").filter((line) => line.length > 0))
+          .map((line) => decodeProgress(JSON.parse(line)).event);
+        expect(events.map((event) => event._tag)).toEqual(["OperationStarted", "OperationSettled"]);
+        expect(events[0]).toMatchObject({
+          seq: 1,
+          mode: "query",
+          name: "Evaluate workspace findings",
+        });
+        expect(events[1]).toMatchObject({ seq: 2, outcome: "completed" });
+        expect(observed.output.findIndex((entry) => entry.channel === "stdout")).toBeGreaterThan(
+          observed.output.map((entry) => entry.channel).lastIndexOf("stderr"),
+        );
         const undelivered = yield* observe(invocation, { mode: "all", brokenStdout: true });
         expect(undelivered.result).toEqual({ _tag: "ProcessOutcome", exitCode: 1 });
         expect(undelivered.reports[0]?.body).toMatchObject({
           failure: { kind: "lint.findings", category: "issues" },
         });
-        expect(observed.output.filter((entry) => entry.channel === "stderr")).toEqual([]);
       }),
     ),
   );

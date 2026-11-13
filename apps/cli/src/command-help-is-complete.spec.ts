@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/command-help-is-complete",
   title: "Every supported command describes its invocation and purpose",
   statement:
-    "Every supported command shall present help identifying its invocation and purpose, the rendered help tree shall list exactly the supported command paths, every authored parameter shall have a description of at most 88 characters excluding generated facts, every authored example shall parse against the registered command grammar with concrete arguments, and a help request shall reply without reading or changing project or user workspace state, even when that state is malformed.",
+    "Every supported command shall present help identifying its invocation, purpose, output class, supported operation modes and effects, result meanings, and exact offline schema discovery invocation, the rendered help tree shall list exactly the supported command paths, every authored parameter shall have a description of at most 88 characters excluding generated facts, every authored example shall parse against the registered command grammar with concrete arguments, and a help request shall reply without reading or changing project or user workspace state, even when that state is malformed.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access"],
@@ -66,6 +66,11 @@ describe("Command help completeness", () => {
         );
         expect(doc.description.trim().length, formatCommandPath(command.path)).toBeGreaterThan(0);
         const machine = toJsonHelpDoc(doc);
+        expect(machine.output?.schemaCommand, formatCommandPath(command.path)).toBe(
+          `axm schema${command.path.length === 0 ? "" : ` ${command.path.join(" ")}`}`,
+        );
+        expect(machine.output?.meaning.trim().length).toBeGreaterThan(0);
+        expect(machine.output?.effects.trim().length).toBeGreaterThan(0);
         for (const parameter of [
           ...machine.flags,
           ...(machine.args ?? []),

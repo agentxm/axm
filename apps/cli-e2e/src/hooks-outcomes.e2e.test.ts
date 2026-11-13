@@ -170,7 +170,9 @@ describe("hook configured-agent outcomes", () => {
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       expect(JSON.parse(preview.stdout)).toMatchObject({
         ok: true,
-        result: { contract: "plan-result-v4", outcome: "previewed", mode: "preview" },
+        outcome: "previewed",
+        mode: "preview",
+        result: { contract: "plan-result-v4" },
       });
       expect(agentOutcomes(preview.stdout)).toMatchObject([
         { name: "audit", agentId: "claude-code", outcome: "projected", mechanism: "native" },
@@ -188,8 +190,8 @@ describe("hook configured-agent outcomes", () => {
       );
       expect(unacknowledged.exitCode).not.toBe(0);
       expect(JSON.parse(unacknowledged.stdout)).toMatchObject({
+        outcome: "blocked",
         result: {
-          outcome: "blocked",
           blocking: { class: "override-required" },
           riskConditions: expect.arrayContaining([
             expect.objectContaining({
@@ -221,10 +223,10 @@ describe("hook configured-agent outcomes", () => {
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
       expect(JSON.parse(applied.stdout)).toMatchObject({
         ok: true,
+        outcome: "applied",
+        mode: "apply",
         result: {
           contract: "plan-result-v4",
-          outcome: "applied",
-          mode: "apply",
           counts: { total: 1, committed: 1, failed: 0, blocked: 0 },
         },
       });
@@ -245,9 +247,13 @@ describe("hook configured-agent outcomes", () => {
       const shown: unknown = JSON.parse(show.stdout);
       expect(shown).toMatchObject({
         result: {
-          agentOutcomes: [
-            { agentId: "claude-code", outcome: "current", mechanism: "native" },
-            { agentId: "cursor", outcome: "current", mechanism: "native" },
+          items: [
+            {
+              agentOutcomes: [
+                { agentId: "claude-code", outcome: "current", mechanism: "native" },
+                { agentId: "cursor", outcome: "current", mechanism: "native" },
+              ],
+            },
           ],
         },
       });
@@ -286,7 +292,8 @@ describe("hook configured-agent outcomes", () => {
       });
       expect(unacknowledgedRestore.exitCode).not.toBe(0);
       expect(JSON.parse(unacknowledgedRestore.stdout)).toMatchObject({
-        result: { outcome: "blocked", blocking: { class: "override-required" } },
+        outcome: "blocked",
+        result: { blocking: { class: "override-required" } },
       });
       expect(snapshotTree(temp.path)).toEqual(beforeSyncPreview);
 

@@ -79,11 +79,26 @@ export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
   const result = yield* withLiveOperation(
     { name: "Verify archive cache", mode: "apply" },
     observeUnit({ id: "verify", label: "cached archives" }, cache.verify()),
+    (result) => ({
+      mode: "apply",
+      outcome: result.corruptRemoved === 0 ? "no-op" : "applied",
+      exitCode: 0,
+    }),
   );
-  yield* emitResult({ result }, CacheVerifyOutputSchema, () =>
-    successDoc(
-      `Verified ${result.checked} archive cache entr${result.checked === 1 ? "y" : "ies"}; ${result.corruptRemoved} corrupt removed.`,
-    ),
+  yield* emitResult(
+    { result },
+    CacheVerifyOutputSchema,
+    () =>
+      successDoc(
+        `Verified ${result.checked} archive cache entr${result.checked === 1 ? "y" : "ies"}; ${result.corruptRemoved} corrupt removed.`,
+      ),
+    {
+      completion: {
+        mode: "apply",
+        outcome: result.corruptRemoved === 0 ? "no-op" : "applied",
+        exitCode: 0,
+      },
+    },
   );
 });
 
@@ -92,11 +107,26 @@ export const handleCachePrune = Effect.fn("Cache.prune")(function* () {
   const result = yield* withLiveOperation(
     { name: "Prune archive cache", mode: "apply" },
     observeUnit({ id: "prune", label: "expired and excess archives" }, cache.prune()),
+    (result) => ({
+      mode: "apply",
+      outcome: result.removed === 0 ? "no-op" : "applied",
+      exitCode: 0,
+    }),
   );
-  yield* emitResult({ result }, CachePruneOutputSchema, () =>
-    successDoc(
-      `Pruned ${result.removed} archive cache entr${result.removed === 1 ? "y" : "ies"} (${formatBytes(result.bytesFreed)}); ${result.remaining} remain (${formatBytes(result.remainingBytes)}).`,
-    ),
+  yield* emitResult(
+    { result },
+    CachePruneOutputSchema,
+    () =>
+      successDoc(
+        `Pruned ${result.removed} archive cache entr${result.removed === 1 ? "y" : "ies"} (${formatBytes(result.bytesFreed)}); ${result.remaining} remain (${formatBytes(result.remainingBytes)}).`,
+      ),
+    {
+      completion: {
+        mode: "apply",
+        outcome: result.removed === 0 ? "no-op" : "applied",
+        exitCode: 0,
+      },
+    },
   );
 });
 

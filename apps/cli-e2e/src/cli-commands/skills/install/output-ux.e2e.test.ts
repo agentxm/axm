@@ -110,8 +110,8 @@ describe("axm skills install output UX", () => {
       const document = JSON.parse(result.stdout);
       expect(document.ok).toBe(true);
       expect(document.result.contract).toBe("plan-result-v4");
-      expect(document.result.outcome).toBe("applied");
-      expect(document.result.mode).toBe("apply");
+      expect(document.outcome).toBe("applied");
+      expect(document.mode).toBe("apply");
       expect(document.result.counts).toEqual({
         total: 1,
         planned: 0,
@@ -177,7 +177,7 @@ describe("axm skills install output UX", () => {
 
       expect(result.exitCode).toBe(0);
       const document = JSON.parse(result.stdout);
-      expect(document.result.outcome).toBe("applied");
+      expect(document.outcome).toBe("applied");
       const unit = document.result.units[0];
       expect(unit.state).toBe("committed");
       expect(unit.artifact.agents).toEqual(["antigravity", "amp", "claude-code"]);
@@ -212,7 +212,7 @@ describe("axm skills install output UX", () => {
       const document = JSON.parse(result.stdout);
       expect(document.ok).toBe(true);
       expect(document.result.contract).toBe("plan-result-v4");
-      expect(document.result.outcome).toBe("no-op");
+      expect(document.outcome).toBe("no-op");
       expect(document.result.counts).toEqual({
         total: 1,
         planned: 0,

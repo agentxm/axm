@@ -196,8 +196,8 @@ describe("axm setup", () => {
         expect(result.exitCode).toBe(2);
         expect(JSON.parse(result.stdout)).toMatchObject({
           ok: false,
+          outcome: "blocked",
           result: {
-            outcome: "failed",
             reason: "approval-required",
             errorCode: "usage",
             status: "approval-required",
@@ -231,8 +231,8 @@ describe("axm setup", () => {
         expect(result.exitCode).toBe(0);
         expect(JSON.parse(result.stdout)).toMatchObject({
           ok: true,
+          outcome: "previewed",
           result: {
-            outcome: "previewed",
             status: "preview",
             changed: false,
             agents: expect.any(Array),

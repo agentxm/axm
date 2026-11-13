@@ -9,13 +9,14 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { createBinaryRunner } from "@agentxm/client-e2e-utils";
+import { prepareInventoryFixture } from "@agentxm/test-support/inventory-fixture";
 import { resolveHostBinaryPath } from "./distribution-targets.js";
 
 export const specification = defineSpecification({
   requirement: "cli/list/ordinary-inventory-latency",
   title: "Thirty locked extensions list within half a second",
   statement:
-    "On the recorded Linux reference host with a warm filesystem and an existing lockfile, ordinary listing of 30 installed extensions without details shall complete in less than 500 milliseconds at the 95th percentile, including process startup, inventory observation, output, and exit.",
+    "On the recorded Linux reference host with a warm filesystem and an existing lockfile, cheap ordinary listing of 30 installed extensions shall complete in less than 500 milliseconds at the 95th percentile, including process startup, inventory observation, output, and exit.",
   class: "quality",
   characteristic: "performance",
   role: "experience",
@@ -67,51 +68,7 @@ it.live.skipIf(process.platform !== "linux")(
             env: { AXM_USER_HOME: home, AXM_NO_UPDATE_CHECK: "1", AXM_TELEMETRY: "0" },
           }),
         );
-      const skills: Record<string, { source: string }> = {};
-      const knowledge: Record<string, { source: string }> = {};
-      for (let index = 0; index < 30; index++) {
-        const type = index < 20 ? "skill" : "knowledge";
-        const name = `extension-${index}`;
-        const source = `./vendor/${name}`;
-        const packageRoot = path.join(root, source);
-        yield* fs.makeDirectory(path.join(packageRoot, "src"), { recursive: true });
-        yield* fs.writeFileString(
-          path.join(packageRoot, `${type}.json`),
-          JSON.stringify({
-            owner: "@fixture",
-            type,
-            name,
-            version: "1.0.0",
-            description: "Inventory performance fixture",
-            ...(type === "knowledge"
-              ? { format: { name: "okf", version: "0.2" }, bundleRoot: "src" }
-              : {}),
-          }),
-        );
-        if (type === "skill") {
-          skills[name] = { source };
-          yield* fs.writeFileString(
-            path.join(packageRoot, "src", "SKILL.md"),
-            `---\nname: ${name}\ndescription: Inventory fixture\n---\n# Fixture\n`,
-          );
-        } else {
-          knowledge[name] = { source };
-          yield* fs.writeFileString(
-            path.join(packageRoot, "src", "index.md"),
-            '---\nokf_version: "0.2"\n---\n# Fixture\n',
-          );
-          for (let document = 0; document < 50; document++) {
-            yield* fs.writeFileString(
-              path.join(packageRoot, "src", `concept-${document}.md`),
-              `---\ntype: reference\ndescription: Fixture concept\n---\n# Concept ${document}\n`,
-            );
-          }
-        }
-      }
-      yield* fs.writeFileString(
-        path.join(root, "axm.json"),
-        JSON.stringify({ owner: "@fixture", agents: ["claude-code", "codex"], skills, knowledge }),
-      );
+      yield* prepareInventoryFixture(root);
       const installed = yield* invoke(["sync", "--non-interactive", "--json"]);
       expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
       expect(yield* fs.exists(path.join(root, "axm.lock"))).toBe(true);

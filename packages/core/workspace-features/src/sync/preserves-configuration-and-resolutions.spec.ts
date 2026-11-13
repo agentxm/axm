@@ -47,7 +47,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/preserves-configuration-and-resolutions",
   title: "Sync never changes configuration and never advances a satisfying resolution",
   statement:
-    "Sync shall preserve axm.json and authored manifests byte for byte, preserve satisfying accepted resolutions of still-desired extensions, restore missing acquired content only from the accepted identity even when newer content exists, and select every member of a configured Pack it recovers within that member's effective desired constraint so that a direct pin on a shared member holds; an incompatible accepted identity shall block until an explicit resolution transition is authorized, and retiring an unreachable accepted record shall not count as advancing a resolution.",
+    "Sync shall preserve axm.json and authored manifests byte for byte, preserve satisfying accepted resolutions of still-desired extensions, restore missing acquired content only from the accepted identity even when newer content exists, and select every member of a configured Pack it recovers within that member's effective desired constraint so that a direct pin on a shared member holds; an incompatible accepted identity shall block until an explicit resolution transition is authorized, retiring an unreachable accepted record shall not count as advancing a resolution, and selected materializations shall report structured previous and proposed source/version, observed reason, and downgrade facts with unavailable versions and incomparable downgrades explicit rather than inferred from display labels.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -255,6 +255,16 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             expect(deriveOperationOutcome(restored), JSON.stringify(restored.failure)).toBe(
               "applied",
             );
+            expect(restored.units.flatMap((unit) => unit.transitions ?? [])).toEqual([
+              expect.objectContaining({
+                type: "skill",
+                name: "code-review",
+                previous: expect.objectContaining({ version: null }),
+                proposed: expect.objectContaining({ version: null }),
+                observedReason: "missing",
+                downgrade: null,
+              }),
+            ]);
             expect(workspace.readFile(`${canonical}/src/SKILL.md`)).toContain("Accepted guidance.");
             expect(workspace.readFile(`${canonical}/src/SKILL.md`)).not.toContain("New guidance.");
             expect(workspace.readFile("axm.json")).toBe(settingsBefore);
@@ -493,7 +503,34 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             const lockfileBefore = workspace.readFile("axm.lock");
             workspace.remove(CLAUDE_PROJECTION);
 
-            yield* applySync();
+            const preview = expectResolved(yield* previewSync());
+            const restored = expectResolved(yield* applySync());
+            for (const resolution of [preview, restored]) {
+              expect(resolution.units.flatMap((unit) => unit.transitions ?? [])).toEqual([
+                {
+                  type: "skill",
+                  name: "code-review",
+                  previous: {
+                    source: {
+                      kind: "registry",
+                      identity: "@acme/skills/code-review",
+                      locator: published.source.location,
+                    },
+                    version: "1.0.0",
+                  },
+                  proposed: {
+                    source: {
+                      kind: "registry",
+                      identity: "@acme/skills/code-review",
+                      locator: published.source.location,
+                    },
+                    version: "1.0.0",
+                  },
+                  observedReason: "stale-projection",
+                  downgrade: false,
+                },
+              ]);
+            }
 
             expect(workspace.readFile(`${CLAUDE_PROJECTION}/SKILL.md`)).toContain(
               "First guidance.",

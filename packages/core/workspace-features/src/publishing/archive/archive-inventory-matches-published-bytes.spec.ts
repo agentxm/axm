@@ -17,12 +17,13 @@ import {
   runPublish,
   type PublishWorld,
 } from "../test-helpers.js";
+import { planZipArchive } from "../index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/publish/archive-inventory-matches-published-bytes",
   title: "The publication archive matches its complete reported inventory",
   statement:
-    "Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) as selected by the resolved Git-ignore or explicit include/exclude policy, with publication controls omitted and the distribution manifest sanitized, and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total uncompressed archive and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.",
+    "Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) as selected by the resolved Git-ignore or explicit include/exclude policy, with publication controls omitted and the distribution manifest sanitized, and report the complete included and excluded paths, byte sizes, matched inherited and all explicit patterns with origins and match counts, the count of unmatched inherited patterns omitted only from the explanation, warnings, total uncompressed archive and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes without changing selection or policy identity.",
   class: "functional",
   role: "interface",
   goals: ["trustworthy-distribution", "machine-automation"],
@@ -59,6 +60,75 @@ describe("Published archive inventory", () => {
     });
     return { world, packageRoot };
   };
+
+  it.effect(
+    "omits only unmatched inherited explanations while retaining policy identity and explicit warnings",
+    () =>
+      Effect.gen(function* () {
+        const { world, packageRoot } = authoredWorld(["missing-explicit-*"]);
+        fs.mkdirSync(nodePath.join(world.root, ".git"));
+        const ignore = nodePath.join(world.root, ".gitignore");
+        fs.writeFileSync(ignore, "*.log\nunused-one/\nunused-two/\n");
+        fs.writeFileSync(nodePath.join(packageRoot, "debug.log"), "private log");
+        const preview = publishDocument(
+          yield* world.provide(runPublish(requestFor(world, { preview: true }))),
+        );
+        const archive = preview.execution.outcomes[0]?.archive;
+        expect(archive?.patterns).toEqual([
+          {
+            pattern: "*.log",
+            matchCount: 1,
+            origin: { kind: "gitignore", file: ".gitignore", line: 1 },
+          },
+          {
+            pattern: "missing-explicit-*",
+            matchCount: 0,
+            origin: { kind: "manifest", field: "exclude", index: 0 },
+          },
+        ]);
+        expect(archive?.patternCoverage).toEqual({
+          explicit: "all",
+          inherited: "matched-only",
+          omittedInheritedCount: 2,
+        });
+        expect(archive?.included.map(({ path }) => path)).toEqual(["skill.json", "src/SKILL.md"]);
+        expect(archive?.excluded).toEqual([
+          {
+            path: "debug.log",
+            sourcePath: "debug.log",
+            size: 11,
+            matchedPatterns: ["*.log"],
+            ruleOrigin: { kind: "gitignore", file: ".gitignore", line: 1 },
+          },
+        ]);
+        expect(archive?.warnings).toContain(
+          'publish.exclude pattern "missing-explicit-*" matched no files.',
+        );
+        const before = yield* world.provide(
+          planZipArchive(packageRoot, { exclude: ["missing-explicit-*"] }),
+        );
+        fs.writeFileSync(ignore, "*.log\nunused-changed/\nunused-two/\n");
+        const after = yield* world.provide(
+          planZipArchive(packageRoot, { exclude: ["missing-explicit-*"] }),
+        );
+        expect(after.plan).toEqual(before.plan);
+        expect(after.archive.copyBytes()).toEqual(before.archive.copyBytes());
+        expect(after.policyFingerprint).not.toBe(before.policyFingerprint);
+        expect(after.selection.rules.map(({ pattern }) => pattern)).toEqual([
+          "*.log",
+          "unused-changed/",
+          "unused-two/",
+          "missing-explicit-*",
+        ]);
+        const applied = publishDocument(
+          yield* world.provide(runPublish(requestFor(world, { preview: false }))),
+        );
+        expect(applied.execution.outcomes[0]?.archive?.patternCoverage).toEqual(
+          archive?.patternCoverage,
+        );
+        expect(applied.execution.outcomes[0]?.archive?.integrity).toBe(archive?.integrity);
+      }),
+  );
 
   for (const ignore of [undefined, [], ["evals/*", "missing-*"]]) {
     it.effect(

@@ -619,14 +619,6 @@
                 "default": "project"
               },
               {
-                "name": "details",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Inspect native locations and extension contents",
-                "default": false
-              },
-              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -721,17 +713,34 @@
           {
             "name": "show",
             "aliases": [],
-            "description": "Inspect one installed skill",
+            "description": "Inspect local identities, edit owners, native placement, and retention",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
-                "required": true,
-                "description": "Name of the skill to show"
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
               }
             ],
             "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
               {
                 "name": "scope",
                 "aliases": [],
@@ -746,7 +755,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Show only these agents' outcomes; unconfigured agents are reported as not configured",
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
                 "variadic": { "min": 0 },
                 "choices": [
                   { "value": "adal" },
@@ -822,12 +831,16 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm skills show code-review",
-                "description": "Inspect one installed skill"
+                "command": "axm skills show review --json",
+                "description": "Inspect an exact local subject"
               },
               {
-                "command": "axm skills show code-review --scope user",
-                "description": "Inspect a user-level skill"
+                "command": "axm skills show --all --json",
+                "description": "Inspect the complete local inventory"
+              },
+              {
+                "command": "axm skills show --path AGENTS.md --json",
+                "description": "Explain known ownership units at a local path"
               }
             ],
             "subcommands": []
@@ -1621,14 +1634,6 @@
                 "default": "project"
               },
               {
-                "name": "details",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Inspect native locations and extension contents",
-                "default": false
-              },
-              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -1723,17 +1728,34 @@
           {
             "name": "show",
             "aliases": [],
-            "description": "Inspect one installed MCP server",
+            "description": "Inspect local identities, edit owners, native placement, and retention",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
-                "required": true,
-                "description": "Name of the MCP server to show"
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
               }
             ],
             "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
               {
                 "name": "scope",
                 "aliases": [],
@@ -1748,7 +1770,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Show only these agents' outcomes; unconfigured agents are reported as not configured",
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
                 "variadic": { "min": 0 },
                 "choices": [
                   { "value": "adal" },
@@ -1824,12 +1846,16 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm mcps show context",
-                "description": "Inspect one installed MCP server"
+                "command": "axm mcps show review --json",
+                "description": "Inspect an exact local subject"
               },
               {
-                "command": "axm mcps show context --scope user",
-                "description": "Inspect a user-level MCP server"
+                "command": "axm mcps show --all --json",
+                "description": "Inspect the complete local inventory"
+              },
+              {
+                "command": "axm mcps show --path AGENTS.md --json",
+                "description": "Explain known ownership units at a local path"
               }
             ],
             "subcommands": []
@@ -2638,14 +2664,6 @@
                 "default": "project"
               },
               {
-                "name": "details",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Inspect native locations and extension contents",
-                "default": false
-              },
-              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -2746,11 +2764,28 @@
                 "name": "name",
                 "aliases": [],
                 "type": "string",
-                "required": true,
-                "description": "Name of the subagent to show"
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
               }
             ],
             "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
               {
                 "name": "scope",
                 "aliases": [],
@@ -2765,7 +2800,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Show only these agents' outcomes; unconfigured agents are reported as not configured",
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
                 "variadic": { "min": 0 },
                 "choices": [
                   { "value": "adal" },
@@ -3625,14 +3660,6 @@
                 "default": "project"
               },
               {
-                "name": "details",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Inspect native locations and extension contents",
-                "default": false
-              },
-              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -3724,17 +3751,34 @@
           {
             "name": "show",
             "aliases": [],
-            "description": "Inspect one installed rule",
+            "description": "Inspect local identities, edit owners, native placement, and retention",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
-                "required": true,
-                "description": "Name of the rule to show"
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
               }
             ],
             "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
               {
                 "name": "scope",
                 "aliases": [],
@@ -3749,7 +3793,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Show only these agents' outcomes; unconfigured agents are reported as not configured",
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
                 "variadic": { "min": 0 },
                 "choices": [
                   { "value": "adal" },
@@ -3825,12 +3869,16 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm rules show commit-style",
-                "description": "Inspect one installed rule"
+                "command": "axm rules show review --json",
+                "description": "Inspect an exact local subject"
               },
               {
-                "command": "axm rules show commit-style --scope user",
-                "description": "Inspect a user-level rule"
+                "command": "axm rules show --all --json",
+                "description": "Inspect the complete local inventory"
+              },
+              {
+                "command": "axm rules show --path AGENTS.md --json",
+                "description": "Explain known ownership units at a local path"
               }
             ],
             "subcommands": []
@@ -4419,14 +4467,6 @@
                 "default": "project"
               },
               {
-                "name": "details",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Inspect native locations and extension contents",
-                "default": false
-              },
-              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -4521,17 +4561,34 @@
           {
             "name": "show",
             "aliases": [],
-            "description": "Inspect one installed hook extension",
+            "description": "Inspect local identities, edit owners, native placement, and retention",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
-                "required": true,
-                "description": "Name of the hook extension to show"
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
               }
             ],
             "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
               {
                 "name": "scope",
                 "aliases": [],
@@ -4546,7 +4603,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Show only these agents' outcomes; unconfigured agents are reported as not configured",
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
                 "variadic": { "min": 0 },
                 "choices": [
                   { "value": "adal" },
@@ -4622,12 +4679,16 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm hooks show workspace-baseline",
-                "description": "Inspect one installed hook extension"
+                "command": "axm hooks show review --json",
+                "description": "Inspect an exact local subject"
               },
               {
-                "command": "axm hooks show workspace-baseline --scope user",
-                "description": "Inspect a user-level hook extension"
+                "command": "axm hooks show --all --json",
+                "description": "Inspect the complete local inventory"
+              },
+              {
+                "command": "axm hooks show --path AGENTS.md --json",
+                "description": "Explain known ownership units at a local path"
               }
             ],
             "subcommands": []
@@ -5482,14 +5543,6 @@
                 "default": "project"
               },
               {
-                "name": "details",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Inspect native locations and extension contents",
-                "default": false
-              },
-              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -5587,17 +5640,34 @@
           {
             "name": "show",
             "aliases": [],
-            "description": "Inspect one installed knowledge bundle",
+            "description": "Inspect local identities, edit owners, native placement, and retention",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
-                "required": true,
-                "description": "Name of the knowledge bundle to show"
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
               }
             ],
             "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
               {
                 "name": "scope",
                 "aliases": [],
@@ -5612,7 +5682,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Show only these agents' outcomes; unconfigured agents are reported as not configured",
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
                 "variadic": { "min": 0 },
                 "choices": [
                   { "value": "adal" },
@@ -5688,12 +5758,16 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm knowledge show platform",
-                "description": "Inspect one installed knowledge bundle"
+                "command": "axm knowledge show review --json",
+                "description": "Inspect an exact local subject"
               },
               {
-                "command": "axm knowledge show platform --scope user",
-                "description": "Inspect a user-level knowledge bundle"
+                "command": "axm knowledge show --all --json",
+                "description": "Inspect the complete local inventory"
+              },
+              {
+                "command": "axm knowledge show --path AGENTS.md --json",
+                "description": "Explain known ownership units at a local path"
               }
             ],
             "subcommands": []
@@ -6650,14 +6724,6 @@
                 "default": "project"
               },
               {
-                "name": "details",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Inspect native locations and extension contents",
-                "default": false
-              },
-              {
                 "name": "agent",
                 "aliases": [],
                 "type": "choice",
@@ -6749,17 +6815,34 @@
           {
             "name": "show",
             "aliases": [],
-            "description": "Inspect desired, accepted, and canonical pack state",
+            "description": "Inspect local identities, edit owners, native placement, and retention",
             "arguments": [
               {
                 "name": "name",
                 "aliases": [],
                 "type": "string",
-                "required": true,
-                "description": "Configured pack name or unique configured pack FQN"
+                "required": false,
+                "description": "Exact local name or identity; repeated operands retain their order",
+                "variadic": { "min": 0 }
               }
             ],
             "options": [
+              {
+                "name": "path",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Inspect this exact local path; repeat to inspect several paths",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Inspect the complete local inventory",
+                "default": false
+              },
               {
                 "name": "scope",
                 "aliases": [],
@@ -6774,7 +6857,7 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Show only these agents' outcomes; unconfigured agents are reported as not configured",
+                "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
                 "variadic": { "min": 0 },
                 "choices": [
                   { "value": "adal" },
@@ -6850,12 +6933,16 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm packs show my-pack",
-                "description": "Inspect a configured pack by name"
+                "command": "axm packs show review --json",
+                "description": "Inspect an exact local subject"
               },
               {
-                "command": "axm packs show @acme/packs/my-pack --json",
-                "description": "Emit structured pack state"
+                "command": "axm packs show --all --json",
+                "description": "Inspect the complete local inventory"
+              },
+              {
+                "command": "axm packs show --path AGENTS.md --json",
+                "description": "Explain known ownership units at a local path"
               }
             ],
             "subcommands": []
@@ -7769,14 +7856,6 @@
         "arguments": [],
         "options": [
           {
-            "name": "details",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Inspect native locations and extension contents",
-            "default": false
-          },
-          {
             "name": "scope",
             "aliases": [],
             "type": "choice",
@@ -7842,6 +7921,195 @@
             "description": "Find deprecated or archived extensions"
           },
           { "command": "axm list --scope user", "description": "List user-level extensions" }
+        ],
+        "subcommands": []
+      },
+      {
+        "name": "show",
+        "aliases": [],
+        "description": "Inspect local identities, edit owners, native placement, and retention",
+        "arguments": [
+          {
+            "name": "name",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Exact local name or identity; repeated operands retain their order",
+            "variadic": { "min": 0 }
+          }
+        ],
+        "options": [
+          {
+            "name": "path",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Inspect this exact local path; repeat to inspect several paths",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "all",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Inspect the complete local inventory",
+            "default": false
+          },
+          {
+            "name": "scope",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Workspace scope",
+            "choices": [{ "value": "project" }, { "value": "user" }],
+            "default": "project"
+          },
+          {
+            "name": "agent",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Filter displayed agent outcomes while retaining ownership and retention facts",
+            "variadic": { "min": 0 },
+            "choices": [
+              { "value": "adal" },
+              { "value": "fx" },
+              { "value": "muse-code" },
+              { "value": "mimo-code" },
+              { "value": "coder-agents" },
+              { "value": "aider-desk" },
+              { "value": "amp" },
+              { "value": "antigravity" },
+              { "value": "antigravity-cli" },
+              { "value": "augment" },
+              { "value": "claude-code" },
+              { "value": "cline" },
+              { "value": "codearts-agent" },
+              { "value": "codebuddy" },
+              { "value": "codemaker" },
+              { "value": "codestudio" },
+              { "value": "codex" },
+              { "value": "command-code" },
+              { "value": "continue" },
+              { "value": "cortex" },
+              { "value": "crush" },
+              { "value": "cursor" },
+              { "value": "deepagents" },
+              { "value": "devin" },
+              { "value": "dexto" },
+              { "value": "droid" },
+              { "value": "firebender" },
+              { "value": "forgecode" },
+              { "value": "gemini-cli" },
+              { "value": "github-copilot-cli" },
+              { "value": "goose" },
+              { "value": "grok-cli" },
+              { "value": "hermes" },
+              { "value": "ibm-bob" },
+              { "value": "iflow-cli" },
+              { "value": "junie" },
+              { "value": "lingma" },
+              { "value": "kilo" },
+              { "value": "kimi-cli" },
+              { "value": "kiro-cli" },
+              { "value": "kode" },
+              { "value": "mcpjam" },
+              { "value": "minimax-code" },
+              { "value": "mistral-vibe" },
+              { "value": "mux" },
+              { "value": "neovate" },
+              { "value": "openclaw" },
+              { "value": "opencode" },
+              { "value": "openhands" },
+              { "value": "ona" },
+              { "value": "pi" },
+              { "value": "vscode" },
+              { "value": "pochi" },
+              { "value": "qoder" },
+              { "value": "qoder-cn" },
+              { "value": "qwen-code" },
+              { "value": "replit" },
+              { "value": "roo" },
+              { "value": "rovodev" },
+              { "value": "tabnine-cli" },
+              { "value": "trae-cn" },
+              { "value": "trae" },
+              { "value": "warp" },
+              { "value": "windsurf" },
+              { "value": "zencoder" },
+              { "value": "zed" },
+              { "value": "zenflow" }
+            ]
+          },
+          {
+            "name": "type",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Restrict local candidates to this extension type",
+            "variadic": { "min": 0 },
+            "choices": [
+              { "value": "skill" },
+              { "value": "mcp-server" },
+              { "value": "subagent" },
+              { "value": "rule" },
+              { "value": "hook" },
+              { "value": "knowledge" },
+              { "value": "pack" }
+            ]
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          { "command": "axm show review --json", "description": "Inspect an exact local subject" },
+          {
+            "command": "axm show --all --json",
+            "description": "Inspect the complete local inventory"
+          },
+          {
+            "command": "axm show --path AGENTS.md --json",
+            "description": "Explain known ownership units at a local path"
+          }
+        ],
+        "subcommands": []
+      },
+      {
+        "name": "schema",
+        "aliases": [],
+        "description": "Explain a command's complete stdout contract offline, or export its standalone JSON Schema",
+        "arguments": [
+          {
+            "name": "command-path",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Command path to explain, such as publish or skills show",
+            "variadic": {}
+          }
+        ],
+        "options": [
+          {
+            "name": "field",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Declared stdout field path; use dotted names and [] for array elements"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm schema publish",
+            "description": "Explain publication outcomes and fields"
+          },
+          {
+            "command": "axm schema publish --field 'result.execution.outcomes[].status'",
+            "description": "Explain a declared result field"
+          },
+          {
+            "command": "axm schema skills show --json",
+            "description": "Export a complete stdout schema"
+          }
         ],
         "subcommands": []
       },

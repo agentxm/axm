@@ -77,7 +77,9 @@ export const makeTestScreen = (options?: {
         state.results.push({
           data,
           schema: Option.some(schema),
-          ...(resultOptions?.ok === undefined ? {} : { ok: resultOptions.ok }),
+          ...(resultOptions?.completion === undefined
+            ? {}
+            : { ok: resultOptions.completion.exitCode === 0 }),
         });
         state.suggestions.push(...(resultOptions?.suggestions ?? []));
         return options?.documentResult === true;

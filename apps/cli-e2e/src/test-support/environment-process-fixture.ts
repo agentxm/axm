@@ -3,8 +3,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as http from "node:http";
 import { createCliRunner } from "@agentxm/client-e2e-utils";
+import { withWireContracts } from "./wire-contracts.js";
 
-const runBuiltCli = createCliRunner(new URL("../../../cli/dist/src/main.js", import.meta.url));
+const builtArtifact = new URL("../../../cli/dist/src/main.js", import.meta.url);
+const runBuiltCli = withWireContracts(createCliRunner(builtArtifact), builtArtifact.href);
 
 export const makeEnvironmentProcessFixture = () => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-environment-spec-")));

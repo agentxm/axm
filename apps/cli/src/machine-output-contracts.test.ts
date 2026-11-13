@@ -1,3 +1,6 @@
+import { rootCommand } from "./app.js";
+import { commandOutputModes } from "./output-discovery.js";
+import { registeredCommandCapabilities } from "./root/shared/command-capabilities.js";
 import { NAMED_MACHINE_OUTPUT_SCHEMAS } from "./machine-output-schemas.js";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -28,6 +31,18 @@ const structFieldSets = (schema: unknown): ReadonlyArray<ReadonlyArray<string>> 
 };
 
 describe("machine-output contract register", () => {
+  it("agrees with each executable command's operation-mode capabilities", () => {
+    const rows = new Map(MACHINE_OUTPUT_CONTRACT_ROWS.map((row) => [row.path, row]));
+    for (const entry of registeredCommandCapabilities(rootCommand)) {
+      const path = ["axm", ...entry.path].join(" ");
+      const row = rows.get(path);
+      if (row?.family.outputClass !== "structured-result" || entry.capabilities === undefined)
+        continue;
+      expect([...row.family.modes].sort(), path).toEqual(
+        [...commandOutputModes(entry.capabilities)].sort(),
+      );
+    }
+  });
   it("registers the formatter help required and optional keys exactly as its schema", () => {
     const family = MACHINE_OUTPUT_CONTRACT_ROWS.find(
       (row) => row.family.id === "formatter-help",
@@ -82,13 +97,19 @@ describe("machine-output contract register", () => {
         expect(row.family.requiredEnvelopeKeys).toEqual([]);
       } else {
         expect(row.family.schemaNames.length).toBeGreaterThan(0);
-        expect(row.family.requiredEnvelopeKeys.length).toBeGreaterThan(0);
+        if (row.family.outputClass === "json-schema-document")
+          expect(row.family.requiredEnvelopeKeys).toEqual([]);
+        else expect(row.family.requiredEnvelopeKeys.length).toBeGreaterThan(0);
       }
       expect(
         row.family.requiredTopLevelKeys.length + row.family.optionalTopLevelKeys.length,
         row.path,
       ).toBeGreaterThan(0);
       expect(row.family.rationale).not.toBe("");
+      expect(row.family.effects).not.toBe("");
+      expect(row.family.completionOwner).not.toBe("");
+      if (row.family.outputClass === "structured-result")
+        expect(row.family.modes.length).toBeGreaterThan(0);
       expect(row.helpSchemaName).toBe("JsonHelpDocSchema");
     }
   });
@@ -96,7 +117,12 @@ describe("machine-output contract register", () => {
   it("uses one result envelope key for every ordinary structured command", () => {
     for (const row of MACHINE_OUTPUT_CONTRACT_ROWS) {
       if (row.family.outputClass !== "structured-result") continue;
-      expect(row.family.requiredEnvelopeKeys, row.path).toStrictEqual(["ok", "result"]);
+      expect(row.family.requiredEnvelopeKeys, row.path).toStrictEqual([
+        "ok",
+        "mode",
+        "outcome",
+        "result",
+      ]);
     }
   });
 

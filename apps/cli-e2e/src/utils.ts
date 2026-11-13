@@ -10,11 +10,14 @@ import {
   type RunCliOptions,
 } from "@agentxm/client-e2e-utils";
 import { cliArtifact } from "./cli-artifact.js";
+import { withWireContracts } from "./test-support/wire-contracts.js";
 
-const runCliArtifact =
+const runCliArtifact = withWireContracts(
   cliArtifact.runtime === "binary"
     ? createBinaryRunner(cliArtifact.path)
-    : createCliRunner(cliArtifact.path);
+    : createCliRunner(cliArtifact.path),
+  cliArtifact.path,
+);
 const isolatedUserHome = createTempDir();
 
 process.once("exit", () => {

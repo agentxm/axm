@@ -71,8 +71,12 @@ const showCommand = Command.make("show", showConfig, ({ id }) =>
 const exportCommand = Command.make("export", exportConfig, (options) =>
   Effect.gen(function* () {
     const exported = yield* exportLocalDiagnostic(options);
-    yield* emitResult(exported, DiagnosticExportDocumentSchema, () =>
-      successDoc(`Exported reviewed diagnostic ${exported.diagnosticId} to ${exported.output}.`),
+    yield* emitResult(
+      exported,
+      DiagnosticExportDocumentSchema,
+      () =>
+        successDoc(`Exported reviewed diagnostic ${exported.diagnosticId} to ${exported.output}.`),
+      { completion: { mode: "apply", outcome: "applied", exitCode: 0 } },
     );
   }).pipe(Effect.mapError(failureToAppError), withRuntime()),
 ).pipe(

@@ -56,6 +56,7 @@ export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = [
   previewable("disable"),
   previewable("migrate"),
   route("list"),
+  route("show"),
   route("view"),
   route("visibility"),
   route("visibility status"),
@@ -105,6 +106,7 @@ export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = [
   route("discover"),
   route("share"),
   route("help"),
+  route("schema"),
   // Type command groups
   ...typeLifecycle("skills"),
   previewable("skills import"),

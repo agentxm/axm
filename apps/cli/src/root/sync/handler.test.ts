@@ -50,7 +50,7 @@ import {
   writeKnowledgeExtension,
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
-import { handleList as handleListMcpServers } from "../mcps/list.js";
+import { handleLocalInspection } from "../show/command.js";
 import { runUninstallCommand } from "../shared/uninstall-command.js";
 import { injectWriteFaults } from "@agentxm/workspace-kernel/settlement/testing";
 import { handleSync } from "./handler.js";
@@ -1510,22 +1510,21 @@ describe("root sync handler", () => {
         ].join("\n"),
       );
 
-      yield* provide(handleListMcpServers({ agents: [], details: true }));
+      yield* provide(
+        handleLocalInspection({ selection: { kind: "all" }, types: ["mcp-server"], agents: [] }),
+      );
       expect(rendererState.results[0]?.data).toMatchObject({
         items: [
           {
-            name: "context",
-            status: "drift",
-            inspection: {
-              agentOutcomes: [
-                {
-                  agentId: "codex",
-                  outcome: "failed",
-                  reasonCode: "stale-projection",
-                  path: configPath,
-                },
-              ],
-            },
+            identity: { name: "context" },
+            agentOutcomes: [
+              {
+                agentId: "codex",
+                outcome: "failed",
+                reasonCode: "stale-projection",
+                path: configPath,
+              },
+            ],
           },
         ],
       });
@@ -1775,7 +1774,7 @@ describe("root sync handler", () => {
           // observed before preview or after the committed mutation.
           artifact: Object.fromEntries(
             Object.entries(expectRecord(property(record, "artifact"))).filter(
-              ([key]) => key !== "nativeLocations",
+              ([key]) => key !== "nativeLocationRefs",
             ),
           ),
         };
@@ -1800,7 +1799,14 @@ describe("root sync handler", () => {
           owner: "@agentxm/rules/instructions",
         },
       ]);
-      expect(property(instructionArtifact, "nativeLocations")).toEqual(
+      const instructionRefs = property(instructionArtifact, "nativeLocationRefs");
+      const previewLocations = property(preview, "nativeLocations");
+      if (!Array.isArray(instructionRefs) || !Array.isArray(previewLocations))
+        throw new Error("Expected result-local native evidence and references");
+      const instructionLocations = instructionRefs.map((id) =>
+        expectRecord(previewLocations.find((record) => property(record, "id") === id)),
+      );
+      expect(instructionLocations).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             address: { kind: "entry", path: path.join(tempDir, "CLAUDE.md") },
@@ -1809,11 +1815,7 @@ describe("root sync handler", () => {
           }),
         ]),
       );
-      const committedLocations = planResultUnits(applied).flatMap((step) => {
-        const locations = property(property(step, "artifact"), "nativeLocations");
-        if (!Array.isArray(locations)) throw new Error("Expected committed native outcomes");
-        return locations;
-      });
+      const committedLocations = property(applied, "nativeLocations");
       expect(committedLocations).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -2042,14 +2044,24 @@ describe("root sync handler", () => {
       expect(units).toHaveLength(1);
       expect(units[0]).toMatchObject({
         state: "committed",
+        transitions: [
+          {
+            type: "skill",
+            name: "release",
+            previous: null,
+            proposed: {
+              source: {
+                kind: "workspace",
+                identity: "@acme/skills/release",
+                locator: "workspace:@acme/skills/release",
+              },
+              version: "1.0.0",
+            },
+            observedReason: "stale-projection",
+            downgrade: false,
+          },
+        ],
       });
-      expect(property(expectRecord(units[0]), "label")).toContain(
-        "previous source=none; proposed source=workspace",
-      );
-      expect(property(expectRecord(units[0]), "label")).toContain(
-        "previous version=none; proposed version=1.0.0",
-      );
-      expect(property(expectRecord(units[0]), "label")).toContain("downgrade=no");
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release", "SKILL.md"))).toBe(
         true,
       );

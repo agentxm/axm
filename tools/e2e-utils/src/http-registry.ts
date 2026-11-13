@@ -53,7 +53,7 @@ interface PublishRecord {
   readonly byteLength: number;
 }
 
-/** Every request the CLI made, in order — the transport contract under test. */
+/** Completed response records; requestStarts separately retains unfinished arrivals. */
 interface RequestRecord {
   readonly method: string;
   readonly path: string;
@@ -66,6 +66,8 @@ export interface HttpRegistry {
   readonly url: string;
   readonly publishes: ReadonlyArray<PublishRecord>;
   readonly requests: ReadonlyArray<RequestRecord>;
+  /** Request arrivals include uploads whose response never finishes. */
+  readonly requestStarts: ReadonlyArray<{ readonly method: string; readonly path: string }>;
   readonly metadataRequests: ReadonlyArray<ReadonlyArray<string>>;
   readonly metadataPurposes: ReadonlyArray<ReadonlyArray<string>>;
   /** Every refresh token presented to the token endpoint, in order. */
@@ -394,6 +396,7 @@ export const startHttpRegistry = async (
     for (const resolve of waiters) resolve(hungKey);
   };
   const requests: Array<RequestRecord> = [];
+  const requestStarts: Array<{ readonly method: string; readonly path: string }> = [];
   const metadataRequests: Array<ReadonlyArray<string>> = [];
   const metadataPurposes: Array<ReadonlyArray<string>> = [];
   const presentedRefreshTokens: Array<string> = [];
@@ -422,6 +425,7 @@ export const startHttpRegistry = async (
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://registry.test");
     const pathname = url.pathname;
+    requestStarts.push({ method: request.method ?? "UNKNOWN", path: pathname });
     response.on("finish", () => {
       requests.push({
         method: request.method ?? "UNKNOWN",
@@ -1163,6 +1167,7 @@ export const startHttpRegistry = async (
     url: `http://127.0.0.1:${address.port}`,
     publishes,
     requests,
+    requestStarts,
     metadataRequests,
     metadataPurposes,
     presentedRefreshTokens,

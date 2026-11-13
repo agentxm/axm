@@ -24,9 +24,11 @@ import {
 import { ExitCode } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
-import { processOutcome, setOperationSettlement } from "../../cli-runtime/index.js";
+import { processOutcome } from "../../cli-runtime/index.js";
 import { lintFailureToAppError } from "../../feature-errors.js";
 import { lintDoc } from "./view.js";
+import { withLiveOperation } from "../../operation-lifecycle.js";
+import type { ResultCompletion } from "../../cli-runtime/result-completion.js";
 import { toLintHumanFindings } from "./human-findings.js";
 
 const LintJsonDocumentFields = {
@@ -40,10 +42,10 @@ export interface HandleLintArgs {
   readonly preview?: boolean;
 }
 
-const emitJsonDocument = (doc: LintJsonDocument, ok: boolean) =>
+const emitJsonDocument = (doc: LintJsonDocument, completion: ResultCompletion) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    return yield* screen.document({ result: doc }, LintResultDocumentSchema, { ok });
+    return yield* screen.document({ result: doc }, LintResultDocumentSchema, { completion });
   });
 
 /** Findings are lint's primary result, so the ledger goes to stdout whole. */
@@ -72,17 +74,19 @@ const emitHumanOutput = (args: {
   });
 
 export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintArgs) {
-  const result = yield* (
-    args.selection.fix
-      ? LintWorkspace.fix(args.selection, { strict: args.strict, preview: args.preview === true })
-      : LintWorkspace.query(args.selection, { strict: args.strict })
-  ).pipe(Effect.mapError(lintFailureToAppError));
-
-  const ok = result.outcome !== "fail";
-  const exitCode = ok ? ExitCode.Success : ExitCode.Issues;
-  yield* setOperationSettlement({
-    exitCode,
-    ...(ok
+  const mode = args.selection.fix ? (args.preview === true ? "preview" : "apply") : "query";
+  const decide = (result: LintWorkspaceResult): ResultCompletion => ({
+    mode,
+    outcome:
+      mode === "query"
+        ? "completed"
+        : mode === "preview"
+          ? "previewed"
+          : result.repaired.length > 0
+            ? "applied"
+            : "no-op",
+    exitCode: result.outcome === "fail" ? ExitCode.Issues : ExitCode.Success,
+    ...(result.outcome !== "fail"
       ? {}
       : {
           failure: {
@@ -91,15 +95,26 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
             kind: "lint.findings",
             operation: "lint.evaluate",
             handled: true,
-          } as const,
+          },
         }),
   });
-  const handledByMachine = yield* emitJsonDocument(result.document, ok);
+  const result = yield* withLiveOperation(
+    { name: "Evaluate workspace findings", mode },
+    (args.selection.fix
+      ? LintWorkspace.fix(args.selection, { strict: args.strict, preview: args.preview === true })
+      : LintWorkspace.query(args.selection, { strict: args.strict })
+    ).pipe(Effect.mapError(lintFailureToAppError)),
+    decide,
+  );
+
+  const completion = decide(result);
+  const { exitCode } = completion;
+  const handledByMachine = yield* emitJsonDocument(result.document, completion);
   if (!handledByMachine) {
     yield* emitHumanOutput({
       result,
       selection: args.selection,
-      exitCode: ok ? 0 : ExitCode.Issues,
+      exitCode,
     });
   }
 

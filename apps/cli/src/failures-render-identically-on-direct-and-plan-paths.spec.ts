@@ -1,3 +1,4 @@
+import { PlanWireDocumentSchema } from "./test-support/plan-wire-document.js";
 import * as Cause from "effect/Cause";
 import { ConfigError } from "effect/Config";
 import { SourceError } from "effect/ConfigProvider";
@@ -227,7 +228,7 @@ import {
 } from "./app-error/failure-catalog.js";
 import { JsonErrorEnvelopeSchema, classifyError } from "./cli-runtime/index.js";
 import { withOperationLifecycle } from "./operation-lifecycle.js";
-import { PlanResolutionResultSchema, emitOperationResolution } from "./operation-output.js";
+import { emitOperationResolution } from "./operation-output.js";
 import { failureForWorkspaceScope, scopedRoutesOf } from "./root/shared/scoped-command.js";
 import { rootCommand } from "./app.js";
 import { makeSpecWorkspace } from "./test-support/install-harness.js";
@@ -1017,7 +1018,7 @@ const decodeErrorDocument = Schema.decodeUnknownEffect(
 const decodePlanDocument = Schema.decodeUnknownEffect(
   Schema.fromJsonString(
     Schema.Struct({
-      result: PlanResolutionResultSchema,
+      ...PlanWireDocumentSchema.fields,
       suggestions: Schema.optional(Schema.Array(PrintedSuggestionSchema)),
     }),
   ),
@@ -1120,7 +1121,7 @@ const planView = (failure: WorkspaceFailure, scope: WorkspaceScope) =>
     const operation = document.result.failure;
     const [unit] = document.result.units;
     return {
-      code: operation?.code ?? document.result.outcome,
+      code: operation?.code ?? document.outcome,
       exitCode: emitted.exitCode,
       title: operation?.title,
       detail: unit?.error?.message,

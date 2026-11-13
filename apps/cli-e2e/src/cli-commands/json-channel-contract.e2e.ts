@@ -179,11 +179,10 @@ describe("JSON-mode channel contract (--json)", () => {
         expect(isRecord(stdoutDocument)).toBe(true);
         if (!isRecord(stdoutDocument)) return;
         expect(stdoutDocument["ok"]).toBe(false);
+        expect(stdoutDocument).toMatchObject({ outcome: "blocked", mode: "apply" });
         expect(stdoutDocument["result"]).toEqual(
           expect.objectContaining({
             contract: "plan-result-v4",
-            outcome: "blocked",
-            mode: "apply",
             blocking: expect.objectContaining({
               class: "precondition-unmet",
               subject: "mcp-server:inline:demo",

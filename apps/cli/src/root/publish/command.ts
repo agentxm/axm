@@ -19,7 +19,6 @@ import {
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import {
   ResolvePlanInteraction,
-  type OperationOutcome,
   type ResolvePlanInteractionService,
   publicRecoveryValue,
   recoveryOption,
@@ -42,7 +41,7 @@ import {
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { failureToAppError } from "../../app-error/conversions.js";
-import { operationExitCode, type OperationVerdict } from "../../operation-exit-code.js";
+import { type OperationVerdict } from "../../operation-exit-code.js";
 import { operationNextActions } from "../../operation-output.js";
 import { suggestionsForCurrentWorkspace } from "../shared/scoped-command.js";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -137,21 +136,17 @@ const publishRequest = (args: RootPublishHandlerArgs, unattended: boolean): Publ
  * stopped before execution is a blocked operation, a run that failed is a
  * failed one, and an external termination is an interruption.
  */
-const dispositionVerdict = (
-  disposition: PublishOutcome["disposition"],
-): { readonly outcome: OperationOutcome; readonly verdict: OperationVerdict } => {
+const dispositionVerdict = (disposition: PublishOutcome["disposition"]): OperationVerdict => {
   switch (disposition._tag) {
     case "Completed":
-      return { outcome: "applied", verdict: {} };
+      return {};
     case "Interrupted":
-      return { outcome: "interrupted", verdict: { interruption: { signal: disposition.signal } } };
+      return { interruption: { signal: disposition.signal } };
     case "Failed":
-      return disposition.blocking === undefined
-        ? { outcome: "failed", verdict: { failure: disposition.failure } }
-        : {
-            outcome: "blocked",
-            verdict: { blocking: disposition.blocking, failure: disposition.failure },
-          };
+      return {
+        failure: disposition.failure,
+        ...(disposition.blocking === undefined ? {} : { blocking: disposition.blocking }),
+      };
   }
 };
 
@@ -181,8 +176,7 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
                 blockedDependents: outcome.recovery?.blockedDependents ?? [],
               };
         });
-  const { outcome: settledOutcome, verdict } = dispositionVerdict(outcome.disposition);
-  const exitCode = operationExitCode(verdict, settledOutcome);
+  const verdict = dispositionVerdict(outcome.disposition);
   // A reported failure ends with its exit code rather than a problem report,
   // so the recoveries its failure carries travel with the result.
   const suggestions = yield* suggestionsForCurrentWorkspace(
@@ -197,7 +191,7 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
       [],
     ),
   );
-  yield* emitPublishResult(
+  const { exitCode } = yield* emitPublishResult(
     normalizePublishResult({
       mode: outcome.mode,
       ...(outcome.preconditions === undefined ? {} : { preconditions: outcome.preconditions }),
@@ -210,7 +204,7 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
       ...(recovery === undefined ? {} : { recovery }),
     }),
     {
-      exitCode,
+      verdict,
       elapsedMs: (yield* Clock.currentTimeMillis) - startedAtMs,
       suggestions,
       ...(outcome.disposition._tag === "Failed"

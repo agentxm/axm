@@ -76,8 +76,10 @@ it.effect(
         ).toBe(false);
         const accepted = snapshotTree(fixture.selected);
         const rendered = yield* run(["subagents", "show", "reviewer", "--render", "claude-code"]);
-        expect(rendered).toContain('"nativeName": "investigator"');
-        expect(rendered).toContain('"mode": "native"');
+        expect(JSON.parse(rendered)).toMatchObject({
+          mode: "query",
+          result: { nativeName: "investigator", mode: "native" },
+        });
         yield* run(["subagents", "show", "reviewer", "--render", "codex"], 1);
         yield* run(["subagents", "show", "reviewer", "--render", "unknown-runtime"], 2);
         expect(snapshotTree(fixture.selected)).toEqual(accepted);

@@ -206,6 +206,7 @@ describe("buildZipArchive", () => {
             },
           ],
           warnings: ['publish.exclude pattern "missing-*" matched no files.'],
+          patternCoverage: { explicit: "all", inherited: "matched-only", omittedInheritedCount: 0 },
           includedCount: 1,
           excludedCount: 1,
           uncompressedBytes: 11,

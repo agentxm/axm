@@ -87,8 +87,6 @@ interface PlanResultCounts {
 
 interface PlanResult {
   readonly contract: string;
-  readonly outcome: string;
-  readonly mode: string;
   readonly planName: string;
   readonly planDescription?: string;
   readonly candidateId?: string;
@@ -102,6 +100,8 @@ interface JsonCommandResult {
   readonly exitCode: number;
   readonly stdout: {
     readonly ok: boolean;
+    readonly outcome: string;
+    readonly mode: string;
     readonly result: PlanResult;
   };
   readonly stderr: string;
@@ -557,7 +557,7 @@ describe("axm install", () => {
         ["packs", "install"],
         [registryFqn("packs", packName), "--accept-execution-changes"],
       );
-      expect(installed.stdout.result.outcome).toBe("applied");
+      expect(installed.stdout.outcome).toBe("applied");
       const installedJson = JSON.stringify(installed.stdout.result);
       for (const row of leafRows) {
         expect(installedJson).toContain(memberName(row));
@@ -569,14 +569,14 @@ describe("axm install", () => {
         ["packs", "disable", packName],
         ["--preview"],
       );
-      expect(disablePreview.stdout.result.outcome).toBe("previewed");
+      expect(disablePreview.stdout.outcome).toBe("previewed");
       const disablePreviewJson = JSON.stringify(disablePreview.stdout.result);
       for (const row of leafRows) {
         expect(disablePreviewJson).toContain(memberName(row));
       }
 
       const disabled = await runJsonCommand(workspace.path, ["packs", "disable", packName]);
-      expect(disabled.stdout.result.outcome).toBe("applied");
+      expect(disabled.stdout.outcome).toBe("applied");
       // Disable withdraws captured Hook registrations before a later sync may
       // retire the canonical code that those registrations previously used.
       await runJsonCommand(workspace.path, ["sync"]);
@@ -593,7 +593,7 @@ describe("axm install", () => {
         ["packs", "enable", packName],
         ["--accept-execution-changes"],
       );
-      expect(enabled.stdout.result.outcome).toBe("applied");
+      expect(enabled.stdout.outcome).toBe("applied");
       for (const row of leafRows) {
         expect(
           fs.existsSync(extensionDirForSurface(workspace.path, row.plural, memberName(row))),
@@ -607,7 +607,7 @@ describe("axm install", () => {
         ["packs", "unpack", packName],
         ["--preview"],
       );
-      expect(unpackPreview.stdout.result.outcome).toBe("previewed");
+      expect(unpackPreview.stdout.outcome).toBe("previewed");
       const unpackPreviewJson = JSON.stringify(unpackPreview.stdout.result);
       expect(unpackPreviewJson).toContain(`@test/packs/${packName}`);
       for (const row of leafRows) {
@@ -615,7 +615,7 @@ describe("axm install", () => {
       }
 
       const unpacked = await runJsonCommand(workspace.path, ["packs", "unpack", packName]);
-      expect(unpacked.stdout.result.outcome).toBe("applied");
+      expect(unpacked.stdout.outcome).toBe("applied");
       const finalSettings = readSettings(workspace.path);
       expect(finalSettings.packs?.[packName]).toBeUndefined();
       for (const row of leafRows) {
@@ -628,13 +628,13 @@ describe("axm install", () => {
         "install",
         `@test/packs/${packName}`,
       ]);
-      expect(reinstalled.stdout.result.outcome).toBe("applied");
+      expect(reinstalled.stdout.outcome).toBe("applied");
       for (const row of leafRows) {
         const removedDirect = await runJsonCommand(workspace.path, [
           "uninstall",
           registryFqn(row.plural, memberName(row)),
         ]);
-        expect(removedDirect.stdout.result.outcome).toBe("applied");
+        expect(removedDirect.stdout.outcome).toBe("applied");
         expect(
           fs.existsSync(extensionDirForSurface(workspace.path, row.plural, memberName(row))),
           `${row.type} canonical root retained by pack`,
@@ -652,7 +652,7 @@ describe("axm install", () => {
         ["packs", "uninstall", packName],
         ["--preview"],
       );
-      expect(uninstallPreview.stdout.result.outcome).toBe("previewed");
+      expect(uninstallPreview.stdout.outcome).toBe("previewed");
       const uninstallPreviewJson = JSON.stringify(uninstallPreview.stdout.result);
       expect(uninstallPreviewJson).toContain(`@test/packs/${packName}`);
       for (const row of leafRows) {
@@ -664,7 +664,7 @@ describe("axm install", () => {
       fs.writeFileSync(path.join(unownedDirectory, "SKILL.md"), "# Hand written\n");
       fs.writeFileSync(path.join(workspace.path, "NOTES.md"), "unrelated project file\n");
       const uninstalled = await runJsonCommand(workspace.path, ["packs", "uninstall", packName]);
-      expect(uninstalled.stdout.result.outcome).toBe("applied");
+      expect(uninstalled.stdout.outcome).toBe("applied");
       for (const row of leafRows) {
         expect(
           fs.existsSync(extensionDirForSurface(workspace.path, row.plural, memberName(row))),
@@ -792,7 +792,7 @@ describe("axm install", () => {
         [`test:${registryFqn("skills", target)}`],
       );
 
-      expect(result.stdout.result.outcome).toBe("applied");
+      expect(result.stdout.outcome).toBe("applied");
       // Every row of one ledger names its unit in the same form, type included.
       expect(result.stdout.result.units.map((unit) => unit.label)).toEqual([`skills/${target}`]);
       expectConfiguredEntriesInstalled(workspace.path, "skills", [target]);
@@ -816,7 +816,7 @@ describe("axm install", () => {
       await initWorkspace(workspace.path, registryDir.path);
 
       const installed = await runJsonCommand(workspace.path, ["install"], [source]);
-      expect(installed.stdout.result.outcome).toBe("applied");
+      expect(installed.stdout.outcome).toBe("applied");
 
       const indexPath = path.join(
         registryDir.path,
@@ -843,12 +843,12 @@ describe("axm install", () => {
       const settingsBefore = fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8");
       const lockBefore = fs.readFileSync(path.join(workspace.path, "axm.lock"), "utf8");
       const preview = await runJsonCommand(workspace.path, ["migrate"], [source, "--preview"]);
-      expect(preview.stdout.result.outcome).toBe("previewed");
+      expect(preview.stdout.outcome).toBe("previewed");
       expect(fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8")).toBe(settingsBefore);
       expect(fs.readFileSync(path.join(workspace.path, "axm.lock"), "utf8")).toBe(lockBefore);
 
       const migrated = await runJsonCommand(workspace.path, ["migrate"], [source]);
-      expect(migrated.stdout.result.outcome).toBe("applied");
+      expect(migrated.stdout.outcome).toBe("applied");
       expect(readSettings(workspace.path).skills?.["old-review"]).toBeUndefined();
       expect(readSettings(workspace.path).skills?.["new-review"]).toBe(`test:${replacement}`);
       expect(fs.existsSync(extensionDirForSurface(workspace.path, "skills", "old-review"))).toBe(
@@ -952,7 +952,7 @@ describe("axm install", () => {
         [registryFqn("mcps", "context"), "--accept-execution-changes"],
       );
 
-      expect(result.stdout.result.outcome).toBe("applied");
+      expect(result.stdout.outcome).toBe("applied");
       expect(fs.existsSync(`${mcpConfigPath}.bak`)).toBe(false);
       const mcpConfig = JSON.parse(fs.readFileSync(mcpConfigPath, "utf-8"));
       expect(mcpConfig.mcpServers.existing.command).toBe("echo");
@@ -983,7 +983,7 @@ describe("axm install", () => {
           ["install"],
           [registryFqn(surface, "shared-name")],
         );
-        expect(result.stdout.result.outcome).toBe("applied");
+        expect(result.stdout.outcome).toBe("applied");
       }
       expectConfiguredEntriesInstalled(workspace.path, "skills", ["shared-name"]);
       expectConfiguredEntriesInstalled(workspace.path, "rules", ["shared-name"]);

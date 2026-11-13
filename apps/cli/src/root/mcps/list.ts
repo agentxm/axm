@@ -25,8 +25,8 @@ const McpServerListColumns = [
 
 const { handler, command } = makePerTypeListCommand({
   type: "mcp-server",
-  query: (agents, details) =>
-    Effect.map(listMcpServers({ agents, details }), ({ document, rows }) => ({
+  query: (agents) =>
+    Effect.map(listMcpServers({ agents }), ({ document, rows }) => ({
       document,
       rows,
     })),

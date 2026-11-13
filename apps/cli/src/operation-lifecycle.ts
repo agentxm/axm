@@ -65,6 +65,11 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 
 import { OperationInvocation } from "./cli-runtime/operation-invocation.js";
+import {
+  completeResult,
+  failedResultCompletion,
+  type ResultCompletion,
+} from "./cli-runtime/result-completion.js";
 import { observeLifecycleForTracing } from "./cli-runtime/lifecycle-tracing.js";
 import { annotateInvocationTrace } from "./cli-runtime/trace-invocation.js";
 import { CurrentScreenOperationId, Screen } from "./screen/index.js";
@@ -115,7 +120,11 @@ const settledOutcomeForExit = (
  * Non-plan commands wrap their work — not their result rendering — so the
  * live frame collapses before the settled document prints.
  */
-export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect.Effect<A, E, R>) =>
+export const withLiveOperation = <A, E, R>(
+  args: LiveOperationArgs,
+  body: Effect.Effect<A, E, R>,
+  completion?: (value: A) => ResultCompletion,
+) =>
   Effect.scoped(
     Effect.gen(function* () {
       yield* annotateInvocationTrace({ "axm.operation.mode": args.mode });
@@ -142,6 +151,40 @@ export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect
         mode: args.mode,
       }));
       return yield* body.pipe(
+        Effect.tap((value) =>
+          Effect.gen(function* () {
+            if (yield* lifecycle.settled) return;
+            yield* completeResult(
+              completion?.(value) ?? {
+                mode: args.mode,
+                outcome:
+                  args.successOutcome ??
+                  (args.mode === "query"
+                    ? "completed"
+                    : args.mode === "preview"
+                      ? "previewed"
+                      : "applied"),
+                exitCode: 0,
+              },
+            );
+          }),
+        ),
+        Effect.onExit((exit) =>
+          Effect.gen(function* () {
+            if (Exit.isSuccess(exit)) return;
+            // Delivery failure cannot rewrite the producer's already settled effects.
+            if (yield* lifecycle.settled) return;
+            yield* completeResult(
+              Cause.hasInterruptsOnly(exit.cause)
+                ? {
+                    mode: args.mode,
+                    outcome: "interrupted",
+                    exitCode: requestedInterruptionSignal() === "SIGTERM" ? 143 : 130,
+                  }
+                : failedResultCompletion(args.mode, Cause.squash(exit.cause)),
+            );
+          }),
+        ),
         Effect.provideService(OperationRequestBudget, requestBudget),
         Effect.provideService(OperationExtractionBudget, extractionBudget),
         Effect.provideService(OperationBufferedArchiveBudget, bufferedArchiveBudget),

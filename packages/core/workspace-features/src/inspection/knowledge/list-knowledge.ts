@@ -8,7 +8,6 @@ import {
   ExtensionInventoryDocumentSchema,
   type ExtensionListItem,
 } from "../inventory-document.js";
-import { inspectInventory } from "../inventory-inspection.js";
 import { withInspectionReadView } from "../read-view.js";
 
 export const KnowledgeListQueryResultSchema = ExtensionInventoryDocumentSchema;
@@ -30,14 +29,12 @@ export interface KnowledgeListRow {
 export const ListKnowledge = {
   query: Effect.fn("ListKnowledge.query")(function* (request: {
     readonly agents?: ReadonlyArray<string>;
-    readonly details?: boolean;
   }) {
     const records = yield* WorkspaceRecords;
     const base = yield* records.getExtensionInventory("knowledge", {
       agents: request.agents ?? [],
     });
-    const inventory = request.details === true ? yield* inspectInventory(base) : base;
-    const document = yield* buildInventoryDocument(inventory);
+    const document = yield* buildInventoryDocument(base);
     const rows = document.items.map((item): KnowledgeListRow => {
       const inspected =
         item.inspection.state === "complete" || item.inspection.state === "partial"

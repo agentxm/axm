@@ -44,6 +44,7 @@ export const candidate = (
     included: [{ path: "SKILL.md", size: 2_048, matchedPatterns: [] }],
     excluded: [],
     patterns: [],
+    patternCoverage: { explicit: "all", inherited: "matched-only", omittedInheritedCount: 0 },
     warnings: [],
     includedCount: archive.files,
     excludedCount: 0,

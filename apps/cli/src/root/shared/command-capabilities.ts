@@ -66,7 +66,7 @@ export interface CommandCapabilities {
  * declaration yields `undefined`, which the architecture gate treats as an
  * unclassified route.
  */
-const CommandCapabilitiesAnnotation: ServiceMap.Reference<CommandCapabilities | undefined> =
+export const CommandCapabilitiesAnnotation: ServiceMap.Reference<CommandCapabilities | undefined> =
   ServiceMap.Reference<CommandCapabilities | undefined>("axm/command-capabilities", {
     defaultValue: () => undefined,
   });

@@ -27,7 +27,7 @@ import {
   withdrawMcpServer,
   type SyncFixture,
 } from "../../testing/sync-fixture.js";
-import { listedMcpServer, shownMcpServer } from "../../testing/mcp-inspection.js";
+import { inspectedMcpServer, shownMcpServer } from "../../testing/mcp-inspection.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/projects-to-every-configured-agent",
@@ -391,8 +391,7 @@ describe("MCP servers project to every configured agent", () => {
               replaceManagedCommand(workspace.readFile(CLAUDE_CODE_CONFIG), "context", "python"),
             );
 
-            const row = yield* listedMcpServer("context");
-            expect(row?.status).toBe("drift");
+            const row = yield* inspectedMcpServer("context");
             expect(
               row?.agentOutcomes.find((outcome) => outcome.agentId === "claude-code"),
             ).toMatchObject({ outcome: "failed", reasonCode: "stale-projection" });

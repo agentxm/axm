@@ -1,6 +1,5 @@
 import type {
   ExtensionNotInstalled,
-  PackInspectionRefused,
   PublishedMetadataUnavailable,
 } from "@agentxm/workspace-features/inspection";
 import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
@@ -18,20 +17,6 @@ export const extensionNotInstalledToAppError = (failure: ExtensionNotInstalled):
     code: "not_found",
     detail: `${extensionTypeSentenceLabels[failure.type]} "${failure.name}" is not installed`,
     suggestions: [extensionTypePresentation(failure.type).inspect],
-  });
-
-export const packInspectionRefusedToAppError = (failure: PackInspectionRefused): AppError =>
-  makeAppError({
-    code:
-      failure.reason === "not-configured" ||
-      failure.reason === "canonical-unavailable" ||
-      failure.reason === "manifest-unavailable"
-        ? "not_found"
-        : failure.reason === "identity-mismatch"
-          ? "conflict"
-          : "validation",
-    detail: failure.detail,
-    ...(failure.cause === undefined ? {} : { cause: failure.cause }),
   });
 
 /**

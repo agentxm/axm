@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
 
-import { AppError, ExitCode, exitCodeFor } from "../app-error/index.js";
+import { AppError, ExitCode, exitCodeFor, appErrorCodeForExit } from "../app-error/index.js";
 import { isWorkspaceFailure, type WorkspaceFailure } from "../app-error/failure-catalog.js";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
 import type { InstallSelectionCancelled } from "@agentxm/workspace-kernel/operations";
@@ -36,6 +36,8 @@ import {
   OperationExit,
   getOperationExitCode,
   getOperationSettlement,
+  makeOperationExit,
+  recordProcessExitCode,
   type OperationSettlement,
 } from "./operation-exit.js";
 import { CommandCompletion } from "./command-completion.js";
@@ -130,7 +132,7 @@ const settlementForExit = (
       Option.isSome(recorded) && recorded.value.failure !== undefined
         ? recorded.value.failure
         : {
-            code: "internal",
+            code: appErrorCodeForExit(exitCode) ?? "internal",
             phase: "command",
             kind: "diagnostic.unclassified",
             operation: "runtime.command",
@@ -294,6 +296,7 @@ export const withCliErrorHandling = <A, R>(
     // envelope's own continuation boundary.
     const settleForExit = (exitCode: number) =>
       Effect.gen(function* () {
+        yield* recordProcessExitCode(exitCode);
         yield* settle(settlementForExit(exitCode, yield* getOperationSettlement));
       });
 
@@ -475,25 +478,17 @@ export const withCliErrorHandling = <A, R>(
 
   return Effect.gen(function* () {
     const inherited = yield* Effect.serviceOption(OperationExit);
-    const operationExit = Option.isSome(inherited)
-      ? inherited.value
-      : { ref: yield* Ref.make(Option.none<OperationSettlement>()) };
+    const operationExit = Option.isSome(inherited) ? inherited.value : yield* makeOperationExit;
     const outcome = yield* enrichedProgram.pipe(
       Effect.provide(Layer.mergeAll(CommandSemanticPropertiesLive, ProductActivityLive)),
       Effect.provideService(OperationExit, operationExit),
       // Telemetry previewed while the command runs joins its Screen's stderr.
       Effect.provideService(TelemetryPreviewFraming, options.format),
     );
-    const recorded = yield* Ref.get(operationExit.ref);
-    yield* Ref.set(
-      operationExit.ref,
-      Option.some({
-        exitCode: outcome.exitCode,
-        ...(Option.isSome(recorded) && recorded.value.failure !== undefined
-          ? { failure: recorded.value.failure }
-          : {}),
-      }),
-    );
+    // Command.runWith discards the handler's return value. Preserve even a
+    // failure before operation start for the outer process owner, without
+    // fabricating semantic completion or rewriting already settled effects.
+    yield* Ref.set(operationExit.processExitCode, Option.some(outcome.exitCode));
     return outcome;
   });
 };

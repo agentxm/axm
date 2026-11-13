@@ -1,8 +1,8 @@
-import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
+import { withParameterDescription } from "../../cli-parameters.js";
 /** Shared list command shell; each type supplies its own rows and document. */
 
 import * as Effect from "effect/Effect";
-import { Command, Flag } from "effect/cli";
+import { Command } from "effect/cli";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -39,7 +39,6 @@ interface ListDefinition<Row extends InventoryListRow, E extends ExpectedCliErro
   readonly type: InstallableExtensionType;
   readonly query: (
     agents: ReadonlyArray<string>,
-    details: boolean,
   ) => Effect.Effect<
     { readonly document: ExtensionInventoryDocument; readonly rows: ReadonlyArray<Row> },
     E,
@@ -52,13 +51,10 @@ interface ListDefinition<Row extends InventoryListRow, E extends ExpectedCliErro
 
 export const inventoryList = <Row, E, R>(
   type: InstallableExtensionType,
-  list: (
-    agents: ReadonlyArray<string>,
-    details: boolean,
-  ) => Effect.Effect<TypeListResult<Row>, E, R>,
+  list: (agents: ReadonlyArray<string>) => Effect.Effect<TypeListResult<Row>, E, R>,
 ) => ({
-  query: (agents: ReadonlyArray<string>, details: boolean) =>
-    Effect.map(list(agents, details), ({ document, rows }) => ({ document, rows })),
+  query: (agents: ReadonlyArray<string>) =>
+    Effect.map(list(agents), ({ document, rows }) => ({ document, rows })),
   schema: ExtensionInventoryDocumentSchema,
   summary: (inventory: ExtensionInventoryDocument) =>
     inventorySummary(inventory, extensionTypePresentation(type).noun.singular),
@@ -69,11 +65,11 @@ export const makePerTypeListCommand = <Row extends InventoryListRow, E extends E
 ) => {
   const { route, noun } = extensionTypePresentation(definition.type);
   const handler = Effect.fn(`${route}.list`)(function* (
-    args: { readonly agents: ReadonlyArray<string>; readonly details?: boolean } = { agents: [] },
+    args: { readonly agents: ReadonlyArray<string> } = { agents: [] },
   ) {
     const { document, rows } = yield* withLiveOperation(
       { name: `Inspect ${noun.plural}`, mode: "query" },
-      definition.query(args.agents, args.details ?? false),
+      definition.query(args.agents),
     );
     const common: ReadonlyArray<ViewColumn<Row>> = [
       {
@@ -90,9 +86,6 @@ export const makePerTypeListCommand = <Row extends InventoryListRow, E extends E
         priority: "optional",
         value: (row) => row.observedAgents?.join(", ") || "none",
       },
-      ...(args.details === true
-        ? [{ header: "Inspection", value: (row: Row) => row.inspectionState ?? "not-requested" }]
-        : []),
     ];
     yield* emitResult(document, definition.schema, () => [
       ...inventoryDoc({
@@ -104,9 +97,7 @@ export const makePerTypeListCommand = <Row extends InventoryListRow, E extends E
           ),
         ].filter(
           (column) =>
-            args.details === true ||
-            typeof column.header !== "string" ||
-            !detailColumnHeaders.includes(column.header),
+            typeof column.header !== "string" || !detailColumnHeaders.includes(column.header),
         ),
         summary: definition.summary(document, rows),
         empty:
@@ -126,18 +117,14 @@ export const makePerTypeListCommand = <Row extends InventoryListRow, E extends E
 
   const config = {
     scope,
-    details: Flag.Boolean("details").pipe(
-      withParameterDescription("Inspect native locations and extension contents"),
-      withParameterDefault(false),
-    ),
     agent: agentFlag.pipe(
       withParameterDescription(
         `Show only ${noun.plural} observed by or configured for any of these coding agents`,
       ),
     ),
   } as const;
-  const command = Command.make("list", config, ({ scope, agent, details }) =>
-    handler({ agents: agent, details }).pipe(
+  const command = Command.make("list", config, ({ scope, agent }) =>
+    handler({ agents: agent }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
       withRuntime(),
     ),

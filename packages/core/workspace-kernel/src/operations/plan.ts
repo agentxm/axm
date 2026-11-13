@@ -26,6 +26,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { ArtifactChange } from "./artifact-change.js";
+import type { MaterializationTransition } from "./materialization-transition.js";
 import type { ConfiguredAgentOutcome } from "./configured-agent-outcome.js";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
@@ -327,6 +328,7 @@ export type JobStepResult<Output = never> =
 // -----------------------------------------------------------------------------
 
 export interface ReadyJobStep<Requirements = never, Output = never> {
+  readonly transitions?: ReadonlyArray<MaterializationTransition>;
   readonly key?: string;
   readonly dependsOn?: ReadonlyArray<string>;
   /** Read-only inputs fingerprinted with this step, distinct from its write footprint. */
@@ -348,6 +350,7 @@ export interface ReadyJobStep<Requirements = never, Output = never> {
 }
 
 export interface WarnJobStep<Requirements = never, Output = never> {
+  readonly transitions?: ReadonlyArray<MaterializationTransition>;
   readonly key?: string;
   readonly dependsOn?: ReadonlyArray<string>;
   /** Read-only inputs fingerprinted with this step, distinct from its write footprint. */
@@ -368,6 +371,7 @@ export interface WarnJobStep<Requirements = never, Output = never> {
 }
 
 interface ErrorJobStep {
+  readonly transitions?: ReadonlyArray<MaterializationTransition>;
   readonly key?: string;
   readonly dependsOn?: ReadonlyArray<string>;
   /** Read-only inputs fingerprinted with this step, distinct from its write footprint. */
@@ -396,6 +400,7 @@ export type PlannedJobStep<Requirements = never, Output = never> =
 // -----------------------------------------------------------------------------
 
 export interface CompletedJobStep<Output = never> {
+  readonly transitions?: ReadonlyArray<MaterializationTransition>;
   readonly key?: string;
   readonly label: string;
   readonly blockedBy?: ReadonlyArray<string>;

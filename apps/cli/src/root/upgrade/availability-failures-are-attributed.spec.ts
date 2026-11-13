@@ -86,8 +86,10 @@ describe("Availability diagnosis", () => {
       const machine = yield* runUpgradeCommand(options);
       const human = yield* runUpgradeCommand({ ...options, human: true });
       expect(machine.document).toMatchObject({
+        mode: "apply",
+        outcome: "failed",
+        ok: false,
         result: {
-          outcome: "failed",
           disposition: `installer-${scenario.state}`,
           installerAvailability: { state: scenario.state, observedVersion: null },
           details: { homebrewFailure: scenario.reason },

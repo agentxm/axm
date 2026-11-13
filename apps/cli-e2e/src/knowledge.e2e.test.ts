@@ -90,8 +90,13 @@ describe("axm knowledge lifecycle", () => {
         cwd: temp.path,
       });
       expect(missing.exitCode, missing.stdout + missing.stderr).toBe(0);
-      expect(missing.stdout).toContain('"code": "unresolved-resource"');
-      expect(missing.stdout).toContain('"severity": "warning"');
+      expect(JSON.parse(missing.stdout)).toMatchObject({
+        result: {
+          diagnostics: expect.arrayContaining([
+            expect.objectContaining({ code: "unresolved-resource", severity: "warning" }),
+          ]),
+        },
+      });
 
       fs.writeFileSync(
         conceptPath,
@@ -337,6 +342,25 @@ describe("axm knowledge lifecycle", () => {
           },
         },
       });
+
+      const raw = await runCli(
+        [
+          "knowledge",
+          "concepts",
+          "get",
+          "@acme/knowledge/platform#architecture",
+          "--raw",
+          "--json",
+        ],
+        { cwd: temp.path },
+      );
+      expect(raw.exitCode, raw.stdout + raw.stderr).toBe(0);
+      expect(JSON.parse(raw.stdout)).toMatchObject({
+        mode: "query",
+        outcome: "completed",
+        result: { outcome: "found", concept: { raw: installedConcept } },
+      });
+      expect(JSON.parse(get.stdout).result.concept).not.toHaveProperty("raw");
 
       const search = await runCli(["knowledge", "concepts", "query", "Architecture", "--json"], {
         cwd: temp.path,

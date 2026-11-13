@@ -1,3 +1,4 @@
+import { PlanWireDocumentSchema } from "../test-support/plan-wire-document.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -14,7 +15,7 @@ import {
   LOCK_FILENAME,
   LOCKFILE_VERSION,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { PlanResolutionDocumentSchema, emitOperationResolution } from "../operation-output.js";
+import { emitOperationResolution } from "../operation-output.js";
 import { makeOperationResolution, StepFailure } from "@agentxm/workspace-kernel/operations";
 import { withOperationLifecycle } from "../operation-lifecycle.js";
 import { TerminalDiagnostics, makeTerminalDiagnostics } from "./terminal-diagnostics.js";
@@ -47,7 +48,7 @@ export const specification = defineSpecification({
 });
 
 const decodeEnvelope = Schema.decodeUnknownEffect(JsonErrorEnvelopeSchema);
-const decodeResolutionDocument = Schema.decodeUnknownEffect(PlanResolutionDocumentSchema);
+const decodeResolutionDocument = Schema.decodeUnknownEffect(PlanWireDocumentSchema);
 
 const failureRows: ReadonlyArray<{
   readonly label: string;
@@ -178,7 +179,7 @@ describe("Machine error envelope", () => {
         const streams = workspace.streams;
         if (streams === undefined) throw new Error("Expected recording output streams");
         const emitted: unknown = JSON.parse(streams.lines("stdout").join("\n"));
-        expect(emitted).toMatchObject({ ok: false, diagnosticId, result: { outcome: "failed" } });
+        expect(emitted).toMatchObject({ ok: false, diagnosticId, outcome: "failed" });
         expect(emitted).not.toHaveProperty("diagnostic");
         const record = yield* diagnostics.current;
         if (Option.isNone(record)) throw new Error("Expected retained support evidence");
@@ -194,6 +195,7 @@ describe("Machine error envelope", () => {
         const workspace = makeSpecWorkspace({
           machine: true,
           flags: { json: true },
+          screen: { kind: "machine" },
           settings: { owner: "@acme", skills: { review: "workspace" } },
         });
         cleanups.push(workspace.cleanup);
@@ -210,11 +212,13 @@ describe("Machine error envelope", () => {
           preview: false,
         }).pipe(withCommandRoute("demote"), Effect.provide(workspace.layer));
 
-        expect(workspace.rendererState.results).toHaveLength(1);
-        const [entry] = workspace.rendererState.results;
-        expect(entry?.ok).toBe(false);
-        const document = yield* decodeResolutionDocument(entry?.data);
-        expect(document.result.outcome).toBe("blocked");
+        const streams = workspace.streams;
+        if (streams === undefined) throw new Error("Expected recording output streams");
+        const document = yield* decodeResolutionDocument(
+          JSON.parse(streams.lines("stdout").join("\n")),
+        );
+        expect(document.ok).toBe(false);
+        expect(document.outcome).toBe("blocked");
         expect(document.result.blocking).toMatchObject({
           class: "approval-required",
           subject: "replace-workspace-authority",

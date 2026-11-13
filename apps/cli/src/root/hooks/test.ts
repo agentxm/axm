@@ -31,6 +31,11 @@ export const handleHookTest = Effect.fn("Hooks.test")(function* (args: {
         ...(args.fixture.length === 0 ? {} : { fixtures: args.fixture }),
       }).pipe(Effect.mapError(failureToAppError)),
     ),
+    (result) => ({
+      mode: "apply",
+      outcome: result.passed ? "completed" : "failed",
+      exitCode: result.passed ? 0 : 1,
+    }),
   );
   yield* emitResult(
     result,
@@ -51,7 +56,13 @@ export const handleHookTest = Effect.fn("Hooks.test")(function* (args: {
         { caption: "Explicit package execution; native host invocation was not observed" },
       ),
     ],
-    { ok: result.passed },
+    {
+      completion: {
+        mode: "apply",
+        outcome: result.passed ? "completed" : "failed",
+        exitCode: result.passed ? 0 : 1,
+      },
+    },
   );
   return processOutcome(result.passed ? 0 : 1);
 });

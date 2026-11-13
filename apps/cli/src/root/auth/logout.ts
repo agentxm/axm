@@ -40,6 +40,11 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
     const outcome = yield* withLiveOperation(
       { name: `Sign out of ${registry.host}`, mode: "apply" },
       logout(registry),
+      (outcome) => ({
+        mode: "apply",
+        outcome: outcome._tag === "NotSignedIn" ? "no-op" : "applied",
+        exitCode: 0,
+      }),
     );
 
     const status: LogoutStatus =
@@ -70,7 +75,14 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
           { suggestions },
         );
       },
-      { suggestions },
+      {
+        suggestions,
+        completion: {
+          mode: "apply",
+          outcome: outcome._tag === "NotSignedIn" ? "no-op" : "applied",
+          exitCode: 0,
+        },
+      },
     );
   },
   Effect.mapError(coerceAuthFailure),

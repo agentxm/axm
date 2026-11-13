@@ -17,7 +17,7 @@ import { InstallableExtensionTypeSchema } from "@agentxm/extension-model/unstabl
 export class WorkspaceInspectionFailed extends Schema.TaggedError<WorkspaceInspectionFailed>()(
   "WorkspaceInspectionFailed",
   {
-    category: Schema.Literals(["internal", "validation"]),
+    category: Schema.Literals(["internal", "validation", "conflict"]),
     detail: Schema.String,
     cause: Schema.optional(Schema.Unknown),
   },
@@ -34,28 +34,6 @@ export class ExtensionNotInstalled extends Schema.TaggedError<ExtensionNotInstal
     type: InstallableExtensionTypeSchema,
     name: Schema.String,
     scope: Schema.Literals(["project", "user"]),
-  },
-) {}
-
-/**
- * A pack inspection refused the request: the identity did not match what the
- * workspace configured, the configured locator is not a pack identity, or the
- * canonical content is unavailable.
- */
-export class PackInspectionRefused extends Schema.TaggedError<PackInspectionRefused>()(
-  "PackInspectionRefused",
-  {
-    reason: Schema.Literals([
-      "not-a-pack-identity",
-      "not-configured",
-      "owner-required",
-      "identity-mismatch",
-      "canonical-unavailable",
-      "manifest-unavailable",
-      "manifest-unreadable",
-    ]),
-    detail: Schema.String,
-    cause: Schema.optional(Schema.Unknown),
   },
 ) {}
 

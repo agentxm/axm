@@ -2,6 +2,14 @@
 export { bindPackageResource, PackageResourceInvalid } from "./package-resource.js";
 export { observationViewLayer, type NativeObservationView } from "./observation-view.js";
 export { nativeInode } from "./native-inode.js";
+export {
+  NativeLocationReferenceSchema,
+  NativeLocationRecordSchema,
+  createNativeLocationTable,
+  NativeReaderDeclarationSchema,
+  type NativeReaderDeclaration,
+  type NativeLocationRecord,
+} from "./native-document.js";
 export { NativeEntryRemoval } from "./native-entry-removal.js";
 export { captureNativeLocationSet, type NativeLocationSet } from "./native-location-set.js";
 export {
@@ -43,6 +51,7 @@ export {
   captureCopiedDirectory,
   copiedDirectoryIsCurrent,
   copiedDirectoryCanReplace,
+  copiedDirectoryOwnsPath,
   readCopiedDirectory,
   retireCopiedDirectory,
 } from "./copied-directory.js";

@@ -43,6 +43,8 @@ const COLLECTION_PAYLOADS = [
       "observationDiagnostics",
       "managementCounts",
       "nativeLocationCounts",
+      "nativeLocations",
+      "nativeReaderDeclarations",
       "items",
     ],
   ],
@@ -61,6 +63,8 @@ const COLLECTION_PAYLOADS = [
       "observationDiagnostics",
       "managementCounts",
       "nativeLocationCounts",
+      "nativeLocations",
+      "nativeReaderDeclarations",
       "items",
       "coverage",
     ],
@@ -106,11 +110,16 @@ const EXPECTED_RESULT_EXCEPTIONS = [
   },
   {
     family: "publish",
-    reason: "publish uses mode/selection/results for reconciliation",
+    reason:
+      "publication results retain per-package execution and recovery facts for reconciliation",
   },
   {
     family: "registry-view",
     reason: "selected fields return scalars or arrays while full documents return extension facts",
+  },
+  {
+    family: "schema-document",
+    reason: "schema discovery returns a standalone finite JSON Schema document",
   },
 ] as const;
 

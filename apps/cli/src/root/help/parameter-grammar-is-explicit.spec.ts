@@ -11,7 +11,7 @@ export const specification = defineSpecification({
   requirement: "cli/help/parameter-grammar-is-explicit",
   title: "Parameter help distinguishes names, FQNs, selectors and query defaults",
   statement:
-    "FQN help shall name the @owner/<plural-type>/<name> form. Type verbs shall name their subject and action, distinguish activation names or FQNs from uninstall names or globs, and state that creation names omit owners. Pack show, add and remove shall use a name slot for configured pack names or unique configured FQNs, with installed-member selection for add and declared-dependency selection for remove. Typed update shall state its omitted selection. Query shorthand help shall name its canonical metadata or lifecycle form and its unset defaults. Page cursors shall name continuation, token revoke shall use ID, and dependency qualifiers shall state only-with, required-when, implied or excluded inputs.",
+    "FQN help shall name the @owner/<plural-type>/<name> form. Type verbs shall name their subject and action, distinguish activation names or FQNs from uninstall names or globs, and state that creation names omit owners. Local show shall accept repeated exact names or identities, or explicitly selected paths or the complete inventory. Pack add and remove shall use a name slot for configured pack names or unique configured FQNs, with installed-member selection for add and declared-dependency selection for remove. Typed update shall state its omitted selection. Query shorthand help shall name its canonical metadata or lifecycle form and its unset defaults. Page cursors shall name continuation, token revoke shall use ID, and dependency qualifiers shall state only-with, required-when, implied or excluded inputs.",
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics", "machine-automation", "knowledge-access"],
@@ -35,12 +35,7 @@ describe("Explicit parameter grammar", () => {
           ["disable", `Name or FQN of the ${noun.singular} to disable`],
           ["uninstall", `Name or glob of the ${noun.singular} to uninstall`],
           ["update", "Installed name or glob; omit to update all"],
-          [
-            "show",
-            route === "packs"
-              ? "Configured pack name or unique configured pack FQN"
-              : `Name of the ${noun.singular} to show`,
-          ],
+          ["show", "Exact local name or identity; repeated operands retain their order"],
         ]) {
           expect(
             files.get(`axm ${route} ${verb}`)?.args?.find(({ name }) => name === "name")
@@ -49,7 +44,7 @@ describe("Explicit parameter grammar", () => {
           ).toBe(description);
         }
       }
-      for (const verb of ["show", "add", "remove"]) {
+      for (const verb of ["add", "remove"]) {
         expect(files.get(`axm packs ${verb}`)?.args?.[0]).toMatchObject({
           name: "name",
           description: "Configured pack name or unique configured pack FQN",

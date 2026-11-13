@@ -84,6 +84,13 @@ const emitMutation = (
         ),
         ...paragraphDoc(`Revision: ${result.revision}`),
       ],
+      {
+        completion: {
+          mode: "apply",
+          outcome: result.result === "already-satisfied" ? "no-op" : "applied",
+          exitCode: 0,
+        },
+      },
     );
   });
 
@@ -108,6 +115,11 @@ export const handleVisibilitySet = Effect.fn("Visibility.set")(
         target,
         visibility,
       }),
+      (written) => ({
+        mode: "apply",
+        outcome: written.mutation.result === "already-satisfied" ? "no-op" : "applied",
+        exitCode: 0,
+      }),
     );
     yield* emitMutation("visibility-set", written.registry, written.mutation);
   },
@@ -121,6 +133,11 @@ export const handleVisibilityReconcile = Effect.fn("Visibility.reconcile")(
       { name: `Reconcile visibility of ${target}`, mode: "apply" },
       ManagePublishedVisibility.reconcile({
         target,
+      }),
+      (written) => ({
+        mode: "apply",
+        outcome: written.mutation.result === "already-satisfied" ? "no-op" : "applied",
+        exitCode: 0,
       }),
     );
     yield* emitMutation("visibility-reconcile", written.registry, written.mutation);

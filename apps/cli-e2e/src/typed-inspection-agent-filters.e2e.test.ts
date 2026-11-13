@@ -30,7 +30,7 @@ describe("Typed inspection agent grammar", () => {
         expect(document).toMatchObject({
           ok: false,
           code: "usage",
-          detail: expect.stringContaining("--agent and --render"),
+          detail: expect.stringMatching(/--render.*cannot combine.*--agent/u),
         });
         expect(fs.readFileSync(settingsPath, "utf8")).toBe(settings);
         expect(fs.readdirSync(workspace.path)).toEqual(["axm.json"]);

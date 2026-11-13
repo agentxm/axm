@@ -21,11 +21,17 @@ if (
   suite !== "startup" &&
   suite !== "lifecycle" &&
   suite !== "discovery" &&
+  suite !== "output-contracts" &&
   suite !== "observability"
 ) {
   throw new Error(
-    "AXM_BENCHMARK_SUITE must be all, startup, lifecycle, discovery, or observability.",
+    "AXM_BENCHMARK_SUITE must be all, startup, lifecycle, discovery, output-contracts, or observability.",
   );
+}
+if (suite === "output-contracts") {
+  const outputBenchmark = await import("../benchmarks/output-contracts.js");
+  await outputBenchmark.runOutputContractBenchmark(repoRoot);
+  process.exit(0);
 }
 if (suite === "observability") {
   const observabilityBenchmark = await import("../benchmarks/observability.js");

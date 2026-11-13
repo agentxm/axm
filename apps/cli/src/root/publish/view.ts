@@ -242,6 +242,13 @@ const evidenceOf = (
               `rule ${rule.pattern}: ${count(rule.matchCount, "entry")}, from ${ruleOriginText(rule.origin)}`,
             ),
           ),
+          ...(archive.patternCoverage.omittedInheritedCount === 0
+            ? []
+            : [
+                dim(
+                  `${count(archive.patternCoverage.omittedInheritedCount, "unmatched inherited rule")} omitted from the explanation; all explicit rules are shown`,
+                ),
+              ]),
           ...archive.excluded.map((file) =>
             dim(
               joined([

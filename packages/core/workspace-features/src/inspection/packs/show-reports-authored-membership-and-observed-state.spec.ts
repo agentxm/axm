@@ -23,7 +23,7 @@ import {
   makeRegistryMcpServerLockEntry,
   makeRegistryPackLockEntry,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
-import { ShowPack } from "./show-pack.js";
+import { LocalInspection } from "../index.js";
 import {
   inspectionRegistryUrl,
   makeAcceptedPackFixture,
@@ -44,7 +44,7 @@ export const specification = defineSpecification({
   boundary: "platform",
   methods: ["example"],
   derivedFrom: [
-    "packages/core/workspace-features/src/inspection/packs/show-pack.ts",
+    "packages/core/workspace-features/src/inspection/packs/pack-members.ts",
     "apps/cli-e2e/src/scope-consistency.e2e.test.ts",
   ],
   supersedes: [],
@@ -65,29 +65,39 @@ describe("Pack state inspection", () => {
         .provide(
           Effect.gen(function* () {
             const before = fixture.snapshot();
-            const result = yield* ShowPack.query({ target });
-            expect(result).toMatchObject({
-              scope: "project",
-              pack: "@acme/packs/toolkit",
-              sourceAuthority: "workspace",
-              manifestVersion: "0.0.1",
-              acceptedResolution: "authored",
-              desiredDependencies: expect.arrayContaining([
-                expect.objectContaining({
-                  fqn: "@acme/skills/review",
-                  declaration: { constraint: ">=1.2.3", endpoint: null },
-                  localNames: ["review"],
-                  reachability: "satisfying",
-                }),
-                expect.objectContaining({
-                  fqn: "@acme/skills/test-helper",
-                  declaration: { constraint: ">=1.2.3", endpoint: null },
-                  localNames: ["test-helper"],
-                  reachability: "satisfying",
-                }),
-              ]),
+            const document = yield* LocalInspection.query({
+              selection: { kind: "identities", identities: [target] },
+              types: ["pack"],
             });
-            expect(result.canonicalPath).toBe(`${fixture.root}/packs/toolkit/pack.json`);
+            const result = document.items[0];
+            if (result === undefined)
+              return yield* Effect.die(new Error("Expected inspected Pack"));
+            expect(result).toMatchObject({
+              identity: {
+                scope: "project",
+                fqn: "@acme/packs/toolkit",
+                source: { authority: "workspace" },
+              },
+              observed: { manifestVersion: "0.0.1" },
+              accepted: { state: "not-applicable" },
+              pack: {
+                members: expect.arrayContaining([
+                  expect.objectContaining({
+                    fqn: "@acme/skills/review",
+                    declaration: { constraint: ">=1.2.3", endpoint: null },
+                    localNames: ["review"],
+                    reachability: "satisfying",
+                  }),
+                  expect.objectContaining({
+                    fqn: "@acme/skills/test-helper",
+                    declaration: { constraint: ">=1.2.3", endpoint: null },
+                    localNames: ["test-helper"],
+                    reachability: "satisfying",
+                  }),
+                ]),
+              },
+            });
+            expect(result.observed.path).toBe(`${fixture.root}/packs/toolkit`);
             expect(fixture.snapshot()).toEqual(before);
           }),
         )
@@ -122,8 +132,13 @@ describe("Pack state inspection", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const result = yield* ShowPack.query({ target: "toolkit" });
-          expect(result.desiredDependencies).toEqual([
+          const document = yield* LocalInspection.query({
+            selection: { kind: "identities", identities: ["toolkit"] },
+            types: ["pack"],
+          });
+          const result = document.items[0];
+          if (result === undefined) return yield* Effect.die(new Error("Expected inspected Pack"));
+          expect(result.pack?.members).toMatchObject([
             {
               fqn: "@acme/skills/review",
               declaration: { constraint: ">=2.0.0", endpoint: null },
@@ -250,8 +265,14 @@ describe("Pack state inspection", () => {
               );
               const lockBefore = fixture.readFile("axm.lock");
 
-              const result = yield* ShowPack.query({ target: "toolkit" });
-              expect(result.desiredDependencies).toEqual([
+              const document = yield* LocalInspection.query({
+                selection: { kind: "identities", identities: ["toolkit"] },
+                types: ["pack"],
+              });
+              const result = document.items[0];
+              if (result === undefined)
+                return yield* Effect.die(new Error("Expected inspected Pack"));
+              expect(result.pack?.members).toMatchObject([
                 {
                   fqn: "@acme/mcps/context",
                   declaration: { constraint: "^1.0.0", endpoint: declaredEndpoint },
@@ -296,16 +317,21 @@ describe("Pack state inspection", () => {
       return yield* fixture
         .provide(
           Effect.gen(function* () {
-            const result = yield* ShowPack.query({ target: "@acme/packs/toolkit" });
-            expect(result).toMatchObject({
-              pack: "@acme/packs/toolkit",
-              sourceAuthority: "registry",
-              acceptedResolution: "accepted",
-              manifestVersion: "2.3.4",
-              desiredDependencies: [],
+            const document = yield* LocalInspection.query({
+              selection: { kind: "identities", identities: ["@acme/packs/toolkit"] },
+              types: ["pack"],
             });
-            expect(result.canonicalPath).toBe(
-              `${fixture.root}/agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/packs/toolkit/pack.json`,
+            const result = document.items[0];
+            if (result === undefined)
+              return yield* Effect.die(new Error("Expected inspected Pack"));
+            expect(result).toMatchObject({
+              identity: { fqn: "@acme/packs/toolkit", source: { authority: "registry" } },
+              accepted: { state: "present" },
+              observed: { manifestVersion: "2.3.4" },
+              pack: { members: [] },
+            });
+            expect(result.observed.path).toBe(
+              `${fixture.root}/agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/packs/toolkit`,
             );
           }),
         )

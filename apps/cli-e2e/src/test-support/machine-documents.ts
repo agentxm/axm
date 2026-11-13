@@ -65,8 +65,9 @@ export const InstructionsStatusDocument = Schema.Struct({
 export const PlanResolutionDocument = Schema.Struct({
   /** `false` when the resolution stopped; the outcome says why. */
   ok: Schema.Boolean,
+  outcome: Schema.String,
+  mode: Schema.String,
   result: Schema.Struct({
-    outcome: Schema.String,
     counts: Schema.optional(Schema.Struct({ committed: Schema.Number })),
     blocking: Schema.optional(
       Schema.Struct({

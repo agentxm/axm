@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 import { vi } from "vitest";
-import { ShowExtension } from "../index.js";
+import { LocalInspection } from "../index.js";
 import { makeInspectionFixture } from "../testing.js";
 
 export const specification = defineSpecification({
@@ -46,19 +46,20 @@ describe("passive MCP inspection", () => {
       return fixture
         .provide(
           Effect.gen(function* () {
-            const result = yield* ShowExtension.query({
-              type: "mcp-server",
-              name: "probe",
+            const document = yield* LocalInspection.query({
+              selection: { kind: "identities", identities: ["probe"] },
+              types: ["mcp-server"],
               agents: ["codex"],
             });
-            expect(result.mcp?.runtime).toBe("not-checked");
-            expect(result.agentOutcomes).toHaveLength(1);
-            expect(result.agentOutcomes[0]).toMatchObject({
+            const result = document.items[0];
+            expect(result?.runtime.state).toBe("not-checked");
+            expect(result?.agentOutcomes).toHaveLength(1);
+            expect(result?.agentOutcomes[0]).toMatchObject({
               agentId: "codex",
               runtime: "not-checked",
               readiness: "blocked",
             });
-            expect(result.agentOutcomes[0]?.manualActions?.length).toBeGreaterThan(0);
+            expect(result?.agentOutcomes[0]?.manualActions?.length).toBeGreaterThan(0);
             expect(fixture.snapshot()).toEqual(before);
             expect(fixture.requests).toEqual([]);
             expect(fetch).not.toHaveBeenCalled();

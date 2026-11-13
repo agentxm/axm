@@ -147,8 +147,9 @@ describe("First setup plan and migration", () => {
       const previewDocument: unknown = JSON.parse(preview.stdout);
       expect(previewDocument).toMatchObject({
         ok: true,
+        mode: "preview",
+        outcome: "previewed",
         result: {
-          outcome: "previewed",
           blockedCount: 1,
           steps: expect.arrayContaining([
             expect.objectContaining({
@@ -167,14 +168,22 @@ describe("First setup plan and migration", () => {
           ]),
         },
       });
-      expect(preview.stdout).not.toContain('"description": "Apply setup"');
+      expect(previewDocument).not.toMatchObject({
+        suggestions: expect.arrayContaining([
+          expect.objectContaining({ description: "Apply setup" }),
+        ]),
+      });
       const human = await fixture.run(args.filter((arg) => arg !== "--json").concat("--preview"));
       expect(human.exitCode).toBe(0);
       expect(human.stdout + human.stderr).toContain("blocked");
       expect(human.stdout + human.stderr).toContain("CLAUDE.md");
       const refused = await fixture.run(args);
       expect(refused.exitCode, refused.stdout + refused.stderr).not.toBe(0);
-      expect(refused.stdout).toContain('"code": "projection-output-unrecorded"');
+      expect(JSON.parse(refused.stdout)).toMatchObject({
+        ok: false,
+        code: "conflict",
+        problem: { code: "projection-output-unrecorded" },
+      });
       expect(refused.stdout).toContain("--replace-unrecorded");
       expect(fs.readFileSync(path.join(fixture.invoking, "CLAUDE.md"), "utf8")).toBe(
         "Different instructions\n",
@@ -238,7 +247,7 @@ describe("First setup plan and migration", () => {
         "--non-interactive",
       ]);
       expect(sync.exitCode, sync.stdout + sync.stderr).toBe(0);
-      expect(JSON.parse(sync.stdout)).toMatchObject({ result: { outcome: "no-op" } });
+      expect(JSON.parse(sync.stdout)).toMatchObject({ outcome: "no-op" });
       const source = "First authored guidance.\n";
       fs.writeFileSync(path.join(fixture.invoking, "AGENTS.md"), source);
       const reconciled = await fixture.run(["sync", "--json", "--non-interactive"]);

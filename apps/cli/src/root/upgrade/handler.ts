@@ -5,7 +5,7 @@
  * view.
  */
 
-import { type FailureSuggestedAction, settleOperation } from "@agentxm/workspace-kernel/operations";
+import { type FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
 
 import {
   UpgradeFailed,
@@ -32,7 +32,7 @@ import {
   summarizeCommandOutcome,
 } from "../../cli-runtime/index.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
-import { operationExitCode } from "../../operation-exit-code.js";
+import type { ResultCompletion } from "../../cli-runtime/result-completion.js";
 import { emitResult } from "../../screen/index.js";
 
 import { withLiveOperation } from "../../operation-lifecycle.js";
@@ -128,12 +128,14 @@ const upgradeSuggestions = (
   return [{ description: "Verify installed version", cmd: "axm --version" }];
 };
 
-const successfulAssessment = (result: UpgradeAssessmentResult): boolean =>
-  result.disposition === "previewed" ||
-  result.disposition === "upgraded" ||
-  result.disposition === "reinstalled" ||
-  result.disposition === "already-current" ||
-  result.disposition === "local-newer";
+const upgradeCompletion = (
+  result: UpgradeAssessmentResult,
+  preview: boolean,
+): ResultCompletion => ({
+  mode: preview ? "preview" : "apply",
+  outcome: result.outcome,
+  exitCode: result.outcome === "failed" || result.outcome === "indeterminate" ? 1 : 0,
+});
 
 export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: UpgradeHandlerArgs) {
   const verbosity = yield* Verbosity;
@@ -151,7 +153,6 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
     {
       name: preview ? "Preview AXM upgrade" : "Upgrade AXM",
       mode: preview ? "preview" : "apply",
-      ...(preview ? { successOutcome: "previewed" as const } : {}),
     },
     (preview
       ? assessUpgrade(request)
@@ -159,31 +160,15 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
     ).pipe(
       Effect.provideService(UpgradeWorkingDirectory, { path: executionDirectory.path }),
       Effect.map(toUpgradeAssessment),
-      Effect.tap((assessment) =>
-        settleOperation(
-          successfulAssessment(assessment) && assessment.outcome !== "indeterminate"
-            ? assessment.outcome
-            : "failed",
-        ),
-      ),
       Effect.mapError(upgradeFailedToAppError),
     ),
+    (result) => upgradeCompletion(result, preview),
   );
 
-  // The assessment settles into the plan-family outcome vocabulary so its
-  // exit is decided by the one outcome-to-exit owner. A failed assessment
-  // carries its own failure detail in the document; the exit states only that
-  // the upgrade did not complete.
-  const outcome = successfulAssessment(result)
-    ? result.outcome === "previewed"
-      ? "previewed"
-      : result.outcome === "applied"
-        ? "applied"
-        : "no-op"
-    : "failed";
+  const completion = upgradeCompletion(result, preview);
   yield* setCommandSemanticProperties(
     summarizeCommandOutcome({
-      outcome,
+      outcome: completion.outcome,
       subjectType: "unknown",
       sourceKind: "git",
       appliedCount: result.outcome === "applied" ? 1 : 0,
@@ -193,7 +178,8 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
   );
   yield* emitResult({ result }, UpgradeDocumentSchema, () => upgradeView(result, verbosity.level), {
     suggestions: upgradeSuggestions(result),
-    ok: successfulAssessment(result),
+    completion,
+    promotedResultFields: ["outcome"],
   });
-  return processOutcome(operationExitCode({}, outcome));
+  return processOutcome(completion.exitCode);
 });

@@ -53,7 +53,7 @@ const SkillListColumns = [
 
 const { handler, command } = makePerTypeListCommand({
   type: "skill",
-  ...inventoryList("skill", (agents, details) => listSkills({ agents, details })),
+  ...inventoryList("skill", (agents) => listSkills({ agents })),
   columns: SkillListColumns,
 });
 

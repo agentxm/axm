@@ -287,7 +287,7 @@ describe("fork and native import", () => {
         expect(imported.exitCode, imported.stdout + imported.stderr).toBe(0);
         expect(JSON.parse(imported.stdout)).toMatchObject({
           ok: true,
-          result: { outcome: flags.length > 0 ? "previewed" : "applied" },
+          outcome: flags.length > 0 ? "previewed" : "applied",
         });
         if (flags.length > 0) expect(snapshotProtectedState(temp.path)).toEqual(before);
       }

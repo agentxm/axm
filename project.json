@@ -114,6 +114,19 @@
         "cwd": "."
       }
     },
+    "eval:cli": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "parallelism": false,
+      "metadata": {
+        "description": "Opt-in paired agent trials against explicitly supplied frozen binaries and skills, with source fixture helpers, isolated workspaces, transcripts, and independent state checks. Artifact identity is recorded; build freshness and semantic review remain external obligations."
+      },
+      "outputs": ["{workspaceRoot}/test-results/agent-evaluation"],
+      "options": {
+        "command": "bun --conditions=axm-source benchmarks/agent-evaluation.ts",
+        "cwd": "."
+      }
+    },
     "bench": {
       "executor": "nx:run-commands",
       "cache": false,

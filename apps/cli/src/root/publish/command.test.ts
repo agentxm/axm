@@ -446,6 +446,24 @@ describe("root publish", () => {
       );
     });
 
+    it.effect("explains omitted unmatched inherited rules in archive evidence", () => {
+      writeReviewSkill();
+      fs.writeFileSync(
+        path.join(tempDir, "skills", "review", ".gitignore"),
+        "unused-one/\nunused-two/\n",
+      );
+      const { provide, rendererState } = makeContext(false, { verbose: true });
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args("publication"));
+          expect(painted(rendererState)).toContain(
+            "     2 unmatched inherited rules omitted from the explanation; all explicit rules are shown",
+          );
+          expect(painted(rendererState).join("\n")).not.toContain("rule unused-one/");
+        }),
+      );
+    });
+
     it.effect("settles an apply as a result ledger with visibility in the verdict", () => {
       writeReviewSkill();
       const { provide, rendererState } = makeContext(false);
@@ -598,7 +616,7 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* emitPublishResult(publishedReview, { exitCode: 0, elapsedMs: 1_200 });
+          yield* emitPublishResult(publishedReview, { elapsedMs: 1_200 });
 
           expect(painted(rendererState).slice(-2)).toEqual([
             "Published 1 extension  public - 1.2s",
@@ -615,7 +633,7 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* emitPublishResult(publishedReview, { exitCode: 0 });
+          yield* emitPublishResult(publishedReview, {});
 
           expect(rendererState.suggestions).toContainEqual({
             description: "View in browser",
@@ -673,7 +691,7 @@ describe("root publish", () => {
                 blockedDependents: [],
               },
             }),
-            { exitCode: 8 },
+            { verdict: { failure: { category: "network" } } },
           );
 
           expect(painted(rendererState)).toEqual([
@@ -726,7 +744,7 @@ describe("root publish", () => {
                 },
               ],
             }),
-            { exitCode: 8 },
+            { verdict: { failure: { category: "network" } } },
           );
 
           expect(painted(rendererState)).toEqual(
@@ -764,7 +782,7 @@ describe("root publish", () => {
               mode: "apply",
               results: [unknownItem("review"), unknownItem("triage")],
             }),
-            { exitCode: 3 },
+            {},
           );
 
           const lines = painted(rendererState);
@@ -773,7 +791,7 @@ describe("root publish", () => {
               ` !!  @acme/skills/${name}           1.0.0     unconfirmed   registry settlement could not be verified`,
             );
           }
-          expect(lines).toContain("Publish did not confirm 2 extensions  2 unconfirmed - exit 3");
+          expect(lines).toContain("Publish did not confirm 2 extensions  2 unconfirmed - exit 1");
           expect(lines.join("\n")).not.toContain("No extensions published");
         }),
       );
@@ -788,7 +806,7 @@ describe("root publish", () => {
 
       return Effect.provide(
         Effect.gen(function* () {
-          yield* emitPublishResult(publishedReview, { exitCode: 0 });
+          yield* emitPublishResult(publishedReview, {});
           expect(painted(context.rendererState)).toContain("Published 1 extension  public");
           expect(painted(context.rendererState).join("\n")).not.toContain("Publishing");
         }),
@@ -1271,41 +1289,67 @@ describe("root publish", () => {
       );
     });
 
-    it.effect("does not report an unsettled apply as a no-op", () => {
-      const { provide } = makeContext();
+    for (const confirmed of [false, true]) {
+      it.effect(
+        `preserves uncertain publication completion with confirmed work=${String(confirmed)}`,
+        () => {
+          const { provide, rendererState } = makeContext();
 
-      return provide(
-        Effect.gen(function* () {
-          const properties = yield* semanticProperties(
-            emitPublishResult(
-              normalizePublishResult({
+          return provide(
+            Effect.gen(function* () {
+              const properties = yield* semanticProperties(
+                emitPublishResult(
+                  normalizePublishResult({
+                    mode: "apply",
+                    results: [
+                      {
+                        id: "@acme/skills/review",
+                        owner: handle("@acme"),
+                        type: "skill",
+                        name: extensionName("review"),
+                        version: exactVersion("1.0.0"),
+                        action: "publish",
+                        phase: "upload_execution",
+                        status: "unknown",
+                        reason: "settlement_unresolved",
+                        settlement: "unresolved",
+                      },
+                      ...(confirmed
+                        ? [
+                            {
+                              id: "@acme/skills/confirmed",
+                              owner: handle("@acme"),
+                              type: "skill" as const,
+                              name: extensionName("confirmed"),
+                              version: exactVersion("1.0.0"),
+                              action: "publish" as const,
+                              phase: "upload_execution" as const,
+                              status: "success" as const,
+                              reason: "selected" as const,
+                            },
+                          ]
+                        : []),
+                    ],
+                  }),
+                  {},
+                ),
+              );
+
+              const expected = confirmed ? "partial" : "indeterminate";
+              expect(properties["cli.outcome"]).toBe(expected);
+              expect(rendererState.results[0]?.completion).toMatchObject({
                 mode: "apply",
-                results: [
-                  {
-                    id: "@acme/skills/review",
-                    owner: handle("@acme"),
-                    type: "skill",
-                    name: extensionName("review"),
-                    version: exactVersion("1.0.0"),
-                    action: "publish",
-                    phase: "upload_execution",
-                    status: "unknown",
-                    reason: "settlement_unresolved",
-                    settlement: "unresolved",
-                  },
-                ],
-              }),
-              { exitCode: 1 },
-            ),
+                outcome: expected,
+                exitCode: 1,
+              });
+              expect(rendererState.results[0]?.ok).toBe(false);
+              expect(properties["cli.applied_count"]).toBe(confirmed ? 1 : 0);
+              expect(properties["cli.failed_count"]).toBe(0);
+            }),
           );
-
-          expect(properties["cli.outcome"]).not.toBe("no-op");
-          expect(properties["cli.outcome"]).toBe("failed");
-          expect(properties["cli.applied_count"]).toBe(0);
-          expect(properties["cli.failed_count"]).toBe(1);
-        }),
+        },
       );
-    });
+    }
 
     it.effect("reports mixed subject types across a multi-type selection", () => {
       writeReviewSkill({ rules: { style: "workspace" } });

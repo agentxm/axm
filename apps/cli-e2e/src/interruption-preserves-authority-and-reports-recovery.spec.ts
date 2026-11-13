@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { startHttpRegistry } from "./e2e/http-registry-server.js";
+import { startHttpRegistry } from "@agentxm/client-e2e-utils/http-registry";
 import { interruptOnFirstRegistryRequest, runCliUntil } from "./e2e/interruption.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
 import { initRegistryWorkspace, publishExtension } from "./test-support/registry-workspace.js";
@@ -77,9 +77,9 @@ describe("An interrupted workspace change", () => {
       expect(result.code, result.stdout + result.stderr).toBe(130);
       expect(JSON.parse(result.stdout)).toMatchObject({
         ok: false,
+        outcome: "interrupted",
         result: {
           contract: "plan-result-v4",
-          outcome: "interrupted",
           interruption: { signal: "SIGINT", disposition: "untouched" },
         },
       });
@@ -119,9 +119,9 @@ describe("An interrupted workspace change", () => {
       expect(interrupted.code, interrupted.stdout + interrupted.stderr).toBe(143);
       expect(JSON.parse(interrupted.stdout)).toMatchObject({
         ok: false,
+        outcome: "interrupted",
         result: {
           contract: "plan-result-v4",
-          outcome: "interrupted",
           interruption: { signal: "SIGTERM", disposition: "untouched" },
         },
       });

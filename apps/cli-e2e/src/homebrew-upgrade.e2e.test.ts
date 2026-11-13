@@ -57,19 +57,42 @@ esac
           }),
         );
 
-        const result = await runCli(["upgrade", targetVersion, "--json"], {
-          env: {
-            HOME: fixture.path,
-            AXM_USER_HOME: fixture.path,
-            PATH: `${fakeBin}${path.delimiter}${process.env["PATH"] ?? ""}`,
-            AXM_E2E_STATE: statePath,
-            AXM_E2E_LOG: logPath,
-            AXM_E2E_TARGET: scenario === "lagging" ? localVersion : targetVersion,
-            AXM_E2E_SCENARIO: scenario,
-            AXM_E2E_PREFIX: brewPrefix,
-            npm_config_user_agent: "",
-          },
-        });
+        const env = {
+          HOME: fixture.path,
+          AXM_USER_HOME: fixture.path,
+          PATH: `${fakeBin}${path.delimiter}${process.env["PATH"] ?? ""}`,
+          AXM_E2E_STATE: statePath,
+          AXM_E2E_LOG: logPath,
+          AXM_E2E_TARGET: scenario === "lagging" ? localVersion : targetVersion,
+          AXM_E2E_SCENARIO: scenario,
+          AXM_E2E_PREFIX: brewPrefix,
+          npm_config_user_agent: "",
+        };
+        if (scenario === "matching") {
+          const metadataBefore = fs.readFileSync(
+            path.join(metadataDir, "install-meta.json"),
+            "utf8",
+          );
+          const preview = await runCli(["upgrade", targetVersion, "--preview", "--json"], { env });
+          expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
+          expect(JSON.parse(preview.stdout)).toMatchObject({
+            ok: true,
+            mode: "preview",
+            outcome: "previewed",
+            result: {
+              disposition: "previewed",
+              target: { version: targetVersion },
+              mutation: { state: "not-attempted" },
+              verification: { state: "not-attempted" },
+            },
+          });
+          expect(fs.readFileSync(statePath, "utf8").trim()).toBe(localVersion);
+          expect(fs.readFileSync(path.join(metadataDir, "install-meta.json"), "utf8")).toBe(
+            metadataBefore,
+          );
+          expect(fs.existsSync(logPath)).toBe(false);
+        }
+        const result = await runCli(["upgrade", targetVersion, "--json"], { env });
 
         if (scenario !== "matching") {
           expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(1);

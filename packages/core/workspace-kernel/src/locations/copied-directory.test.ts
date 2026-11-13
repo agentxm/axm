@@ -10,6 +10,7 @@ import {
   captureCopiedDirectory,
   copiedDirectoryCanReplace,
   copiedDirectoryIsCurrent,
+  copiedDirectoryOwnsPath,
   copiedDirectoryReceiptPath,
   retireCopiedDirectory,
 } from "./copied-directory.js";
@@ -40,6 +41,23 @@ const fixture = Effect.gen(function* () {
 });
 
 describe("copied link identity failures", () => {
+  it.effect("recognizes only unchanged receipt children and preserves foreign additions", () =>
+    Effect.gen(function* () {
+      const { fs, copy, link } = yield* fixture;
+      const path = yield* Path.Path;
+      const owned = path.join(copy, "owned.txt");
+      const foreign = path.join(copy, "foreign.txt");
+      yield* fs.writeFileString(owned, "owned");
+      expect(Option.isSome(yield* captureCopiedDirectory(copy, copy))).toBe(true);
+      yield* fs.writeFileString(foreign, "owned");
+      expect(yield* copiedDirectoryOwnsPath(copy, owned)).toBe(true);
+      expect(yield* copiedDirectoryOwnsPath(copy, link)).toBe(true);
+      expect(yield* copiedDirectoryOwnsPath(copy, foreign)).toBe(false);
+      yield* fs.writeFileString(owned, "edited");
+      expect(yield* copiedDirectoryOwnsPath(copy, owned)).toBe(false);
+      expect(yield* fs.readFileString(foreign)).toBe("owned");
+    }).pipe(Effect.scoped, Effect.provide([CanonicalNativePathLive, NodeServices.layer])),
+  );
   it.effect("fails capture without writing a receipt when link identity cannot be read", () =>
     Effect.gen(function* () {
       const { fs, copy, link, denied, deniedFs } = yield* fixture;

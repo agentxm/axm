@@ -15,6 +15,11 @@
 // Plan types
 export { operationNativeLocations, settledUnitNativeLocations } from "./native-locations.js";
 export {
+  MaterializationTransitionSchema,
+  materializationTransitionLabel,
+  type MaterializationTransition,
+} from "./materialization-transition.js";
+export {
   BlockingClassSchema,
   defaultOperationPresentation,
   operationPresentation,

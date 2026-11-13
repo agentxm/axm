@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/login/starts-resumable-device-sign-in",
   title: "Unattended device sign-in returns the human action",
   statement:
-    "When sign-in requests machine output or explicit unattended initiation without a wait bound, AXM shall retain the pending authorization and return its verification URL, user code, expiry, and resume command without waiting for approval or opening a browser. A pending sign-in for another Registry shall preserve that request and offer a recovery selecting its Registry through --registry.",
+    "When sign-in requests machine output or explicit unattended initiation without a wait bound, AXM shall retain the pending authorization and return its verification URL, user code, expiry, and resume command without waiting for approval or opening a browser, with the CLI reporting apply/pending-human, ok false, and exit 13 while preserving the handoff. A pending sign-in for another Registry shall preserve that request and offer a recovery selecting its Registry through --registry.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -30,7 +30,7 @@ export const specification = defineSpecification({
   derivedFrom: ["packages/supporting/registry-access/src/authentication/device-login.ts"],
   supersedes: [],
   assumptions: [
-    "The application renders the returned pending payload after its operation settles.",
+    "Application and process execution bindings establish the pending-human envelope and exit; these service-port examples establish retained state and handoff content.",
   ],
   openQuestions: [],
 });

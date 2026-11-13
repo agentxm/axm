@@ -1,12 +1,15 @@
+import { PlanWireDocumentSchema } from "../../test-support/plan-wire-document.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as SchemaRepresentation from "effect/SchemaRepresentation";
+import { HELP_TOPICS } from "../../__generated__/help-topics.js";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { PLAN_RESULT_CONTRACT, PlanResolutionDocumentSchema } from "../../operation-output.js";
+import { PLAN_RESULT_CONTRACT } from "../../operation-output.js";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../../test-support/install-harness.js";
 import { handleInstall } from "./handler.js";
 
@@ -28,7 +31,23 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const decodeDocument = Schema.decodeUnknownEffect(PlanResolutionDocumentSchema);
+const decodeDocument = Schema.decodeUnknownEffect(PlanWireDocumentSchema);
+const schemaObject = Schema.Record(Schema.String, Schema.Unknown);
+const published = Schema.decodeUnknownSync(Schema.fromJsonString(schemaObject))(
+  HELP_TOPICS["machine-output-schema"],
+);
+const definitions = Schema.decodeUnknownSync(Schema.Record(Schema.String, schemaObject))(
+  published["$defs"],
+);
+const decodePublishedDocument = Schema.decodeUnknownEffect(
+  Schema.toType(
+    SchemaRepresentation.fromJsonSchemaDocument(
+      { dialect: "draft-2020-12", schema: { $ref: "#/$defs/family.plan-resolution" }, definitions },
+      { patterns: "apply" },
+    ),
+  ),
+  { onExcessProperty: "error" },
+);
 
 describe("Machine install result contract", () => {
   const cleanups: Array<() => void> = [];
@@ -68,15 +87,17 @@ describe("Machine install result contract", () => {
   it.effect("emits exactly one document that satisfies the published plan schema", () =>
     Effect.gen(function* () {
       const payload = yield* machineInstall();
+      yield* decodePublishedDocument(payload);
       const document = yield* decodeDocument(payload);
       expect(document.result.contract).toBe(PLAN_RESULT_CONTRACT);
-      expect(document.result.mode).toBe("apply");
+      expect(document.mode).toBe("apply");
     }),
   );
 
   it.effect("partitions unit counts so every unit is accounted for once", () =>
     Effect.gen(function* () {
       const payload = yield* machineInstall();
+      yield* decodePublishedDocument(payload);
       const document = yield* decodeDocument(payload);
       const counts = document.result.counts;
       const accounted =
@@ -97,10 +118,11 @@ describe("Machine install result contract", () => {
   it.effect("reports preview through the same contract with a previewed outcome", () =>
     Effect.gen(function* () {
       const payload = yield* machineInstall({ preview: true });
+      yield* decodePublishedDocument(payload);
       const document = yield* decodeDocument(payload);
       expect(document.result.contract).toBe(PLAN_RESULT_CONTRACT);
-      expect(document.result.outcome).toBe("previewed");
-      expect(document.result.mode).toBe("preview");
+      expect(document.outcome).toBe("previewed");
+      expect(document.mode).toBe("preview");
     }),
   );
 });

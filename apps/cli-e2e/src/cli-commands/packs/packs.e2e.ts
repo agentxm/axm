@@ -343,9 +343,9 @@ describe("axm packs add/remove", () => {
       });
       expect(show.exitCode, show.stderr).toBe(0);
       const shown = JSON.parse(show.stdout);
-      expect(shown.result.pack).toBe("@test/packs/mixed-pack");
-      expect(shown.result.desiredDependencies).toHaveLength(2);
-      expect(shown.result).not.toHaveProperty("resolvedDependencies");
+      expect(shown.result.items).toHaveLength(1);
+      expect(shown.result.items[0].identity.fqn).toBe("@test/packs/mixed-pack");
+      expect(shown.result.items[0].pack.members).toHaveLength(2);
     } finally {
       cleanup();
     }
@@ -465,10 +465,10 @@ describe("axm packs install", () => {
       expect(blocked.exitCode, blocked.stdout + blocked.stderr).toBe(6);
       expect(JSON.parse(blocked.stdout)).toMatchObject({
         ok: false,
+        outcome: "blocked",
+        mode: "apply",
         result: {
           contract: "plan-result-v4",
-          outcome: "blocked",
-          mode: "apply",
           candidateId: expect.any(String),
           blocking: expect.objectContaining({
             class: "precondition-unmet",
@@ -524,8 +524,8 @@ describe("axm packs install", () => {
       expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
       expect(JSON.parse(installed.stdout)).toMatchObject({
         ok: true,
+        outcome: "applied",
         result: {
-          outcome: "applied",
           agentCoverage: { scope: "project", agents: ["claude-code"] },
           counts: expect.objectContaining({ committed: 1, failed: 0, blocked: 0 }),
           units: [
@@ -599,7 +599,7 @@ describe("axm packs install", () => {
       const nonApplicableDocument = JSON.parse(nonApplicable.stdout);
       expect(nonApplicableDocument).toMatchObject({
         ok: true,
-        result: { outcome: "applied" },
+        outcome: "applied",
       });
       expect(nonApplicableDocument.result).not.toHaveProperty("agentCoverage");
       expect(nonApplicableDocument.result.units[0]?.artifact).not.toHaveProperty("agents");
@@ -650,7 +650,7 @@ describe("axm packs install", () => {
       expect(directInstall.exitCode, directInstall.stdout + directInstall.stderr).toBe(0);
       expect(JSON.parse(directInstall.stdout)).toMatchObject({
         ok: true,
-        result: { outcome: "applied" },
+        outcome: "applied",
       });
 
       const directDesiredEntry = readSettings().skills?.[directSkill];
@@ -684,8 +684,8 @@ describe("axm packs install", () => {
         const document = JSON.parse(installed.stdout);
         expect(document).toMatchObject({
           ok: true,
+          outcome: "applied",
           result: {
-            outcome: "applied",
             agentCoverage: {
               scope: "project",
               agents: ["claude-code", "cursor"],
@@ -858,11 +858,9 @@ describe("axm packs install", () => {
       expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
       expect(JSON.parse(preview.stdout)).toMatchObject({
         ok: true,
-        result: {
-          outcome: "previewed",
-          mode: "preview",
-          counts: expect.objectContaining({ total: 1, ready: 1, failed: 0, blocked: 0 }),
-        },
+        outcome: "previewed",
+        mode: "preview",
+        result: { counts: expect.objectContaining({ total: 1, ready: 1, failed: 0, blocked: 0 }) },
       });
       expect(readLock().packs?.["recoverable-pack"]).toBeUndefined();
 
@@ -872,10 +870,8 @@ describe("axm packs install", () => {
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
       expect(JSON.parse(applied.stdout)).toMatchObject({
         ok: true,
-        result: {
-          outcome: "applied",
-          counts: expect.objectContaining({ committed: 1, failed: 0, blocked: 0 }),
-        },
+        outcome: "applied",
+        result: { counts: expect.objectContaining({ committed: 1, failed: 0, blocked: 0 }) },
       });
       expect(boundPackage(readLock(), "packs", "recoverable-pack")).toMatchObject({
         source: { registry: expect.any(String) },
@@ -898,10 +894,8 @@ describe("axm packs install", () => {
       expect(second.exitCode, second.stdout + second.stderr).toBe(0);
       expect(JSON.parse(second.stdout)).toMatchObject({
         ok: true,
-        result: {
-          outcome: "no-op",
-          counts: expect.objectContaining({ committed: 0, failed: 0 }),
-        },
+        outcome: "no-op",
+        result: { counts: expect.objectContaining({ committed: 0, failed: 0 }) },
       });
       const lint = await runCli(["lint", "--json"], { cwd: temp.path });
       expect(lint.exitCode, lint.stdout + lint.stderr).toBe(0);
@@ -1189,10 +1183,8 @@ describe("axm packs install", () => {
       expect(synced.exitCode, synced.stdout + synced.stderr).toBe(0);
       expect(JSON.parse(synced.stdout)).toMatchObject({
         ok: true,
-        result: {
-          outcome: "applied",
-          counts: expect.objectContaining({ failed: 0, blocked: 0 }),
-        },
+        outcome: "applied",
+        result: { counts: expect.objectContaining({ failed: 0, blocked: 0 }) },
       });
 
       expect(fs.lstatSync(memberProjection).isSymbolicLink()).toBe(true);
@@ -1204,7 +1196,7 @@ describe("axm packs install", () => {
       expect(second.exitCode, second.stdout + second.stderr).toBe(0);
       expect(JSON.parse(second.stdout)).toMatchObject({
         ok: true,
-        result: { outcome: "no-op" },
+        outcome: "no-op",
       });
     } finally {
       author.cleanup();
@@ -1309,9 +1301,9 @@ describe("axm packs uninstall", () => {
         );
         expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
         expect(JSON.parse(preview.stdout)).toMatchObject({
+          outcome: "previewed",
+          mode: "preview",
           result: {
-            outcome: "previewed",
-            mode: "preview",
             planName: "Uninstall pack",
             counts: expect.objectContaining({ total: 1, ready: 1 }),
             units: [expect.objectContaining({ state: "ready" })],
@@ -1328,10 +1320,8 @@ describe("axm packs uninstall", () => {
         expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
         expect(JSON.parse(applied.stdout)).toMatchObject({
           ok: true,
-          result: {
-            outcome: "applied",
-            counts: expect.objectContaining({ committed: 1, failed: 0 }),
-          },
+          outcome: "applied",
+          result: { counts: expect.objectContaining({ committed: 1, failed: 0 }) },
         });
         expect(JSON.parse(fs.readFileSync(settingsPath, "utf8")).packs?.["workspace-pack"]).toBe(
           undefined,
@@ -1351,7 +1341,7 @@ describe("axm packs uninstall", () => {
         cwd: temp.path,
       });
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-      expect(JSON.parse(result.stdout)).toMatchObject({ result: { outcome: "no-op" } });
+      expect(JSON.parse(result.stdout)).toMatchObject({ outcome: "no-op" });
       expect(
         JSON.parse(fs.readFileSync(path.join(temp.path, "axm.json"), "utf8")).packs?.["owned-pack"],
       ).toBe("workspace");
@@ -1378,8 +1368,8 @@ describe("axm packs uninstall", () => {
       expect(machine.exitCode, machine.stdout + machine.stderr).toBe(0);
       expect(JSON.parse(machine.stdout)).toMatchObject({
         ok: true,
+        outcome: "no-op",
         result: {
-          outcome: "no-op",
           planName: "Uninstall packs",
           counts: expect.objectContaining({ total: 0 }),
           units: [],
@@ -1507,7 +1497,7 @@ describe("pack-contributed rules", () => {
   const RULES = ["alpha", "beta", "gamma"] as const;
   type RuleName = (typeof RULES)[number];
 
-  const outcomeOf = (stdout: string): unknown => JSON.parse(stdout).result.outcome;
+  const outcomeOf = (stdout: string): unknown => JSON.parse(stdout).outcome;
 
   /** The exact instruction file AXM writes for the given contributing rules. */
   const expectedInstructions = (members: ReadonlyArray<RuleName>) =>

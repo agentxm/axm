@@ -29,3 +29,8 @@ exit meanings.
 
 Plan JSON carries `candidateId`, which identifies the displayed candidate whose
 material inputs were revalidated immediately before execution.
+
+Pending device sign-in uses exit 13 in both human and JSON modes. Its ordinary
+result reports `mode: "apply"`, `outcome: "pending-human"`, and `ok: false`,
+with the verification URL, code, expiry, and resume action preserved. Starting
+the handoff does not establish a signed-in session.

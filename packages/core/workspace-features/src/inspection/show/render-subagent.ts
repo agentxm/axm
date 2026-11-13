@@ -18,8 +18,8 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { ConfiguredAgentReasonCodeSchema } from "@agentxm/workspace-kernel/operations";
-import { WorkspaceInspectionFailed } from "../errors.js";
-import { ShowExtension } from "./show-extension.js";
+import { ExtensionNotInstalled, WorkspaceInspectionFailed } from "../errors.js";
+import { LocalInspection } from "./local-inspection.js";
 
 export const SubagentRenderResultSchema = Schema.Struct({
   name: Schema.String,
@@ -50,8 +50,25 @@ export const RenderSubagent = {
   }) {
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
-    const detail = yield* ShowExtension.query({ type: "subagent", name: request.name });
-    const canonical = yield* acceptedCanonicalObservation({ type: "subagent", name: request.name });
+    const inspected = yield* LocalInspection.query({
+      selection: { kind: "identities", identities: [request.name] },
+      types: ["subagent"],
+    });
+    const selected = inspected.requests[0];
+    if (selected?.code === 6)
+      return yield* new WorkspaceInspectionFailed({
+        category: "conflict",
+        detail: selected.reason ?? "The subagent identity is ambiguous.",
+      });
+    const detail = inspected.items[0];
+    if (detail === undefined)
+      return yield* new ExtensionNotInstalled({
+        type: "subagent",
+        name: request.name,
+        scope: location.scope,
+      });
+    const name = detail.identity.name;
+    const canonical = yield* acceptedCanonicalObservation({ type: "subagent", name });
     const canonicalPath = Option.flatMap(canonical, (value) =>
       Option.fromUndefinedOr(value.observation.path),
     );
@@ -80,11 +97,11 @@ export const RenderSubagent = {
     const common = {
       type: "subagent" as const,
       version: pkg.manifest.version,
-      enabled: detail.item.enabled,
-      locked: detail.item.locked,
-      name: request.name,
+      enabled: detail.desired.enabled,
+      locked: detail.accepted.state === "present",
+      name,
       fqn,
-      source: detail.item.source,
+      source: detail.identity.source.locator ?? detail.identity.source.authority,
       scope: location.scope,
       agentId: request.agentId,
       sourceDependencies: compiled.sourceDependencies,

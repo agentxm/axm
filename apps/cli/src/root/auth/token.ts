@@ -412,7 +412,10 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
         },
         { _tag: "next", actions: RevokeTokenSuggestions },
       ],
-      { suggestions: RevokeTokenSuggestions },
+      {
+        suggestions: RevokeTokenSuggestions,
+        completion: { mode: "apply", outcome: "applied", exitCode: 0 },
+      },
     );
   },
   Effect.mapError(coerceAuthFailure),

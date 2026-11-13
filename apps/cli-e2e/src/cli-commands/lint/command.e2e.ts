@@ -118,6 +118,24 @@ describe("axm lint (e2e, Phase 7)", () => {
         });
         expect(document.result).not.toHaveProperty("axmSkillCompatibility");
 
+        const files = ["axm.json", "axm.lock"];
+        const before = files.map((file) => fs.readFileSync(path.join(temp.path, file), "utf8"));
+        for (const preview of [true, false]) {
+          const fixed = await runCli(
+            ["lint", "--fix", ...(preview ? ["--preview"] : []), "--json"],
+            { cwd: temp.path, env },
+          );
+          expect(fixed.exitCode, fixed.stdout + fixed.stderr).toBe(0);
+          expect(JSON.parse(fixed.stdout)).toMatchObject({
+            mode: preview ? "preview" : "apply",
+            outcome: preview ? "previewed" : "no-op",
+            result: { findings: document.result.findings },
+          });
+          expect(files.map((file) => fs.readFileSync(path.join(temp.path, file), "utf8"))).toEqual(
+            before,
+          );
+        }
+
         // Findings are lint's primary result, so the human ledger is on stdout.
         const human = await runCli(["lint"], { cwd: temp.path, env });
         expect(human.exitCode, `${human.stderr}\n${human.stdout}`).toBe(0);

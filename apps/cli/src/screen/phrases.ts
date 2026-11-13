@@ -670,6 +670,8 @@ export const settledOutcomeTone = (outcome: SettledOutcome): Tone => {
     case "completed":
       return "ok";
     case "partial":
+    case "pending-human":
+    case "indeterminate":
     case "blocked":
     case "cancelled":
       return "warn";

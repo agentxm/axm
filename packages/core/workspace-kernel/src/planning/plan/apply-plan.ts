@@ -61,6 +61,7 @@ const appendReadinessWarning = <Output>(
 const errorStepMessage = (error: StepFailure): string => `${error.detail} (${error.category})`;
 
 const stepEvidence = (step: PlannedJobStep<unknown, unknown>) => ({
+  ...(step.transitions === undefined ? {} : { transitions: step.transitions }),
   ...(step.registryLifecycle === undefined ? {} : { registryLifecycle: step.registryLifecycle }),
   ...(step.agentOutcomes === undefined ? {} : { agentOutcomes: step.agentOutcomes }),
 });

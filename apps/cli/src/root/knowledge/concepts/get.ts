@@ -37,6 +37,14 @@ export const handleKnowledgeConceptGet = Effect.fnUntraced(function* (
       }),
       knowledgeConceptFailures,
     ),
+    (result) => ({
+      mode: "query",
+      outcome: "completed",
+      exitCode:
+        result.outcome === "corpus-changing" || result.outcome === "revision-changed"
+          ? ExitCode.Conflict
+          : ExitCode.Success,
+    }),
   );
   if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   if (result.outcome === "revision-changed") {
@@ -44,9 +52,7 @@ export const handleKnowledgeConceptGet = Effect.fnUntraced(function* (
       result.document,
       KnowledgeConceptGetOutputSchema,
       () => errorDoc("Knowledge concept revision changed; fetch the current revision"),
-      {
-        ok: false,
-      },
+      { completion: { mode: "query", outcome: "completed", exitCode: ExitCode.Conflict } },
     );
     return processOutcome(ExitCode.Conflict);
   }

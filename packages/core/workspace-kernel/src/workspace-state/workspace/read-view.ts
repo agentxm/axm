@@ -48,6 +48,8 @@ export class WorkspaceReadViews extends Context.Service<
     /** Capture once per pure query or stable planning phase; never retain across writes. */
     readonly capture: (options?: {
       readonly observations?: boolean;
+      /** An invocation may supply a more constrained read port before capture. */
+      readonly fileSystem?: FileSystem.FileSystem;
     }) => Effect.Effect<Context.Context<ReadServices>, WorkspaceStateReadFailure>;
   }
 >()("@agentxm/workspace-kernel/workspace-state/WorkspaceReadViews") {}
@@ -111,10 +113,11 @@ export const WorkspaceReadViewsLive = Layer.effect(
           const close = () => {
             active = false;
           };
+          const readFileSystem = options?.fileSystem ?? fs;
           const observation =
             options?.observations === true
-              ? makeObservationReadView(fs, canonical, () => active, close)
-              : Context.make(FileSystem.FileSystem, fs).pipe(
+              ? makeObservationReadView(readFileSystem, canonical, () => active, close)
+              : Context.make(FileSystem.FileSystem, readFileSystem).pipe(
                   Context.add(CanonicalNativePath, canonical),
                 );
           const io = observation.pipe(Context.add(Path.Path, path));

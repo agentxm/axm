@@ -11,7 +11,8 @@ export const HELP_TOPIC_DESCRIPTIONS = {
   "getting-started": "Set up AXM in a new workspace and install your first extension",
   "basic-usage": "Everyday commands for installing, updating, and removing extensions",
   diagnostics: "Review and export retained local failure diagnostics",
-  "machine-output-schema": "JSON Schema for command results, with a route-to-family reference map",
+  "machine-output-schema":
+    "Aggregate JSON Schema for complete command stdout, with route references",
   "machine-output": "JSON stdout documents, NDJSON stderr events, envelopes, and field nesting",
   "git-hooks": "Run AXM against the exact Git index from common hook managers and CI",
   authoring: "How to write registry-facing extension descriptions, keywords, and READMEs",

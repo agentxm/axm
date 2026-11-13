@@ -5,66 +5,65 @@ import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import {
-  ListExtensions,
-  ShowExtension,
-  listMcpServers,
-} from "@agentxm/workspace-features/inspection";
+import { LocalInspection } from "@agentxm/workspace-features/inspection";
 import { makeWorkspaceLifecycleTestContext } from "../../test-support/test-helpers.js";
 
-it.effect("reuses the native inventory observation for detailed MCP query results", () => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-native-query-")));
-  const nativePath = path.join(root, ".mcp.json");
-  let reads = 0;
-  const fileSystemLayer = Layer.effect(
-    FileSystem.FileSystem,
-    Effect.map(
+it.effect(
+  "reuses the native inventory observation across complete and selected local inspection",
+  () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "axm-native-query-")));
+    const nativePath = path.join(root, ".mcp.json");
+    let reads = 0;
+    const fileSystemLayer = Layer.effect(
       FileSystem.FileSystem,
-      (base) =>
-        ({
-          ...base,
-          readFile: (file) =>
-            Effect.gen(function* () {
-              if (file === nativePath) reads += 1;
-              return yield* base.readFile(file);
-            }),
-        }) satisfies FileSystem.FileSystem,
-    ),
-  );
-  const fixture = makeWorkspaceLifecycleTestContext({
-    wsOptions: { projectRoot: root },
-    fileSystemLayer,
-  });
-  fs.writeFileSync(
-    path.join(root, "axm.json"),
-    JSON.stringify({
-      agents: ["claude-code"],
-      mcpServers: {
-        context: {
-          connection: { transport: "stdio", command: "node", args: ["server.js"], env: {} },
-          enabled: true,
+      Effect.map(
+        FileSystem.FileSystem,
+        (base) =>
+          ({
+            ...base,
+            readFile: (file) =>
+              Effect.gen(function* () {
+                if (file === nativePath) reads += 1;
+                return yield* base.readFile(file);
+              }),
+          }) satisfies FileSystem.FileSystem,
+      ),
+    );
+    const fixture = makeWorkspaceLifecycleTestContext({
+      wsOptions: { projectRoot: root },
+      fileSystemLayer,
+    });
+    fs.writeFileSync(
+      path.join(root, "axm.json"),
+      JSON.stringify({
+        agents: ["claude-code"],
+        mcpServers: {
+          context: {
+            connection: { transport: "stdio", command: "node", args: ["server.js"], env: {} },
+            enabled: true,
+          },
         },
-      },
-    }),
-  );
-  fs.writeFileSync(
-    nativePath,
-    JSON.stringify({ mcpServers: { context: { command: "node", args: ["server.js"] } } }),
-  );
-  return fixture
-    .provide(
-      Effect.gen(function* () {
-        reads = 0;
-        yield* ListExtensions.query({ filter: "all", types: ["mcp-server"], details: true });
-        const inventoryReads = reads;
-        expect(inventoryReads).toBeGreaterThan(0);
-        reads = 0;
-        yield* ShowExtension.query({ type: "mcp-server", name: "context" });
-        expect(reads).toBe(inventoryReads);
-        reads = 0;
-        yield* listMcpServers({ details: true });
-        expect(reads).toBe(inventoryReads);
       }),
-    )
-    .pipe(Effect.ensuring(Effect.sync(() => fs.rmSync(root, { recursive: true, force: true }))));
-});
+    );
+    fs.writeFileSync(
+      nativePath,
+      JSON.stringify({ mcpServers: { context: { command: "node", args: ["server.js"] } } }),
+    );
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          reads = 0;
+          yield* LocalInspection.query({ selection: { kind: "all" }, types: ["mcp-server"] });
+          const inventoryReads = reads;
+          expect(inventoryReads).toBeGreaterThan(0);
+          reads = 0;
+          yield* LocalInspection.query({
+            selection: { kind: "identities", identities: ["context"] },
+            types: ["mcp-server"],
+          });
+          expect(reads).toBe(inventoryReads);
+        }),
+      )
+      .pipe(Effect.ensuring(Effect.sync(() => fs.rmSync(root, { recursive: true, force: true }))));
+  },
+);

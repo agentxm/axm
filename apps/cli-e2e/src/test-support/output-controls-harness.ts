@@ -1,8 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createCliRunner, createTempDir } from "@agentxm/client-e2e-utils";
+import { withWireContracts } from "./wire-contracts.js";
 
-const runBuiltCli = createCliRunner(new URL("../../../cli/dist/src/main.js", import.meta.url));
+const builtArtifact = new URL("../../../cli/dist/src/main.js", import.meta.url);
+const runBuiltCli = withWireContracts(createCliRunner(builtArtifact), builtArtifact.href);
 
 /** The actual CLI in a disposable project and home, with controlled output inputs. */
 export const makeOutputControlsFixture = () => {

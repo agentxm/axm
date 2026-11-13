@@ -1,3 +1,4 @@
+import { LocalInspection } from "../index.js";
 import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -14,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/list/local-name-source-and-resolution-are-distinct",
   title: "The machine MCP inventory distinguishes local connection identity from source resolution",
   statement:
-    "When MCP servers are listed in machine output, AXM shall report each connection's local name, its source, and its accepted resolution as distinct fields, so that connections sharing one source remain individually identifiable, and shall report every configured agent's outcome for the connection — naming an agent that cannot represent it as unsupported rather than omitting it.",
+    "When MCP servers are listed in machine output, AXM shall report each connection's local name, its source, and its accepted resolution as distinct fields, so that connections sharing one source remain individually identifiable, and show --all shall report every configured agent's outcome for the connection — naming an agent that cannot represent it as unsupported rather than omitting it.",
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "agent-interoperability"],
@@ -58,7 +59,7 @@ describe("List locally named MCP connections as a machine document", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const { document } = yield* listMcpServers({ details: true });
+          const { document } = yield* listMcpServers({});
           expect(document.count).toBe(2);
           expect(document.items.map((item) => item.localName).sort()).toEqual([
             "personal-context",
@@ -130,13 +131,13 @@ describe("Report every configured agent's outcome for a connection", () => {
       return fixture
         .provide(
           Effect.gen(function* () {
-            const { document } = yield* listMcpServers({ details: true });
-            const item = document.items.find((candidate) => candidate.localName === "demo");
+            const document = yield* LocalInspection.query({
+              selection: { kind: "all" },
+              types: ["mcp-server"],
+            });
+            const item = document.items.find((candidate) => candidate.identity.name === "demo");
             expect(item).toBeDefined();
-            const outcomes =
-              item !== undefined && "agentOutcomes" in item.inspection
-                ? item.inspection.agentOutcomes
-                : [];
+            const outcomes = item?.agentOutcomes ?? [];
 
             expect(outcomes.map((outcome) => outcome.agentId).sort()).toEqual(
               agentOutcomeRows.map((entry) => entry.agentId).sort(),

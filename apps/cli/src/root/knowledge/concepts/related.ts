@@ -54,6 +54,11 @@ export const handleKnowledgeConceptRelated = Effect.fnUntraced(function* (
       KnowledgeDiscovery.related({ reference, maximumDepth, includeIndexBacklinks }),
       knowledgeConceptFailures,
     ),
+    (result) => ({
+      mode: "query",
+      outcome: "completed",
+      exitCode: result.outcome === "corpus-changing" ? 6 : 0,
+    }),
   );
   if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   const output = result.document;

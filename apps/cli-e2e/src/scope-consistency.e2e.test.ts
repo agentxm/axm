@@ -291,7 +291,13 @@ describe("installed-state scope consistency", () => {
       expect(shown.exitCode, `${shown.stderr}\n${shown.stdout}`).toBe(0);
       expect(JSON.parse(shown.stdout)).toMatchObject({
         ok: true,
-        result: { scope: "user", pack: `${OWNER}/packs/${PACK}` },
+        result: {
+          items: [
+            {
+              identity: { scope: "user", type: "pack", name: PACK, fqn: `${OWNER}/packs/${PACK}` },
+            },
+          ],
+        },
       });
 
       const linted = await runCli(["lint", "--scope", "user", "--json"], {

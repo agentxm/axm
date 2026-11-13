@@ -12,7 +12,15 @@ import {
   extensionTypeToPlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
+import {
+  createNativeLocationTable,
+  NativeLocationRecordSchema,
+  NativeReaderDeclarationSchema,
+  NativeLocationReferenceSchema,
+  nativeUnitKey,
+  type NativeLocationRecord,
+  type NativeReaderDeclaration,
+} from "@agentxm/workspace-kernel/locations";
 import {
   DesiredStateReader,
   SettingsReader,
@@ -65,7 +73,7 @@ const InspectionSchema = Schema.Union([
   Schema.Struct({
     state: Schema.Literals(["complete", "partial"]),
     agentOutcomes: ExtensionInventoryRowSchema.fields.agentOutcomes,
-    nativeLocations: ExtensionInventoryRowSchema.fields.nativeLocations,
+    nativeLocationRefs: Schema.optionalKey(Schema.Array(NativeLocationReferenceSchema)),
     duplicateDiscoveries: ExtensionInventoryRowSchema.fields.duplicateDiscoveries,
     diagnostics: Schema.Array(Schema.String),
     knowledge: Schema.optionalKey(
@@ -111,6 +119,8 @@ export const ExtensionInventoryDocumentFields = {
     unmanaged: Schema.Number,
   }),
   nativeLocationCounts: ExtensionInventorySchema.fields.nativeLocationCounts,
+  nativeLocations: Schema.optionalKey(Schema.Array(NativeLocationRecordSchema)),
+  nativeReaderDeclarations: Schema.optionalKey(Schema.Array(NativeReaderDeclarationSchema)),
 } as const;
 
 export const ExtensionInventoryDocumentSchema = Schema.Struct({
@@ -124,14 +134,17 @@ export const inventoryEnvelope = <Item extends ExtensionListItem>(
   totalCount: number,
   filter: ExtensionInventoryDocument["filter"] = "all",
   observationDiagnostics?: ExtensionInventory["observationDiagnostics"],
+  nativeLocations?: ReadonlyArray<NativeLocationRecord>,
+  nativeReaderDeclarations?: ReadonlyArray<NativeReaderDeclaration>,
 ) => {
   const countManagement = (management: ExtensionListItem["management"]) =>
     items.filter((item) => item.management === management).length;
-  const native = combineNativeLocationOutcomes(
+  const selectedRefs = new Set(
     items.flatMap((item) =>
-      "nativeLocations" in item.inspection ? (item.inspection.nativeLocations ?? []) : [],
+      "nativeLocationRefs" in item.inspection ? (item.inspection.nativeLocationRefs ?? []) : [],
     ),
   );
+  const native = nativeLocations?.filter((record) => selectedRefs.has(record.id)) ?? [];
   return {
     filter,
     items,
@@ -147,11 +160,16 @@ export const inventoryEnvelope = <Item extends ExtensionListItem>(
     },
     ...(items.some(
       (item) =>
-        "nativeLocations" in item.inspection && item.inspection.nativeLocations !== undefined,
+        "nativeLocationRefs" in item.inspection && item.inspection.nativeLocationRefs !== undefined,
     )
       ? {
+          nativeLocations: native,
+          nativeReaderDeclarations:
+            nativeReaderDeclarations?.filter((declaration) =>
+              native.some((location) => location.readerDeclarationRef === declaration.id),
+            ) ?? [],
           nativeLocationCounts: {
-            units: native.length,
+            units: new Set(native.map(nativeUnitKey)).size,
             physicalLocations: new Set(
               native.map((unit) => JSON.stringify([unit.scope, unit.address.path])),
             ).size,
@@ -159,8 +177,8 @@ export const inventoryEnvelope = <Item extends ExtensionListItem>(
             unverifiedExtensions: items.filter(
               (item) =>
                 item.type !== "pack" &&
-                (!("nativeLocations" in item.inspection) ||
-                  item.inspection.nativeLocations === undefined),
+                (!("nativeLocationRefs" in item.inspection) ||
+                  item.inspection.nativeLocationRefs === undefined),
             ).length,
           },
         }
@@ -215,6 +233,7 @@ export const buildInventoryDocument = Effect.fnUntraced(function* (inventory: Ex
   const location = yield* WorkspaceLocation;
   const path = yield* Path.Path;
   const configuredAgents = yield* settings.configuredAgents;
+  const nativeLocations = createNativeLocationTable();
   const items = yield* Effect.forEach(inventory.items, (row) =>
     Effect.gen(function* () {
       const node = graph.nodes.find(
@@ -240,7 +259,9 @@ export const buildInventoryDocument = Effect.fnUntraced(function* (inventory: Ex
                 diagnostics: row.inspectionDiagnostics ?? [],
                 ...(row.nativeLocations === undefined
                   ? {}
-                  : { nativeLocations: row.nativeLocations }),
+                  : {
+                      nativeLocationRefs: nativeLocations.add(row.nativeLocations, "observation"),
+                    }),
                 ...(row.duplicateDiscoveries === undefined
                   ? {}
                   : { duplicateDiscoveries: row.duplicateDiscoveries }),
@@ -334,5 +355,7 @@ export const buildInventoryDocument = Effect.fnUntraced(function* (inventory: Ex
     inventory.count,
     "all",
     inventory.observationDiagnostics,
+    nativeLocations.records(),
+    nativeLocations.readerDeclarations(),
   ) satisfies ExtensionInventoryDocument;
 });

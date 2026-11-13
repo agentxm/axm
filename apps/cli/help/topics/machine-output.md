@@ -17,8 +17,9 @@ jq . result.json
 jq -c . progress.jsonl
 ```
 
-Parse stdout as one document; it may span multiple lines. Parse stderr one
-JSON object per line. Combined terminal capture is not a JSONL stream, and
+Ordinary machine documents are minified JSON followed by one newline. Parse
+stdout as one document and stderr one JSON object per line. Authored raw content
+and external document formats retain their own delivery contracts. Combined terminal capture is not a JSONL stream, and
 independent pipes do not establish a total ordering. Login settles its operation
 and drains progress before invoking its final stdout writer.
 
@@ -40,39 +41,76 @@ Diagnostic-record contents remain unfrozen support artifacts, including
 discriminator. Automation relies on the failure envelope's error code, recovery
 suggestions, and optional `diagnosticId`.
 
-## Success documents
+## Operation results
 
-The `result-envelope-v1` contract gives every ordinary
-command result the same envelope:
+Every ordinary operation result uses the `result-envelope-v1` envelope:
 
 ```json
-{
-  "ok": true,
-  "result": {}
-}
+{ "ok": true, "mode": "query", "outcome": "completed", "result": {} }
 ```
 
-The command-specific payload always lives under `result`. Collections put
-`items[]`, counts, and cursors inside `result`; queries put their resource
-fields inside `result`; mutations put their outcome and steps inside `result`.
-Only optional `summary` and `suggestions[]` may sit beside it.
+`ok` agrees with process success. `mode` is `query`, `preview`, or `apply`.
+`outcome` describes what happened to the operation: `completed`, `previewed`,
+`applied`, `no-op`, `partial`, `blocked`, `failed`, `cancelled`, or `interrupted`.
+Authentication can report `pending-human`; publication and executable replacement
+can report `indeterminate` when a dispatched effect's settlement is unknown.
+A negative assessment can complete with `ok: false`; completion does not mean
+that the inspected subject is healthy or that remote coverage was complete.
 
-`axm help machine-output-schema` publishes the generated JSON Schema for these
-payloads. `x-axm-routes` maps each structured-result command path (for example,
-`axm skills list`) to a family `$ref` in the document's `$defs`. Validate
-`result` against that reference. The root schema accepts the union of result
-families; the envelope's generic `result` field is unchanged. The document also
-references the error envelope and formatter help/version schemas separately.
-With `--json`, schema help returns a parsed object under `result.schema`;
-without it, stdout is the raw JSON Schema. Diagnostic-record contents remain
-outside the frozen contract even when a generated schema describes them.
+The command-specific payload lives under `result`. Collections retain their
+selected rows, counts, cursors, and coverage there. Optional concise `summary`,
+producer-owned `suggestions`, and permitted diagnostics accompany the result.
+Identical operation mode/outcome fields are not duplicated inside the payload;
+family-specific statuses and meanings remain. For example, a publication no-op
+may contain an item with `action: "skip"` and `status: "success"` because the
+selected version already exists. The operation says `outcome: "no-op"` directly.
 
-Workspace mutation results are discriminated by
-`result.contract: "plan-result-v4"`. Outcomes are `previewed`, `applied`,
-`no-op`, `partial`, `failed`, `blocked`, `cancelled`, or `interrupted`. For
-every ordinary result, `ok` is `true` exactly when the process exits 0 and
-`false` when it exits nonzero.
+`--json` is explicit and noninteractive. Piping does not switch formats.
+`--verbose` expands human output and permitted redacted diagnostics; `--debug`
+also permits diagnostic causes and stacks. Neither changes domain-result
+completeness. `--quiet` suppresses routine progress while retaining the result
+and actionable failures.
 
+## Offline output discovery
+
+Ordinary command help includes its output class, modes and effects, result
+meanings, and exact schema invocation. Focused discovery is optional:
+
+```sh
+axm schema publish
+axm schema publish --field 'result.execution.outcomes[].status'
+axm schema skills show --json
+```
+
+The default is a concise human outline. `--field` traverses declared stdout
+properties with dotted names and `[]` for array elements, preserving relevant
+alternatives, required/optional fields, nulls, and literals/enums. Dynamic maps
+are described at their map field; arbitrary data keys are not field queries.
+Unknown fields return `not_found` with bounded nearby suggestions.
+
+`--json` emits a standalone JSON Schema document directly on stdout. It validates
+the complete stdout value, including ordinary success and operation-failure
+results, generic errors, and formatter documents. With `--field`, it validates
+the selected value instead. The `x-axm-command`, `x-axm-validates`, and optional
+`x-axm-field` annotations identify that scope. Only reachable definitions are
+included; recursive references remain local and require no network fetch.
+`axm schema schema --json` describes schema-document delivery with a finite
+local contract rather than recursively embedding generated exports.
+
+Discovery needs no target arguments, credentials, or workspace and invokes no
+target handler. Credential-export commands describe their plain-only contract
+in human output and refuse JSON schema export with a usage error. An external
+schema unavailable in the installed bundle is reported explicitly without
+fetching it. Formatter/group commands export their formatter contract.
+
+`axm help machine-output-schema` remains the aggregate developer/export artifact.
+Its `x-axm-routes` entries reference complete stdout schemas. Schema topics keep
+the existing topic-first help behavior; `axm help skills` still reads the skills
+topic. `axm help <schema-topic> --json` places the parsed schema under
+`result.schema`, while `axm schema <command-path> --json` emits it directly.
+Diagnostic-record contents remain unfrozen even when a schema describes them.
+
+Workspace mutation payloads use `result.contract: "plan-result-v4"`.
 Each unit of work is one semantic closure that settles independently:
 committed closures stand even when a later closure fails, a failed closure
 rolls back only itself, and mixed commits and failures report `partial` at
@@ -93,8 +131,15 @@ does not mean that AXM overwrote that edit.
 
 `result.nativeLocations[]` describes each physical ownership unit, with a
 structured `address` for an entry, whole file, key path, or managed region.
-It separates path aliases, configured consumers, potential readers, policy
-reasons, ownership evidence, change state, and availability evidence.
+Each record has a result-local `id` and evidence `phase`. Subjects and plan
+artifacts refer to it through `nativeLocationRefs`; references resolve within
+the same captured document. It separates path aliases, configured consumers,
+potential readers, policy reasons, ownership evidence, mechanism, change state,
+and availability evidence. `result.nativeReaderDeclarations[]` declares the
+ordered `potentialReaders` and their shared `availabilityDefault`. A native
+record links to that declaration through `readerDeclarationRef`, while its
+`availability.observations` retains actual observations. Absence establishes neither
+availability nor unavailability.
 `result.nativeLocationCounts` counts units, physical files or directories,
 and distinct configured consumers separately. Two agents sharing one file do
 not mean two physical writes. `changed`, `retained`, `blocked`, and
@@ -125,34 +170,29 @@ Every root and typed extension list uses the same inventory envelope:
 lifecycle filters also include assessment `coverage`. Counts describe the
 selected items; `totalCount` precedes the lifecycle filter.
 
-Each item carries `type`, `name`, `scope`, `management`, `installed`, `enabled`,
-`source`, and `agentOutcomes`, with optional `fqn`, `version`, and
-`nativeLocations`. `management` is `configured`, `implicit`, `leftover`,
-`undeclared`, or `unmanaged`; `managementCounts` uses these same keys. Source
-objects discriminate acquisition authority with `kind`: `registry`, `git`,
-`http`, `path`, `workspace`, `bundled`, `inline`, or `unmanaged`. When source
-facts are unavailable, `unknown` makes that absence explicit. Source locators
-and accepted identity stay distinct from the local name and management state.
-MCP items retain local connection and resolution facts; Knowledge items retain
-bundle contents and instruction-entry details. Sourced Rule and hook extension
-items retain `locked`; Pack items retain `owner`. Internal origin tags and the
-superseded `classification`, `sourceType`, and `ref` keys are absent.
+Inventory items carry identity, scope, management, installed/enabled state,
+source, and separate configured/observed agent sets. Ordinary listing does not
+perform detailed native inspection. `management` is `configured`, `implicit`,
+`leftover`, `undeclared`, or `unmanaged`; the counts use these same keys.
+Discriminated source objects preserve acquisition authority and locator
+separately from local names. Explicit remote filters retain assessment coverage.
 
-Lists, typed show results, and mutation plans use `agentOutcomes[]` for
-per-agent lifecycle outcomes. Each row carries `extensionType`, `name`,
-`agentId`, `outcome`, `reasonCode`, and `reason`. The outcome is one of
-`projected`, `current`, `not-applicable`, `unsupported`, `blocked`, or `failed`.
-`reasonCode` uses the published `ConfiguredAgentReasonCodeSchema` enum;
-`axm.sh/runtime` exports it with `ConfiguredAgentOutcomeSchema`. Show results
-retain the core outcome and may add inspection fields, warnings, configuration,
-projection, readiness, runtime, and manual actions. They do not report a
-separate `agents[]` shape.
+`axm show <identity>`, type-specific `show`, `show --path <path>`, and `show --all`
+return `requests`, selected `items`, supporting identities, a canonical
+`nativeLocations` table, shared `nativeReaderDeclarations`, observation diagnostics,
+and coverage. Each item answers
+editing authority, desired reachability, accepted resolution, observed presence,
+retention, native placement, and runtime coverage directly. Multiple requests
+retain their input order and individual resolution/code; a missing or ambiguous
+selection never discards resolved siblings. Unknown facts remain explicit.
 
-Agent outcomes use `nativeUnits[]` to reference these ownership units. Each
-reference contains `scope` (`project` or `user`) and a structured `address`
-with the same entry, file, key-path, or region shape. Inventory duplicate
-entries use this same reference shape. These values are JSON objects, so
-consumers never parse an encoded internal map key.
+Inspection and mutation results retain per-agent `agentOutcomes` with
+`extensionType`, `name`, `agentId`, `outcome`, `reasonCode`, and `reason`.
+Outcomes are `projected`, `current`, `not-applicable`, `unsupported`, `blocked`,
+or `failed`. `reasonCode` uses `ConfiguredAgentReasonCodeSchema`, exported by
+`axm.sh/runtime` with `ConfiguredAgentOutcomeSchema`. Feature-specific hook and
+runtime evidence remains alongside those common facts. Native-unit addresses
+are structured objects; consumers never parse internal encoded map keys.
 
 Native file readback establishes what was written. An agent's runtime may
 select a different configuration, so its availability remains `unverified`
@@ -228,7 +268,8 @@ separate. Each item includes `localName`, a discriminated `source` object, and
 either a Registry `resolution` with exact version and integrity or `null`.
 Automation should not infer the published source from the local name.
 
-Built-in formatter documents are the two success-envelope exceptions:
+Built-in formatter help/version, schema exports, external-standard documents,
+and credential delivery follow their declared special contracts:
 
 `axm help --json` returns topic index entries with `name`, `description`, and
 `kind`. `axm help <topic> --json` returns either
@@ -252,7 +293,9 @@ do not parse an escaped JSON string. Human schema help still prints raw JSON.
 
 ## Errors
 
-Expected errors and defects return the fixed stdout envelope:
+Expected errors and defects retain the fixed stdout envelope, both before and
+after an operation starts. Generic errors do not invent `result`, `mode`, or
+`outcome` fields:
 
 ```json
 {
@@ -341,9 +384,9 @@ Normal, verbose, and debug error surfaces redact credentials from metadata,
 response bodies, causes, stacks, URLs, suggestions, and telemetry.
 
 Device sign-in uses `axm login --device-code --json` to start or re-emit the
-matching pending request. Its successful initiation returns `ok: true`, exit 0,
-and `result.status: "pending-human"`; this means the handoff is available,
-not that credentials were stored. `axm login --wait-for-human 300 --json` starts or reuses that request, shows the handoff on stderr, waits up to
+matching pending request. A pending handoff returns `ok: false`,
+`mode: "apply"`, `outcome: "pending-human"`, and exit 13, with the handoff facts
+inside `result`; it does not claim that credentials were stored. `axm login --wait-for-human 300 --json` starts or reuses that request, shows the handoff on stderr, waits up to
 300 seconds (never past the code's expiry), saves the credentials, and returns
 one final document. A wait that ends first returns the pending action with
 `code: "timeout"` and exit 16, and the request stays resumable; expiry and
@@ -439,11 +482,11 @@ error envelope's is.
 
 The published lifecycle enum values, in schema order, are:
 
-| Field                      | Values                                                                                                                   |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `OperationStarted.mode`    | `query`, `preview`, `apply`                                                                                              |
-| `PhaseStarted.phase`       | `resolution`, `planning`, `preview`, `confirmation`, `validation`, `acquisition`, `apply`, `verification`, `restoration` |
-| `OperationSettled.outcome` | `previewed`, `applied`, `no-op`, `partial`, `failed`, `blocked`, `cancelled`, `interrupted`, `completed`                 |
+| Field                      | Values                                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `OperationStarted.mode`    | `query`, `preview`, `apply`                                                                                                                |
+| `PhaseStarted.phase`       | `resolution`, `planning`, `preview`, `confirmation`, `validation`, `acquisition`, `apply`, `verification`, `restoration`                   |
+| `OperationSettled.outcome` | `previewed`, `applied`, `no-op`, `partial`, `failed`, `blocked`, `cancelled`, `interrupted`, `completed`, `pending-human`, `indeterminate` |
 
 Read-only operations use `mode: "query"` and settle successfully as `completed`.
 Mutation plans use `preview` or `apply`; their plan-result mode and outcomes

@@ -190,6 +190,28 @@ const unchangedCopiedLinks = (directory: string, receipt: CopiedDirectoryReceipt
     );
   });
 
+/** Exact child ownership from a live creation receipt, without claiming foreign siblings. */
+export const copiedDirectoryOwnsPath = (directory: string, target: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const receipt = yield* readCopiedDirectory(directory);
+    if (Option.isNone(receipt)) return false;
+    const relative = path.relative(directory, target);
+    const files = receipt.value.files.filter((entry) => entry.path === relative);
+    if (files.length > 0)
+      return (yield* unchangedCopiedFiles(directory, { ...receipt.value, files })).length === 1;
+    const links = receipt.value.links.filter((entry) => entry.path === relative);
+    if (links.length > 0)
+      return (yield* unchangedCopiedLinks(directory, { ...receipt.value, links })).length === 1;
+    const entry = receipt.value.directories.find((entry) => entry.path === relative);
+    if (entry === undefined) return false;
+    const address = yield* resolveNativeEntry(target);
+    if (address.kind !== "directory" || address.entryPath !== target) return false;
+    const identity = identityOf(yield* fs.stat(target));
+    return Option.isSome(identity) && sameIdentity(identity.value, entry.identity);
+  }).pipe(Effect.catch(() => Effect.succeed(false)));
+
 /** A replacement requires the complete old copy to remain owned, with no foreign additions. */
 export const copiedDirectoryCanReplace = (directory: string) =>
   Effect.gen(function* () {

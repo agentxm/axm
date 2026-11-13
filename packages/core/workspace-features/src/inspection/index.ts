@@ -8,7 +8,6 @@
 
 export {
   ExtensionNotInstalled,
-  PackInspectionRefused,
   PublishedMetadataUnavailable,
   WorkspaceInspectionFailed,
 } from "./errors.js";
@@ -35,13 +34,7 @@ export {
 } from "./type-list/type-lists.js";
 export type { TypeListRow } from "./type-list/type-list-row.js";
 export { McpServerListQueryResultSchema, type McpServerListRow } from "./type-list/mcp-servers.js";
-export {
-  EXTENSION_SHOW_ITEM_FIELDS,
-  ExtensionShowResultSchema,
-  ShowExtension,
-} from "./show/show-extension.js";
 export { RenderSubagent, SubagentRenderResultSchema } from "./show/render-subagent.js";
-export { PackShowResultSchema, ShowPack, type PackShowResult } from "./packs/show-pack.js";
 export {
   resolveViewHandle,
   resolveViewRegistry,
@@ -65,3 +58,13 @@ export {
   type ExtensionInventoryDocument,
 } from "./inventory-document.js";
 export { ExportLock, exportAcceptedResolutions } from "./lock-export.js";
+export { LocalInspection } from "./show/local-inspection.js";
+export {
+  LocalInspectionDocumentSchema,
+  type LocalInspectionDocument,
+} from "./show/local-inspection-document.js";
+export {
+  inspectionSelectionIssue,
+  type InspectionSelection,
+  type LocalInspectionRequest,
+} from "./show/local-inspection-selection.js";

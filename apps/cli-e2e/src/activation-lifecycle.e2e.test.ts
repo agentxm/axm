@@ -80,14 +80,41 @@ const planAgentOutcomes = (stdout: string): ReadonlyArray<Readonly<Record<string
   if (!isRecord(document) || !isRecord(document["result"])) return [];
   const units = document["result"]["units"];
   if (!Array.isArray(units)) return [];
-  return units.flatMap((unit) => {
-    if (!isRecord(unit)) return [];
-    const direct = unit["agentOutcomes"];
-    if (Array.isArray(direct)) return direct.filter(isRecord);
-    const artifact = unit["artifact"];
-    if (!isRecord(artifact) || !Array.isArray(artifact["agentOutcomes"])) return [];
-    return artifact["agentOutcomes"].filter(isRecord);
-  });
+  const artifactOutcomes = (
+    artifact: unknown,
+  ): ReadonlyArray<Readonly<Record<string, unknown>>> => {
+    if (!isRecord(artifact)) return [];
+    const own = Array.isArray(artifact["agentOutcomes"])
+      ? artifact["agentOutcomes"].filter(isRecord)
+      : [];
+    const members = Array.isArray(artifact["members"])
+      ? artifact["members"].flatMap((member) =>
+          isRecord(member) ? artifactOutcomes(member["artifact"]) : [],
+        )
+      : [];
+    return [...own, ...members];
+  };
+  const outcomes = units.flatMap((unit) =>
+    isRecord(unit)
+      ? [
+          ...(Array.isArray(unit["agentOutcomes"]) ? unit["agentOutcomes"].filter(isRecord) : []),
+          ...artifactOutcomes(unit["artifact"]),
+        ]
+      : [],
+  );
+  const identities = new Map<string, Readonly<Record<string, unknown>>>();
+  for (const outcome of outcomes) {
+    const identity = JSON.stringify([
+      outcome["extensionType"],
+      outcome["name"],
+      outcome["agentId"],
+    ]);
+    const previous = identities.get(identity);
+    if (previous !== undefined)
+      expect(outcome, `repeated outcome for ${identity}`).toEqual(previous);
+    else identities.set(identity, outcome);
+  }
+  return [...identities.values()];
 };
 
 const outcomeIdentities = (outcomes: ReadonlyArray<Readonly<Record<string, unknown>>>) =>
@@ -96,8 +123,11 @@ const outcomeIdentities = (outcomes: ReadonlyArray<Readonly<Record<string, unkno
 const showStatuses = (stdout: string): Readonly<Record<string, unknown>> => {
   const document: unknown = JSON.parse(stdout);
   if (!isRecord(document) || !isRecord(document["result"])) return {};
-  const agents = document["result"]["agentOutcomes"];
-  if (!Array.isArray(agents)) return {};
+  const items = document["result"]["items"];
+  if (!Array.isArray(items)) return {};
+  const agents = items.flatMap((item) =>
+    isRecord(item) && Array.isArray(item["agentOutcomes"]) ? item["agentOutcomes"] : [],
+  );
   return Object.fromEntries(
     agents.flatMap((agent) =>
       isRecord(agent) && typeof agent["agentId"] === "string"
@@ -152,7 +182,7 @@ const writeSymbolicMcpPackage = (workspace: string, withDefault = false): void =
   });
 };
 
-const inventoryItem = (
+const inspectedItem = (
   stdout: string,
   name: string,
 ): Readonly<Record<string, unknown>> | undefined => {
@@ -160,32 +190,40 @@ const inventoryItem = (
   if (!isRecord(document) || !isRecord(document["result"])) return undefined;
   const items = document["result"]["items"];
   if (!Array.isArray(items)) return undefined;
-  const item = items.find((candidate) => isRecord(candidate) && candidate["name"] === name);
+  const item = items.find(
+    (candidate) =>
+      isRecord(candidate) &&
+      isRecord(candidate["identity"]) &&
+      candidate["identity"]["name"] === name,
+  );
   return isRecord(item) ? item : undefined;
 };
 
-const expectInventoryOutcome = async (
+const expectInspectionOutcome = async (
   workspace: string,
   plural: string,
   name: string,
   expected: "current" | "not-applicable",
 ): Promise<void> => {
-  const listed = await runCli([plural, "list", "--details", "--json"], { cwd: workspace });
+  const listed = await runCli([plural, "show", name, "--json"], { cwd: workspace });
   expect(listed.exitCode, listed.stdout + listed.stderr).toBe(0);
-  const item = inventoryItem(listed.stdout, name);
+  const item = inspectedItem(listed.stdout, name);
   if (plural === "packs") {
-    expect(item).toMatchObject({ type: "pack", inspection: { state: "not-applicable" } });
+    expect(item).toMatchObject({
+      identity: { type: "pack" },
+      nativeCoverage: { state: "not-applicable" },
+    });
     return;
   }
-  const inspection = item?.["inspection"];
-  const outcomes = isRecord(inspection) ? inspection["agentOutcomes"] : undefined;
+  expect(item).toMatchObject({
+    identity: { type: EXTENSION_TYPE_MATRIX.find((type) => type.plural === plural)?.type, name },
+  });
+  const outcomes = item?.["agentOutcomes"];
   expect(
     Array.isArray(outcomes)
       ? outcomes.find((outcome) => isRecord(outcome) && outcome["agentId"] === "claude-code")
       : undefined,
   ).toMatchObject({
-    extensionType: expect.any(String),
-    name,
     agentId: "claude-code",
     outcome: expected,
     reasonCode: expect.any(String),
@@ -292,13 +330,13 @@ describe("extension activation lifecycle", () => {
         });
         expect(created.exitCode, `create ${row.type}\n${created.stdout}${created.stderr}`).toBe(0);
         if (row.type === "hook") {
-          await expectInventoryOutcome(temp.path, row.plural, name, "not-applicable");
+          await expectInspectionOutcome(temp.path, row.plural, name, "not-applicable");
           await runLifecycleMutation(temp.path, [row.plural, "enable", name]);
         }
       }
       await expectCleanWorkspace(temp.path, "initial enabled state");
       for (const row of EXTENSION_TYPE_MATRIX) {
-        await expectInventoryOutcome(
+        await expectInspectionOutcome(
           temp.path,
           row.plural,
           extensionName(row.plural),
@@ -321,10 +359,10 @@ describe("extension activation lifecycle", () => {
           `${row.type} canonical package retained after disable`,
         ).toBe(true);
         await expectCleanWorkspace(temp.path, `${row.type} disabled`);
-        await expectInventoryOutcome(temp.path, row.plural, name, "not-applicable");
+        await expectInspectionOutcome(temp.path, row.plural, name, "not-applicable");
 
         await runLifecycleMutation(temp.path, [row.plural, "enable", name]);
-        await expectInventoryOutcome(
+        await expectInspectionOutcome(
           temp.path,
           row.plural,
           name,

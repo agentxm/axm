@@ -1,0 +1,129 @@
+{
+  "protocol": {
+    "warmupsPerMode": 3,
+    "samplesPerMode": 20,
+    "boundMs": 500,
+    "percentile": "sorted samples[18] (zero-based), as specified by the owning test",
+    "scope": "Separate candidate-only ordinary inventory process test; not the five-sample paired output benchmark."
+  },
+  "samples": [
+    {
+      "command": [
+        "list",
+        "--json"
+      ],
+      "binary": "/home/runner/work/axm/axm/apps/cli/dist/host-bin/axm-linux-x64",
+      "binarySha256": "dbaa8d658aad091c3759d4a02114c8fed9486c7f581794ce2fd9597f029d9161",
+      "host": {
+        "platform": "linux",
+        "arch": "x64",
+        "release": "7.0.0-1017-azure",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      "firstMs": 417.0516029999999,
+      "samples": [
+        405.68441800000073,
+        417.5143640000024,
+        421.65971100000024,
+        413.1268259999997,
+        406.8105939999987,
+        406.39216199999646,
+        401.0274439999994,
+        408.3123259999993,
+        398.2595119999969,
+        403.9836729999988,
+        400.36588699999993,
+        399.26938900000096,
+        405.5517120000004,
+        409.3741200000004,
+        408.70860600000015,
+        403.43099900000016,
+        411.60271400000056,
+        404.5307049999974,
+        408.43715000000157,
+        420.2511579999991
+      ],
+      "p95": 420.2511579999991
+    },
+    {
+      "command": [
+        "list"
+      ],
+      "binary": "/home/runner/work/axm/axm/apps/cli/dist/host-bin/axm-linux-x64",
+      "binarySha256": "dbaa8d658aad091c3759d4a02114c8fed9486c7f581794ce2fd9597f029d9161",
+      "host": {
+        "platform": "linux",
+        "arch": "x64",
+        "release": "7.0.0-1017-azure",
+        "cpu": "AMD EPYC 7763 64-Core Processor"
+      },
+      "firstMs": 417.0516029999999,
+      "samples": [
+        440.99618499999997,
+        440.9024759999993,
+        441.9854129999985,
+        444.17710200000147,
+        482.9185759999964,
+        446.8819180000064,
+        437.16578299999674,
+        444.12694499999634,
+        441.6372889999984,
+        443.97086500000296,
+        445.4922149999984,
+        451.1983959999998,
+        468.5891580000025,
+        459.8185960000046,
+        454.17130399999587,
+        458.45118500000535,
+        455.9450429999997,
+        446.196554999995,
+        453.9127320000043,
+        461.16108800000075
+      ],
+      "p95": 468.5891580000025
+    }
+  ],
+  "executionEvidence": {
+    "format": 3,
+    "suite": "cli-e2e-performance",
+    "task": {
+      "project": "cli-e2e",
+      "target": "test:performance"
+    },
+    "startedAt": "2026-11-13T15:23:52.919Z",
+    "finishedAt": "2026-11-13T15:24:34.904Z",
+    "inputs": {
+      "sourceDigest": "98d001596ef4db9ad5bf97ec0f82991ae3b94e9118523f12e09b0bcd3995d35b",
+      "runtimeDigest": "cb7427da980203be304bae1ab0c5528241bf5b30b3e70f0d8d368319fa1e455e",
+      "runtimeMode": "built",
+      "runtimeResolved": true,
+      "revision": "b95202797d571cf9103c943b13cd4936388f9e86"
+    },
+    "inputsStable": true,
+    "environment": {
+      "node": "v24.22.0",
+      "platform": "linux",
+      "architecture": "x64"
+    },
+    "selection": [
+      "apps/cli-e2e/src/ordinary-inventory-latency.spec.ts"
+    ],
+    "complete": true,
+    "unhandledErrors": 0,
+    "files": [
+      {
+        "source": "apps/cli-e2e/src/ordinary-inventory-latency.spec.ts",
+        "owner": "cli-e2e",
+        "purpose": "specification",
+        "contentDigest": "0a1251059188dcb08c091d574848da8960abb62968056f52d04c7f2fd1bba022",
+        "tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "pending": 0,
+        "moduleFailed": false,
+        "filtered": false
+      }
+    ]
+  }
+}

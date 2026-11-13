@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/upgrade/machine-result-is-upgrade-assessment",
   title: "Machine upgrade emits one complete assessment",
   statement:
-    "When upgrade reports an assessment in machine mode, AXM shall emit exactly one upgrade-assessment-v1 result that separately records intent, platform, ownership, canonical selection, installer availability, target, mutation, verification, recovery, command evidence, and disposition.",
+    "When upgrade reports an assessment in machine mode, AXM shall emit exactly one upgrade-assessment-v1 result that separately records intent, platform, ownership, canonical selection, installer availability, target, mutation, verification, recovery, command evidence, and disposition, with its operation mode and outcome in the common envelope and ok agreeing with process exit.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -24,6 +24,14 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [],
   openQuestions: [],
+});
+
+const { outcome: OutcomeSchema, ...assessmentFields } = UpgradeDocumentSchema.fields.result.fields;
+const UpgradeWireSchema = Schema.Struct({
+  ok: Schema.Boolean,
+  mode: Schema.Literals(["preview", "apply"]),
+  outcome: OutcomeSchema,
+  result: Schema.Struct(assessmentFields),
 });
 
 describe("Upgrade assessment contract", () => {
@@ -77,10 +85,15 @@ describe("Upgrade assessment contract", () => {
         // Parsing the complete stdout rejects multiple documents or non-JSON output;
         // parsing one renderer write would miss additional documents and split writes.
         const emitted: unknown = JSON.parse(result.stdout);
-        const document = yield* Schema.decodeUnknownEffect(UpgradeDocumentSchema)(emitted);
+        const document = yield* Schema.decodeUnknownEffect(UpgradeWireSchema)(emitted);
+        expect(document).toMatchObject({
+          mode: scenario.options.preview === true ? "preview" : "apply",
+          outcome: scenario.outcome,
+          ok: result.exitCode === 0,
+        });
+        expect(document.result).not.toHaveProperty("outcome");
         expect(document.result).toMatchObject({
           contract: "upgrade-assessment-v1",
-          outcome: scenario.outcome,
           disposition: scenario.disposition,
         });
         expect(emitted).toEqual(result.document);

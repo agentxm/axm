@@ -261,7 +261,11 @@ export {
   type NativeRetentionWitness,
 } from "./native-retention.js";
 
-export { nativePackageReferences } from "./native-package-references.js";
+export {
+  nativePackageReferences,
+  inspectNativePackageReferences,
+  withNativePackageReferenceReadView,
+} from "./native-package-references.js";
 
 export {
   classifyNativeOutputHealth,

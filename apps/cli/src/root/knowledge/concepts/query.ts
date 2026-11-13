@@ -68,6 +68,11 @@ export const handleKnowledgeConceptQuery = Effect.fnUntraced(function* (
       { id: "index", label: "installed knowledge" },
       Effect.catchTags(KnowledgeDiscovery.query({ scope, ...args }), knowledgeCorpusFailures),
     ),
+    (result) => ({
+      mode: "query",
+      outcome: "completed",
+      exitCode: result.outcome === "corpus-changing" || result.outcome === "cursor-expired" ? 6 : 0,
+    }),
   );
   if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   if (result.outcome === "cursor-expired") return yield* failKnowledgeCursorExpired();

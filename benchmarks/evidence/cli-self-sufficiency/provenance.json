@@ -1,0 +1,192 @@
+{
+  "format": 1,
+  "run": {
+    "url": "https://github.com/agentxm/axm/actions/runs/43448613471",
+    "id": "43448613471",
+    "attempt": "1"
+  },
+  "measuredSource": {
+    "baseline": {
+      "binaryPath": "/home/runner/work/_temp/output-contract-evidence/binaries/baseline-axm",
+      "binarySha256": "4537faea5026c3a9ad9f8d0b8690a238bdd04e714ccd6725f79e19726d890407",
+      "sourceRevision": "5e3feab1de3f0565611de25971a671c8e66807f2",
+      "sourceDirty": false
+    },
+    "candidate": {
+      "binaryPath": "/home/runner/work/_temp/output-contract-evidence/binaries/candidate-axm",
+      "binarySha256": "dbaa8d658aad091c3759d4a02114c8fed9486c7f581794ce2fd9597f029d9161",
+      "sourceRevision": "b95202797d571cf9103c943b13cd4936388f9e86",
+      "sourceDirty": false
+    },
+    "cleanBeforeBuildAfterBuildAndFinal": true,
+    "qualification": "These are the exact measured clean snapshots. Later equivalent lint/export cleanup, skill edits, or final integration commits are not relabeled as this measured revision."
+  },
+  "runner": {
+    "runnerOs": "Linux",
+    "runnerArch": "X64",
+    "imageOs": "ubuntu24",
+    "imageVersion": "20261111.370.1",
+    "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+    "cpuCount": 4,
+    "toolchainSha256": "d76dc043d1f5394b0daac3379d83c4c6f374ac2b553679153735a148191e0cd0"
+  },
+  "toolchain": {
+    "pnpm": "12.18.0",
+    "bun": "1.4.4",
+    "node": "v24.22.0"
+  },
+  "protocol": {
+    "outputContracts": {
+      "warmups": 1,
+      "samples": 5,
+      "order": "balanced baseline/candidate; human and machine"
+    },
+    "ordinaryInventory": {
+      "warmups": 3,
+      "samples": 20,
+      "bound": "candidate p95 < 500ms; human and machine"
+    },
+    "host": "One sequential job on a fresh hosted Linux x64 runner; no concurrent task measurements",
+    "qualification": "Requires independent semantic and host/noise/drift review; workflow success alone is insufficient"
+  },
+  "benchmarkSourceSha256": "c4f08ee6ce79750c068f4742f24ea0ef36ba565432b3b910e744ece1865d0247",
+  "scenarios": [
+    {
+      "id": "inventory-30",
+      "kind": "inventory",
+      "baselineArgs": [
+        "list"
+      ],
+      "candidateArgs": [
+        "list"
+      ],
+      "expectedCount": 30,
+      "preserveWorkspace": true,
+      "comparison": "Identical accepted thirty-package fixture and cheap inventory question.",
+      "fixtureSha256": "eadb4fa8ae90a8204a2cedca6cf9e0c5a5c5e92fea465e513c493ac86288f8a8"
+    },
+    {
+      "id": "inspection-30",
+      "kind": "inspection",
+      "baselineArgs": [
+        "list",
+        "--details"
+      ],
+      "candidateArgs": [
+        "show",
+        "--all"
+      ],
+      "expectedCount": 30,
+      "preserveWorkspace": true,
+      "comparison": "Task comparison: old detailed inventory versus new ownership answer. New authority/retention facts have no equivalent old single-command result.",
+      "fixtureSha256": "eadb4fa8ae90a8204a2cedca6cf9e0c5a5c5e92fea465e513c493ac86288f8a8"
+    },
+    {
+      "id": "inspection-1",
+      "kind": "inspection",
+      "baselineArgs": null,
+      "candidateArgs": [
+        "show",
+        "extension-0"
+      ],
+      "expectedCount": 1,
+      "preserveWorkspace": true,
+      "comparison": "New unified ownership contract; absolute measurements only, no invented baseline.",
+      "fixtureSha256": "eadb4fa8ae90a8204a2cedca6cf9e0c5a5c5e92fea465e513c493ac86288f8a8"
+    },
+    {
+      "id": "schema-outline",
+      "kind": "schema",
+      "baselineArgs": null,
+      "candidateArgs": [
+        "schema",
+        "show"
+      ],
+      "preserveWorkspace": true,
+      "comparison": "New passive discovery; complete human outline and raw JSON schema are distinct output classes.",
+      "fixtureSha256": "eadb4fa8ae90a8204a2cedca6cf9e0c5a5c5e92fea465e513c493ac86288f8a8"
+    },
+    {
+      "id": "schema-field",
+      "kind": "schema",
+      "baselineArgs": null,
+      "candidateArgs": [
+        "schema",
+        "show",
+        "--field",
+        "result.items[].editing.kind"
+      ],
+      "preserveWorkspace": true,
+      "comparison": "New passive field explanation; absolute measurements only.",
+      "fixtureSha256": "eadb4fa8ae90a8204a2cedca6cf9e0c5a5c5e92fea465e513c493ac86288f8a8"
+    },
+    {
+      "id": "restoration-50-apply",
+      "kind": "restoration",
+      "baselineArgs": [
+        "sync",
+        "--non-interactive"
+      ],
+      "candidateArgs": [
+        "sync",
+        "--non-interactive"
+      ],
+      "preserveWorkspace": false,
+      "comparison": "Same accepted fifty Registry packages, missing canonical content, and two configured native consumers. File Registry transport isolates network latency.",
+      "fixtureSha256": "745fbc1347e9e2d55c25c296a6b868e219cc3342976e09a2ad40dc2c05d7b1c6"
+    },
+    {
+      "id": "restoration-50-preview",
+      "kind": "restoration",
+      "baselineArgs": [
+        "sync",
+        "--preview",
+        "--non-interactive"
+      ],
+      "candidateArgs": [
+        "sync",
+        "--preview",
+        "--non-interactive"
+      ],
+      "preserveWorkspace": true,
+      "comparison": "Same accepted fifty Registry packages, missing canonical content, and two configured native consumers. File Registry transport isolates network latency.",
+      "fixtureSha256": "745fbc1347e9e2d55c25c296a6b868e219cc3342976e09a2ad40dc2c05d7b1c6"
+    },
+    {
+      "id": "publication-3-preview",
+      "kind": "publication",
+      "baselineArgs": [
+        "publish",
+        "--preview"
+      ],
+      "candidateArgs": [
+        "publish",
+        "--preview"
+      ],
+      "preserveWorkspace": true,
+      "comparison": "Three authored candidates, one hundred selected paths, five explicit rules and three hundred unmatched inherited rules per candidate.",
+      "fixtureSha256": "27ee0a133c057a79398c7a92346862ad94bc49c1f13c93ec5b7ef9b6b7d83cfe"
+    }
+  ],
+  "inputEvidence": {
+    "runner.json": "3c50b46654c8aa2af72c336c2d53f5decbb84bcc524bbba7f2ebe1794e128e16",
+    "output-contracts/preregistration.json": "af95646fcb8563d1db5e8ebccb7a0986aaec45b066cc7597360e9df22acc195b",
+    "output-contracts/report.json": "4cb7e99fb89a8744fa12d57f2286f7d460b63c79789d9fb56d6111679c4f8f70",
+    "ordinary-inventory-specification/evidence.json": "1ef24ec3964051f90a007bfd22690c6a85817bdae7d9fcfb59a986dbc907a417",
+    "logs/ordinary-inventory-latency.log": "ed4d2bbe3c25399d45cf2b94a733e0f65687d4e79db4399402ff4a9bba1c75f8",
+    "logs/output-contracts.log": "16ed0a1fe6b6e2553980c9d35b89272cea49edc51918ea46e45a1f463d7a60df",
+    "logs/baseline-build.log": "0070c918d0b316cf810d34f5ba0e2b44861cc6987fa2319f8f0867719867c9e5",
+    "logs/candidate-build.log": "9e878b3f4bdcad8cfe09ff9bc62b71bdc667186a8115f092e0f181478a7806be",
+    "output-contracts/host-before.json": "1e5339291e5ae1b3780087c3b9743bc38e1af3591f82ec20a222b1eff8c4123e",
+    "output-contracts/host-after.json": "f108d3a41f4cda84849616fcd73075b3b88035d77b483da89f0d47df47842f93"
+  },
+  "downloadedArtifactSha256": "6a675021a4554daeca3bcdd691db376d20dc078976cde036e2844ddb92f48d87",
+  "priorIndependentReviewSha256": "cb182b228339751d8ff5565f40de31c1878c370b42d7df9336d948d668ea52f6",
+  "publicationScope": {
+    "included": "Numeric samples, exact stream metrics, semantic comparisons, minimum runner/build provenance, and complete representative synthetic-fixture output pairs.",
+    "excluded": "Executables, full filesystem snapshots, host process/environment logs, auth material, private workspace paths, private tracker context, and agent transcripts.",
+    "redactionsToIncludedOutput": "None. Synthetic GHA temporary fixture paths remain verbatim to preserve measured bytes.",
+    "agentEvaluation": "Separate evidence; not assessed by this package."
+  },
+  "originalStreamMeasurementsSha256": "5de48b73e7f6a443784f6c97f3bbf87cdee47b2b99945af5eb8a18a3c9b1d68b"
+}

@@ -10,6 +10,7 @@ import {
   type BlockingClass,
   type ErrorCode,
   type OperationOutcome,
+  type SettledOutcome,
   type OperationResolution,
 } from "@agentxm/workspace-kernel/operations";
 
@@ -44,7 +45,7 @@ export interface OperationVerdict {
  * resource-conflict, policy-excluded, dependency-cycle 6; otherwise cause
  * class); interrupted exits 130/143.
  */
-export const operationExitCode = (verdict: OperationVerdict, outcome: OperationOutcome): number => {
+export const operationExitCode = (verdict: OperationVerdict, outcome: SettledOutcome): number => {
   switch (outcome) {
     case "previewed":
       return verdict.divergence === true ? ExitCode.Issues : ExitCode.Success;
@@ -52,6 +53,11 @@ export const operationExitCode = (verdict: OperationVerdict, outcome: OperationO
     case "no-op":
     case "cancelled":
       return ExitCode.Success;
+    case "completed":
+      return ExitCode.Success;
+    case "pending-human":
+      return 13;
+    case "indeterminate":
     case "partial":
       return ExitCode.Issues;
     case "failed":

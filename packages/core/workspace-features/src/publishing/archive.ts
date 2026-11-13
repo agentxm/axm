@@ -94,6 +94,11 @@ export interface ArchivePlan {
   readonly included: ReadonlyArray<ArchivePlanEntry>;
   readonly excluded: ReadonlyArray<ArchivePlanEntry>;
   readonly patterns: ReadonlyArray<ArchivePlanPattern>;
+  readonly patternCoverage: {
+    readonly explicit: "all";
+    readonly inherited: "matched-only";
+    readonly omittedInheritedCount: number;
+  };
   readonly warnings: ReadonlyArray<string>;
   readonly includedCount: number;
   readonly excludedCount: number;
@@ -360,6 +365,9 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       origin: rule.origin,
       matchCount: files.filter(({ decision }) => decision.matchedRules.includes(rule)).length,
     }));
+    const explainedPatterns = patternPlans.filter(
+      ({ matchCount, origin }) => matchCount !== 0 || origin.kind !== "gitignore",
+    );
     return {
       archive: admitted,
       ...resolved,
@@ -370,7 +378,12 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       plan: {
         included,
         excluded,
-        patterns: patternPlans,
+        patterns: explainedPatterns,
+        patternCoverage: {
+          explicit: "all",
+          inherited: "matched-only",
+          omittedInheritedCount: patternPlans.length - explainedPatterns.length,
+        },
         warnings: [
           ...warnings,
           ...patternPlans

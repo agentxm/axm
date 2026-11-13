@@ -67,6 +67,8 @@ export const SettledOutcomeSchema = Schema.Literals([
   "cancelled",
   "interrupted",
   "completed",
+  "pending-human",
+  "indeterminate",
 ] as const).annotate({
   identifier: "SettledOutcome",
   title: "Settled Outcome",

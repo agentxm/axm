@@ -85,7 +85,7 @@ describe("Quiet actionable output", () => {
         },
       });
       return Effect.gen(function* () {
-        yield* emitPublishResult(result, { exitCode: 8 });
+        yield* emitPublishResult(result, { verdict: { failure: { category: "network" } } });
         const stdout = streams.lines("stdout").join("\n").replace(/\s+/gu, "");
         for (const row of [failed, unconfirmed, blocked]) {
           expect(stdout).toContain(row.id);

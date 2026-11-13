@@ -91,6 +91,8 @@ describe("Command trace identity", () => {
     { path: ["install"], argv: ["install", "--preview"], mode: "preview" },
     { path: ["install"], argv: ["install", "--preview=false"], mode: "apply" },
     { path: ["token", "show"], argv: ["token", "show"], mode: "query" },
+    { path: ["show"], argv: ["show", "--all"], mode: "query" },
+    { path: ["schema"], argv: ["schema", "publish"], mode: "query" },
     { path: [], argv: ["--version"], mode: "query" },
   ])("uses declared capabilities for $argv", ({ path, argv, mode }) => {
     expect(identity.resolve(path, argv)["axm.operation.mode"]).toBe(mode);

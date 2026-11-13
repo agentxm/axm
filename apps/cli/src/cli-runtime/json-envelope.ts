@@ -5,11 +5,14 @@ import {
   type FailureMetadata,
   ErrorCodeSchema,
   type ErrorCode,
+  OperationModeSchema,
+  SettledOutcomeSchema,
 } from "@agentxm/workspace-kernel/operations";
 import { collectSensitiveStrings, redactCredentialText } from "@agentxm/host-primitives";
 import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/human-handoff";
 import * as Schema from "effect/Schema";
 import * as Predicate from "effect/Predicate";
+import type { ResultCompletion } from "./result-completion.js";
 
 import {
   type AppError,
@@ -61,6 +64,8 @@ export type JsonErrorEnvelope = typeof JsonErrorEnvelopeSchema.Type;
 
 const JsonSuccessEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(true),
+  mode: OperationModeSchema,
+  outcome: SettledOutcomeSchema,
   result: Schema.Unknown,
   summary: Schema.optional(Schema.String),
   suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
@@ -73,6 +78,8 @@ export type JsonSuccessEnvelope = typeof JsonSuccessEnvelopeSchema.Type;
 
 const JsonOperationFailureEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
+  mode: OperationModeSchema,
+  outcome: SettledOutcomeSchema,
   diagnosticId: Schema.optional(Schema.String),
   result: Schema.Unknown,
   summary: Schema.optional(Schema.String),
@@ -106,16 +113,19 @@ const normalizeResult = (payload: unknown): unknown => {
   return payload === undefined ? {} : payload;
 };
 
-export const makeJsonSuccessEnvelope = (args?: {
+export const makeJsonSuccessEnvelope = (args: {
+  readonly completion: ResultCompletion;
   readonly payload?: unknown;
-  readonly ok?: boolean;
+  readonly promotedResultFields?: ReadonlyArray<"mode" | "outcome">;
   readonly diagnosticId?: string;
   readonly summary?: string;
   readonly suggestions?: ReadonlyArray<FailureSuggestedAction>;
 }): JsonSuccessEnvelope | JsonOperationFailureEnvelope => ({
-  ok: args?.ok === false ? false : true,
-  result: normalizeResult(args?.payload),
-  ...(args?.ok === false && args.diagnosticId !== undefined
+  ok: args.completion.exitCode === 0,
+  mode: args.completion.mode,
+  outcome: args.completion.outcome,
+  result: promoteResultFields(normalizeResult(args.payload), args.promotedResultFields),
+  ...(args.completion.exitCode !== 0 && args.diagnosticId !== undefined
     ? { diagnosticId: args.diagnosticId }
     : {}),
   ...(args?.summary !== undefined ? { summary: redactCredentialText(args.summary) } : {}),
@@ -123,6 +133,16 @@ export const makeJsonSuccessEnvelope = (args?: {
     ? { suggestions: args.suggestions.map((suggestion) => redactSuggestedAction(suggestion)) }
     : {}),
 });
+
+const promoteResultFields = (
+  payload: unknown,
+  fields: ReadonlyArray<"mode" | "outcome"> = [],
+): unknown =>
+  fields.length > 0 && Predicate.isObject(payload)
+    ? Object.fromEntries(
+        Object.entries(payload).filter(([key]) => !fields.some((field) => field === key)),
+      )
+    : payload;
 
 export const makeJsonErrorEnvelope = (args: {
   readonly code: ErrorCode;

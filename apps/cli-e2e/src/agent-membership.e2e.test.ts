@@ -49,10 +49,10 @@ describe("atomic agent membership lifecycle", () => {
       expect(addPreview.exitCode, `${addPreview.stderr}\n${addPreview.stdout}`).toBe(0);
       expect(JSON.parse(addPreview.stdout)).toMatchObject({
         ok: true,
+        outcome: "previewed",
+        mode: "preview",
         result: {
           contract: "plan-result-v4",
-          outcome: "previewed",
-          mode: "preview",
           counts: { failed: 0, blocked: 0 },
           units: expect.arrayContaining([
             expect.objectContaining({ label: "Add opencode", state: "ready" }),
@@ -90,7 +90,9 @@ describe("atomic agent membership lifecycle", () => {
       expect(removePreview.stdout).toContain(".opencode/skills/axm");
       expect(JSON.parse(removePreview.stdout)).toMatchObject({
         ok: true,
-        result: { contract: "plan-result-v4", outcome: "previewed", mode: "preview" },
+        outcome: "previewed",
+        mode: "preview",
+        result: { contract: "plan-result-v4" },
       });
       expect(readAgents(temp.path)).toEqual(["claude-code", "opencode"]);
       expect(fs.existsSync(opencodeSkill)).toBe(true);
@@ -132,13 +134,11 @@ describe("atomic agent membership lifecycle", () => {
       expect(fs.readFileSync(manualSkill, "utf8")).toBe("# User-authored skill\n");
       expect(JSON.parse(remove.stdout)).toMatchObject({
         ok: true,
+        outcome: "applied",
+        mode: "apply",
         result: {
           contract: "plan-result-v4",
-          outcome: "applied",
-          mode: "apply",
           counts: { total: 2, committed: 2, failed: 0, blocked: 0 },
-          // The cleanup is the same step `sync` and `uninstall` plan; the
-          // unowned file is not reported because it was never AXM's to touch.
           units: expect.arrayContaining([
             expect.objectContaining({
               label: "stale managed agent projections",

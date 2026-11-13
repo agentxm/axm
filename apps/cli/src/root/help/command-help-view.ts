@@ -59,6 +59,23 @@ const learnMoreDoc = (learnMore: string | undefined): Doc => {
   );
 };
 
+const outputContractDoc = (doc: JsonHelpDoc): Doc =>
+  doc.output === undefined
+    ? []
+    : section(
+        "OUTPUT",
+        fieldsNode([
+          { label: "Class", value: doc.output.class },
+          {
+            label: "Modes",
+            value: doc.output.modes.length === 0 ? "formatter-owned" : doc.output.modes.join(", "),
+          },
+          { label: "Effects", value: doc.output.effects },
+          { label: "Meaning", value: doc.output.meaning },
+          { label: "Schema", value: doc.output.schemaCommand },
+        ]),
+      );
+
 // ---------------------------------------------------------------------------
 // Root help
 // ---------------------------------------------------------------------------
@@ -188,6 +205,7 @@ const rootHelpDoc = (doc: JsonHelpDoc): Doc => {
       GLOBAL_FLAGS_FOOTER,
       flagName,
     ),
+    outputContractDoc(doc),
     learnMoreDoc(doc.learnMore),
   ]);
 };
@@ -256,6 +274,7 @@ const commandHelpSections = (doc: JsonHelpDoc): Doc =>
         { _tag: "paragraph", text: invocation(example.command) },
       ]),
     ),
+    outputContractDoc(doc),
     learnMoreDoc(doc.learnMore),
   ]);
 

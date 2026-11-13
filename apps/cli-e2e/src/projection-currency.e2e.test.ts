@@ -160,7 +160,7 @@ describe("generated projection currency at the process boundary", () => {
         { cwd: temp.path, env },
       );
       expect(preview.exitCode, `${preview.stderr}\n${preview.stdout}`).toBe(0);
-      expect(JSON.parse(preview.stdout)).toMatchObject({ result: { outcome: "no-op" } });
+      expect(JSON.parse(preview.stdout)).toMatchObject({ outcome: "no-op" });
       expect(fs.readFileSync(instructionsPath, "utf8")).toBe(formatted);
 
       const sync = await runCli(["sync", "--json", "--non-interactive"], {
@@ -168,7 +168,7 @@ describe("generated projection currency at the process boundary", () => {
         env,
       });
       expect(sync.exitCode, `${sync.stderr}\n${sync.stdout}`).toBe(0);
-      expect(JSON.parse(sync.stdout)).toMatchObject({ result: { outcome: "no-op" } });
+      expect(JSON.parse(sync.stdout)).toMatchObject({ outcome: "no-op" });
       expect(fs.readFileSync(instructionsPath, "utf8")).toBe(formatted);
 
       const reinstall = await runCli(

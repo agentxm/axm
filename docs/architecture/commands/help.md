@@ -42,18 +42,26 @@ user intent.
 
 Each help form has one primary job:
 
-| Surface                                                   | Job                                                                                           | Authority                                        |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `axm` and `axm --help`                                    | Orient users to AXM and its top-level command families.                                       | The root command tree and its help view.         |
-| Parent command invocation and `axm <command-path> --help` | Describe executable command paths, arguments, flags, subcommands, and examples.               | Command definitions and annotations.             |
-| `axm help`                                                | List the available prose and schema topics.                                                   | The generated topic registry.                    |
-| `axm help <topic>`                                        | Present durable guidance or a raw schema that is broader than one command invocation.         | Topic sources and schema sources.                |
-| Suggestions and `LEARN MORE` sections                     | Move the reader to the next relevant command, topic, or external link without duplicating it. | The command or diagnostic that owns the context. |
+| Surface                                                   | Job                                                                                                | Authority                                                |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `axm` and `axm --help`                                    | Orient users to AXM and its top-level command families.                                            | The root command tree and its help view.                 |
+| Parent command invocation and `axm <command-path> --help` | Describe executable command paths, arguments, flags, subcommands, and examples.                    | Command definitions and annotations.                     |
+| `axm help`                                                | List the available prose and schema topics.                                                        | The generated topic registry.                            |
+| `axm help <topic>`                                        | Present durable guidance or a raw schema that is broader than one command invocation.              | Topic sources and schema sources.                        |
+| `axm schema <command-path>`                               | Explain the complete stdout contract, narrow to a declared field, or export its standalone schema. | Canonical output schemas and command-output annotations. |
+| Suggestions and `LEARN MORE` sections                     | Move the reader to the next relevant command, topic, or external link without duplicating it.      | The command or diagnostic that owns the context.         |
 
 Command help is the canonical reference for an executable interface. A help
 topic may explain why or when to use commands, but it does not maintain a copy
 of their flags or complete signatures. Schema topics expose their canonical
 schema rather than translating its fields into a second prose contract.
+
+Command output discovery has its own namespace. It uses bundled definitions
+without constructing a workspace or executing the selected command. Its
+ordinary outline supports quick decisions; field explanations and complete
+schema exports provide deeper detail when requested. Schema discovery does not
+change topic-first help resolution or require a preparatory schema call before
+ordinary operations.
 
 ## Resolution and overlapping names
 
@@ -91,6 +99,9 @@ inventory or presentation details:
   and examples.
 - Topic and schema sources own topic names and content; generated artifacts are
   derived copies.
+- Output annotations connect command capabilities to their actual stdout
+  contracts, including specialized delivery and error alternatives. The same
+  definitions feed command help, field discovery, and generated reference.
 - The formatter owns the machine help document and nothing about its
   presentation: no styling, width, wrapping, or output mode.
 - The formatter's help document remains authoritative input; the command-help
@@ -98,7 +109,8 @@ inventory or presentation details:
   with its per-stream colour and width without redefining help semantics.
 - [CLI output](output.md) owns channel boundaries, envelopes, and the separation
   between human and machine presentation.
-- Behavior and completeness tests own the exact supported results.
+- Executable specifications own accepted behavior; completeness and process
+  checks witness agreement between the real command tree and its discovery.
 
 Indexes, suggestions, generated topic bundles, and tests derive their coverage
 from those authorities. Architecture and prose documentation must not maintain
@@ -141,7 +153,8 @@ CLI help does not own:
 - compatibility aliases that are not part of the accepted command tree.
 
 Focused command and capability documents own operational responsibilities.
-Executable definitions and tests own exact interface contracts.
+Executable definitions expose exact interfaces; accepted specifications own
+their required behavior.
 
 ## Specifications
 

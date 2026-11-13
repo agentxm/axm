@@ -311,7 +311,7 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
   expect(currentResult["contract"]).toBe("upgrade-assessment-v1");
   expect(currentResult["disposition"]).toBe("already-current");
   expect(expectJsonObject(currentResult["ownership"])["method"]).toBe("script");
-  expect(currentResult["outcome"]).toBe("no-op");
+  expect(jsonDocument["outcome"]).toBe("no-op");
 
   const quietResult = await runBinary(["upgrade", fixtureVersion, "--quiet", "--verbose"], {
     env,
@@ -349,7 +349,7 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
     expect(lockedDocument["ok"]).toBe(false);
     const blockedResult = expectJsonObject(lockedDocument["result"]);
     expect(blockedResult["disposition"]).toBe("recovery-required");
-    expect(blockedResult["outcome"]).toBe("failed");
+    expect(lockedDocument["outcome"]).toBe("failed");
     expect(expectJsonObject(blockedResult["mutation"])["state"]).toBe("not-attempted");
   } finally {
     fs.rmSync(lockPath, { force: true });

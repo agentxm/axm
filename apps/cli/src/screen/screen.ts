@@ -20,6 +20,7 @@ import {
 import type { AppError } from "../app-error/index.js";
 import { promptAvailability, Verbosity } from "../cli-flags/index.js";
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
+import { resultCompletion } from "../cli-runtime/result-completion.js";
 import { promptRequired, type Ask, type InteractiveGuard } from "./ask/ask.js";
 import type { QuestionCancelled } from "./ask/question-cancelled.js";
 import { runAsk } from "./ask/run.js";
@@ -252,7 +253,8 @@ export const ScreenLive = (
           ),
         note,
         instruction: note,
-        document: () => Effect.succeed(false),
+        document: (_data, _schema, resultOptions) =>
+          resultCompletion(resultOptions?.completion).pipe(Effect.as(false)),
         observe: (lifecycle) =>
           Effect.gen(function* () {
             const state = yield* Ref.make(initialProgress);
@@ -478,23 +480,27 @@ export const ScreenMachine = (options?: {
           schema: S,
           resultOptions?: ResultOptions,
         ) =>
-          encodeJson(data, schema).pipe(
+          Effect.all({
+            encoded: encodeJson(data, schema),
+            completion: resultCompletion(resultOptions?.completion),
+          }).pipe(
             Effect.map(
-              (encoded) =>
+              ({ encoded, completion }) =>
                 `${JSON.stringify(
                   makeJsonSuccessEnvelope({
+                    completion,
                     payload: encoded,
+                    ...(resultOptions?.promotedResultFields === undefined
+                      ? {}
+                      : { promotedResultFields: resultOptions.promotedResultFields }),
                     ...(resultOptions?.diagnosticId === undefined
                       ? {}
                       : { diagnosticId: resultOptions.diagnosticId }),
-                    ...(resultOptions?.ok === undefined ? {} : { ok: resultOptions.ok }),
                     ...(resultOptions?.summary === undefined
                       ? {}
                       : { summary: resultOptions.summary }),
                     suggestions: visibleSuggestions(resultOptions),
                   }),
-                  null,
-                  2,
                 )}\n`,
             ),
             (effect) =>

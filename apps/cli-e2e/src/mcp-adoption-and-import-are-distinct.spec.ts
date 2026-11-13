@@ -67,7 +67,8 @@ describe("Separate MCP adoption and import routes", () => {
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
       const document: unknown = JSON.parse(applied.stdout);
       expect(document).toMatchObject({
-        result: { outcome: "applied", adoptions: { adopted: 1, skipped: 0, conflicting: 0 } },
+        outcome: "applied",
+        result: { adoptions: { adopted: 1, skipped: 0, conflicting: 0 } },
       });
       expect(readSettings(fixture.invoking)).toMatchObject({
         mcpServers: { alpha: { connection: { url: remote.url } } },

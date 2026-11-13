@@ -459,6 +459,11 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
           expect(bundledSkillInstalled()).toBe(true);
+          expect(rendererState.results[1]?.completion).toEqual({
+            mode: "apply",
+            outcome: "no-op",
+            exitCode: 0,
+          });
           const result = expectRecord(
             property(expectRecord(rendererState.results[1]?.data), "result"),
           );
@@ -742,6 +747,11 @@ describe("setup.handler", () => {
           const result = expectRecord(
             property(expectRecord(rendererState.results[0]?.data), "result"),
           );
+          expect(rendererState.results[0]?.completion).toEqual({
+            mode: "preview",
+            outcome: "previewed",
+            exitCode: 0,
+          });
           expect(result).toMatchObject({
             outcome: "previewed",
             planName: "Set up AXM workspace",
@@ -1155,6 +1165,11 @@ describe("setup.handler", () => {
             Effect.catchCause(() => Effect.void),
           );
 
+          expect(rendererState.results[0]?.completion).toEqual({
+            mode: "apply",
+            outcome: "blocked",
+            exitCode: 2,
+          });
           expect(rendererState.results[0]?.data).toMatchObject({
             result: {
               outcome: "failed",
@@ -1291,6 +1306,11 @@ describe("setup.handler", () => {
 
           expect(promptState.confirmSetupPlanCalls).toHaveLength(1);
           expect(rendererState.logs).toContainEqual({ _tag: "warn", message: "Setup cancelled" });
+          expect(rendererState.results[0]?.completion).toEqual({
+            mode: "apply",
+            outcome: "cancelled",
+            exitCode: 0,
+          });
           expect(bundledSkillInstalled()).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
@@ -1317,7 +1337,7 @@ describe("setup.handler", () => {
     });
 
     it.effect("leaves setup untouched when interactive confirmation is interrupted", () => {
-      const { handleSetup, provide, bundledSkillInstalled } = makeSetupTestContext({
+      const { handleSetup, provide, bundledSkillInstalled, rendererState } = makeSetupTestContext({
         flags: { nonInteractive: false },
         confirmSetup: "interrupt",
       });
@@ -1328,6 +1348,9 @@ describe("setup.handler", () => {
             Effect.catchTag("WorkspaceInitializationCancelled", () => Effect.void),
           );
 
+          expect(
+            rendererState.events.filter((event) => event._tag === "OperationSettled"),
+          ).toMatchObject([{ outcome: "cancelled" }]);
           expect(bundledSkillInstalled()).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);

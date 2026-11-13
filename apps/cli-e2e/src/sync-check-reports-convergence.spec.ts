@@ -37,10 +37,10 @@ export const specification = defineSpecification({
  * producer's own schema.
  */
 const SyncPlanDocument = Schema.Struct({
+  outcome: Schema.String,
+  mode: Schema.String,
   result: Schema.Struct({
     contract: Schema.String,
-    outcome: Schema.String,
-    mode: Schema.String,
     divergence: Schema.optional(Schema.Boolean),
     counts: Schema.Struct({ committed: Schema.Number }),
     // Units stay unknown so the comparison between two invocations is over
@@ -52,7 +52,7 @@ const SyncPlanDocument = Schema.Struct({
 const decodePlan = Schema.decodeUnknownSync(SyncPlanDocument);
 const readPlan = (stdout: string) => {
   const document: unknown = JSON.parse(stdout);
-  return decodePlan(document).result;
+  return decodePlan(document);
 };
 
 describe("Sync convergence check", () => {
@@ -72,13 +72,11 @@ describe("Sync convergence check", () => {
       expect(current.exitCode, current.stdout + current.stderr).toBe(0);
       const currentPlan = readPlan(current.stdout);
       expect(currentPlan).toMatchObject({
-        contract: "plan-result-v4",
         outcome: "no-op",
         mode: "preview",
-        counts: { committed: 0 },
-        units: [],
+        result: { contract: "plan-result-v4", counts: { committed: 0 }, units: [] },
       });
-      expect(currentPlan.divergence).toBeUndefined();
+      expect(currentPlan.result.divergence).toBeUndefined();
       expect(snapshotProtectedState(fixture.selected)).toEqual(currentBefore);
 
       const nativePath = path.join(fixture.selected, ".mcp.json");
@@ -107,7 +105,7 @@ describe("Sync convergence check", () => {
       const unownedBefore = snapshotProtectedState(fixture.selected);
       const unowned = await run(["sync", "--preview", "--fail-on-change"]);
       expect(unowned.exitCode, unowned.stdout + unowned.stderr).toBe(0);
-      expect(readPlan(unowned.stdout)).toMatchObject({ outcome: "no-op", units: [] });
+      expect(readPlan(unowned.stdout)).toMatchObject({ outcome: "no-op", result: { units: [] } });
       expect(snapshotProtectedState(fixture.selected)).toEqual(unownedBefore);
 
       // A marker without accepted source authority cannot create a cleanup
@@ -118,7 +116,7 @@ describe("Sync convergence check", () => {
       expect(ordinary.exitCode, ordinary.stdout + ordinary.stderr).toBe(0);
       const ordinaryPlan = readPlan(ordinary.stdout);
       expect(ordinaryPlan.outcome).toBe("previewed");
-      expect(ordinaryPlan.units.length).toBeGreaterThan(0);
+      expect(ordinaryPlan.result.units.length).toBeGreaterThan(0);
       expect(snapshotProtectedState(fixture.selected)).toEqual(divergentBefore);
 
       const divergent = await run(["sync", "--preview", "--fail-on-change"]);
@@ -126,14 +124,12 @@ describe("Sync convergence check", () => {
       expect(divergent.exitCode, divergent.stdout + divergent.stderr).toBe(1);
       const divergentPlan = readPlan(divergent.stdout);
       expect(divergentPlan).toMatchObject({
-        contract: "plan-result-v4",
         outcome: "previewed",
         mode: "preview",
-        divergence: true,
-        counts: { committed: 0 },
+        result: { contract: "plan-result-v4", divergence: true, counts: { committed: 0 } },
       });
-      expect(divergentPlan.units).toEqual(ordinaryPlan.units);
-      expect(divergentPlan.units).toEqual(
+      expect(divergentPlan.result.units).toEqual(ordinaryPlan.result.units);
+      expect(divergentPlan.result.units).toEqual(
         expect.arrayContaining([expect.objectContaining({ id: "skill:axm", state: "ready" })]),
       );
       expect(snapshotProtectedState(fixture.selected)).toEqual(divergentBefore);

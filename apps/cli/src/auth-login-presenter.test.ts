@@ -507,7 +507,8 @@ describe("AuthLoginPresenterLive", () => {
         "credentials for registry.agentxm.ai",
         "sign-in to registry.agentxm.ai",
       ]);
-      expect(state.events.at(-1)).toMatchObject({ _tag: "OperationSettled", outcome: "completed" });
+      expect(state.events[0]).toMatchObject({ _tag: "OperationStarted", mode: "apply" });
+      expect(state.events.at(-1)).toMatchObject({ _tag: "OperationSettled", outcome: "applied" });
     }).pipe(Effect.provide(layer));
   });
 

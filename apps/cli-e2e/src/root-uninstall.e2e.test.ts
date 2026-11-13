@@ -248,10 +248,9 @@ const installRegistryExtension = async (
 };
 
 const expectAppliedUninstallDocument = (result: JsonCommandResult) => {
+  expect(result.stdout).toMatchObject({ outcome: "applied", mode: "apply" });
   expect(result.result).toMatchObject({
     contract: "plan-result-v4",
-    outcome: "applied",
-    mode: "apply",
     counts: {
       total: 1,
       committed: 1,
@@ -440,10 +439,9 @@ describe("axm uninstall", () => {
 
         expect(rootSecondPass.exitCode).toBe(0);
         expect(typedSecondPass.exitCode).toBe(0);
-        expect(rootSecondPass.result).toMatchObject({
-          contract: "plan-result-v4",
+        expect(rootSecondPass.stdout).toMatchObject({
           outcome: "no-op",
-          counts: { total: 0, committed: 0 },
+          result: { contract: "plan-result-v4", counts: { total: 0, committed: 0 } },
         });
         expect(rootSecondPass.stdout).toEqual(typedSecondPass.stdout);
         expect(comparableStderr(rootSecondPass.stderr)).toBe(
@@ -515,7 +513,7 @@ describe("axm uninstall", () => {
         "uninstall",
         registryFqn("packs", name),
       ]);
-      expect(rootSecondPass.result).toMatchObject({ outcome: "no-op" });
+      expect(rootSecondPass.stdout).toMatchObject({ outcome: "no-op" });
     } finally {
       registryDir.cleanup();
       rootWorkspace.cleanup();
@@ -568,11 +566,13 @@ describe("axm uninstall", () => {
       const rootDocument: unknown = JSON.parse(rootResult.stdout);
       const typedDocument: unknown = JSON.parse(typedResult.stdout);
       for (const result of [rootDocument, typedDocument]) {
-        expect(documentResult(result)).toMatchObject({
-          contract: "plan-result-v4",
+        expect(result).toMatchObject({
           outcome: "applied",
           mode: "apply",
-          counts: { total: 1, committed: 1, failed: 0, blocked: 0 },
+          result: {
+            contract: "plan-result-v4",
+            counts: { total: 1, committed: 1, failed: 0, blocked: 0 },
+          },
         });
         expect(documentResult(result)["candidateId"]).toMatch(/^[0-9a-f]{64}$/);
       }

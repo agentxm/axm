@@ -133,6 +133,8 @@ export const buildReconciliationClosure = <E, R>(
   PlannedJobStep<R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path>
 > =>
   Effect.sync(() => {
+    const transitions = args.children.flatMap(({ step }) => step.transitions ?? []);
+    const transitionEvidence = transitions.length === 0 ? {} : { transitions };
     const plannedNativeLocations = combineNativeLocationOutcomes([
       ...(args.artifact.nativeLocations ?? []),
       ...args.children.flatMap(({ step }) => step.artifact?.nativeLocations ?? []),
@@ -156,6 +158,7 @@ export const buildReconciliationClosure = <E, R>(
       return {
         readiness: "error",
         label: args.label,
+        ...transitionEvidence,
         materialPaths,
         errorMessage: readinessErrors.join("; "),
         artifact: plannedArtifact,
@@ -297,6 +300,7 @@ export const buildReconciliationClosure = <E, R>(
       ? ({
           readiness: "ready",
           label: args.label,
+          ...transitionEvidence,
           materialPaths,
           artifact: plannedArtifact,
           ...(acquisitionRefs.length === 0 ? {} : { acquisitionRefs }),
@@ -309,6 +313,7 @@ export const buildReconciliationClosure = <E, R>(
       : ({
           readiness: "warn",
           label: args.label,
+          ...transitionEvidence,
           materialPaths,
           warnMessage: readinessWarnings.join("; "),
           artifact: plannedArtifact,

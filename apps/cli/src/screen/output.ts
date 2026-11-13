@@ -1,4 +1,5 @@
 import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
+import type { ResultCompletion } from "../cli-runtime/result-completion.js";
 
 export type LogMessage =
   | { readonly _tag: "message"; readonly message: string }
@@ -26,6 +27,8 @@ export interface SuccessOptions extends SuggestionOptions {
 }
 
 export interface ResultOptions extends SuccessOptions {
-  readonly ok?: boolean;
+  readonly completion?: ResultCompletion;
+  /** Explicit owner-declared fields promoted to the ordinary result envelope. */
+  readonly promotedResultFields?: ReadonlyArray<"mode" | "outcome">;
   readonly diagnosticId?: string;
 }

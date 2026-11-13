@@ -107,7 +107,7 @@ export const renderAppErrorChannels = (
       ),
       JSON.stringify(errorEvent(error.code, redactCredentialText(error.detail, { secrets }))),
     ],
-    stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, options), null, 2) + "\n",
+    stdout: JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, options)) + "\n",
   };
 };
 

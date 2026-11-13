@@ -1,3 +1,4 @@
+import { LocalInspection } from "./index.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
@@ -34,7 +35,7 @@ export const specification = defineSpecification({
   requirement: "cli/type-lists-report-local-state",
   title: "Type inventories report local extension state",
   statement:
-    "When listing skills, subagents, rules, hooks, or packs, AXM shall report the selected type’s current local entries with their management classification, installation state, and source observation, including configured entries that are disabled or absent. When details are requested, native observations shall distinguish configured consumers from potential readers and report currency only when the native unit has verified ownership and matches the desired content; identical bytes at an unrelated symlink target shall not establish currency.",
+    "When listing skills, subagents, rules, hooks, or packs, AXM shall report the selected type’s current local entries with their management classification, installation state, and source observation, including configured entries that are disabled or absent. When show --all is requested, native observations shall distinguish configured consumers from potential readers and report currency only when the native unit has verified ownership and matches the desired content; identical bytes at an unrelated symlink target shall not establish currency.",
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -137,11 +138,14 @@ describe("Type-specific inventory", () => {
           if (step.readiness === "error") throw new Error(step.errorMessage);
           yield* step.run;
 
-          const listed = yield* listSubagents({ details: true });
-          expect(listed.inventory.items[0]?.agentOutcomes).toMatchObject([
+          const listed = yield* LocalInspection.query({
+            selection: { kind: "all" },
+            types: ["subagent"],
+          });
+          expect(listed.items[0]?.agentOutcomes).toMatchObject([
             { agentId: "cline", outcome: "unsupported" },
           ]);
-          expect(listed.inventory.items[0]?.nativeLocations ?? []).toEqual([]);
+          expect(listed.nativeLocations).toEqual([]);
           expect(fs.readFileSync(path.join(nativePath, "SKILL.md"), "utf8")).toBe(
             "Separately authored Skill.\n",
           );

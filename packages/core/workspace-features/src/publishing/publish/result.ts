@@ -197,6 +197,14 @@ const PublishResultItemSchema = Schema.Struct({
           origin: SelectionRuleOriginSchema,
         }),
       ),
+      patternCoverage: Schema.Struct({
+        explicit: Schema.Literal("all"),
+        inherited: Schema.Literal("matched-only"),
+        omittedInheritedCount: Schema.Number,
+      }).annotate({
+        description:
+          "All explicit manifest rules remain in patterns, including zero matches. Unmatched inherited rules are omitted only from this explanation and counted here; selection and candidate identity still use the full policy.",
+      }),
       warnings: Schema.Array(Schema.String),
       includedCount: Schema.Number,
       excludedCount: Schema.Number,

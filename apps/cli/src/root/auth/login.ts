@@ -34,6 +34,7 @@ import {
   loginSuccessSuggestions,
 } from "./view.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
+import type { ResultCompletion } from "../../cli-runtime/result-completion.js";
 
 const LoginNoOpResultSchema = Schema.Struct({
   status: Schema.Literal("already-logged-in"),
@@ -53,6 +54,17 @@ const LoginNoOpSuggestions = [
   { description: "Sign in again with a different account", cmd: "axm login --yes" },
 ] satisfies ReadonlyArray<SuggestedAction>;
 
+const loginCompletion = (outcome: LoginOutcome): ResultCompletion => ({
+  mode: "apply",
+  outcome:
+    outcome._tag === "PendingApproval"
+      ? "pending-human"
+      : outcome._tag === "SignedIn"
+        ? "applied"
+        : "no-op",
+  exitCode: outcome._tag === "PendingApproval" ? 13 : 0,
+});
+
 /** Deliver one terminal result after the login operation has settled. */
 export const emitLoginOutcome = (outcome: LoginOutcome, webOrigin: string) =>
   Effect.gen(function* () {
@@ -61,7 +73,7 @@ export const emitLoginOutcome = (outcome: LoginOutcome, webOrigin: string) =>
         { result: outcome.result },
         LoginDocumentSchema,
         () => loginSuccessDoc(outcome.result, webOrigin),
-        { suggestions: loginSuccessSuggestions(webOrigin) },
+        { completion: loginCompletion(outcome), suggestions: loginSuccessSuggestions(webOrigin) },
       );
     }
     if (outcome._tag === "PendingApproval") {
@@ -69,7 +81,10 @@ export const emitLoginOutcome = (outcome: LoginOutcome, webOrigin: string) =>
         { result: outcome.result },
         DeviceLoginPendingDocumentSchema,
         () => pendingApprovalDoc(outcome.result),
-        { suggestions: pendingDeviceSuggestions(outcome.result) },
+        {
+          completion: loginCompletion(outcome),
+          suggestions: pendingDeviceSuggestions(outcome.result),
+        },
       );
     }
     const result: LoginNoOpResult = {
@@ -85,6 +100,7 @@ export const emitLoginOutcome = (outcome: LoginOutcome, webOrigin: string) =>
           suggestions: LoginNoOpSuggestions,
         }),
       {
+        completion: loginCompletion(outcome),
         suggestions: LoginNoOpSuggestions,
       },
     );
@@ -135,6 +151,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
         },
         registry,
       ),
+      loginCompletion,
     );
 
     yield* emitLoginOutcome(outcome, webOriginForRegistry(registry.endpoint));

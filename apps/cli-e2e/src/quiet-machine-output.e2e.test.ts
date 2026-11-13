@@ -46,7 +46,7 @@ describe("Quiet machine output over the built CLI", () => {
       ]);
       expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
       const result: unknown = JSON.parse(installed.stdout);
-      expect(result).toMatchObject({ ok: true, result: { outcome: "applied" } });
+      expect(result).toMatchObject({ ok: true, outcome: "applied" });
       const events: unknown[] = installed.stderr
         .split("\n")
         .filter(Boolean)

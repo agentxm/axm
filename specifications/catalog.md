@@ -1966,7 +1966,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 
 - Requirement: `cli/command-help-is-complete`
 - Owner: `cli`
-- Statement: Every supported command shall present help identifying its invocation and purpose, the rendered help tree shall list exactly the supported command paths, every authored parameter shall have a description of at most 88 characters excluding generated facts, every authored example shall parse against the registered command grammar with concrete arguments, and a help request shall reply without reading or changing project or user workspace state, even when that state is malformed.
+- Statement: Every supported command shall present help identifying its invocation, purpose, output class, supported operation modes and effects, result meanings, and exact offline schema discovery invocation, the rendered help tree shall list exactly the supported command paths, every authored parameter shall have a description of at most 88 characters excluding generated facts, every authored example shall parse against the registered command grammar with concrete arguments, and a help request shall reply without reading or changing project or user workspace state, even when that state is malformed.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`
@@ -2288,7 +2288,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 
 - Requirement: `cli/knowledge/list/reports-bundle-inspection`
 - Owner: `workspace-features`
-- Statement: When listing Knowledge bundles with details requested, AXM shall count every inspected document in the bundle, including its reserved index, and shall re-inspect current source on each detailed listing so concept and diagnostic counts follow repairs.
+- Statement: When inspecting Knowledge bundles with show --all, AXM shall count every inspected document in the bundle, including its reserved index, and shall re-inspect current source on each invocation so concept and diagnostic counts follow repairs.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
@@ -2515,14 +2515,14 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/login/starts-resumable-device-sign-in`
 - Owner: `registry-access`
-- Statement: When sign-in requests machine output or explicit unattended initiation without a wait bound, AXM shall retain the pending authorization and return its verification URL, user code, expiry, and resume command without waiting for approval or opening a browser. A pending sign-in for another Registry shall preserve that request and offer a recovery selecting its Registry through --registry.
+- Statement: When sign-in requests machine output or explicit unattended initiation without a wait bound, AXM shall retain the pending authorization and return its verification URL, user code, expiry, and resume command without waiting for approval or opening a browser, with the CLI reporting apply/pending-human, ok false, and exit 13 while preserving the handoff. A pending sign-in for another Registry shall preserve that request and offer a recovery selecting its Registry through --registry.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
-- Assumptions: The application renders the returned pending payload after its operation settles.
+- Assumptions: Application and process execution bindings establish the pending-human envelope and exit; these service-port examples establish retained state and handoff content.
 - Additional evidence: process via [`apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
 - Source: [`packages/supporting/registry-access/src/authentication/starts-resumable-device-sign-in.spec.ts`](../packages/supporting/registry-access/src/authentication/starts-resumable-device-sign-in.spec.ts)
 
@@ -2659,6 +2659,22 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Methods: example
 - Derived from: `apps/cli/src/root/view/view.ts`, `packages/core/workspace-features/src/inspection/view/view-extension.ts`
 - Source: [`packages/core/workspace-features/src/inspection/view/reports-archival-and-effective-lifecycle-state.spec.ts`](../packages/core/workspace-features/src/inspection/view/reports-archival-and-effective-lifecycle-state.spec.ts)
+
+#### Quality
+
+##### Complete ordinary results fit bounded reference profiles
+
+- Requirement: `cli/output/reference-size-budgets`
+- Owner: `cli`
+- Statement: Without truncating result facts, AXM shall keep the fixed representation profiles for one ownership answer within 16 KiB, thirty ownership answers within 128 KiB, thirty inventory entries within 64 KiB, fifty restoration units within 256 KiB, three publication candidates and one hundred paths within 64 KiB, and human schema outlines and field explanations within 8 KiB and 4 KiB respectively.
+- Class: quality (performance)
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: benchmark, contract
+- Derived from: `workspace/native-documents/share-complete-evidence`
+- Assumptions: The fixed fixtures use two native locations and forty declared readers per subject, up to three retention reasons, names below forty characters and paths below one hundred sixty characters.; This memory boundary measures real encoder and Screen output for declared representation fixtures; producer correctness, built-process behavior, before/after timing and agent task outcomes have separate evidence.; Complete authored content, full schemas, arbitrary explicit selections and exact archive paths are not runtime truncation limits.
+- Source: [`apps/cli/src/output-reference-budgets.spec.ts`](../apps/cli/src/output-reference-budgets.spec.ts)
 
 ### Goal: platform-reach
 
@@ -4325,6 +4341,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example, decision-table
 - Derived from: `apps/cli-e2e/src/directory.e2e.test.ts`, `apps/cli/help/topics/basic-usage.md`
 - Open questions: Should repeated or empty directory options be rejected or have an explicit selection policy?
+- Additional evidence: process via [`apps/cli-e2e/src/local-inspection.e2e.test.ts`](../apps/cli-e2e/src/local-inspection.e2e.test.ts) — The assembled CLI parses root and typed selectors in the chosen directory, returns equal full documents, and reports completed-query process exits for exact misses, conflicts and partial batches.
 - Source: [`apps/cli-e2e/src/commands-use-selected-directory.spec.ts`](../apps/cli-e2e/src/commands-use-selected-directory.spec.ts)
 
 ##### Advance approval is offered only where it settles one documented decision
@@ -4964,18 +4981,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Open questions: Whether a Pack transition that replaces a member identity under the same local name should refuse to carry the preference across, or move it; the current implementation keeps the preference bound to the local name.
 - Source: [`packages/core/workspace-features/src/lifecycle/activation/pack-member-configuration-does-not-create-acquisition-intent.spec.ts`](../packages/core/workspace-features/src/lifecycle/activation/pack-member-configuration-does-not-create-acquisition-intent.spec.ts)
 
-##### Pack inspection refuses mismatched and unavailable targets
+##### Pack inspection refuses identity mismatches and preserves incomplete local facts
 
 - Requirement: `cli/packs/show/rejects-mismatched-and-unavailable-packs`
 - Owner: `workspace-features`
-- Statement: When the requested target is not a configured pack, is not a pack identity, names another owner's pack, or its canonical manifest is unavailable or malformed, AXM shall refuse the inspection and produce no pack state.
+- Statement: Local Pack inspection shall refuse unmatched or conflicting identities without describing a different Pack, while retaining justified local facts with incomplete coverage when the matching Pack manifest is unavailable or malformed.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: platform; selection: per-change
 - Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
-- Derived from: `packages/core/workspace-features/src/inspection/packs/show-pack.ts`
+- Derived from: `packages/core/workspace-features/src/inspection/packs/pack-members.ts`
 - Source: [`packages/core/workspace-features/src/inspection/packs/show-rejects-mismatched-and-unavailable-packs.spec.ts`](../packages/core/workspace-features/src/inspection/packs/show-rejects-mismatched-and-unavailable-packs.spec.ts)
 
 ##### Pack inspection reports declared members and observed state
@@ -4989,7 +5006,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: platform; selection: per-change
 - Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
-- Derived from: `packages/core/workspace-features/src/inspection/packs/show-pack.ts`, `apps/cli-e2e/src/scope-consistency.e2e.test.ts`
+- Derived from: `packages/core/workspace-features/src/inspection/packs/pack-members.ts`, `apps/cli-e2e/src/scope-consistency.e2e.test.ts`
 - Source: [`packages/core/workspace-features/src/inspection/packs/show-reports-authored-membership-and-observed-state.spec.ts`](../packages/core/workspace-features/src/inspection/packs/show-reports-authored-membership-and-observed-state.spec.ts)
 
 ##### The one-shot release-age override reaches every command the gate can block
@@ -5218,7 +5235,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/sync/preserves-configuration-and-resolutions`
 - Owner: `workspace-features`
-- Statement: Sync shall preserve axm.json and authored manifests byte for byte, preserve satisfying accepted resolutions of still-desired extensions, restore missing acquired content only from the accepted identity even when newer content exists, and select every member of a configured Pack it recovers within that member's effective desired constraint so that a direct pin on a shared member holds; an incompatible accepted identity shall block until an explicit resolution transition is authorized, and retiring an unreachable accepted record shall not count as advancing a resolution.
+- Statement: Sync shall preserve axm.json and authored manifests byte for byte, preserve satisfying accepted resolutions of still-desired extensions, restore missing acquired content only from the accepted identity even when newer content exists, and select every member of a configured Pack it recovers within that member's effective desired constraint so that a direct pin on a shared member holds; an incompatible accepted identity shall block until an explicit resolution transition is authorized, retiring an unreachable accepted record shall not count as advancing a resolution, and selected materializations shall report structured previous and proposed source/version, observed reason, and downgrade facts with unavailable versions and incomparable downgrades explicit rather than inferred from display labels.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -5332,7 +5349,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/type-shows-report-missing-entries`
 - Owner: `cli`
-- Statement: When a skills show, mcps show, subagents show, rules show, hooks show, or knowledge show target has no configured, installed, or detected local entry, AXM shall report that entry as not found with a command for inspecting the available entries.
+- Statement: When a skills show, mcps show, subagents show, rules show, hooks show, or knowledge show target has no configured, installed, or detected local entry, AXM shall emit an inspection result retaining the selected request as not-found, exit with code 3, and provide a read-only command for inspecting the available entries.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
@@ -5646,7 +5663,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/list/ordinary-inventory-latency`
 - Owner: `cli-e2e`
-- Statement: On the recorded Linux reference host with a warm filesystem and an existing lockfile, ordinary listing of 30 installed extensions without details shall complete in less than 500 milliseconds at the 95th percentile, including process startup, inventory observation, output, and exit.
+- Statement: On the recorded Linux reference host with a warm filesystem and an existing lockfile, cheap ordinary listing of 30 installed extensions shall complete in less than 500 milliseconds at the 95th percentile, including process startup, inventory observation, output, and exit.
 - Class: quality (performance)
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
@@ -5698,7 +5715,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/help/parameter-grammar-is-explicit`
 - Owner: `cli`
-- Statement: FQN help shall name the @owner/<plural-type>/<name> form. Type verbs shall name their subject and action, distinguish activation names or FQNs from uninstall names or globs, and state that creation names omit owners. Pack show, add and remove shall use a name slot for configured pack names or unique configured FQNs, with installed-member selection for add and declared-dependency selection for remove. Typed update shall state its omitted selection. Query shorthand help shall name its canonical metadata or lifecycle form and its unset defaults. Page cursors shall name continuation, token revoke shall use ID, and dependency qualifiers shall state only-with, required-when, implied or excluded inputs.
+- Statement: FQN help shall name the @owner/<plural-type>/<name> form. Type verbs shall name their subject and action, distinguish activation names or FQNs from uninstall names or globs, and state that creation names omit owners. Local show shall accept repeated exact names or identities, or explicitly selected paths or the complete inventory. Pack add and remove shall use a name slot for configured pack names or unique configured FQNs, with installed-member selection for add and declared-dependency selection for remove. Typed update shall state its omitted selection. Query shorthand help shall name its canonical metadata or lifecycle form and its unset defaults. Page cursors shall name continuation, token revoke shall use ID, and dependency qualifiers shall state only-with, required-when, implied or excluded inputs.
 - Class: functional
 - Role: interface
 - Product goals: `actionable-diagnostics`, `machine-automation`, `knowledge-access`
@@ -6610,16 +6627,19 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Limitation: The skill-selection prompt has no in-memory interaction port, so the evidence that the same request prompts and honors the answer when machine output is off is carried by the setup command only. Retires when: An in-memory interaction port for the skill-selection prompt lets the harness record that prompt and its answer for install.
 - Source: [`apps/cli/src/cli-runtime/machine-mode-never-prompts.spec.ts`](../apps/cli/src/cli-runtime/machine-mode-never-prompts.spec.ts)
 
-##### Machine help publishes generated result schemas for every structured route
+##### Offline discovery publishes complete stdout schemas for every supported contract
 
 - Requirement: `cli/machine-output/publishes-route-result-schemas`
 - Owner: `cli`
-- Statement: AXM shall publish generated JSON Schema for every structured-result command through schema help, map each route to its result-family reference, and preserve the generic success envelope and the unfrozen diagnostic-record exception.
+- Statement: AXM shall publish offline command stdout contracts through axm schema with concise outlines, declared dotted and array-element field lookup preserving alternatives, standalone JSON Schema exports with only reachable local references, complete ordinary result and generic error and formatter alternatives, explicit credential or unavailable external-schema refusal, finite self-discovery, and the unfrozen diagnostic-record exception.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: contract, example
+- Additional evidence: process via [`apps/cli-e2e/src/schema-ignores-workspace-state.e2e.test.ts`](../apps/cli-e2e/src/schema-ignores-workspace-state.e2e.test.ts) — Real commands prove passive schema discovery against empty and malformed project/user state, reserved credential refusal, and that exported whole-stdout contracts validate the actual scalar Registry result, formatter documents, and typed failures.
+- Additional evidence: process via [`apps/cli-e2e/src/wire-contract-evidence.e2e.test.ts`](../apps/cli-e2e/src/wire-contract-evidence.e2e.test.ts) — The shipped schema validates captured full stdout and rejects a changed envelope and undeclared field; supporting coverage assertions ensure formatter documents and errors cannot substitute for an observed domain result.
+- Additional evidence: process via [`apps/cli-e2e/src/wire-remote-adapters.e2e.test.ts`](../apps/cli-e2e/src/wire-remote-adapters.e2e.test.ts) — A controlled HTTP Registry acknowledges actual token and lifecycle requests, while the built CLI emits independently asserted results that the shared harness validates against its discovered whole-stdout schemas.
 - Source: [`apps/cli/src/machine-output-schemas.spec.ts`](../apps/cli/src/machine-output-schemas.spec.ts)
 
 ##### Machine progress events are the published lifecycle events, in order, before the result
@@ -6732,6 +6752,20 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `apps/cli/src/machine-output-contracts.ts`
 - Source: [`apps/cli/src/root/lifecycle/registry-mutations-share-transition-contract.spec.ts`](../apps/cli/src/root/lifecycle/registry-mutations-share-transition-contract.spec.ts)
 
+##### Result, lifecycle and exit preserve one completion decision
+
+- Requirement: `cli/results-share-one-completion`
+- Owner: `cli`
+- Statement: Every ordinary result shall expose its producer's operation mode and outcome independently of its command verdict, derive ok exactly from exit zero, preserve the same decision in lifecycle settlement, semantic telemetry, and process status, and emit one minified JSON document with a trailing newline without changing authored strings. Failures before operation start shall retain their classified process exit without inventing an operation completion.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`
+- Assumptions: Producer-specific specifications own the decision; this boundary observes the real machine writer and operation transport, not an operating-system pipe.
+- Source: [`apps/cli/src/cli-runtime/results-share-one-completion.spec.ts`](../apps/cli/src/cli-runtime/results-share-one-completion.spec.ts)
+
 ##### A retried unit reports which attempt is in flight, to machines and to people alike
 
 - Requirement: `cli/retried-work-names-the-attempt-in-flight`
@@ -6831,7 +6865,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/upgrade/machine-result-is-upgrade-assessment`
 - Owner: `cli`
-- Statement: When upgrade reports an assessment in machine mode, AXM shall emit exactly one upgrade-assessment-v1 result that separately records intent, platform, ownership, canonical selection, installer availability, target, mutation, verification, recovery, command evidence, and disposition.
+- Statement: When upgrade reports an assessment in machine mode, AXM shall emit exactly one upgrade-assessment-v1 result that separately records intent, platform, ownership, canonical selection, installer availability, target, mutation, verification, recovery, command evidence, and disposition, with its operation mode and outcome in the common envelope and ok agreeing with process exit.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -7069,7 +7103,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/publish/archive-inventory-matches-published-bytes`
 - Owner: `workspace-features`
-- Statement: Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) as selected by the resolved Git-ignore or explicit include/exclude policy, with publication controls omitted and the distribution manifest sanitized, and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total uncompressed archive and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.
+- Statement: Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) as selected by the resolved Git-ignore or explicit include/exclude policy, with publication controls omitted and the distribution manifest sanitized, and report the complete included and excluded paths, byte sizes, matched inherited and all explicit patterns with origins and match counts, the count of unmatched inherited patterns omitted only from the explanation, warnings, total uncompressed archive and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes without changing selection or policy identity.
 - Class: functional
 - Role: interface
 - Product goals: `trustworthy-distribution`, `machine-automation`
@@ -7378,7 +7412,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/mcps/list/local-name-source-and-resolution-are-distinct`
 - Owner: `workspace-features`
-- Statement: When MCP servers are listed in machine output, AXM shall report each connection's local name, its source, and its accepted resolution as distinct fields, so that connections sharing one source remain individually identifiable, and shall report every configured agent's outcome for the connection — naming an agent that cannot represent it as unsupported rather than omitting it.
+- Statement: When MCP servers are listed in machine output, AXM shall report each connection's local name, its source, and its accepted resolution as distinct fields, so that connections sharing one source remain individually identifiable, and show --all shall report every configured agent's outcome for the connection — naming an agent that cannot represent it as unsupported rather than omitting it.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `agent-interoperability`
@@ -7412,6 +7446,72 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: decision-table, example
 - Source: [`packages/core/workspace-kernel/src/agent-adapters/mcps/selected-distribution-inputs-follow-registry-semantics.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/mcps/selected-distribution-inputs-follow-registry-semantics.spec.ts)
 
+##### Path inspection keeps package boundaries and unowned content explicit
+
+- Requirement: `cli/show/bounds-path-ownership`
+- Owner: `workspace-features`
+- Statement: AXM shall resolve contained local paths only through established package or native ownership boundaries, preserve their lexical and resolved addresses, and report existing unowned content without assigning it an editable package owner.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace queries inspect native paths and an escaping symlink in an isolated filesystem fixture.
+- Methods: example
+- Source: [`packages/core/workspace-features/src/inspection/show/local-inspection-bounds-path-ownership.spec.ts`](../packages/core/workspace-features/src/inspection/show/local-inspection-bounds-path-ownership.spec.ts)
+
+##### Local inspection distinguishes desired routes, shared consumers, and accepted records
+
+- Requirement: `cli/show/explains-independent-retention`
+- Owner: `workspace-features`
+- Statement: Local inspection shall report every established direct and Pack retention route and shared package consumer independently, without treating an accepted-only record as desired or physically present.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real workspace readers join isolated authored Pack manifests, declarations and accepted rows; examples observe emitted facts without reconstructing private lock keys.
+- Methods: example
+- Source: [`packages/core/workspace-features/src/inspection/show/local-inspection-explains-independent-retention.spec.ts`](../packages/core/workspace-features/src/inspection/show/local-inspection-explains-independent-retention.spec.ts)
+
+##### Incomplete Pack observations retain justified local facts
+
+- Requirement: `cli/show/keeps-incomplete-pack-evidence`
+- Owner: `workspace-features`
+- Statement: When a configured Pack manifest is absent or malformed, local inspection shall retain established identity, declarations, editing authority and accepted facts while reporting incomplete membership and observation coverage.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services observe a damaged authored Pack manifest without acquiring or rewriting content.
+- Methods: example
+- Source: [`packages/core/workspace-features/src/inspection/show/local-inspection-keeps-incomplete-pack-evidence.spec.ts`](../packages/core/workspace-features/src/inspection/show/local-inspection-keeps-incomplete-pack-evidence.spec.ts)
+
+##### Local inspection preserves each exact request and deduplicates subjects
+
+- Requirement: `cli/show/preserves-request-outcomes`
+- Owner: `workspace-features`
+- Statement: AXM shall resolve exact local inspection requests only in the selected scope and types, retain successful answers and each unresolved request in input order, and inspect repeated matching subjects once. An identifiable local declaration whose source authority is unresolved shall remain inspectable with unknown editing authority and no invented edit address. Per-agent facts inherit the enclosing subject's type and local name without repeating them; configuration, projection, readiness and runtime evidence remain explicit.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace queries observe isolated native filesystem fixtures; these examples do not establish process-level parser or exit behavior.
+- Methods: example
+- Additional evidence: process via [`apps/cli-e2e/src/local-inspection.e2e.test.ts`](../apps/cli-e2e/src/local-inspection.e2e.test.ts) — The assembled CLI parses root and typed selectors in the chosen directory, returns equal full documents, and reports completed-query process exits for exact misses, conflicts and partial batches.
+- Source: [`packages/core/workspace-features/src/inspection/show/local-inspection-preserves-request-outcomes.spec.ts`](../packages/core/workspace-features/src/inspection/show/local-inspection-preserves-request-outcomes.spec.ts)
+
+##### Local inspection requires one exact selection mode
+
+- Requirement: `cli/show/selection-is-explicit`
+- Owner: `cli`
+- Statement: Root and typed show commands shall accept ordered exact identities, repeated paths, or all selection, reject mixed modes and release or glob selectors before workspace construction, and display contextual usage when no selection is supplied.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Additional evidence: process via [`apps/cli-e2e/src/local-inspection.e2e.test.ts`](../apps/cli-e2e/src/local-inspection.e2e.test.ts) — The assembled CLI parses root and typed selectors in the chosen directory, returns equal full documents, and reports completed-query process exits for exact misses, conflicts and partial batches.
+- Source: [`apps/cli/src/root/show/selection-is-explicit.spec.ts`](../apps/cli/src/root/show/selection-is-explicit.spec.ts)
+
 ##### A sync check reports whether managed output needs updating
 
 - Requirement: `cli/sync/check-reports-convergence`
@@ -7430,7 +7530,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/type-lists-report-local-state`
 - Owner: `workspace-features`
-- Statement: When listing skills, subagents, rules, hooks, or packs, AXM shall report the selected type’s current local entries with their management classification, installation state, and source observation, including configured entries that are disabled or absent. When details are requested, native observations shall distinguish configured consumers from potential readers and report currency only when the native unit has verified ownership and matches the desired content; identical bytes at an unrelated symlink target shall not establish currency.
+- Statement: When listing skills, subagents, rules, hooks, or packs, AXM shall report the selected type’s current local entries with their management classification, installation state, and source observation, including configured entries that are disabled or absent. When show --all is requested, native observations shall distinguish configured consumers from potential readers and report currency only when the native unit has verified ownership and matches the desired content; identical bytes at an unrelated symlink target shall not establish currency.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
@@ -7445,21 +7545,21 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/type-shows-report-source-and-version`
 - Owner: `workspace-features`
-- Statement: When inspecting one configured skill, MCP server, subagent, rule, hook, or Knowledge bundle, AXM shall report its local identity, activation, source, and version from the accepted resolution, or from the matching authored manifest when no resolution exists.
+- Statement: When inspecting one configured skill, MCP server, subagent, rule, hook, or Knowledge bundle, AXM shall report its local identity, activation, source, and accepted version separately from the matching observed manifest version.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: platform; selection: per-change
 - Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
-- Derived from: `apps/cli/src/root/shared/extension-show.test.ts`, `packages/core/workspace-features/src/inspection/show/show-extension.ts`
+- Derived from: `apps/cli/src/root/shared/extension-show.test.ts`, `packages/core/workspace-features/src/inspection/show/local-inspection.ts`
 - Source: [`packages/core/workspace-features/src/inspection/type-shows-report-source-and-version.spec.ts`](../packages/core/workspace-features/src/inspection/type-shows-report-source-and-version.spec.ts)
 
 ##### Typed inspection reports the shared per-agent outcome contract
 
 - Requirement: `cli/typed-shows/use-shared-agent-outcomes`
 - Owner: `workspace-features`
-- Statement: Every typed show result shall report per-agent outcomes under the shared agent-outcomes collection, retaining extension identity, agent identity, lifecycle outcome, and bounded reason code while allowing optional inspection detail and omitting the superseded agent and status representation.
+- Statement: Every typed show result shall report each subject's per-agent outcomes under the shared agent-outcomes collection, supplying extension type and name once through the enclosing subject identity while retaining agent identity, lifecycle outcome, bounded reason code, and optional inspection detail. Native evidence and reader declarations shall resolve through the document's result-local tables. Per-agent rows shall omit repeated extension identity and the superseded agent and status representation.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
@@ -7620,6 +7720,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: decision-table, contract
 - Source: [`packages/core/workspace-kernel/src/operations/agent-outcomes-use-published-vocabulary.spec.ts`](../packages/core/workspace-kernel/src/operations/agent-outcomes-use-published-vocabulary.spec.ts)
+
+##### Native documents share complete evidence with explicit availability applicability
+
+- Requirement: `workspace/native-documents/share-complete-evidence`
+- Owner: `workspace-kernel`
+- Statement: A native result document shall represent each identical evidence record and ordered reader declaration once through resolvable result-local references, distinguish conflicting observations and operation phases at the same address, and preserve declared readers, configured consumers, policy, ownership proof, mechanism, state, and explicit availability observations while expressing a shared unverified declaration once with its exact reason and applicability. Actual observations and exceptions shall remain attached to their native evidence record.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Source: [`packages/core/workspace-kernel/src/locations/native-documents-share-complete-evidence.spec.ts`](../packages/core/workspace-kernel/src/locations/native-documents-share-complete-evidence.spec.ts)
 
 ## Supporting system behavior
 

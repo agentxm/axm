@@ -22,8 +22,6 @@ import { extensionTypeText, inventoryLifecycle } from "../inventory-view.js";
 type ListItem = ExtensionListDocument["items"][number];
 
 const itemRef = (item: ListItem) => item.fqn ?? `${extensionTypeToPlural[item.type]}/${item.name}`;
-const nativeInspection = (item: ListItem) =>
-  "agentOutcomes" in item.inspection ? item.inspection : undefined;
 
 interface ListTableRow {
   readonly extension: string;
@@ -38,10 +36,6 @@ interface ListTableRow {
   readonly guidance: string;
   readonly configuredAgents: string;
   readonly observedAgents: string;
-  readonly inspectionState: string;
-  readonly nativeLocations: string;
-  readonly configuredConsumers: string;
-  readonly discovery: string;
 }
 
 /** What `axm lint` reports on: an installation desired state no longer reaches, or one that is missing. */
@@ -80,10 +74,6 @@ const ExtensionListColumns = [
     priority: "optional",
     value: (row: ListTableRow) => row.observedAgents,
   },
-  { header: "Inspection", value: (row: ListTableRow) => row.inspectionState },
-  { header: "Native locations", value: (row: ListTableRow) => row.nativeLocations },
-  { header: "Configured consumers", value: (row: ListTableRow) => row.configuredConsumers },
-  { header: "Discovery", value: (row: ListTableRow) => row.discovery },
   { header: "Version", value: (row: ListTableRow) => row.version },
   { header: "Source", priority: "optional", value: (row: ListTableRow) => row.source },
   {
@@ -136,27 +126,6 @@ const toRow = (item: ListItem): ListTableRow => ({
   guidance: guidanceFor(item),
   configuredAgents: item.agents.configured.join(", ") || ABSENT,
   observedAgents: item.agents.observed.join(", ") || ABSENT,
-  inspectionState: item.inspection.state,
-  nativeLocations:
-    nativeInspection(item)
-      ?.nativeLocations?.map(
-        (unit) =>
-          `${unit.address.path}: ${unit.state}${unit.policyReasons.length === 0 ? "" : ` (${unit.policyReasons.join(", ")})`}`,
-      )
-      .join("; ") || ABSENT,
-  configuredConsumers:
-    [
-      ...new Set(
-        nativeInspection(item)?.nativeLocations?.flatMap((unit) => unit.configuredConsumers) ?? [],
-      ),
-    ].join(", ") || ABSENT,
-  discovery:
-    nativeInspection(item)
-      ?.duplicateDiscoveries?.map(
-        (duplicate) =>
-          `${duplicate.agentId}: ${String(duplicate.nativeUnits.length)} locations; runtime selection unverified`,
-      )
-      .join("; ") || ABSENT,
 });
 
 /**
@@ -226,7 +195,6 @@ const emptyFilteredInventoryDoc = (
 export const listDoc = (options: {
   readonly items: ReadonlyArray<ListItem>;
   readonly filter: ExtensionListFilter;
-  readonly details?: boolean;
   /** How much of the inventory a filtered listing could assess. */
   readonly coverage?: ExtensionListDocument["coverage"];
   readonly emptyState?: EmptyInventory;
@@ -239,18 +207,12 @@ export const listDoc = (options: {
       : emptyFilteredInventoryDoc(options.filter, coverage);
   return inventoryDoc({
     rows,
-    columns: (options.filter === "all"
-      ? ExtensionListColumns.filter(
-          (column) => column.header !== "Assessment" && column.header !== "Guidance",
-        )
-      : ExtensionListColumns
-    ).filter(
-      (column) =>
-        options.details === true ||
-        !["Inspection", "Native locations", "Configured consumers", "Discovery"].includes(
-          column.header,
-        ),
-    ),
+    columns:
+      options.filter === "all"
+        ? ExtensionListColumns.filter(
+            (column) => column.header !== "Assessment" && column.header !== "Guidance",
+          )
+        : ExtensionListColumns,
     summary:
       coverage === undefined
         ? inventorySentence(rows)

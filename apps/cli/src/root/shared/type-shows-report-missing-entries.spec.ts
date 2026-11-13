@@ -1,17 +1,17 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { renderSuggestedAction } from "@agentxm/workspace-kernel/operations";
+import * as Schema from "effect/Schema";
+import { LocalInspectionDocumentSchema } from "@agentxm/workspace-features/inspection";
 import { handleExtensionShow } from "./extension-show.js";
 import { authoringTypes } from "../../test-support/authoring-fixtures.js";
 import { makeReadSpecWorkspace } from "../../test-support/read-harness.js";
-import { getAppError } from "../../test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/type-shows-report-missing-entries",
   title: "Type inspection identifies missing entries",
   statement:
-    "When a skills show, mcps show, subagents show, rules show, hooks show, or knowledge show target has no configured, installed, or detected local entry, AXM shall report that entry as not found with a command for inspecting the available entries.",
+    "When a skills show, mcps show, subagents show, rules show, hooks show, or knowledge show target has no configured, installed, or detected local entry, AXM shall emit an inspection result retaining the selected request as not-found, exit with code 3, and provide a read-only command for inspecting the available entries.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -36,14 +36,21 @@ describe("Unknown local extension", () => {
       const workspace = makeReadSpecWorkspace();
       return workspace.provide(
         Effect.gen(function* () {
-          const error = getAppError(
-            yield* Effect.flip(handleExtensionShow({ type, name: "absent" })),
+          const outcome = yield* handleExtensionShow({ type, name: "absent" });
+          expect(outcome.exitCode).toBe(3);
+          const document = Schema.decodeUnknownSync(LocalInspectionDocumentSchema)(
+            workspace.rendererState.results[0]?.data,
           );
-          expect(error.code).toBe("not_found");
-          expect(error.suggestions?.map(renderSuggestedAction)).toEqual(
-            expect.arrayContaining([expect.objectContaining({ cmd: `axm ${row.plural} list` })]),
-          );
-          expect(workspace.rendererState.results).toEqual([]);
+          expect(document.requests).toMatchObject([
+            {
+              input: "absent",
+              resolution: "not-found",
+              code: 3,
+              subjectRefs: [],
+              navigation: [`axm ${row.plural} list`],
+            },
+          ]);
+          expect(document.items).toEqual([]);
         }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
       );
     });

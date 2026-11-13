@@ -1,3 +1,4 @@
+import { PlanWireDocumentSchema } from "../test-support/plan-wire-document.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -10,7 +11,6 @@ import {
   OperationPhaseSchema,
   SettledOutcomeSchema,
 } from "@agentxm/workspace-kernel/operations";
-import { PlanResolutionDocumentSchema } from "../operation-output.js";
 import { ProgressEventSchema } from "./index.js";
 import { MachineEventSchema } from "../machine-output-api.js";
 import { HELP_TOPICS } from "../__generated__/help-topics.js";
@@ -45,7 +45,7 @@ export const specification = defineSpecification({
 const decodeProgressEvent = Schema.decodeUnknownEffect(ProgressEventSchema);
 const decodeOperationEvent = Schema.decodeUnknownEffect(OperationEventSchema);
 const encodeOperationEvent = Schema.encodeEffect(OperationEventSchema);
-const decodeDocument = Schema.decodeUnknownEffect(PlanResolutionDocumentSchema);
+const decodeDocument = Schema.decodeUnknownEffect(PlanWireDocumentSchema);
 
 /** Every stderr line that is a JSON object with `type: "progress"`, with the log index it came from. */
 const progressLines = (
@@ -302,7 +302,7 @@ describe("Machine progress event contract", () => {
       const resultIndex = log.findIndex((entry) => entry.channel === "stdout");
       expect(resultIndex).toBeGreaterThan(-1);
       const document = yield* decodeDocument(JSON.parse(log[resultIndex]?.content ?? ""));
-      expect(document.result.outcome).toBe("applied");
+      expect(document.outcome).toBe("applied");
 
       const [terminal] = settled;
       expect(terminal).toBeDefined();

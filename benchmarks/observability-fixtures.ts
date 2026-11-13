@@ -819,7 +819,7 @@ export const prepareObservabilityFixtures = Effect.fnUntraced(function* (
 ) {
   const scenarios: ObservabilityScenario[] = [];
   const proxyOwner = path.join(root, "proxy-owner");
-  const registryOrigin = "http://127.0.0.1:" + options.proxyPort;
+  const registryOrigin = "http://[::1]:" + options.proxyPort;
   const selectProfile = (upstream: string, profile: "baseline" | "typical" | "slow") =>
     controlNetwork({ action: "stop", worktree: proxyOwner, api: options.proxyApi }).pipe(
       Effect.andThen(

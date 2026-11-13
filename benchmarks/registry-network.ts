@@ -29,17 +29,18 @@ const program = Effect.gen(function* () {
   );
   const operationFilter = process.env["AXM_NETWORK_OPERATION"];
   const profileFilter = process.env["AXM_NETWORK_PROFILE"];
+  // Untraced repeats precede one traced sample; zero selects only the traced sample.
   const repetitions = Number(process.env["AXM_NETWORK_REPETITIONS"] ?? 3);
   const sizes = (process.env["AXM_NETWORK_SIZES"] ?? "10").split(",").map(Number);
   if (
     !Number.isInteger(repetitions) ||
-    repetitions < 1 ||
+    repetitions < 0 ||
     repetitions > 10 ||
     new Set(sizes).size !== sizes.length ||
     sizes.some((size) => ![1, 10, 50].includes(size))
   ) {
     return yield* new BenchmarkError({
-      message: "Use repetitions 1..10 and sizes selected from 1,10,50.",
+      message: "Use repetitions 0..10 and sizes selected from 1,10,50.",
     });
   }
   // Never pair a fresh timing run with receipts left by an older invocation.

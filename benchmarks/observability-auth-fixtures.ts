@@ -88,6 +88,11 @@ export const prepareAuthObservabilityFixtures = Effect.fnUntraced(function* (opt
     // Preparation is outside the measured interval and its requests are reset.
     prepare: (fixture, invoke) =>
       Effect.gen(function* () {
+        // A real sign-out also establishes the same refresh-lock file on every
+        // sample. Logging out an already empty keychain would skip that state.
+        yield* invoke(fixture, ["login", "--yes", "--device-code", "--wait-for-human", "5"], {
+          environment: { CI: "0" },
+        });
         yield* invoke(fixture, ["logout"], { environment: { CI: "0" } });
         if (item.command !== "login")
           yield* invoke(fixture, ["login", "--device-code", "--wait-for-human", "5"], {

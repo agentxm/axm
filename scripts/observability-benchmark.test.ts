@@ -35,7 +35,11 @@ import {
   discoverObservabilityRoutes,
   makeObservabilityCoverage,
 } from "../benchmarks/observability-coverage.js";
-import { periodicMaintenanceWork, workDigest } from "../benchmarks/observability.js";
+import {
+  automaticCacheMaintenanceWork,
+  periodicMaintenanceWork,
+  workDigest,
+} from "../benchmarks/observability.js";
 
 const budgets = Schema.decodeUnknownSync(Schema.fromJsonString(ObservabilityBudgetsSchema))(
   fs.readFileSync(new URL("../benchmarks/observability-budgets.json", import.meta.url), "utf8"),
@@ -81,6 +85,7 @@ const samples = (repetitions = 5): ObservationSample[] => {
                   complete: true,
                   delivery: "not-individually-inspected",
                   periodicMaintenance: null,
+                  automaticCacheMaintenance: null,
                   retainedSpanCount: 3,
                   retainedDetailSpanCount: null,
                   summaryGroups: 1,
@@ -106,6 +111,7 @@ const preflight = (): PreflightCheck[] =>
             complete: true,
             delivery: "inspected",
             periodicMaintenance: [],
+            automaticCacheMaintenance: [],
             retainedSpanCount: 3,
             retainedDetailSpanCount: 1,
             summaryGroups: 1,
@@ -795,6 +801,100 @@ describe("independent comparison artifacts", () => {
       expect(workDigest([row])).not.toBe(workDigest([]));
     }
   });
+
+  it.effect("separates only inventory-reconciled automatic non-evicting cache scan stats", () =>
+    Effect.gen(function* () {
+      const scan = (
+        count: number,
+        attributes: Readonly<Record<string, string | number | boolean>> = {},
+      ) => ({
+        spanId: "a".repeat(16),
+        parentSpanId: "b".repeat(16),
+        name: "axm.archive.cache-prune",
+        elapsedMs: 1,
+        attributes: {
+          "axm.cache.prune.trigger": "automatic",
+          "axm.outcome": "success",
+          "axm.cache.entries-scanned": count,
+          "axm.cache.entries-removed": 0,
+          "axm.cache.bytes-freed": 0,
+          ...attributes,
+        },
+      });
+      const stat = (count: number): TraceWorkSummary => ({
+        ...heartbeatWork("stat", count),
+        owner: "a".repeat(16),
+        ownerName: "axm.archive.cache-prune",
+        kind: "axm.io.stat",
+        dimensions: {
+          "axm.work.owner": "axm.archive.cache-prune",
+          "axm.outcome": "success",
+          "axm.operation.phase": "acquisition",
+        },
+      });
+      const product = deliveredReuse("hit");
+      for (const count of [4, 5]) {
+        const rows = [product, stat(count)];
+        const original = structuredClone(rows);
+        const retained = yield* automaticCacheMaintenanceWork({
+          work: rows,
+          cacheMaintenance: [scan(count)],
+        });
+        expect(retained).toEqual([rows[1]]);
+        expect(rows).toEqual(original);
+        const variable = new Set(retained);
+        expect(workDigest(rows.filter((row) => !variable.has(row)))).toBe(workDigest([product]));
+      }
+      for (const attributes of [
+        { "axm.cache.prune.trigger": "explicit" },
+        { "axm.outcome": "failure" },
+        { "axm.outcome": "interrupted" },
+        { "axm.cache.entries-removed": 1 },
+        { "axm.cache.bytes-freed": 1 },
+      ]) {
+        expect(
+          yield* automaticCacheMaintenanceWork({
+            work: [stat(4)],
+            cacheMaintenance: [scan(4, attributes)],
+          }),
+        ).toEqual([]);
+      }
+      const strict: TraceWorkSummary[] = [
+        { ...stat(4), owner: "c".repeat(16) },
+        { ...stat(4), ownerName: "axm.operation.phase" },
+        { ...stat(4), count: 3 },
+        { ...stat(4), executed: 3 },
+        { ...stat(4), bytes: 0 },
+        { ...stat(4), measurements: {} },
+        { ...stat(4), dimensions: { ...stat(4).dimensions, "axm.outcome": "failure" } },
+        { ...stat(4), dimensions: { ...stat(4).dimensions, "axm.failure.kind": "denied" } },
+        { ...stat(4), kind: "axm.io.remove" },
+      ];
+      for (const row of strict) {
+        const result = yield* automaticCacheMaintenanceWork({
+          work: [row],
+          cacheMaintenance: [scan(4)],
+        }).pipe(Effect.result);
+        expect(result._tag).toBe("Failure");
+      }
+      for (const count of [3, 5, -1, 1.5])
+        expect(
+          (yield* automaticCacheMaintenanceWork({
+            work: [stat(4)],
+            cacheMaintenance: [scan(count)],
+          }).pipe(Effect.result))._tag,
+        ).toBe("Failure");
+      expect(
+        yield* automaticCacheMaintenanceWork({ work: [], cacheMaintenance: [scan(0)] }),
+      ).toEqual([]);
+      expect(
+        workDigest([
+          product,
+          { ...stat(1), owner: "c".repeat(16), ownerName: "axm.operation.phase" },
+        ]),
+      ).not.toBe(workDigest([product]));
+    }),
+  );
 
   it("includes transitive fixture modules in the executable harness identity", () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "axm-observability-provenance-"));

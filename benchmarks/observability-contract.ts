@@ -110,6 +110,8 @@ export interface ObservationSample {
     readonly delivery: "inspected" | "not-individually-inspected";
     /** Exact inspected heartbeat facts; null means this timing trace was not retrieved. */
     readonly periodicMaintenance: ReadonlyArray<PeriodicMaintenanceFact> | null;
+    /** Exact inventory-reconciled automatic scan stat rows; timing traces are uninspected. */
+    readonly automaticCacheMaintenance: ReadonlyArray<PeriodicMaintenanceFact> | null;
     readonly retainedSpanCount: number;
     readonly retainedDetailSpanCount: number | null;
     readonly summaryGroups: number;

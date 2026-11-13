@@ -39,6 +39,21 @@ const values = (attributes: ReceivedSpan["attributes"]) =>
     ]),
   );
 
+const aggregateDigest = (logs: ReadonlyArray<ReceivedLog>) =>
+  createHash("sha256")
+    .update(
+      logs
+        .map((log) =>
+          JSON.stringify([
+            "axm.work.summary",
+            Object.entries(values(log.attributes)).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+          ]),
+        )
+        .sort()
+        .join("\n"),
+    )
+    .digest("hex");
+
 // This projection proves exporter/inspector composition against actual wire data.
 // It does not establish Seq's translation of OTLP; the real Seq E2E owns that boundary.
 const receiverTree = (spans: ReadonlyArray<ReceivedSpan>, logs: ReadonlyArray<ReceivedLog>) => {
@@ -234,6 +249,179 @@ const capture = (mode: "summary" | "detail", fault?: "unobserved-read" | "missin
   });
 
 describe("Local work through the exporter and inspector", () => {
+  it.live(
+    "retains each cache scan and its own physical stat accounting in summary and detail",
+    () =>
+      Effect.gen(function* () {
+        const native = yield* FileSystem.FileSystem;
+        const directory = yield* native.makeTempDirectoryScoped();
+        const files = ["one", "two", "three"].map((name) => join(directory, name));
+        for (const file of files) yield* native.writeFileString(file, "fixture");
+        const scans = [
+          { trigger: "automatic", files: files.slice(0, 2) },
+          { trigger: "automatic", files },
+          { trigger: "explicit", files: files.slice(0, 1) },
+        ];
+        for (const detail of ["", "io"]) {
+          const receiver = yield* localTracingCollector();
+          const receiptPath = join(directory, detail === "" ? "summary.json" : "detail.json");
+          const called: string[] = [];
+          const observed = observedFileSystem(
+            FileSystem.make({
+              ...native,
+              stat: (target) =>
+                native.stat(target).pipe(Effect.tap(() => Effect.sync(() => called.push(target)))),
+            }),
+          );
+          // Controlled semantic intervals exercise admission and serialization;
+          // Registry cache owner tests independently establish production inventory.
+          yield* withLocalTracing(
+            Effect.forEach(scans, (scan) =>
+              Effect.forEach(scan.files, (file) => observed.stat(file)).pipe(
+                Effect.withSpan("axm.archive.cache-prune", {
+                  attributes: {
+                    "axm.cache.prune.trigger": scan.trigger,
+                    "axm.cache.entries-scanned": scan.files.length,
+                    "axm.cache.entries-removed": 0,
+                    "axm.cache.bytes-freed": 0,
+                  },
+                }),
+              ),
+            ).pipe(
+              Effect.withSpan("axm.archive.admit"),
+              Effect.withSpan("axm.operation.phase", {
+                attributes: { "axm.operation.phase": "acquisition" },
+              }),
+            ),
+            {
+              AXM_TRACE: "1",
+              AXM_TRACE_DETAIL: detail,
+              AXM_TRACE_ENDPOINT: receiver.endpoint,
+              AXM_TRACE_RECEIPT: receiptPath,
+            },
+          );
+          expect(called).toEqual(scans.flatMap((scan) => scan.files));
+          const receipt = yield* Schema.decodeUnknownEffect(
+            Schema.fromJsonString(TraceReceiptSchema),
+          )(yield* native.readFileString(receiptPath));
+          expect(receipt.unrecognizedAttributeCount).toBe(0);
+          expect(receipt.producerComplete).toBe(true);
+          const spans = receiver.spans();
+          const logs = receiver.logs();
+          const report = yield* inspectLocalTrace(receipt, receiverTree(spans, logs));
+          expect(report.cacheMaintenance).toHaveLength(scans.length);
+          expect(new Set(report.cacheMaintenance.map((span) => span.spanId)).size).toBe(
+            scans.length,
+          );
+          expect(spans.filter((span) => span.name === "axm.io.stat")).toHaveLength(
+            detail === "io" ? called.length : 0,
+          );
+          for (const scan of scans) {
+            const owner = report.cacheMaintenance.find(
+              (span) =>
+                span.attributes["axm.cache.prune.trigger"] === scan.trigger &&
+                span.attributes["axm.cache.entries-scanned"] === scan.files.length,
+            );
+            expect(owner).toBeDefined();
+            if (owner === undefined)
+              return yield* Effect.die("Missing independently expected scan");
+            expect(owner.attributes).toMatchObject({
+              "axm.outcome": "success",
+              "axm.cache.entries-removed": 0,
+              "axm.cache.bytes-freed": 0,
+            });
+            const stats = report.work.filter(
+              (row) => row.kind === "axm.io.stat" && row.owner === owner.spanId,
+            );
+            expect(stats).toHaveLength(1);
+            expect(stats[0]).toMatchObject({
+              ownerName: "axm.archive.cache-prune",
+              count: scan.files.length,
+              executed: scan.files.length,
+              measurements: {
+                "axm.work.executed": {
+                  total: scan.files.length,
+                  measured: scan.files.length,
+                  occurrences: scan.files.length,
+                },
+              },
+            });
+          }
+          const wrongOwner = spans.find((span) => span.name === "axm.archive.admit");
+          const firstOwner = report.cacheMaintenance[0];
+          if (wrongOwner === undefined || firstOwner === undefined)
+            return yield* Effect.die("Missing owner-control spans");
+          let changed = 0;
+          const corrupted = logs.map((log) => {
+            if (
+              log.spanId !== firstOwner.spanId ||
+              values(log.attributes)["axm.summary.kind"] !== "axm.io.stat"
+            )
+              return log;
+            changed++;
+            return {
+              ...log,
+              spanId: wrongOwner.spanId,
+              attributes: log.attributes.map((attribute) =>
+                attribute.key === "axm.summary.owner"
+                  ? { ...attribute, value: { stringValue: wrongOwner.spanId } }
+                  : attribute,
+              ),
+            };
+          });
+          expect(changed).toBe(1);
+          expect(
+            yield* Effect.flip(
+              inspectLocalTrace(
+                { ...receipt, aggregateEventsSha256: aggregateDigest(corrupted) },
+                receiverTree(spans, corrupted),
+              ),
+            ),
+          ).toMatchObject({ code: "invalid-summary" });
+        }
+      }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.live("rejects unbounded cache scan attributes without exporting their private values", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const directory = yield* fs.makeTempDirectoryScoped();
+      const receiptPath = join(directory, "receipt.json");
+      const receiver = yield* localTracingCollector();
+      const invalid = [
+        { "axm.cache.prune.trigger": "PRIVATE-cache-path" },
+        { "axm.cache.prune.trigger": "scheduled" },
+        { "axm.cache.entries-scanned": -1 },
+        { "axm.cache.entries-removed": 1.5 },
+        { "axm.cache.bytes-freed": Number.NaN },
+        { "axm.cache.bytes-freed": Number.POSITIVE_INFINITY },
+        { "axm.cache.entries-scanned": Number.MAX_SAFE_INTEGER + 1 },
+        { "axm.cache.entries-removed": "PRIVATE-cache-value" },
+      ];
+      yield* withLocalTracing(
+        Effect.forEach(invalid, (attributes) => Effect.annotateCurrentSpan(attributes)).pipe(
+          Effect.withSpan("axm.archive.cache-prune"),
+        ),
+        { AXM_TRACE: "1", AXM_TRACE_ENDPOINT: receiver.endpoint, AXM_TRACE_RECEIPT: receiptPath },
+      );
+      const receipt = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(TraceReceiptSchema))(
+        yield* fs.readFileString(receiptPath),
+      );
+      expect(receipt.unrecognizedAttributeCount).toBe(invalid.length);
+      expect(receiver.bodies.join("")).not.toContain("PRIVATE-cache");
+      const prune = receiver.spans().find((span) => span.name === "axm.archive.cache-prune");
+      expect(prune).toBeDefined();
+      expect(prune?.attributes.some((attribute) => attribute.key.startsWith("axm.cache."))).toBe(
+        false,
+      );
+      expect(
+        yield* Effect.flip(
+          inspectLocalTrace(receipt, receiverTree(receiver.spans(), receiver.logs())),
+        ),
+      ).toMatchObject({ code: "producer-loss" });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
   it.live("preserves owner work units and batch totals separately from span occurrences", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -363,21 +551,7 @@ describe("Local work through the exporter and inspector", () => {
         // digest; the independently counted lookup still rejects that evidence.
         const resigned = {
           ...receipt,
-          aggregateEventsSha256: createHash("sha256")
-            .update(
-              corrupted
-                .map((log) =>
-                  JSON.stringify([
-                    "axm.work.summary",
-                    Object.entries(values(log.attributes)).sort(([a], [b]) =>
-                      a < b ? -1 : a > b ? 1 : 0,
-                    ),
-                  ]),
-                )
-                .sort()
-                .join("\n"),
-            )
-            .digest("hex"),
+          aggregateEventsSha256: aggregateDigest(corrupted),
         };
         expect((yield* inspectLocalTrace(resigned, tree)).evidence.aggregateIdentityVerified).toBe(
           true,

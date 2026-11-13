@@ -213,39 +213,52 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
         Effect.mapError((cause) => cacheError(`Failed to remove cache entry: ${entryPath}`, cause)),
       );
 
-  const prune = Effect.fnUntraced(function* (): Effect.fn.Return<
-    ArchiveCachePruneResult,
-    RegistryClientFailure
-  > {
-    const now = yield* DateTime.now;
-    const entries = [...(yield* listEntries())].sort((a, b) =>
-      DateTime.Order(a.accessedAt, b.accessedAt),
-    );
-    let retainedBytes = entries.reduce((total, entry) => total + entry.size, 0);
-    const removed: Array<CacheEntry> = [];
-    for (const entry of entries) {
-      if (!Duration.isGreaterThan(DateTime.distance(entry.accessedAt, now), maxAge)) continue;
-      if (entry.integrity !== undefined && (yield* Ref.get(active)).has(entry.integrity)) continue;
-      yield* removeEntry(entry.path);
-      removed.push(entry);
-      retainedBytes -= entry.size;
-    }
-    const removedPaths = new Set(removed.map((entry) => entry.path));
-    for (const entry of entries) {
-      if (retainedBytes <= maxBytes) break;
-      if (removedPaths.has(entry.path)) continue;
-      if (entry.integrity !== undefined && (yield* Ref.get(active)).has(entry.integrity)) continue;
-      yield* removeEntry(entry.path);
-      removed.push(entry);
-      retainedBytes -= entry.size;
-    }
-    return {
-      removed: removed.length,
-      bytesFreed: removed.reduce((total, entry) => total + entry.size, 0),
-      remaining: entries.length - removed.length,
-      remainingBytes: retainedBytes,
-    } satisfies ArchiveCachePruneResult;
-  });
+  const prune = (trigger: "automatic" | "explicit") =>
+    Effect.suspend(() => {
+      const removed: Array<CacheEntry> = [];
+      return Effect.gen(function* () {
+        const now = yield* DateTime.now;
+        const entries = [...(yield* listEntries())].sort((a, b) =>
+          DateTime.Order(a.accessedAt, b.accessedAt),
+        );
+        yield* Effect.annotateCurrentSpan("axm.cache.entries-scanned", entries.length);
+        let retainedBytes = entries.reduce((total, entry) => total + entry.size, 0);
+        for (const entry of entries) {
+          if (!Duration.isGreaterThan(DateTime.distance(entry.accessedAt, now), maxAge)) continue;
+          if (entry.integrity !== undefined && (yield* Ref.get(active)).has(entry.integrity))
+            continue;
+          yield* removeEntry(entry.path);
+          removed.push(entry);
+          retainedBytes -= entry.size;
+        }
+        const removedPaths = new Set(removed.map((entry) => entry.path));
+        for (const entry of entries) {
+          if (retainedBytes <= maxBytes) break;
+          if (removedPaths.has(entry.path)) continue;
+          if (entry.integrity !== undefined && (yield* Ref.get(active)).has(entry.integrity))
+            continue;
+          yield* removeEntry(entry.path);
+          removed.push(entry);
+          retainedBytes -= entry.size;
+        }
+        return {
+          removed: removed.length,
+          bytesFreed: removed.reduce((total, entry) => total + entry.size, 0),
+          remaining: entries.length - removed.length,
+          remainingBytes: retainedBytes,
+        } satisfies ArchiveCachePruneResult;
+      }).pipe(
+        Effect.onExit(() =>
+          Effect.annotateCurrentSpan({
+            "axm.cache.entries-removed": removed.length,
+            "axm.cache.bytes-freed": removed.reduce((total, entry) => total + entry.size, 0),
+          }),
+        ),
+        Effect.withSpan("axm.archive.cache-prune", {
+          attributes: { "axm.cache.prune.trigger": trigger },
+        }),
+      );
+    });
 
   const read = Effect.fnUntraced(
     function* (
@@ -320,7 +333,7 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
           const next = (count + 1) % 4;
           return [next === 0, next] as const;
         });
-        if (shouldPrune) yield* prune();
+        if (shouldPrune) yield* prune("automatic");
       }
     },
     (effect) => withWork("axm.archive.cache-write", effect),
@@ -420,7 +433,7 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
     (effect) => withWork("axm.archive.cache-verify", effect),
   );
 
-  return { load, read, write, status, verify, prune };
+  return { load, read, write, status, verify, prune: () => prune("explicit") };
 });
 
 export const makeUserArchiveCache = Effect.fnUntraced(function* (): Effect.fn.Return<

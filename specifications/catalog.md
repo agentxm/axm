@@ -5750,7 +5750,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/local-tracing-describes-operation-work`
 - Owner: `cli`
-- Statement: An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse, admission latency from proven contention, and complete Registry requests from header arrival without reporting every implementation helper.
+- Statement: An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse, admission latency from proven contention, and complete Registry requests from header arrival without reporting every implementation helper. Automatic and explicit archive-cache pruning shall expose causal scan intervals with observed inventory and removal results; physical scan work shall retain its exact scan owner.
 - Class: functional
 - Role: interface
 - Product goals: `actionable-diagnostics`

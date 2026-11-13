@@ -864,6 +864,9 @@ export const inspectLocalTrace = Effect.fnUntraced(function* (
           span.name === "axm.operation.wait",
       )
       .map(describe),
+    cacheMaintenance: selectedSpans
+      .filter((span) => span.name === "axm.archive.cache-prune")
+      .map(describe),
     work: selectedWork,
   };
 });

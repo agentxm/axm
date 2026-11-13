@@ -246,6 +246,7 @@ process exit, and diagnostic delivery are separate facts.
 | `axm.registry.attempt`                                | One attempt, including response decoding or archive-body consumption.                                                                                                                                             |
 | `axm.http.request`                                    | Base-transport exchange until response headers; check counts against the fixture server's request log.                                                                                                            |
 | `axm.registry.archive-body`                           | Archive-body consumption and successful byte counts; a cache hit does not download a body.                                                                                                                        |
+| `axm.archive.cache-prune`                             | One existing automatic or explicit cache-maintenance interval and direct aggregate owner. Inspector `cacheMaintenance` retains each scan's trigger, scanned inventory, removed entries and freed bytes.           |
 | `axm.wait.*`, `axm.registry.retry-wait`               | Resource, lock, or retry delay at its owner.                                                                                                                                                                      |
 | `axm.admission.*`                                     | Completed permit/ledger admissions, including uncontended ones; aggregate counts, capacity units and measured duration. Native detail selects individual intervals. This is not a blocked-wait count or duration. |
 | `axm.native.lock-*`                                   | Native lock attempts, cleanup and callback I/O. Summary aggregates these primitives; native detail can expose individual intervals. Proven contention remains a separate wait.                                    |
@@ -484,6 +485,26 @@ measured heartbeats and all other native work remain in the strict comparison.
 The owning lock test independently observes actual heartbeat/mtime refresh with
 tracing enabled and disabled. This distinction does not permit missing accounting
 or a performance claim from unequal-duration diagnostics.
+
+Automatic archive-cache pruning runs after every fourth eligible cache write.
+Concurrent commits can change the inventory visible to each scan. Its semantic
+`axm.archive.cache-prune` span owns the existing scan's aggregates and records
+the inventory size, trigger, removed entries and freed bytes without adding
+product reads or per-entry spans.
+
+The benchmark makes an explicit cross-run comparison exception only for
+successful automatic scans that remove no entries and free no bytes. Each
+eligible `axm.io.stat` row must belong directly to that scan, have complete
+successful execution and duration measurements, and the sum of those rows'
+counts must exactly equal that scan's recorded inventory. These exact rows are
+retained in `trace.automaticCacheMaintenance`; the raw scans remain in inspection
+`cacheMaintenance`. Their counts may differ across runs without failing
+deterministic work equality. A missing or mismatched inventory fails the check.
+Generic acquisition I/O, explicit scans, deletions, failures, partial measurements
+and all other work remain strict. This changes the comparison methodology, not
+the requirement for exact per-invocation accounting or verified delivery.
+Timing samples record this field as `null` because delivery is uninspected;
+they do not repeat scan inspection or imply that no maintenance occurred.
 
 Preflight fixtures retain raw before/after native-directory receipts through the
 shared receipt capture. Independent filesystem checks distinguish unchanged

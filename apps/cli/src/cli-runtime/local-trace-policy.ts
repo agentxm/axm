@@ -54,6 +54,9 @@ const numberAttributes = new Set([
   "axm.wait.attempts",
   "axm.wait.requested-bytes",
   "axm.admission.capacity",
+  "axm.cache.entries-scanned",
+  "axm.cache.entries-removed",
+  "axm.cache.bytes-freed",
 ]);
 const booleanAttributes = new Set(["axm.work.reused", "axm.work.invalidated", "axm.changed"]);
 const attributeValues: Readonly<Record<string, ReadonlyArray<string>>> = {
@@ -91,6 +94,7 @@ const attributeValues: Readonly<Record<string, ReadonlyArray<string>>> = {
     "other",
   ],
   "axm.cache.outcome": ["hit", "miss", "corrupt", "coalesced", "bypass"],
+  "axm.cache.prune.trigger": ["automatic", "explicit"],
   "axm.native.operation": ["mkdir", "stat", "utimes", "write-file", "unlink", "rmdir"],
   "axm.native.phase": ["acquire", "heartbeat", "release", "cleanup", "exit"],
   "axm.admission.unit": ["permits", "bytes"],
@@ -324,6 +328,7 @@ export const traceSpanNames = new Set([
   "axm.archive.cache-load",
   "axm.archive.cache-write",
   "axm.archive.cache-verify",
+  "axm.archive.cache-prune",
   "axm.archive.integrity",
   "axm.archive.extraction",
   "axm.resolve.desired-state-reuse",
@@ -466,12 +471,13 @@ export const traceSpanNames = new Set([
   "selfUpdate.applyRegistryPackage",
 ]);
 
-/** Aggregation follows stable invocation/operation intervals, not each item. */
+/** Aggregation follows invocation, operation and cache-maintenance intervals, not each item. */
 export const isSummaryOwner = (name: string) =>
   name === "axm.cli.invocation" ||
   name === "axm.cli.command" ||
   name === "axm.cli.operation" ||
-  name === "axm.operation.phase";
+  name === "axm.operation.phase" ||
+  name === "axm.archive.cache-prune";
 
 /** The private aggregate logger admits only the bounded typed fact payload. */
 export const safeTraceAggregateAttribute = (key: string, value: unknown): boolean => {

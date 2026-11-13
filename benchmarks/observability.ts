@@ -170,6 +170,91 @@ const isPeriodicMaintenance = (row: TraceWorkSummary): boolean => {
 export const periodicMaintenanceWork = (work: ReadonlyArray<TraceWorkSummary>) =>
   work.filter(isPeriodicMaintenance);
 
+const automaticCacheMaintenanceComparison = {
+  owner: "axm.archive.cache-prune",
+  trigger: "automatic",
+  kind: "axm.io.stat",
+  condition:
+    "Successful non-evicting automatic scans only. Each owner's fully measured stat count must equal its recorded scanned inventory. Explicit pruning, deletions, failures and all other work remain strict.",
+  rationale:
+    "Concurrent archive commits can change the inventory seen by each existing automatic scan. Exact owner-bound stat rows remain in trace.automaticCacheMaintenance and the raw inspection; only their cross-run equality is omitted.",
+};
+
+/** Validate scan attribution before separating scheduling-dependent inventory work. */
+export const automaticCacheMaintenanceWork = (
+  inspected: Pick<
+    Effect.Success<ReturnType<typeof inspectLocalTrace>>,
+    "work" | "cacheMaintenance"
+  >,
+) =>
+  Effect.gen(function* () {
+    const retained: TraceWorkSummary[] = [];
+    for (const scan of inspected.cacheMaintenance) {
+      const attributes = scan.attributes;
+      if (
+        attributes["axm.cache.prune.trigger"] !== "automatic" ||
+        attributes["axm.outcome"] !== "success" ||
+        attributes["axm.cache.entries-removed"] !== 0 ||
+        attributes["axm.cache.bytes-freed"] !== 0
+      )
+        continue;
+      const scanned = attributes["axm.cache.entries-scanned"];
+      const rows = inspected.work.filter(
+        (row) => row.owner === scan.spanId && row.kind === "axm.io.stat",
+      );
+      const complete = rows.every((row) => {
+        const executed = row.measurements["axm.work.executed"];
+        const duration = row.measurements["axm.summary.work-duration-us"];
+        return (
+          row.ownerName === "axm.archive.cache-prune" &&
+          row.dimensions["axm.work.owner"] === "axm.archive.cache-prune" &&
+          row.dimensions["axm.outcome"] === "success" &&
+          Object.keys(row.dimensions).every((key) =>
+            ["axm.work.owner", "axm.outcome", "axm.operation.phase"].includes(key),
+          ) &&
+          Number.isSafeInteger(row.count) &&
+          row.count > 0 &&
+          row.executed === row.count &&
+          executed?.total === row.count &&
+          executed.measured === row.count &&
+          executed.occurrences === row.count &&
+          duration !== undefined &&
+          Number.isFinite(duration.total) &&
+          duration.total >= 0 &&
+          duration.measured === row.count &&
+          duration.occurrences === row.count &&
+          row.workDurationMs === duration.total / 1000 &&
+          Object.keys(row.measurements).length === 2 &&
+          [
+            row.requested,
+            row.reused,
+            row.bytes,
+            row.ioBytes,
+            row.archiveBytes,
+            row.workCount,
+            row.batchItems,
+            row.registryBatchItems,
+            row.archiveEntries,
+            row.deniedItems,
+          ].every((value) => value === null)
+        );
+      });
+      if (
+        typeof scanned !== "number" ||
+        !Number.isSafeInteger(scanned) ||
+        scanned < 0 ||
+        !complete ||
+        rows.reduce((total, row) => total + row.count, 0) !== scanned
+      )
+        return yield* fail(
+          "cache-maintenance-oracle",
+          "Automatic cache scan inventory does not reconcile with its exact owned stat observations.",
+        );
+      retained.push(...rows);
+    }
+    return retained;
+  });
+
 /** Compare deterministic work; preserve duration-dependent maintenance separately. */
 export const workDigest = (work: ReadonlyArray<TraceWorkSummary>): string => {
   const groups = new Map<string, Array<number | null>>();
@@ -415,6 +500,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             progress: progressComparisonNormalization,
             deliveredReuse: deliveredReuseComparison,
             periodicMaintenance: periodicMaintenanceComparison,
+            automaticCacheMaintenance: automaticCacheMaintenanceComparison,
             containerReceipts: containerReceiptComparison,
             fixtureRoots:
               "Temporary workspace/home roots normalize to indexed markers; raw bytes and hashes are retained.",
@@ -938,6 +1024,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 complete: true,
                 delivery: "not-individually-inspected",
                 periodicMaintenance: null,
+                automaticCacheMaintenance: null,
                 retainedSpanCount: receipt.retainedSpanCount,
                 retainedDetailSpanCount: null,
                 summaryGroups: receipt.aggregateEventCount,
@@ -1011,13 +1098,16 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                     "trace-operation-mode",
                     "The independently selected lint repair did not report apply mode.",
                   );
+                const automaticCacheMaintenance = yield* automaticCacheMaintenanceWork(inspected);
+                const variableRows = new Set(automaticCacheMaintenance);
                 trace = {
                   ...trace,
                   delivery: "inspected",
                   retainedDetailSpanCount: inspected.evidence.retainedDetailSpanCount,
                   summaryGroups: inspected.evidence.aggregateEventCount,
-                  workDigest: workDigest(inspected.work),
+                  workDigest: workDigest(inspected.work.filter((row) => !variableRows.has(row))),
                   periodicMaintenance: periodicMaintenanceWork(inspected.work),
+                  automaticCacheMaintenance,
                   retrievalBytes: Buffer.byteLength(retrieved.stdout),
                 };
               }

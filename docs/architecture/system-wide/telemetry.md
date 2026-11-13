@@ -135,6 +135,17 @@ and an optional phase before creating individual spans. Helpers with no useful
 independent fact need no instrumentation. Recording uses already available
 facts and never performs an enrichment-only product read.
 
+Archive-cache pruning is a consequential maintenance interval. Each existing
+automatic or explicitly requested prune has one semantic span that owns its
+direct work aggregates. It reports the trigger, scanned inventory size, removed
+entries and freed bytes from the existing algorithm. This adds no per-entry
+span, cache read or concurrency policy. Concurrent archive commits can change
+the inventory observed by an automatic scan; exact accounting for that scan
+does not imply identical work across separate invocations. Inspection preserves
+each scan and its owned facts. The tracing guide owns the bounded cross-run
+comparison rule; generic acquisition work, explicit maintenance, deletions,
+failures and incomplete measurements remain distinct.
+
 Permit and ledger admission, and native lock attempts and cleanup, are repeated
 coordination work. They update direct aggregates; native detail can select their
 individual intervals. Admission ends at the existing protected callback or

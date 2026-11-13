@@ -9,7 +9,7 @@ export const specification = defineSpecification({
   requirement: "cli/local-tracing-describes-operation-work",
   title: "Local traces nest actual work under its operation",
   statement:
-    "An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse, admission latency from proven contention, and complete Registry requests from header arrival without reporting every implementation helper.",
+    "An explicitly activated local trace shall represent an invocation and its meaningful operation phases with correctly nested spans, distinguishing actual work from reuse, admission latency from proven contention, and complete Registry requests from header arrival without reporting every implementation helper. Automatic and explicit archive-cache pruning shall expose causal scan intervals with observed inventory and removal results; physical scan work shall retain its exact scan owner.",
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics"],

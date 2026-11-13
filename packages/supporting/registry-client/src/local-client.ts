@@ -930,6 +930,15 @@ export const createLocalRegistryClient = (
               }),
         ),
       );
+      if (
+        args.exact !== undefined &&
+        `sha512-${createHash("sha512").update(archive).digest("base64")}` !== args.exact.integrity
+      ) {
+        return yield* new RegistryOperationFailed({
+          category: "conflict",
+          detail: "Local Registry archive integrity changed after content admission.",
+        });
+      }
       return {
         archive,
         ...(args.exact?.lifecycleWarnings === undefined || args.exact.lifecycleWarnings.length === 0

@@ -53,9 +53,19 @@ it.effect("admits file Registry items independently without HTTP or credential l
       exact: { version: exactVersion("1.0.0"), integrity, publisherBindingId: "publisher" },
     }));
     expect((yield* client.validateExtensionAccessBatch(args)).every(Result.isSuccess)).toBe(true);
-    yield* fs.writeFile(
-      path.join(root, "extensions", "@acme", "skills", "first", "1.0.0.zip"),
-      new Uint8Array([4]),
+    yield* client.withAccessibleContent(args, (content) =>
+      Effect.gen(function* () {
+        yield* fs.writeFile(
+          path.join(root, "extensions", "@acme", "skills", "first", "1.0.0.zip"),
+          new Uint8Array([4]),
+        );
+        const reads = yield* Effect.forEach(args, (item) => Effect.result(content.read(item)));
+        expect(reads.map(Result.isSuccess)).toEqual([false, true]);
+        const denied = reads[0];
+        expect(denied !== undefined && Result.isFailure(denied) && denied.failure.category).toBe(
+          "conflict",
+        );
+      }),
     );
     const results = yield* client.validateExtensionAccessBatch(args);
     expect(results.map(Result.isSuccess)).toEqual([false, true]);

@@ -7196,6 +7196,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary rationale: The production client emits encoded HTTP requests to a recording transport. This proves wire shape and result mapping, not deployed server policy or real sockets.
 - Methods: contract, example
 - Derived from: `packages/supporting/registry-client/specs/registry-openapi.json`
+- Additional evidence: process via [`apps/cli-e2e/src/warm-restore-admission.e2e.test.ts`](../apps/cli-e2e/src/warm-restore-admission.e2e.test.ts) — A compiled CLI restores ten exact identities from its real warm archive cache. The independent HTTP Registry journal records batch membership and every wire request; the controlled server does not establish deployed policy behavior.
 - Source: [`packages/supporting/registry-client/src/batches-exact-content-admission.spec.ts`](../packages/supporting/registry-client/src/batches-exact-content-admission.spec.ts)
 
 ##### Cached archives retain current Registry content authorization
@@ -7224,6 +7225,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: platform; selection: per-change
 - Boundary rationale: A real filesystem cache is read through the production HTTP Registry adapter over a recording transport. The evidence covers local byte reuse and callback lifetime, not deployed policy or workspace settlement.
 - Methods: contract, example
+- Additional evidence: process via [`apps/cli-e2e/src/warm-restore-admission.e2e.test.ts`](../apps/cli-e2e/src/warm-restore-admission.e2e.test.ts) — A compiled CLI restores ten exact identities from its real warm archive cache. The independent HTTP Registry journal records batch membership and every wire request; the controlled server does not establish deployed policy behavior.
 - Source: [`packages/supporting/registry-client/src/content-access-is-callback-scoped.spec.ts`](../packages/supporting/registry-client/src/content-access-is-callback-scoped.spec.ts)
 
 ##### Large workspace discovery respects the Registry request contract
@@ -8287,6 +8289,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: process; selection: per-change
 - Boundary rationale: The real candidate pipeline, Registry client, filesystem cache and archive extraction execute over a temporary workspace and controlled HTTP port. A separate process holds the production transition lock during revocation or source mutation. Request ordering, lock ownership and closure outcomes are observed; deployed Registry policy and compiled CLI behavior remain separate evidence.
 - Methods: example
+- Additional evidence: process via [`apps/cli-e2e/src/warm-restore-admission.e2e.test.ts`](../apps/cli-e2e/src/warm-restore-admission.e2e.test.ts) — A compiled CLI restores ten exact identities from its real warm archive cache. The independent HTTP Registry journal records batch membership and every wire request; the controlled server does not establish deployed policy behavior.
 - Source: [`packages/core/workspace-kernel/src/planning/plan/rechecks-registry-exposure.spec.ts`](../packages/core/workspace-kernel/src/planning/plan/rechecks-registry-exposure.spec.ts)
 
 #### Quality

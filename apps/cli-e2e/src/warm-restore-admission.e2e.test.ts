@@ -64,7 +64,8 @@ it("restores ten warm identities with two bulk admission stages and no archive r
     expect(admissions.map((batch) => batch.toSorted())).toEqual([expected, expected]);
     // Exact metadata selection may precede admission; every exchange remains a
     // bulk resolution POST, never an archive download or per-item HEAD probe.
-    expect(requests).toHaveLength(batches.length);
+    const wire = requests.map(({ method, path, status }) => ({ method, path, status }));
+    expect(wire, JSON.stringify(wire)).toHaveLength(batches.length);
     expect(
       requests.every((request) => request.method === "POST" && request.path === "/v1/resolutions"),
     ).toBe(true);

@@ -41,7 +41,7 @@ export const quietFlag = GlobalFlag.Setting("axm-quiet")({
 export const offlineFlag = GlobalFlag.Setting("axm-offline")({
   flag: Flag.Boolean("offline").pipe(
     withParameterDescription(
-      "Prohibit network access and external commands without network isolation for this invocation",
+      "Prohibit network access and external commands without network isolation",
     ),
     withParameterDefault(false),
   ),

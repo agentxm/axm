@@ -13,7 +13,7 @@
         "aliases": [],
         "type": "boolean",
         "required": false,
-        "description": "Prohibit network access and external commands without network isolation for this invocation",
+        "description": "Prohibit network access and external commands without network isolation",
         "default": false
       },
       {

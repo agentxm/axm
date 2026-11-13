@@ -25,6 +25,8 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import { ResolutionMetadataRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import { RegistryProblem } from "@agentxm/registry-client";
 import { GitDirectoryComparison } from "@agentxm/workspace-kernel/sources";
 import { GitDirectoryComparisonLive } from "@agentxm/workspace-kernel/sources/live";
@@ -287,6 +289,22 @@ describe("root publish", () => {
     const httpClient = HttpClient.make((request) =>
       Effect.sync(() => {
         const url = new URL(request.url);
+        if (request.method === "POST" && url.pathname === "/v1/resolutions") {
+          if (request.body._tag !== "Uint8Array") throw new Error("Expected resolution body");
+          const body = Schema.decodeUnknownSync(
+            Schema.fromJsonString(ResolutionMetadataRequestSchema),
+          )(new TextDecoder().decode(request.body.body));
+          return HttpClientResponse.fromWeb(
+            request,
+            Response.json({
+              schemaVersion: 2,
+              purpose: "select",
+              selectionPolicyVersion: "1",
+              observedAt: "2026-11-13T00:00:00.000Z",
+              results: body.items.map(({ key }) => ({ key, outcome: "unavailable" })),
+            }),
+          );
+        }
         if (request.method !== "GET") writes.push(`${request.method} ${url.pathname}`);
         if (request.method === "GET" && url.pathname === "/v1/owners/%40acme") {
           return HttpClientResponse.fromWeb(

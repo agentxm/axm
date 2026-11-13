@@ -11,6 +11,7 @@ import { afterEach, beforeEach } from "vitest";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { paintText } from "../../screen/index.js";
 import type { TestRendererState } from "../../test-support/presenter-test.js";
+import { readMetadataResponse } from "../../test-support/read-harness.js";
 import { handleView } from "./handler.js";
 
 /** The page a person reads, painted without colour or width limits. */
@@ -165,27 +166,31 @@ describe("view handler", () => {
       const httpClient = HttpClient.make((request) =>
         Effect.sync(() => {
           requests.push(request.url);
+          if (request.body._tag !== "Uint8Array") throw new Error("Expected selection body");
+          const body: unknown = JSON.parse(new TextDecoder().decode(request.body.body));
           return HttpClientResponse.fromWeb(
             request,
             new Response(
-              JSON.stringify({
-                name: "code-review",
-                owner: "@test",
-                type: "skill",
-                publisherBindingId: "hbnd_test",
-                description: "Review code",
-                visibility: "public",
-                archival: null,
-                deprecation: null,
-                versions: [
-                  {
-                    version: "1.2.3",
-                    published: "2026-01-01T00:00:00.000Z",
-                    integrity:
-                      "sha512-oZPmBsKw4V9MmWEKXqWEicPWv2+uPp/vwK7PoVdrq0iQ2XzkkpSMgnhftoI6Kp2WYonyyTJ4xp5WMU79ISoiiA==",
-                  },
-                ],
-              }),
+              JSON.stringify(
+                readMetadataResponse(body, {
+                  name: "code-review",
+                  owner: "@test",
+                  type: "skill",
+                  publisherBindingId: "hbnd_test",
+                  description: "Review code",
+                  visibility: "public",
+                  archival: null,
+                  deprecation: null,
+                  versions: [
+                    {
+                      version: "1.2.3",
+                      published: "2026-01-01T00:00:00.000Z",
+                      integrity:
+                        "sha512-oZPmBsKw4V9MmWEKXqWEicPWv2+uPp/vwK7PoVdrq0iQ2XzkkpSMgnhftoI6Kp2WYonyyTJ4xp5WMU79ISoiiA==",
+                    },
+                  ],
+                }),
+              ),
               { status: 200, headers: { "content-type": "application/json" } },
             ),
           );
@@ -202,9 +207,7 @@ describe("view handler", () => {
             registry: Option.none(),
           });
 
-          expect(requests).toEqual([
-            "https://registry.example.com/v1/extensions/%40test/skills/code-review",
-          ]);
+          expect(requests).toEqual(["https://registry.example.com/v1/resolutions"]);
           if (testCase.machine) {
             expect(ctx.rendererState.results[0]?.data).toMatchObject({
               fqn: "@test/skills/code-review",

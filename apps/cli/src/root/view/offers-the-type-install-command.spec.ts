@@ -8,7 +8,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { authoringTypes } from "../../test-support/authoring-fixtures.js";
 import { collectCommandPaths } from "../../test-support/command-tree-test-helpers.js";
-import { makeReadSpecWorkspace, readExtensionIndex } from "../../test-support/read-harness.js";
+import {
+  makeReadSpecWorkspace,
+  readExtensionIndex,
+  readMetadataResponse,
+} from "../../test-support/read-harness.js";
 import { handleView } from "./handler.js";
 
 export const specification = defineSpecification({
@@ -71,7 +75,13 @@ describe("Install guidance for inspected extensions", () => {
             }),
           ),
         ),
-        () => ({ body: { ...readExtensionIndex, type: row.type, name: "example" } }),
+        (request) => ({
+          body: readMetadataResponse(request.body, {
+            ...readExtensionIndex,
+            type: row.type,
+            name: "example",
+          }),
+        }),
       );
     });
 });

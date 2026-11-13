@@ -3,6 +3,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Deferred from "effect/Deferred";
+import * as Schema from "effect/Schema";
+import { ResolutionMetadataRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import { ExecutionDirectory } from "../execution-directory.js";
@@ -10,6 +12,29 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { makeSpecWorkspace, type SpecWorkspaceOptions } from "./install-harness.js";
 
 const readRegistry = "https://read-registry.example.test";
+
+/** Selection evidence for the exact caller keys sent by the production reader. */
+export const readMetadataResponse = (body: unknown, index: Readonly<Record<string, unknown>>) => {
+  const request = Schema.decodeUnknownSync(ResolutionMetadataRequestSchema)(body);
+  const observedAt = "2026-11-13T00:00:00.000Z";
+  return {
+    schemaVersion: 2,
+    purpose: "select",
+    selectionPolicyVersion: "1",
+    observedAt,
+    results: request.items.map(({ key }) => ({
+      key,
+      outcome: "metadata",
+      page: {
+        ...index,
+        revision: "read-fixture",
+        observedAt,
+        validUntil: "2099-01-01T00:00:00.000Z",
+        continuation: null,
+      },
+    })),
+  };
+};
 type ObservedRequest = {
   readonly method: string;
   readonly url: string;

@@ -1191,7 +1191,8 @@ export const startHttpRegistry = async (
 
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => resolve());
+    // IPv6 loopback isolates the journal from unrelated IPv4 service probes.
+    server.listen(0, "::1", () => resolve());
   });
 
   const address = server.address();
@@ -1200,7 +1201,7 @@ export const startHttpRegistry = async (
   }
 
   return {
-    url: `http://127.0.0.1:${address.port}`,
+    url: `http://[::1]:${address.port}`,
     publishes,
     requests,
     requestStarts,

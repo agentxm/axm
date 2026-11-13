@@ -86,6 +86,7 @@
     "@agentxm/extension-model": "workspace:*",
     "@agentxm/host-primitives": "workspace:*",
     "@agentxm/registry-client": "workspace:*",
+    "@agentxm/registry-protocol": "workspace:*",
     "@agentxm/specification-metadata": "workspace:*",
     "@agentxm/test-reporting": "workspace:*",
     "@agentxm/test-support": "workspace:*",

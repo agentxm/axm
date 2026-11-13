@@ -156,12 +156,11 @@ describe("Shared configured Pack member", () => {
           })),
         );
         const memberMetadata = metadataRequests.filter(
-          ({ identity, purpose }) =>
-            identity === `${OWNER}/skill/shared` && purpose !== "restore-exact",
+          ({ identity, purpose }) => identity === `${OWNER}/skill/shared` && purpose === "select",
         );
         const memberAccessChecks = metadataRequests.filter(
           ({ identity, purpose }) =>
-            identity === `${OWNER}/skill/shared` && purpose === "restore-exact",
+            identity === `${OWNER}/skill/shared` && purpose === "authorize-exact",
         );
         expect(batches.map((batch) => batch.toSorted())).toContainEqual(
           [`${OWNER}/pack/first-pack`, `${OWNER}/pack/second-pack`].toSorted(),
@@ -218,25 +217,18 @@ describe("Shared configured Pack member", () => {
             env: { ...env, HOME: consumerHome.path, AXM_USER_HOME: consumerHome.path },
           });
           expect(restored.exitCode, restored.stdout + restored.stderr).toBe(0);
-          // Exact restoration resolves the accepted choice, then rechecks current
-          // authorization before and after confirmation even with cached archives.
-          expect(registry.metadataRequests.slice(beforeRestoreMetadata).flat().toSorted()).toEqual(
-            [
-              `${OWNER}/pack/first-pack`,
-              `${OWNER}/skill/shared`,
-              `${OWNER}/pack/first-pack`,
-              `${OWNER}/skill/shared`,
-              `${OWNER}/pack/first-pack`,
-              `${OWNER}/skill/shared`,
-            ].toSorted(),
-          );
-          expect(registry.metadataPurposes.slice(beforeRestoreMetadata).flat()).toEqual([
-            "restore-exact",
-            "restore-exact",
-            "restore-exact",
-            "restore-exact",
-            "restore-exact",
-            "restore-exact",
+          // Cached exact restoration admits the accepted identities during
+          // acquisition and again before exposure, without selecting them anew.
+          const restoredIdentities = [
+            `${OWNER}/pack/first-pack`,
+            `${OWNER}/skill/shared`,
+          ].toSorted();
+          expect(
+            registry.metadataRequests.slice(beforeRestoreMetadata).map((batch) => batch.toSorted()),
+          ).toEqual([restoredIdentities, restoredIdentities]);
+          expect(registry.metadataPurposes.slice(beforeRestoreMetadata)).toEqual([
+            ["authorize-exact", "authorize-exact"],
+            ["authorize-exact", "authorize-exact"],
           ]);
           expect(fs.readFileSync(lockPath, "utf8")).toBe(acceptedLock);
           expect(fs.readFileSync(path.join(sharedRoot, "skill.json"), "utf8")).toBe(

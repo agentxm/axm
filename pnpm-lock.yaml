@@ -199,6 +199,9 @@ importers:
       '@agentxm/registry-client':
         specifier: workspace:*
         version: link:packages/supporting/registry-client
+      '@agentxm/registry-protocol':
+        specifier: workspace:*
+        version: link:packages/core/registry-protocol
       '@agentxm/specification-metadata':
         specifier: workspace:*
         version: link:tools/specification-metadata

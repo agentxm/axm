@@ -6,7 +6,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { VIEW_FIELDS } from "@agentxm/workspace-features/inspection";
 
 import { getAppError } from "../../test-support/test-helpers.js";
-import { makeReadSpecWorkspace, readExtensionIndex } from "../../test-support/read-harness.js";
+import {
+  makeReadSpecWorkspace,
+  readExtensionIndex,
+  readMetadataResponse,
+} from "../../test-support/read-harness.js";
 import { handleView } from "./handler.js";
 
 export const specification = defineSpecification({
@@ -73,10 +77,10 @@ const refusals = [
   },
   {
     label: "a reportable field the extension has no value for",
-    field: "version",
-    index: { ...readExtensionIndex, versions: [] },
+    field: "description",
+    index: { ...readExtensionIndex, description: undefined },
     code: "validation",
-    detail: 'Field "version" is not available',
+    detail: 'Field "description" is not available',
   },
 ] as const;
 
@@ -99,7 +103,7 @@ describe("Selected metadata field", () => {
           expect(workspace.rendererState.results).toHaveLength(1);
           expect(workspace.rendererState.results[0]?.data).toEqual(selection.value);
         }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
-        () => ({ body: readExtensionIndex }),
+        (request) => ({ body: readMetadataResponse(request.body, readExtensionIndex) }),
       );
     });
 
@@ -119,7 +123,9 @@ describe("Selected metadata field", () => {
           replacement: deprecation.replacement,
         });
       }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
-      () => ({ body: { ...readExtensionIndex, deprecation } }),
+      (request) => ({
+        body: readMetadataResponse(request.body, { ...readExtensionIndex, deprecation }),
+      }),
     );
   });
 
@@ -141,7 +147,7 @@ describe("Selected metadata field", () => {
           expect(error.detail).toContain(refusal.detail);
           expect(workspace.rendererState.results).toEqual([]);
         }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
-        () => ({ body: refusal.index }),
+        (request) => ({ body: readMetadataResponse(request.body, refusal.index) }),
       );
     });
 });

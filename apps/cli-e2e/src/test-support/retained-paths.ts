@@ -28,12 +28,13 @@ export const registryFixturePath = (
   ...published: ReadonlyArray<string>
 ): string => {
   const url = new URL(endpoint);
+  const host = url.hostname === "[::1]" ? "~5b~3a~3a1~5d" : url.hostname;
   const root =
     url.protocol === "file:"
       ? absoluteLocalFixturePath(fileURLToPath(url))
       : path.join(
           "agent_extensions",
-          url.hostname + (url.port === "" ? "" : `~3a${url.port}`),
+          host + (url.port === "" ? "" : `~3a${url.port}`),
           ...fixtureSegments(decodeURIComponent(url.pathname)),
         );
   return path.join(root, ...published);

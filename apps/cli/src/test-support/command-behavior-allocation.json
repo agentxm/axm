@@ -149,6 +149,18 @@
           "requirements": ["workspace/acknowledge-external-execution"]
         }
       ]
+    },
+    "offline": {
+      "rawHelp": {
+        "aliases": [],
+        "type": "boolean",
+        "required": false
+      },
+      "bindings": [
+        {
+          "requirements": ["cli/network/offline-prohibits-network"]
+        }
+      ]
     }
   },
   "openTopics": {
@@ -4504,8 +4516,7 @@
           "parameters": ["flag:outdated"],
           "requirements": [
             "cli/list/assesses-updates-through-recorded-registry",
-            "cli/list/reports-incomplete-assessment",
-            "cli/list/fails-when-registry-assessment-fails"
+            "cli/list/reports-incomplete-assessment"
           ],
           "when": "--outdated is true and both lifecycle flags are false.",
           "openTopics": ["git-update-assessment"]
@@ -4516,8 +4527,7 @@
             "cli/list/filters-registry-lifecycle",
             "cli/list/reports-deprecation-guidance",
             "cli/list/ordinary-inventory-is-local",
-            "cli/list/reports-incomplete-assessment",
-            "cli/list/fails-when-registry-assessment-fails"
+            "cli/list/reports-incomplete-assessment"
           ],
           "when": "Either lifecycle flag selects its metadata; together they select the union. All assessment flags absent select ordinary inventory.",
           "details": [

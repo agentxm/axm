@@ -8,6 +8,10 @@ on:
         type: choice
         options: [measure, fixtures]
         default: measure
+      rss_diagnostic:
+        description: Run startup RSS controls only; no qualification verdict
+        type: boolean
+        default: false
       fixture_filter:
         description: Optional diagnostic fixture filter; never applies to measurements
         type: string
@@ -88,6 +92,7 @@ jobs:
           docker compose -f tools/seq/compose.yaml ps --format json > "$qualification_root/receiver-container.json"
           ps -eo pid,ppid,comm,pcpu,pmem > "$qualification_root/processes-before.txt"
       - name: Run the published benchmark mode
+        if: ${{ !inputs.rss_diagnostic }}
         timeout-minutes: 315
         shell: bash
         env:
@@ -105,6 +110,48 @@ jobs:
           export AXM_OBSERVABILITY_CANDIDATE_MANIFEST="$RUNNER_TEMP/phase-qualification/candidate/manifest.json"
           export AXM_OBSERVABILITY_OUTPUT="$RUNNER_TEMP/phase-qualification/campaign"
           pnpm run bench 2>&1 | tee "$RUNNER_TEMP/phase-qualification/campaign.log"
+      - name: Diagnose startup RSS with identical-binary controls
+        if: ${{ inputs.rss_diagnostic }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib, os, subprocess, time, json, hashlib, statistics
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'phase-qualification'
+          out=root/'rss-diagnostic';out.mkdir()
+          home=out/'home';home.mkdir()
+          workspace=out/'workspace';workspace.mkdir()
+          env={k:v for k,v in os.environ.items() if k in ['PATH','LD_LIBRARY_PATH']}
+          env.update(HOME=str(home),AXM_USER_HOME=str(home),XDG_CACHE_HOME=str(home/'cache'),AXM_NO_UPDATE_CHECK='1',AXM_TELEMETRY='0',CI='1',NO_COLOR='1',GIT_CONFIG_NOSYSTEM='1',GIT_TERMINAL_PROMPT='0',LANG='C.UTF-8',LC_ALL='C.UTF-8',TZ='UTC')
+          rows=[]
+          for control in [True,False]:
+           for block in range(30):
+            order=['baseline','candidate'] if block%2==0 else ['candidate','baseline']
+            pair=[]
+            for label in order:
+             subject='baseline' if control else label
+             prefix=out/('%s-%s-%s' % ('identical' if control else 'comparison',block,label))
+             rss=prefix.with_suffix('.rss');started=time.monotonic()
+             result=subprocess.run(['/usr/bin/time','-f','%M','-o',str(rss),str(root/subject/'axm-linux-x64'),'--help','--json','--non-interactive'],cwd=workspace,env=env,capture_output=True)
+             prefix.with_suffix('.stdout').write_bytes(result.stdout)
+             prefix.with_suffix('.stderr').write_bytes(result.stderr)
+             assert result.returncode==0,(control,block,label,result.stderr.decode())
+             assert json.loads(result.stdout)['type']=='help'
+             row=dict(control=control,block=block,label=label,subject=subject,order=order.index(label),elapsedMs=(time.monotonic()-started)*1000,peakRssBytes=int(rss.read_text())*1024,stdoutSha256=hashlib.sha256(result.stdout).hexdigest())
+             pair.append(row);rows.append(row)
+             with (out/'samples.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
+            assert pair[0]['stdoutSha256']==pair[1]['stdoutSha256']
+          summary={}
+          for control in [True,False]:
+           selected=[r for r in rows if r['control']==control]
+           deltas=[]
+           for block in range(30):
+            pair={r['label']:r for r in selected if r['block']==block}
+            deltas.append(pair['candidate']['peakRssBytes']-pair['baseline']['peakRssBytes'])
+           summary['identical' if control else 'comparison']=dict(pairedRssDeltas=deltas,over16MiB=sum(d>16777216 for d in deltas),subjects={label:dict(min=min(v),median=statistics.median(v),max=max(v)) for label in ['baseline','candidate'] for v in [[r['peakRssBytes'] for r in selected if r['label']==label]]})
+          summary['limitation']='Isolated-host diagnostic only; original qualification failure and16MiB threshold retained. No qualification verdict is produced.'
+          (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(json.dumps(summary,indent=2))
+          PY
       - name: Retain receiver and host health after collection
         if: always()
         shell: bash

@@ -22,6 +22,7 @@ import type { NativeOutputConcern } from "@agentxm/workspace-kernel/projection";
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
@@ -448,19 +449,32 @@ const previewOrApplySetupWorkspace = <BundledSkillError = never, BundledSkillReq
       ...(candidate.request.preview !== undefined ? { preview: candidate.request.preview } : {}),
     };
     const recorder = yield* makeFootprintRecorder;
-    const initialize = Effect.gen(function* () {
-      const settled = yield* bootstrapWorkspace(workspaceOptions);
-      if (settled.initialized && options?.bundledSkill !== undefined) {
-        yield* options.bundledSkill;
-      }
-      return { ...settled, footprint: yield* readFootprint };
-    }).pipe(Effect.provideService(FootprintRecorder, recorder));
+    const initialize = (observed?: Parameters<typeof bootstrapWorkspace>[1]) =>
+      Effect.gen(function* () {
+        const settled = yield* bootstrapWorkspace(workspaceOptions, observed);
+        if (settled.initialized && options?.bundledSkill !== undefined) {
+          yield* options.bundledSkill;
+        }
+        return { ...settled, footprint: yield* readFootprint };
+      }).pipe(Effect.provideService(FootprintRecorder, recorder));
     // A workspace that exists changes only when setup settles the instruction
     // choice it left open, and that change needs the same transaction.
-    const completes =
-      candidate.settingsExist && (yield* setupCompletesInstructionChoice(workspaceOptions));
-    if (candidate.request.preview === true || (candidate.settingsExist && !completes)) {
-      return yield* initialize;
+    const decision = candidate.settingsExist
+      ? yield* setupCompletesInstructionChoice(workspaceOptions)
+      : { completes: false, settings: Option.none<Settings>() };
+    if (candidate.request.preview === true || (candidate.settingsExist && !decision.completes)) {
+      // Nothing is written under a transaction here, so initialization works
+      // from the settings this call has just read rather than reading them
+      // again. A missing file is never carried forward: initialization checks
+      // for it again itself.
+      return yield* Option.match(decision.settings, {
+        onNone: () => initialize(),
+        onSome: (settings) =>
+          initialize({
+            settingsPath: path.join(workspaceOptions.projectRoot, SETTINGS_FILENAME),
+            settings,
+          }),
+      });
     }
     const scopes = yield* WorkspaceTransactionScopes;
     const scope = yield* scopes.forWorkspace({
@@ -470,9 +484,11 @@ const previewOrApplySetupWorkspace = <BundledSkillError = never, BundledSkillReq
       settingsPath: candidate.settingsPath,
       lockPath: path.join(path.dirname(candidate.settingsPath), LOCK_FILENAME),
     });
+    // The transaction reads the settings again under its lock, so a change
+    // made before the lock is taken is never overwritten.
     return yield* runWorkspaceTransaction({
       claimDefaultTargets: false,
-      transition: initialize,
+      transition: initialize(),
       validate: () => Effect.void,
     }).pipe(Effect.provideService(WorkspaceTransactionScope, scope));
   });

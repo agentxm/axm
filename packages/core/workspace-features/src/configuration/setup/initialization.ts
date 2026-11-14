@@ -1214,24 +1214,33 @@ const completesInstructionChoice = (settings: Settings, options: WorkspaceStateO
  *
  * @param localDir - Path to local .axm directory
  * @param options - workspace-state options
+ * @param observed - Settings this setup call has just read, used in place of
+ *   a new read only when they were read from this workspace's settings path
  * @returns Effect yielding local Settings
  */
-const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceStateOptions) =>
+const ensureProjectWorkspaceInitialized = (
+  localDir: string,
+  options: WorkspaceStateOptions,
+  observed?: { readonly settingsPath: string; readonly settings: Settings },
+) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const userHome = yield* resolveUserHome();
-    const localSettingsResult = yield* readSettingsFromReadModel(
-      "project",
-      path.dirname(localDir),
-      userHome,
-    ).pipe(
-      Effect.map(
-        Option.match({
-          onNone: () => ({ found: false as const, settings: createDefaultSettings() }),
-          onSome: (s) => ({ found: true as const, settings: s }),
-        }),
-      ),
-    );
+    const settingsPath = path.join(path.dirname(localDir), SETTINGS_FILENAME);
+    const localSettingsResult =
+      observed !== undefined && observed.settingsPath === settingsPath
+        ? { found: true as const, settings: observed.settings }
+        : yield* readSettingsFromReadModel(
+            "project",
+            path.dirname(localDir),
+            yield* resolveUserHome(),
+          ).pipe(
+            Effect.map(
+              Option.match({
+                onNone: () => ({ found: false as const, settings: createDefaultSettings() }),
+                onSome: (s) => ({ found: true as const, settings: s }),
+              }),
+            ),
+          );
 
     if (!localSettingsResult.found) {
       // Initialize project workspace and return the settings it wrote
@@ -1279,16 +1288,34 @@ const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceS
     return workspaceInitializationState(localSettingsResult.settings, false, false);
   });
 
-/** Whether this setup request would settle an existing project's instruction choice. */
+/**
+ * Whether this setup request would settle an existing project's instruction
+ * choice, with the project settings the decision was read from. A user-scope
+ * request reads nothing.
+ */
 export const setupCompletesInstructionChoice = (options: WorkspaceStateOptions) =>
   Effect.gen(function* () {
-    if (options.scope !== "project") return false;
+    if (options.scope !== "project") return { completes: false, settings: Option.none<Settings>() };
     const userHome = yield* resolveUserHome();
     const settings = yield* readSettingsFromReadModel("project", options.projectRoot, userHome);
-    return Option.isSome(settings) && completesInstructionChoice(settings.value, options);
+    return {
+      completes: Option.isSome(settings) && completesInstructionChoice(settings.value, options),
+      settings,
+    };
   });
 
-export const bootstrapWorkspace = (options: WorkspaceStateOptions) =>
+/**
+ * Initialize the selected workspace, or settle what initializing it would do.
+ *
+ * `observed` carries project settings the same setup call has just read, with
+ * the path they were read from. Initialization works from them only when that
+ * path is exactly the located workspace's settings path; otherwise, and when
+ * nothing is supplied, it reads the settings for itself.
+ */
+export const bootstrapWorkspace = (
+  options: WorkspaceStateOptions,
+  observed?: { readonly settingsPath: string; readonly settings: Settings },
+) =>
   Effect.gen(function* () {
     const location: LocatedWorkspace = yield* locateWorkspace(options.scope, options.projectRoot);
     const workspaceDir = location.path;
@@ -1298,6 +1325,6 @@ export const bootstrapWorkspace = (options: WorkspaceStateOptions) =>
       return { ...result, location };
     }
 
-    const result = yield* ensureProjectWorkspaceInitialized(workspaceDir, options);
+    const result = yield* ensureProjectWorkspaceInitialized(workspaceDir, options, observed);
     return { ...result, location };
   });

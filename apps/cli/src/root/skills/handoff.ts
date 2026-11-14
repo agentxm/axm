@@ -26,7 +26,7 @@ import {
 } from "../shared/command-capabilities.js";
 import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 
-const handleHandoff = (
+export const handleHandoff = (
   args: HandoffRequest & {
     readonly preview: boolean;
     readonly agents: ReadonlyArray<string>;
@@ -38,17 +38,20 @@ const handleHandoff = (
       planName: "Transfer skill management",
     },
     Effect.gen(function* () {
-      const configured = yield* (yield* SettingsReader).configuredAgents;
-      if (
-        args.agents.length > 0 &&
-        (args.agents.some((agent) => !configured.includes(agent)) ||
-          configured.some((agent) => !args.agents.includes(agent)))
-      )
-        return yield* makeAppError({
-          code: "usage",
-          detail:
-            "--agent initializes workspace destinations; the existing workspace has a different configured agent set",
-        });
+      // Only an explicit --agent selection needs the configured set here;
+      // preparation reads the settings for itself.
+      if (args.agents.length > 0) {
+        const configured = yield* (yield* SettingsReader).configuredAgents;
+        if (
+          args.agents.some((agent) => !configured.includes(agent)) ||
+          configured.some((agent) => !args.agents.includes(agent))
+        )
+          return yield* makeAppError({
+            code: "usage",
+            detail:
+              "--agent initializes workspace destinations; the existing workspace has a different configured agent set",
+          });
+      }
       const candidate = yield* HandoffSkills.prepare(args).pipe(Effect.mapError(failureToAppError));
       const { execution, recovery } = yield* makePlanInvocation(
         { preview: args.preview },

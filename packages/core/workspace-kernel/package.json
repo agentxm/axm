@@ -196,6 +196,7 @@
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:^",
     "@agentxm/test-reporting": "workspace:*",
+    "@agentxm/test-support": "workspace:^",
     "@effect/vitest": "catalog:",
     "@fast-check/vitest": "catalog:",
     "@types/bun": "catalog:",

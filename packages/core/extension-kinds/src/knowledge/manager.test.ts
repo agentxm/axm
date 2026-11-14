@@ -24,10 +24,13 @@ import {
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
-import { NativePlatformTest } from "@agentxm/workspace-kernel/locations/testing";
+import { NativePlatformTest, workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
+import { canonicalMaterializationPaths } from "@agentxm/workspace-kernel/acquisition";
 import {
   treeIntegrityOfSync,
   MockWorkspaceTransactionScope,
@@ -194,9 +197,24 @@ const managerLayer = (
     readonly settingsWriter?: Partial<SettingsWriterService>;
     readonly desiredStateWriter?: Partial<DesiredStateWriterService>;
     readonly acceptedResolutionWriter?: Partial<AcceptedResolutionWriterService>;
+    /** Replaces the native filesystem every service in the layer uses. */
+    readonly fileSystem?: (native: FileSystem.FileSystem) => FileSystem.FileSystem;
   } = {},
 ) => {
   const axmDir = nodePath.join(workspaceRoot, ".axm");
+  const wrapFileSystem = options.fileSystem;
+  const platform =
+    wrapFileSystem === undefined
+      ? NativePlatformTest
+      : Layer.provideMerge(
+          Layer.effect(
+            FileSystem.FileSystem,
+            Effect.gen(function* () {
+              return wrapFileSystem(yield* FileSystem.FileSystem);
+            }),
+          ),
+          NativePlatformTest,
+        );
   return KnowledgeManagerLive.pipe(
     Layer.provideMerge(WorkspaceCatalogLive),
     Layer.provideMerge(CodingAgentRepositoryLive),
@@ -245,9 +263,7 @@ const managerLayer = (
       }),
     ),
     Layer.provideMerge(WorkspaceFileWriteLocksLive),
-    Layer.provideMerge(
-      Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NativePlatformTest),
-    ),
+    Layer.provideMerge(Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), platform)),
   );
 };
 
@@ -612,6 +628,142 @@ describe("KnowledgeManager", () => {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
       }),
+  );
+
+  for (const prior of [false, true])
+    it.effect(
+      prior
+        ? "publishes prepared Knowledge over a prior bundle with one staged hash"
+        : "publishes prepared Knowledge with one staged hash",
+      () =>
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(
+            nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+          );
+          try {
+            const sourceRoot = nodePath.join(workspaceRoot, "source");
+            writeKnowledgePackage(sourceRoot, "handbook", true);
+            const canonicalConcept = nodePath.join(
+              workspaceRoot,
+              "agent_extensions",
+              "_local",
+              "project",
+              "source",
+              "src",
+              "concept.md",
+            );
+            if (prior) {
+              writeKnowledgePackage(
+                nodePath.join(workspaceRoot, "agent_extensions", "_local", "project", "source"),
+                "handbook",
+                true,
+              );
+              writeFileSync(canonicalConcept, "---\ntype: concept\n---\n# Prior concept\n");
+            }
+            const observed = workObservations(false);
+
+            yield* Effect.gen(function* () {
+              const manager = yield* KnowledgeManager;
+              yield* manager
+                .materializeInstall({ ref: localRef("handbook", sourceRoot) })
+                .pipe(observed.provide);
+            }).pipe(Effect.provide(managerLayer(workspaceRoot)));
+
+            // Preparation ends with the staged source hash; publication follows it.
+            const prepared = observed.facts.findIndex((fact) => fact.kind === "axm.hash.package");
+            expect(prepared).toBeGreaterThanOrEqual(0);
+            const publicationTreeHashes = observed.facts
+              .slice(prepared + 1)
+              .filter((fact) => fact.kind === "axm.hash.materialized-tree").length;
+            // The staged copy is hashed once and compared with the prepared tree;
+            // a prior bundle adds the footprint's prior and replaced digests.
+            expect(publicationTreeHashes).toBe(prior ? 3 : 1);
+            expect(readFileSync(canonicalConcept, "utf8")).toContain("# A useful concept");
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        }),
+    );
+
+  it.effect("refuses prepared Knowledge whose staged copy changed before publication", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+      );
+      try {
+        const sourceRoot = nodePath.join(workspaceRoot, "source");
+        writeKnowledgePackage(sourceRoot, "handbook", true);
+        const canonicalPath = nodePath.join(
+          workspaceRoot,
+          "agent_extensions",
+          "_local",
+          "project",
+          "source",
+        );
+        writeKnowledgePackage(canonicalPath, "handbook", true);
+        const priorConcept = "---\ntype: concept\n---\n# Prior concept\n";
+        writeFileSync(nodePath.join(canonicalPath, "src", "concept.md"), priorConcept);
+        const { stagingPath } = canonicalMaterializationPaths(canonicalPath);
+        const preparedRoots: Array<string> = [];
+        let changed = false;
+        let recording: ReturnType<typeof makeRecordingFileSystem>["recording"] | undefined;
+
+        const error = yield* Effect.gen(function* () {
+          const manager = yield* KnowledgeManager;
+          yield* manager.materializeInstall({ ref: localRef("handbook", sourceRoot) });
+        }).pipe(
+          Effect.provide(
+            managerLayer(workspaceRoot, {
+              fileSystem: (native) => {
+                // Preparation stages the package under a scoped temporary
+                // directory; publication starts by creating canonical staging.
+                // A foreign edit lands on the prepared copy in between.
+                const changing = FileSystem.make({
+                  ...native,
+                  makeTempDirectoryScoped: (options) =>
+                    native.makeTempDirectoryScoped(options).pipe(
+                      Effect.tap((directory) =>
+                        Effect.sync(() => {
+                          if (options?.prefix === "axm-knowledge-package-")
+                            preparedRoots.push(nodePath.join(directory, "staged"));
+                        }),
+                      ),
+                    ),
+                  makeDirectory: (target, options) =>
+                    Effect.sync(() => {
+                      const preparedRoot = preparedRoots[0];
+                      if (target !== stagingPath || changed || preparedRoot === undefined) return;
+                      changed = true;
+                      writeFileSync(
+                        nodePath.join(preparedRoot, "src", "concept.md"),
+                        "---\ntype: concept\n---\n# Changed after preparation\n",
+                      );
+                    }).pipe(Effect.andThen(native.makeDirectory(target, options))),
+                });
+                const recorded = makeRecordingFileSystem(changing);
+                recording = recorded.recording;
+                return recorded.fileSystem;
+              },
+            }),
+          ),
+          Effect.flip,
+        );
+
+        expect(changed).toBe(true);
+        expect(error).toMatchObject({
+          _tag: "KnowledgeDefinitionInvalid",
+          detail: "Prepared Knowledge package changed before publication",
+        });
+        // The refusal precedes the swap: canonical is never renamed.
+        expect(recording?.calls({ path: canonicalPath, method: "rename" })).toEqual([]);
+        expect(readFileSync(nodePath.join(canonicalPath, "src", "concept.md"), "utf8")).toBe(
+          priorConcept,
+        );
+        expect(existsSync(stagingPath)).toBe(false);
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
   );
 
   it.effect("rejects an invalid concept and removes the partial isolated copy", () =>

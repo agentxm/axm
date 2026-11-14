@@ -17,7 +17,6 @@ import {
   observeCanonicalExtension,
   type DesiredExtensionNode,
   computePackageContentHash,
-  computeMaterializedTreeIntegrity,
   type TreeIntegrity,
   type KnowledgeLockEntry,
   type KnowledgeMap,
@@ -273,18 +272,13 @@ export const KnowledgeManagerLive = Layer.effect(
             copyFailureCode: "internal",
             copyFailureDetail: (target) =>
               `Failed to publish prepared Knowledge package: ${target}`,
-            validate: (staged) =>
-              computeMaterializedTreeIntegrity(staged).pipe(
-                Effect.flatMap((actual) =>
-                  actual === treeIntegrity
-                    ? Effect.void
-                    : Effect.fail(
-                        new KnowledgeDefinitionInvalid({
-                          detail: "Prepared Knowledge package changed before publication",
-                        }),
-                      ),
-                ),
-              ),
+            expectedTreeIntegrity: {
+              integrity: treeIntegrity,
+              mismatch: () =>
+                new KnowledgeDefinitionInvalid({
+                  detail: "Prepared Knowledge package changed before publication",
+                }),
+            },
           }).pipe(
             Effect.flatMap(() => recordMaterializedPackage(ref, canonicalPath, treeIntegrity)),
           ),

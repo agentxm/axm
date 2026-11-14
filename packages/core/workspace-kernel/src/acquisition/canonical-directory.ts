@@ -78,9 +78,40 @@ const recoverInterruptedReplacement = Effect.fnUntraced(
     ),
 );
 
+/**
+ * Proof that the sibling recovery of one canonical path already ran earlier in
+ * the same acquisition, under the caller's workspace transition lock. Only
+ * `recover` mints one, and it answers for its path exactly once: a later
+ * recovery of that path, or one of any other path, runs again.
+ */
+class CanonicalRecovery {
+  readonly #canonicalPath: string;
+  #consumed = false;
+
+  private constructor(canonicalPath: string) {
+    this.#canonicalPath = canonicalPath;
+  }
+
+  static recover(canonicalPath: string) {
+    return Effect.gen(function* () {
+      yield* recoverInterruptedReplacement(canonicalPath, yield* FileSystem.FileSystem);
+      return new CanonicalRecovery(canonicalPath);
+    });
+  }
+
+  /** Whether this proof covers a recovery of `canonicalPath` now; true at most once. */
+  consume(canonicalPath: string): boolean {
+    if (this.#consumed || canonicalPath !== this.#canonicalPath) return false;
+    this.#consumed = true;
+    return true;
+  }
+}
+
 export interface RecoverCanonicalDirectoryArgs {
   readonly baseDir: string;
   readonly canonicalPath: string;
+  /** An unused proof that this path was recovered earlier in the same acquisition. */
+  readonly recovered?: CanonicalRecovery;
 }
 
 /** Recover or clean sibling replacement state before any fallible source work. */
@@ -93,6 +124,7 @@ export const recoverCanonicalDirectory = Effect.fnUntraced(function* (
   yield* validatePathSafety(path, args.baseDir, args.canonicalPath);
   yield* validatePathSafety(path, args.baseDir, stagingPath);
   yield* validatePathSafety(path, args.baseDir, backupPath);
+  if (args.recovered?.consume(args.canonicalPath) === true) return;
   yield* recoverInterruptedReplacement(args.canonicalPath, fs);
 });
 
@@ -155,11 +187,10 @@ const validateRequiredPackageFiles = Effect.fnUntraced(function* (
 });
 
 /**
- * Publish a complete canonical tree from a sibling staging directory. Recovery
- * restores a prior tree left in the sibling backup by abrupt process death;
- * incomplete staging is never made eligible for reuse.
+ * Publish a complete canonical tree from a sibling staging directory whose
+ * interrupted replacement state the caller has just recovered.
  */
-export const replaceCanonicalDirectoryWithInspection = Effect.fnUntraced(function* <A, E, R>(
+const publishRecoveredCanonicalDirectory = Effect.fnUntraced(function* <A, E, R>(
   args: ReplaceCanonicalDirectoryWithInspectionArgs<A, E, R>,
 ): Effect.fn.Return<
   CanonicalDirectoryInspection<A>,
@@ -170,7 +201,6 @@ export const replaceCanonicalDirectoryWithInspection = Effect.fnUntraced(functio
   const path = yield* Path.Path;
   const { stagingPath, backupPath } = canonicalMaterializationPaths(args.canonicalPath);
 
-  yield* recoverCanonicalDirectory(args);
   if (args.transient !== true) {
     yield* protectWorkspacePath(stagingPath);
     yield* protectWorkspacePath(backupPath);
@@ -229,9 +259,11 @@ export const replaceCanonicalDirectoryWithInspection = Effect.fnUntraced(functio
     );
   // The footprint reports byte changes: replacing a tree with an identical
   // one is not one, however it was acquired.
-  const previousTreeIntegrity = hadCanonical
-    ? yield* computeMaterializedTreeIntegrity(args.canonicalPath).pipe(Effect.option)
-    : Option.none<TreeIntegrity>();
+  // Transient staging records no footprint, so neither digest can decide one.
+  const previousTreeIntegrity =
+    args.transient !== true && hadCanonical
+      ? yield* computeMaterializedTreeIntegrity(args.canonicalPath).pipe(Effect.option)
+      : Option.none<TreeIntegrity>();
   yield* Effect.uninterruptible(
     Effect.gen(function* () {
       if (hadCanonical) yield* fs.rename(args.canonicalPath, backupPath);
@@ -255,9 +287,11 @@ export const replaceCanonicalDirectoryWithInspection = Effect.fnUntraced(functio
         new PackageMaterializationFailed({ path: args.canonicalPath, step: "replace", cause }),
     ),
   );
-  const replacedTreeIntegrity = yield* computeMaterializedTreeIntegrity(args.canonicalPath).pipe(
-    Effect.option,
-  );
+  // Without a prior digest the footprint is recorded whatever the replaced tree hashes to.
+  const replacedTreeIntegrity =
+    args.transient !== true && Option.isSome(previousTreeIntegrity)
+      ? yield* computeMaterializedTreeIntegrity(args.canonicalPath).pipe(Effect.option)
+      : Option.none<TreeIntegrity>();
   if (
     args.transient !== true &&
     (Option.isNone(previousTreeIntegrity) ||
@@ -273,6 +307,22 @@ export const replaceCanonicalDirectoryWithInspection = Effect.fnUntraced(functio
   yield* recordParents;
   return { canonicalPath: args.canonicalPath, inspection };
 });
+
+/**
+ * Publish a complete canonical tree from a sibling staging directory. Recovery
+ * restores a prior tree left in the sibling backup by abrupt process death;
+ * incomplete staging is never made eligible for reuse.
+ */
+export const replaceCanonicalDirectoryWithInspection = <A, E, R>(
+  args: ReplaceCanonicalDirectoryWithInspectionArgs<A, E, R>,
+): Effect.Effect<
+  CanonicalDirectoryInspection<A>,
+  E | CanonicalDirectoryReplacementError,
+  FileSystem.FileSystem | Path.Path | R
+> =>
+  recoverCanonicalDirectory({ baseDir: args.baseDir, canonicalPath: args.canonicalPath }).pipe(
+    Effect.andThen(publishRecoveredCanonicalDirectory(args)),
+  );
 
 export const replaceCanonicalDirectory = <E, R>(
   args: ReplaceCanonicalDirectoryArgs<E, R>,
@@ -317,7 +367,9 @@ export const createCanonicalDirectory = Effect.fnUntraced(function* <E, R>(
     });
   }
 
-  return yield* replaceCanonicalDirectory({
+  // The recovery above is the one this publication follows: only the
+  // read-only collision check ran since it.
+  const published = yield* publishRecoveredCanonicalDirectory({
     baseDir: args.baseDir,
     canonicalPath: args.canonicalPath,
     ...(args.transient === undefined ? {} : { transient: args.transient }),
@@ -327,28 +379,34 @@ export const createCanonicalDirectory = Effect.fnUntraced(function* <E, R>(
       validateRequiredPackageFiles(stagingPath, args.requiredFiles ?? []).pipe(
         Effect.andThen(args.validate === undefined ? Effect.void : args.validate(stagingPath)),
       ),
+    inspect: () => Effect.void,
   });
+  return published.canonicalPath;
 });
 
 /**
- * The accepted canonical tree an acquisition may keep instead of
- * materializing the requested ref again, after any interrupted replacement
- * at the path is resolved. Canonical observation owns the decision; this
- * only readies the directory it judges.
+ * Resolve any interrupted replacement at `canonicalPath`, then decide whether
+ * an acquisition may keep the accepted canonical tree instead of
+ * materializing the requested ref again. Canonical observation owns the
+ * decision; this only readies the directory it judges.
+ *
+ * - `reusable`: the accepted tree the acquisition may keep, if any.
+ * - `recovery`: proof that this call recovered `canonicalPath`. Within the
+ *   same acquisition and under the same transition lock, it may be passed
+ *   once, as `recovered`, to the pre-fetch recovery of an unstaged Registry
+ *   publication of that same path, which then skips its repeated recovery.
+ *   It is single-use, ignored for any other path, and never cached or stored.
+ *   Every replacement still recovers again before it stages.
  */
 export const reusableCanonicalTree = Effect.fnUntraced(function* (args: {
   readonly canonicalPath: string;
   readonly requested: RequestedCanonicalRef;
   readonly accepted: Option.Option<LockEntry>;
   readonly force: boolean;
-}): Effect.fn.Return<
-  Option.Option<TreeIntegrity>,
-  PackageMaterializationFailed,
-  FileSystem.FileSystem | Path.Path
-> {
-  const fs = yield* FileSystem.FileSystem;
-  yield* recoverInterruptedReplacement(args.canonicalPath, fs);
-  return yield* observeAcceptedCanonicalReuse(args);
+}) {
+  const recovery = yield* CanonicalRecovery.recover(args.canonicalPath);
+  const reusable = yield* observeAcceptedCanonicalReuse(args);
+  return { reusable, recovery };
 });
 
 export interface MaterializedPackage {
@@ -367,6 +425,14 @@ export interface MaterializeExternalPackageArgs<E = never, R = never> {
   readonly validate?: (
     stagingPath: string,
   ) => Effect.Effect<void, E, FileSystem.FileSystem | Path.Path | R>;
+  /**
+   * The tree the caller prepared: a staged copy with any other digest is
+   * refused with `mismatch` before the canonical path is touched.
+   */
+  readonly expectedTreeIntegrity?: {
+    readonly integrity: TreeIntegrity;
+    readonly mismatch: () => E;
+  };
 }
 
 export const materializeExternalPackageWithTreeIntegrity = Effect.fnUntraced(function* <
@@ -417,7 +483,15 @@ export const materializeExternalPackageWithTreeIntegrity = Effect.fnUntraced(fun
         ),
       ),
     ...(args.validate === undefined ? {} : { validate: args.validate }),
-    inspect: computeMaterializedTreeIntegrity,
+    inspect: (stagingPath) =>
+      computeMaterializedTreeIntegrity(stagingPath).pipe(
+        Effect.flatMap((actual) =>
+          args.expectedTreeIntegrity === undefined ||
+          actual === args.expectedTreeIntegrity.integrity
+            ? Effect.succeed(actual)
+            : Effect.fail(args.expectedTreeIntegrity.mismatch()),
+        ),
+      ),
   });
   return {
     canonicalPath: result.canonicalPath,

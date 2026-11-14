@@ -151,41 +151,48 @@ export const acquireCanonicalForRef = <E = never>(
         return { packageRoot: destination, treeIntegrity: current, reused: true };
       }
     }
-    if (ref.refType === "registry" || args.external?.reuse === true) {
-      const reuse =
-        args.stage === undefined ? reusableCanonicalTree : observeAcceptedCanonicalReuse;
-      const reusable = yield* reuse({
-        canonicalPath: args.canonicalPath,
-        requested:
-          ref.refType === "registry"
-            ? {
-                refType: "registry",
-                owner: ref.owner,
-                name: ref.name,
-                version: ref.version,
-                publisherBindingId: ref.publisherBindingId,
-              }
-            : ref.refType === "http"
-              ? {
-                  refType: "http",
-                  name: extensionRefName(ref),
-                  owner: ref.owner,
-                  snapshot: ref.snapshot,
-                }
-              : { refType: ref.refType, name: extensionRefName(ref) },
-        accepted: args.accepted,
-        force: args.force,
-      });
-      // Validation is a refusal boundary, not permission to fetch replacement
-      // bytes. Owners decide whether their selected declaration allows reuse.
-      if (Option.isSome(reusable)) {
-        if (args.validate !== undefined) yield* args.validate(args.canonicalPath);
-        return {
-          packageRoot: args.canonicalPath,
-          treeIntegrity: reusable.value,
-          reused: true,
-        } satisfies AcquiredCanonical;
-      }
+    // Without a stage the reuse decision first recovers the canonical path it
+    // judges; that recovery is the proof the Registry publication of the same
+    // path may consume once.
+    const reuseDecision =
+      ref.refType === "registry" || args.external?.reuse === true
+        ? yield* Effect.gen(function* () {
+            const reuseArgs = {
+              canonicalPath: args.canonicalPath,
+              requested:
+                ref.refType === "registry"
+                  ? {
+                      refType: "registry",
+                      owner: ref.owner,
+                      name: ref.name,
+                      version: ref.version,
+                      publisherBindingId: ref.publisherBindingId,
+                    }
+                  : ref.refType === "http"
+                    ? {
+                        refType: "http",
+                        name: extensionRefName(ref),
+                        owner: ref.owner,
+                        snapshot: ref.snapshot,
+                      }
+                    : { refType: ref.refType, name: extensionRefName(ref) },
+              accepted: args.accepted,
+              force: args.force,
+            } satisfies Parameters<typeof observeAcceptedCanonicalReuse>[0];
+            return args.stage === undefined
+              ? yield* reusableCanonicalTree(reuseArgs)
+              : { reusable: yield* observeAcceptedCanonicalReuse(reuseArgs), recovery: undefined };
+          })
+        : undefined;
+    // Validation is a refusal boundary, not permission to fetch replacement
+    // bytes. Owners decide whether their selected declaration allows reuse.
+    if (reuseDecision !== undefined && Option.isSome(reuseDecision.reusable)) {
+      if (args.validate !== undefined) yield* args.validate(args.canonicalPath);
+      return {
+        packageRoot: args.canonicalPath,
+        treeIntegrity: reuseDecision.reusable.value,
+        reused: true,
+      } satisfies AcquiredCanonical;
     }
 
     const parentReceipt =
@@ -221,6 +228,9 @@ export const acquireCanonicalForRef = <E = never>(
           integrityMismatchDetail: integrityMismatchDetail(args.type, ref.name, ref.version),
         },
         ...(args.validate === undefined ? {} : { validate: args.validate }),
+        ...(args.stage === undefined && reuseDecision?.recovery !== undefined
+          ? { recovered: reuseDecision.recovery }
+          : {}),
       });
       return {
         packageRoot: materialized.canonicalPath,

@@ -33,10 +33,41 @@ export interface AcquiredExternalSource {
   readonly origin: string;
 }
 
+/** Acquire a checkout of one Git URL and optional revision in the caller's scope. */
+type SourceClones = (
+  cloneUrl: string,
+  ref: Option.Option<string>,
+) => Effect.Effect<
+  string,
+  SourceResolutionFailure,
+  FileSystem.FileSystem | Path.Path | Scope.Scope
+>;
+
+/**
+ * Create a clone acquirer that checks out each Git URL and revision once and
+ * hands later requests for the same pair the same read-only checkout. Each
+ * checkout is acquired in the scope of the request that first needs it; only
+ * successful checkouts are shared, so a failed one is attempted again.
+ */
+export const makeSharedSourceClones: Effect.Effect<SourceClones> = Effect.sync(() => {
+  const roots = new Map<string, string>();
+  return (cloneUrl, ref) =>
+    Effect.suspend(() => {
+      const key = JSON.stringify([cloneUrl, Option.getOrNull(ref)]);
+      const shared = roots.get(key);
+      return shared === undefined
+        ? acquireClone(cloneUrl, ref).pipe(
+            Effect.tap((root) => Effect.sync(() => roots.set(key, root))),
+          )
+        : Effect.succeed(shared);
+    });
+});
+
 /** Discover manifest packages from a self-describing local or Git source. */
 export const findLocalOrGitExtensionPackagesFromSource = (
   source: GitSource | LocalSource,
   filter: ExtensionPackageFilter,
+  options?: { readonly clones?: SourceClones },
 ): Effect.Effect<
   ReadonlyArray<ResolvedExtensionPackage>,
   SourceResolutionFailure,
@@ -49,7 +80,7 @@ export const findLocalOrGitExtensionPackagesFromSource = (
     if (source.type === "local") {
       discoveryRoot = source.path;
     } else {
-      const cloneRoot = yield* acquireClone(source.url.href, source.ref);
+      const cloneRoot = yield* (options?.clones ?? acquireClone)(source.url.href, source.ref);
       discoveryRoot = Option.match(source.subPath, {
         onNone: () => cloneRoot,
         onSome: (subPath) => path.join(cloneRoot, subPath),

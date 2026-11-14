@@ -67,6 +67,7 @@ export {
   acquireExternalSource,
   findExtensionPackagesFromSource,
   findLocalOrGitExtensionPackagesFromSource,
+  makeSharedSourceClones,
   type ResolvedExtensionPackage,
 } from "./package-sources.js";
 export { discoverConventionRefs, pluginMcpPackageName } from "./providers/convention-discovery.js";

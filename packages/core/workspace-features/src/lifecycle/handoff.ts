@@ -199,15 +199,32 @@ export const prepareHandoff = Effect.fn("Handoff.prepare")(function* (request: H
     const targets: Array<string> = [];
     const materialPaths: Array<string> = [requestedLockPath, lockPath];
     const known = new Set<string>();
+    // Aliases of one physical copy resolve to the same referent; its digests are
+    // computed once for this name and every alias is still compared and refused on its own.
+    const referentDigests = new Map<
+      string,
+      { readonly integrity: string; readonly projectHash: Option.Option<string> }
+    >();
+    const expected = stringField(entry, "computedHash");
     for (const directory of directories) {
       const target = yield* resolveNativeEntry(path.join(directory, name));
       if (target.kind === "absent" || known.has(target.entryPath)) continue;
       known.add(target.entryPath);
       const referent = yield* resolveNativeReferent(target.entryPath);
-      const integrity = yield* computeMaterializedTreeIntegrity(referent);
-      const expected = stringField(entry, "computedHash");
+      const recorded = referentDigests.get(referent);
+      const integrity =
+        recorded === undefined
+          ? yield* computeMaterializedTreeIntegrity(referent)
+          : recorded.integrity;
+      const projectHash =
+        expected === undefined
+          ? Option.none<string>()
+          : recorded !== undefined && Option.isSome(recorded.projectHash)
+            ? recorded.projectHash
+            : Option.some(yield* projectContentHash(referent));
+      referentDigests.set(referent, { integrity, projectHash });
       if (
-        (expected !== undefined && (yield* projectContentHash(referent)) !== expected) ||
+        (Option.isSome(projectHash) && projectHash.value !== expected) ||
         integrity !== upstreamIntegrity
       ) {
         return yield* failed(

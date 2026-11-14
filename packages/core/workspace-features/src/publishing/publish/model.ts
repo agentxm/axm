@@ -48,26 +48,22 @@ import {
   normalizePublishInput,
   type ValidatedArchive,
 } from "@agentxm/extension-content";
-import {
-  archiveSha256Hex,
-  type ExtensionIndex,
-} from "@agentxm/registry-protocol/unstable/registry";
+import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import { inspectKnowledgeBundle } from "@agentxm/extension-content/knowledge";
 import { RegistryContext } from "@agentxm/registry-client";
 import {
   SettingsReader,
-  acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
   settingsEntries,
 } from "@agentxm/workspace-kernel/workspace-state";
 
-import { planZipArchive, type ArchivePlan } from "../archive.js";
+import { prepareZipArchive, type ArchivePlan } from "../archive.js";
 import { publishArchiveOptions } from "../publish-selection.js";
 import { runPublishLintGate } from "../lint-gate.js";
 import { nonMonotonicVersionConflict } from "../preflight.js";
 import { isPublishableType, type PublishableType } from "../publishable-types.js";
 import type { PublishSourceAssessment } from "../source-state.js";
 import type { ResolvedPublishPreview } from "../authorization.js";
-import { sha512Integrity } from "@agentxm/host-primitives";
 import {
   expandGlobs,
   isGlobPattern,
@@ -297,7 +293,12 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
 ) {
   // The canonical observation is the one judge of where the package sits
   // and, for an authored package, whether its manifest is this workspace's.
-  const accepted = yield* acceptedCanonicalObservation({ type: entry.type, name: entry.name });
+  // It hands over the manifest text it read, so the identity is decoded from
+  // that text rather than from a second read.
+  const { observed: accepted, manifest: captured } = yield* acceptedCanonicalObservationCapturing({
+    type: entry.type,
+    name: entry.name,
+  });
   const extensionDir = Option.getOrUndefined(
     Option.flatMap(accepted, ({ observation }) => Option.fromUndefinedOr(observation.path)),
   );
@@ -321,7 +322,10 @@ const identityFromManagedPackage = Effect.fn("Publish.identityFromManagedPackage
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const manifestPath = path.join(extensionDir, manifestFilenameForType(entry.type));
-  const raw = yield* fs.readFileString(manifestPath).pipe(Effect.option);
+  const observedText = Option.filter(captured, (read) => read.path === manifestPath);
+  const raw = Option.isSome(observedText)
+    ? Option.some(observedText.value.text)
+    : yield* fs.readFileString(manifestPath).pipe(Effect.option);
   if (Option.isNone(raw)) return undefined;
   const json = yield* Effect.sync((): unknown => {
     try {
@@ -541,22 +545,34 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
       if (packDir === undefined) {
         return yield* validation(`Cannot read dependencies for ${pack.fqn}`);
       }
-      const manifestPath = path.join(packDir, manifestFilenameForType("pack"));
-      const raw = yield* fs
-        .readFileString(manifestPath)
-        .pipe(
-          Effect.mapError((cause) =>
-            validation(`Cannot read dependencies for ${pack.fqn}`, { cause }),
-          ),
-        );
-      const json = yield* Effect.try({
-        try: (): unknown => JSON.parse(raw),
-        catch: (cause) => validation(`Invalid pack manifest for ${pack.fqn}`, { cause }),
-      });
-      const manifest = yield* Schema.decodeUnknownEffect(CandidateManifestSchema)(json).pipe(
-        Effect.mapError((cause) => validation(`Invalid pack manifest for ${pack.fqn}`, { cause })),
-      );
-      for (const dependencyFqn of Object.keys(manifest.dependencies ?? {})) {
+      // An identity settled from the pack's manifest already decoded its
+      // dependencies with this schema; only a source-derived identity reads it.
+      const dependencies =
+        pack.declaredVersion !== undefined
+          ? pack.declaredDependencies
+          : yield* Effect.gen(function* () {
+              const manifestPath = path.join(packDir, manifestFilenameForType("pack"));
+              const raw = yield* fs
+                .readFileString(manifestPath)
+                .pipe(
+                  Effect.mapError((cause) =>
+                    validation(`Cannot read dependencies for ${pack.fqn}`, { cause }),
+                  ),
+                );
+              const json = yield* Effect.try({
+                try: (): unknown => JSON.parse(raw),
+                catch: (cause) => validation(`Invalid pack manifest for ${pack.fqn}`, { cause }),
+              });
+              const manifest = yield* Schema.decodeUnknownEffect(CandidateManifestSchema)(
+                json,
+              ).pipe(
+                Effect.mapError((cause) =>
+                  validation(`Invalid pack manifest for ${pack.fqn}`, { cause }),
+                ),
+              );
+              return manifest.dependencies;
+            });
+      for (const dependencyFqn of Object.keys(dependencies ?? {})) {
         const dependency = identities.find((entry) => entry.fqn === dependencyFqn);
         if (dependency === undefined) {
           const parsed = yield* Effect.fromResult(
@@ -961,7 +977,7 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
     selected.existingDirectoryVersion === undefined
       ? manifest.publish
       : selected.sourcePublicationOptions;
-  const plannedArchive = yield* planZipArchive(extensionDir, {
+  const plannedArchive = yield* prepareZipArchive(extensionDir, {
     ...(yield* publishArchiveOptions(selected.type, publicationOptions)),
     ...(selected.existingDirectoryVersion === undefined
       ? {}
@@ -995,9 +1011,7 @@ export const prepareCandidate = Effect.fn("axm.publish.prepareCandidate")(functi
       validation(`Cannot publish ${selected.fqn}: ${cause.detail}`, { cause }),
     ),
   );
-  const archiveBytes = archive.copyBytes();
-  const integrity = sha512Integrity(archiveBytes);
-  const archiveDigest = archiveSha256Hex(archiveBytes);
+  const { integrity, sha256: archiveDigest } = plannedArchive.digests();
   yield* normalizePublishInput({
     declaredIdentity: {
       owner: selected.owner,

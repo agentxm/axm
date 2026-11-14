@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { sha512Integrity } from "@agentxm/host-primitives";
+import { archiveSha256Hex } from "@agentxm/registry-protocol/unstable/registry";
 import { validateArchive, type ValidatedArchive } from "@agentxm/extension-content";
 import { validateContainedLink } from "@agentxm/workspace-kernel/locations";
 import { zipSync, type Zippable } from "fflate";
@@ -74,7 +75,7 @@ export interface BuildZipArchiveOptions extends PublishFileSelectionOptions {
 }
 
 /** One file, link, or empty directory in the deterministic Registry archive plan. */
-export interface ArchivePlanEntry {
+interface ArchivePlanEntry {
   readonly path: string;
   readonly sourcePath?: string;
   readonly size: number;
@@ -114,11 +115,11 @@ interface PlannedZipArchive {
 }
 
 /**
- * Build a zip archive of a directory.
- * Files are stored at the root of the zip (no enclosing directory).
- * Empty directories have explicit entries; populated directories are implied by their children.
+ * Walk a directory and build its deterministic zip. The returned bytes are
+ * the archive owner's own: callers in this module admit (copy) or digest
+ * them and never hand the buffer itself to another holder.
  */
-export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
+const zipDistribution = (dir: string, options?: BuildZipArchiveOptions) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -337,7 +338,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       zippable[rel] = [bytes, { mtime: DETERMINISTIC_MTIME, os: 3, attrs: mode << 16 }];
     }
 
-    const archive = yield* Effect.try({
+    const zipBytes = yield* Effect.try({
       // Registry ingest validates each entry independently. Stored entries
       // avoid decompressor-specific limits while retaining deterministic ZIP
       // bytes and bounded source-size accounting.
@@ -349,17 +350,6 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
           cause,
         }),
     });
-    // Shared admission also resolves the virtual link graph, including links
-    // whose targets change meaning after an earlier link and a '..' segment.
-    const admitted = yield* validateArchive(archive).pipe(
-      Effect.mapError((cause) =>
-        publishRefused({
-          category: "validation",
-          detail: cause.message,
-          cause,
-        }),
-      ),
-    );
     const patternPlans = resolved.selection.rules.map((rule) => ({
       pattern: rule.pattern,
       origin: rule.origin,
@@ -369,7 +359,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       ({ matchCount, origin }) => matchCount !== 0 || origin.kind !== "gitignore",
     );
     return {
-      archive: admitted,
+      zipBytes,
       ...resolved,
       policyFingerprint: JSON.stringify({
         selection: resolved.policyFingerprint,
@@ -396,9 +386,73 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
         includedCount: included.length,
         excludedCount: excluded.length,
         uncompressedBytes: included.reduce((total, file) => total + file.size, 0),
-      },
-    } satisfies PlannedZipArchive;
+      } satisfies ArchivePlan,
+    };
+  });
+
+/**
+ * Shared admission also resolves the virtual link graph, including links
+ * whose targets change meaning after an earlier link and a '..' segment.
+ * Admitting raw bytes copies them; an admitted archive is re-checked against
+ * the default limits from its admitted facts.
+ */
+export const admitDistribution = (archive: Uint8Array | ValidatedArchive) =>
+  validateArchive(archive).pipe(
+    Effect.mapError((cause) =>
+      publishRefused({
+        category: "validation",
+        detail: cause.message,
+        cause,
+      }),
+    ),
+  );
+
+const planFromZip = (dir: string, options?: BuildZipArchiveOptions) =>
+  Effect.gen(function* () {
+    const { zipBytes, ...planned } = yield* zipDistribution(dir, options);
+    const archive = yield* admitDistribution(zipBytes);
+    return { zipBytes, planned: { archive, ...planned } satisfies PlannedZipArchive };
   }).pipe(Effect.withSpan("axm.publish.archive"));
+
+/**
+ * Build a zip archive of a directory.
+ * Files are stored at the root of the zip (no enclosing directory).
+ * Empty directories have explicit entries; populated directories are implied by their children.
+ */
+export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
+  planFromZip(dir, options).pipe(Effect.map(({ planned }) => planned));
+
+/**
+ * Plan and admit a publication archive, also offering its digests over the
+ * archive owner's own bytes so preparation needs no further copy. The
+ * admitted archive is a copy of those bytes that is never mutated, so the
+ * digests are the admitted archive's.
+ */
+export const prepareZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
+  planFromZip(dir, options).pipe(
+    Effect.map(({ zipBytes, planned }) => ({
+      ...planned,
+      digests: () => ({
+        integrity: sha512Integrity(zipBytes),
+        sha256: archiveSha256Hex(zipBytes),
+      }),
+    })),
+  );
+
+/**
+ * Rebuild a publication archive from current sources without admitting it:
+ * the caller compares the digest and selection policy with what it prepared
+ * and admits the rebuild only when it differs.
+ */
+export const rebuildDistributionDigest = (dir: string, options?: BuildZipArchiveOptions) =>
+  zipDistribution(dir, options).pipe(
+    Effect.map(({ zipBytes, policyFingerprint }) => ({
+      integrity: sha512Integrity(zipBytes),
+      policyFingerprint,
+      admit: () => admitDistribution(zipBytes),
+    })),
+    Effect.withSpan("axm.publish.archive"),
+  );
 
 export const buildZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
   planZipArchive(dir, options).pipe(Effect.map(({ archive }) => archive.copyBytes()));

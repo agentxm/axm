@@ -28,8 +28,7 @@ import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { sha512Integrity } from "@agentxm/host-primitives";
-import { planZipArchive } from "../archive.js";
+import { admitDistribution, rebuildDistributionDigest } from "../archive.js";
 import { publishArchiveOptions } from "../publish-selection.js";
 
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
@@ -780,28 +779,38 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
     uploadCandidates,
     (candidate) =>
       Effect.gen(function* () {
-        // Existing-directory preparation captures bytes before the execution
-        // candidate is assembled. Compare the same envelope again so an edit
-        // between those phases cannot upload stale, previously prepared bytes.
-        const observed = yield* planZipArchive(candidate.extensionDir, {
-          ...(yield* publishArchiveOptions(candidate.type, candidate.publishOptions)),
-          ...(candidate.existingDirectoryVersion === undefined
-            ? {}
-            : {
-                skillEnvelope: new TextEncoder().encode(
-                  `${JSON.stringify(candidate.manifestJson, null, 2)}\n`,
-                ),
-              }),
-        });
-        if (
-          sha512Integrity(observed.archive.copyBytes()) !== candidate.integrity ||
-          observed.policyFingerprint !== candidate.policyFingerprint
-        ) {
-          return yield* publishRefused({
-            category: "conflict",
-            detail: `Publish source content or selection policy changed after preparation for ${candidate.fqn}; no upload was attempted.`,
+        // The rebuild's bytes live only for this comparison.
+        yield* Effect.gen(function* () {
+          // Existing-directory preparation captures bytes before the execution
+          // candidate is assembled. Compare the same envelope again so an edit
+          // between those phases cannot upload stale, previously prepared bytes.
+          const observed = yield* rebuildDistributionDigest(candidate.extensionDir, {
+            ...(yield* publishArchiveOptions(candidate.type, candidate.publishOptions)),
+            ...(candidate.existingDirectoryVersion === undefined
+              ? {}
+              : {
+                  skillEnvelope: new TextEncoder().encode(
+                    `${JSON.stringify(candidate.manifestJson, null, 2)}\n`,
+                  ),
+                }),
           });
-        }
+          if (
+            observed.integrity === candidate.integrity &&
+            observed.policyFingerprint === candidate.policyFingerprint
+          ) {
+            // The rebuild is byte-identical to the prepared archive, so the
+            // prepared admission is its admission; hold it to the default limits.
+            yield* admitDistribution(candidate.archive);
+          } else {
+            // A rebuild that differs is admitted first, so an inadmissible
+            // source is reported as such before the change itself.
+            yield* observed.admit();
+            return yield* publishRefused({
+              category: "conflict",
+              detail: `Publish source content or selection policy changed after preparation for ${candidate.fqn}; no upload was attempted.`,
+            });
+          }
+        });
         const planned = candidate.sourceAssessment;
         if (planned === undefined) {
           return yield* Effect.fail(

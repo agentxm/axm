@@ -33,9 +33,11 @@ export {
   type NativeEntryAddress,
 } from "./native-address.js";
 export {
+  applyDigestedStructuralInverse,
   applyStructuralInverse,
   captureContainerIdentity,
   deriveStructuralInverse,
+  digestText,
   forgetContainerReceipt,
   isStructuralInsertion,
   readContainerReceipts,

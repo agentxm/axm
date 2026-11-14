@@ -244,16 +244,36 @@ const sha256 = (text: string) =>
     }),
   );
 
-/** The complete digest guard deliberately expires when unrelated intent changes the file. */
-export const applyStructuralInverse = (
-  raw: string,
+/** Text bound to the receipt digest that hashed it; only this module creates one. */
+class DigestedText {
+  readonly #raw: string;
+  readonly #sha256: string;
+  constructor(raw: string, sha256: string) {
+    this.#raw = raw;
+    this.#sha256 = sha256;
+  }
+  get raw(): string {
+    return this.#raw;
+  }
+  get sha256(): string {
+    return this.#sha256;
+  }
+}
+
+/** One receipt digest of `raw`, kept with the exact text it hashed. */
+export const digestText = (raw: string): Effect.Effect<DigestedText> =>
+  Effect.map(sha256(raw), (hash) => new DigestedText(raw, hash));
+
+/** The inverse application of an already digested text; hashes only the restored result. */
+export const applyDigestedStructuralInverse = (
+  text: DigestedText,
   inverse: StructuralInverse,
-): Effect.Effect<Option.Option<string>> =>
+): Effect.Effect<Option.Option<DigestedText>> =>
   Effect.gen(function* () {
-    if ((yield* sha256(raw)) !== inverse.afterSha256) return Option.none();
+    if (text.sha256 !== inverse.afterSha256) return Option.none();
     const edits = [...inverse.edits].sort((left, right) => right.offset - left.offset);
-    let result = raw;
-    let precedingStart = raw.length;
+    let result = text.raw;
+    let precedingStart = text.raw.length;
     for (const edit of edits) {
       if (
         !Number.isSafeInteger(edit.offset) ||
@@ -267,7 +287,18 @@ export const applyStructuralInverse = (
       result = result.slice(0, edit.offset) + edit.syntax + result.slice(edit.offset + edit.length);
       precedingStart = edit.offset;
     }
-    return (yield* sha256(result)) === inverse.beforeSha256 ? Option.some(result) : Option.none();
+    const restored = yield* digestText(result);
+    return restored.sha256 === inverse.beforeSha256 ? Option.some(restored) : Option.none();
+  });
+
+/** The complete digest guard deliberately expires when unrelated intent changes the file. */
+export const applyStructuralInverse = (
+  raw: string,
+  inverse: StructuralInverse,
+): Effect.Effect<Option.Option<string>> =>
+  Effect.gen(function* () {
+    const restored = yield* applyDigestedStructuralInverse(yield* digestText(raw), inverse);
+    return Option.map(restored, (value) => value.raw);
   });
 
 type StructuralEdit = StructuralInverse["edits"][number];

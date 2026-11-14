@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import type { PlatformError } from "effect/PlatformError";
 import {
   isLexicallyWithin,
   isRelativeWithin,
@@ -111,7 +112,7 @@ const parseBatchBlobs = (
       if (headerEnd < 0) {
         return yield* stagedSnapshotError({ detail: "Git returned an incomplete blob header" });
       }
-      const header = decoder.decode(bytes.slice(cursor, headerEnd));
+      const header = decoder.decode(bytes.subarray(cursor, headerEnd));
       const [objectId, objectType, sizeText] = header.split(" ");
       const size = sizeText === undefined ? Number.NaN : Number.parseInt(sizeText, 10);
       if (
@@ -131,7 +132,8 @@ const parseBatchBlobs = (
       if (contentEnd >= bytes.length || bytes[contentEnd] !== 10) {
         return yield* stagedSnapshotError({ detail: "Git returned incomplete staged blob data" });
       }
-      blobs.set(objectId, bytes.slice(contentStart, contentEnd));
+      // Views into the private batch buffer; consumers only decode or write them.
+      blobs.set(objectId, bytes.subarray(contentStart, contentEnd));
       cursor = contentEnd + 1;
     }
 
@@ -222,6 +224,7 @@ const readIndexBlobs = (args: {
 const writeIndexEntry = (args: {
   readonly entry: IndexEntry;
   readonly blobs: ReadonlyMap<string, Uint8Array>;
+  readonly parentDirectories: ReadonlyMap<string, Effect.Effect<void, PlatformError>>;
   readonly workspaceRoot: string;
 }) =>
   Effect.gen(function* () {
@@ -252,9 +255,10 @@ const writeIndexEntry = (args: {
         detail: `Git did not return the staged blob for ${args.entry.path}`,
       });
     }
-    yield* fs
-      .makeDirectory(path.dirname(destination), { recursive: true })
-      .pipe(Effect.mapError(mapFileError));
+    const parent = path.dirname(destination);
+    yield* (
+      args.parentDirectories.get(parent) ?? fs.makeDirectory(parent, { recursive: true })
+    ).pipe(Effect.mapError(mapFileError));
 
     if (args.entry.mode === "120000") {
       const target = yield* Effect.try({
@@ -319,9 +323,21 @@ export const materializeGitIndexWorkspace = Effect.fn("Lint.materializeGitIndexW
       ...new Set(entries.filter((entry) => entry.mode !== "160000").map((entry) => entry.objectId)),
     ];
     const blobs = yield* readIndexBlobs({ gitRoot: gitRoot.value, objectIds });
+    // One lazy creation per distinct parent for this materialization: an entry
+    // runs or joins its parent's creation only after its own containment check.
+    const parentDirectories = new Map<string, Effect.Effect<void, PlatformError>>();
+    for (const entry of entries) {
+      if (entry.mode === "160000") continue;
+      const parent = path.dirname(path.resolve(snapshotRoot, entry.path));
+      if (parentDirectories.has(parent)) continue;
+      parentDirectories.set(
+        parent,
+        yield* Effect.cached(fs.makeDirectory(parent, { recursive: true })),
+      );
+    }
     yield* Effect.forEach(
       entries,
-      (entry) => writeIndexEntry({ entry, blobs, workspaceRoot: snapshotRoot }),
+      (entry) => writeIndexEntry({ entry, blobs, parentDirectories, workspaceRoot: snapshotRoot }),
       {
         concurrency: 32,
         discard: true,

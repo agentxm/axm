@@ -19,7 +19,11 @@ import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
 
 import { UpgradeFailed } from "../../../application/index.js";
-import { resolveUserAxmHome, writeFileAtomic } from "@agentxm/host-primitives";
+import {
+  readFileStringIfPresent,
+  resolveUserAxmHome,
+  writeFileAtomic,
+} from "@agentxm/host-primitives";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 
 // -----------------------------------------------------------------------------
@@ -111,10 +115,10 @@ export const readInstallMeta = (dataDir: string) =>
     const path = yield* Path.Path;
     const metaPath = path.join(dataDir, INSTALL_META_FILENAME);
 
-    const exists = yield* fs.exists(metaPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) return Option.none<InstallMetaData>();
-
-    const content = yield* fs.readFileString(metaPath).pipe(Effect.option);
+    const content = yield* readFileStringIfPresent(fs, metaPath).pipe(
+      Effect.option,
+      Effect.map(Option.flatten),
+    );
     if (Option.isNone(content)) return Option.none<InstallMetaData>();
 
     const decoded = yield* decodeInstallMetaDataFromJsonString(content.value).pipe(Effect.option);

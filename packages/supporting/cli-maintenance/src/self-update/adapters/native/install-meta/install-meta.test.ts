@@ -8,7 +8,10 @@
 import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodePath from "@effect/platform-node/NodePath";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import { describe, expect, it, afterEach, beforeEach } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
@@ -359,4 +362,75 @@ describe("InstallMeta", () => {
       ),
     );
   });
+});
+
+const recordedContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  effect.pipe(
+    Effect.provide(Layer.mergeAll(layerRecordingFileSystem(NodeFileSystem.layer), NodePath.layer)),
+  );
+
+describe("readInstallMeta reads", () => {
+  let tempDir: string;
+  let dataDir: string;
+  let metaPath: string;
+
+  beforeEach(() => {
+    tempDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "install-meta-reads-"));
+    dataDir = nodePath.join(tempDir, ".axm");
+    metaPath = nodePath.join(dataDir, "install-meta.json");
+  });
+
+  afterEach(() => {
+    nodeFs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it.effect("reads present metadata with one content read and no existence probe", () =>
+    recordedContext(
+      Effect.gen(function* () {
+        nodeFs.mkdirSync(dataDir, { recursive: true });
+        nodeFs.writeFileSync(
+          metaPath,
+          JSON.stringify({
+            schemaVersion: 2,
+            method: "script",
+            installedAt: "2026-03-31T12:00:00.000Z",
+          }),
+        );
+        const recording = yield* FileSystemRecorder;
+        recording.reset();
+
+        const result = yield* readInstallMeta(dataDir);
+        expect(Option.map(result, (value) => value.method)).toEqual(Option.some("script"));
+        expect(recording.counts(metaPath)).toEqual({ readFile: 1 });
+      }),
+    ),
+  );
+
+  it.effect("reports absent metadata as None after one failed open", () =>
+    recordedContext(
+      Effect.gen(function* () {
+        const recording = yield* FileSystemRecorder;
+        recording.reset();
+
+        expect(yield* readInstallMeta(dataDir)).toEqual(Option.none());
+        expect(recording.calls({ path: metaPath })).toEqual([
+          { method: "readFile", path: metaPath, outcome: "failure" },
+        ]);
+      }),
+    ),
+  );
+
+  it.effect(
+    "reports a directory at the metadata path or a file in place of its directory as None",
+    () =>
+      recordedContext(
+        Effect.gen(function* () {
+          nodeFs.mkdirSync(metaPath, { recursive: true });
+          expect(yield* readInstallMeta(dataDir)).toEqual(Option.none());
+          nodeFs.rmSync(dataDir, { recursive: true });
+          nodeFs.writeFileSync(dataDir, "not a directory");
+          expect(yield* readInstallMeta(dataDir)).toEqual(Option.none());
+        }),
+      ),
+  );
 });

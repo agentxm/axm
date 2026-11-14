@@ -8,7 +8,10 @@
 import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as nodeFs from "node:fs";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodePath from "@effect/platform-node/NodePath";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
 import { describe, expect, afterEach, beforeEach, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -560,4 +563,95 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
       ),
     );
   });
+});
+
+const RecordedServices = Layer.mergeAll(
+  layerRecordingFileSystem(NodeFileSystem.layer),
+  NodePath.layer,
+);
+
+layer(RecordedServices, { excludeTestServices: true })("install metadata reads", (it) => {
+  let tempDir: string;
+  let metaPath: string;
+  beforeEach(() => {
+    tempDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "install-method-reads-"));
+    nodeFs.mkdirSync(nodePath.join(tempDir, ".axm"), { recursive: true });
+    metaPath = nodePath.join(tempDir, ".axm", "install-meta.json");
+  });
+  afterEach(() => nodeFs.rmSync(tempDir, { recursive: true, force: true }));
+
+  const detectWithoutDirectEvidence = () =>
+    detectFromInputs({
+      ...baseInputs,
+      homeDir: tempDir,
+      execPath: "/some/other/bin/bun",
+      importMetaUrl: "file:///some/other/path/main.ts",
+    });
+  const metadataEvidence = Effect.gen(function* () {
+    const result = yield* detectWithoutDirectEvidence();
+    expect(result._tag).toBe("Unknown");
+    return result._tag === "Unknown" ? result.evidence : [];
+  });
+
+  it.effect("detects from present metadata with one content read and no existence probe", () =>
+    Effect.gen(function* () {
+      nodeFs.writeFileSync(
+        metaPath,
+        JSON.stringify({
+          schemaVersion: 2,
+          method: "npm",
+          installedAt: "2026-01-15T08:30:00.000Z",
+        }),
+      );
+      const recording = yield* FileSystemRecorder;
+      recording.reset();
+
+      const result = yield* detectWithoutDirectEvidence();
+      expect(result._tag).toBe("Npm");
+      if (result._tag === "Npm") expect(result.detectionSource).toBe("install-metadata");
+      expect(recording.counts(metaPath)).toEqual({ readFile: 1 });
+    }),
+  );
+
+  it.effect("reports absent metadata as missing after one failed open", () =>
+    Effect.gen(function* () {
+      const recording = yield* FileSystemRecorder;
+      recording.reset();
+
+      expect(yield* metadataEvidence).toContain("install-metadata:missing");
+      expect(recording.calls({ path: metaPath })).toEqual([
+        { method: "readFile", path: metaPath, outcome: "failure" },
+      ]);
+    }),
+  );
+
+  it.effect("reports a dangling metadata link as missing", () =>
+    Effect.gen(function* () {
+      nodeFs.symlinkSync(nodePath.join(tempDir, "gone.json"), metaPath);
+      expect(yield* metadataEvidence).toContain("install-metadata:missing");
+    }),
+  );
+
+  it.effect("reports a directory at the metadata path as unreadable", () =>
+    Effect.gen(function* () {
+      nodeFs.mkdirSync(metaPath);
+      expect(yield* metadataEvidence).toContain("install-metadata:unreadable");
+    }),
+  );
+
+  it.effect("reports metadata under a file where its directory belongs as unreadable", () =>
+    Effect.gen(function* () {
+      nodeFs.rmSync(nodePath.join(tempDir, ".axm"), { recursive: true });
+      nodeFs.writeFileSync(nodePath.join(tempDir, ".axm"), "not a directory");
+      expect(yield* metadataEvidence).toContain("install-metadata:unreadable");
+    }),
+  );
+
+  it.effect.skipIf(process.getuid?.() === 0)("reports unreadable metadata as unreadable", () =>
+    Effect.gen(function* () {
+      nodeFs.writeFileSync(metaPath, "{}");
+      nodeFs.chmodSync(metaPath, 0o000);
+      expect(yield* metadataEvidence).toContain("install-metadata:unreadable");
+    }),
+  );
 });

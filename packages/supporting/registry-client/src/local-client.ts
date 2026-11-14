@@ -1008,6 +1008,8 @@ export const createLocalRegistryClient = (
           yield* writeFileAtomic(fs, {
             targetPath: archivePath,
             content: args.archive,
+            // Borrowed for this call only; see `PublishExtensionArgs.archive`.
+            contentOwnership: "transferred",
             removeTargetBeforeRename: true,
             mapError: (failure) =>
               failure.step === "rename"

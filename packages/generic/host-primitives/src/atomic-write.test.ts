@@ -4,7 +4,8 @@
  * Covers string and binary payloads, the content-equality short-circuit in
  * both read-error modes, target pre-removal, per-step error mapping, temp
  * cleanup on failure and interruption (and no cleanup work once the rename
- * consumed the temp), and concurrent writers to one target.
+ * consumed the temp), concurrent writers to one target, and which buffer
+ * instance reaches the filesystem under each content-ownership mode.
  */
 
 import * as nodeFs from "node:fs";
@@ -46,6 +47,22 @@ const injectedFailure = (method: string, path: string) =>
 const tempRemovals = (recording: FileSystemRecording, targetPath: string): number =>
   recording.calls({ method: "remove" }).filter((call) => call.path.startsWith(`${targetPath}.tmp.`))
     .length;
+
+/**
+ * Delegates to `fs`, remembering each byte buffer instance `writeFile` receives.
+ * `FileSystem.make` rebuilds the derived methods over the recorded `writeFile`.
+ */
+const recordWrittenInstances = (fs: FileSystem.FileSystem) => {
+  const written: Array<Uint8Array> = [];
+  const fileSystem = FileSystem.make({
+    ...fs,
+    writeFile: (path, data, options) => {
+      written.push(data);
+      return fs.writeFile(path, data, options);
+    },
+  });
+  return { fileSystem, written };
+};
 
 const ancient = new Date("2000-01-01T00:00:00.000Z");
 const cutoff = new Date("2001-01-01T00:00:00.000Z").getTime();
@@ -168,6 +185,98 @@ describe("writeFileAtomic", () => {
       }),
     ),
   );
+
+  describe("content ownership", () => {
+    it.effect("writes a transferred buffer without copying it", () =>
+      withContext(
+        Effect.gen(function* () {
+          const { fileSystem, written } = recordWrittenInstances(yield* FileSystem.FileSystem);
+          const payload = new Uint8Array([0, 1, 2, 253, 254, 255]);
+          yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: payload,
+            contentOwnership: "transferred",
+            mapError: identityFailure,
+          });
+          expect(written).toHaveLength(1);
+          expect(written[0]).toBe(payload);
+          expect(Array.from(payload)).toEqual([0, 1, 2, 253, 254, 255]);
+          expect(new Uint8Array(nodeFs.readFileSync(target))).toEqual(payload);
+          expect(nodeFs.readdirSync(tempDir)).toEqual(["target.txt"]);
+        }),
+      ),
+    );
+
+    it.effect("copies a buffer the caller keeps by default", () =>
+      withContext(
+        Effect.gen(function* () {
+          const { fileSystem, written } = recordWrittenInstances(yield* FileSystem.FileSystem);
+          const payload = new Uint8Array([7, 8, 9]);
+          yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: payload,
+            mapError: identityFailure,
+          });
+          expect(written).toHaveLength(1);
+          expect(written[0]).not.toBe(payload);
+          expect(new Uint8Array(nodeFs.readFileSync(target))).toEqual(payload);
+        }),
+      ),
+    );
+
+    it.effect("copies a buffer whose publication is witnessed", () =>
+      withContext(
+        Effect.gen(function* () {
+          const { fileSystem, written } = recordWrittenInstances(yield* FileSystem.FileSystem);
+          const payload = new Uint8Array([7, 8, 9]);
+          let witnessed: string | Uint8Array | undefined;
+          yield* writeFileAtomic(fileSystem, {
+            targetPath: target,
+            content: payload,
+            mapError: identityFailure,
+            onPublished: (publication) =>
+              Effect.sync(() => {
+                witnessed = publication.content;
+              }),
+          });
+          expect(written).toHaveLength(1);
+          expect(written[0]).not.toBe(payload);
+          expect(witnessed).toBe(written[0]);
+          expect(new Uint8Array(nodeFs.readFileSync(target))).toEqual(payload);
+        }),
+      ),
+    );
+
+    it("accepts a transfer only for byte content without a witness or comparison", () => {
+      // Each directive sits where the compiler reports the rejected combination.
+      const transferred = (fs: FileSystem.FileSystem) => [
+        // @ts-expect-error string content cannot be transferred
+        writeFileAtomic(fs, {
+          targetPath: target,
+          content: "text",
+          contentOwnership: "transferred",
+          mapError: identityFailure,
+        }),
+        // @ts-expect-error a publication witness needs the writer's own snapshot
+        writeFileAtomic(fs, {
+          targetPath: target,
+          content: new Uint8Array(),
+          contentOwnership: "transferred",
+          mapError: identityFailure,
+          onPublished: () => Effect.void,
+        }),
+        writeFileAtomic(fs, {
+          targetPath: target,
+          content: new Uint8Array(),
+          contentOwnership: "transferred",
+          // @ts-expect-error a content comparison needs the writer's own snapshot
+          skipIfUnchanged: "ignore-read-errors",
+          mapError: identityFailure,
+        }),
+      ];
+      expect(transferred).toBeTypeOf("function");
+    });
+  });
 
   describe("skipIfUnchanged", () => {
     it.effect("leaves an unchanged target untouched in fail-on-read-error mode", () =>

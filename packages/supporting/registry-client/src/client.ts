@@ -192,6 +192,11 @@ export interface PublishExtensionArgs {
   readonly type: ExtensionType;
   readonly name: ExtensionName;
   readonly version: Version;
+  /**
+   * Zip archive bytes. `publishExtension` never mutates or retains them, and a
+   * file Registry writes this buffer without copying it, so callers must not
+   * mutate it until the call completes.
+   */
   readonly archive: Uint8Array;
   readonly metadata: VersionEntry;
   /** Exact repository/CLI visibility input bound by the publication descriptor digest. */

@@ -62,7 +62,13 @@ interface ArchiveDelivery {
 }
 
 export interface ArchiveCache {
-  /** Coalesce equal byte acquisitions after the caller has admitted content access. */
+  /**
+   * Coalesce equal byte acquisitions after the caller has admitted content access.
+   *
+   * On a miss, `fetch` must yield a freshly allocated buffer that no other code
+   * retains or mutates: the cache stages that instance without a copy, and only
+   * the requester whose call ran the lookup receives it, after the write completes.
+   */
   readonly load: (
     selectionKey: string,
     integrity: string,
@@ -295,10 +301,13 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
   );
 
   // Returns the evidence of its verify-before-write for the archive it stored.
+  // A transferred archive is staged without a copy; only a buffer no other code
+  // retains or mutates during the write may be transferred.
   const writeVerified = Effect.fnUntraced(
     function* (
       integrity: string,
       archive: Uint8Array,
+      ownership: "copied" | "transferred",
       writeOptions: { readonly prune?: boolean } = {},
     ): Effect.fn.Return<VerifiedArchive, RegistryClientFailure> {
       if (archive.byteLength > MAX_BUFFERED_ARCHIVE_BYTES) {
@@ -323,6 +332,7 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
       yield* writeFileAtomic(fs, {
         targetPath: entryPath,
         content: archive,
+        contentOwnership: ownership,
         removeTargetBeforeRename: true,
         mapError: (failure) =>
           failure.step === "rename"
@@ -342,7 +352,7 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
   );
 
   const write: ArchiveCache["write"] = (integrity, archive, writeOptions) =>
-    Effect.asVoid(writeVerified(integrity, archive, writeOptions));
+    Effect.asVoid(writeVerified(integrity, archive, "copied", writeOptions));
 
   const inFlight = yield* Cache.make({
     lookup: (request: ArchiveAcquisition) => {
@@ -356,7 +366,7 @@ export const makeArchiveCache = Effect.fnUntraced(function* (
               return cached.value;
             }
             const archive = yield* request.fetch;
-            return yield* writeVerified(request.integrity, archive);
+            return yield* writeVerified(request.integrity, archive, "transferred");
           }),
         () => releaseActive(request.integrity),
       );

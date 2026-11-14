@@ -524,6 +524,53 @@ describe("observability campaign evidence", () => {
     });
   });
 
+  it("retains persistent variability for review without waiving latency or evidence gates", () => {
+    const noisy = (count: number) =>
+      samples(count).map((sample) =>
+        sample.subject === "candidate" && sample.mode === "disabled" && sample.iteration === 2
+          ? { ...sample, durationMs: 200 }
+          : sample,
+      );
+    const review = (values: ReadonlyArray<ObservationSample>) =>
+      assessObservabilityEvidence(
+        budgets,
+        coverage,
+        ["list/one"],
+        values,
+        preflight(),
+        "informational",
+        "review",
+      );
+    expect(assessScenarioTiming(budgets, noisy(5), "informational", "review")).toMatchObject({
+      needsEscalation: true,
+      passed: false,
+    });
+    expect(assess(noisy(10)).passed).toBe(false);
+    const result = review(noisy(10));
+    expect(result).toMatchObject({
+      passed: true,
+      variabilityReviewRequired: true,
+      variabilityReviews: [{ scenario: "list/one", noisy: true, drifting: false }],
+    });
+    expect(result.comparisons[0]?.candidateMedianMs).toBeLessThan(135);
+    const regression = noisy(10).map((sample) =>
+      sample.subject === "candidate" && sample.mode === "disabled"
+        ? { ...sample, durationMs: sample.iteration === 2 ? 250 : 160 }
+        : sample,
+    );
+    expect(review(regression).issues).toContain("Performance budget exceeded: list/one/disabled");
+    expect(review(regression).passed).toBe(false);
+    expect(review(noisy(10).slice(1)).passed).toBe(false);
+    expect(review(noisy(10).map((sample) => ({ ...sample, exitCode: 9 }))).passed).toBe(false);
+    const drift = samples(10).map((sample) =>
+      sample.subject === "baseline"
+        ? { ...sample, durationMs: 100 + sample.iteration * 4 }
+        : sample,
+    );
+    expect(review(drift)).toMatchObject({ passed: true, variabilityReviewRequired: true });
+    expect(review(drift).variabilityReviews[0]?.drifting).toBe(true);
+  });
+
   it.effect(
     "discovers preview/fix obligations from existing help and never substitutes help for a handler",
     () =>

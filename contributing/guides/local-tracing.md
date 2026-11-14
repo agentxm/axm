@@ -435,6 +435,21 @@ Each escalation adds 20 invocations and retains all initial observations. Noise
 or drift remaining at ten makes the result inconclusive. Correctness, memory,
 volume and shutdown failures are handled separately; thresholds are unchanged.
 
+Timing-noise enforcement defaults to
+`AXM_OBSERVABILITY_TIMING_NOISE_POLICY=enforced`. When the campaign's acceptance
+criteria explicitly require review instead of an automatic noise rejection, set
+`AXM_OBSERVABILITY_TIMING_NOISE_POLICY=review`. Five-to-ten block escalation still
+applies and retains every observation. Persistent noise/drift is recorded in
+`assessment.variabilityReviews` and sets `variabilityReviewRequired`; it does not
+by itself stop the remaining cases or fail automated checks. Median elapsed
+budgets remain enforced, including in noisy cases. A successful process exit or
+`assessment.passed` establishes only the automated checks: review the retained
+measurements, paired comparisons, drift, and proximity to the budget before
+claiming acceptance. If variability prevents a credible conclusion, report the
+result as unresolved. Do not retry merely to obtain a favorable sample or drop
+outliers. Historical failures retain their original verdicts. This policy adds
+no CPU-affinity, allocation, or runner-tuning prerequisite.
+
 Memory enforcement defaults to `AXM_OBSERVABILITY_MEMORY_POLICY=enforced`.
 For a campaign whose acceptance criteria explicitly make memory informational,
 set `AXM_OBSERVABILITY_MEMORY_POLICY=informational`. The report records the policy

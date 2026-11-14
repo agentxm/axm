@@ -54,6 +54,7 @@ export const ObservabilityBudgetsSchema = Schema.Struct({
 });
 export type ObservabilityBudgets = typeof ObservabilityBudgetsSchema.Type;
 export type MemoryPolicy = "enforced" | "informational";
+export type TimingNoisePolicy = "enforced" | "review";
 export const traceModes = ["disabled", "summary", "detail"] as const;
 export type TraceMode = (typeof traceModes)[number];
 
@@ -551,6 +552,7 @@ export const assessScenarioTiming = (
   budgets: ObservabilityBudgets,
   samples: ReadonlyArray<ObservationSample>,
   memoryPolicy: MemoryPolicy = "enforced",
+  timingNoisePolicy: TimingNoisePolicy = "enforced",
 ) => {
   const measured = samples.filter((sample) => sample.phase === "timing" && !sample.warmup);
   const baseline = measured
@@ -646,8 +648,10 @@ export const assessScenarioTiming = (
     (noisy ||
       drifting ||
       comparisons.some((comparison) => comparison.nearBound || comparison.straddlesBound));
-  const inconclusive =
+  const persistentVariability =
     complete && count === budgets.measurement.maximumRepetitions && (noisy || drifting);
+  const inconclusive = timingNoisePolicy === "enforced" && persistentVariability;
+  const variabilityReviewRequired = timingNoisePolicy === "review" && persistentVariability;
   return {
     count,
     complete,
@@ -655,6 +659,7 @@ export const assessScenarioTiming = (
     drifting,
     needsEscalation,
     inconclusive,
+    variabilityReviewRequired,
     comparisons,
     passed:
       complete &&
@@ -673,8 +678,10 @@ export const assessObservabilityEvidence = (
   samples: ReadonlyArray<ObservationSample>,
   preflight: ReadonlyArray<PreflightCheck> = [],
   memoryPolicy: MemoryPolicy = "enforced",
+  timingNoisePolicy: TimingNoisePolicy = "enforced",
 ) => {
   const issues: string[] = [];
+  const variabilityReviews: Array<{ scenario: string; noisy: boolean; drifting: boolean }> = [];
   const workComparisons: Array<WorkComparison & { readonly scenario: string }> = [];
   const comparisons: Array<
     ReturnType<typeof assessScenarioTiming>["comparisons"][number] & {
@@ -734,7 +741,9 @@ export const assessObservabilityEvidence = (
     workComparisons.push({ scenario, ...workComparison });
     issues.push(...workComparison.issues);
     const own = samples.filter((sample) => sample.scenario === scenario);
-    const assessment = assessScenarioTiming(budgets, own, memoryPolicy);
+    const assessment = assessScenarioTiming(budgets, own, memoryPolicy, timingNoisePolicy);
+    if (assessment.variabilityReviewRequired)
+      variabilityReviews.push({ scenario, noisy: assessment.noisy, drifting: assessment.drifting });
     if (!assessment.complete) issues.push("Incomplete measured blocks: " + scenario);
     if (assessment.needsEscalation)
       issues.push("Required timing escalation is missing: " + scenario);
@@ -744,6 +753,7 @@ export const assessObservabilityEvidence = (
       budgets,
       own.filter((sample) => sample.warmup || sample.iteration < budgets.measurement.repetitions),
       memoryPolicy,
+      timingNoisePolicy,
     );
     if (assessment.count === budgets.measurement.maximumRepetitions && !initial.needsEscalation)
       issues.push("Unjustified timing escalation: " + scenario);
@@ -784,10 +794,20 @@ export const assessObservabilityEvidence = (
       comparisons.push({ scenario, ...comparison, passed });
       if (
         (memoryPolicy === "enforced" && !comparison.memoryPassed) ||
-        (!assessment.noisy && !assessment.drifting && !comparison.elapsedPassed)
+        ((timingNoisePolicy === "review" || (!assessment.noisy && !assessment.drifting)) &&
+          !comparison.elapsedPassed)
       )
         issues.push("Performance budget exceeded: " + scenario + "/" + comparison.mode);
     }
   }
-  return { passed: issues.length === 0, issues, comparisons, workComparisons };
+  return {
+    passed: issues.length === 0,
+    variabilityReviewRequired: variabilityReviews.length > 0,
+    variabilityReviews,
+    interpretation:
+      "Passing automated checks does not resolve required variability review or establish acceptance.",
+    issues,
+    comparisons,
+    workComparisons,
+  };
 };

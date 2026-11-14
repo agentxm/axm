@@ -515,6 +515,13 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             "configuration",
             "AXM_OBSERVABILITY_MEMORY_POLICY must be enforced or informational.",
           );
+        const timingNoisePolicy =
+          process.env["AXM_OBSERVABILITY_TIMING_NOISE_POLICY"] ?? "enforced";
+        if (timingNoisePolicy !== "enforced" && timingNoisePolicy !== "review")
+          return yield* fail(
+            "configuration",
+            "AXM_OBSERVABILITY_TIMING_NOISE_POLICY must be enforced or review.",
+          );
         const runMode = process.env["AXM_OBSERVABILITY_RUN"] ?? "fixtures";
         if (runMode !== "fixtures" && runMode !== "measure")
           return yield* fail("configuration", "AXM_OBSERVABILITY_RUN must be fixtures or measure.");
@@ -589,6 +596,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
           schemaVersion: 2,
           runMode,
           memoryPolicy,
+          timingNoisePolicy,
           startedAt: new Date().toISOString(),
           baseline,
           candidate,
@@ -661,6 +669,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               samples,
               fixtureChecks,
               memoryPolicy,
+              timingNoisePolicy,
             ),
             ...(error === undefined ? {} : { error }),
           });
@@ -1483,6 +1492,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               budgets,
               samples.filter((sample) => sample.scenario === scenario.id),
               memoryPolicy,
+              timingNoisePolicy,
             );
             if (result.needsEscalation) {
               for (
@@ -1495,6 +1505,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 budgets,
                 samples.filter((sample) => sample.scenario === scenario.id),
                 memoryPolicy,
+                timingNoisePolicy,
               );
             }
             save(false);
@@ -1511,6 +1522,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             samples,
             fixtureChecks,
             memoryPolicy,
+            timingNoisePolicy,
           );
           save(assessment.passed);
           if (!assessment.passed)

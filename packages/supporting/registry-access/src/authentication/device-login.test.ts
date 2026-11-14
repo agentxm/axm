@@ -3,24 +3,41 @@
  */
 
 import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { resolveUserAxmHome } from "@agentxm/host-primitives";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodePath from "@effect/platform-node/NodePath";
 import { credentialKey } from "../credentials/credential-key.js";
 import { describe, expect, it } from "@effect/vitest";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import * as TestClock from "effect/testing/TestClock";
 
 import { handle } from "../test-helpers.js";
 
 import { AuthClientTest } from "./auth-client.js";
-import { DeviceLoginDenied, RegistryAccessFailed } from "./errors.js";
+import { DeviceLoginCodeExpired, DeviceLoginDenied, RegistryAccessFailed } from "./errors.js";
 import { CredentialStore, CredentialStoreTest } from "../credentials/credential-store.js";
-import { initiateDeviceLogin, runDeviceLogin, DeviceLoginInteractionTest } from "./device-login.js";
+import {
+  initiateDeviceLogin,
+  resumeDeviceLogin,
+  runDeviceLogin,
+  DeviceLoginInteractionTest,
+} from "./device-login.js";
 import { AuthLoginPresenterTest } from "./login-presenter.js";
 import {
   PendingDeviceLoginStore,
+  PendingDeviceLoginStoreLive,
   PendingDeviceLoginStoreTest,
+  type PendingDeviceLogin,
 } from "./pending-device-login-store.js";
+import { authEndpoint, authKey, makeAuthPorts } from "./test-support/test-helpers.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const REGISTRY = decodeHttpRegistryEndpointSync(REGISTRY_URL);
@@ -238,5 +255,141 @@ describe("resumable device login", () => {
         expect(Option.isSome(yield* pendingStore.load())).toBe(true);
       }).pipe(Effect.provide(layer));
     },
+  );
+});
+
+/**
+ * The live pending-sign-in store in a temporary AXM home, over a filesystem
+ * that records every call, so a test can count reads of the pending record.
+ */
+const recordedPendingStore = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const home = yield* fs.makeTempDirectoryScoped({ prefix: "axm-device-login-" });
+  const config = ConfigProvider.layer(ConfigProvider.fromEnvRecord({ AXM_USER_HOME: home }));
+  const file = path.join(
+    yield* resolveUserAxmHome().pipe(Effect.provide(config)),
+    "pending-login.json",
+  );
+  const liveStoreOver = (fileSystem: FileSystem.FileSystem) =>
+    PendingDeviceLoginStoreLive.pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.succeed(FileSystem.FileSystem, fileSystem),
+          Layer.succeed(Path.Path, path),
+          config,
+        ),
+      ),
+    );
+  const { fileSystem, recording } = makeRecordingFileSystem(fs);
+  // Another invocation's store on the same file, unseen by the recording.
+  const foreign = Context.get(yield* Layer.build(liveStoreOver(fs)), PendingDeviceLoginStore);
+  return { layer: liveStoreOver(fileSystem), recording, file, fs, foreign };
+}).pipe(Effect.provide(Layer.merge(NodeFileSystem.layer, NodePath.layer)));
+
+const pendingRecord: PendingDeviceLogin = {
+  version: 3,
+  registryUrl: authKey,
+  deviceCode: "fixture-device-secret-pending",
+  userCode: "WXYZ-9876",
+  verificationUri: "https://identity.example.test/device",
+  verificationUriComplete: "https://identity.example.test/device?user_code=WXYZ-9876",
+  interval: 1,
+  expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
+};
+
+describe("pending record reads of one device sign-in", () => {
+  for (const { openBrowser, observed, firstAttemptReads, retryReads } of [
+    { openBrowser: false, observed: undefined, firstAttemptReads: 1, retryReads: 1 },
+    { openBrowser: true, observed: undefined, firstAttemptReads: 2, retryReads: 2 },
+    // The caller's observation serves only the first attempt; the replacement reads for itself.
+    { openBrowser: false, observed: Option.none(), firstAttemptReads: 0, retryReads: 1 },
+    { openBrowser: true, observed: Option.none(), firstAttemptReads: 1, retryReads: 2 },
+  ]) {
+    it.effect(
+      `replacing an expired code reads the record ${String(retryReads)} more time(s) when openBrowser=${String(openBrowser)}${observed === undefined ? "" : " after the caller observed it"}`,
+      () =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const store = yield* recordedPendingStore;
+            const readsAtPoll: Array<number> = [];
+            const polled: Array<string> = [];
+            const ports = makeAuthPorts({
+              auth: {
+                pollDeviceToken: (_endpoint, code) =>
+                  Effect.suspend(() => {
+                    polled.push(code);
+                    readsAtPoll.push(store.recording.contentReads(store.file));
+                    return polled.length === 1
+                      ? Effect.fail(new DeviceLoginCodeExpired())
+                      : Effect.succeed({
+                          access_token: "replacement-access",
+                          refresh_token: "replacement-refresh",
+                          expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00Z"),
+                        });
+                  }),
+              },
+            });
+            const result = yield* runDeviceLogin(authEndpoint, { openBrowser }, observed).pipe(
+              Effect.provide(Layer.merge(ports.layer, store.layer)),
+            );
+            expect(result.status).toBe("logged-in");
+            expect(ports.presenterState.deviceCodeReplacements).toEqual([true]);
+            // The replacement polls only its own new code.
+            expect(ports.deviceAuthorizations).toEqual([
+              "fixture-device-secret-1",
+              "fixture-device-secret-2",
+            ]);
+            expect(polled).toEqual(ports.deviceAuthorizations);
+            const [first = 0, second = 0] = readsAtPoll;
+            expect(first).toBe(firstAttemptReads);
+            expect(second - first).toBe(retryReads);
+          }),
+        ),
+    );
+  }
+
+  it.effect("a resume of an earlier invocation's sign-in reads the record itself", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const store = yield* recordedPendingStore;
+        yield* store.foreign.save(pendingRecord);
+        const ports = makeAuthPorts();
+        const result = yield* resumeDeviceLogin(authEndpoint, { timeoutSeconds: 300 }).pipe(
+          Effect.provide(Layer.merge(ports.layer, store.layer)),
+        );
+        expect(result.status).toBe("logged-in");
+        expect(ports.polledCodes).toEqual(["fixture-device-secret-pending"]);
+        expect(store.recording.contentReads(store.file)).toBe(1);
+        expect(yield* store.fs.exists(store.file)).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("a resume handed a record that has since expired clears it and polls nothing", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const store = yield* recordedPendingStore;
+        const prepared: PendingDeviceLogin = {
+          ...pendingRecord,
+          expiresAt: DateTime.makeUnsafe("1970-01-01T00:15:00.000Z"),
+        };
+        yield* store.foreign.save(prepared);
+        yield* TestClock.adjust("16 minutes");
+        const ports = makeAuthPorts();
+        const failure = yield* Effect.flip(
+          resumeDeviceLogin(authEndpoint, { prepared }).pipe(
+            Effect.provide(Layer.merge(ports.layer, store.layer)),
+          ),
+        );
+        expect(failure).toMatchObject({
+          category: "auth_expired",
+          detail: "That code expired. Run axm login to get a new one.",
+        });
+        expect(ports.polledCodes).toEqual([]);
+        expect(store.recording.contentReads(store.file)).toBe(0);
+        expect(yield* store.fs.exists(store.file)).toBe(false);
+      }),
+    ),
   );
 });

@@ -7,3 +7,11 @@ export {
   snapshotProtectedState,
   type ProtectedStateSnapshot,
 } from "./protected-state.js";
+export {
+  FileSystemRecorder,
+  layerRecordingFileSystem,
+  makeRecordingFileSystem,
+  type FileSystemRecording,
+  type RecordedFileSystemCall,
+  type RecordedFileSystemMethod,
+} from "./recording-file-system.js";

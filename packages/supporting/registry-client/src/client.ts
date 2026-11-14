@@ -13,6 +13,7 @@ import * as Option from "effect/Option";
 import type * as Result from "effect/Result";
 
 import type { RegistryClientFailure } from "./errors.js";
+import type { VerifiedArchive } from "./verified-archive.js";
 import type {
   PublishVisibility,
   VisibilityEvaluation,
@@ -257,6 +258,14 @@ export interface GetExtensionsByOwnerResponse {
  */
 export interface GetExtensionPackageResponse {
   readonly archive: Uint8Array;
+  /**
+   * Present only when the client hashed exactly this `archive` instance against
+   * the selected exact integrity during this call and no other requester holds
+   * that instance. Consumers check it with `covers()` before extraction and do
+   * not hand the buffer to another consumer before that check. Absent means the
+   * consumer must verify the archive itself.
+   */
+  readonly verified?: VerifiedArchive;
   readonly warnings?: ReadonlyArray<string>;
 }
 

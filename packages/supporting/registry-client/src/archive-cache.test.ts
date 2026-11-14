@@ -76,7 +76,7 @@ describe("ArchiveCache", () => {
         yield* cache.write(integrity, archive);
         const result = yield* cache.read(integrity);
 
-        expect(Array.from(Option.getOrThrow(result))).toEqual(Array.from(archive));
+        expect(Array.from(Option.getOrThrow(result).bytes)).toEqual(Array.from(archive));
         const entries = yield* fs.readDirectory(cacheRoot);
         expect(entries).toHaveLength(1);
         expect(entries[0]?.endsWith(".zip")).toBe(true);
@@ -106,8 +106,8 @@ describe("ArchiveCache", () => {
         yield* Effect.yieldNow;
         expect(yield* Ref.get(fetches)).toBe(1);
         yield* Deferred.succeed(release, undefined);
-        expect(Array.from(yield* Fiber.join(first))).toEqual([1, 2, 3]);
-        expect(Array.from(yield* Fiber.join(second))).toEqual([1, 2, 3]);
+        expect(Array.from((yield* Fiber.join(first)).archive)).toEqual([1, 2, 3]);
+        expect(Array.from((yield* Fiber.join(second)).archive)).toEqual([1, 2, 3]);
 
         const missing = yield* computeIntegrity(new Uint8Array([9]));
         yield* cache
@@ -119,9 +119,118 @@ describe("ArchiveCache", () => {
           .pipe(Effect.exit);
         expect(
           Array.from(
-            yield* cache.load("retry-selection", missing, Effect.succeed(new Uint8Array([9]))),
+            (yield* cache.load("retry-selection", missing, Effect.succeed(new Uint8Array([9]))))
+              .archive,
           ),
         ).toEqual([9]);
+      }),
+    ),
+  );
+
+  it.effect("delivers the fetched instance with covering evidence on an uncoalesced miss", () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
+        const archive = new Uint8Array([4, 5, 6]);
+        const integrity = yield* computeIntegrity(archive);
+
+        const miss = yield* cache.load("selection", integrity, Effect.succeed(archive));
+        expect(miss.archive).toBe(archive);
+        expect(miss.verified?.covers(miss.archive, integrity)).toBe(true);
+
+        const hit = yield* cache.load("selection", integrity, Effect.die("cache miss"));
+        expect(Array.from(hit.archive)).toEqual([4, 5, 6]);
+        expect(hit.verified?.covers(hit.archive, integrity)).toBe(true);
+      }),
+    ),
+  );
+
+  it.effect("gives a coalesced follower a private unverified copy of a fetched archive", () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
+        const archive = new Uint8Array([1, 2, 3]);
+        const integrity = yield* computeIntegrity(archive);
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const fetches = yield* Ref.make(0);
+        const fetch = Ref.update(fetches, (count) => count + 1).pipe(
+          Effect.andThen(Deferred.succeed(started, undefined)),
+          Effect.andThen(Deferred.await(release)),
+          Effect.as(archive),
+        );
+        const leaderFiber = yield* cache.load("selection", integrity, fetch).pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        const followerFiber = yield* cache
+          .load("selection", integrity, fetch)
+          .pipe(Effect.forkChild({ startImmediately: true }));
+        yield* Deferred.succeed(release, undefined);
+        const leader = yield* Fiber.join(leaderFiber);
+        const follower = yield* Fiber.join(followerFiber);
+
+        expect(yield* Ref.get(fetches)).toBe(1);
+        expect(leader.archive).toBe(archive);
+        expect(leader.verified?.covers(leader.archive, integrity)).toBe(true);
+        expect(follower.verified).toBeUndefined();
+        expect(follower.archive).not.toBe(leader.archive);
+        expect(Array.from(follower.archive)).toEqual([1, 2, 3]);
+
+        follower.archive.fill(0);
+        expect(Array.from(leader.archive)).toEqual([1, 2, 3]);
+        expect(yield* computeIntegrity(leader.archive)).toBe(integrity);
+        expect(leader.verified?.covers(leader.archive, integrity)).toBe(true);
+      }),
+    ),
+  );
+
+  it.effect("gives a coalesced follower a private unverified copy of a cache hit", () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const archive = new Uint8Array([7, 8, 9]);
+        const integrity = yield* computeIntegrity(archive);
+        yield* (yield* makeArchiveCache(fs, path, cacheRoot)).write(integrity, archive);
+        const reading = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        let gatePending = true;
+        const gatedFs = FileSystem.make({
+          ...fs,
+          stat: (target) =>
+            Effect.gen(function* () {
+              if (gatePending && target.endsWith(".zip")) {
+                gatePending = false;
+                yield* Deferred.succeed(reading, undefined);
+                yield* Deferred.await(release);
+              }
+              return yield* fs.stat(target);
+            }),
+        });
+        const cache = yield* makeArchiveCache(gatedFs, path, cacheRoot);
+        const leaderFiber = yield* cache
+          .load("selection", integrity, Effect.die("cache miss"))
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(reading);
+        const followerFiber = yield* cache
+          .load("selection", integrity, Effect.die("cache miss"))
+          .pipe(Effect.forkChild({ startImmediately: true }));
+        yield* Deferred.succeed(release, undefined);
+        const leader = yield* Fiber.join(leaderFiber);
+        const follower = yield* Fiber.join(followerFiber);
+
+        expect(leader.verified?.covers(leader.archive, integrity)).toBe(true);
+        expect(follower.verified).toBeUndefined();
+        expect(follower.archive).not.toBe(leader.archive);
+        expect(Array.from(follower.archive)).toEqual([7, 8, 9]);
+
+        follower.archive.fill(0);
+        expect(Array.from(leader.archive)).toEqual([7, 8, 9]);
+        expect(yield* computeIntegrity(leader.archive)).toBe(integrity);
+        expect(leader.verified?.covers(leader.archive, integrity)).toBe(true);
       }),
     ),
   );
@@ -155,9 +264,12 @@ describe("ArchiveCache", () => {
         expect(yield* Ref.get(interrupted)).toBe(false);
         expect(yield* Ref.get(fetches)).toBe(1);
         yield* Deferred.succeed(release, undefined);
-        expect(Array.from(yield* Fiber.join(second))).toEqual([8, 7, 6]);
+        const survivor = yield* Fiber.join(second);
+        expect(Array.from(survivor.archive)).toEqual([8, 7, 6]);
+        expect(survivor.verified).toBeUndefined();
+        expect(survivor.archive).not.toBe(archive);
         expect(
-          Array.from(yield* cache.load("selection", integrity, Effect.die("cache miss"))),
+          Array.from((yield* cache.load("selection", integrity, Effect.die("cache miss"))).archive),
         ).toEqual([8, 7, 6]);
       }),
     ),
@@ -190,12 +302,14 @@ describe("ArchiveCache", () => {
         yield* Deferred.await(finalizing);
         yield* Effect.gen(function* () {
           expect(
-            Array.from(yield* cache.load("selection", integrity, Effect.succeed(archive))),
+            Array.from(
+              (yield* cache.load("selection", integrity, Effect.succeed(archive))).archive,
+            ),
           ).toEqual([8, 7, 6]);
         }).pipe(Effect.ensuring(Deferred.succeed(finishFinalizer, undefined)));
         yield* Fiber.join(interrupted);
         expect(
-          Array.from(yield* cache.load("selection", integrity, Effect.die("cache miss"))),
+          Array.from((yield* cache.load("selection", integrity, Effect.die("cache miss"))).archive),
         ).toEqual([8, 7, 6]);
       }),
     ),

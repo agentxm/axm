@@ -16,7 +16,9 @@ import {
   OfflineHttpClient,
   RegistryClientFactoryTest,
 } from "@agentxm/registry-client/testing";
-import { materializeRegistryPackageWithTreeIntegrity } from "./index.js";
+import { VerifiedArchive } from "@agentxm/registry-client";
+import { workObservations } from "../locations/testing.js";
+import { extractExternalArchive, materializeRegistryPackageWithTreeIntegrity } from "./index.js";
 
 const platform = Layer.provideMerge(
   RegistryClientFactoryTest(OfflineHttpClient),
@@ -91,5 +93,61 @@ describe("Registry package payload fidelity", () => {
       expect(yield* fs.readLink(path.join(destinationPath, "src/b"))).toBe("a");
       expect(yield* fs.readDirectory(path.join(destinationPath, "src/empty"))).toEqual([]);
     }).pipe(Effect.scoped, Effect.provide(platform)),
+  );
+});
+
+describe("Registry archive integrity before extraction", () => {
+  it.effect("hashes a file Registry archive once between admission and extraction", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const registry = yield* Effect.acquireRelease(
+        Effect.sync(() => makeFileRegistry()),
+        (registry) => Effect.sync(() => registry.cleanup()),
+      );
+      registry.writeSkill("review", [{ version: "1.0.0", body: "Review" }]);
+      const archivePath = registry.storedFiles().find((file) => file.endsWith("1.0.0.zip"));
+      if (archivePath === undefined) return yield* Effect.die(new Error("Fixture archive missing"));
+      const integrity = sha512Integrity(yield* fs.readFile(path.join(registry.root, archivePath)));
+      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "axm-registry-integrity-" });
+      const destinationPath = path.join(baseDir, "package");
+      const observed = workObservations(false);
+      yield* materializeRegistryPackageWithTreeIntegrity({
+        baseDir,
+        destinationPath,
+        transient: true,
+        sourceLocation: decodeRegistryEndpointSync(registry.url),
+        owner: decodeHandleSync("@acme"),
+        type: "skill",
+        name: decodeExtensionNameSync("review"),
+        version: decodeVersionSync("1.0.0"),
+        integrity: Option.some(integrity),
+        publisherBindingId: "hbnd_test",
+        messages: { integrityMismatchDetail: "Fixture integrity" },
+      }).pipe(observed.provide);
+      expect(observed.facts.filter((fact) => fact.kind === "axm.archive.integrity")).toHaveLength(
+        1,
+      );
+      expect(yield* fs.exists(path.join(destinationPath, "skill.json"))).toBe(true);
+    }).pipe(Effect.scoped, Effect.provide(platform)),
+  );
+
+  it.effect("leaves the verified archive buffer unchanged through extraction", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const encode = (text: string) => new TextEncoder().encode(text);
+      const archive = zipSync({
+        "skill.json": encode('{"owner":"@acme","type":"skill","name":"review","version":"1.0.0"}'),
+        "src/SKILL.md": encode("# Review\n"),
+      });
+      const integrity = sha512Integrity(archive);
+      const verified = Option.getOrThrow(yield* VerifiedArchive.check(archive, integrity));
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-registry-extract-" });
+      yield* extractExternalArchive(verified.bytes, "zip", directory);
+      expect(sha512Integrity(archive)).toBe(integrity);
+      expect(verified.covers(archive, integrity)).toBe(true);
+      expect(yield* fs.readFileString(path.join(directory, "src/SKILL.md"))).toBe("# Review\n");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

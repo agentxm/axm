@@ -38,6 +38,7 @@ export {
 } from "./buffered-archive-budget.js";
 
 export { makeUserArchiveCache } from "./archive-cache.js";
+export { VerifiedArchive } from "./verified-archive.js";
 
 export type {
   RegistryExtensionReference,

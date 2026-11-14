@@ -17,11 +17,11 @@ import * as Path from "effect/Path";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   RegistryClientFactory,
+  VerifiedArchive,
   withBufferedArchiveBudget,
   type GetExtensionPackageArgs,
   type RegistryClientFailure,
 } from "@agentxm/registry-client";
-import { computeIntegrity } from "@agentxm/host-primitives";
 import type {
   ExtensionName,
   ExtensionType,
@@ -153,7 +153,7 @@ export const materializeRegistryPackageWithTreeIntegrity = Effect.fnUntraced(fun
               reportProgress(progress.done, progress.total, progress.attempt),
           }),
         });
-        const { archive, warnings } = yield* client.getExtensionPackage(packageArgs);
+        const { archive, verified, warnings } = yield* client.getExtensionPackage(packageArgs);
         const distinctWarnings = [
           ...new Set([...(args.lifecycleWarnings ?? []), ...(warnings ?? [])]),
         ];
@@ -161,8 +161,10 @@ export const materializeRegistryPackageWithTreeIntegrity = Effect.fnUntraced(fun
           discard: true,
         });
         if (Option.isSome(args.integrity)) {
-          const actualIntegrity = yield* computeIntegrity(archive);
-          if (actualIntegrity !== args.integrity.value) {
+          if (
+            verified?.covers(archive, args.integrity.value) !== true &&
+            Option.isNone(yield* VerifiedArchive.check(archive, args.integrity.value))
+          ) {
             return yield* new ArchiveIntegrityMismatch({
               subject: args.messages.integrityMismatchDetail,
             });

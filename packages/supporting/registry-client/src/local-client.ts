@@ -21,7 +21,9 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import { RegistryOperationFailed, type RegistryClientFailure } from "./errors.js";
 import { makeAccessibleContent } from "./accessible-content.js";
 import { readBufferedArchive } from "./archive-limits.js";
+import { VerifiedArchive } from "./verified-archive.js";
 import type {
+  AccessibleContent,
   RegistryClient,
   RegistryExtensionManifest,
   GetExtensionPackageArgs,
@@ -69,10 +71,7 @@ import {
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { extensionDir, extensionLifecycleWarnings } from "./utils.js";
-import {
-  resolveVersionEntry,
-  selectVersion,
-} from "@agentxm/extension-model/unstable/version-constraints/version-selection";
+import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import type {
   PublishVisibility,
   VisibilityEvaluation,
@@ -553,7 +552,98 @@ export const createLocalRegistryClient = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ): RegistryClient => {
-  const client: Omit<RegistryClient, "withAccessibleContent"> = {
+  /**
+   * Admit one exact identity against the current local Registry: the index
+   * still binds the accepted publisher and integrity, and the archive on disk
+   * hashes to that integrity. Returns the evidence for the bytes it read.
+   */
+  const admitLocalArchive = Effect.fnUntraced(function* (
+    args: ValidateExtensionAccessArgs,
+  ): Effect.fn.Return<VerifiedArchive, RegistryClientFailure> {
+    const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
+    const index = yield* readExtensionIndex(fs, path.join(dir, "index.json"));
+    const version = index.versions.find((entry) => entry.version === args.exact.version);
+    if (
+      index.publisherBindingId !== args.exact.publisherBindingId ||
+      version?.integrity !== args.exact.integrity
+    ) {
+      return yield* new RegistryOperationFailed({
+        category: "conflict",
+        detail: "Local Registry no longer matches the accepted publisher and archive identity.",
+      });
+    }
+    const archive = yield* readBufferedArchive(
+      fs,
+      path.join(dir, `${args.exact.version}.zip`),
+    ).pipe(
+      Effect.mapError(
+        (cause) =>
+          new RegistryOperationFailed({
+            category: "not_found",
+            detail: "Accepted local Registry archive is unavailable.",
+            cause,
+          }),
+      ),
+    );
+    const verified = yield* VerifiedArchive.check(archive, args.exact.integrity);
+    if (Option.isNone(verified)) {
+      return yield* new RegistryOperationFailed({
+        category: "conflict",
+        detail: "Local Registry archive integrity no longer matches the accepted identity.",
+      });
+    }
+    return verified.value;
+  });
+
+  const lifecycleWarnings = (exact: ValidateExtensionAccessArgs["exact"]) =>
+    exact.lifecycleWarnings === undefined || exact.lifecycleWarnings.length === 0
+      ? {}
+      : { warnings: exact.lifecycleWarnings };
+
+  /**
+   * Content-callback reader: reached only through `makeAccessibleContent`, so
+   * every request names an admitted exact identity. It reads the archive again
+   * because callback work may run after admission, and refuses bytes that no
+   * longer match the admitted integrity.
+   */
+  const readAdmittedArchive: AccessibleContent["read"] = Effect.fnUntraced(function* (args) {
+    const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
+    const archivePath = path.join(dir, `${args.exact.version}.zip`);
+
+    const exists = yield* registryPathExists(fs, archivePath);
+    if (!exists) {
+      return yield* new RegistryOperationFailed({
+        category: "internal",
+        detail: `Archive not found: ${archivePath}`,
+      });
+    }
+
+    const archive = yield* readBufferedArchive(fs, archivePath).pipe(
+      Effect.mapError((e) =>
+        e instanceof RegistryOperationFailed
+          ? e
+          : new RegistryOperationFailed({
+              category: "internal",
+              detail: `Failed to read archive: ${archivePath}`,
+              cause: e,
+            }),
+      ),
+    );
+    const verified = yield* VerifiedArchive.check(archive, args.exact.integrity);
+    if (Option.isNone(verified)) {
+      return yield* new RegistryOperationFailed({
+        category: "conflict",
+        detail: "Local Registry archive integrity changed after content admission.",
+      });
+    }
+    return {
+      archive: verified.value.bytes,
+      verified: verified.value,
+      ...lifecycleWarnings(args.exact),
+    };
+  });
+
+  const client: Omit<RegistryClient, "withAccessibleContent" | "getExtensionPackage"> = {
     previewExtensionPublishes: Effect.fnUntraced(function* (args: PreviewExtensionPublishesArgs) {
       const descriptors = yield* Effect.try({
         try: () => validatePublicationDescriptors(args.candidates),
@@ -822,134 +912,8 @@ export const createLocalRegistryClient = (
     }),
 
     validateExtensionAccessBatch: (items: ReadonlyArray<ValidateExtensionAccessArgs>) =>
-      Effect.forEach(items, (args: ValidateExtensionAccessArgs) =>
-        Effect.gen(function* () {
-          const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
-          const index = yield* readExtensionIndex(fs, path.join(dir, "index.json"));
-          const version = index.versions.find((entry) => entry.version === args.exact.version);
-          if (
-            index.publisherBindingId !== args.exact.publisherBindingId ||
-            version?.integrity !== args.exact.integrity
-          ) {
-            return yield* new RegistryOperationFailed({
-              category: "conflict",
-              detail:
-                "Local Registry no longer matches the accepted publisher and archive identity.",
-            });
-          }
-          const archive = yield* readBufferedArchive(
-            fs,
-            path.join(dir, `${args.exact.version}.zip`),
-          ).pipe(
-            Effect.mapError(
-              (cause) =>
-                new RegistryOperationFailed({
-                  category: "not_found",
-                  detail: "Accepted local Registry archive is unavailable.",
-                  cause,
-                }),
-            ),
-          );
-          if (
-            `sha512-${createHash("sha512").update(archive).digest("base64")}` !==
-            args.exact.integrity
-          ) {
-            return yield* new RegistryOperationFailed({
-              category: "conflict",
-              detail: "Local Registry archive integrity no longer matches the accepted identity.",
-            });
-          }
-        }).pipe(Effect.result),
-      ),
-
-    getExtensionPackage: Effect.fnUntraced(function* (args: GetExtensionPackageArgs) {
-      const owner = args.owner;
-      const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
-
-      const selectVersionEffect =
-        args.exact === undefined
-          ? Option.match(args.version, {
-              onNone: () =>
-                Effect.gen(function* () {
-                  const idxPath = path.join(dir, "index.json");
-                  const index = yield* readExtensionIndex(fs, idxPath);
-
-                  const selected = selectVersion(index.versions);
-                  if (Option.isNone(selected)) {
-                    return yield* new RegistryOperationFailed({
-                      category: "internal",
-                      detail: `No versions found for ${owner}/${args.type}/${args.name}`,
-                    });
-                  }
-                  return selected.value.version;
-                }),
-              onSome: (requestedVersion) =>
-                Effect.gen(function* () {
-                  const requestedArchivePath = path.join(dir, `${requestedVersion}.zip`);
-                  const requestedExists = yield* registryPathExists(fs, requestedArchivePath);
-
-                  // Fast path: exact version archive exists.
-                  if (requestedExists) {
-                    return requestedVersion;
-                  }
-
-                  // Fallback: treat requested version as semver constraint (e.g. ^1.0.0).
-                  const idxPath = path.join(dir, "index.json");
-                  const index = yield* readExtensionIndex(fs, idxPath);
-
-                  const selected = resolveVersionEntry(
-                    index.versions,
-                    Option.some(requestedVersion),
-                  );
-                  if (Option.isNone(selected)) {
-                    return yield* new RegistryOperationFailed({
-                      category: "internal",
-                      detail: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
-                    });
-                  }
-                  return selected.value.version;
-                }),
-            })
-          : Effect.succeed(args.exact.version);
-      const version = yield* selectVersionEffect;
-
-      const archivePath = path.join(dir, `${version}.zip`);
-
-      const exists = yield* registryPathExists(fs, archivePath);
-      if (!exists) {
-        return yield* new RegistryOperationFailed({
-          category: "internal",
-          detail: `Archive not found: ${archivePath}`,
-        });
-      }
-
-      const archive = yield* readBufferedArchive(fs, archivePath).pipe(
-        Effect.mapError((e) =>
-          e instanceof RegistryOperationFailed
-            ? e
-            : new RegistryOperationFailed({
-                category: "internal",
-                detail: `Failed to read archive: ${archivePath}`,
-                cause: e,
-              }),
-        ),
-      );
-      if (
-        args.exact !== undefined &&
-        `sha512-${createHash("sha512").update(archive).digest("base64")}` !== args.exact.integrity
-      ) {
-        return yield* new RegistryOperationFailed({
-          category: "conflict",
-          detail: "Local Registry archive integrity changed after content admission.",
-        });
-      }
-      return {
-        archive,
-        ...(args.exact?.lifecycleWarnings === undefined || args.exact.lifecycleWarnings.length === 0
-          ? {}
-          : { warnings: args.exact.lifecycleWarnings }),
-      };
-    }),
+      // Admission keeps no bytes; each item is read, checked and released in order.
+      Effect.forEach(items, (args) => admitLocalArchive(args).pipe(Effect.asVoid, Effect.result)),
 
     publishExtension: Effect.fnUntraced(function* (args: PublishExtensionArgs) {
       const owner = args.owner;
@@ -1257,15 +1221,21 @@ export const createLocalRegistryClient = (
   };
   const withAccessibleContent = makeAccessibleContent(
     client.validateExtensionAccessBatch,
-    client.getExtensionPackage,
+    readAdmittedArchive,
     Effect.succeed(new RegistryAuthorityContext({ id: randomUUID(), generation: 0 })),
   );
   return {
     ...client,
     withAccessibleContent,
     getExtensionPackage: Effect.fnUntraced(function* (args: GetExtensionPackageArgs) {
-      if (args.exact !== undefined)
-        return yield* withAccessibleContent([args], (content) => content.read(args));
+      // A single exact read has no callback work between admission and use, so it
+      // returns the bytes its admission verified instead of reading them again.
+      // An archive replaced or removed in that former window now yields the
+      // admission's own outcome; every other input is refused identically.
+      if (args.exact !== undefined) {
+        const verified = yield* admitLocalArchive(args);
+        return { archive: verified.bytes, verified, ...lifecycleWarnings(args.exact) };
+      }
       const index = yield* client.getExtensionIndex(args);
       if (Option.isNone(index))
         return yield* new RegistryOperationFailed({

@@ -30,7 +30,7 @@ import type {
   VisibilityMutationResult,
 } from "@agentxm/registry-protocol/unstable/publish";
 import {
-  acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
   SettingsReader,
   WorkspaceLocation,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -100,17 +100,12 @@ const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent")(func
   }
   // The authored manifest is read where the canonical observation placed the
   // declared package; an undeclared or foreign package declares no intent.
-  const authoredRoot = yield* acceptedCanonicalObservation({
+  // The observation hands over the manifest text it read, so the intent is
+  // decoded from that text rather than from a second read.
+  const capture = yield* acceptedCanonicalObservationCapturing({
     type: parts.type,
     name: parts.name,
   }).pipe(
-    Effect.map(
-      Option.flatMap(({ desired, observation }) =>
-        desired.identity.authority === "workspace" && observation.status !== "wrong-origin"
-          ? Option.fromUndefinedOr(observation.path)
-          : Option.none(),
-      ),
-    ),
     Effect.mapError((cause) =>
       publishRefused({
         category: "validation",
@@ -119,11 +114,20 @@ const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent")(func
       }),
     ),
   );
+  const authoredRoot = Option.flatMap(capture.observed, ({ desired, observation }) =>
+    desired.identity.authority === "workspace" && observation.status !== "wrong-origin"
+      ? Option.fromUndefinedOr(observation.path)
+      : Option.none(),
+  );
   const manifest = yield* Option.match(authoredRoot, {
     onNone: () => Effect.succeed(Option.none<typeof ManifestVisibilitySchema.Type>()),
     onSome: (root) => {
       const manifestPath = path.join(root, manifestFilenameForType(parts.type));
-      return fs.readFileString(manifestPath).pipe(
+      const captured = Option.filter(capture.manifest, (read) => read.path === manifestPath);
+      const text = Option.isSome(captured)
+        ? Effect.succeed(captured.value.text)
+        : fs.readFileString(manifestPath);
+      return text.pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(ManifestVisibilitySchema))),
         Effect.map(Option.some),
         Effect.mapError((cause) =>

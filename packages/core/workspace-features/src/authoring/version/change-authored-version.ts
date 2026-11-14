@@ -10,6 +10,8 @@
  * the transaction settled with.
  *
  * `prepare` reads the manifest, settles `from` and `to`, and writes nothing.
+ * The manifest it settles from is the text the canonical observation read;
+ * the transaction re-reads the manifest fresh before writing.
  * `previewOrApply` resolves that candidate; a bump to the version the manifest
  * already carries settles as unchanged rather than rewriting the file.
  *
@@ -23,6 +25,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Predicate from "effect/Predicate";
+import * as Result from "effect/Result";
 import * as semver from "semver";
 
 import {
@@ -56,7 +59,7 @@ import {
   AcceptedResolutionWriter,
   DesiredStateWriter,
   SettingsWriter,
-  acceptedCanonicalObservation,
+  acceptedCanonicalObservationCapturing,
   type ConfiguredAgentOutcomesProvider,
   type DesiredStateReader,
   type LockfileReader,
@@ -166,47 +169,67 @@ const decodeExactVersion = (
     ),
   );
 
-/** Read one authored manifest as its raw text and its decoded object. */
-const readManifest = Effect.fnUntraced(function* (args: {
-  readonly absolutePath: string;
-  readonly manifestPath: string;
-  readonly createCommand: string;
-}) {
-  const fs = yield* FileSystem.FileSystem;
-  const exists = yield* fs.exists(args.absolutePath).pipe(Effect.orElseSucceed(() => false));
-  if (!exists) {
-    return yield* new AuthoredManifestUnavailable({
-      manifestPath: args.manifestPath,
-      reason: "missing",
-      createCommand: args.createCommand,
-    });
-  }
-  const content = yield* fs.readFileString(args.absolutePath).pipe(
-    Effect.mapError(
-      (cause) =>
-        new AuthoredManifestUnavailable({
-          manifestPath: args.manifestPath,
-          reason: "unreadable",
-          cause,
-        }),
-    ),
-  );
+/** Decode one authored manifest's text into its decoded object. */
+const decodeManifestText = Effect.fnUntraced(function* (content: string, manifestPath: string) {
   const parsed = yield* Effect.try({
     try: (): unknown => JSON.parse(content),
     catch: (cause) =>
       new AuthoredManifestUnavailable({
-        manifestPath: args.manifestPath,
+        manifestPath,
         reason: "unparsable",
         cause,
       }),
   });
   if (!Predicate.isObject(parsed)) {
     return yield* new AuthoredManifestUnavailable({
-      manifestPath: args.manifestPath,
+      manifestPath,
       reason: "invalid",
     });
   }
   return { content, manifest: Object.fromEntries(Object.entries(parsed)) };
+});
+
+/**
+ * Read one authored manifest as its raw text and its decoded object.
+ *
+ * The read comes first; only a read that fails for a reason other than
+ * absence asks whether the file exists, so a manifest that cannot be found
+ * (directly or through its directories) is missing and one that exists but
+ * cannot be read is unreadable.
+ */
+const readManifest = Effect.fnUntraced(function* (args: {
+  readonly absolutePath: string;
+  readonly manifestPath: string;
+  readonly createCommand: string;
+}) {
+  const fs = yield* FileSystem.FileSystem;
+  const missing = () =>
+    new AuthoredManifestUnavailable({
+      manifestPath: args.manifestPath,
+      reason: "missing",
+      createCommand: args.createCommand,
+    });
+  const content = yield* fs.readFileString(args.absolutePath).pipe(
+    Effect.catch((cause) =>
+      cause.reason._tag === "NotFound"
+        ? Effect.fail(missing())
+        : fs.exists(args.absolutePath).pipe(
+            Effect.orElseSucceed(() => false),
+            Effect.flatMap((exists) =>
+              Effect.fail(
+                exists
+                  ? new AuthoredManifestUnavailable({
+                      manifestPath: args.manifestPath,
+                      reason: "unreadable",
+                      cause,
+                    })
+                  : missing(),
+              ),
+            ),
+          ),
+    ),
+  );
+  return yield* decodeManifestText(content, args.manifestPath);
 });
 
 /**
@@ -306,21 +329,28 @@ const prepareChangeAuthoredVersion: (
   );
   const manifestPath = path.relative(location.baseDir, absolutePath);
   const createCommand = `axm ${extensionTypeToPlural[parsed.type]} new`;
-  const { manifest } = yield* readManifest({ absolutePath, manifestPath, createCommand });
+  const readCurrentManifest = readManifest({ absolutePath, manifestPath, createCommand });
 
   // Whether the authored manifest is this workspace's package is the canonical
-  // observation's judgment, made once for every command that asks.
-  const observed = yield* acceptedCanonicalObservation({
+  // observation's judgment, made once for every command that asks. The
+  // manifest text it read is the text the version is settled from.
+  const capture = yield* acceptedCanonicalObservationCapturing({
     type: parsed.type,
     name: parsed.name,
-  }).pipe(
-    Effect.mapError(
-      () =>
-        new VersionTargetInvalid({
-          detail: `Unable to observe the authored package for ${fqn}`,
-        }),
-    ),
-  );
+  }).pipe(Effect.result);
+  if (Result.isFailure(capture)) {
+    // A manifest that cannot be read or decoded is refused before the
+    // observation's own failure.
+    yield* readCurrentManifest;
+    return yield* new VersionTargetInvalid({
+      detail: `Unable to observe the authored package for ${fqn}`,
+    });
+  }
+  const { observed } = capture.success;
+  const captured = Option.filter(capture.success.manifest, (read) => read.path === absolutePath);
+  const { manifest } = Option.isSome(captured)
+    ? yield* decodeManifestText(captured.value.text, manifestPath)
+    : yield* readCurrentManifest;
   if (
     Option.exists(
       observed,

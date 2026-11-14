@@ -4,8 +4,9 @@
  *
  * The temp file lives next to the target so the rename stays on one
  * filesystem (and therefore atomic), and is removed on any failure or
- * interruption. Temp names follow `<target>.tmp.<unique>`. That prefix is a cross-package
- * protocol: sweepers in other packages rely on it to clean stale temps.
+ * interruption that leaves it unrenamed. Temp names follow
+ * `<target>.tmp.<unique>`. That prefix is a cross-package protocol: sweepers in
+ * other packages rely on it to clean stale temps.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -15,6 +16,7 @@ import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
+import * as Ref from "effect/Ref";
 
 /**
  * Step at which an atomic write failed. `check-target` and `read-target` can
@@ -151,6 +153,8 @@ export const writeFileAtomic = <E, PublicationError = never, R = never>(
       if (Option.isSome(unchanged) && unchanged.value) return "skipped" as const;
     }
 
+    // Set once the rename consumed the temp, so cleanup runs only while it can still exist.
+    const renamed = yield* Ref.make(false);
     yield* Effect.gen(function* () {
       yield* (
         typeof content === "string"
@@ -173,6 +177,7 @@ export const writeFileAtomic = <E, PublicationError = never, R = never>(
             yield* fs.remove(targetPath).pipe(Effect.ignore);
           }
           yield* fs.rename(tempPath, targetPath).pipe(Effect.mapError(fail("rename")));
+          yield* Ref.set(renamed, true);
           if (info !== undefined && options.onPublished !== undefined) {
             // Windows can tunnel the destination's former creation time onto a
             // renamed file. Refresh only that timestamp through the retained
@@ -194,7 +199,13 @@ export const writeFileAtomic = <E, PublicationError = never, R = never>(
           Effect.uninterruptible,
         );
       }).pipe(Effect.scoped);
-    }).pipe(Effect.ensuring(fs.remove(tempPath, { force: true }).pipe(Effect.ignore)));
+    }).pipe(
+      Effect.ensuring(
+        Effect.flatMap(Ref.get(renamed), (consumed) =>
+          consumed ? Effect.void : fs.remove(tempPath, { force: true }).pipe(Effect.ignore),
+        ),
+      ),
+    );
     return "written" as const;
   });
 

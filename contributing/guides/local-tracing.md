@@ -431,6 +431,10 @@ more than 10%. This applies regardless of the initial median result. For stable
 passing results, also escalate when remaining headroom is at most 20% of the
 allowed **overhead** margin, or paired block comparisons fall on both sides of
 the existing bound. Stable median regressions fail without retrying to pass.
+Retain their failed verdicts and continue measuring the remaining cases; the
+final assessment rejects the campaign if any elapsed budget fails. Coverage
+completion is separate from acceptance. Correctness or invalid-evidence failures
+still stop collection because later timings cannot repair those observations.
 Each escalation adds 20 invocations and retains all initial observations. Noise
 or drift remaining at ten makes the result inconclusive. Correctness, memory,
 volume and shutdown failures are handled separately; thresholds are unchanged.

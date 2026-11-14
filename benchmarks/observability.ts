@@ -1488,7 +1488,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             yield* block(0, true);
             for (let iteration = 0; iteration < budgets.measurement.repetitions; iteration++)
               yield* block(iteration, false);
-            let result = assessScenarioTiming(
+            const result = assessScenarioTiming(
               budgets,
               samples.filter((sample) => sample.scenario === scenario.id),
               memoryPolicy,
@@ -1501,19 +1501,11 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
                 iteration++
               )
                 yield* block(iteration, false);
-              result = assessScenarioTiming(
-                budgets,
-                samples.filter((sample) => sample.scenario === scenario.id),
-                memoryPolicy,
-                timingNoisePolicy,
-              );
             }
+            // Retain each verdict while completing coverage. A latency failure
+            // must not hide the remaining operations; the final assessment
+            // rejects the campaign if any case fails its unchanged budget.
             save(false);
-            if (!result.passed)
-              return yield* fail(
-                result.inconclusive ? "timing-inconclusive" : "timing-budget",
-                "The retained timing evidence did not pass for " + scenario.id,
-              );
           }
           const assessment = assessObservabilityEvidence(
             budgets,

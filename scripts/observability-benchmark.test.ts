@@ -391,6 +391,15 @@ describe("observability campaign evidence", () => {
     ).toBe(false);
   });
 
+  it("reports missing measurements without inventing budget regressions", () => {
+    const result = assess([]);
+    expect(result.passed).toBe(false);
+    expect(result.issues).toContain("Incomplete measured blocks: list/one");
+    expect(result.issues.some((issue) => issue.startsWith("Performance budget exceeded"))).toBe(
+      false,
+    );
+  });
+
   it("fails stable elapsed regressions and resource violations without retrying to pass", () => {
     const slow = samples().map((sample) =>
       sample.subject === "candidate" ? { ...sample, durationMs: 1000 } : sample,

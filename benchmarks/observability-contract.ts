@@ -793,9 +793,10 @@ export const assessObservabilityEvidence = (
         (memoryPolicy === "informational" || comparison.memoryPassed);
       comparisons.push({ scenario, ...comparison, passed });
       if (
-        (memoryPolicy === "enforced" && !comparison.memoryPassed) ||
-        ((timingNoisePolicy === "review" || (!assessment.noisy && !assessment.drifting)) &&
-          !comparison.elapsedPassed)
+        assessment.complete &&
+        ((memoryPolicy === "enforced" && !comparison.memoryPassed) ||
+          ((timingNoisePolicy === "review" || (!assessment.noisy && !assessment.drifting)) &&
+            !comparison.elapsedPassed))
       )
         issues.push("Performance budget exceeded: " + scenario + "/" + comparison.mode);
     }

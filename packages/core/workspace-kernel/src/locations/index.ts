@@ -43,6 +43,7 @@ export {
   readContainerReceipts,
   recordContainerReceipt,
   updateContainerReceipts,
+  updateContainerReceiptsSequence,
   verifyContainerIdentity,
   type ContainerIdentity,
   type ContainerIdentityContext,

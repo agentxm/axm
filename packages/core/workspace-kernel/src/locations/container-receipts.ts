@@ -442,127 +442,225 @@ export const readContainerReceipts = (
 ): Effect.Effect<ContainerReceipts, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
   Effect.map(readContainerReceiptsText(workspaceDir), ({ receipts }) => receipts);
 
-export const updateContainerReceipts = <E, R>(
+type ReceiptChange = (entries: ReadonlyArray<ContainerReceipt>) => ReadonlyArray<ContainerReceipt>;
+
+/** Store text read under the lock, with the decoded receipts it holds. */
+type LockedStore = Effect.Success<ReturnType<typeof readContainerReceiptsText>>;
+
+/** Empty `entries` retire the store and its proven empty created directories. */
+const retireStore = <E, R>(
+  target: string,
+  current: ContainerReceipts,
+  mutation: ContainerReceiptMutation<E, R>,
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    yield* mutation.retire(target);
+    for (const identity of [...current.createdDirectories].sort(
+      (left, right) => right.physicalPath.length - left.physicalPath.length,
+    )) {
+      if (
+        !(yield* verifyContainerIdentity(identity, {
+          nativeRoot: identity.nativeRoot,
+          ownerRoot: identity.ownerRoot,
+          identityOwnerRoot: identity.identityOwnerRoot,
+          target: identity.target,
+        })) ||
+        (yield* fs.readDirectory(identity.physicalPath).pipe(
+          Effect.mapError(
+            (cause) =>
+              new NativeLocationError({
+                target: identity.target,
+                reason: "unreadable",
+                cause,
+              }),
+          ),
+        )).length !== 0
+      )
+        continue;
+      yield* mutation.retire(identity.physicalPath);
+    }
+  });
+
+/** Publish non-empty `entries` over the locked read, merging this admission's created directories. */
+const publishStore = <E, R>(
   workspaceDir: string,
-  change: (entries: ReadonlyArray<ContainerReceipt>) => ReadonlyArray<ContainerReceipt>,
+  target: string,
+  locked: LockedStore,
+  entries: ReadonlyArray<ContainerReceipt>,
   mutation: ContainerReceiptMutation<E, R>,
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
+    const createdDirectories = [...locked.receipts.createdDirectories];
+    for (const identity of yield* mutation.inheritedDirectories ?? Effect.succeed([])) {
+      if (
+        !createdDirectories.some((entry) => entry.physicalPath === identity.physicalPath) &&
+        (yield* verifyContainerIdentity(identity, {
+          nativeRoot: identity.nativeRoot,
+          ownerRoot: identity.ownerRoot,
+          identityOwnerRoot: identity.identityOwnerRoot,
+          target: identity.target,
+        }))
+      )
+        createdDirectories.push(identity);
+    }
+    const reference = entries[0]?.identity;
+    if (reference !== undefined) {
+      const missing: string[] = [];
+      let ancestor = path.dirname(target);
+      while (
+        !(yield* fs
+          .exists(ancestor)
+          .pipe(
+            Effect.mapError(
+              (cause) => new NativeLocationError({ target: ancestor, reason: "unreadable", cause }),
+            ),
+          ))
+      ) {
+        missing.push(ancestor);
+        const parent = path.dirname(ancestor);
+        if (parent === ancestor)
+          return yield* new NativeLocationError({ target, reason: "unreadable" });
+        ancestor = parent;
+      }
+      // The store belongs to this workspace, independently of the native
+      // root addressed by its first receipt. Writes remain callback-authorized.
+      const proof = {
+        nativeRoot: ancestor,
+        ownerRoot: path.dirname(workspaceDir),
+        target: ancestor,
+      };
+      const anchor = yield* captureContainerIdentity(proof);
+      const createsAncestors = missing.length > 0;
+      for (const directory of missing.reverse()) {
+        if (!(yield* verifyContainerIdentity(anchor, proof)))
+          return yield* new NativeLocationError({
+            target,
+            reason: "unreadable",
+            cause: "receipt-store-parent-changed",
+          });
+        const created = yield* mutation.createDirectory(directory);
+        const identity = yield* captureContainerIdentity({ ...proof, target: directory });
+        if (created) createdDirectories.push(identity);
+      }
+      // Re-prove the anchor only around creation. With no missing ancestor,
+      // the capture above is the proof and the writer authorizes and protects.
+      if (createsAncestors && !(yield* verifyContainerIdentity(anchor, proof)))
+        return yield* new NativeLocationError({
+          target,
+          reason: "unreadable",
+          cause: "receipt-store-parent-changed",
+        });
+    }
+    // Decode before persisting even when a caller supplies typed values.
+    const next = yield* Schema.decodeUnknownEffect(ContainerReceiptsSchema, {
+      onExcessProperty: "error",
+    })({ version: 1, entries, createdDirectories }).pipe(
+      (effect) => withWork("axm.parse.receipts", effect, { attributes: { "axm.work.count": 1 } }),
+      Effect.mapError(
+        () =>
+          new NativeLocationError({
+            target,
+            reason: "unreadable",
+            cause: "invalid-container-receipts",
+          }),
+      ),
+    );
+    yield* mutation.write(target, `${JSON.stringify(next, null, 2)}\n`, { text: locked.text });
+  });
+
+/** True when `entries` would leave the locked store as it is. */
+const unchanged = (
+  entries: ReadonlyArray<ContainerReceipt>,
+  current: ReadonlyArray<ContainerReceipt>,
+): boolean => JSON.stringify(entries) === JSON.stringify(current);
+
+/**
+ * The states, by index, that one physical step each publishes (or retires when
+ * empty) so the store ends as one update per change would leave it, with
+ * the same final state, the same footprint labels (`created` for a write to an
+ * absent store, `modified` for a write over one, `removed` for a retirement),
+ * and the same created directories retired. Consecutive writes collapse into
+ * the last one, except the first write to an absent store, and a last write
+ * that would equal the state before it, which keep a write of their own.
+ */
+const storeSteps = (
+  states: ReadonlyArray<ReadonlyArray<ContainerReceipt>>,
+  present: boolean,
+): ReadonlyArray<number> => {
+  const steps: Array<number> = [];
+  let onDisk = 0;
+  let exists = present;
+  let writes: Array<number> = [];
+  const flush = () => {
+    const first = writes[0];
+    const last = writes[writes.length - 1];
+    writes = [];
+    if (first === undefined || last === undefined) return;
+    if (!exists) {
+      steps.push(first);
+      onDisk = first;
+      exists = true;
+      if (last === first) return;
+    }
+    if (unchanged(states[last] ?? [], states[onDisk] ?? [])) steps.push(last - 1);
+    steps.push(last);
+    onDisk = last;
+  };
+  for (let index = 1; index < states.length; index++) {
+    const state = states[index] ?? [];
+    if (unchanged(state, states[index - 1] ?? [])) continue;
+    if (state.length > 0) {
+      writes.push(index);
+      continue;
+    }
+    flush();
+    steps.push(index);
+    onDisk = index;
+    exists = false;
+  }
+  flush();
+  return steps;
+};
+
+export const updateContainerReceipts = <E, R>(
+  workspaceDir: string,
+  change: ReceiptChange,
+  mutation: ContainerReceiptMutation<E, R>,
+) => updateContainerReceiptsSequence(workspaceDir, [change], mutation);
+
+/**
+ * Apply `changes` in order under one lock and one locked read, with the same
+ * store states, footprint labels and retired created directories as one
+ * update per change. Every step after the first re-reads the store under the
+ * same hold and applies the changes since the previous step to what it names.
+ */
+export const updateContainerReceiptsSequence = <E, R>(
+  workspaceDir: string,
+  changes: ReadonlyArray<ReceiptChange>,
+  mutation: ContainerReceiptMutation<E, R>,
+) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
     const target = receiptPath(path, workspaceDir);
+    if (changes.length === 0) return;
     return yield* mutation.withLock(
       target,
       Effect.gen(function* () {
-        const { receipts: current, text: priorText } =
-          yield* readContainerReceiptsText(workspaceDir);
-        const entries = change(current.entries);
-        if (JSON.stringify(entries) === JSON.stringify(current.entries)) return;
-        if (entries.length === 0) {
-          yield* mutation.retire(target);
-          for (const identity of [...current.createdDirectories].sort(
-            (left, right) => right.physicalPath.length - left.physicalPath.length,
-          )) {
-            if (
-              !(yield* verifyContainerIdentity(identity, {
-                nativeRoot: identity.nativeRoot,
-                ownerRoot: identity.ownerRoot,
-                identityOwnerRoot: identity.identityOwnerRoot,
-                target: identity.target,
-              })) ||
-              (yield* fs.readDirectory(identity.physicalPath).pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new NativeLocationError({
-                      target: identity.target,
-                      reason: "unreadable",
-                      cause,
-                    }),
-                ),
-              )).length !== 0
-            )
-              continue;
-            yield* mutation.retire(identity.physicalPath);
-          }
-        } else {
-          const createdDirectories = [...current.createdDirectories];
-          for (const identity of yield* mutation.inheritedDirectories ?? Effect.succeed([])) {
-            if (
-              !createdDirectories.some((entry) => entry.physicalPath === identity.physicalPath) &&
-              (yield* verifyContainerIdentity(identity, {
-                nativeRoot: identity.nativeRoot,
-                ownerRoot: identity.ownerRoot,
-                identityOwnerRoot: identity.identityOwnerRoot,
-                target: identity.target,
-              }))
-            )
-              createdDirectories.push(identity);
-          }
-          const reference = entries[0]?.identity;
-          if (reference !== undefined) {
-            const missing: string[] = [];
-            let ancestor = path.dirname(target);
-            while (
-              !(yield* fs
-                .exists(ancestor)
-                .pipe(
-                  Effect.mapError(
-                    (cause) =>
-                      new NativeLocationError({ target: ancestor, reason: "unreadable", cause }),
-                  ),
-                ))
-            ) {
-              missing.push(ancestor);
-              const parent = path.dirname(ancestor);
-              if (parent === ancestor)
-                return yield* new NativeLocationError({ target, reason: "unreadable" });
-              ancestor = parent;
-            }
-            // The store belongs to this workspace, independently of the native
-            // root addressed by its first receipt. Writes remain callback-authorized.
-            const proof = {
-              nativeRoot: ancestor,
-              ownerRoot: path.dirname(workspaceDir),
-              target: ancestor,
-            };
-            const anchor = yield* captureContainerIdentity(proof);
-            const createsAncestors = missing.length > 0;
-            for (const directory of missing.reverse()) {
-              if (!(yield* verifyContainerIdentity(anchor, proof)))
-                return yield* new NativeLocationError({
-                  target,
-                  reason: "unreadable",
-                  cause: "receipt-store-parent-changed",
-                });
-              const created = yield* mutation.createDirectory(directory);
-              const identity = yield* captureContainerIdentity({ ...proof, target: directory });
-              if (created) createdDirectories.push(identity);
-            }
-            // Re-prove the anchor only around creation. With no missing ancestor,
-            // the capture above is the proof and the writer authorizes and protects.
-            if (createsAncestors && !(yield* verifyContainerIdentity(anchor, proof)))
-              return yield* new NativeLocationError({
-                target,
-                reason: "unreadable",
-                cause: "receipt-store-parent-changed",
-              });
-          }
-          // Decode before persisting even when a caller supplies typed values.
-          const next = yield* Schema.decodeUnknownEffect(ContainerReceiptsSchema, {
-            onExcessProperty: "error",
-          })({ version: 1, entries, createdDirectories }).pipe(
-            (effect) =>
-              withWork("axm.parse.receipts", effect, { attributes: { "axm.work.count": 1 } }),
-            Effect.mapError(
-              () =>
-                new NativeLocationError({
-                  target,
-                  reason: "unreadable",
-                  cause: "invalid-container-receipts",
-                }),
-            ),
-          );
-          yield* mutation.write(target, `${JSON.stringify(next, null, 2)}\n`, { text: priorText });
+        let current = yield* readContainerReceiptsText(workspaceDir);
+        const states: Array<ReadonlyArray<ContainerReceipt>> = [current.receipts.entries];
+        for (const change of changes) states.push(change(states[states.length - 1] ?? []));
+        let applied = 0;
+        for (const [position, index] of storeSteps(states, Option.isSome(current.text)).entries()) {
+          if (position > 0) current = yield* readContainerReceiptsText(workspaceDir);
+          let entries = current.receipts.entries;
+          for (const change of changes.slice(applied, index)) entries = change(entries);
+          applied = index;
+          yield* entries.length === 0
+            ? retireStore(target, current.receipts, mutation)
+            : publishStore(workspaceDir, target, current, entries, mutation);
         }
       }),
     );

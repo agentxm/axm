@@ -14,12 +14,17 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
 import { NativeWriteAuthority } from "../agent-adapters/index.js";
-import { captureContainerIdentity, readContainerReceipts } from "../locations/index.js";
+import {
+  NativeLocationError,
+  captureContainerIdentity,
+  readContainerReceipts,
+} from "../locations/index.js";
 import { NativePlatformTest, workObservations } from "../locations/testing.js";
 import {
   FootprintRecorder,
   makeFootprintRecorder,
   runWorkspaceTransaction,
+  WorkspaceFileWriteLocks,
 } from "../settlement/index.js";
 import { WorkspaceFileWriteLocksLive } from "../settlement/live.js";
 import { WorkspaceTransactionScopeTest } from "../settlement/testing.js";
@@ -30,10 +35,14 @@ import { NativeWriteAuthorityLive } from "./live.js";
  * The live insertion authority and a transaction scope over one recording
  * filesystem, provided beneath every layer that captures `FileSystem`.
  */
-const recordedAuthority = (root: string, workspaceDir: string) =>
+const recordedAuthority = (
+  root: string,
+  workspaceDir: string,
+  locks: typeof WorkspaceFileWriteLocksLive = WorkspaceFileWriteLocksLive,
+) =>
   Layer.mergeAll(
     NativeWriteAuthorityLive.pipe(
-      Layer.provide(Layer.merge(WorkspaceReadTest({ baseDir: root }), WorkspaceFileWriteLocksLive)),
+      Layer.provide(Layer.merge(WorkspaceReadTest({ baseDir: root }), locks)),
     ),
     WorkspaceTransactionScopeTest({
       workspaceDir,
@@ -41,6 +50,30 @@ const recordedAuthority = (root: string, workspaceDir: string) =>
       lockPath: `${root}/axm.lock`,
     }),
   ).pipe(Layer.provideMerge(layerRecordingFileSystem(NodeServices.layer)));
+
+/** The live write locks, counting each acquisition by target path. */
+const countingLocks = () => {
+  const acquisitions: Array<string> = [];
+  const layer = Layer.effect(
+    WorkspaceFileWriteLocks,
+    Effect.map(WorkspaceFileWriteLocks, (inner) =>
+      WorkspaceFileWriteLocks.of({
+        withLock: (target, effect) =>
+          Effect.suspend(() => {
+            acquisitions.push(target);
+            return inner.withLock(target, effect);
+          }),
+      }),
+    ),
+  ).pipe(Layer.provide(WorkspaceFileWriteLocksLive));
+  return {
+    layer,
+    count: (target: string) => acquisitions.filter((acquired) => acquired === target).length,
+    reset: () => {
+      acquisitions.length = 0;
+    },
+  };
+};
 
 const fixture = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
@@ -634,6 +667,431 @@ describe("native insertion authority freshness", () => {
           cause: { _tag: "NativeLocationError", reason: "dangling-leaf" },
         });
       }).pipe(Effect.provide(recordedAuthority(root, workspaceDir)));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+});
+
+/** One store's work across a measured span: locks, content reads, temp writes, and renames. */
+const storeCycles = (
+  recording: FileSystemRecording,
+  locks: ReturnType<typeof countingLocks>,
+  store: string,
+) => {
+  const work = storeWork(recording, store);
+  return {
+    locks: locks.count(store),
+    reads: work.reads.length,
+    tempWrites: work.tempWrites,
+    renames: work.renames,
+  };
+};
+
+/** Stored receipts without identities, which differ between workspaces. */
+const storedReceipts = (workspaceDir: string) =>
+  Effect.map(readContainerReceipts(workspaceDir), ({ entries }) =>
+    entries.map(({ kind, unit, contentSha256 }) => ({ kind, unit, contentSha256 })),
+  );
+
+describe("native insertion withdrawal", () => {
+  it.effect("resolves and retires an AXM-created file from one live observation", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const withdraw = (form: "pair" | "single") =>
+        Effect.gen(function* () {
+          const { root, workspaceDir, store, file } = yield* sharedIdentityFixture();
+          return yield* Effect.gen(function* () {
+            const authority = yield* NativeWriteAuthority;
+            yield* seedShared(file);
+            const k = yield* isolatedCapture(root, file);
+            const work = yield* measured(
+              form === "pair"
+                ? Effect.gen(function* () {
+                    const resolution = yield* authority.resolveInsertion({
+                      path: file,
+                      unit: "u",
+                      raw: shared,
+                    });
+                    const retired = yield* authority.retireInsertion({
+                      path: file,
+                      unit: "u",
+                      raw: shared,
+                      empty: true,
+                    });
+                    return { resolution, retired };
+                  })
+                : authority.withdrawInsertions({
+                    path: file,
+                    units: ["u"],
+                    raw: shared,
+                    retire: { unit: "u", empty: true, renderedEmpty: false },
+                  }),
+            );
+            return {
+              result: work.result,
+              fileReads: work.contentReads(file),
+              storeReads: work.contentReads(store),
+              leaf: work.leaf(file) / k,
+              hashes: work.hashes,
+              fileExists: yield* fs.exists(file),
+              storeExists: yield* fs.exists(store),
+            };
+          }).pipe(Effect.provide(recordedAuthority(root, workspaceDir)));
+        });
+      const pair = yield* withdraw("pair");
+      const single = yield* withdraw("single");
+      const outcome = {
+        result: { resolution: Option.some({ kind: "remove-file" }), retired: true },
+        fileExists: false,
+        storeExists: false,
+      };
+      expect(pair).toEqual({
+        ...outcome,
+        // Two gates each read the file and the store; the retirement then reads
+        // the store once more and once under the store lock.
+        fileReads: 2,
+        storeReads: 4,
+        leaf: 10,
+        hashes: 3,
+      });
+      expect(single).toEqual({
+        ...outcome,
+        fileReads: 1,
+        storeReads: 3,
+        leaf: 5,
+        hashes: 2,
+      });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+});
+
+describe("native insertion record with forgotten units", () => {
+  /**
+   * Withdraw unit `w` from a shared file by restoring `shared`, then record and
+   * forget it; `deleteStore` removes the store foreignly before the record.
+   */
+  const recordAndForget = (form: "pair" | "single", deleteStore = false) =>
+    Effect.gen(function* () {
+      const { root, workspaceDir, store, file } = yield* sharedIdentityFixture();
+      const locks = countingLocks();
+      return yield* Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const authority = yield* NativeWriteAuthority;
+        const recording = yield* FileSystemRecorder;
+        yield* seedShared(file);
+        const added = yield* insert({
+          file,
+          unit: "w",
+          beforeRaw: Option.some(shared),
+          afterRaw: extended,
+        });
+        yield* authority.recordInsertion({ ...added, afterRaw: extended });
+        const footprint = yield* makeFootprintRecorder;
+        const cycles = yield* transaction(
+          Effect.gen(function* () {
+            const capture = yield* authority.captureInsertion({
+              path: file,
+              unit: "w",
+              beforeRaw: Option.some(extended),
+              eligible: false,
+            });
+            yield* fs.writeFileString(file, shared);
+            if (deleteStore) yield* fs.remove(store);
+            recording.reset();
+            locks.reset();
+            if (form === "pair") {
+              yield* authority.recordInsertion({
+                capture,
+                afterRaw: shared,
+                createdDirectories: [],
+              });
+              yield* authority.forgetInsertion({ path: file, unit: "w" });
+            } else
+              yield* authority.recordInsertion({
+                capture,
+                afterRaw: shared,
+                createdDirectories: [],
+                forgetUnits: ["w"],
+              });
+            return storeCycles(recording, locks, store);
+          }),
+        ).pipe(Effect.provideService(FootprintRecorder, footprint));
+        return {
+          cycles,
+          labels: [...new Set(yield* storeLabels(footprint, store))],
+          receipts: yield* storedReceipts(workspaceDir),
+        };
+      }).pipe(Effect.provide(recordedAuthority(root, workspaceDir, locks.layer)));
+    });
+
+  it.effect("records and forgets in one store update when receipts remain", () =>
+    Effect.gen(function* () {
+      const pair = yield* recordAndForget("pair");
+      const single = yield* recordAndForget("single");
+      expect(single.receipts).toEqual(pair.receipts);
+      expect(single.receipts.map(({ kind, unit }) => `${kind}:${unit}`)).toEqual([
+        "inserted-key:u",
+        "created-file:u",
+      ]);
+      expect({ pair: pair.labels, single: single.labels }).toEqual({
+        pair: ["modified"],
+        single: ["modified"],
+      });
+      expect({ pair: pair.cycles, single: single.cycles }).toEqual({
+        // Each update: locked read, same-closure foreign-change check, post-write verification.
+        pair: { locks: 2, reads: 6, tempWrites: 2, renames: 2 },
+        single: { locks: 1, reads: 3, tempWrites: 1, renames: 1 },
+      });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("labels a store deleted before the record as created, then modified", () =>
+    Effect.gen(function* () {
+      const pair = yield* recordAndForget("pair", true);
+      const single = yield* recordAndForget("single", true);
+      expect(single.receipts).toEqual(pair.receipts);
+      expect({ pair: pair.labels, single: single.labels }).toEqual({
+        pair: ["created", "modified"],
+        single: ["created", "modified"],
+      });
+      expect({ pair: pair.cycles.locks, single: single.cycles.locks }).toEqual({
+        pair: 2,
+        single: 1,
+      });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  /** Insert `w` into an authored file in one admission; restore and forget it in the next. */
+  const recordAndForgetToEmpty = (form: "pair" | "single") =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+      const workspaceDir = path.join(root, ".axm");
+      const store = path.join(workspaceDir, "projection-containers.json");
+      const file = path.join(root, "native.json");
+      const authored = "{}";
+      const inserted = '{"w":2}';
+      yield* fs.writeFileString(file, authored);
+      const locks = countingLocks();
+      return yield* Effect.gen(function* () {
+        const authority = yield* NativeWriteAuthority;
+        const recording = yield* FileSystemRecorder;
+        yield* transaction(
+          Effect.gen(function* () {
+            const added = yield* insert({
+              file,
+              unit: "w",
+              beforeRaw: Option.some(authored),
+              afterRaw: inserted,
+            });
+            yield* authority.recordInsertion({ ...added, afterRaw: inserted });
+          }),
+        );
+        const footprint = yield* makeFootprintRecorder;
+        const cycles = yield* transaction(
+          Effect.gen(function* () {
+            const capture = yield* authority.captureInsertion({
+              path: file,
+              unit: "w",
+              beforeRaw: Option.some(inserted),
+              eligible: false,
+            });
+            yield* fs.writeFileString(file, authored);
+            recording.reset();
+            locks.reset();
+            if (form === "pair") {
+              yield* authority.recordInsertion({
+                capture,
+                afterRaw: authored,
+                createdDirectories: [],
+              });
+              yield* authority.forgetInsertion({ path: file, unit: "w" });
+            } else
+              yield* authority.recordInsertion({
+                capture,
+                afterRaw: authored,
+                createdDirectories: [],
+                forgetUnits: ["w"],
+              });
+            return storeCycles(recording, locks, store);
+          }),
+        ).pipe(Effect.provideService(FootprintRecorder, footprint));
+        return {
+          cycles,
+          labels: yield* storeLabels(footprint, store),
+          runtimeExists: yield* fs.exists(workspaceDir),
+          file: yield* fs.readFileString(file),
+        };
+      }).pipe(Effect.provide(recordedAuthority(root, workspaceDir, locks.layer)));
+    });
+
+  it.effect("publishes then retires a store that the forget empties", () =>
+    Effect.gen(function* () {
+      const pair = yield* recordAndForgetToEmpty("pair");
+      const single = yield* recordAndForgetToEmpty("single");
+      const outcome = {
+        labels: ["modified", "removed"],
+        runtimeExists: false,
+        file: "{}",
+      };
+      expect(pair).toMatchObject(outcome);
+      expect(single).toMatchObject(outcome);
+      expect({ pair: pair.cycles, single: single.cycles }).toEqual({
+        // Publishing the last non-empty state reads the store three times: the
+        // locked read, the same-closure foreign-change check, and post-write
+        // verification. The published store is read again under a lock hold:
+        // the forget's own locked read, or the single update's re-read under
+        // its one hold. Retiring it reads it twice: protection's observation,
+        // which also serves as retirement's owner and entry observations, and
+        // the fresh entry observation just before the rename.
+        pair: { locks: 2, reads: 6, tempWrites: 1, renames: 2 },
+        single: { locks: 1, reads: 6, tempWrites: 1, renames: 2 },
+      });
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+});
+
+describe("native insertion withdrawal freshness", () => {
+  it.effect("withdraws nothing when the file no longer holds the caller's bytes", () =>
+    Effect.gen(function* () {
+      const { root, workspaceDir, store, file } = yield* sharedIdentityFixture();
+      const fs = yield* FileSystem.FileSystem;
+      yield* Effect.gen(function* () {
+        const authority = yield* NativeWriteAuthority;
+        yield* seedShared(file);
+        const before = yield* fs.readFileString(store);
+        yield* fs.writeFileString(file, extended);
+        const withdraw = (raw: string) =>
+          authority.withdrawInsertions({
+            path: file,
+            units: ["u"],
+            raw,
+            retire: { unit: "u", empty: true, renderedEmpty: true },
+          });
+        expect(yield* withdraw(shared)).toEqual({ resolution: Option.none(), retired: false });
+        yield* fs.remove(file);
+        // An absent file is not an empty one.
+        expect(yield* withdraw("")).toEqual({ resolution: Option.none(), retired: false });
+        expect(yield* fs.readFileString(store)).toBe(before);
+      }).pipe(Effect.provide(recordedAuthority(root, workspaceDir)));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("forgets nothing when a record with forgotten units is refused", () =>
+    Effect.gen(function* () {
+      const { root, workspaceDir, store, file } = yield* sharedIdentityFixture();
+      const fs = yield* FileSystem.FileSystem;
+      yield* Effect.gen(function* () {
+        const authority = yield* NativeWriteAuthority;
+        yield* seedShared(file);
+        const added = yield* insert({
+          file,
+          unit: "w",
+          beforeRaw: Option.some(shared),
+          afterRaw: extended,
+        });
+        yield* authority.recordInsertion({ ...added, afterRaw: extended });
+        const capture = yield* authority.captureInsertion({
+          path: file,
+          unit: "w",
+          beforeRaw: Option.some(extended),
+          eligible: false,
+        });
+        const before = yield* fs.readFileString(store);
+        // The same bytes under a new entry identity.
+        yield* fs.writeFileString(`${file}.foreign`, shared);
+        yield* fs.rename(`${file}.foreign`, file);
+        const refused = yield* authority
+          .recordInsertion({
+            capture,
+            afterRaw: shared,
+            createdDirectories: [],
+            forgetUnits: ["w"],
+          })
+          .pipe(Effect.flip);
+        expect(refused).toMatchObject({
+          _tag: "NativeWriteRefused",
+          path: file,
+          cause: "native-route-changed-during-write",
+        });
+        expect(yield* fs.readFileString(store)).toBe(before);
+      }).pipe(Effect.provide(recordedAuthority(root, workspaceDir)));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("records and then refuses a forget whose entry admission fails", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const attempt = (form: "pair" | "single") =>
+        Effect.gen(function* () {
+          const { root, workspaceDir, file } = yield* sharedIdentityFixture();
+          // The leaf passes content admission; its link entry sits in another workspace.
+          const nested = path.join(root, "nested");
+          const link = path.join(nested, "link.json");
+          yield* fs.makeDirectory(nested);
+          yield* fs.writeFileString(file, "{}");
+          yield* fs.symlink(file, link);
+          return yield* Effect.gen(function* () {
+            const authority = yield* NativeWriteAuthority;
+            const added = yield* insert({
+              file: link,
+              unit: "w",
+              beforeRaw: Option.some("{}"),
+              afterRaw: '{"w":2}',
+            });
+            yield* authority.recordInsertion({ ...added, afterRaw: '{"w":2}' });
+            const capture = yield* authority.captureInsertion({
+              path: link,
+              unit: "w",
+              beforeRaw: Option.some('{"w":2}'),
+              eligible: false,
+            });
+            yield* fs.writeFileString(link, "{}");
+            yield* fs.writeFileString(path.join(nested, "axm.json"), "{}");
+            const record = { capture, afterRaw: "{}", createdDirectories: [] };
+            const refused = yield* (
+              form === "pair"
+                ? authority
+                    .recordInsertion(record)
+                    .pipe(Effect.andThen(authority.forgetInsertion({ path: link, unit: "w" })))
+                : authority.recordInsertion({ ...record, forgetUnits: ["w"] })
+            ).pipe(Effect.flip);
+            const cause: unknown = refused.cause;
+            return {
+              refused: {
+                tag: refused._tag,
+                path: path.relative(root, refused.path),
+                cause:
+                  cause instanceof NativeLocationError
+                    ? {
+                        tag: cause._tag,
+                        reason: cause.reason,
+                        target: path.relative(root, cause.target),
+                      }
+                    : cause,
+              },
+              receipts: yield* storedReceipts(workspaceDir),
+            };
+          }).pipe(Effect.provide(recordedAuthority(root, workspaceDir)));
+        });
+      const pair = yield* attempt("pair");
+      const single = yield* attempt("single");
+      expect(pair.refused).toEqual({
+        tag: "NativeWriteRefused",
+        path: "nested/link.json",
+        cause: {
+          tag: "NativeLocationError",
+          reason: "workspace-conflict",
+          target: "nested/link.json",
+        },
+      });
+      expect(single.refused).toEqual(pair.refused);
+      // The record update landed; the forget did not.
+      expect(single.receipts).toEqual(pair.receipts);
+      expect(single.receipts.map(({ kind, unit }) => `${kind}:${unit}`)).toEqual([
+        "inserted-key:w",
+      ]);
     }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

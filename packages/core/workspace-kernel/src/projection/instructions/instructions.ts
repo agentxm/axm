@@ -2424,6 +2424,11 @@ const writeGitignoreRegion = (args: {
           raw = next;
           current = Option.some(next);
         });
+      // One forget of every removed unit, after the branch's publish or
+      // retirement and before any added pattern is captured.
+      const forgetRemoved = authority
+        .forgetInsertions({ path: filePath, aliases: [lexical], units: removed.map(unit) })
+        .pipe(Effect.mapError(insertionFailure));
       // Replacing routing intent updates the existing region in place. Removing
       // it first would relocate the replacement past authored suffix bytes, and
       // an intervening removal does not establish a new exact-insertion premise.
@@ -2431,28 +2436,40 @@ const writeGitignoreRegion = (args: {
       if (replaced !== undefined && added.length > 0) {
         const next = yield* renderGitignore(filePath, raw, args.patterns);
         if (next !== raw) yield* publish(next, replaced, false);
-        if (!args.dryRun)
-          for (const pattern of removed)
-            yield* authority
-              .forgetInsertion(target(pattern))
-              .pipe(Effect.mapError(insertionFailure));
+        if (!args.dryRun) yield* forgetRemoved;
         return written();
       }
-      if (removed.length > 0) {
+      const first = removed[0];
+      if (first !== undefined) {
         const standard = yield* renderGitignore(filePath, raw, patterns);
-        const inverse = yield* authority
-          .resolveInsertions({ path: filePath, aliases: [lexical], units: removed.map(unit), raw })
-          .pipe(Effect.mapError(insertionFailure));
-        const first = removed[0];
-        if (
-          first !== undefined &&
-          (standard.length === 0 ||
-            Option.exists(inverse, (value) => value.kind === "remove-file")) &&
-          !args.dryRun &&
-          (yield* authority
-            .retireInsertion({ ...target(first), raw, empty: patterns.length === 0 })
-            .pipe(Effect.mapError(insertionFailure)))
-        ) {
+        // A dry run only resolves; it never retires or forgets.
+        const withdrawal = args.dryRun
+          ? {
+              resolution: yield* authority
+                .resolveInsertions({
+                  path: filePath,
+                  aliases: [lexical],
+                  units: removed.map(unit),
+                  raw,
+                })
+                .pipe(Effect.mapError(insertionFailure)),
+              retired: false,
+            }
+          : yield* authority
+              .withdrawInsertions({
+                path: filePath,
+                aliases: [lexical],
+                units: removed.map(unit),
+                raw,
+                retire: {
+                  unit: unit(first),
+                  empty: patterns.length === 0,
+                  renderedEmpty: standard.length === 0,
+                },
+              })
+              .pipe(Effect.mapError(insertionFailure));
+        const inverse = withdrawal.resolution;
+        if (withdrawal.retired) {
           raw = "";
           current = Option.none();
         } else {
@@ -2460,13 +2477,9 @@ const writeGitignoreRegion = (args: {
             Option.isSome(inverse) && inverse.value.kind === "restore-text"
               ? inverse.value.text
               : standard;
-          if (first !== undefined && next !== raw) yield* publish(next, first, false);
+          if (next !== raw) yield* publish(next, first, false);
         }
-        if (!args.dryRun)
-          for (const pattern of removed)
-            yield* authority
-              .forgetInsertion(target(pattern))
-              .pipe(Effect.mapError(insertionFailure));
+        if (!args.dryRun) yield* forgetRemoved;
       }
       for (const pattern of added) {
         patterns = [...patterns, pattern].sort();

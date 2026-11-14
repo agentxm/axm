@@ -1,4 +1,5 @@
-import type * as NodeServices from "@effect/platform-node/NodeServices";
+import { FileSystemRecorder, layerRecordingFileSystem } from "@agentxm/test-support";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { NativeEntryRemoval } from "../../locations/index.js";
 import { NativePlatformTest, withDetailedWork } from "../../locations/testing.js";
 import { CanonicalNativePathLive } from "../../locations/live.js";
@@ -8,9 +9,14 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
-import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
+import { NativeWriteAuthority } from "../../agent-adapters/index.js";
+import { readContainerReceipts } from "../../locations/index.js";
+import { WorkspaceFileWriteLocks } from "../../settlement/index.js";
+import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
+import { NativeWriteAuthorityLive } from "../live.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as EffectFileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Tracer from "effect/Tracer";
@@ -2310,5 +2316,214 @@ describe("agent instructions", () => {
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe(malformed);
       }),
     ),
+  );
+});
+
+/**
+ * The live insertion authority over a recording filesystem, counting store
+ * lock acquisitions beneath it and the authority operations callers make.
+ */
+const countedAuthority = (root: string) => {
+  const acquisitions: Array<string> = [];
+  const operations: Array<string> = [];
+  const locks = Layer.effect(
+    WorkspaceFileWriteLocks,
+    Effect.map(WorkspaceFileWriteLocks, (inner) =>
+      WorkspaceFileWriteLocks.of({
+        withLock: (target, effect) =>
+          Effect.suspend(() => {
+            acquisitions.push(target);
+            return inner.withLock(target, effect);
+          }),
+      }),
+    ),
+  ).pipe(Layer.provide(WorkspaceFileWriteLocksLive));
+  const counted =
+    <Args extends ReadonlyArray<unknown>, A, E, R>(
+      name: string,
+      operation: (...args: Args) => Effect.Effect<A, E, R>,
+    ) =>
+    (...args: Args) =>
+      Effect.suspend(() => {
+        operations.push(name);
+        return operation(...args);
+      });
+  const authority = Layer.effect(
+    NativeWriteAuthority,
+    Effect.map(NativeWriteAuthority, (inner) =>
+      NativeWriteAuthority.of({
+        ...inner,
+        captureInsertion: counted("captureInsertion", inner.captureInsertion),
+        resolveInsertions: counted("resolveInsertions", inner.resolveInsertions),
+        withdrawInsertions: counted("withdrawInsertions", inner.withdrawInsertions),
+        retireInsertion: counted("retireInsertion", inner.retireInsertion),
+        forgetInsertion: counted("forgetInsertion", inner.forgetInsertion),
+        forgetInsertions: counted("forgetInsertions", inner.forgetInsertions),
+      }),
+    ),
+  ).pipe(
+    Layer.provide(NativeWriteAuthorityLive),
+    Layer.provide(Layer.merge(WorkspaceReadTest({ baseDir: root }), locks)),
+  );
+  return {
+    layer: authority.pipe(Layer.provideMerge(layerRecordingFileSystem(NodeServices.layer))),
+    locks: (target: string) => acquisitions.filter((acquired) => acquired === target).length,
+    operations: () => [...operations],
+    reset: () => {
+      acquisitions.length = 0;
+      operations.length = 0;
+    },
+  };
+};
+
+describe("instruction ignore-pattern withdrawal through the live authority", () => {
+  const NO_ROWS = new Map();
+  /** A git workspace whose ignore file routes three agents' instruction aliases. */
+  const routedWorkspace = (baseline: string | undefined) =>
+    Effect.gen(function* () {
+      const files = yield* EffectFileSystem.FileSystem;
+      const root = yield* files.realPath(yield* files.makeTempDirectoryScoped());
+      yield* files.makeDirectory(path.join(root, ".git"));
+      yield* files.writeFileString(path.join(root, "AGENTS.md"), "source\n");
+      if (baseline !== undefined)
+        yield* files.writeFileString(path.join(root, ".gitignore"), baseline);
+      const configuredAgents = ["claude-code", "gemini-cli", "junie"];
+      const args = {
+        workspaceRoot: root,
+        scope: "project" as const,
+        config: IGNORED,
+        symlinkSupported: true,
+        rows: NO_ROWS,
+      };
+      return {
+        root,
+        args,
+        configuredAgents,
+        gitignore: path.join(root, ".gitignore"),
+        store: path.join(root, ".axm", "projection-containers.json"),
+      };
+    });
+
+  it.effect("forgets every removed pattern in one store update", () =>
+    Effect.gen(function* () {
+      const workspace = yield* routedWorkspace("dist/\n");
+      const counted = countedAuthority(workspace.root);
+      yield* Effect.gen(function* () {
+        const files = yield* EffectFileSystem.FileSystem;
+        const recording = yield* FileSystemRecorder;
+        yield* syncInstructions({
+          ...workspace.args,
+          configuredAgents: workspace.configuredAgents,
+          eligibleAgentIds: workspace.configuredAgents,
+          dryRun: false,
+        });
+        const routed = yield* files.readFileString(workspace.gitignore);
+        expect(routed.match(/^\/.+$/gmu)).toHaveLength(3);
+        recording.reset();
+        counted.reset();
+        yield* removeInstructionsGitignore({
+          workspaceRoot: workspace.root,
+          rows: NO_ROWS,
+          dryRun: false,
+        });
+        expect(yield* files.readFileString(workspace.gitignore)).toBe("dist/\n");
+        expect({
+          operations: counted.operations(),
+          // One update for the restoring record and one for all three forgets.
+          storeLocks: counted.locks(workspace.store),
+          storeReads: recording.calls({ path: workspace.store, method: "readFile" }).length,
+          storeTempWrites: recording
+            .calls({ method: "writeFile" })
+            .filter(({ path: written }) => written.startsWith(`${workspace.store}.tmp.`)).length,
+          gitignoreLeaf: recording.calls({ path: workspace.gitignore, method: "readLink" }).length,
+        }).toEqual({
+          operations: ["withdrawInsertions", "captureInsertion", "forgetInsertions"],
+          storeLocks: 2,
+          // The withdrawal gate, the capture, and one locked read per update.
+          storeReads: 4,
+          storeTempWrites: 2,
+          // One entry-mode forget admission among the withdrawal and publication work.
+          gitignoreLeaf: 19,
+        });
+      }).pipe(Effect.provide(counted.layer));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("forgets a replaced pattern in the call that renders its replacement", () =>
+    Effect.gen(function* () {
+      const workspace = yield* routedWorkspace("dist/\n");
+      const counted = countedAuthority(workspace.root);
+      yield* Effect.gen(function* () {
+        const files = yield* EffectFileSystem.FileSystem;
+        const sync = (configuredAgents: ReadonlyArray<string>) =>
+          syncInstructions({
+            ...workspace.args,
+            configuredAgents,
+            eligibleAgentIds: configuredAgents,
+            dryRun: false,
+          });
+        const ignoreUnits = Effect.map(
+          readContainerReceipts(path.join(workspace.root, ".axm")),
+          ({ entries }) =>
+            entries
+              .filter(({ identity }) => identity.physicalPath === workspace.gitignore)
+              .map(({ kind, unit }) => `${kind}:${unit}`),
+        );
+        yield* sync(["claude-code", "junie"]);
+        expect(yield* ignoreUnits).toEqual([
+          'inserted-key:["instruction-ignore-pattern","/.junie/AGENTS.md"]',
+          'inserted-key:["instruction-ignore-pattern","/CLAUDE.md"]',
+        ]);
+        counted.reset();
+        yield* sync(["claude-code", "gemini-cli"]);
+        const ignored = yield* files.readFileString(workspace.gitignore);
+        expect(ignored).toContain("/GEMINI.md");
+        expect(ignored).not.toContain("/.junie/AGENTS.md");
+        // The in-place replacement publishes, then forgets the removed pattern.
+        expect(counted.operations()).toEqual(["captureInsertion", "forgetInsertions"]);
+        expect(yield* ignoreUnits).toEqual([
+          'inserted-key:["instruction-ignore-pattern","/CLAUDE.md"]',
+        ]);
+      }).pipe(Effect.provide(counted.layer));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("resolves only and changes nothing when a dry run removes patterns", () =>
+    Effect.gen(function* () {
+      const workspace = yield* routedWorkspace(undefined);
+      const counted = countedAuthority(workspace.root);
+      yield* Effect.gen(function* () {
+        const files = yield* EffectFileSystem.FileSystem;
+        const recording = yield* FileSystemRecorder;
+        yield* syncInstructions({
+          ...workspace.args,
+          configuredAgents: workspace.configuredAgents,
+          eligibleAgentIds: workspace.configuredAgents,
+          dryRun: false,
+        });
+        const before = {
+          gitignore: yield* files.readFileString(workspace.gitignore),
+          store: yield* files.readFileString(workspace.store),
+        };
+        recording.reset();
+        counted.reset();
+        yield* syncInstructions({
+          ...workspace.args,
+          configuredAgents: ["claude-code"],
+          dryRun: true,
+        });
+        expect({
+          operations: counted.operations(),
+          storeWrites: recording
+            .calls({ method: "writeFile" })
+            .filter(({ path: written }) => written.startsWith(workspace.store)).length,
+          gitignoreWrites: recording.writes(workspace.gitignore),
+        }).toEqual({ operations: ["resolveInsertions"], storeWrites: 0, gitignoreWrites: 0 });
+        expect({
+          gitignore: yield* files.readFileString(workspace.gitignore),
+          store: yield* files.readFileString(workspace.store),
+        }).toEqual(before);
+      }).pipe(Effect.provide(counted.layer));
+    }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
   );
 });

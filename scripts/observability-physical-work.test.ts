@@ -112,6 +112,51 @@ describe("physical-work reduction", () => {
     });
   });
 
+  it("resolves relative paths against each process's own working directory", () => {
+    const W = workspace;
+    const clone = "/tmp/axm-source-commit-Ab12Cd";
+    const discovery = "/tmp/axm-source-discovery-Qw3Er5";
+    const excerpt = String.raw`
+201 openat(AT_FDCWD<${W}>, "axm.json", O_RDONLY) = 3<${W}/axm.json>
+202 openat(AT_FDCWD<${clone}>, ".git/objects/86", O_RDONLY|O_DIRECTORY) = 4<${clone}/.git/objects/86>
+202 mkdir(".git/objects/ea", 0777) = 0
+202 access(".git/config", R_OK) = 0
+201 mkdir("vendor", 0777) = 0
+203 access(".git/config", R_OK) = 0
+203 chdir("${discovery}") = 0
+203 mkdir("vendor", 0777 <unfinished ...>
+201 stat("axm.lock", 0x7ffc) = 0
+203 <... mkdir resumed>) = 0
+203 chdir("vendor") = 0
+203 stat("src", 0x7ffc) = -1 ENOENT (No such file or directory)
+203 fchdir(5<${discovery}/vendor/bench-git>) = 0
+203 unlink("index.lock") = 0
+203 chdir("missing") = -1 ENOENT (No such file or directory)
+203 rmdir("old") = 0
+204 chdir("relative") = 0
+204 link("a", "b") = 0
+`;
+    const reduction = reducePhysicalWork(excerpt.split("\n"), context);
+    expect(reduction.paths).toEqual({
+      "<tmp>/axm-source-commit-<random>/.git/config": { access: 1 },
+      "<tmp>/axm-source-commit-<random>/.git/objects/<fanout>": {
+        directoryOpens: 1,
+        mkdirCalls: 1,
+      },
+      "<tmp>/axm-source-discovery-<random>/vendor": { mkdirCalls: 1 },
+      "<tmp>/axm-source-discovery-<random>/vendor/bench-git/index.lock": { removed: 1 },
+      "<tmp>/axm-source-discovery-<random>/vendor/bench-git/old": { removed: 1 },
+      "<tmp>/axm-source-discovery-<random>/vendor/src": { stats: 1 },
+      "<ws>/axm.json": { readOpens: 1 },
+      "<ws>/axm.lock": { stats: 1 },
+      "<ws>/vendor": { mkdirCalls: 1 },
+    });
+    // Process 203's first access and process 204's link precede any observed
+    // working directory, so they are unresolved rather than charged to <ws>.
+    expect(reduction.accounting).toMatchObject({ unresolvedPaths: 2, joinedResumptions: 1 });
+    expect(reduction.syscalls).toMatchObject({ chdir: 4, fchdir: 1 });
+  });
+
   it("accounts for resumptions without a start and unrecognized lines instead of dropping them", () => {
     const reduction = reducePhysicalWork(
       [
@@ -289,10 +334,25 @@ describe("physical-work configuration", () => {
           Effect.sync(() => fs.rmSync(directory, { recursive: true, force: true })),
         );
         const broken = path.join(directory, "broken");
+        const rejecting = path.join(directory, "rejecting");
         const working = path.join(directory, "working");
         fs.mkdirSync(broken);
+        fs.mkdirSync(rejecting);
         fs.mkdirSync(working);
         fs.writeFileSync(path.join(broken, "strace"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+        // Reports a version but refuses the capture prefix, as an older strace
+        // does for an unknown syscall name or a host does when ptrace is denied.
+        fs.writeFileSync(
+          path.join(rejecting, "strace"),
+          [
+            "#!/bin/sh",
+            'if [ "$1" = -V ]; then echo "strace -- version 5.10"; exit 0; fi',
+            "echo \"strace: invalid system call 'fchmodat2'\" >&2",
+            "exit 1",
+            "",
+          ].join("\n"),
+          { mode: 0o755 },
+        );
         fs.writeFileSync(
           path.join(working, "strace"),
           "#!/bin/sh\necho 'strace -- version 9.9'\n",
@@ -304,6 +364,9 @@ describe("physical-work configuration", () => {
         expect(yield* failure(locateStrace(broken))).toMatch(
           /^AXM_OBSERVABILITY_PHYSICAL_WORK=strace requires an executable strace/,
         );
+        expect(yield* failure(locateStrace(rejecting))).toMatch(
+          /^AXM_OBSERVABILITY_PHYSICAL_WORK=strace requires an executable strace: .* -f -qq -y -e trace=.* exited with 1: strace: invalid system call 'fchmodat2'$/s,
+        );
         expect(yield* locateStrace(["relative", working].join(path.delimiter))).toEqual({
           executable: path.join(working, "strace"),
           version: "strace -- version 9.9",
@@ -313,25 +376,33 @@ describe("physical-work configuration", () => {
 
   // A command prefix substitutes for strace here; the fixtures smoke run is the
   // evidence that strace itself leaves product output and exit status unchanged.
-  it.effect("runs a command prefix before the executable without changing its output or exit", () =>
-    Effect.gen(function* () {
-      const directory = fs.mkdtempSync(path.join(os.tmpdir(), "axm-physical-work-prefix-"));
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => fs.rmSync(directory, { recursive: true, force: true })),
-      );
-      const observed = yield* runObservedProcess({
-        executable: process.execPath,
-        args: [
-          "-e",
-          "process.stdout.write('out:' + process.env.PREFIXED); process.stderr.write('err'); process.exit(3)",
-        ],
-        cwd: directory,
-        environment: { PATH: process.env["PATH"] },
-        artifacts: directory,
-        measureRss: false,
-        prefix: ["env", "PREFIXED=yes"],
-      });
-      expect(observed).toMatchObject({ exitCode: 3, stdout: "out:yes", stderr: "err" });
-    }).pipe(Effect.scoped),
-  );
+  // The default case runs inside the /usr/bin/time elapsed/RSS wrapper, as the
+  // capture does; the benchmark already requires that wrapper on Linux.
+  for (const measureRss of [undefined, false] as const)
+    it.effect(
+      "runs a command prefix before the executable without changing its output or exit" +
+        (measureRss === false ? " (no RSS wrapper)" : " (inside the RSS wrapper)"),
+      () =>
+        Effect.gen(function* () {
+          const directory = fs.mkdtempSync(path.join(os.tmpdir(), "axm-physical-work-prefix-"));
+          yield* Effect.addFinalizer(() =>
+            Effect.sync(() => fs.rmSync(directory, { recursive: true, force: true })),
+          );
+          const observed = yield* runObservedProcess({
+            executable: process.execPath,
+            args: [
+              "-e",
+              "process.stdout.write('out:' + process.env.PREFIXED); process.stderr.write('err'); process.exit(3)",
+            ],
+            cwd: directory,
+            environment: { PATH: process.env["PATH"] },
+            artifacts: directory,
+            ...(measureRss === undefined ? {} : { measureRss }),
+            prefix: ["env", "PREFIXED=yes"],
+          });
+          expect(observed).toMatchObject({ exitCode: 3, stdout: "out:yes", stderr: "err" });
+          if (measureRss === false) expect(observed.peakRssBytes).toBe(0);
+          else expect(observed.peakRssBytes).toBeGreaterThan(0);
+        }).pipe(Effect.scoped),
+    );
 });

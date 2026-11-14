@@ -6,9 +6,10 @@
  * invocation with strace and reduces it to per-path counts. It perturbs timing:
  * it is never applied to timing blocks and is never a pass or fail gate.
  */
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import * as Effect from "effect/Effect";
@@ -18,7 +19,11 @@ import {
 } from "./observability-contract.js";
 import { digest } from "./observability-process.js";
 
-/** File opens, read/write, stat/access, namespace changes, directory reads and metadata updates. */
+/**
+ * File opens, read/write, stat/access, namespace changes, directory reads and
+ * metadata updates, plus chdir/fchdir so each process's working directory is
+ * known for relative paths.
+ */
 const physicalWorkSyscalls = [
   "open",
   "openat",
@@ -66,6 +71,8 @@ const physicalWorkSyscalls = [
   "fsync",
   "fdatasync",
   "copy_file_range",
+  "chdir",
+  "fchdir",
 ] as const;
 
 const physicalWorkCounters = [
@@ -115,43 +122,6 @@ export const physicalWorkConfiguration = (environment: {
   return Effect.succeed("strace");
 };
 
-/** Resolve and execute strace once, before any fixture is prepared. */
-export const locateStrace = (searchPath: string | undefined) =>
-  Effect.try({
-    try: () => {
-      const executable = (searchPath ?? "")
-        .split(path.delimiter)
-        .filter((directory) => path.isAbsolute(directory))
-        .map((directory) => path.join(directory, "strace"))
-        .find((candidate) => {
-          try {
-            fs.accessSync(candidate, fs.constants.X_OK);
-            return fs.statSync(candidate).isFile();
-          } catch {
-            return false;
-          }
-        });
-      if (executable === undefined) throw new Error("strace was not found on PATH");
-      const version = execFileSync(executable, ["-V"], {
-        encoding: "utf8",
-        timeout: 10_000,
-        env: { PATH: searchPath, LC_ALL: "C" },
-      })
-        .split("\n")[0]
-        ?.trim();
-      if (version === undefined || version.length === 0)
-        throw new Error("strace -V reported no version");
-      return { executable, version };
-    },
-    catch: (cause) =>
-      new ObservabilityBenchmarkFailure({
-        code: "configuration",
-        message:
-          "AXM_OBSERVABILITY_PHYSICAL_WORK=strace requires an executable strace: " +
-          (cause instanceof Error ? cause.message : String(cause)),
-      }),
-  });
-
 /** Command words placed before the observed executable; strace writes only the recording. */
 export const straceCommandPrefix = (
   executable: string,
@@ -168,6 +138,71 @@ export const straceCommandPrefix = (
   "--",
 ];
 
+/** Run one command for configuration checks; any failure carries its standard error. */
+const runCheck = (
+  executable: string,
+  args: ReadonlyArray<string>,
+  searchPath: string | undefined,
+): string => {
+  const result = spawnSync(executable, args, {
+    encoding: "utf8",
+    timeout: 30_000,
+    env: { PATH: searchPath, LC_ALL: "C" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.error !== undefined) throw result.error;
+  if (result.status !== 0)
+    throw new Error(
+      [executable, ...args].join(" ") +
+        " exited with " +
+        (result.status === null ? "signal " + String(result.signal) : String(result.status)) +
+        (result.stderr.trim().length > 0 ? ": " + result.stderr.trim() : ""),
+    );
+  return result.stdout;
+};
+
+/**
+ * Resolve strace and run the exact capture prefix once against a trivial
+ * child, before any fixture is prepared. This refuses an strace that rejects
+ * the fixed syscall set and a host that does not permit ptrace.
+ */
+export const locateStrace = (searchPath: string | undefined) =>
+  Effect.try({
+    try: () => {
+      const executable = (searchPath ?? "")
+        .split(path.delimiter)
+        .filter((directory) => path.isAbsolute(directory))
+        .map((directory) => path.join(directory, "strace"))
+        .find((candidate) => {
+          try {
+            fs.accessSync(candidate, fs.constants.X_OK);
+            return fs.statSync(candidate).isFile();
+          } catch {
+            return false;
+          }
+        });
+      if (executable === undefined) throw new Error("strace was not found on PATH");
+      const version = runCheck(executable, ["-V"], searchPath).split("\n")[0]?.trim();
+      if (version === undefined || version.length === 0)
+        throw new Error("strace -V reported no version");
+      const [command = executable, ...probe] = [
+        ...straceCommandPrefix(executable, os.devNull),
+        process.execPath,
+        "-e",
+        "0",
+      ];
+      runCheck(command, probe, searchPath);
+      return { executable, version };
+    },
+    catch: (cause) =>
+      new ObservabilityBenchmarkFailure({
+        code: "configuration",
+        message:
+          "AXM_OBSERVABILITY_PHYSICAL_WORK=strace requires an executable strace: " +
+          (cause instanceof Error ? cause.message : String(cause)),
+      }),
+  });
+
 export const physicalWorkMethod = {
   tool: "strace",
   options: ["-f", "-qq", "-y"],
@@ -176,7 +211,7 @@ export const physicalWorkMethod = {
   interpretation:
     "Kernel-observed calls of the whole process tree, including child processes such as git, independent of product traces. Not timing evidence: the capture perturbs elapsed time and RSS and never runs in timing blocks. Lock heartbeat traffic varies with hold time.",
   attribution:
-    "Opens, stats, access, readlinks, namespace changes and mkdir use the requested path resolved against its annotated directory descriptor (or the recorded working directory). Reads, writes, directory reads and copy_file_range use the kernel's descriptor path. Calls on non-path descriptors (pipes, sockets, anonymous inodes) count only in syscall totals.",
+    "Opens, stats, access, readlinks, namespace changes and mkdir use the requested path resolved against its annotated directory descriptor or, for relative paths of AT_FDCWD and legacy calls, against the calling process's working directory: its latest AT_FDCWD annotation or successful chdir/fchdir, and the recorded working directory only for the invoked process before either. A relative path of a process whose working directory is not yet known counts in unresolvedPaths. Reads, writes, directory reads and copy_file_range use the kernel's descriptor path. Calls on non-path descriptors (pipes, sockets, anonymous inodes) count only in syscall totals.",
 };
 
 export interface PhysicalWorkRoot {
@@ -348,10 +383,10 @@ const quotedString = (argument: string | undefined): string | undefined => {
   return unescape(argument.slice(1, end - 1));
 };
 
-/** A descriptor argument: its annotated path, or the recorded working directory for bare AT_FDCWD. */
+/** A descriptor argument: its annotated path, or the calling process's working directory for bare AT_FDCWD. */
 const descriptor = (
   argument: string | undefined,
-  workingDirectory: string,
+  workingDirectory: string | undefined,
 ): { readonly path: string | undefined; readonly annotated: string | undefined } | undefined => {
   const match = /^(AT_FDCWD|-?\d+)(?:<(.*)>)?$/su.exec(argument ?? "");
   if (match === null) return undefined;
@@ -380,14 +415,19 @@ interface Classified {
   }>;
   readonly unresolved: number;
   readonly nonPath: number;
+  /** A successful chdir/fchdir: the new working directory, or undefined when it cannot be resolved. */
+  readonly changedWorkingDirectory?: { readonly path: string | undefined };
 }
 
-/** Map one complete call to path counters. A missing result (unfinished at exit) is not success. */
+/**
+ * Map one complete call to path counters. A missing result (unfinished at exit)
+ * is not success. `workingDirectory` is the calling process's, when known.
+ */
 const classify = (
   name: string,
   args: ReadonlyArray<string>,
   returned: number | undefined,
-  workingDirectory: string,
+  workingDirectory: string | undefined,
 ): Classified => {
   const counts: Array<{ path: string; counter: PhysicalWorkCounter; amount: number }> = [];
   let unresolved = 0;
@@ -526,11 +566,26 @@ const classify = (
     case "symlinkat":
       if (succeeded) add(at(args[1], args[2]), "linked");
       break;
+    case "chdir":
+      if (succeeded)
+        return { counts, unresolved, nonPath, changedWorkingDirectory: { path: plain(args[0]) } };
+      break;
+    case "fchdir":
+      if (succeeded)
+        return {
+          counts,
+          unresolved,
+          nonPath,
+          changedWorkingDirectory: { path: descriptor(args[0], undefined)?.path },
+        };
+      break;
     default:
       break;
   }
   return { counts, unresolved, nonPath };
 };
+
+const workingDirectoryAnnotation = /^AT_FDCWD<(.*)>$/su;
 
 const callLine = /^(\d+)\s+([a-z_0-9]+)\((.*)$/su;
 const resumedLine = /^(\d+)\s+<\.\.\. ([a-z_0-9]+) resumed>(.*)$/su;
@@ -540,6 +595,16 @@ const unfinishedSuffix = " <unfinished ...>";
  * Reduce one `strace -f -y` recording. Calls split across processes by
  * `<unfinished ...>` / `<... name resumed>` are joined per process id and
  * counted once; calls still unfinished at the end count once without a result.
+ *
+ * Relative paths resolve against the calling process's own working directory.
+ * Under `-f`, children such as git run in other directories, and legacy calls
+ * (`access`, `mkdir`, `unlink`, ...) carry no AT_FDCWD annotation, so each
+ * process id keeps its latest AT_FDCWD annotation or successful chdir/fchdir.
+ * Only the invoked process (the first process id recorded) starts in the
+ * recorded working directory; any other process's relative paths stay
+ * unresolved until its working directory is observed. Threads share a working
+ * directory, so a chdir in one thread reaches a sibling thread only at that
+ * sibling's next annotated call.
  */
 export const reducePhysicalWork = (
   lines: Iterable<string>,
@@ -559,6 +624,13 @@ export const reducePhysicalWork = (
     unresolvedPaths: 0,
     nonPathDescriptorCalls: 0,
   };
+  const workingDirectories = new Map<string, string>();
+  let invokedProcess: string | undefined;
+  const observeProcess = (pid: string) => {
+    if (invokedProcess !== undefined) return;
+    invokedProcess = pid;
+    workingDirectories.set(pid, context.workingDirectory);
+  };
   const projections = new Map<string, string>();
   const project = (target: string) => {
     const known = projections.get(target);
@@ -567,7 +639,7 @@ export const reducePhysicalWork = (
     projections.set(target, projected);
     return projected;
   };
-  const record = (name: string, text: string, finished: boolean) => {
+  const record = (pid: string, name: string, text: string, finished: boolean) => {
     const call = splitCall(text);
     if (call === undefined) {
       accounting.unparsedLines++;
@@ -575,12 +647,23 @@ export const reducePhysicalWork = (
     }
     accounting.calls++;
     syscalls.set(name, (syscalls.get(name) ?? 0) + 1);
+    for (const argument of call.args) {
+      const annotated = workingDirectoryAnnotation.exec(argument)?.[1];
+      if (annotated === undefined) continue;
+      const directory = unescape(annotated);
+      if (directory.startsWith("/")) workingDirectories.set(pid, directory);
+    }
     const classified = classify(
       name,
       call.args,
       finished ? resultValue(call.result) : undefined,
-      context.workingDirectory,
+      workingDirectories.get(pid),
     );
+    if (classified.changedWorkingDirectory !== undefined) {
+      const changed = classified.changedWorkingDirectory.path;
+      if (changed === undefined) workingDirectories.delete(pid);
+      else workingDirectories.set(pid, changed);
+    }
     accounting.unresolvedPaths += classified.unresolved;
     accounting.nonPathDescriptorCalls += classified.nonPath;
     for (const { path: target, counter, amount } of classified.counts) {
@@ -597,33 +680,35 @@ export const reducePhysicalWork = (
     const resumed = resumedLine.exec(line);
     if (resumed !== null) {
       const [, pid = "", name = "", rest = ""] = resumed;
+      observeProcess(pid);
       const started = pending.get(pid);
       pending.delete(pid);
       if (started === undefined || started.name !== name) {
         accounting.unmatchedResumptions++;
-        if (started !== undefined) record(started.name, started.text + ")", false);
+        if (started !== undefined) record(pid, started.name, started.text + ")", false);
         continue;
       }
       accounting.joinedResumptions++;
-      record(name, started.text + rest, true);
+      record(pid, name, started.text + rest, true);
       continue;
     }
     const call = callLine.exec(line);
     if (call !== null) {
       const [, pid = "", name = "", rest = ""] = call;
+      observeProcess(pid);
       if (rest.endsWith(unfinishedSuffix)) {
         const prior = pending.get(pid);
-        if (prior !== undefined) record(prior.name, prior.text + ")", false);
+        if (prior !== undefined) record(pid, prior.name, prior.text + ")", false);
         pending.set(pid, { name, text: rest.slice(0, -unfinishedSuffix.length) });
-      } else record(name, rest, true);
+      } else record(pid, name, rest, true);
       continue;
     }
     if (/^\d+\s+(?:---|\+\+\+) /u.test(line)) accounting.processEvents++;
     else accounting.unparsedLines++;
   }
-  for (const started of pending.values()) {
+  for (const [pid, started] of pending) {
     accounting.unfinishedAtEnd++;
-    record(started.name, started.text + ")", false);
+    record(pid, started.name, started.text + ")", false);
   }
   return {
     syscalls: Object.fromEntries([...syscalls].sort(([left], [right]) => byText(left, right))),

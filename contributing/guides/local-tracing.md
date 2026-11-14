@@ -486,13 +486,18 @@ read twice. In fixtures or compare mode on Linux,
 `AXM_OBSERVABILITY_PHYSICAL_WORK=strace` records each scenario's preflight
 baseline and candidate disabled-mode invocations under
 `strace -f -qq -y` with a fixed file-syscall set, writing only to the sample's
-artifact directory. Measure mode, any other value, and a missing or
-non-executing `strace` fail configuration before fixtures are prepared; unset
-changes nothing. Each sample retains the losslessly compressed recording and a
+artifact directory. Measure mode, any other value, and an `strace` that is
+missing or cannot run that exact capture (an unknown syscall name, or ptrace
+not permitted) fail configuration before fixtures are prepared; unset changes
+nothing. Each sample retains the losslessly compressed recording and a
 `physical-work.json` reduction: syscall totals and per-path opens, reads,
 writes, stats, access checks, readlinks, renames, removals, directory creation
 and reads, links and failed opens. Split `<unfinished ...>` calls are joined and
-counted once. Paths are projected to `<ws>`, `<home>`, `<fixture>`,
+counted once. Relative paths resolve against the calling process's own working
+directory, tracked from its `AT_FDCWD` annotations and `chdir`/`fchdir`, so a
+`git` child working in a temporary clone is not charged to the workspace; a
+relative path from a process whose directory is not yet known is counted as
+unresolved. Paths are projected to `<ws>`, `<home>`, `<fixture>`,
 `<account-home>` and `<tmp>`, with temporary names, random suffixes, UUIDs and
 `/proc` descriptors replaced by stable tokens. `physical-work-comparison.json`
 lists every differing path counter between baseline and candidate per

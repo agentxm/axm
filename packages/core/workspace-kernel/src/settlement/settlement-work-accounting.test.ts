@@ -34,11 +34,16 @@ import { WorkspaceTransactionScopeTest } from "./testing.js";
 
 const platform = Layer.merge(NativePlatformTest, CanonicalNativePathLive);
 
-/** Preimage digests grouped by the span that encloses each one. */
+/**
+ * Preimage digests grouped by the span that encloses each one, and the
+ * transaction-ledger admissions observed alongside them.
+ */
 const hashCounter = () => {
   let parents: Array<string> = [];
+  let admissions = 0;
   const observer: WorkObserver = {
     record: (fact, parent) => {
+      if (fact.kind === "axm.admission.transaction-ledger") admissions += 1;
       if (fact.kind !== "axm.hash.preimage") return;
       parents.push(parent === undefined ? "" : parent._tag === "Span" ? parent.name : "external");
     },
@@ -48,39 +53,48 @@ const hashCounter = () => {
     observer,
     total: () => parents.length,
     under: (name: string) => parents.filter((parent) => parent === name).length,
+    admissions: () => admissions,
     reset: () => {
       parents = [];
+      admissions = 0;
     },
   };
 };
 
-const workspace = Effect.gen(function* () {
-  const native = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const root = yield* native
-    .makeTempDirectoryScoped({ prefix: "axm-settlement-work-" })
-    .pipe(Effect.flatMap(resolveNativeReferent));
-  const workspaceDir = path.join(root, ".axm");
-  yield* native.makeDirectory(workspaceDir);
-  yield* native.writeFileString(path.join(root, "axm.json"), "{}\n");
-  const { fileSystem, recording } = makeRecordingFileSystem(native);
-  const hashes = hashCounter();
-  // Settlement captures the ambient filesystem when the scope is built, so the
-  // recording filesystem is provided outside the scope layer.
-  const transact = <A, E, R>(args: WorkspaceTransactionArgs<A, E, R>) =>
-    runWorkspaceTransaction({ claimDefaultTargets: false, ...args }).pipe(
-      Effect.provide(
-        WorkspaceTransactionScopeTest({
-          workspaceDir,
-          settingsPath: path.join(root, "axm.json"),
-          lockPath: path.join(root, "axm.lock"),
-        }),
-      ),
-      Effect.provideService(FileSystem.FileSystem, fileSystem),
-      Effect.provideService(CurrentWorkObserver, hashes.observer),
-    );
-  return { native, fs: fileSystem, path, root, recording, hashes, transact };
-});
+/** A workspace whose transactions use the recording filesystem, optionally wrapped. */
+const workspaceWith = (
+  wrap: (recorded: FileSystem.FileSystem, native: FileSystem.FileSystem) => FileSystem.FileSystem,
+) =>
+  Effect.gen(function* () {
+    const native = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* native
+      .makeTempDirectoryScoped({ prefix: "axm-settlement-work-" })
+      .pipe(Effect.flatMap(resolveNativeReferent));
+    const workspaceDir = path.join(root, ".axm");
+    yield* native.makeDirectory(workspaceDir);
+    yield* native.writeFileString(path.join(root, "axm.json"), "{}\n");
+    const { fileSystem: recorded, recording } = makeRecordingFileSystem(native);
+    const fileSystem = wrap(recorded, native);
+    const hashes = hashCounter();
+    // Settlement captures the ambient filesystem when the scope is built, so the
+    // recording filesystem is provided outside the scope layer.
+    const transact = <A, E, R>(args: WorkspaceTransactionArgs<A, E, R>) =>
+      runWorkspaceTransaction({ claimDefaultTargets: false, ...args }).pipe(
+        Effect.provide(
+          WorkspaceTransactionScopeTest({
+            workspaceDir,
+            settingsPath: path.join(root, "axm.json"),
+            lockPath: path.join(root, "axm.lock"),
+          }),
+        ),
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(CurrentWorkObserver, hashes.observer),
+      );
+    return { native, fs: fileSystem, path, root, recording, hashes, transact };
+  });
+
+const workspace = workspaceWith((recorded) => recorded);
 
 const publish = (fs: FileSystem.FileSystem, file: string, content: string | Uint8Array) =>
   writeFileAtomic(fs, {
@@ -406,4 +420,134 @@ describe("settlement work accounting", () => {
       expect(yield* native.exists(directory)).toBe(false);
     }).pipe(Effect.scoped, Effect.provide(platform)),
   );
+
+  describe("transactional retirement", () => {
+    const directoryWith = (
+      native: FileSystem.FileSystem,
+      directory: string,
+      names: ReadonlyArray<string>,
+    ) =>
+      Effect.gen(function* () {
+        yield* native.makeDirectory(directory);
+        for (const name of names) yield* native.writeFileString(`${directory}/${name}`, name);
+      });
+
+    for (const exact of [false, true]) {
+      it.effect(
+        `reads each file of a${exact ? "n exactly protected" : "n unprotected"} target twice in one admission`,
+        () =>
+          Effect.gen(function* () {
+            const { native, path, root, recording, hashes, transact } = yield* workspace;
+            const directory = path.join(root, "D");
+            yield* directoryWith(native, directory, ["f1", "f2"]);
+            let counted: unknown;
+            yield* transact({
+              transition: Effect.gen(function* () {
+                if (exact) yield* protectWorkspacePath(directory);
+                recording.reset();
+                hashes.reset();
+                yield* retireWorkspacePath(directory);
+                counted = {
+                  f1: recording.contentReads(path.join(directory, "f1")),
+                  f2: recording.contentReads(path.join(directory, "f2")),
+                  admissions: hashes.admissions(),
+                };
+              }),
+              validate: () => Effect.void,
+            });
+            // The protect observation and the fresh check just before the
+            // rename; one merged admission plus the closing postimage.
+            expect(counted).toEqual({ f1: 2, f2: 2, admissions: 2 });
+            expect(yield* native.exists(directory)).toBe(false);
+          }).pipe(Effect.scoped, Effect.provide(platform)),
+      );
+    }
+
+    it.effect(
+      "still observes a broader owner and the entry fresh for a descendant retirement",
+      () =>
+        Effect.gen(function* () {
+          const { native, path, root, recording, hashes, transact } = yield* workspace;
+          const directory = path.join(root, "D");
+          yield* directoryWith(native, directory, ["x", "y"]);
+          const entry = path.join(directory, "x");
+          let counted: unknown;
+          yield* transact({
+            transition: Effect.gen(function* () {
+              yield* protectWorkspacePath(directory);
+              recording.reset();
+              hashes.reset();
+              yield* retireWorkspacePath(entry);
+              counted = {
+                x: recording.contentReads(entry),
+                y: recording.contentReads(path.join(directory, "y")),
+                admissions: hashes.admissions(),
+              };
+            }),
+            validate: () => Effect.void,
+          });
+          // The owner tree, the entry, and the fresh check before the rename.
+          expect(counted).toEqual({ x: 3, y: 1, admissions: 2 });
+          expect(yield* native.exists(entry)).toBe(false);
+          expect(yield* native.readFileString(path.join(directory, "y"))).toBe("y");
+        }).pipe(Effect.scoped, Effect.provide(platform)),
+    );
+
+    it.effect("observes a target deleted after its protect copy fresh and refuses it", () =>
+      Effect.gen(function* () {
+        let deleteAfterCopy: string | undefined;
+        const { native, path, root, recording, hashes, transact } = yield* workspaceWith(
+          (recorded, native) => ({
+            ...recorded,
+            copy: (from, to, options) =>
+              recorded
+                .copy(from, to, options)
+                .pipe(
+                  Effect.tap(() =>
+                    from === deleteAfterCopy
+                      ? native.remove(from, { recursive: true })
+                      : Effect.void,
+                  ),
+                ),
+          }),
+        );
+        const directory = path.join(root, "D");
+        yield* directoryWith(native, directory, ["f1", "f2"]);
+        let counted: unknown;
+        let statsAfterCopy = 0;
+        yield* transact({
+          transition: Effect.gen(function* () {
+            deleteAfterCopy = directory;
+            recording.reset();
+            hashes.reset();
+            const failure = yield* retireWorkspacePath(directory).pipe(Effect.flip);
+            const calls = recording.calls({ path: directory });
+            const copied = calls.findIndex((call) => call.method === "copy");
+            statsAfterCopy = calls
+              .slice(copied + 1)
+              .filter((call) => call.method === "stat").length;
+            counted = {
+              cause: failure.cause,
+              step: failure.step,
+              f1: recording.contentReads(path.join(directory, "f1")),
+              copied: copied > -1,
+              admissions: hashes.admissions(),
+            };
+          }),
+          validate: () => Effect.void,
+        });
+        expect(counted).toEqual({
+          cause: "foreign-change",
+          step: "inspect-target",
+          f1: 1,
+          copied: true,
+          // The refusal comes before the closing postimage admission.
+          admissions: 1,
+        });
+        // After the copy the target is stat-ed once by the fresh address
+        // resolution and once by the fresh owner observation, not reused.
+        expect(statsAfterCopy).toBe(2);
+      }).pipe(Effect.scoped, Effect.provide(platform)),
+    );
+  });
 });

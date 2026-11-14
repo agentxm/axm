@@ -119,155 +119,187 @@ export const protectInContext = (
   closure: string | undefined,
 ): Effect.Effect<void, WorkspaceSnapshotError> =>
   updateTransactionLedger(context.ledger, (ledger) =>
-    Effect.gen(function* () {
-      const { fs, path } = context;
-      const workspaceRoot = path.dirname(context.workspaceDir);
-      const { address: beforeAddress, nativeRoot } = yield* assertNativeMutationWithinRoots(
-        context.nativeRoots,
+    protectTransition(context, ledger, target, closure).pipe(
+      Effect.map((protection) => protection.ledger),
+    ),
+  ).pipe(Effect.withSpan("axm.publish.snapshot"));
+
+/** The whole-tree observation of a protected target taken in one protection. */
+export interface ProtectObservation {
+  readonly target: string;
+  /** Not retained by the ledger: the caller may keep it. */
+  readonly state: PathState;
+}
+
+/**
+ * The ledger transition of `protectInContext`, for a caller that continues
+ * the same admission. `observed` is the target's observation when this
+ * transition took one in full (a first protection, or the re-check of an
+ * exact snapshot); any later use stays within the admission.
+ */
+export const protectTransition = (
+  context: WorkspaceTransactionContext,
+  ledger: TransactionLedger,
+  target: string,
+  closure: string | undefined,
+): Effect.Effect<
+  { readonly ledger: TransactionLedger; readonly observed: Option.Option<ProtectObservation> },
+  WorkspaceSnapshotError
+> =>
+  Effect.gen(function* () {
+    const { fs, path } = context;
+    const workspaceRoot = path.dirname(context.workspaceDir);
+    const { address: beforeAddress, nativeRoot } = yield* assertNativeMutationWithinRoots(
+      context.nativeRoots,
+      target,
+      "entry",
+      workspaceRoot,
+      context.nativeRootWitnesses,
+    ).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.mapError(
+        (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
+      ),
+    );
+    const normalized = beforeAddress.entryPath;
+    yield* context.claims.claim([normalized]);
+    const afterAdmission = yield* assertNativeMutationWithinRoots(
+      context.nativeRoots,
+      target,
+      "entry",
+      workspaceRoot,
+      context.nativeRootWitnesses,
+    ).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.mapError(
+        (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
+      ),
+    );
+    if (afterAdmission.address.entryPath !== normalized)
+      return yield* new WorkspaceSnapshotError({
         target,
-        "entry",
-        workspaceRoot,
-        context.nativeRootWitnesses,
-      ).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-        Effect.mapError(
-          (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
-        ),
-      );
-      const normalized = beforeAddress.entryPath;
-      yield* context.claims.claim([normalized]);
-      const afterAdmission = yield* assertNativeMutationWithinRoots(
-        context.nativeRoots,
+        step: "inspect-target",
+        cause: "native-alias-changed",
+      });
+    const address = afterAdmission.address;
+    const captured = ledger.resolvedEntries.get(address.lexicalPath);
+    if (captured !== undefined && captured !== normalized) {
+      return yield* new WorkspaceSnapshotError({
         target,
-        "entry",
-        workspaceRoot,
-        context.nativeRootWitnesses,
-      ).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-        Effect.mapError(
-          (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
-        ),
-      );
-      if (afterAdmission.address.entryPath !== normalized)
-        return yield* new WorkspaceSnapshotError({
-          target,
-          step: "inspect-target",
-          cause: "native-alias-changed",
-        });
-      const address = afterAdmission.address;
-      const captured = ledger.resolvedEntries.get(address.lexicalPath);
-      if (captured !== undefined && captured !== normalized) {
-        return yield* new WorkspaceSnapshotError({
-          target,
-          step: "inspect-target",
-          cause: "native-alias-changed",
-        });
-      }
-      if (address.kind === "file" && BigInt(address.links ?? "1") > 1n) {
-        return yield* new WorkspaceSnapshotError({
-          target,
-          step: "inspect-target",
-          cause: "hardlinked-native-file",
-        });
-      }
-      const observedLedger = {
-        ...ledger,
-        resolvedEntries: new Map(ledger.resolvedEntries).set(address.lexicalPath, normalized),
-      };
-      // First-touch dedupe is per closure: a later closure touching a target
-      // an earlier closure already committed needs its own — post-commit —
-      // preimage, so restoring it undoes only that closure's work.
-      const exact = ledger.snapshots.find(
-        (snapshot) => snapshot.closure === closure && snapshot.target === normalized,
-      );
-      if (
-        exact !== undefined &&
-        !equalPathStates(yield* observePathState(fs, path, normalized), exact.expected)
-      ) {
+        step: "inspect-target",
+        cause: "native-alias-changed",
+      });
+    }
+    if (address.kind === "file" && BigInt(address.links ?? "1") > 1n) {
+      return yield* new WorkspaceSnapshotError({
+        target,
+        step: "inspect-target",
+        cause: "hardlinked-native-file",
+      });
+    }
+    const observedLedger = {
+      ...ledger,
+      resolvedEntries: new Map(ledger.resolvedEntries).set(address.lexicalPath, normalized),
+    };
+    // First-touch dedupe is per closure: a later closure touching a target
+    // an earlier closure already committed needs its own — post-commit —
+    // preimage, so restoring it undoes only that closure's work.
+    const exact = ledger.snapshots.find(
+      (snapshot) => snapshot.closure === closure && snapshot.target === normalized,
+    );
+    let rechecked: Option.Option<ProtectObservation> = Option.none();
+    if (exact !== undefined) {
+      const state = yield* observePathState(fs, path, normalized);
+      if (!equalPathStates(state, exact.expected)) {
         return yield* new WorkspaceSnapshotError({
           target,
           step: "inspect-target",
           cause: "foreign-change",
         });
       }
-      if (
-        isProtected(ledger, closure, normalized) ||
-        ledger.snapshots.some(
-          (snapshot) =>
-            snapshot.closure === closure && normalized.startsWith(`${snapshot.target}${path.sep}`),
-        )
-      ) {
-        yield* Effect.annotateCurrentSpan("axm.cache.outcome", "hit");
-        return observedLedger;
-      }
-      yield* Effect.annotateCurrentSpan("axm.cache.outcome", "miss");
-      const expected = yield* observePathState(fs, path, normalized);
-      if ([...expected.values()].includes("unreadable")) {
-        return yield* new WorkspaceSnapshotError({
-          target,
-          step: "inspect-target",
-          cause: "unreadable-preimage",
-        });
-      }
-      const route = yield* Effect.gen(function* () {
-        const parents = yield* observeNativeRoute(fs, path, normalized, nativeRoot);
-        const physicalRoot = yield* resolveNativeReferent(nativeRoot);
-        const rootLink = Option.getOrUndefined(yield* fs.readLink(nativeRoot).pipe(Effect.option));
-        return { parents, nativeRoot, physicalRoot, rootLink };
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
+      rechecked = Option.some({ target: normalized, state });
+    }
+    if (
+      isProtected(ledger, closure, normalized) ||
+      ledger.snapshots.some(
+        (snapshot) =>
+          snapshot.closure === closure && normalized.startsWith(`${snapshot.target}${path.sep}`),
+      )
+    ) {
+      yield* Effect.annotateCurrentSpan("axm.cache.outcome", "hit");
+      return { ledger: observedLedger, observed: rechecked };
+    }
+    yield* Effect.annotateCurrentSpan("axm.cache.outcome", "miss");
+    const expected = yield* observePathState(fs, path, normalized);
+    // The snapshot retains `expected`; the caller receives its own copy.
+    const observed = Option.some({ target: normalized, state: new Map(expected) });
+    if ([...expected.values()].includes("unreadable")) {
+      return yield* new WorkspaceSnapshotError({
+        target,
+        step: "inspect-target",
+        cause: "unreadable-preimage",
+      });
+    }
+    const route = yield* Effect.gen(function* () {
+      const parents = yield* observeNativeRoute(fs, path, normalized, nativeRoot);
+      const physicalRoot = yield* resolveNativeReferent(nativeRoot);
+      const rootLink = Option.getOrUndefined(yield* fs.readLink(nativeRoot).pipe(Effect.option));
+      return { parents, nativeRoot, physicalRoot, rootLink };
+    }).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+      Effect.mapError(
+        (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
+      ),
+    );
+    if ([...route.parents.values()].includes("unreadable"))
+      return yield* new WorkspaceSnapshotError({
+        target,
+        step: "inspect-target",
+        cause: "unreadable-parent-route",
+      });
+    const link = yield* fs.readLink(normalized).pipe(Effect.option);
+    if (Option.isSome(link)) {
+      const snapshot: Snapshot = {
+        closure,
+        route,
+        expected,
+        preimage: expected,
+        target: normalized,
+        state: "symlink",
+        linkTarget: link.value,
+      };
+      return { ledger: withSnapshot(observedLedger, snapshot, observedLedger), observed };
+    }
+    const exists = yield* fs
+      .exists(normalized)
+      .pipe(
         Effect.mapError(
-          (cause) => new WorkspaceSnapshotError({ target, step: "inspect-target", cause }),
+          (cause) =>
+            new WorkspaceSnapshotError({ target: normalized, step: "inspect-target", cause }),
         ),
       );
-      if ([...route.parents.values()].includes("unreadable"))
-        return yield* new WorkspaceSnapshotError({
-          target,
-          step: "inspect-target",
-          cause: "unreadable-parent-route",
-        });
-      const link = yield* fs.readLink(normalized).pipe(Effect.option);
-      if (Option.isSome(link)) {
-        const snapshot: Snapshot = {
-          closure,
-          route,
-          expected,
-          preimage: expected,
-          target: normalized,
-          state: "symlink",
-          linkTarget: link.value,
-        };
-        return withSnapshot(observedLedger, snapshot, observedLedger);
-      }
-      const exists = yield* fs
-        .exists(normalized)
-        .pipe(
-          Effect.mapError(
-            (cause) =>
-              new WorkspaceSnapshotError({ target: normalized, step: "inspect-target", cause }),
-          ),
-        );
-      if (!exists) {
-        // Initial admission can protect a missing leaf before publication
-        // protects its missing parent. They restore as one absent boundary.
-        const descendants = ledger.snapshots.filter(
-          (snapshot) =>
-            snapshot.closure === closure && snapshot.target.startsWith(`${normalized}${path.sep}`),
-        );
-        for (const previous of descendants) {
-          const actual = yield* observePathState(fs, path, previous.target);
-          if (previous.state !== "absent" || !equalPathStates(actual, previous.expected)) {
-            return yield* new WorkspaceSnapshotError({
-              target: previous.target,
-              step: "inspect-target",
-              cause: "foreign-change",
-            });
-          }
+    if (!exists) {
+      // Initial admission can protect a missing leaf before publication
+      // protects its missing parent. They restore as one absent boundary.
+      const descendants = ledger.snapshots.filter(
+        (snapshot) =>
+          snapshot.closure === closure && snapshot.target.startsWith(`${normalized}${path.sep}`),
+      );
+      for (const previous of descendants) {
+        const actual = yield* observePathState(fs, path, previous.target);
+        if (previous.state !== "absent" || !equalPathStates(actual, previous.expected)) {
+          return yield* new WorkspaceSnapshotError({
+            target: previous.target,
+            step: "inspect-target",
+            cause: "foreign-change",
+          });
         }
-        return withSnapshot(
+      }
+      return {
+        ledger: withSnapshot(
           {
             ...observedLedger,
             snapshots: ledger.snapshots.filter((snapshot) => !descendants.includes(snapshot)),
@@ -282,65 +314,68 @@ export const protectInContext = (
             retirements: descendants.flatMap((snapshot) => snapshot.retirements ?? []),
           },
           observedLedger,
-        );
-      }
-      const snapshotDir =
-        ledger.snapshotDir ??
-        (yield* fs
-          .makeTempDirectory({ prefix: "axm-rollback-" })
-          .pipe(
-            Effect.mapError(
-              (cause) =>
-                new WorkspaceSnapshotError({ target: normalized, step: "create-store", cause }),
-            ),
-          ));
-      const backup = path.join(snapshotDir, `${ledger.snapshotSequence}.snap`);
-      // The pre-change bytes are preserved before the path is first mutated;
-      // a path that cannot be snapshotted is never mutated.
-      yield* fs
-        .copy(normalized, backup, { preserveTimestamps: true })
+        ),
+        observed,
+      };
+    }
+    const snapshotDir =
+      ledger.snapshotDir ??
+      (yield* fs
+        .makeTempDirectory({ prefix: "axm-rollback-" })
         .pipe(
           Effect.mapError(
-            (cause) => new WorkspaceSnapshotError({ target: normalized, step: "copy", cause }),
+            (cause) =>
+              new WorkspaceSnapshotError({ target: normalized, step: "create-store", cause }),
           ),
-        );
-      // If a broader directory is protected after one of its children, its
-      // live tree already includes that earlier AXM write. Rewind those child
-      // preimages in the backup before coalescing them into one boundary.
-      const descendants = ledger.snapshots.filter(
-        (snapshot) =>
-          snapshot.closure === closure && snapshot.target.startsWith(`${normalized}${path.sep}`),
+        ));
+    const backup = path.join(snapshotDir, `${ledger.snapshotSequence}.snap`);
+    // The pre-change bytes are preserved before the path is first mutated;
+    // a path that cannot be snapshotted is never mutated.
+    yield* fs
+      .copy(normalized, backup, { preserveTimestamps: true })
+      .pipe(
+        Effect.mapError(
+          (cause) => new WorkspaceSnapshotError({ target: normalized, step: "copy", cause }),
+        ),
       );
-      let preimage = expected;
-      for (const previous of descendants) {
-        const actual = yield* observePathState(fs, path, previous.target);
-        if (!equalPathStates(actual, previous.expected)) {
-          return yield* new WorkspaceSnapshotError({
-            target: previous.target,
-            step: "inspect-target",
-            cause: "foreign-change",
-          });
-        }
-        const nestedBackup = path.join(backup, path.relative(normalized, previous.target));
-        preimage = replacePathState(
-          path,
-          preimage,
-          path.relative(normalized, previous.target),
-          previous.preimage,
-        );
-        yield* Effect.gen(function* () {
-          yield* fs.remove(nestedBackup, { recursive: true, force: true });
-          if (previous.state === "absent") return;
-          yield* fs.makeDirectory(path.dirname(nestedBackup), { recursive: true });
-          if (previous.state === "symlink") yield* fs.symlink(previous.linkTarget, nestedBackup);
-          else yield* fs.copy(previous.backup, nestedBackup, { preserveTimestamps: true });
-        }).pipe(
-          Effect.mapError(
-            (cause) => new WorkspaceSnapshotError({ target: normalized, step: "copy", cause }),
-          ),
-        );
+    // If a broader directory is protected after one of its children, its
+    // live tree already includes that earlier AXM write. Rewind those child
+    // preimages in the backup before coalescing them into one boundary.
+    const descendants = ledger.snapshots.filter(
+      (snapshot) =>
+        snapshot.closure === closure && snapshot.target.startsWith(`${normalized}${path.sep}`),
+    );
+    let preimage = expected;
+    for (const previous of descendants) {
+      const actual = yield* observePathState(fs, path, previous.target);
+      if (!equalPathStates(actual, previous.expected)) {
+        return yield* new WorkspaceSnapshotError({
+          target: previous.target,
+          step: "inspect-target",
+          cause: "foreign-change",
+        });
       }
-      return withSnapshot(
+      const nestedBackup = path.join(backup, path.relative(normalized, previous.target));
+      preimage = replacePathState(
+        path,
+        preimage,
+        path.relative(normalized, previous.target),
+        previous.preimage,
+      );
+      yield* Effect.gen(function* () {
+        yield* fs.remove(nestedBackup, { recursive: true, force: true });
+        if (previous.state === "absent") return;
+        yield* fs.makeDirectory(path.dirname(nestedBackup), { recursive: true });
+        if (previous.state === "symlink") yield* fs.symlink(previous.linkTarget, nestedBackup);
+        else yield* fs.copy(previous.backup, nestedBackup, { preserveTimestamps: true });
+      }).pipe(
+        Effect.mapError(
+          (cause) => new WorkspaceSnapshotError({ target: normalized, step: "copy", cause }),
+        ),
+      );
+    }
+    return {
+      ledger: withSnapshot(
         {
           ...observedLedger,
           snapshots: ledger.snapshots.filter((snapshot) => !descendants.includes(snapshot)),
@@ -356,9 +391,10 @@ export const protectInContext = (
           retirements: descendants.flatMap((snapshot) => snapshot.retirements ?? []),
         },
         { snapshotDir, snapshotSequence: ledger.snapshotSequence + 1 },
-      );
-    }),
-  ).pipe(Effect.withSpan("axm.publish.snapshot"));
+      ),
+      observed,
+    };
+  });
 
 /** The observed postimage; `bytes` is the content a file readback read, when it read one. */
 interface Readback {

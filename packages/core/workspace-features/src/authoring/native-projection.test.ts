@@ -5,6 +5,7 @@ import * as nodePath from "node:path";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Tracer from "effect/Tracer";
 import { readExtensionManifest } from "@agentxm/extension-content";
 import { manifestFilenameForType } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseFqn } from "@agentxm/extension-model/unstable/extensions";
@@ -13,6 +14,7 @@ import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
 import {
   computeSourceHash,
   withLiveWorkspaceObservations,
+  withWorkspaceReadView,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { CreateExtension } from "./create/create-extension.js";
 import { preflightAuthoredNativeProjection, preparedManifestFacts } from "./native-projection.js";
@@ -232,4 +234,161 @@ describe("authored native preflight inputs", () => {
         expect(disabled.hashes).toBe(0);
       }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
     });
+});
+
+describe("authored native preflight documents", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  const plural = { rule: "rules", knowledge: "knowledge", hook: "hooks", subagent: "subagents" };
+  const mutations: ReadonlySet<string> = new Set([
+    "writeFile",
+    "file.write",
+    "file.writeAll",
+    "rename",
+    "remove",
+    "makeDirectory",
+    "symlink",
+    "link",
+    "copy",
+    "copyFile",
+    "truncate",
+  ]);
+
+  /** A workspace configured for Claude Code with both documents present, and one staged package. */
+  const stage = (type: keyof typeof plural) => {
+    const workspace = makeAuthoringWorkspace({ owner: "@acme", agents: ["claude-code"] });
+    cleanups.push(workspace.cleanup);
+    workspace.writeSettings({ owner: "@acme", agents: ["claude-code"], instructionFiles: {} });
+    fs.writeFileSync(nodePath.join(workspace.root, "axm.lock"), "version = 1\n");
+    const stagingRoot = fs.realpathSync(
+      fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-preflight-documents-")),
+    );
+    cleanups.push(() => fs.rmSync(stagingRoot, { recursive: true, force: true }));
+    const packageRoot = writeMinimalPackage(nodePath.join(stagingRoot, "review"), type, {
+      name: "review",
+      owner: "@acme",
+    });
+    return { workspace, packageRoot };
+  };
+
+  /** Run one preflight, counting the workspace-document work that call performs. */
+  const documentWork = <A, E, R>(
+    root: string,
+    preflight: Effect.Effect<A, E, R>,
+    boundary: (effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>,
+  ) =>
+    Effect.gen(function* () {
+      const recording = yield* FileSystemRecorder;
+      recording.reset();
+      const work = workObservations(false);
+      const spans: Array<Tracer.NativeSpan> = [];
+      const tracer = Tracer.make({
+        span(options) {
+          const span = new Tracer.NativeSpan(options);
+          spans.push(span);
+          return span;
+        },
+      });
+      const result = yield* work.provide(boundary(preflight)).pipe(Effect.withTracer(tracer));
+      const facts = (kind: string) => work.facts.filter((fact) => fact.kind === kind).length;
+      return {
+        result,
+        settingsReads: recording.contentReads(nodePath.join(root, "axm.json")),
+        lockfileReads: recording.contentReads(nodePath.join(root, "axm.lock")),
+        settingsParses: facts("axm.parse.settings"),
+        lockfileParses: facts("axm.parse.lockfile"),
+        invalidations: facts("axm.observation.invalidate"),
+        mutations: recording.calls().filter((call) => mutations.has(call.method)),
+        phases: spans.filter((span) => span.name === "axm.observation.phase").length,
+      };
+    });
+
+  // Each enabled preflight decodes the workspace documents in one read phase,
+  // even after an earlier phase was retired, as at prepare time.
+  for (const type of ["rule", "knowledge", "hook", "subagent"] as const)
+    it.effect(`decodes the workspace documents once for an enabled ${type}`, () => {
+      const { workspace, packageRoot } = stage(type);
+      return Effect.gen(function* () {
+        const identity = yield* Effect.fromResult(parseFqn(`@acme/${plural[type]}/review`));
+        const run = yield* documentWork(
+          workspace.root,
+          preflightAuthoredNativeProjection({ identity, packageRoot, enabled: true }),
+          withLiveWorkspaceObservations,
+        );
+        expect({
+          settingsReads: run.settingsReads,
+          lockfileReads: run.lockfileReads,
+          settingsParses: run.settingsParses,
+          lockfileParses: run.lockfileParses,
+          invalidations: run.invalidations,
+          mutations: run.mutations,
+        }).toEqual({
+          settingsReads: 1,
+          lockfileReads: 1,
+          settingsParses: 1,
+          lockfileParses: 1,
+          invalidations: 0,
+          mutations: [],
+        });
+        expect(run.phases).toBe(1);
+      }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
+    });
+
+  for (const type of ["hook", "subagent"] as const)
+    it.effect(`opens no read phase for a disabled ${type}`, () => {
+      const { workspace, packageRoot } = stage(type);
+      return Effect.gen(function* () {
+        const identity = yield* Effect.fromResult(parseFqn(`@acme/${plural[type]}/review`));
+        const run = yield* documentWork(
+          workspace.root,
+          preflightAuthoredNativeProjection({ identity, packageRoot, enabled: false }),
+          withLiveWorkspaceObservations,
+        );
+        expect(run.result).toEqual({});
+        expect(run.settingsReads + run.lockfileReads).toBe(0);
+        expect(run.settingsParses + run.lockfileParses).toBe(0);
+        expect(run.phases).toBe(0);
+      }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
+    });
+
+  for (const type of ["rule", "knowledge", "subagent"] as const)
+    it.effect(`reuses an enclosing read phase for a ${type}`, () => {
+      const { workspace, packageRoot } = stage(type);
+      return Effect.gen(function* () {
+        const identity = yield* Effect.fromResult(parseFqn(`@acme/${plural[type]}/review`));
+        const run = yield* documentWork(
+          workspace.root,
+          preflightAuthoredNativeProjection({ identity, packageRoot, enabled: true }),
+          withWorkspaceReadView,
+        );
+        expect({
+          settingsReads: run.settingsReads,
+          lockfileReads: run.lockfileReads,
+          settingsParses: run.settingsParses,
+          lockfileParses: run.lockfileParses,
+        }).toEqual({ settingsReads: 1, lockfileReads: 1, settingsParses: 1, lockfileParses: 1 });
+      }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
+    });
+
+  it.effect("sees configured agents edited between two preflight runs", () => {
+    const { workspace, packageRoot } = stage("subagent");
+    return Effect.gen(function* () {
+      const identity = yield* Effect.fromResult(parseFqn("@acme/subagents/review"));
+      const preflight = preflightAuthoredNativeProjection({
+        identity,
+        packageRoot,
+        enabled: true,
+      }).pipe(withLiveWorkspaceObservations);
+      const before = yield* preflight;
+      workspace.writeSettings({ owner: "@acme", agents: ["codex"], instructionFiles: {} });
+      const after = yield* preflight;
+      expect((before.agentOutcomes ?? []).map((outcome) => outcome.agentId)).toEqual([
+        "claude-code",
+      ]);
+      expect((after.agentOutcomes ?? []).map((outcome) => outcome.agentId)).toEqual(["codex"]);
+    }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(workspace)));
+  });
 });

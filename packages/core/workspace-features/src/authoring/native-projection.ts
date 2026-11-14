@@ -34,6 +34,7 @@ import type {
 import {
   computePackageContentHash,
   WorkspaceLocation,
+  withWorkspaceReadView,
   type PackageContentHashFailed,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { authoringRefused } from "./errors.js";
@@ -108,9 +109,16 @@ const stagedManifestFacts = (args: AuthoredPreflightArgs, type: ExtensionType) =
 const stagedSourceHash = (args: AuthoredPreflightArgs) =>
   args.sourceHash ?? computePackageContentHash(args.packageRoot);
 
-export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.preflightSubagent")(
-  function* (args: AuthoredPreflightArgs) {
-    if (!args.enabled) return yield* Effect.succeed<AuthoredNativeProjection>({});
+// Each enabled preflight run reads the workspace documents in one document
+// phase: its managers share one decoding of the settings and the lockfile and
+// one desired evaluation, or the phase the caller already holds. The phase
+// ends when the run returns, so a later run, such as the one under the
+// transition lock, observes current documents. Physical destination checks
+// keep the caller's live filesystem.
+
+/** The enabled subagent preflight body, run inside its document phase. */
+const subagentProjection = (args: AuthoredPreflightArgs) =>
+  Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const manifest = yield* stagedManifestFacts(args, "subagent").pipe(
       Effect.mapError((cause) =>
@@ -182,21 +190,18 @@ export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.prefligh
           }) satisfies JobStepArtifactTarget,
       ),
     } satisfies AuthoredNativeProjection;
+  });
+
+export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.preflightSubagent")(
+  function* (args: AuthoredPreflightArgs) {
+    if (!args.enabled) return yield* Effect.succeed<AuthoredNativeProjection>({});
+    return yield* withWorkspaceReadView(subagentProjection(args));
   },
 );
 
-/** Inspect staged content against final native destinations before publishing its source. */
-export const preflightAuthoredNativeProjection = (
-  args: AuthoredPreflightArgs,
-): Effect.Effect<
-  AuthoredNativeProjection,
-  OperationRefused | ExtensionManagerFailure,
-  ManagerRequirements | RuleManager | HookManager | KnowledgeManager | SubagentManager
-> =>
+/** The enabled rule, hook, or knowledge preflight body, run inside its document phase. */
+const nativeProjection = (args: AuthoredPreflightArgs) =>
   Effect.gen(function* () {
-    if (args.identity.type === "subagent") return yield* preflightAuthoredSubagentProjection(args);
-    if (!args.enabled || !["hook", "rule", "knowledge", "subagent"].includes(args.identity.type))
-      return {};
     const location = yield* WorkspaceLocation;
     const manifest = yield* stagedManifestFacts(args, args.identity.type).pipe(
       Effect.mapError((cause) =>
@@ -270,6 +275,21 @@ export const preflightAuthoredNativeProjection = (
         break;
     }
     return {};
+  });
+
+/** Inspect staged content against final native destinations before publishing its source. */
+export const preflightAuthoredNativeProjection = (
+  args: AuthoredPreflightArgs,
+): Effect.Effect<
+  AuthoredNativeProjection,
+  OperationRefused | ExtensionManagerFailure,
+  ManagerRequirements | RuleManager | HookManager | KnowledgeManager | SubagentManager
+> =>
+  Effect.gen(function* () {
+    if (args.identity.type === "subagent") return yield* preflightAuthoredSubagentProjection(args);
+    if (!args.enabled || !["hook", "rule", "knowledge", "subagent"].includes(args.identity.type))
+      return {};
+    return yield* withWorkspaceReadView(nativeProjection(args));
   });
 
 /** Attach actual native observations after the authored transition has settled. */

@@ -10,6 +10,7 @@ import {
  */
 
 import { fromFileLocation } from "@agentxm/host-primitives";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -147,6 +148,31 @@ const findRetainedGitComponents = (source: GitSource, type: ExtensionType) =>
     return refs;
   });
 
+/**
+ * The discovery roots a locator's probe loop has already verified against
+ * their accepted snapshots, keyed by binding, retained root, accepted tree and
+ * package root. Only established roots are kept; a refusal is never kept.
+ */
+interface RetainedVerdicts {
+  readonly discoveryRoots: Map<string, string>;
+}
+
+const CurrentRetainedVerdicts = Context.Reference<RetainedVerdicts | undefined>(
+  "@agentxm/workspace-features/CurrentRetainedVerdicts",
+  { defaultValue: () => undefined },
+);
+
+/**
+ * Let the retained lookups `effect` runs verify each retained tree once. The
+ * verdicts belong to this one run and are released with it.
+ */
+export const withRetainedVerdicts = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> =>
+  Effect.suspend(() =>
+    effect.pipe(Effect.provideService(CurrentRetainedVerdicts, { discoveryRoots: new Map() })),
+  );
+
 /** Read an already retained payload before consulting a mutable local or HTTP source. */
 export const findRetainedSourceComponents = (source: Source, type: ExtensionType) =>
   Effect.gen(function* () {
@@ -155,6 +181,7 @@ export const findRetainedSourceComponents = (source: Source, type: ExtensionType
     const sources = yield* SourceHostProviders;
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
+    const verdicts = yield* CurrentRetainedVerdicts;
     const layout = yield* Ref.get(location.layout);
     const lock = yield* (yield* LockfileReader).lockfile.pipe(
       Effect.mapError((cause) =>
@@ -205,25 +232,35 @@ export const findRetainedSourceComponents = (source: Source, type: ExtensionType
         toExtensionTypePlural(binding.type),
         entry.identity.name,
       ).canonicalPath;
-      const integrity = yield* computeMaterializedTreeIntegrity(canonical).pipe(Effect.option);
-      let discoveryRoot: string = canonical;
-      if (Option.isNone(integrity) || integrity.value !== entry.treeIntegrity) {
-        if (entry.source.type !== "path")
-          return yield* installRefused({
-            category: "conflict",
-            detail: "The retained package must be restored before adding a component",
-          });
-        const original = path.resolve(location.baseDir, packageRoot);
-        const originalIntegrity = yield* computeMaterializedTreeIntegrity(original).pipe(
-          Effect.option,
-        );
-        if (Option.isNone(originalIntegrity) || originalIntegrity.value !== entry.treeIntegrity)
-          return yield* installRefused({
-            category: "conflict",
-            detail:
-              "Neither the retained package nor the local source contains the accepted snapshot",
-          });
-        discoveryRoot = original;
+      const verdictKey = JSON.stringify([
+        binding.packageKey,
+        canonical,
+        entry.treeIntegrity,
+        packageRoot,
+      ]);
+      const verified = verdicts?.discoveryRoots.get(verdictKey);
+      let discoveryRoot: string = verified ?? canonical;
+      if (verified === undefined) {
+        const integrity = yield* computeMaterializedTreeIntegrity(canonical).pipe(Effect.option);
+        if (Option.isNone(integrity) || integrity.value !== entry.treeIntegrity) {
+          if (entry.source.type !== "path")
+            return yield* installRefused({
+              category: "conflict",
+              detail: "The retained package must be restored before adding a component",
+            });
+          const original = path.resolve(location.baseDir, packageRoot);
+          const originalIntegrity = yield* computeMaterializedTreeIntegrity(original).pipe(
+            Effect.option,
+          );
+          if (Option.isNone(originalIntegrity) || originalIntegrity.value !== entry.treeIntegrity)
+            return yield* installRefused({
+              category: "conflict",
+              detail:
+                "Neither the retained package nor the local source contains the accepted snapshot",
+            });
+          discoveryRoot = original;
+        }
+        verdicts?.discoveryRoots.set(verdictKey, discoveryRoot);
       }
       const found = yield* sources
         .find(

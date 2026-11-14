@@ -109,7 +109,9 @@ import {
   findRetainedSourceComponents,
   retainedSelectionSatisfied,
   mergeRetainedSourceRefs,
+  withRetainedVerdicts,
 } from "./retained-source-components.js";
+import { makeLocatorProbeSources } from "./locator-probe-sharing.js";
 import {
   SourceHostProviders,
   formatRegistryProbe,
@@ -829,6 +831,11 @@ const settleLocatorInstall = (source: string, request: InstallExtensionsRequest)
     const sources = yield* SourceHostProviders;
     const locatorSources = yield* makeLocatorSourceView(sources, candidateTypes.length);
     const settled = yield* Effect.gen(function* () {
+      // The probes read one unchanged tree; only an unfiltered probe loop shares its walks.
+      const probeSources =
+        explicitlySelectedTypes.length === 0
+          ? yield* makeLocatorProbeSources(locatorSources)
+          : locatorSources;
       const attempts = yield* Effect.forEach(
         candidateTypes,
         (type) =>
@@ -841,7 +848,7 @@ const settleLocatorInstall = (source: string, request: InstallExtensionsRequest)
             ),
           ),
         { concurrency: 1 },
-      );
+      ).pipe(withRetainedVerdicts, Effect.provideService(SourceHostProviders, probeSources));
       const opened = attempts.flatMap((attempt) => (Option.isSome(attempt) ? [attempt.value] : []));
       // A type the request or the locator already named keeps its own answer.
       const left = opened.filter((choice) => choice.selection.selectors.length === 0);

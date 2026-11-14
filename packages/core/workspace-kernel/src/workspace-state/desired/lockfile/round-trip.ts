@@ -8,6 +8,7 @@ import { LOCKFILE_VERSION } from "./schema.js";
 import { PROJECTION_KINDS } from "./projections.js";
 import { LockfileWriteError } from "./errors.js";
 import { parseLockfileToml, type ParsedLockfileToml } from "./toml-values.js";
+import { freezeWorkspaceValue } from "../freeze-value.js";
 
 /** Binding tables keyed by local alias. */
 const tables = ["skills", "subagents", "rules", "hooks", "knowledge", "packs"];
@@ -55,21 +56,37 @@ const bindingUnits = (document: Record<string, unknown>): ReadonlySet<string> =>
   return units;
 };
 
+/**
+ * The round-trip unit keys a prior document records, in document order. Only
+ * these strings leave the writer's parse; its document and tool values do not.
+ */
+interface PriorRoundTripUnits {
+  readonly bindings: ReadonlyArray<string>;
+  readonly projections: ReadonlyArray<readonly [kind: string, paths: ReadonlyArray<string>]>;
+}
+
+/** Derive the prior's unit keys from the document the writer already parsed. */
+export const priorRoundTripUnits = (document: Record<string, unknown>): PriorRoundTripUnits =>
+  freezeWorkspaceValue({
+    bindings: [...bindingUnits(document)],
+    projections: PROJECTION_KINDS.map((kind): readonly [string, ReadonlyArray<string>] => [
+      kind,
+      Object.keys(projectionUnits(document, kind)),
+    ]),
+  });
+
+/** An absent prior reads as a document with no units. */
+const absentPriorUnits = priorRoundTripUnits({ version: LOCKFILE_VERSION });
+
 export const prepareLockfileRoundTrip = (args: {
   readonly context: DocumentRoundTripContext;
   readonly target: string;
-  readonly before: string | undefined;
+  /** The exact prior image and the units derived from its writer parse. */
+  readonly before: { readonly raw: string; readonly units: PriorRoundTripUnits } | undefined;
   readonly after: string;
 }) =>
   Effect.gen(function* () {
-    const before =
-      args.before === undefined
-        ? { document: { version: LOCKFILE_VERSION }, tool: undefined }
-        : yield* Effect.sync(() => parse(args.before ?? "")).pipe((effect) =>
-            withWork("axm.parse.lockfile-round-trip", effect, {
-              attributes: { "axm.work.count": 1, "axm.parse.phase": "before" },
-            }),
-          );
+    const before = args.before?.units ?? absentPriorUnits;
     const after = yield* Effect.sync(() => parse(args.after)).pipe((effect) =>
       withWork("axm.parse.lockfile-round-trip", effect, {
         attributes: { "axm.work.count": 1, "axm.parse.phase": "after" },
@@ -78,11 +95,11 @@ export const prepareLockfileRoundTrip = (args: {
     const insertions: string[] = [];
     const withdrawals: string[] = [];
     // Package records are derived from bindings; eligibility belongs to the selected units.
-    if (before !== undefined && after !== undefined) {
-      const prior = bindingUnits(before.document);
+    if (after !== undefined) {
+      const prior = new Set(before.bindings);
       const next = bindingUnits(after.document);
       for (const unit of next) if (!prior.has(unit)) insertions.push(unit);
-      for (const unit of prior) if (!next.has(unit)) withdrawals.push(unit);
+      for (const unit of before.bindings) if (!next.has(unit)) withdrawals.push(unit);
     }
     // Projection rows follow the extension resolutions that render them, as
     // package records do: a write that introduces or withdraws a resolution is
@@ -90,24 +107,22 @@ export const prepareLockfileRoundTrip = (args: {
     // each introduced or withdrawn row as a unit. A changed row is neither;
     // exact restoration still requires the restored document to equal the
     // computed one.
-    if (
-      before !== undefined &&
-      after !== undefined &&
-      insertions.length === 0 &&
-      withdrawals.length === 0
-    )
-      for (const kind of PROJECTION_KINDS) {
-        const prior = projectionUnits(before.document, kind);
+    if (after !== undefined && insertions.length === 0 && withdrawals.length === 0)
+      for (const [kind, priorPaths] of before.projections) {
+        const prior = new Set(priorPaths);
         const next = projectionUnits(after.document, kind);
         for (const path of Object.keys(next))
-          if (!Object.hasOwn(prior, path))
+          if (!prior.has(path))
             insertions.push(JSON.stringify(["lockfile", "projections", kind, path]));
-        for (const path of Object.keys(prior))
+        for (const path of priorPaths)
           if (!Object.hasOwn(next, path))
             withdrawals.push(JSON.stringify(["lockfile", "projections", kind, path]));
       }
     return yield* prepareDocumentRoundTrip({
-      ...args,
+      context: args.context,
+      target: args.target,
+      before: args.before?.raw,
+      after: args.after,
       unitPrefix: '["lockfile",',
       insertions,
       withdrawals,

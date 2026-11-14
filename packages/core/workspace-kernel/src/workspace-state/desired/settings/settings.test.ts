@@ -1,9 +1,14 @@
-import { NativePlatformTest } from "../../../locations/testing.js";
+import { NativePlatformTest, workObservations } from "../../../locations/testing.js";
+import { readContainerReceipts } from "../../../locations/index.js";
+import { WorkspaceFileWriteLocks } from "../../../settlement/index.js";
+import { WorkspaceFileWriteLocksLive } from "../../../settlement/live.js";
+import { freezeWorkspaceValue } from "../freeze-value.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 import { expectRecord } from "../../test-helpers.js";
@@ -784,6 +789,160 @@ ${lintBlock}
           expect(result["agents"]).toEqual(["codex"]);
         }),
       ),
+    );
+  });
+
+  describe("round-trip parse work", () => {
+    const platform = WorkspaceFileWriteLocksLive.pipe(Layer.provideMerge(NativePlatformTest));
+    const review = { source: "workspace", enabled: true };
+    const commit = { source: "workspace", enabled: true };
+    // Workspace-sourced enabled skills are authored in their shorthand form.
+    const formatted = `{
+  "skills": {
+    "commit": "workspace"
+  }
+}\n`;
+
+    /** One owner call over a real file, with its settings parse phases counted. */
+    const observedWrite = (settingsPath: string, settings: Settings, runtimeDir: string) =>
+      Effect.gen(function* () {
+        const observed = workObservations(false);
+        const context = {
+          nativeRoot: tempDir,
+          runtimeDir,
+          eligible: true,
+          locks: yield* WorkspaceFileWriteLocks,
+        };
+        yield* writeSettingsAtPath(settingsPath, freezeWorkspaceValue(settings), context).pipe(
+          observed.provide,
+        );
+        const phases: Record<string, number> = {};
+        for (const fact of observed.facts) {
+          const phase = fact.attributes["axm.parse.phase"];
+          if (fact.kind === "axm.parse.settings-round-trip" && typeof phase === "string")
+            phases[phase] = (phases[phase] ?? 0) + 1;
+        }
+        const receipts = (yield* readContainerReceipts(runtimeDir)).entries.map((receipt) => ({
+          unit: receipt.unit,
+          kind: receipt.kind,
+          absentBefore: receipt.absentBefore,
+          inverse: receipt.inverse,
+        }));
+        return { phases, content: fs.readFileSync(settingsPath, "utf8"), receipts };
+      });
+
+    const scenario = (prior: string, introduced: Settings, withdrawn: Settings) =>
+      Effect.gen(function* () {
+        const runtimeDir = path.join(tempDir, ".axm");
+        fs.mkdirSync(runtimeDir, { recursive: true });
+        const settingsPath = path.join(tempDir, "axm.json");
+        fs.writeFileSync(settingsPath, prior);
+        const introduce = yield* observedWrite(settingsPath, introduced, runtimeDir);
+        const withdraw = yield* observedWrite(settingsPath, withdrawn, runtimeDir);
+        return { introduce, withdraw };
+      }).pipe(Effect.provide(platform));
+
+    it.effect("parses the prior and rendered images once each for an edited write", () =>
+      Effect.gen(function* () {
+        const { introduce, withdraw } = yield* scenario(
+          formatted,
+          { skills: { commit, review } },
+          { skills: { commit } },
+        );
+
+        expect(introduce.phases).toEqual({ prior: 1, rendered: 1 });
+        expect(introduce.content).toBe(`{
+  "skills": {
+    "commit": "workspace",
+    "review": "workspace"
+  }
+}\n`);
+        expect(introduce.receipts).toEqual([
+          {
+            unit: '["settings","skills","review"]',
+            kind: "inserted-key",
+            absentBefore: undefined,
+            inverse: expect.objectContaining({ edits: expect.any(Array) }),
+          },
+        ]);
+        // The withdrawal restores the exact prior bytes; its restoration parse stays.
+        expect(withdraw.phases).toEqual({ prior: 1, rendered: 1, restored: 1 });
+        expect(withdraw.content).toBe(formatted);
+        expect(withdraw.receipts).toEqual([]);
+      }),
+    );
+
+    it.effect("keeps the after parse when the written image is not the edited text", () =>
+      Effect.gen(function* () {
+        const prior = `{
+  "skills": {}
+}\n`;
+        const { introduce } = yield* scenario(prior, {}, {});
+
+        expect(introduce.phases).toEqual({ prior: 1, rendered: 1, after: 1 });
+        expect(introduce.content).toBe("{}\n");
+        expect(introduce.receipts).toEqual([]);
+      }),
+    );
+
+    it.effect("keeps the after parse when an edit falls back to canonical content", () =>
+      Effect.gen(function* () {
+        // The text edit addresses the first duplicate key, which is not an array.
+        const prior = `{"agents": "first", "agents": ["claude-code"]}\n`;
+        const { introduce } = yield* scenario(
+          prior,
+          { agents: ["claude-code", "codex"] },
+          { agents: ["claude-code"] },
+        );
+
+        expect(introduce.phases).toEqual({ prior: 1, after: 1 });
+        expect(introduce.content).toBe(`{
+  "agents": [
+    "claude-code",
+    "codex"
+  ]
+}\n`);
+      }),
+    );
+
+    it.effect("replaces a prior that is not a JSON value with canonical content", () =>
+      Effect.gen(function* () {
+        // JSON.parse accepts 1e400 as Infinity, which is not a JSON value.
+        const prior = `{
+  "skills": {},
+  "huge": 1e400
+}\n`;
+        const { introduce, withdraw } = yield* scenario(
+          prior,
+          { skills: { review } },
+          { skills: {} },
+        );
+
+        expect(introduce.phases).toEqual({ prior: 1, after: 1 });
+        expect(introduce.content).toBe(`{
+  "skills": {
+    "review": "workspace"
+  }
+}\n`);
+        // Dropping the authored literal is not a syntax-only edit, so no inverse is kept.
+        expect(introduce.receipts).toEqual([]);
+        expect(withdraw.phases).toEqual({ prior: 1, rendered: 1 });
+        expect(withdraw.content).toBe(`{
+  "skills": {
+  }
+}\n`);
+        expect(withdraw.receipts).toEqual([]);
+      }),
+    );
+
+    it.effect("derives no units from a top-level array prior", () =>
+      Effect.gen(function* () {
+        const { introduce } = yield* scenario("[]\n", { skills: { review } }, {});
+
+        expect(introduce.phases).toEqual({ prior: 1, rendered: 1 });
+        expect(JSON.parse(introduce.content)).toEqual({ skills: { review: "workspace" } });
+        expect(introduce.receipts).toEqual([]);
+      }),
     );
   });
 });

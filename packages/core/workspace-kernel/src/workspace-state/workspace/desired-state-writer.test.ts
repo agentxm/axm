@@ -150,8 +150,9 @@ describe("DesiredStateWriter.declare settings reads", () => {
         expect(work).toEqual({
           // The caller's intent read; Registry selection shares the same document.
           settingsParses: 1,
-          // The settings owner's own live reads and round-trip proof stay.
-          roundTripParses: 4,
+          // The settings owner's round-trip proof parses the prior and rendered
+          // images once each; it no longer re-parses the writer's two strings.
+          roundTripParses: 2,
           lockfileParses: 2,
           // One caller read; the settings owner's own reads stay.
           projectContentReads: 4,
@@ -173,10 +174,11 @@ describe("DesiredStateWriter.declare settings reads", () => {
           paths,
           withWorkspaceReadView(declareRule(writer)).pipe(Effect.provideContext(services)),
         );
-        // The phase already shares one document per scope across the call.
+        // The phase already shares one document per scope across the call, and
+        // the round-trip proof parses the prior and rendered images once each.
         expect(work).toEqual({
           settingsParses: 1,
-          roundTripParses: 4,
+          roundTripParses: 2,
           lockfileParses: 2,
           projectContentReads: 4,
           userAccess: 1,

@@ -47,6 +47,7 @@ export const capabilityElements = [
     partialMatch: false,
   },
   { type: "test-support", pattern: "tools/specification-metadata/src", partialMatch: false },
+  { type: "test-support", pattern: "tools/test-support/src", partialMatch: false },
 ];
 
 const capabilityRoots = [

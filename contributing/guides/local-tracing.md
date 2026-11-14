@@ -479,8 +479,30 @@ blocks and escalation rules above; the memory and noise policies apply unchanged
 paired per-block deltas and the largest paired peak-RSS increment. This
 establishes old-versus-new behavior equality in preflight and paired elapsed and
 RSS observations. It is neither isolated-host qualification nor an
-observability-overhead result, and it provides no per-path evidence; work deltas
-need two fixture runs.
+observability-overhead result, and by itself it provides no per-path evidence.
+
+Product trace counters carry no operands, so a trace cannot show one path being
+read twice. In fixtures or compare mode on Linux,
+`AXM_OBSERVABILITY_PHYSICAL_WORK=strace` records each scenario's preflight
+baseline and candidate disabled-mode invocations under
+`strace -f -qq -y` with a fixed file-syscall set, writing only to the sample's
+artifact directory. Measure mode, any other value, and a missing or
+non-executing `strace` fail configuration before fixtures are prepared; unset
+changes nothing. Each sample retains the losslessly compressed recording and a
+`physical-work.json` reduction: syscall totals and per-path opens, reads,
+writes, stats, access checks, readlinks, renames, removals, directory creation
+and reads, links and failed opens. Split `<unfinished ...>` calls are joined and
+counted once. Paths are projected to `<ws>`, `<home>`, `<fixture>`,
+`<account-home>` and `<tmp>`, with temporary names, random suffixes, UUIDs and
+`/proc` descriptors replaced by stable tokens. `physical-work-comparison.json`
+lists every differing path counter between baseline and candidate per
+scenario; `report.json` carries its digest and summary counts. This establishes
+kernel-observed per-path counts for the whole process tree of one untraced
+invocation, independent of product traces, and lets an old and a new binary be
+compared path by path in one run. It is not timing evidence: tracing perturbs
+elapsed time and RSS, so it never runs in timing blocks. Counts include child
+processes such as `git`, and lock heartbeat traffic varies with hold time, so
+differences are reported and never fail fixture checks or the assessment.
 
 This method applies only to the observability campaign. The accepted compiled
 `list` latency specification and its independent performance target retain their

@@ -394,9 +394,10 @@ and both preflight and timing require the receipt to match it exactly. This is
 selected interval detail, not a claim to retain every I/O interval in a large
 restoration. The earlier unscoped overflow remains incomplete evidence.
 It requires the running loopback Seq and pinned client but makes no performance
-verdict. The finite campaign has 251 cases: 150 registered routes, 81 previews,
-one additional lint repair, seven startup outcomes and 12 distinct risk paths.
-Its preflight schedules 1,004 workload invocations and 502 full trace inspections.
+verdict. The finite campaign has 259 cases: 158 registered route defaults, 81
+previews, one additional lint repair, seven startup outcomes and 12 distinct risk
+paths. Its preflight schedules 1,036 workload invocations and 518 full trace
+inspections.
 `AXM_OBSERVABILITY_SCENARIO_FILTER` may narrow a diagnostic fixture run using
 comma-separated scenario substrings; it never filters a measured campaign.
 
@@ -413,7 +414,7 @@ host. The run first completes full preflight, then measures every case without
 filtering. Each timing block has one baseline and candidate disabled, summary
 and detail runs in rotated order. All three candidates reference that block's
 single baseline. One warmup and five initial measured blocks schedule another
-6,024 workload invocations: 7,028 including preflight. Discovery and fixture
+6,216 workload invocations: 7,252 including preflight. Discovery and fixture
 preparation invocations are recorded separately. These counts imply no promised
 wall-clock duration.
 
@@ -422,8 +423,8 @@ checks, elapsed time, RSS and producer receipts, and checks zero diagnostic loss
 and shutdown limits. It does not repeat full filesystem inventories, Seq
 inspection or per-sample compression. Timing receipts explicitly report delivery
 as `not-individually-inspected`; they do not claim receiver completeness. There
-are 3,514 traced workload invocations initially: 502 inspected in preflight and
-3,012 with producer receipts during timing.
+are 3,626 traced workload invocations initially: 518 inspected in preflight and
+3,108 with producer receipts during timing.
 
 Escalate an individual case from five to ten measured blocks when any subject's
 range/median exceeds 20% or the first-two versus last-two baseline medians drift
@@ -465,6 +466,21 @@ or shutdown gates. Historical failed campaigns keep their original verdicts.
 Investigate evidence of unbounded retention, data surviving its intended phase
 lifetime, or a substantial sustained increase separately; an informational RSS
 verdict does not prove their absence.
+
+For a paired before/after product comparison on an ordinary development host, set
+`AXM_OBSERVABILITY_RUN=compare` and `AXM_OBSERVABILITY_SCENARIOS` to a
+comma-separated list of exact scenario ids from `scenarios.json`. An empty,
+duplicate or unknown id fails configuration before preflight; substring filters
+and `AXM_OBSERVABILITY_REFERENCE_HOST=1` are refused. The report records the
+selection, `isolationDeclared: false` and a `qualification` label, and assesses
+only the selected scenarios. Each one runs full preflight and then the timing
+blocks and escalation rules above; the memory and noise policies apply unchanged.
+`productComparison` lists baseline and candidate-disabled median elapsed times,
+paired per-block deltas and the largest paired peak-RSS increment. This
+establishes old-versus-new behavior equality in preflight and paired elapsed and
+RSS observations. It is neither isolated-host qualification nor an
+observability-overhead result, and it provides no per-path evidence; work deltas
+need two fixture runs.
 
 This method applies only to the observability campaign. The accepted compiled
 `list` latency specification and its independent performance target retain their

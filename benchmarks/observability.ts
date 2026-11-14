@@ -20,6 +20,11 @@ import {
   ObservabilityBudgetsSchema,
   assessObservabilityEvidence,
   assessScenarioTiming,
+  compareQualification,
+  observabilityRunModes,
+  observabilityScenarioSelection,
+  productTimingComparison,
+  selectObservabilityScenarios,
   observationLimitIssues,
   observationPairIssues,
   compareSummaryDetailWork,
@@ -522,9 +527,18 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             "configuration",
             "AXM_OBSERVABILITY_TIMING_NOISE_POLICY must be enforced or review.",
           );
-        const runMode = process.env["AXM_OBSERVABILITY_RUN"] ?? "fixtures";
-        if (runMode !== "fixtures" && runMode !== "measure")
-          return yield* fail("configuration", "AXM_OBSERVABILITY_RUN must be fixtures or measure.");
+        const requestedRunMode = process.env["AXM_OBSERVABILITY_RUN"] ?? "fixtures";
+        const runMode = observabilityRunModes.find((mode) => mode === requestedRunMode);
+        if (runMode === undefined)
+          return yield* fail(
+            "configuration",
+            "AXM_OBSERVABILITY_RUN must be fixtures, measure or compare.",
+          );
+        const comparedSelection = yield* observabilityScenarioSelection(runMode, {
+          scenarios: process.env["AXM_OBSERVABILITY_SCENARIOS"],
+          scenarioFilter: process.env["AXM_OBSERVABILITY_SCENARIO_FILTER"],
+          referenceHost: process.env["AXM_OBSERVABILITY_REFERENCE_HOST"],
+        });
         if (runMode === "measure" && process.env["AXM_OBSERVABILITY_REFERENCE_HOST"] !== "1")
           return yield* fail(
             "host",
@@ -597,6 +611,12 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
           runMode,
           memoryPolicy,
           timingNoisePolicy,
+          ...(comparedSelection === undefined
+            ? {}
+            : {
+                qualification: compareQualification,
+                scenarioSelection: { match: "exact-id", scenarios: comparedSelection },
+              }),
           startedAt: new Date().toISOString(),
           baseline,
           candidate,
@@ -630,15 +650,28 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               "Compare request multiset; preserve original server timeline independently.",
           },
         };
-        const save = (complete: boolean, error?: string) =>
+        const assess = () =>
+          assessObservabilityEvidence(
+            budgets,
+            coverage,
+            scenarioIds,
+            samples,
+            fixtureChecks,
+            memoryPolicy,
+            timingNoisePolicy,
+            comparedSelection,
+          );
+        const save = (complete: boolean, error?: string) => {
+          const assessedScenarios = comparedSelection ?? scenarioIds;
+          const assessment = assess();
           writeJson(path.join(output, "report.json"), {
             ...provenance,
             complete,
             invocationCounts: {
               discovery,
               preparation,
-              scheduledPreflight: scenarioIds.length * 4,
-              scheduledInitialTiming: scenarioIds.length * 24,
+              scheduledPreflight: assessedScenarios.length * 4,
+              scheduledInitialTiming: assessedScenarios.length * 24,
               actualTiming: samples.length,
             },
             updatedAt: new Date().toISOString(),
@@ -649,7 +682,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             fixtureChecks,
             samples,
             tracePreflight: {
-              expectedTraces: scenarioIds.length * 2,
+              expectedTraces: assessedScenarios.length * 2,
               inspectedTraces: fixtureChecks.filter((check) => check.trace !== undefined).length,
               rawRetrievedBytes: fixtureChecks.reduce(
                 (total, check) => total + (check.trace?.retrievalBytes ?? 0),
@@ -662,17 +695,13 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
               interpretation:
                 "Exact receiver inspection occurs only in preflight. Timing keeps active export and producer receipts but does not individually inspect delivery. Receiver growth and ingestion health require independent observations.",
             },
-            assessment: assessObservabilityEvidence(
-              budgets,
-              coverage,
-              scenarioIds,
-              samples,
-              fixtureChecks,
-              memoryPolicy,
-              timingNoisePolicy,
-            ),
+            assessment,
+            ...(comparedSelection === undefined
+              ? {}
+              : { productComparison: productTimingComparison(assessment, samples) }),
             ...(error === undefined ? {} : { error }),
           });
+        };
         save(false);
         const prepare: PrepareInvocation = Effect.fnUntraced(function* (fixture, args, options) {
           const artifacts = path.join(output, "preparation", String(preparation++));
@@ -793,11 +822,13 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             .map((value) => value.trim())
             .filter((value) => value.length > 0);
           const selected =
-            selectors === undefined
-              ? scenarios
-              : scenarios.filter((scenario) =>
-                  selectors.some((selector) => scenario.id.includes(selector)),
-                );
+            comparedSelection !== undefined
+              ? yield* selectObservabilityScenarios(scenarios, comparedSelection)
+              : selectors === undefined
+                ? scenarios
+                : scenarios.filter((scenario) =>
+                    selectors.some((selector) => scenario.id.includes(selector)),
+                  );
           if (selected.length === 0)
             return yield* fail("scenario-selection", "The fixture selection is empty.");
           const seqEnvironment = {
@@ -1507,15 +1538,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
             // rejects the campaign if any case fails its unchanged budget.
             save(false);
           }
-          const assessment = assessObservabilityEvidence(
-            budgets,
-            coverage,
-            scenarioIds,
-            samples,
-            fixtureChecks,
-            memoryPolicy,
-            timingNoisePolicy,
-          );
+          const assessment = assess();
           save(assessment.passed);
           if (!assessment.passed)
             return yield* fail(

@@ -670,17 +670,96 @@ export const assessScenarioTiming = (
   };
 };
 
+export const observabilityRunModes = ["fixtures", "measure", "compare"] as const;
+export type ObservabilityRunMode = (typeof observabilityRunModes)[number];
+
+export const compareQualification =
+  "Non-isolated paired before/after product comparison on an ordinary development host; not reference-host qualification.";
+
+const configurationFailure = (message: string) =>
+  Effect.fail(new ObservabilityBenchmarkFailure({ code: "configuration", message }));
+
+/**
+ * Exact compare-mode selection, validated before manifests, fixtures or preflight.
+ * Other run modes keep their existing selection rules and refuse this variable.
+ */
+export const observabilityScenarioSelection = (
+  runMode: ObservabilityRunMode,
+  environment: {
+    readonly scenarios: string | undefined;
+    readonly scenarioFilter: string | undefined;
+    readonly referenceHost: string | undefined;
+  },
+): Effect.Effect<ReadonlyArray<string> | undefined, ObservabilityBenchmarkFailure> => {
+  if (runMode !== "compare")
+    return environment.scenarios === undefined
+      ? Effect.succeed(undefined)
+      : configurationFailure("AXM_OBSERVABILITY_SCENARIOS applies only to compare mode.");
+  if (environment.referenceHost === "1")
+    return configurationFailure(
+      "Compare mode is a non-isolated paired comparison and cannot declare a reference host; unset AXM_OBSERVABILITY_REFERENCE_HOST or use measure mode.",
+    );
+  if (environment.scenarioFilter !== undefined)
+    return configurationFailure(
+      "Compare mode selects exact scenario ids through AXM_OBSERVABILITY_SCENARIOS; unset AXM_OBSERVABILITY_SCENARIO_FILTER.",
+    );
+  const selection = (environment.scenarios ?? "").split(",").map((value) => value.trim());
+  if (selection.every((value) => value.length === 0))
+    return configurationFailure(
+      "Compare mode requires AXM_OBSERVABILITY_SCENARIOS, a comma-separated list of exact scenario ids.",
+    );
+  if (selection.some((value) => value.length === 0))
+    return configurationFailure("AXM_OBSERVABILITY_SCENARIOS contains an empty scenario id.");
+  const duplicates = selection.filter((value, index) => selection.indexOf(value) !== index);
+  if (duplicates.length > 0)
+    return configurationFailure(
+      "AXM_OBSERVABILITY_SCENARIOS repeats scenario id(s): " + [...new Set(duplicates)].join(", "),
+    );
+  return Effect.succeed(selection);
+};
+
+/** Exact id membership in inventory order; an unknown id is never matched by substring. */
+export const selectObservabilityScenarios = <Scenario extends { readonly id: string }>(
+  scenarios: ReadonlyArray<Scenario>,
+  selection: ReadonlyArray<string>,
+): Effect.Effect<ReadonlyArray<Scenario>, ObservabilityBenchmarkFailure> => {
+  const unknown = selection.filter((id) => !scenarios.some((scenario) => scenario.id === id));
+  return unknown.length > 0
+    ? configurationFailure("Unknown AXM_OBSERVABILITY_SCENARIOS id(s): " + unknown.join(", "))
+    : Effect.succeed(scenarios.filter((scenario) => selection.includes(scenario.id)));
+};
+
+/** Coverage obligations that the selection exercises; unselected and pending entries drop out. */
+export const restrictCoverageToSelection = (
+  coverage: ReadonlyArray<OperationCoverage>,
+  selection: ReadonlyArray<string>,
+): ReadonlyArray<OperationCoverage> =>
+  coverage.flatMap((entry) => {
+    const scenarios = entry.scenarios.filter((scenario) => selection.includes(scenario));
+    return scenarios.length === 0 ? [] : [{ ...entry, scenarios }];
+  });
+
 /** Partial coverage, missing blocks and uncertainty remain explicit failures of the evidence claim. */
 export const assessObservabilityEvidence = (
   budgets: ObservabilityBudgets,
-  coverage: ReadonlyArray<OperationCoverage>,
-  scenarios: ReadonlyArray<string>,
+  allCoverage: ReadonlyArray<OperationCoverage>,
+  inventory: ReadonlyArray<string>,
   samples: ReadonlyArray<ObservationSample>,
   preflight: ReadonlyArray<PreflightCheck> = [],
   memoryPolicy: MemoryPolicy = "enforced",
   timingNoisePolicy: TimingNoisePolicy = "enforced",
+  /** Compare mode assesses only these exact ids; the full inventory still bounds them. */
+  selection?: ReadonlyArray<string>,
 ) => {
   const issues: string[] = [];
+  const coverage =
+    selection === undefined ? allCoverage : restrictCoverageToSelection(allCoverage, selection);
+  const scenarios = selection ?? inventory;
+  if (selection !== undefined) {
+    if (selection.length === 0) issues.push("The compared scenario selection is empty.");
+    for (const scenario of selection)
+      if (!inventory.includes(scenario)) issues.push("Undeclared selected scenario: " + scenario);
+  }
   const variabilityReviews: Array<{ scenario: string; noisy: boolean; drifting: boolean }> = [];
   const workComparisons: Array<WorkComparison & { readonly scenario: string }> = [];
   const comparisons: Array<
@@ -695,7 +774,7 @@ export const assessObservabilityEvidence = (
     for (const scenario of operation.scenarios)
       if (!scenarios.includes(scenario)) issues.push("Missing declared scenario: " + scenario);
   }
-  if (coverage.length === 0 || scenarios.length === 0)
+  if (selection === undefined && (coverage.length === 0 || scenarios.length === 0))
     issues.push("The operation coverage manifest is empty.");
   const unique = new Set<string>();
   for (const sample of samples) {
@@ -812,3 +891,42 @@ export const assessObservabilityEvidence = (
     workComparisons,
   };
 };
+
+/**
+ * Old-versus-new untraced product timing derived from the retained assessment.
+ * Medians and the paired RSS maximum (including warmup) are the assessment's own
+ * disabled-mode values; per-block deltas pair each measured block's candidate with
+ * that block's baseline. It adds no rule and makes no isolated-host claim.
+ */
+export const productTimingComparison = (
+  assessment: Pick<ReturnType<typeof assessObservabilityEvidence>, "comparisons">,
+  samples: ReadonlyArray<ObservationSample>,
+) =>
+  assessment.comparisons
+    .filter((comparison) => comparison.mode === "disabled")
+    .map((comparison) => {
+      const measured = samples.filter(
+        (sample) =>
+          sample.scenario === comparison.scenario && sample.phase === "timing" && !sample.warmup,
+      );
+      const pairedBlockDeltasMs = measured
+        .filter((sample) => sample.subject === "candidate" && sample.mode === "disabled")
+        .sort((a, b) => a.iteration - b.iteration)
+        .map((candidate) => {
+          const baseline = measured.find(
+            (sample) => sample.subject === "baseline" && sample.iteration === candidate.iteration,
+          );
+          return {
+            block: candidate.iteration,
+            deltaMs: baseline === undefined ? null : candidate.durationMs - baseline.durationMs,
+          };
+        });
+      return {
+        scenario: comparison.scenario,
+        measuredBlocks: pairedBlockDeltasMs.length,
+        baselineMedianMs: comparison.baselineMedianMs,
+        candidateDisabledMedianMs: comparison.candidateMedianMs,
+        pairedBlockDeltasMs,
+        maximumPairedPeakRssDeltaBytes: comparison.additionalPeakRssBytes,
+      };
+    });

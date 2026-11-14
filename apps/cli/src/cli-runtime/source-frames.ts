@@ -128,29 +128,39 @@ const admitSource = (
   return { module: source.module, filename, line: location.line, column: location.column - 1 };
 };
 
+/** The single built-file read bound, also the bound on maps one collection retains. */
+const BUILT_FILE_LIMIT = 8 * 1024 * 1024;
+
+/**
+ * A built file's inline source map as read once, or its deterministic absence:
+ * too large, no inline map, or a map that does not decode or construct.
+ */
+type BuiltMap =
+  | {
+      readonly _tag: "parsed";
+      readonly sourceMap: SourceMap;
+      readonly sourceRoot: string;
+      readonly cost: number;
+    }
+  | { readonly _tag: "unavailable" };
+
+const unavailable: BuiltMap = { _tag: "unavailable" };
+
 /** Read only an admitted owned JS file, bounded even if it changes during the read. */
-const mapBuiltLocation = (location: StackLocation, root: string, source: SourcePackage) =>
+const loadBuiltMap = (filename: string) =>
   Effect.scoped(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const relative = path.relative(root, location.filename).replaceAll("\\", "/");
-      if (!relative.startsWith("dist/src/") || !relative.endsWith(".js")) return undefined;
-      const original = relative.slice("dist/".length).replace(/\.js$/u, ".ts");
-      const originalTsx = relative.slice("dist/".length).replace(/\.js$/u, ".tsx");
-      if (source.sources[original] === undefined && source.sources[originalTsx] === undefined)
-        return undefined;
-      const file = yield* fs.open(location.filename);
+      const file = yield* fs.open(filename);
       const chunks: Array<Uint8Array> = [];
-      const limit = 8 * 1024 * 1024;
       let length = 0;
-      while (length <= limit) {
-        const chunk = yield* file.readAlloc(Math.min(65536, limit + 1 - length));
+      while (length <= BUILT_FILE_LIMIT) {
+        const chunk = yield* file.readAlloc(Math.min(65536, BUILT_FILE_LIMIT + 1 - length));
         if (Option.isNone(chunk)) break;
         chunks.push(chunk.value);
         length += chunk.value.byteLength;
       }
-      if (length > limit) return undefined;
+      if (length > BUILT_FILE_LIMIT) return unavailable;
       const bytes = new Uint8Array(length);
       let offset = 0;
       for (const chunk of chunks) {
@@ -162,41 +172,71 @@ const mapBuiltLocation = (location: StackLocation, root: string, source: SourceP
         /(?:^|\n)\/\/# sourceMappingURL=data:application\/json(?:;charset=utf-8)?;base64,([A-Za-z0-9+/=]+)\s*$/u.exec(
           text,
         )?.[1];
-      if (encoded === undefined) return undefined;
+      if (encoded === undefined) return unavailable;
       const map = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(sourceMapSchema))(
         Buffer.from(encoded, "base64").toString("utf8"),
-      );
-      const origin = yield* Effect.try({
-        try: () =>
+      ).pipe(Effect.option);
+      if (Option.isNone(map)) return unavailable;
+      const sourceMap = yield* Effect.try(
+        () =>
           new SourceMap({
-            ...map,
-            sources: [...map.sources],
-            names: [...map.names],
-            file: map.file ?? "",
-            sourceRoot: map.sourceRoot ?? "",
+            ...map.value,
+            sources: [...map.value.sources],
+            names: [...map.value.names],
+            file: map.value.file ?? "",
+            sourceRoot: map.value.sourceRoot ?? "",
             sourcesContent: [],
-          }).findOrigin(location.line, location.column),
-        catch: (cause) => new SourceFrameUnavailable({ reason: "Invalid source map", cause }),
-      });
-      if (
-        !("fileName" in origin) ||
-        typeof origin.fileName !== "string" ||
-        !("lineNumber" in origin) ||
-        !("columnNumber" in origin)
-      )
-        return undefined;
-      const originalFilename = path.resolve(
-        path.dirname(location.filename),
-        map.sourceRoot ?? "",
-        origin.fileName,
-      );
-      return admitSource(source, path.relative(root, originalFilename), {
-        filename: originalFilename,
-        line: origin.lineNumber,
-        column: origin.columnNumber,
-      });
+          }),
+      ).pipe(Effect.option);
+      if (Option.isNone(sourceMap)) return unavailable;
+      const parsed: BuiltMap = {
+        _tag: "parsed",
+        sourceMap: sourceMap.value,
+        sourceRoot: map.value.sourceRoot ?? "",
+        cost: length,
+      };
+      return parsed;
     }),
   );
+
+const mapBuiltLocation = (
+  location: StackLocation,
+  root: string,
+  source: SourcePackage,
+  builtMap: (filename: string) => ReturnType<typeof loadBuiltMap>,
+) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const relative = path.relative(root, location.filename).replaceAll("\\", "/");
+    if (!relative.startsWith("dist/src/") || !relative.endsWith(".js")) return undefined;
+    const original = relative.slice("dist/".length).replace(/\.js$/u, ".ts");
+    const originalTsx = relative.slice("dist/".length).replace(/\.js$/u, ".tsx");
+    if (source.sources[original] === undefined && source.sources[originalTsx] === undefined)
+      return undefined;
+    const map = yield* builtMap(location.filename);
+    if (map._tag === "unavailable") return undefined;
+    const origin = yield* Effect.try({
+      try: () => map.sourceMap.findOrigin(location.line, location.column),
+      catch: (cause) => new SourceFrameUnavailable({ reason: "Invalid source map", cause }),
+    });
+    if (
+      !("fileName" in origin) ||
+      typeof origin.fileName !== "string" ||
+      !("lineNumber" in origin) ||
+      !("columnNumber" in origin)
+    )
+      return undefined;
+    const originalFilename = path.resolve(
+      path.dirname(location.filename),
+      map.sourceRoot,
+      origin.fileName,
+    );
+    return admitSource(source, path.relative(root, originalFilename), {
+      filename: originalFilename,
+      line: origin.lineNumber,
+      column: origin.columnNumber,
+    });
+  });
 
 /** Diagnostic collection is best effort and never changes the command outcome. */
 export const collectOwnedSourceFrames = (
@@ -207,6 +247,23 @@ export const collectOwnedSourceFrames = (
     const roots = yield* packageRoots;
     const collected: Array<OwnedSourceFrame> = [];
     const seen = new Set<string>();
+    // Later frames of a built file reuse its map from this collection only.
+    // Failed reads are not kept, so a later frame of that file reads it again.
+    const builtMaps = new Map<string, BuiltMap>();
+    let retained = 0;
+    const builtMap = (filename: string) => {
+      const known = builtMaps.get(filename);
+      if (known !== undefined) return Effect.succeed(known);
+      return Effect.tap(loadBuiltMap(filename), (loaded) =>
+        Effect.sync(() => {
+          if (loaded._tag === "parsed") {
+            if (retained + loaded.cost > BUILT_FILE_LIMIT) return;
+            retained += loaded.cost;
+          }
+          builtMaps.set(filename, loaded);
+        }),
+      );
+    };
     const candidates = causes
       .slice(0, 16)
       .flatMap((cause) => (cause.stack === undefined ? [] : stackLocations(cause.stack)))
@@ -228,7 +285,7 @@ export const collectOwnedSourceFrames = (
         const direct = admitSource(source, relative, location);
         const mapped =
           direct ??
-          (yield* mapBuiltLocation(location, root, source).pipe(
+          (yield* mapBuiltLocation(location, root, source, builtMap).pipe(
             Effect.catchCause(() => Effect.succeed(undefined)),
           ));
         if (mapped === undefined) continue;

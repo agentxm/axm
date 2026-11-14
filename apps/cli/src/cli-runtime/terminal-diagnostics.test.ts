@@ -7,6 +7,8 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as TestClock from "effect/testing/TestClock";
+import { vi } from "vitest";
+import type { SerializedErrorCause } from "../app-error/cause-chain.js";
 import type { TelemetryFailureReport } from "../telemetry/payloads.js";
 import {
   DIAGNOSTIC_LIMITS,
@@ -27,7 +29,156 @@ const failure: TelemetryFailureReport = {
   handled: true,
 };
 
+// Key order matches the local record projection, so its JSON equals that projection's JSON.
+const storedFailure: TelemetryFailureReport = {
+  kind: "registry.response-decode",
+  operation: "publish.upload",
+  category: "internal",
+  errorClass: "internal",
+  phase: "command",
+  handled: true,
+};
+
+const recordWith = (causes: ReadonlyArray<SerializedErrorCause>): TerminalFailureRecord => ({
+  eventId: EVENT_ID,
+  invocationId: "00000000-0000-4000-8000-0000000000ff",
+  occurredAt: "2026-01-01T00:00:00.000Z",
+  failure: storedFailure,
+  causes,
+});
+
+const candidate = (record: TerminalFailureRecord, causes: ReadonlyArray<SerializedErrorCause>) =>
+  JSON.stringify({
+    ...record,
+    causes,
+    truncated: causes.length !== record.causes.length,
+  });
+
+/** The record encoding as previously measured: full UTF-8 bytes per candidate. */
+const encodedByteMeasure = (record: TerminalFailureRecord) => {
+  const causes = [...record.causes];
+  let encoded = candidate(record, causes);
+  while (
+    new TextEncoder().encode(encoded).byteLength + 1 > DIAGNOSTIC_LIMITS.bytes &&
+    causes.length > 0
+  ) {
+    causes.pop();
+    encoded = candidate(record, causes);
+  }
+  return `${encoded}\n`;
+};
+
+/** A last cause padded so the untruncated record plus newline is exactly `total` UTF-8 bytes. */
+const recordOfSize = (total: number, prefix: string, unit: string) => {
+  const first = { _tag: "Error", message: "first" };
+  const base = new TextEncoder().encode(
+    candidate(recordWith([first, { _tag: "Error", message: prefix }]), [
+      first,
+      { _tag: "Error", message: prefix },
+    ]),
+  ).byteLength;
+  const padding = total - base - 1;
+  const unitBytes = new TextEncoder().encode(unit).byteLength;
+  const message = `${prefix}${unit.repeat(Math.floor(padding / unitBytes))}${"a".repeat(padding % unitBytes)}`;
+  const record = recordWith([first, { _tag: "Error", message }]);
+  expect(new TextEncoder().encode(candidate(record, record.causes)).byteLength + 1).toBe(total);
+  return record;
+};
+
+const writtenRecord = (record: TerminalFailureRecord) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped();
+      yield* writeLocalFailureRecord(record, directory);
+      const filename = path.join(directory, `${EVENT_ID}.json`);
+      return {
+        content: yield* fs.readFileString(filename),
+        size: Number((yield* fs.stat(filename)).size),
+      };
+    }),
+  );
+
+const isCandidateRecordString = (value: unknown) => {
+  if (typeof value !== "string" || value.endsWith("\n")) return false;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "eventId" in parsed &&
+      parsed.eventId === EVENT_ID
+    );
+  } catch {
+    return false;
+  }
+};
+
 describe("terminal diagnostics", () => {
+  it.effect("measures candidate records without encoding them to bytes", () =>
+    Effect.gen(function* () {
+      const measuringEncodes = (record: TerminalFailureRecord) =>
+        Effect.acquireUseRelease(
+          Effect.sync(() => vi.spyOn(TextEncoder.prototype, "encode")),
+          (spy) =>
+            Effect.map(
+              writtenRecord(record),
+              () => spy.mock.calls.filter(([value]) => isCandidateRecordString(value)).length,
+            ),
+          (spy) => Effect.sync(() => spy.mockRestore()),
+        );
+      const small = recordWith([{ _tag: "Error", message: "small" }]);
+      const large = recordWith(
+        Array.from({ length: 3 }, (_, index) => ({
+          _tag: "Error",
+          message: `${index}${"x".repeat(40000)}`,
+        })),
+      );
+      expect([yield* measuringEncodes(small), yield* measuringEncodes(large)]).toEqual([0, 0]);
+      expect(JSON.parse((yield* writtenRecord(large)).content)).toMatchObject({
+        truncated: true,
+        causes: [{ message: expect.stringMatching(/^0/u) }],
+      });
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("keeps multibyte records at the byte bound and truncates one byte past it", () =>
+    Effect.gen(function* () {
+      for (const unit of ["é", "€", "😀"]) {
+        const atBound = recordOfSize(DIAGNOSTIC_LIMITS.bytes, "", unit);
+        const kept = yield* writtenRecord(atBound);
+        expect(kept.size).toBe(DIAGNOSTIC_LIMITS.bytes);
+        expect(kept.content).toBe(encodedByteMeasure(atBound));
+        expect(JSON.parse(kept.content)).toMatchObject({ truncated: false });
+        expect(JSON.parse(kept.content).causes).toHaveLength(2);
+
+        const pastBound = recordOfSize(DIAGNOSTIC_LIMITS.bytes + 1, "", unit);
+        const truncated = yield* writtenRecord(pastBound);
+        expect(truncated.size).toBeLessThanOrEqual(DIAGNOSTIC_LIMITS.bytes);
+        expect(truncated.content).toBe(encodedByteMeasure(pastBound));
+        expect(JSON.parse(truncated.content)).toMatchObject({
+          truncated: true,
+          causes: [{ message: "first" }],
+        });
+      }
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "decides truncation of a lone surrogate near the bound as the UTF-8 encoding does",
+    () =>
+      Effect.gen(function* () {
+        for (let offset = -6; offset <= 6; offset += 1) {
+          const record = recordOfSize(DIAGNOSTIC_LIMITS.bytes + offset, "\uD800", "é");
+          const written = yield* writtenRecord(record);
+          expect(written.content).toBe(encodedByteMeasure(record));
+          expect(written.size).toBeLessThanOrEqual(DIAGNOSTIC_LIMITS.bytes);
+          expect(JSON.parse(written.content).truncated).toBe(offset > 0);
+        }
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("preserves non-enumerable causes when adding the diagnostic identity", () =>
     Effect.gen(function* () {
       const cause = new Error("original transport failure");

@@ -102,6 +102,7 @@ import {
 
 import { authoredDeclaration } from "../authored-declaration.js";
 import { authoredNativeArtifact, preflightAuthoredNativeProjection } from "../native-projection.js";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { preflightCreateOnly } from "../create-preflight.js";
 import type { AuthoredPackageError } from "../authored-package-errors.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
@@ -407,12 +408,16 @@ const prepareForkExtension: (
     const current = yield* declaration.read;
     const enabled = request.enable || Option.getOrElse(current.enabled, () => false);
 
-    const nativePreflight = preflightAuthoredNativeProjection({
-      identity: target,
-      packageRoot: stagedPackage,
-      enabled,
-    });
-    const nativeProjection = yield* nativePreflight;
+    // Preparation hands the preflight the hash it just pinned for the same
+    // staged package; under the lock the preflight reads and hashes it fresh.
+    const nativePreflight = (sourceHash?: SourceHash) =>
+      preflightAuthoredNativeProjection({
+        identity: target,
+        packageRoot: stagedPackage,
+        enabled,
+        ...(sourceHash === undefined ? {} : { sourceHash: Effect.succeed(sourceHash) }),
+      });
+    const nativeProjection = yield* nativePreflight(stagedHash);
 
     const artifact: JobStepArtifact = {
       ...nativeProjection,
@@ -442,7 +447,7 @@ const prepareForkExtension: (
       buildArtifact: ({ change }: { readonly change: "created" | "updated" | "unchanged" }) =>
         authoredNativeArtifact({ type: target.type, artifact, change, projected: enabled }),
       preflight: Effect.gen(function* () {
-        yield* nativePreflight;
+        yield* nativePreflight();
         yield* recoverCanonicalDirectory({ baseDir: location.baseDir, canonicalPath: targetDir });
         yield* createOnly;
       }),

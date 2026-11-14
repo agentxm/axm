@@ -1,7 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { readExtensionManifest } from "@agentxm/extension-content";
+import {
+  readExtensionManifest,
+  type ExtensionManifest,
+  type ManifestError,
+} from "@agentxm/extension-content";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 import type {
   ExtensionFqnParts,
@@ -29,6 +34,7 @@ import type {
 import {
   computePackageContentHash,
   WorkspaceLocation,
+  type PackageContentHashFailed,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { authoringRefused } from "./errors.js";
 
@@ -37,15 +43,76 @@ export type AuthoredNativeProjection = Pick<
   "agentOutcomes" | "nativeLocations" | "targets"
 >;
 
+/**
+ * The identity a staged manifest declares, as immutable strings a caller that
+ * already read the manifest hands to a native preflight instead of the
+ * decoded manifest itself.
+ */
+export interface PreparedManifestFacts {
+  readonly owner: ExtensionManifest["owner"];
+  readonly name: ExtensionManifest["name"];
+  readonly type: ExtensionManifest["type"];
+  readonly version: ExtensionManifest["version"];
+  readonly description?: string;
+}
+
+/** Copy the facts a native preflight uses out of a `readExtensionManifest` result. */
+export const preparedManifestFacts = ({
+  manifest,
+}: {
+  readonly manifest: ExtensionManifest;
+}): PreparedManifestFacts => ({
+  owner: manifest.owner,
+  name: manifest.name,
+  type: manifest.type,
+  version: manifest.version,
+  ...(manifest.type === "subagent" && manifest.description !== undefined
+    ? { description: manifest.description }
+    : {}),
+});
+
+/**
+ * What a native preflight inspects: the staged package, and optionally the
+ * values its caller already settled for that same package in the same
+ * boundary.
+ *
+ * Both values are non-authoritative. Each replaces only the preflight's own
+ * read where it would happen, so a supplied manifest is identity-checked as a
+ * read one is. The source hash only fills the ref handed to the managers, and
+ * no preflight consumer may read `ref.sourceHash` as freshness evidence:
+ * staged-byte freshness belongs to publication validation.
+ */
+interface AuthoredPreflightArgs {
+  readonly identity: ExtensionFqnParts;
+  readonly packageRoot: string;
+  readonly enabled: boolean;
+  /** The package hash the caller computed over `packageRoot`. */
+  readonly sourceHash?: Effect.Effect<SourceHash, PackageContentHashFailed>;
+  /** The facts the caller read from `packageRoot`'s manifest. */
+  readonly manifest?: Effect.Effect<PreparedManifestFacts, ManifestError>;
+}
+
+/** The staged manifest's facts: the supplied ones when they describe `type`, else a fresh read. */
+const stagedManifestFacts = (args: AuthoredPreflightArgs, type: ExtensionType) => {
+  const read = readExtensionManifest(args.packageRoot, type).pipe(
+    Effect.map(preparedManifestFacts),
+  );
+  return args.manifest === undefined
+    ? read
+    : args.manifest.pipe(
+        Effect.flatMap((facts) => (facts.type === type ? Effect.succeed(facts) : read)),
+      );
+};
+
+/** The staged package's hash: the supplied one, else a fresh hash of the staged root. */
+const stagedSourceHash = (args: AuthoredPreflightArgs) =>
+  args.sourceHash ?? computePackageContentHash(args.packageRoot);
+
 export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.preflightSubagent")(
-  function* (args: {
-    readonly identity: ExtensionFqnParts;
-    readonly packageRoot: string;
-    readonly enabled: boolean;
-  }) {
+  function* (args: AuthoredPreflightArgs) {
     if (!args.enabled) return yield* Effect.succeed<AuthoredNativeProjection>({});
     const location = yield* WorkspaceLocation;
-    const { manifest } = yield* readExtensionManifest(args.packageRoot, "subagent").pipe(
+    const manifest = yield* stagedManifestFacts(args, "subagent").pipe(
       Effect.mapError((cause) =>
         authoringRefused({
           category: "validation",
@@ -69,7 +136,7 @@ export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.prefligh
       name: manifest.name,
       version: manifest.version,
       location: args.packageRoot,
-      sourceHash: yield* computePackageContentHash(args.packageRoot),
+      sourceHash: yield* stagedSourceHash(args),
       source: {
         type: "workspace" as const,
         owner: manifest.owner,
@@ -119,11 +186,9 @@ export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.prefligh
 );
 
 /** Inspect staged content against final native destinations before publishing its source. */
-export const preflightAuthoredNativeProjection = (args: {
-  readonly identity: ExtensionFqnParts;
-  readonly packageRoot: string;
-  readonly enabled: boolean;
-}): Effect.Effect<
+export const preflightAuthoredNativeProjection = (
+  args: AuthoredPreflightArgs,
+): Effect.Effect<
   AuthoredNativeProjection,
   OperationRefused | ExtensionManagerFailure,
   ManagerRequirements | RuleManager | HookManager | KnowledgeManager | SubagentManager
@@ -133,7 +198,7 @@ export const preflightAuthoredNativeProjection = (args: {
     if (!args.enabled || !["hook", "rule", "knowledge", "subagent"].includes(args.identity.type))
       return {};
     const location = yield* WorkspaceLocation;
-    const { manifest } = yield* readExtensionManifest(args.packageRoot, args.identity.type).pipe(
+    const manifest = yield* stagedManifestFacts(args, args.identity.type).pipe(
       Effect.mapError((cause) =>
         authoringRefused({
           category: "validation",
@@ -159,7 +224,7 @@ export const preflightAuthoredNativeProjection = (args: {
       name: manifest.name,
       version: manifest.version,
       location: args.packageRoot,
-      sourceHash: yield* computePackageContentHash(args.packageRoot),
+      sourceHash: yield* stagedSourceHash(args),
     };
     const options = { nativeInsertionEligibleNames: new Set<string>() };
     const source = { type: "workspace" as const, owner: manifest.owner, name: manifest.name };

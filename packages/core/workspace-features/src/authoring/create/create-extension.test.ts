@@ -1,14 +1,25 @@
+import * as fs from "node:fs";
+import * as nodePath from "node:path";
+
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
+import { FileSystemRecorder, type RecordedFileSystemCall } from "@agentxm/test-support";
+import { workObservations } from "@agentxm/workspace-kernel/locations/testing";
+import { groupInstallTargetsByDirectory } from "@agentxm/workspace-kernel/materialization";
+import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
+import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 
 import { authoringTypes } from "../test-support/authoring-packages.js";
 import {
+  applyExecution,
   authoringWorkspaceLayer,
   makeAuthoringWorkspace,
 } from "../test-support/authoring-workspace.js";
 import { createRequestFor } from "../test-support/create-requests.js";
-import { CreateExtension } from "./create-extension.js";
+import { recordingAuthoringWorkspaceLayer } from "../test-support/recording-authoring-workspace.js";
+import { CreateExtension, type CreatableExtensionType } from "./create-extension.js";
 
 describe("CreateExtension name validation", () => {
   const cleanups: Array<() => void> = [];
@@ -35,4 +46,202 @@ describe("CreateExtension name validation", () => {
           expect(created.snapshot()).toEqual(before);
         }),
       );
+});
+
+describe("CreateExtension prepared work", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  const workspaceFor = () => {
+    const created = makeAuthoringWorkspace({ owner: "@acme", agents: ["claude-code"] });
+    cleanups.push(created.cleanup);
+    created.writeSettings({ owner: "@acme", agents: ["claude-code"], instructionFiles: {} });
+    return created;
+  };
+
+  /** The recorded calls and `axm.hash.package` executions of one measured effect. */
+  const measure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.gen(function* () {
+      const recording = yield* FileSystemRecorder;
+      recording.reset();
+      const work = workObservations(false);
+      const value = yield* work.provide(effect);
+      return {
+        value,
+        calls: recording.calls(),
+        hashes: work.facts.filter((fact) => fact.kind === "axm.hash.package").length,
+      };
+    });
+
+  /** Prepare and apply one creation, measuring each phase on its own. */
+  const prepareAndApply = (type: CreatableExtensionType) =>
+    Effect.gen(function* () {
+      const prepare = yield* measure(CreateExtension.prepare(createRequestFor(type, "review")));
+      const apply = yield* measure(CreateExtension.previewOrApply(prepare.value, applyExecution));
+      expect(deriveOperationOutcome(apply.value)).toBe("applied");
+      return { prepare, apply };
+    });
+
+  /** Per-staging-root counts for the preview stagings a phase created. */
+  const stagingCounts = (
+    calls: ReadonlyArray<RecordedFileSystemCall>,
+    files: ReadonlyArray<string>,
+  ) => {
+    const roots = calls
+      .filter(
+        (call) =>
+          call.method === "makeTempDirectoryScoped" &&
+          call.outcome === "success" &&
+          nodePath.basename(call.path).startsWith("axm-create-preview-"),
+      )
+      .map((call) => call.path);
+    return {
+      stagings: roots.length,
+      rootReadDirectory: roots.map(
+        (root) =>
+          calls.filter((call) => call.method === "readDirectory" && call.path === root).length,
+      ),
+      readFile: files.map((file) =>
+        roots.reduce(
+          (sum, root) =>
+            sum +
+            calls.filter(
+              (call) => call.method === "readFile" && call.path === nodePath.join(root, file),
+            ).length,
+          0,
+        ),
+      ),
+      writes: roots.reduce(
+        (sum, root) =>
+          sum +
+          calls.filter(
+            (call) =>
+              (call.method === "writeFile" ||
+                call.method === "file.write" ||
+                call.method === "file.writeAll") &&
+              call.path.startsWith(`${root}/`),
+          ).length,
+        0,
+      ),
+    };
+  };
+
+  // Measured before the preflight took the scaffold hash it already holds:
+  // per phase, one preview staging whose root the package hash walked once,
+  // and that hash's read of every staged file.
+  const before = {
+    rule: { files: ["rule.json", "src/RULE.md"], prepareHashes: 1, applyHashes: 3, reads: [3, 2] },
+    knowledge: {
+      files: ["knowledge.json", "src/index.md"],
+      prepareHashes: 1,
+      applyHashes: 2,
+      reads: [3, 2],
+    },
+    subagent: {
+      files: ["subagent.json", "src/review.md"],
+      prepareHashes: 1,
+      applyHashes: 3,
+      reads: [4, 3],
+    },
+  } as const;
+
+  for (const type of ["rule", "knowledge", "subagent"] as const)
+    it.effect(`stages the ${type} preview without hashing what it just wrote`, () => {
+      const created = workspaceFor();
+      return Effect.gen(function* () {
+        const { prepare, apply } = yield* prepareAndApply(type);
+        const measured = before[type];
+        const expected = {
+          stagings: 1,
+          rootReadDirectory: [0],
+          readFile: measured.reads.map((count) => count - 1),
+        };
+        expect(prepare.hashes).toBe(measured.prepareHashes - 1);
+        expect(stagingCounts(prepare.calls, measured.files)).toMatchObject(expected);
+        expect(apply.hashes).toBe(measured.applyHashes - 1);
+        expect(stagingCounts(apply.calls, measured.files)).toMatchObject(expected);
+      }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
+    });
+
+  it.effect("still stages a hook preview in both phases", () => {
+    // A hook preflight has no native demand, but staging still proves the
+    // temporary directory can hold the scaffold before anything is published.
+    const created = workspaceFor();
+    return Effect.gen(function* () {
+      const { prepare, apply } = yield* prepareAndApply("hook");
+      expect(prepare.hashes).toBe(0);
+      expect(apply.hashes).toBe(1);
+      for (const phase of [prepare, apply])
+        expect(stagingCounts(phase.calls, [])).toMatchObject({
+          stagings: 1,
+          rootReadDirectory: [0],
+          writes: 6,
+        });
+    }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
+  });
+
+  it.effect("resolves skill destinations once while preparing and again under the lock", () => {
+    const created = workspaceFor();
+    const skillDirectories = [".claude/skills", ".agents/skills"].map((relative) =>
+      nodePath.join(created.root, relative),
+    );
+    const resolutionCalls = (calls: ReadonlyArray<RecordedFileSystemCall>) =>
+      calls.filter(
+        (call) =>
+          (call.method === "realPath" || call.method === "readLink") &&
+          skillDirectories.includes(call.path),
+      ).length;
+    return Effect.gen(function* () {
+      // One standalone resolution of every skill destination, as creation resolves it.
+      const standalone = yield* measure(
+        Effect.gen(function* () {
+          const location = yield* WorkspaceLocation;
+          const agents = yield* (yield* CodingAgentRepository).getMaterializationAgents();
+          const installable = [];
+          for (const agent of agents) {
+            const outcome = yield* agent.resolveEffectiveSkillsDir({
+              workspaceRoot: location.baseDir,
+              scope: location.scope,
+            });
+            if (outcome._tag === "supported")
+              installable.push({ agentId: agent.id, targetDir: nodePath.normalize(outcome.dir) });
+          }
+          return yield* groupInstallTargetsByDirectory(installable, location.baseDir);
+        }),
+      );
+      const { prepare, apply } = yield* prepareAndApply("skill");
+      // Measured before preparation reused its first resolution: 16 calls while
+      // preparing (two resolutions plus the per-target checks) and 102 under
+      // the lock, where the destinations resolve fresh.
+      const resolution = resolutionCalls(standalone.calls);
+      expect(resolution).toBe(4);
+      expect(resolutionCalls(prepare.calls)).toBe(16 - resolution);
+      expect(resolutionCalls(apply.calls)).toBe(102);
+    }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
+  });
+
+  it.effect("refuses a skill whose agent directory is retargeted after preparation", () => {
+    const created = workspaceFor();
+    fs.mkdirSync(nodePath.join(created.root, ".skills-a"), { recursive: true });
+    created.write(".skills-b/review/SKILL.md", "Foreign skill.\n");
+    fs.mkdirSync(nodePath.join(created.root, ".claude"), { recursive: true });
+    const link = nodePath.join(created.root, ".claude/skills");
+    fs.symlinkSync("../.skills-a", link);
+    return Effect.gen(function* () {
+      const candidate = yield* CreateExtension.prepare(createRequestFor("skill", "review"));
+      fs.rmSync(link);
+      fs.symlinkSync("../.skills-b", link);
+      const before = created.snapshot();
+      const resolution = yield* CreateExtension.previewOrApply(candidate, applyExecution);
+      expect(deriveOperationOutcome(resolution)).toBe("blocked");
+      expect(resolution.blocking).toMatchObject({
+        class: "stale-candidate",
+        detail: "The execution candidate became stale before apply.",
+      });
+      expect(created.snapshot()).toEqual(before);
+      expect(fs.readlinkSync(link)).toBe("../.skills-b");
+    }).pipe(Effect.provide(recordingAuthoringWorkspaceLayer(created)));
+  });
 });

@@ -111,7 +111,8 @@ const names = (entry: RecordedFileSystemCall, path: string) =>
  * Wrap every primitive of `base` once and rebuild the derived operations
  * (`exists`, `readFileString`, `writeFileString`, `stream`, `sink`, `glob`) with
  * `FileSystem.make`, so each derived call is recorded through exactly the
- * primitives it performs. Results and errors of `base` pass through unchanged.
+ * primitives it performs. A `watch` stream records one entry when it ends.
+ * Results and errors of `base` pass through unchanged.
  */
 export const makeRecordingFileSystem = (
   base: FileSystem.FileSystem,

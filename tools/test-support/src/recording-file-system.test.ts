@@ -56,7 +56,7 @@ describe("recording filesystem", () => {
         { method: "file.readAlloc", path: streamed, bytes: 5, outcome: "success" },
         { method: "file.readAlloc", path: streamed, bytes: 0, outcome: "success" },
       ];
-      expect(recording.calls()).toEqual(expected);
+      expect(recording.calls()).toStrictEqual(expected);
       expect(recording.contentReads(file)).toBe(1);
       expect(recording.writes(file)).toBe(1);
       expect(recording.contentReads(streamed)).toBe(2);
@@ -107,16 +107,33 @@ describe("recording filesystem", () => {
       expect(yield* Effect.flip(fs.readFileString(`${root}/denied`))).toBe(sentinel);
       const missing = yield* Effect.flip(fs.readFile(`${root}/missing`));
       expect(missing.reason._tag).toBe("NotFound");
+      const unwritten = yield* Effect.flip(fs.writeFileString(`${root}/no-dir/x`, "abc"));
+      expect(unwritten.reason._tag).toBe("NotFound");
+      const readOnly = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const file = yield* fs.open(`${root}/read-only`, { flag: "w+" });
+          yield* file.writeAll(bytes("seed"));
+          const reopened = yield* fs.open(`${root}/read-only`, { flag: "r" });
+          return yield* Effect.flip(reopened.writeAll(bytes("abc")));
+        }),
+      );
+      expect(readOnly._tag).toBe("PlatformError");
       const stalled = yield* Effect.forkChild(fs.stat(`${root}/stalled`));
       yield* Effect.yieldNow;
       yield* Fiber.interrupt(stalled);
 
-      expect(recording.calls()).toEqual([
+      expect(recording.calls()).toStrictEqual([
         { method: "readFile", path: `${root}/denied`, outcome: "failure" },
         { method: "readFile", path: `${root}/missing`, outcome: "failure" },
+        { method: "writeFile", path: `${root}/no-dir/x`, outcome: "failure" },
+        { method: "open", path: `${root}/read-only`, outcome: "success" },
+        { method: "file.writeAll", path: `${root}/read-only`, bytes: 4, outcome: "success" },
+        { method: "open", path: `${root}/read-only`, outcome: "success" },
+        { method: "file.writeAll", path: `${root}/read-only`, outcome: "failure" },
         { method: "stat", path: `${root}/stalled`, outcome: "interrupted" },
       ]);
       expect(recording.contentReads(`${root}/missing`)).toBe(1);
+      expect(recording.writes(`${root}/no-dir/x`)).toBe(1);
     }),
   );
 
@@ -146,7 +163,7 @@ describe("recording filesystem", () => {
         Option.some("cdef"),
       );
 
-      expect(recording.calls()).toEqual([
+      expect(recording.calls()).toStrictEqual([
         { method: "open", path, outcome: "success" },
         { method: "file.write", path, bytes: 3, outcome: "success" },
         { method: "file.writeAll", path, bytes: 4, outcome: "success" },
@@ -159,6 +176,83 @@ describe("recording filesystem", () => {
       ]);
       expect(recording.contentReads(path)).toBe(2);
       expect(recording.writes(path)).toBe(2);
+
+      // With two handles open at once, each call belongs to its own handle's path.
+      const other = `${root}/other`;
+      recording.reset();
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const source = yield* fs.open(path, { flag: "r" });
+          const target = yield* fs.open(other, { flag: "w" });
+          yield* source.readAlloc(3);
+          yield* target.writeAll(bytes("xyz"));
+        }),
+      );
+      expect(recording.calls()).toStrictEqual([
+        { method: "open", path, outcome: "success" },
+        { method: "open", path: other, outcome: "success" },
+        { method: "file.readAlloc", path, bytes: 3, outcome: "success" },
+        { method: "file.writeAll", path: other, bytes: 3, outcome: "success" },
+      ]);
+      expect([recording.contentReads(path), recording.writes(path)]).toEqual([1, 0]);
+      expect([recording.contentReads(other), recording.writes(other)]).toEqual([0, 1]);
+    }),
+  );
+
+  it.effect("records created temporary paths and requested directories on failure", () =>
+    Effect.gen(function* () {
+      const { root, fileSystem: fs, recording } = yield* recordingWorld;
+      const missing = `${root}/missing`;
+
+      const file = yield* fs.makeTempFile({ directory: root });
+      const scopedDirectory = yield* Effect.scoped(fs.makeTempDirectoryScoped({ directory: root }));
+      const failed = yield* Effect.flip(fs.makeTempDirectory({ directory: missing }));
+      expect(failed.reason._tag).toBe("NotFound");
+
+      expect(file.startsWith(`${root}/`)).toBe(true);
+      expect(scopedDirectory.startsWith(`${root}/`)).toBe(true);
+      // The scoped variant's cleanup removal runs inside the base filesystem and is not recorded.
+      expect(recording.calls()).toStrictEqual([
+        { method: "makeTempFile", path: file, outcome: "success" },
+        { method: "makeTempDirectoryScoped", path: scopedDirectory, outcome: "success" },
+        { method: "makeTempDirectory", path: missing, outcome: "failure" },
+      ]);
+    }),
+  );
+
+  it.effect("records one watch entry when the watch stream ends", () =>
+    Effect.gen(function* () {
+      const { base, root } = yield* recordingWorld;
+      const watched = `${root}/watched`;
+      const events: ReadonlyArray<FileSystem.WatchEvent> = [
+        { _tag: "Create", path: `${watched}/a` },
+        { _tag: "Update", path: `${watched}/a` },
+      ];
+      // Host watchers deliver events with no completion signal, so a stubbed
+      // stream stands in for event delivery; it cannot establish host watch
+      // semantics. The missing path exercises the host watcher's failure.
+      const { fileSystem: fs, recording } = makeRecordingFileSystem(
+        FileSystem.make({
+          ...base,
+          watch: (path, options) =>
+            path === watched ? Stream.fromIterable(events) : base.watch(path, options),
+        }),
+      );
+
+      const entriesDuringEmission: Array<number> = [];
+      const received = yield* fs.watch(watched).pipe(
+        Stream.tap(() => Effect.sync(() => entriesDuringEmission.push(recording.calls().length))),
+        Stream.runCollect,
+      );
+      const missing = yield* Effect.flip(Stream.runDrain(fs.watch(`${root}/missing`)));
+
+      expect(received).toStrictEqual(events);
+      expect(entriesDuringEmission).toEqual([0, 0]);
+      expect(missing.reason._tag).toBe("NotFound");
+      expect(recording.calls()).toStrictEqual([
+        { method: "watch", path: watched, outcome: "success" },
+        { method: "watch", path: `${root}/missing`, outcome: "failure" },
+      ]);
     }),
   );
 
@@ -177,7 +271,7 @@ describe("recording filesystem", () => {
       yield* fs.link(target, `${root}/hard`);
       yield* fs.symlink("target", `${root}/soft`);
 
-      expect(recording.calls()).toEqual([
+      expect(recording.calls()).toStrictEqual([
         { method: "copyFile", path: source, toPath: staged, outcome: "success" },
         { method: "rename", path: staged, toPath: target, outcome: "success" },
         { method: "copy", path: target, toPath: `${root}/copy`, outcome: "success" },
@@ -185,7 +279,7 @@ describe("recording filesystem", () => {
         { method: "symlink", path: "target", toPath: `${root}/soft`, outcome: "success" },
       ]);
       expect(recording.counts(target)).toEqual({ rename: 1, copy: 1, link: 1 });
-      expect(recording.calls({ path: staged, method: "rename" })).toEqual([
+      expect(recording.calls({ path: staged, method: "rename" })).toStrictEqual([
         { method: "rename", path: staged, toPath: target, outcome: "success" },
       ]);
       expect(recording.calls({ method: "remove" })).toEqual([]);

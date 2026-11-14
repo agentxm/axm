@@ -11,10 +11,9 @@ import * as Effect from "effect/Effect";
 
 import * as JsonPatch from "effect/JsonPatch";
 import * as JsonPointer from "effect/JsonPointer";
-import * as Option from "effect/Option";
 import type * as Schema from "effect/Schema";
 import { applyEdits, modify, type ModificationOptions } from "jsonc-parser";
-import { deriveStructuralInverse } from "../../../locations/index.js";
+import { isStructuralInsertion } from "../../../locations/index.js";
 
 export type JsonPointerPathResult =
   | {
@@ -96,7 +95,7 @@ export const applyJsonPatchToText = (
   patch: JsonPatch.JsonPatch,
   options: ApplyJsonPatchOptions = {},
 ): Effect.Effect<JsonPatchTextResult> =>
-  Effect.gen(function* (): Effect.fn.Return<JsonPatchTextResult> {
+  Effect.sync((): JsonPatchTextResult => {
     let currentText = text;
     let currentDocument = document;
 
@@ -129,7 +128,7 @@ export const applyJsonPatchToText = (
         currentText =
           options.preserveInsertionBaseline === true &&
           operation.op === "add" &&
-          Option.isNone(yield* deriveStructuralInverse(currentText, formatted))
+          !isStructuralInsertion(currentText, formatted)
             ? applyEdits(
                 currentText,
                 modify(currentText, [...translated.path], value, {

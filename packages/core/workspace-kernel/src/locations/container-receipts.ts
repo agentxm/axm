@@ -270,61 +270,65 @@ export const applyStructuralInverse = (
     return (yield* sha256(result)) === inverse.beforeSha256 ? Option.some(result) : Option.none();
   });
 
+type StructuralEdit = StructuralInverse["edits"][number];
+
+/** The syntax-only edits that restore `before` from `after`, or none when content changed. */
+const structuralEdits = (before: string, after: string): Option.Option<Array<StructuralEdit>> => {
+  if (before === after) return Option.none();
+  let prefix = 0;
+  while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix])
+    prefix++;
+  let suffix = 0;
+  while (
+    suffix < before.length - prefix &&
+    suffix < after.length - prefix &&
+    before[before.length - suffix - 1] === after[after.length - suffix - 1]
+  )
+    suffix++;
+  const syntax = before.slice(prefix, before.length - suffix);
+  if (/^[\s{}[\],:]*$/.test(syntax))
+    return Option.some([{ offset: prefix, length: after.length - prefix - suffix, syntax }]);
+  // A formatter may change several whitespace spans around an insertion.
+  // Every significant original character must still occur in order in the
+  // exact postimage; missing content cannot be reconstructed by this receipt.
+  const edits: Array<StructuralEdit> = [];
+  let beforeCursor = 0;
+  let afterCursor = 0;
+  for (const match of before.matchAll(/[^\s{}[\],:]/gu)) {
+    const found = after.indexOf(match[0], afterCursor);
+    if (found < 0) return Option.none();
+    const syntax = before.slice(beforeCursor, match.index);
+    if (after.slice(afterCursor, found) !== syntax)
+      edits.push({ offset: afterCursor, length: found - afterCursor, syntax });
+    beforeCursor = match.index + match[0].length;
+    afterCursor = found + match[0].length;
+  }
+  const remainingSyntax = before.slice(beforeCursor);
+  if (after.slice(afterCursor) !== remainingSyntax)
+    edits.push({
+      offset: afterCursor,
+      length: after.length - afterCursor,
+      syntax: remainingSyntax,
+    });
+  return Option.some(edits);
+};
+
+/** True exactly when `deriveStructuralInverse` would yield a receipt; computes no digest. */
+export const isStructuralInsertion = (before: string, after: string): boolean =>
+  Option.isSome(structuralEdits(before, after));
+
 /** Retain significant preimage characters in place; persist only syntax and edit positions. */
 export const deriveStructuralInverse = (
   before: string,
   after: string,
 ): Effect.Effect<Option.Option<StructuralInverse>> =>
   Effect.gen(function* () {
-    if (before === after) return Option.none();
-    let prefix = 0;
-    while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix])
-      prefix++;
-    let suffix = 0;
-    while (
-      suffix < before.length - prefix &&
-      suffix < after.length - prefix &&
-      before[before.length - suffix - 1] === after[after.length - suffix - 1]
-    )
-      suffix++;
-    const syntax = before.slice(prefix, before.length - suffix);
-    if (/^[\s{}[\],:]*$/.test(syntax)) {
-      return Option.some({
-        beforeSha256: yield* sha256(before),
-        afterSha256: yield* sha256(after),
-        edits: [{ offset: prefix, length: after.length - prefix - suffix, syntax }],
-      });
-    }
-    // A formatter may change several whitespace spans around an insertion.
-    // Every significant original character must still occur in order in the
-    // exact postimage; missing content cannot be reconstructed by this receipt.
-    const edits: Array<{
-      readonly offset: number;
-      readonly length: number;
-      readonly syntax: string;
-    }> = [];
-    let beforeCursor = 0;
-    let afterCursor = 0;
-    for (const match of before.matchAll(/[^\s{}[\],:]/gu)) {
-      const found = after.indexOf(match[0], afterCursor);
-      if (found < 0) return Option.none();
-      const syntax = before.slice(beforeCursor, match.index);
-      if (after.slice(afterCursor, found) !== syntax)
-        edits.push({ offset: afterCursor, length: found - afterCursor, syntax });
-      beforeCursor = match.index + match[0].length;
-      afterCursor = found + match[0].length;
-    }
-    const remainingSyntax = before.slice(beforeCursor);
-    if (after.slice(afterCursor) !== remainingSyntax)
-      edits.push({
-        offset: afterCursor,
-        length: after.length - afterCursor,
-        syntax: remainingSyntax,
-      });
+    const edits = structuralEdits(before, after);
+    if (Option.isNone(edits)) return Option.none();
     return Option.some({
       beforeSha256: yield* sha256(before),
       afterSha256: yield* sha256(after),
-      edits,
+      edits: edits.value,
     });
   });
 
@@ -337,23 +341,40 @@ export interface ContainerReceiptMutation<E, R> {
   /** Current admission's exclusive creation proof, persisted in this same store. */
   readonly inheritedDirectories?: Effect.Effect<ReadonlyArray<ContainerIdentity>, E, R>;
   readonly createDirectory: (target: string) => Effect.Effect<boolean, E, R>;
-  readonly write: (target: string, contents: string) => Effect.Effect<void, E, R>;
+  /**
+   * `prior` is the store text this update read under `withLock`, or none when
+   * the store was absent. The writer still owns authorization, protection,
+   * and the decision to skip identical bytes.
+   */
+  readonly write: (
+    target: string,
+    contents: string,
+    prior: { readonly text: Option.Option<string> },
+  ) => Effect.Effect<void, E, R>;
   readonly retire: (target: string) => Effect.Effect<void, E, R>;
 }
 
 const receiptPath = (path: Path.Path, workspaceDir: string): string =>
   path.join(workspaceDir, "projection-containers.json");
 
-export const readContainerReceipts = (
+/** The decoded store and the exact text it was decoded from, or none when absent. */
+const readContainerReceiptsText = (
   workspaceDir: string,
-): Effect.Effect<ContainerReceipts, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  { readonly receipts: ContainerReceipts; readonly text: Option.Option<string> },
+  NativeLocationError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const target = receiptPath(path, workspaceDir);
     const address = yield* resolveNativeEntry(target);
     if (address.kind === "absent")
-      return { version: 1, entries: [], createdDirectories: [] } satisfies ContainerReceipts;
+      return {
+        receipts: { version: 1, entries: [], createdDirectories: [] } satisfies ContainerReceipts,
+        text: Option.none(),
+      };
     if (address.kind !== "file")
       return yield* new NativeLocationError({
         target,
@@ -368,9 +389,10 @@ export const readContainerReceipts = (
             new NativeLocationError({ target, reason: "unreadable", cause: "receipt-read-failed" }),
         ),
       );
-    return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ContainerReceiptsSchema), {
-      onExcessProperty: "error",
-    })(text).pipe(
+    const receipts = yield* Schema.decodeUnknownEffect(
+      Schema.fromJsonString(ContainerReceiptsSchema),
+      { onExcessProperty: "error" },
+    )(text).pipe(
       (effect) => withWork("axm.parse.receipts", effect, { attributes: { "axm.work.count": 1 } }),
       Effect.mapError(
         () =>
@@ -381,7 +403,13 @@ export const readContainerReceipts = (
           }),
       ),
     );
+    return { receipts, text: Option.some(text) };
   });
+
+export const readContainerReceipts = (
+  workspaceDir: string,
+): Effect.Effect<ContainerReceipts, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
+  Effect.map(readContainerReceiptsText(workspaceDir), ({ receipts }) => receipts);
 
 export const updateContainerReceipts = <E, R>(
   workspaceDir: string,
@@ -395,7 +423,8 @@ export const updateContainerReceipts = <E, R>(
     return yield* mutation.withLock(
       target,
       Effect.gen(function* () {
-        const current = yield* readContainerReceipts(workspaceDir);
+        const { receipts: current, text: priorText } =
+          yield* readContainerReceiptsText(workspaceDir);
         const entries = change(current.entries);
         if (JSON.stringify(entries) === JSON.stringify(current.entries)) return;
         if (entries.length === 0) {
@@ -466,6 +495,7 @@ export const updateContainerReceipts = <E, R>(
               target: ancestor,
             };
             const anchor = yield* captureContainerIdentity(proof);
+            const createsAncestors = missing.length > 0;
             for (const directory of missing.reverse()) {
               if (!(yield* verifyContainerIdentity(anchor, proof)))
                 return yield* new NativeLocationError({
@@ -477,7 +507,9 @@ export const updateContainerReceipts = <E, R>(
               const identity = yield* captureContainerIdentity({ ...proof, target: directory });
               if (created) createdDirectories.push(identity);
             }
-            if (!(yield* verifyContainerIdentity(anchor, proof)))
+            // Re-prove the anchor only around creation. With no missing ancestor,
+            // the capture above is the proof and the writer authorizes and protects.
+            if (createsAncestors && !(yield* verifyContainerIdentity(anchor, proof)))
               return yield* new NativeLocationError({
                 target,
                 reason: "unreadable",
@@ -499,7 +531,7 @@ export const updateContainerReceipts = <E, R>(
                 }),
             ),
           );
-          yield* mutation.write(target, `${JSON.stringify(next, null, 2)}\n`);
+          yield* mutation.write(target, `${JSON.stringify(next, null, 2)}\n`, { text: priorText });
         }
       }),
     );

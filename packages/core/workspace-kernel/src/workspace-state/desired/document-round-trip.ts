@@ -206,22 +206,25 @@ export const prepareDocumentRoundTrip = <E>(args: {
           Effect.provideService(NativeEntryRemoval, removal),
           Effect.mapError((cause) => mapFailure(target, cause)),
         ),
-      write: (target, text) =>
+      write: (target, text, prior) =>
         Effect.gen(function* () {
+          // Only bytes equal to the locked read can be a no-op; that path re-reads
+          // the store after protection so a foreign deletion or replacement heals.
+          const heldEqual = Option.contains(prior.text, text);
           yield* assertNativeMutationWithin(
             args.context.nativeRoot,
             target,
             "entry",
             path.dirname(args.context.runtimeDir),
           );
-          const existed = yield* fs.exists(target);
+          const existed = heldEqual ? yield* fs.exists(target) : Option.isSome(prior.text);
           yield* protectCreatedAncestors(fs, path, path.dirname(target));
           yield* protectWorkspacePath(target);
           yield* fs.makeDirectory(path.dirname(target), { recursive: true });
           yield* writeFileAtomic(fs, {
             targetPath: target,
             content: text,
-            skipIfUnchanged: "ignore-read-errors",
+            ...(heldEqual ? { skipIfUnchanged: "ignore-read-errors" as const } : {}),
             onPublished: (publication) =>
               recordFilePublication(
                 { path: target, change: existed ? "modified" : "created" },

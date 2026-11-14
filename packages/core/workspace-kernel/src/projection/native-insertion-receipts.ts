@@ -146,11 +146,14 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
           }),
         ),
       ),
-    write: (target, contents) =>
+    write: (target, contents, prior) =>
       finish(
         target,
         Effect.gen(function* () {
-          const existed = yield* fs.exists(target);
+          // Only bytes equal to the locked read can be a no-op; that path re-reads
+          // the store after protection so a foreign deletion or replacement heals.
+          const heldEqual = Option.contains(prior.text, contents);
+          const existed = heldEqual ? yield* fs.exists(target) : Option.isSome(prior.text);
           yield* authorize(target);
           yield* protectCreatedAncestors(fs, path, path.dirname(target));
           yield* protectWorkspacePath(target);
@@ -158,7 +161,7 @@ export const makeNativeInsertionAuthority = Effect.gen(function* () {
           yield* writeFileAtomic(fs, {
             targetPath: target,
             content: contents,
-            skipIfUnchanged: "ignore-read-errors",
+            ...(heldEqual ? { skipIfUnchanged: "ignore-read-errors" as const } : {}),
             onPublished: (publication) =>
               recordFilePublication(
                 { path: target, change: existed ? "modified" : "created" },

@@ -10,6 +10,7 @@ import * as Result from "effect/Result";
 import { parse as parseToml } from "smol-toml";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import * as Layer from "effect/Layer";
+import { workObservations } from "../../locations/testing.js";
 import { parseYaml, readYamlEntry } from "../yaml.js";
 import { makeRecordingNativeWriteAuthority, NativeWriteAuthorityPermissive } from "../testing.js";
 import {
@@ -789,4 +790,157 @@ describe("agent MCP config writer", () => {
       }
     }),
   );
+
+  describe("structural insertion evidence", () => {
+    /** Insert one server and count the receipt digests the insertion predicate computed. */
+    const insertCounted = (args: {
+      readonly file: string;
+      readonly format: McpConfigTarget["format"];
+      readonly serversPath: readonly [string, ...string[]];
+      readonly raw: string;
+    }) =>
+      withNode(
+        Effect.gen(function* () {
+          const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-insert-hashes-"));
+          try {
+            const configPath = nodePath.join(workspaceRoot, args.file);
+            writeFileSync(configPath, args.raw);
+            const observations = workObservations(false);
+            const result = yield* writeAgentMcpConfig({
+              workspaceRoot,
+              serverName: "context",
+              serversPath: args.serversPath,
+              target: {
+                scope: "project",
+                path: args.file,
+                format: args.format,
+                attribution: "agent",
+              },
+              entry: { command: "npx", args: ["-y", "@acme/context-mcp"] },
+            }).pipe(observations.provide, Effect.result);
+            return {
+              result,
+              raw: readFileSync(configPath, "utf8"),
+              receiptHashes: observations.facts.filter((fact) => fact.kind === "axm.hash.receipt")
+                .length,
+            };
+          } finally {
+            rmSync(workspaceRoot, { recursive: true, force: true });
+          }
+        }),
+      );
+
+    it.effect("judges MCP insertions structural without receipt digests", () =>
+      Effect.gen(function* () {
+        const nonBlank = yield* insertCounted({
+          file: "agent.json",
+          format: "json",
+          serversPath: ["mcpServers"],
+          raw: '{\n  "mcpServers": {\n    "other": { "command": "other" }\n  }\n}\n',
+        });
+        const blank = yield* insertCounted({
+          file: "blank.json",
+          format: "json",
+          serversPath: ["mcpServers"],
+          raw: "",
+        });
+        const toml = yield* insertCounted({
+          file: "config.toml",
+          format: "toml",
+          serversPath: ["mcp_servers"],
+          raw: 'model = "example"\n',
+        });
+        const yaml = yield* insertCounted({
+          file: "config.yaml",
+          format: "yaml",
+          serversPath: ["mcp_servers"],
+          raw: "# keep\nmodel: example\n",
+        });
+        expect({
+          nonBlank: nonBlank.receiptHashes,
+          blank: blank.receiptHashes,
+          toml: toml.receiptHashes,
+          yaml: yaml.receiptHashes,
+        }).toEqual({ nonBlank: 0, blank: 0, toml: 0, yaml: 0 });
+      }),
+    );
+
+    it.effect("keeps formatted, blank, TOML, YAML, fallback, and update outcomes", () =>
+      Effect.gen(function* () {
+        const outcomes = {
+          nonBlank: yield* insertCounted({
+            file: "agent.json",
+            format: "json",
+            serversPath: ["mcpServers"],
+            raw: '{\n  "mcpServers": {\n    "other": { "command": "other" }\n  }\n}\n',
+          }),
+          blank: yield* insertCounted({
+            file: "blank.json",
+            format: "json",
+            serversPath: ["mcpServers"],
+            raw: "",
+          }),
+          toml: yield* insertCounted({
+            file: "config.toml",
+            format: "toml",
+            serversPath: ["mcp_servers"],
+            raw: 'model = "example"\n',
+          }),
+          yaml: yield* insertCounted({
+            file: "config.yaml",
+            format: "yaml",
+            serversPath: ["mcp_servers"],
+            raw: "# keep\nmodel: example\n",
+          }),
+          // The parsed document has no `context`; the edit addresses the first duplicate.
+          fallback: yield* insertCounted({
+            file: "duplicate.json",
+            format: "json",
+            serversPath: ["mcpServers"],
+            raw: '{"mcpServers": {"context": 1}, "mcpServers": {}}',
+          }),
+          update: yield* insertCounted({
+            file: "update.json",
+            format: "json",
+            serversPath: ["mcpServers"],
+            raw: '{"mcpServers": {"context": {"command": "old"}}}',
+          }),
+        };
+        const tags = Object.fromEntries(
+          Object.entries(outcomes).map(([name, outcome]) => [
+            name,
+            Result.isSuccess(outcome.result)
+              ? outcome.result.success.targets.map((target) => target.nativeLocation?.state)
+              : outcome.result.failure,
+          ]),
+        );
+        expect(tags).toMatchObject({
+          nonBlank: ["created"],
+          blank: ["created"],
+          toml: ["created"],
+          yaml: ["created"],
+          fallback: {
+            _tag: "McpConfigInvalid",
+            detail: expect.stringMatching(
+              /^Cannot insert MCP server context without changing unrelated content at .*duplicate\.json$/u,
+            ),
+          },
+          update: ["updated"],
+        });
+        expect(
+          Object.fromEntries(Object.entries(outcomes).map(([name, { raw }]) => [name, raw])),
+        ).toEqual({
+          nonBlank:
+            '{\n  "mcpServers": {\n    "other": {\n      "command": "other"\n    },\n    "context": {\n      "command": "npx",\n      "args": [\n        "-y",\n        "@acme/context-mcp"\n      ]\n    }\n  }\n}\n',
+          blank:
+            '{\n  "mcpServers": {\n    "context": {\n      "command": "npx",\n      "args": [\n        "-y",\n        "@acme/context-mcp"\n      ]\n    }\n  }\n}\n',
+          toml: 'model = "example"\n[mcp_servers.context]\ncommand = "npx"\nargs = ["-y", "@acme/context-mcp"]\n',
+          yaml: '# keep\nmodel: example\nmcp_servers:\n  context:\n    command: npx\n    args:\n      - -y\n      - "@acme/context-mcp"\n',
+          fallback: '{"mcpServers": {"context": 1}, "mcpServers": {}}',
+          update:
+            '{"mcpServers": {"context": {"command":"npx","args":["-y","@acme/context-mcp"]}}}',
+        });
+      }),
+    );
+  });
 });

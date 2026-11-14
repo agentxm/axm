@@ -37,6 +37,7 @@ export {
   captureContainerIdentity,
   deriveStructuralInverse,
   forgetContainerReceipt,
+  isStructuralInsertion,
   readContainerReceipts,
   recordContainerReceipt,
   updateContainerReceipts,

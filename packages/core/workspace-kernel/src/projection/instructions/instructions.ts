@@ -43,7 +43,7 @@ import {
   captureContainerIdentity,
   combineNativeLocationOutcomes,
   verifyContainerIdentity,
-  deriveStructuralInverse,
+  isStructuralInsertion,
   resolveNativeEntry,
   resolveNativeReadLocation,
   type NativeDirectoryInputs,
@@ -2399,7 +2399,7 @@ const writeGitignoreRegion = (args: {
       const written = () => Option.some<WrittenGitignore>({ path: filePath, raw });
       const publish = (next: string, pattern: string, eligible: boolean) =>
         Effect.gen(function* () {
-          if (eligible && Option.isNone(yield* deriveStructuralInverse(raw, next)))
+          if (eligible && !isStructuralInsertion(raw, next))
             return yield* new InstructionMaintenanceFailed({
               category: "conflict",
               detail: `Instruction ignore insertion cannot preserve the authored container: ${lexical}`,

@@ -36,7 +36,7 @@ import type {
   McpServersPath,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { NativeArtifactChange } from "../agents/coding-agent.js";
-import { deriveStructuralInverse, type NativeLocationOutcome } from "../../locations/index.js";
+import { isStructuralInsertion, type NativeLocationOutcome } from "../../locations/index.js";
 
 export interface WriteAgentMcpConfigArgs {
   readonly workspaceRoot: string;
@@ -155,9 +155,17 @@ const upsertJsonLike = (args: {
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
   readonly format: McpConfigTarget["format"];
-}): Effect.Effect<string, McpConfigInvalid> =>
+}): Effect.Effect<
+  {
+    readonly next: string;
+    /** True only when `next` is the formatted edit already judged structural against `raw`. */
+    readonly structuralChecked: boolean;
+  },
+  McpConfigInvalid
+> =>
   Effect.gen(function* () {
-    const initial = args.raw.trim().length === 0 ? "{}\n" : args.raw;
+    const blank = args.raw.trim().length === 0;
+    const initial = blank ? "{}\n" : args.raw;
     yield* decodeJsonMcpConfig(args.configPath, initial, args.serversPath, args.format);
     const formatted = applyEdits(
       initial,
@@ -165,12 +173,15 @@ const upsertJsonLike = (args: {
         formattingOptions: jsonFormatting(initial),
       }),
     );
-    return Option.isSome(yield* deriveStructuralInverse(initial, formatted))
-      ? formatted
-      : applyEdits(
-          initial,
-          modify(initial, [...args.serversPath, args.serverName], args.entry, {}),
-        );
+    return isStructuralInsertion(initial, formatted)
+      ? { next: formatted, structuralChecked: !blank }
+      : {
+          next: applyEdits(
+            initial,
+            modify(initial, [...args.serversPath, args.serverName], args.entry, {}),
+          ),
+          structuralChecked: false,
+        };
   });
 
 const removeJsonLike = (args: {
@@ -398,12 +409,12 @@ export const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: strin
       serverName: args.serverName,
       entry: args.entry,
     };
-    const next = yield* Effect.gen(function* () {
+    const { next, structuralChecked } = yield* Effect.gen(function* () {
       switch (target.format) {
         case "toml":
-          return yield* upsertToml(renderArgs);
+          return { next: yield* upsertToml(renderArgs), structuralChecked: false };
         case "yaml":
-          return yield* upsertYaml(renderArgs);
+          return { next: yield* upsertYaml(renderArgs), structuralChecked: false };
         case "json":
         case "jsonc":
         case "starlark":
@@ -425,9 +436,11 @@ export const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: strin
       before: raw,
       after: next,
     });
+    // A formatted JSON-like edit of a non-blank document was judged on this exact pair.
     if (
       !Object.hasOwn(values, args.serverName) &&
-      Option.isNone(yield* deriveStructuralInverse(raw, next))
+      !structuralChecked &&
+      !isStructuralInsertion(raw, next)
     ) {
       return yield* new McpConfigInvalid({
         detail: `Cannot insert MCP server ${args.serverName} without changing unrelated content at ${configPath}`,

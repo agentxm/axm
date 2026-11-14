@@ -9,6 +9,7 @@ import * as Tracer from "effect/Tracer";
 import {
   applyStructuralInverse,
   deriveStructuralInverse,
+  isStructuralInsertion,
   readContainerReceipts,
 } from "./container-receipts.js";
 
@@ -44,6 +45,34 @@ it.effect("counts actual receipt digests including rejection using fixed UTF-8 v
       ),
     ).toBe(true);
     expect(JSON.stringify(hashes.map((span) => [...span.attributes]))).not.toContain("owned");
+  }),
+);
+
+it.effect("judges structural insertions without receipt digests", () =>
+  Effect.gen(function* () {
+    const spans: Tracer.NativeSpan[] = [];
+    const tracer = Tracer.make({
+      span(options) {
+        const span = new Tracer.NativeSpan(options);
+        spans.push(span);
+        return span;
+      },
+    });
+    const corpus: ReadonlyArray<readonly [string, string]> = [
+      ['{"foreign":1}', '{"foreign":1,"owned":2}'],
+      ['{"foreign":1,"list":[]}', '{\n  "foreign": 1,\n  "list": ["owned"]\n}\n'],
+      ['{"foreign":1}', '{"foreign":2}'],
+      ['{"foreign":1}', '{"foreign":1}'],
+    ];
+    const verdicts = yield* Effect.sync(() =>
+      corpus.map(([before, after]) => isStructuralInsertion(before, after)),
+    ).pipe(withDetailedWork(tracer));
+    expect(verdicts).toEqual([true, true, false, false]);
+    expect(spans.filter((span) => span.name === "axm.hash.receipt")).toEqual([]);
+    const derived: Array<boolean> = [];
+    for (const [before, after] of corpus)
+      derived.push(Option.isSome(yield* deriveStructuralInverse(before, after)));
+    expect(verdicts).toEqual(derived);
   }),
 );
 

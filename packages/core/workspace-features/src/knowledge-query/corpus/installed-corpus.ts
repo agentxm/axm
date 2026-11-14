@@ -23,6 +23,7 @@ import {
   InstalledKnowledgeUnavailable,
   selectInstalledKnowledgeBundles,
 } from "@agentxm/workspace-kernel/projection";
+import { withWorkspaceReadView } from "@agentxm/workspace-kernel/workspace-state";
 
 import { KnowledgeCorpusUnavailable } from "../errors.js";
 import { captureKnowledgeIndexBundles } from "../knowledge-capture.js";
@@ -53,6 +54,8 @@ export const captureInstalledKnowledgeCorpus = Effect.fnUntraced(function* (opti
   readonly bundle?: string;
 }) {
   const index = yield* KnowledgeIndex;
+  // The desired graph and the accepted resolutions read one document phase;
+  // bundle content is captured after it ends, under its own double read.
   const selected = yield* selectInstalledKnowledgeBundles(
     options?.bundle === undefined ? undefined : { name: options.bundle },
   ).pipe(
@@ -65,6 +68,7 @@ export const captureInstalledKnowledgeCorpus = Effect.fnUntraced(function* (opti
         }),
       ),
     ),
+    withWorkspaceReadView,
   );
   const prepared = yield* Effect.forEach(
     selected,

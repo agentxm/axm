@@ -287,6 +287,9 @@ export const projectPhysicalPath = (
           /^[0-9a-f]{12}(?=\.|$)/u.test(named)
         )
           return "<random>" + named.slice(12);
+        // git init's symlink-support probe creates and removes `.git/tXXXXXX`.
+        if (components[index - 1] === ".git" && /^t[A-Za-z0-9]{6}$/u.test(named))
+          return "t<random>";
         if (components[index - 1] === "objects" && /^[0-9a-f]{2}$/u.test(named)) return "<fanout>";
         if (components[index - 2] === "objects" && /^[0-9a-f]{38}$/u.test(named)) return "<object>";
         return named.replace(/^pack-[0-9a-f]{40}(?:[0-9a-f]{24})?(?=\.|$)/u, "pack-<hash>");

@@ -215,6 +215,12 @@ describe("physical-work reduction", () => {
         "<tmp>/r/.git/objects/pack/pack-<hash>.pack",
       ],
       ["/tmp/r/.git/objects/pack/tmp_idx_dkJbUf", "<tmp>/r/.git/objects/pack/tmp_idx_<random>"],
+      [
+        "/tmp/axm-source-commit-dBVV8A/.git/tQOMsnn",
+        "<tmp>/axm-source-commit-<random>/.git/t<random>",
+      ],
+      [workspace + "/.git/config", "<ws>/.git/config"],
+      [workspace + "/src/tQOMsnn", "<ws>/src/tQOMsnn"],
       ["/proc/self/fd/12", "<proc-fd>"],
       ["/proc/4242/fd/3", "<proc-fd>"],
       ["/proc/4242/fd", "/proc/<pid>/fd"],

@@ -66,7 +66,7 @@ const handleMcpsImport = (args: McpsImportArgs) =>
   );
 
 const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImportArgs) {
-  const discovered = yield* AdoptMcpServers.prepare([args.name]).pipe(
+  const discovered = yield* AdoptMcpServers.discover([args.name]).pipe(
     Effect.mapError(failureToAppError),
   );
   const nonInteractive = !(yield* (yield* Screen).canAsk);

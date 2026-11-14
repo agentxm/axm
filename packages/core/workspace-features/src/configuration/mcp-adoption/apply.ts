@@ -340,6 +340,33 @@ const settingsEntry = (candidate: McpAdoptionCandidate): McpServerEntry => ({
   ...(candidate.auth === undefined ? {} : { auth: candidate.auth }),
 });
 
+/** Plan one candidate's inline entry against every configured reader of its targets. */
+const validateCandidateTargets = (
+  agentIds: ReadonlyArray<string>,
+  location: WorkspaceLocationService,
+  candidate: McpAdoptionCandidate,
+) =>
+  validateInlineMcpServerTargets(agentIds, {
+    nativeDirectoryInputs: location.nativeDirectoryInputs,
+    workspaceRoot: location.baseDir,
+    scope: location.scope,
+    serverName: candidate.name,
+    entry: settingsEntry(candidate),
+    adoptions: candidate.adoptions,
+  }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+
+/**
+ * Check, in candidate order, that every configured reader accepts each
+ * candidate's inline entry, without recomputing the adoption targets.
+ */
+export const validateMcpAdoptionTargets = (candidates: ReadonlyArray<McpAdoptionCandidate>) =>
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const agentIds = yield* (yield* SettingsReader).configuredAgents;
+    for (const candidate of candidates)
+      yield* validateCandidateTargets(agentIds, location, candidate);
+  });
+
 /** Every configured reader is checked before adoption publishes any desired state. */
 export const prepareMcpAdoptionTargets = (candidates: ReadonlyArray<McpAdoptionCandidate>) =>
   Effect.gen(function* () {
@@ -361,15 +388,7 @@ export const prepareMcpAdoptionTargets = (candidates: ReadonlyArray<McpAdoptionC
             detail: "Native MCP source document changed after discovery; discover the batch again",
           });
       }
-      const plan = yield* validateInlineMcpServerTargets(agentIds, {
-        nativeDirectoryInputs: location.nativeDirectoryInputs,
-        workspaceRoot: location.baseDir,
-        scope: location.scope,
-        serverName: candidate.name,
-
-        entry: settingsEntry(candidate),
-        adoptions: candidate.adoptions,
-      }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+      const plan = yield* validateCandidateTargets(agentIds, location, candidate);
       for (const write of plan.writes)
         locations.push({
           scope: location.scope,

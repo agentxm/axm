@@ -54,7 +54,12 @@ import {
 import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
 import { workspaceChangeFailedToStepFailure } from "../errors.js";
-import { applyMcpAdoption, collectMcpNativeSources, prepareMcpAdoptionTargets } from "./apply.js";
+import {
+  applyMcpAdoption,
+  collectMcpNativeSources,
+  prepareMcpAdoptionTargets,
+  validateMcpAdoptionTargets,
+} from "./apply.js";
 import { preflightMcpAdoptions, type McpAdoptionPreflight } from "./preflight.js";
 
 const plural = (count: number, singular: string): string =>
@@ -70,19 +75,10 @@ export interface AdoptMcpServersCandidate {
 }
 
 /**
- * Discover and classify every unmanaged MCP server the configured agents and
- * the workspace itself declare. Nothing is written; the candidate names the
- * servers that can be adopted, the ones that conflict, and the ones skipped.
+ * Read the configured agents' native MCP sources and classify the selected
+ * servers. The caller runs it inside its own workspace read view.
  */
-const prepareAdoptMcpServers = (
-  names: ReadonlyArray<string> = [],
-): Effect.Effect<
-  AdoptMcpServersCandidate,
-  | OperationRefused
-  | WorkspaceStateReadFailure
-  | Effect.Error<ReturnType<typeof collectMcpNativeSources>>,
-  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
-> =>
+const classifyNativeMcpServers = (names: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
@@ -105,7 +101,7 @@ const prepareAdoptMcpServers = (
     const missing = names.filter(
       (name) => !discovery.sources.some((source) => Object.hasOwn(source.servers, name)),
     );
-    const preflight = {
+    const preflight: McpAdoptionPreflight = {
       ...normalized,
       conflicts: [
         ...normalized.conflicts,
@@ -118,15 +114,52 @@ const prepareAdoptMcpServers = (
         })),
       ],
     };
+    return { location, candidates: normalized.candidates, preflight };
+  });
+
+/**
+ * Discover and classify every unmanaged MCP server the configured agents and
+ * the workspace itself declare. Nothing is written; the candidate names the
+ * servers that can be adopted, the ones that conflict, and the ones skipped.
+ */
+const prepareAdoptMcpServers = (
+  names: ReadonlyArray<string> = [],
+): Effect.Effect<
+  AdoptMcpServersCandidate,
+  | OperationRefused
+  | WorkspaceStateReadFailure
+  | Effect.Error<ReturnType<typeof collectMcpNativeSources>>,
+  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const { location, candidates, preflight } = yield* classifyNativeMcpServers(names);
     return {
       _tag: "AdoptMcpServers",
       preflight,
       scope: location.scope,
       nativeLocations:
-        preflight.conflicts.length > 0
-          ? []
-          : yield* prepareMcpAdoptionTargets(normalized.candidates),
+        preflight.conflicts.length > 0 ? [] : yield* prepareMcpAdoptionTargets(candidates),
     } satisfies AdoptMcpServersCandidate;
+  }).pipe(withWorkspaceReadView);
+
+/** @public Inferred types in this package name it in emitted declarations. */
+export interface McpAdoptionDiscovery {
+  readonly _tag: "McpAdoptionDiscovery";
+  /** Every unmanaged server the workspace found among the selected names, classified. */
+  readonly preflight: McpAdoptionPreflight;
+}
+
+/**
+ * Discover and classify the selected unmanaged MCP servers, and check that
+ * every configured reader accepts each one as an inline entry, as adoption
+ * preparation does. The result carries no adoption targets, so it can inform
+ * a conversion but never an adoption.
+ */
+const discoverAdoptMcpServers = (names: ReadonlyArray<string> = []) =>
+  Effect.gen(function* () {
+    const { candidates, preflight } = yield* classifyNativeMcpServers(names);
+    if (preflight.conflicts.length === 0) yield* validateMcpAdoptionTargets(candidates);
+    return { _tag: "McpAdoptionDiscovery", preflight } satisfies McpAdoptionDiscovery;
   }).pipe(withWorkspaceReadView);
 
 const importArtifact = (
@@ -246,5 +279,6 @@ const previewOrApplyAdoptMcpServers = (
 /** The inline MCP adoption use case. */
 export const AdoptMcpServers = {
   prepare: prepareAdoptMcpServers,
+  discover: discoverAdoptMcpServers,
   previewOrApply: previewOrApplyAdoptMcpServers,
 } as const;

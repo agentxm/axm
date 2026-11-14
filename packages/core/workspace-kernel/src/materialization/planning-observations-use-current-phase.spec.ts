@@ -227,9 +227,11 @@ it.effect(
     }).pipe(
       Effect.scoped,
       Effect.provide(
-        Layer.mergeAll(NativeWriteAuthorityPermissive, WorkspaceFileWriteLocksLive).pipe(
-          Layer.provideMerge(NativePlatformTest),
-        ),
+        Layer.mergeAll(
+          NativeWriteAuthorityPermissive,
+          WorkspaceFileWriteLocksLive,
+          RegistryClientFactoryTest(OfflineHttpClient),
+        ).pipe(Layer.provideMerge(NativePlatformTest)),
       ),
     ),
 );

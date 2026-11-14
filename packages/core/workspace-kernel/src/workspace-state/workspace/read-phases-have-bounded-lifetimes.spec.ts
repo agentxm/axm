@@ -1,3 +1,4 @@
+import { RegistryClientFactoryTest, OfflineHttpClient } from "@agentxm/registry-client/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { observationViewLayer, type NativeObservationView } from "../../locations/index.js";
 import * as Option from "effect/Option";
@@ -72,6 +73,7 @@ describe("workspace read phase lifetime", () => {
         },
       });
       const layer = WorkspaceReadViewsLive.pipe(
+        Layer.provide(RegistryClientFactoryTest(OfflineHttpClient)),
         Layer.provideMerge(WorkspaceReadTest({ baseDir: root })),
         Layer.provide(
           Layer.succeed(
@@ -129,6 +131,7 @@ describe("workspace read phase lifetime", () => {
       const target = `${root}/observed.txt`;
       yield* live.writeFileString(target, "before");
       const layer = WorkspaceReadViewsLive.pipe(
+        Layer.provide(RegistryClientFactoryTest(OfflineHttpClient)),
         Layer.provideMerge(WorkspaceReadTest({ baseDir: root })),
         Layer.provide(
           Layer.succeed(
@@ -198,6 +201,7 @@ describe("workspace read phase lifetime", () => {
           },
         });
         const layer = WorkspaceReadViewsLive.pipe(
+          Layer.provide(RegistryClientFactoryTest(OfflineHttpClient)),
           Layer.provideMerge(WorkspaceReadTest({ baseDir: root })),
           Layer.provide(
             Layer.succeed(
@@ -336,6 +340,7 @@ describe("workspace read phase lifetime", () => {
             ),
         });
         const layer = WorkspaceReadViewsLive.pipe(
+          Layer.provide(RegistryClientFactoryTest(OfflineHttpClient)),
           Layer.provideMerge(WorkspaceReadTest({ baseDir: root })),
           Layer.provide(Layer.succeed(WorkspaceDocuments, documents)),
           Layer.provide(
@@ -449,6 +454,7 @@ const phaseFixture = (root: string, overrides: Partial<WorkspaceLocationService>
   Layer.suspend(() =>
     Layer.fresh(
       WorkspaceReadViewsLive.pipe(
+        Layer.provide(RegistryClientFactoryTest(OfflineHttpClient)),
         Layer.provideMerge(
           Layer.effect(
             WorkspaceLocation,

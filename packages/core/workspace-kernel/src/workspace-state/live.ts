@@ -156,7 +156,11 @@ export const layer = (
 ): Layer.Layer<
   WorkspaceStateServices | WorkspaceTransactionScope,
   WorkspaceStateError,
-  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks | NativeEntryRemoval | RegistryClientFactory
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceFileWriteLocks
+  | NativeEntryRemoval
+  | RegistryClientFactory
 > => Layer.provideMerge(Layer.fresh(WorkspaceTransactionScopeLive), WorkspaceStateLive(options));
 
 /**

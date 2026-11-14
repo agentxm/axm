@@ -410,7 +410,10 @@ export const WorkspaceReadViewsLive = Layer.effect(
               Context.add(ExtensionPaths, makeExtensionPaths(location, settings, locks)),
               Context.add(
                 CurrentWorkspaceReadPhaseInvalidation,
-                Effect.andThen(Effect.sync(() => close("mutation")), registry.invalidateReadPhase),
+                Effect.andThen(
+                  Effect.sync(() => close("mutation")),
+                  registry.invalidateReadPhase,
+                ),
               ),
               Context.add(CurrentWorkspaceReadPhase, {
                 location,

@@ -105,7 +105,6 @@ import {
   desiredStateSettled,
   withWorkspaceReadView,
   DesiredStateReader,
-  withWorkspaceReadView,
   WorkspaceRecords,
   acceptedResolutionRef,
   usableAcceptedCanonical,

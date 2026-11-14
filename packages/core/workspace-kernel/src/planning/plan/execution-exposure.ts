@@ -27,6 +27,7 @@ import {
   sourceRefContentKey,
 } from "../../acquisition/index.js";
 import {
+  CurrentOperationUnit,
   StepFailure,
   type ExecutionChange,
   type Plan,
@@ -106,11 +107,27 @@ export const executionExposureRisks = Effect.fn("executionExposureRisks")(functi
   const location = yield* WorkspaceLocation;
   const lock = yield* LockfileReader;
   const path = yield* Path.Path;
+  // A review fetch can publish download progress only under an operation unit.
+  const outsideOperationUnit = Option.isNone(yield* Effect.serviceOption(CurrentOperationUnit));
   for (const step of plan.jobs.flatMap((job) => job.steps)) {
     if (step.readiness === "error") continue;
+    const reviewedRefs = new Set<string>();
     for (const ref of step.exposureRefs ?? []) {
       if (ref.refType === "workspace" || (ref.type !== "hook" && ref.type !== "mcp-server"))
         continue;
+      const refKey = configurationJson(ref);
+      // Within a step, an equal exact Registry ref yields the same change. Its repeated
+      // review is skipped only when that fetch could neither log a lifecycle warning
+      // (the Registry returns an exact ref's own warnings) nor publish progress.
+      if (
+        reviewedRefs.has(refKey) &&
+        ref.refType === "registry" &&
+        Option.isSome(ref.integrity) &&
+        (ref.lifecycleWarnings ?? []).length === 0 &&
+        outsideOperationUnit
+      )
+        continue;
+      reviewedRefs.add(refKey);
       const name = ref.type === "hook" ? ref.hook.name : ref.server.name;
       const outcomes = (step.agentOutcomes ?? step.artifact?.agentOutcomes)?.filter(
         (outcome) => outcome.name === name && outcome.extensionType === ref.type,

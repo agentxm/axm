@@ -26,6 +26,7 @@ import {
 import { CurrentWorkObserver } from "@agentxm/host-primitives/work-observation";
 import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
+import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -632,6 +633,13 @@ export interface ResolveExecutionCandidateOptions<Requirements, Output> {
   readonly additionalFreshness?: (
     candidate: ExecutionCandidate<Requirements, Output>,
   ) => Effect.Effect<boolean, never, Requirements>;
+  /**
+   * The resolved material paths that `additionalFreshness` re-fingerprints.
+   * When present together with `additionalFreshness`, each candidate check and
+   * its additional check share one fresh observation of exactly these paths.
+   * Ignored without `additionalFreshness`.
+   */
+  readonly additionalFreshnessMaterialPaths?: ReadonlyArray<string>;
   /** A typed pre-apply gate that runs under the transition before revalidation. */
   readonly beforeApply?: (
     candidate: ExecutionCandidate<Requirements, Output>,
@@ -1049,31 +1057,52 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
       : undefined;
   const startedUnits = yield* Ref.make(0);
   const resolvedUnits = yield* Ref.make(0);
+  const additionalFreshness = options?.additionalFreshness;
+  const sharedFreshnessPaths = options?.additionalFreshnessMaterialPaths;
+  const unsharedFreshness = Effect.gen(function* () {
+    if (!(yield* isExecutionCandidateFresh(candidate))) {
+      return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+    }
+    if (additionalFreshness !== undefined && !(yield* additionalFreshness(candidate))) {
+      return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+    }
+  });
+  // The candidate check and the additional check observe their overlapping
+  // documents once, inside one fresh observation that ends before any gate or
+  // write; every other candidate material is read through the port the check
+  // uses without sharing.
+  const candidateFreshness =
+    additionalFreshness === undefined || sharedFreshnessPaths === undefined
+      ? unsharedFreshness
+      : Effect.gen(function* () {
+          const unshared = yield* FileSystem.FileSystem;
+          const sharedFreshness = Effect.gen(function* () {
+            const sharedPaths = new Set(sharedFreshnessPaths);
+            if (!(yield* isExecutionCandidateFresh(candidate, { sharedPaths, unshared }))) {
+              return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+            }
+            if (!(yield* additionalFreshness(candidate))) {
+              return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+            }
+          });
+          // Only capturing the observation can fail here; without one, the
+          // checks run unshared exactly as they would without the paths.
+          const shared = yield* withFreshWorkspaceObservationReadView(
+            Effect.result(sharedFreshness),
+          ).pipe(Effect.option);
+          return Option.isSome(shared)
+            ? yield* Effect.fromResult(shared.value)
+            : yield* unsharedFreshness;
+        });
   const applyFreshCandidate = Effect.gen(function* () {
     yield* withPhaseSpan(
       "validation",
       Effect.gen(function* () {
         yield* enterPhase("validation");
-        if (!(yield* isExecutionCandidateFresh(candidate))) {
-          return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-        }
-        if (
-          options?.additionalFreshness !== undefined &&
-          !(yield* options.additionalFreshness(candidate))
-        ) {
-          return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-        }
+        yield* candidateFreshness;
         if (options?.beforeApply !== undefined) {
           yield* options.beforeApply(candidate);
-          if (!(yield* isExecutionCandidateFresh(candidate))) {
-            return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-          }
-          if (
-            options.additionalFreshness !== undefined &&
-            !(yield* options.additionalFreshness(candidate))
-          ) {
-            return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
-          }
+          yield* candidateFreshness;
         }
       }),
     );

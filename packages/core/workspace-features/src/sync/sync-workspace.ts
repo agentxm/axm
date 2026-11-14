@@ -175,17 +175,26 @@ const inventoriesStillCurrent = (observed: CollectedMaterializeSteps["inventoryO
     return true;
   }).pipe(Effect.catch(() => Effect.succeed(false)));
 
-const observationsStillCurrent = (observation: {
-  readonly preflightMaterial: ExecutionCandidate<unknown, unknown>;
-  readonly graph: DesiredStateGraph;
-  readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
-  readonly projectionSubjects?: ReadonlyArray<{
-    readonly type: ExtensionType;
-    readonly name: string;
-  }>;
-  readonly inventories: CollectedMaterializeSteps["inventoryObservations"];
-}) =>
-  withFreshWorkspaceObservationReadView(
+/**
+ * Whether the observations a sync plan rests on are still current. Preparing
+ * always observes afresh; validating under the transition joins the fresh
+ * validation observation the candidate check opened, so documents both checks
+ * fingerprint are read once.
+ */
+const observationsStillCurrent = (
+  observation: {
+    readonly preflightMaterial: ExecutionCandidate<unknown, unknown>;
+    readonly graph: DesiredStateGraph;
+    readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
+    readonly projectionSubjects?: ReadonlyArray<{
+      readonly type: ExtensionType;
+      readonly name: string;
+    }>;
+    readonly inventories: CollectedMaterializeSteps["inventoryObservations"];
+  },
+  mode: "prepare" | "validate",
+) =>
+  (mode === "prepare" ? withFreshWorkspaceObservationReadView : withWorkspaceObservationReadView)(
     withMcpInspectionReadView(
       Effect.gen(function* () {
         if (!(yield* isExecutionCandidateFresh(observation.preflightMaterial))) return false;
@@ -539,13 +548,16 @@ const prepareSyncWorkspace = (
       Option.toArray(retirementStep).length;
     const lockfileNeedsRecovery = (yield* liveLockfile.state) !== "ok";
     if (
-      !(yield* observationsStillCurrent({
-        preflightMaterial,
-        graph,
-        projectionFacts,
-        ...(projectionSubjects === undefined ? {} : { projectionSubjects }),
-        inventories: collected.inventoryObservations,
-      }))
+      !(yield* observationsStillCurrent(
+        {
+          preflightMaterial,
+          graph,
+          projectionFacts,
+          ...(projectionSubjects === undefined ? {} : { projectionSubjects }),
+          inventories: collected.inventoryObservations,
+        },
+        "prepare",
+      ))
     ) {
       return yield* syncRefused({
         category: "conflict",
@@ -625,15 +637,19 @@ const previewOrApplySyncWorkspace = (
 > =>
   resolveExecutionCandidate(candidate.execution, execution, {
     additionalFreshness: () =>
-      observationsStillCurrent({
-        preflightMaterial: candidate.preflightMaterial,
-        graph: candidate.observedGraph,
-        projectionFacts: candidate.projectionFacts,
-        ...(candidate.projectionSubjects === undefined
-          ? {}
-          : { projectionSubjects: candidate.projectionSubjects }),
-        inventories: candidate.inventoryObservations,
-      }),
+      observationsStillCurrent(
+        {
+          preflightMaterial: candidate.preflightMaterial,
+          graph: candidate.observedGraph,
+          projectionFacts: candidate.projectionFacts,
+          ...(candidate.projectionSubjects === undefined
+            ? {}
+            : { projectionSubjects: candidate.projectionSubjects }),
+          inventories: candidate.inventoryObservations,
+        },
+        "validate",
+      ),
+    additionalFreshnessMaterialPaths: candidate.preflightMaterial.materialPaths,
   }).pipe(Effect.withSpan("SyncWorkspace.previewOrApply"));
 
 /** The workspace-reconciliation use case. */

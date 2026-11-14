@@ -1,4 +1,6 @@
-import { NativePlatformTest } from "../locations/testing.js";
+import { CanonicalNativePathLive } from "../locations/live.js";
+import { NativePlatformTest, workObservations } from "../locations/testing.js";
+import { makeRecordingFileSystem } from "@agentxm/test-support";
 import { describe, expect, it } from "@effect/vitest";
 import * as Clock from "effect/Clock";
 import * as Deferred from "effect/Deferred";
@@ -6,6 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Scope from "effect/Scope";
@@ -208,5 +211,37 @@ describe("physical boundary admission timing", () => {
       yield* Fiber.join(timer);
       expect(yield* Ref.get(applicationTimerRan)).toBe(true);
     }).pipe(Effect.scoped, Effect.provide(NativePlatformTest)),
+  );
+
+  it.effect("proves the existing admission scratch directory once per claim", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const temporary = yield* fs.makeTempDirectoryScoped();
+      const root = yield* fs.realPath(temporary);
+      const namespace = path.join(root, "runtime");
+      const scratch = path.join(namespace, "admission", "tmp");
+      const { fileSystem, recording } = makeRecordingFileSystem(fs);
+      const claims = yield* makeBoundaryClaims(path.join(root, "owner"), namespace).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+      );
+      for (const target of ["first", "second"]) {
+        const observations = workObservations(false);
+        recording.reset();
+        yield* claims.claim([path.join(root, "owner", target)]).pipe(observations.provide);
+        expect({
+          scratch: recording.counts(scratch),
+          canonicalPaths: observations.facts.filter(
+            (fact) => fact.kind === "axm.native.canonical-path",
+          ).length,
+        }).toEqual({
+          scratch: { access: 1, realPath: 1, stat: 2, readLink: 1 },
+          canonicalPaths: 3,
+        });
+      }
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NativePlatformTest, CanonicalNativePathLive)),
+    ),
   );
 });

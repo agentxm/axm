@@ -2,6 +2,7 @@ import { NativeEntryRemoval } from "../locations/index.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 
 import {
   assertNativeMutationWithin,
@@ -40,6 +41,20 @@ export const createWorkspaceDirectories = Effect.fnUntraced(
       ancestor = parent;
     }
     const ownerRoot = path.dirname(args.workspaceDir);
+    const rooted = {
+      nativeRoot: args.nativeRoot,
+      ownerRoot,
+      identityOwnerRoot: args.identityOwnerRoot ?? ownerRoot,
+      target: args.target,
+    };
+    if (missing.length === 0) {
+      // Nothing is created, so a self-rooted anchor and its re-verification
+      // bracket no mutation. A rooted capture of a directory observes everything
+      // they would; any other outcome takes the full sequence for its result.
+      const existing = yield* captureContainerIdentity(rooted).pipe(Effect.result);
+      if (Result.isSuccess(existing) && (existing.success.entry.mode & 0o170000) === 0o040000)
+        return createdIdentities;
+    }
     const proof = { nativeRoot: ancestor, ownerRoot: ancestor, target: ancestor };
     const anchor = yield* captureContainerIdentity(proof);
     for (const directory of missing.reverse()) {
@@ -78,12 +93,7 @@ export const createWorkspaceDirectories = Effect.fnUntraced(
         step: "create",
         cause: "runtime-parent-changed",
       });
-    yield* captureContainerIdentity({
-      nativeRoot: args.nativeRoot,
-      ownerRoot,
-      identityOwnerRoot: args.identityOwnerRoot ?? ownerRoot,
-      target: args.target,
-    });
+    yield* captureContainerIdentity(rooted);
     return createdIdentities;
   },
   (effect, args) =>

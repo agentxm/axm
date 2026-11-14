@@ -21,7 +21,10 @@ import {
   InstalledKnowledgeUnavailable,
   selectInstalledKnowledgeBundles,
 } from "@agentxm/workspace-kernel/projection";
-import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  WorkspaceLocation,
+  withWorkspaceReadView,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import type { KnowledgeLintQueryResult } from "../documents.js";
 import { KnowledgeCorpusUnavailable, KnowledgeRequestInvalid } from "../errors.js";
@@ -63,6 +66,8 @@ const inspectAuthored = Effect.fnUntraced(function* (packagePath: string) {
 });
 
 const inspectInstalled = Effect.fnUntraced(function* (bundle?: string) {
+  // The desired graph and the accepted resolutions read one document phase;
+  // bundle content is inspected after it ends.
   const selected = yield* selectInstalledKnowledgeBundles(
     bundle === undefined ? undefined : { name: bundle },
   ).pipe(
@@ -75,6 +80,7 @@ const inspectInstalled = Effect.fnUntraced(function* (bundle?: string) {
         }),
       ),
     ),
+    withWorkspaceReadView,
   );
   return yield* Effect.forEach(
     selected,

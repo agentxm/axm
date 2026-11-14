@@ -84,6 +84,11 @@ executing owner remain available; an individual primitive interval is not
 claimed. Extraction intervals still have spans. Selected detail certifies the
 declared retained span set, not a full history of every internal action.
 
+Native Hook settings renders are `axm.render.native` work in the `render`
+category: one occurrence per rendered Hook settings document, with its
+`axm.format` and an `axm.work.count` equal to the structured edits applied in
+that render. A render that leaves the document unchanged counts zero edits.
+
 For an installed executable, choose a fresh receipt path:
 
 ```bash

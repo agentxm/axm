@@ -41,6 +41,59 @@ const copyTomlValue = (value: unknown): unknown =>
         ? copyTomlDocument(value)
         : value;
 
+/**
+ * An unshared JSON, JSONC or TOML parse as each consumer would receive it: own
+ * enumerable keys stay own keys (TOML's `__proto__` included), null-prototype
+ * TOML records keep a null prototype, and a JSONC `__proto__` member that set a
+ * prototype is copied as that prototype. YAML never uses this copier: its tagged
+ * values (dates, sets, maps, binary) and alias sharing are kept by structuredClone.
+ */
+const copyFaithfulValue = (value: unknown): unknown =>
+  value instanceof TomlDate
+    ? new TomlDate(value.toISOString())
+    : Array.isArray(value)
+      ? value.map(copyFaithfulValue)
+      : Predicate.isObject(value)
+        ? copyFaithfulRecord(value)
+        : value;
+const copyFaithfulRecord = (record: { readonly [key: PropertyKey]: unknown }) => {
+  const copy: Record<string, unknown> = {};
+  const prototype: unknown = Object.getPrototypeOf(record);
+  if (prototype !== Object.prototype)
+    Object.setPrototypeOf(
+      copy,
+      Array.isArray(prototype)
+        ? prototype.map(copyFaithfulValue)
+        : Predicate.isObject(prototype)
+          ? copyFaithfulRecord(prototype)
+          : null,
+    );
+  for (const key of Object.keys(record))
+    Object.defineProperty(copy, key, {
+      value: copyFaithfulValue(record[key]),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  return copy;
+};
+
+/** How a view copies a shared syntax result for each consumer. */
+type NativeConfigCopyMode = "structured" | "faithful";
+
+const copyDocument = (
+  mode: NativeConfigCopyMode,
+  format: McpConfigTarget["format"],
+  root: NativeDocument,
+): NativeDocument =>
+  format === "yaml"
+    ? structuredClone(root)
+    : mode === "faithful"
+      ? copyFaithfulRecord(root)
+      : format === "toml"
+        ? copyTomlDocument(root)
+        : structuredClone(root);
+
 const parseDocument = (
   format: McpConfigTarget["format"],
   raw: string,
@@ -63,41 +116,77 @@ const parseDocument = (
 
 class NativeConfigReadView extends Context.Service<
   NativeConfigReadView,
-  { readonly parse: typeof parseDocument }
+  {
+    readonly parse: typeof parseDocument;
+    readonly mode: NativeConfigCopyMode;
+    readonly isActive: () => boolean;
+  }
 >()("@agentxm/workspace-kernel/agent-adapters/NativeConfigReadView") {}
+
+const openNativeConfigReadView =
+  (mode: NativeConfigCopyMode) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    Effect.gen(function* () {
+      const cells = new Map<
+        McpConfigTarget["format"],
+        Map<string, ReturnType<typeof parseDocument>>
+      >();
+      let active = true;
+      const parse: typeof parseDocument = (format, raw) =>
+        Effect.gen(function* () {
+          if (!active) return yield* parseDocument(format, raw);
+          const documents =
+            cells.get(format) ?? new Map<string, ReturnType<typeof parseDocument>>();
+          cells.set(format, documents);
+          const previous = documents.get(raw);
+          if (previous !== undefined) return yield* previous;
+          const created = yield* Effect.cached(parseDocument(format, raw));
+          const selected = documents.get(raw) ?? created;
+          documents.set(raw, selected);
+          return yield* selected;
+        });
+      return yield* effect.pipe(
+        Effect.provideService(NativeConfigReadView, { parse, mode, isActive: () => active }),
+        Effect.ensuring(
+          Effect.sync(() => {
+            active = false;
+            cells.clear();
+          }),
+        ),
+      );
+    });
+
+const activeNativeConfigReadView = Effect.map(
+  Effect.serviceOption(NativeConfigReadView),
+  Option.filter((view) => view.isActive()),
+);
 
 /** Exact syntax results belong to one observation or one locked publication. */
 export const withNativeConfigReadView = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> => openNativeConfigReadView("structured")(effect);
+
+/**
+ * One observation: join the enclosing active view, with its results and copies,
+ * or share exact results privately with copies equal to unshared parses.
+ */
+export const withNativeConfigObservationView = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
 ): Effect.Effect<A, E, R> =>
-  Effect.gen(function* () {
-    const cells = new Map<
-      McpConfigTarget["format"],
-      Map<string, ReturnType<typeof parseDocument>>
-    >();
-    let active = true;
-    const parse: typeof parseDocument = (format, raw) =>
-      Effect.gen(function* () {
-        if (!active) return yield* parseDocument(format, raw);
-        const documents = cells.get(format) ?? new Map<string, ReturnType<typeof parseDocument>>();
-        cells.set(format, documents);
-        const previous = documents.get(raw);
-        if (previous !== undefined) return yield* previous;
-        const created = yield* Effect.cached(parseDocument(format, raw));
-        const selected = documents.get(raw) ?? created;
-        documents.set(raw, selected);
-        return yield* selected;
-      });
-    return yield* effect.pipe(
-      Effect.provideService(NativeConfigReadView, { parse }),
-      Effect.ensuring(
-        Effect.sync(() => {
-          active = false;
-          cells.clear();
-        }),
-      ),
-    );
-  });
+  Effect.flatMap(activeNativeConfigReadView, (view) =>
+    Option.isSome(view) ? effect : openNativeConfigReadView("faithful")(effect),
+  );
+
+/**
+ * One locked publication: never reuses another run's results, and gives each
+ * consumer the copies it receives today inside or outside an enclosing view.
+ */
+export const withNativeConfigPublicationView = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, R> =>
+  Effect.flatMap(activeNativeConfigReadView, (view) =>
+    openNativeConfigReadView(Option.isSome(view) ? view.value.mode : "faithful")(effect),
+  );
 
 /** Parse the exact grammar; sharing never substitutes a weaker reader or its error vocabulary. */
 export const parseNativeConfigRoot = <E>(args: {
@@ -111,9 +200,7 @@ export const parseNativeConfigRoot = <E>(args: {
       return yield* parseDocument(args.format, args.raw).pipe(Effect.mapError(args.onFailure));
     return yield* view.value.parse(args.format, args.raw).pipe(
       // Shared syntax remains private; readers keep independently owned values.
-      Effect.map((root) =>
-        args.format === "toml" ? copyTomlDocument(root) : structuredClone(root),
-      ),
+      Effect.map((root) => copyDocument(view.value.mode, args.format, root)),
       Effect.mapError(args.onFailure),
     );
   });

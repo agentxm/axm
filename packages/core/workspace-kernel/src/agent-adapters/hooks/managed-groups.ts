@@ -7,6 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { annotateWork, withWork } from "@agentxm/host-primitives/work-observation";
 import * as Effect from "effect/Effect";
 import * as Predicate from "effect/Predicate";
 import { parse as parseShell } from "shell-quote";
@@ -265,11 +266,42 @@ export const updateHooksJson = (
   format: "json" | "jsonc" = "jsonc",
   configVersion?: 1,
 ): Effect.Effect<string, HookConfigInvalid> =>
+  Effect.suspend(() => {
+    // One native document render, counted by the structured edits it applies.
+    let applications = 0;
+    return renderHooksJson(
+      configPath,
+      settingsKey,
+      raw,
+      renderedHooks,
+      declarations,
+      format,
+      configVersion,
+      () => {
+        applications++;
+      },
+    ).pipe(
+      Effect.ensuring(Effect.suspend(() => annotateWork({ "axm.work.count": applications }))),
+      (effect) => withWork("axm.render.native", effect, { attributes: { "axm.format": format } }),
+    );
+  });
+
+const renderHooksJson = (
+  configPath: string,
+  settingsKey: string,
+  raw: string,
+  renderedHooks: Record<string, unknown>,
+  declarations: ReadonlyArray<HookNativeDeclaration>,
+  format: "json" | "jsonc",
+  configVersion: 1 | undefined,
+  onEdit: () => void,
+): Effect.Effect<string, HookConfigInvalid> =>
   Effect.gen(function* () {
     let next = raw.trim().length === 0 ? "{}\n" : raw;
     const parsed = yield* parseJsonConfig(configPath, next, format);
     yield* validateHooksShape(configPath, settingsKey, parsed);
     const edit = (keys: ReadonlyArray<string | number>, value: unknown, insertion = false) => {
+      onEdit();
       next = applyEdits(
         next,
         modify(next, [...keys], value, {

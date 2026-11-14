@@ -186,6 +186,10 @@ checks pass. Logs: `/tmp/observability-prepared-receipt-tests.log`,
 `/tmp/observability-knowledge-typecheck2.log`. Earlier failed checks remain
 recorded; the last correction was a test-only union-inference fix.
 
+Hook cases now also record `axm.render.native` facts, one per native Hook
+settings render. Ledgers captured before that kind existed lack these facts;
+the added facts are an intended ledger difference, not new work.
+
 The shared receipt-capture correction at `a1496bf0a` passed six focused
 controls and repository type/lint checks
 (`/tmp/observability-receipt-capture-tests.log`,

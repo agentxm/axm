@@ -15,7 +15,11 @@ import {
 import { HookConfigInvalid, HookIoFailed } from "../errors.js";
 import { NativeWriteAuthority } from "../native-write-authority.js";
 import { preflightNativeConfigReaders } from "../native-config-readers.js";
-import { parseNativeConfigRoot } from "../native-config-syntax.js";
+import {
+  parseNativeConfigRoot,
+  withNativeConfigObservationView,
+  withNativeConfigPublicationView,
+} from "../native-config-syntax.js";
 import {
   isDeclaredHookEntry,
   readDeclaredHookUnits,
@@ -156,7 +160,8 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         (owner) => Object.keys(hooksForOwner(args.rendered, owner)).length > 0,
       );
       const observedNames: string[] = [];
-      for (const owner of expected) {
+      // Only an observation reports which owners are already current; apply callers keep its location.
+      for (const owner of args.dryRun === true ? expected : []) {
         if (
           observed.some((unit) => unit.name === owner.name) &&
           (yield* updateHooksJson(
@@ -249,5 +254,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         } satisfies NativeLocationOutcome,
       };
     });
-    return yield* args.dryRun === true ? run : authority.withExclusiveWrite(physical, run);
+    return yield* args.dryRun === true
+      ? withNativeConfigObservationView(run)
+      : authority.withExclusiveWrite(physical, withNativeConfigPublicationView(run));
   });

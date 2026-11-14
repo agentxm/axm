@@ -62,11 +62,12 @@ export const isContainer = Effect.gen(function* () {
   return containerExists;
 });
 
-/** Returns true if /proc/version contains "microsoft". Requires FileSystem. */
-export const isWSL = Effect.gen(function* () {
+/**
+ * Returns true if /proc/version contains "microsoft". An absent or unreadable
+ * file reads as empty, so it is not WSL. Requires FileSystem.
+ */
+const isWSL = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const exists = yield* fs.exists("/proc/version").pipe(Effect.catch(() => Effect.succeed(false)));
-  if (!exists) return false;
   const content = yield* fs
     .readFileString("/proc/version")
     .pipe(Effect.catch(() => Effect.succeed("")));

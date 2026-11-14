@@ -33,13 +33,7 @@ import {
 } from "@agentxm/host-primitives";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { AuthTokenPolicyRequired, RegistryAccessFailed } from "../authentication/errors.js";
-import {
-  isContainer,
-  isContinuousIntegration,
-  isRoot,
-  isSSH,
-  isWSL,
-} from "../adapters/environment.js";
+import { isContainer, isContinuousIntegration, isRoot, isSSH } from "../adapters/environment.js";
 import type {
   CredentialEntry,
   CredentialFile,
@@ -143,6 +137,19 @@ const credentialOutcome = <A, E>(operation: CredentialOperation, exit: Exit.Exit
     : "failure";
 };
 
+const credentialBackendSpan = (
+  backend: "keychain" | "restricted-file",
+  operation: CredentialOperation,
+) =>
+  Effect.withSpan("axm.auth.credential-backend", {
+    attributes: {
+      "axm.credential.backend": backend,
+      "axm.credential.operation": operation,
+      "axm.work.requested": 1,
+      "axm.work.executed": 1,
+    },
+  });
+
 /** Counts backend operations; underlying file primitives remain a separate unit of work. */
 const observeCredentialBackend =
   (backend: "keychain" | "restricted-file", operation: CredentialOperation) =>
@@ -151,14 +158,7 @@ const observeCredentialBackend =
       Effect.onExit((exit) =>
         Effect.annotateCurrentSpan("axm.credential.outcome", credentialOutcome(operation, exit)),
       ),
-      Effect.withSpan("axm.auth.credential-backend", {
-        attributes: {
-          "axm.credential.backend": backend,
-          "axm.credential.operation": operation,
-          "axm.work.requested": 1,
-          "axm.work.executed": 1,
-        },
-      }),
+      credentialBackendSpan(backend, operation),
     );
 
 const observeCredentialFallback =
@@ -375,11 +375,52 @@ const withRefreshFileLock = <A, E, R>(
     );
   });
 
-const readCredentialFile = (
+/**
+ * What one read of the restricted credential file observed: its raw text,
+ * absence included, and whether the same read found its permissions too open.
+ *
+ * Only immutable facts are kept, never a decoded file, so every consumer that
+ * is served a snapshot decodes a value of its own.
+ */
+interface CredentialSnapshot {
+  readonly content: Option.Option<string>;
+  readonly permissive: boolean;
+}
+
+interface CredentialFileRead {
+  readonly snapshot: CredentialSnapshot;
+  /** The reading consumer's own decoded file. */
+  readonly file: Option.Option<CredentialFile>;
+}
+
+const permissiveCredentialFileWarning = () =>
+  Effect.logWarning("Credential file has overly permissive permissions.");
+
+const decodeStoredCredentialContent = (
+  content: string,
+): Effect.Effect<CredentialFile, RegistryAccessFailed> =>
+  decodeCredentialFileFromJsonString(content).pipe(
+    Effect.mapError(
+      () =>
+        new RegistryAccessFailed({
+          category: "auth",
+          detail: "Failed to parse credential file",
+          suggestions: [
+            {
+              description: "Repair or restore a valid credential file before trying again.",
+            },
+          ],
+          // Schema errors carry the decoded input, which includes tokens.
+          cause: { _tag: "CredentialFileDecodeError" },
+        }),
+    ),
+  );
+
+const readCredentialSnapshot = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   homeDir: string,
-): Effect.Effect<Option.Option<CredentialFile>, RegistryAccessFailed> =>
+): Effect.Effect<CredentialFileRead, RegistryAccessFailed> =>
   Effect.gen(function* () {
     const filePath = getCredentialsPath(path, homeDir);
     const content = yield* readFileStringIfPresent(fs, filePath).pipe(
@@ -392,29 +433,31 @@ const readCredentialFile = (
           }),
       ),
     );
-    if (Option.isNone(content)) return Option.none<CredentialFile>();
-    const overly = yield* checkFilePermissions(fs, filePath);
-    if (overly) {
-      yield* Effect.logWarning("Credential file has overly permissive permissions.");
+    if (Option.isNone(content)) {
+      return { snapshot: { content, permissive: false }, file: Option.none<CredentialFile>() };
     }
+    const permissive = yield* checkFilePermissions(fs, filePath);
+    if (permissive) {
+      yield* permissiveCredentialFileWarning();
+    }
+    const file = yield* decodeStoredCredentialContent(content.value);
+    return { snapshot: { content, permissive }, file: Option.some(file) };
+  });
 
-    return yield* decodeCredentialFileFromJsonString(content.value).pipe(
-      Effect.map((file) => Option.some(file)),
-      Effect.mapError(
-        () =>
-          new RegistryAccessFailed({
-            category: "auth",
-            detail: "Failed to parse credential file",
-            suggestions: [
-              {
-                description: "Repair or restore a valid credential file before trying again.",
-              },
-            ],
-            // Schema errors carry the decoded input, which includes tokens.
-            cause: { _tag: "CredentialFileDecodeError" },
-          }),
-      ),
-    );
+/**
+ * Hand a later consumer of the same locked section what an earlier read saw,
+ * as if it had read the file itself: the permission warning is repeated where
+ * its read used to be, and the file is decoded afresh for this consumer.
+ */
+const serveCredentialSnapshot = (
+  snapshot: CredentialSnapshot,
+): Effect.Effect<Option.Option<CredentialFile>, RegistryAccessFailed> =>
+  Effect.gen(function* () {
+    if (Option.isNone(snapshot.content)) return Option.none<CredentialFile>();
+    if (snapshot.permissive) {
+      yield* permissiveCredentialFileWarning();
+    }
+    return Option.some(yield* decodeStoredCredentialContent(snapshot.content.value));
   });
 
 const deleteCredentialFile = (fs: FileSystem.FileSystem, path: Path.Path, homeDir: string) =>
@@ -562,7 +605,6 @@ const deleteKeychainCredentialFile = (
 export interface EnvironmentInfo {
   readonly isSSH: boolean;
   readonly isContainer: boolean;
-  readonly isWSL: boolean;
   readonly isCI: boolean;
   readonly isRoot: boolean;
   readonly isGenericBunExecutable: boolean;
@@ -577,7 +619,6 @@ const detectEnvironment = Effect.gen(function* () {
   return {
     isSSH: yield* isSSH,
     isContainer: yield* isContainer,
-    isWSL: yield* isWSL,
     isCI: yield* isContinuousIntegration,
     isRoot: isRoot(),
     isGenericBunExecutable: isGenericBunExecutable(),
@@ -626,19 +667,34 @@ export const CredentialStoreLive = Layer.effect(
     const storageTier = selectTier(env);
     const persistedCredentialsAllowed = canUsePersistedCredentials(env);
     // Callers own one lock around the complete operation, including its read.
-    const readStoredFile = () =>
-      readCredentialFile(fs, path, homeDir).pipe(
-        observeCredentialBackend("restricted-file", "read"),
+    const readStoredSnapshot = () =>
+      readCredentialSnapshot(fs, path, homeDir).pipe(
+        Effect.onExit((exit) =>
+          Effect.annotateCurrentSpan(
+            "axm.credential.outcome",
+            credentialOutcome(
+              "read",
+              Exit.map(exit, (read) => read.file),
+            ),
+          ),
+        ),
+        credentialBackendSpan("restricted-file", "read"),
       );
+    const readStoredFile = () => readStoredSnapshot().pipe(Effect.map((read) => read.file));
+    // A snapshot stands in for a fresh read only while nothing but computation
+    // or logging has run since it was taken in the same locked section: never
+    // across a keychain call or a keychain module load.
+    const readOrServeStoredFile = (snapshot?: CredentialSnapshot) =>
+      snapshot === undefined ? readStoredFile() : serveCredentialSnapshot(snapshot);
     const writeStoredFile = (data: CredentialFile) =>
       writeCredentialFile(fs, path, homeDir, data).pipe(
         observeCredentialBackend("restricted-file", "write"),
       );
     const locked = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       withCredentialFileLock(fs, path, homeDir, effect);
-    const removeStoredRegistry = (registryUrl: string) =>
+    const removeStoredRegistry = (registryUrl: string, snapshot?: CredentialSnapshot) =>
       Effect.gen(function* () {
-        const existing = yield* readStoredFile();
+        const existing = yield* readOrServeStoredFile(snapshot);
         if (Option.isNone(existing) || existing.value.registries[registryUrl] === undefined) return;
         const { [registryUrl]: _, ...registries } = existing.value.registries;
         if (Object.keys(registries).length === 0) {
@@ -681,11 +737,12 @@ export const CredentialStoreLive = Layer.effect(
     // repeated it above the command's own title, whatever the command was. It
     // is worth stating when the fallback first changes where credentials live
     // — the restricted file did not exist before this write — and is a debug
-    // fact on every write after that.
+    // fact on every write after that. The read follows the failed keychain
+    // attempt, so its snapshot is also the base the fallback write merges into.
     const noteKeychainFallback = (reason: KeyringUnavailable["reason"]) =>
-      readStoredFile().pipe(
-        Effect.flatMap((existing) =>
-          Option.isSome(existing)
+      readStoredSnapshot().pipe(
+        Effect.tap(({ file }) =>
+          Option.isSome(file)
             ? Effect.logDebug(
                 `OS keychain unavailable (${reason}); using restricted credential file.`,
               )
@@ -693,16 +750,24 @@ export const CredentialStoreLive = Layer.effect(
                 `OS keychain unavailable (${reason}); using restricted credential file.`,
               ),
         ),
+        Effect.map(({ snapshot }) => snapshot),
       );
-    const saveCredentialFile = (registryUrl: string, accounts: RegistryAccounts) => {
-      const writeFallback = Effect.gen(function* () {
-        const existing = yield* readStoredFile();
-        const file = Option.getOrElse(existing, () => emptyCredentialFile);
-        yield* writeStoredFile({
-          ...file,
-          registries: { ...file.registries, [registryUrl]: accounts },
+    // `restrictedSnapshot` is the restricted tier's own read of this section;
+    // the keychain tier never carries one into its keychain write.
+    const saveCredentialFile = (
+      registryUrl: string,
+      accounts: RegistryAccounts,
+      restrictedSnapshot?: CredentialSnapshot,
+    ) => {
+      const writeFallback = (snapshot?: CredentialSnapshot) =>
+        Effect.gen(function* () {
+          const existing = yield* readOrServeStoredFile(snapshot);
+          const file = Option.getOrElse(existing, () => emptyCredentialFile);
+          yield* writeStoredFile({
+            ...file,
+            registries: { ...file.registries, [registryUrl]: accounts },
+          });
         });
-      });
       return storageTier === "keychain"
         ? writeKeychainCredentialFile(
             registryUrl,
@@ -712,13 +777,13 @@ export const CredentialStoreLive = Layer.effect(
             Effect.as("keychain" as const),
             Effect.catchTag("KeyringUnavailable", ({ reason }) =>
               noteKeychainFallback(reason).pipe(
-                Effect.andThen(writeFallback),
+                Effect.flatMap(writeFallback),
                 Effect.as("file" as const),
                 observeCredentialFallback("write", "unavailable"),
               ),
             ),
           )
-        : writeFallback.pipe(Effect.as("file" as const));
+        : writeFallback(restrictedSnapshot).pipe(Effect.as("file" as const));
     };
     const save: CredentialStoreService["save"] = Effect.fn("CredentialStore.save")(
       function* (registryUrl, handle, credentials) {
@@ -732,9 +797,16 @@ export const CredentialStoreLive = Layer.effect(
 
         // Validate the fallback before modifying either tier: an unreadable file
         // cannot authorize replacing or removing credentials we could not inspect.
-        if (storageTier === "keychain") yield* readStoredFile();
-        const existing = yield* loadCredentialFile(registryUrl);
-        const file = Option.getOrElse(existing, () => emptyCredentialFile);
+        // On the restricted tier that read is also the merge base: only the
+        // computation below runs before the write.
+        const stored =
+          storageTier === "keychain"
+            ? {
+                file: yield* readStoredFile().pipe(Effect.andThen(loadCredentialFile(registryUrl))),
+                snapshot: undefined,
+              }
+            : yield* readStoredSnapshot();
+        const file = Option.getOrElse(stored.file, () => emptyCredentialFile);
 
         const registryEntry = file.registries[registryUrl] ?? { accounts: {} };
         const updatedAccounts: Record<string, CredentialEntry> = {};
@@ -750,7 +822,11 @@ export const CredentialStoreLive = Layer.effect(
           active: true,
         };
 
-        const usedTier = yield* saveCredentialFile(registryUrl, { accounts: updatedAccounts });
+        const usedTier = yield* saveCredentialFile(
+          registryUrl,
+          { accounts: updatedAccounts },
+          stored.snapshot,
+        );
         if (usedTier === "keychain") {
           yield* removeStoredRegistry(registryUrl);
         }
@@ -782,11 +858,14 @@ export const CredentialStoreLive = Layer.effect(
     const clear: CredentialStoreService["clear"] = Effect.fn("CredentialStore.clear")(function* (
       registryUrl,
     ) {
-      yield* readStoredFile();
+      const { snapshot } = yield* readStoredSnapshot();
       if (storageTier === "keychain") {
         yield* deleteKeychainCredentialFile(registryUrl, keyringEntry);
+        // The keychain call may have run for a while; read the file again.
+        yield* removeStoredRegistry(registryUrl);
+      } else {
+        yield* removeStoredRegistry(registryUrl, snapshot);
       }
-      yield* removeStoredRegistry(registryUrl);
     }, locked);
 
     return {

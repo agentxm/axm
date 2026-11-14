@@ -16,7 +16,10 @@ import {
   type McpConfigTarget,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { resolveNativeReadLocation, type NativeDirectoryInputs } from "../../locations/index.js";
-import { withNativeConfigReadView } from "../native-config-syntax.js";
+import {
+  withNativeConfigObservationView,
+  withNativeConfigReadView,
+} from "../native-config-syntax.js";
 import { preflightNativeConfigReaders } from "../native-config-readers.js";
 import { McpConfigInvalid, McpDefinitionInvalid, McpSharedTargetConflict } from "../errors.js";
 import type { CodingAgentFailure } from "../errors.js";
@@ -24,9 +27,10 @@ import { type McpServerManifest } from "@agentxm/extension-model/unstable/mcps/m
 import type { NativeWriteAuthority } from "../native-write-authority.js";
 import {
   removeAgentMcpConfigs,
-  validateAgentMcpConfigRemovals,
+  renderAgentMcpConfigRemovals,
   prepareMcpWrite,
-  writeAgentMcpConfig,
+  writePreparedAgentMcpConfig,
+  type McpWritePreparation,
   type RemoveAgentMcpConfigsArgs,
 } from "./config-writer.js";
 import {
@@ -179,6 +183,12 @@ const plannedTargets = (
     : Effect.succeed(plan);
 };
 
+/** One planned write with the proposal its validation rendered, when it has no adoption preimage. */
+interface ValidatedMcpWrite {
+  readonly write: McpTargetWrite;
+  readonly prepared: McpWritePreparation | undefined;
+}
+
 /** Recheck every declared alias and all file contracts before the first native write. */
 const validatePlannedWrites = (
   configuredAgentIds: ReadonlyArray<string>,
@@ -195,6 +205,7 @@ const validatePlannedWrites = (
 ) =>
   withNativeConfigReadView(
     Effect.gen(function* () {
+      const validated: Array<ValidatedMcpWrite> = [];
       for (const write of writes) {
         for (const target of write.declaredTargets) {
           const current = yield* resolveAgentMcpConfigTargetPath(workspaceRoot, target);
@@ -256,7 +267,30 @@ const validatePlannedWrites = (
           raw,
           proposedRaw,
         });
+        if (adoption !== undefined) {
+          validated.push(Object.freeze({ write, prepared: undefined }));
+          continue;
+        }
+        // The same view already parsed this preimage, so the server's presence costs no parse.
+        const values = yield* readNativeMcpValues({
+          configPath: write.path,
+          raw,
+          format: write.target.format,
+          serversPath: write.config.serversPath,
+        });
+        const prepared: McpWritePreparation = Object.freeze({
+          configPath: write.path,
+          raw,
+          next: proposedRaw,
+          existed: Object.hasOwn(values, serverName),
+          serverName,
+          serversPath: write.config.serversPath,
+          format: write.target.format,
+          entry: write.entry,
+        });
+        validated.push(Object.freeze({ write, prepared }));
       }
+      return Object.freeze(validated);
     }),
   );
 
@@ -318,30 +352,40 @@ const applyPlannedWrites = (
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
-    yield* validatePlannedWrites(configuredAgentIds, workspaceRoot, serverName, writes, authority);
+    const validated = yield* validatePlannedWrites(
+      configuredAgentIds,
+      workspaceRoot,
+      serverName,
+      writes,
+      authority,
+    );
     const path = yield* Path.Path;
     const targetsByAgent = new Map<string, Array<McpServerSyncTarget>>();
-    for (const write of writes) {
-      const result = yield* writeAgentMcpConfig({
-        workspaceRoot,
-        serverName,
-        serversPath: write.config.serversPath,
-        target: write.target,
-        entry: write.entry,
+    for (const { write, prepared } of validated) {
+      // The writer reuses the validated proposal only for an identical locked preimage.
+      const result = yield* writePreparedAgentMcpConfig(
+        {
+          workspaceRoot,
+          serverName,
+          serversPath: write.config.serversPath,
+          target: write.target,
+          entry: write.entry,
 
-        aliases: [
-          ...new Set(
-            write.declaredTargets.map((target) =>
-              path.resolve(
-                workspaceRoot,
-                target.scope === "user" && target.path.startsWith("~/")
-                  ? target.path.slice(2)
-                  : target.path,
+          aliases: [
+            ...new Set(
+              write.declaredTargets.map((target) =>
+                path.resolve(
+                  workspaceRoot,
+                  target.scope === "user" && target.path.startsWith("~/")
+                    ? target.path.slice(2)
+                    : target.path,
+                ),
               ),
             ),
-          ),
-        ].sort(),
-      });
+          ].sort(),
+        },
+        prepared,
+      );
       const targets = yield* describePhysicalConsumers({
         nativeDirectoryInputs: authority.nativeDirectoryInputs,
         workspaceRoot,
@@ -541,17 +585,22 @@ const planMcpRemovals = (
             detail: `MCP location changed before removal: ${declared.path}`,
           });
       }
-      const proposedRaw = yield* validateAgentMcpConfigRemovals(plan.removal);
-      yield* preflightNativeConfigReaders({
-        nativeDirectoryInputs: args.nativeDirectoryInputs,
-        workspaceRoot: args.workspaceRoot,
-        scope: args.scope,
-        physicalPath: plan.path,
-        configuredAgentIds: plan.configuredConsumers,
-        writerFormat: plan.removal.target.format,
-        raw: Option.getOrElse(yield* readNativeMcpConfig(plan.path), () => ""),
-        proposedRaw,
-      });
+      // One observation of this container serves its render and its co-reader check.
+      yield* withNativeConfigObservationView(
+        Effect.gen(function* () {
+          const { raw, proposedRaw } = yield* renderAgentMcpConfigRemovals(plan.removal, plan.path);
+          yield* preflightNativeConfigReaders({
+            nativeDirectoryInputs: args.nativeDirectoryInputs,
+            workspaceRoot: args.workspaceRoot,
+            scope: args.scope,
+            physicalPath: plan.path,
+            configuredAgentIds: plan.configuredConsumers,
+            writerFormat: plan.removal.target.format,
+            raw,
+            proposedRaw,
+          });
+        }),
+      );
     }
     return {
       plans,

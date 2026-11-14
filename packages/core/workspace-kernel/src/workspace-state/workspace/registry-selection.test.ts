@@ -9,6 +9,7 @@ import { SettingsSchema, type Settings } from "../desired/settings/index.js";
 import {
   defaultRegistrySelection,
   selectRegistry,
+  sourceConfigurationSnapshotFrom,
   type SourceConfigurationSnapshot,
 } from "./registry-selection.js";
 
@@ -142,5 +143,24 @@ describe("selectRegistry", () => {
       scope: "built-in",
       settingsPath: Option.none(),
     });
+  });
+});
+
+describe("sourceConfigurationSnapshotFrom", () => {
+  it("places each read document at its own scope and path", () => {
+    const expected = snapshot({ defaultRegistry: "corp", sources: [corp] }, { sources: [] });
+    const built = sourceConfigurationSnapshotFrom({
+      projectPath: expected.project.path,
+      project: expected.project.settings,
+      userPath: expected.user.path,
+      user: expected.user.settings,
+      builtInSources: expected.builtInSources,
+    });
+    expect(built).toEqual(expected);
+    expect(built.project.settings).toBe(expected.project.settings);
+    expect(built.user.settings).toBe(expected.user.settings);
+    expect(selected(built)).toMatchObject(
+      Result.succeed({ reason: "project-default", settingsPath: "/project/axm.json" }),
+    );
   });
 });

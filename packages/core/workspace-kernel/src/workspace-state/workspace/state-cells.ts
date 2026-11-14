@@ -105,11 +105,23 @@ const stateLoadersFor = (cells: StateCellPaths, scope: WorkspaceScope) =>
       : freshStateLoadersFor(cells, scope);
   });
 
-/** The settings document of one runtime directory, when present. */
+/**
+ * Document loaders for one logical scope, owned by a single caller that reads
+ * the same scope's documents more than once within its own bounded call.
+ */
+type ScopeLoaders = (
+  scope: WorkspaceScope,
+) => Effect.Effect<ScopedStateLoaders, WorkspaceRootEscape, FileSystem.FileSystem | Path.Path>;
+
+/**
+ * The settings document of one runtime directory, when present. `loaders`
+ * replaces the fresh or phase-owned loaders for a caller that owns them.
+ */
 export const readSettingsCell = (
   cells: StateCellPaths,
   dir: string,
   sharedScope?: WorkspaceScope,
+  loaders?: ScopeLoaders,
 ): Effect.Effect<
   Option.Option<Settings>,
   WorkspaceSettingsReadFailure,
@@ -117,7 +129,9 @@ export const readSettingsCell = (
 > =>
   cells.observationView?.kind === "git-index" && scopeForDir(cells, dir, sharedScope) === "user"
     ? Effect.succeedNone
-    : stateLoadersFor(cells, scopeForDir(cells, dir, sharedScope)).pipe(
+    : (loaders ?? ((scope) => stateLoadersFor(cells, scope)))(
+        scopeForDir(cells, dir, sharedScope),
+      ).pipe(
         Effect.flatMap((loaders) => loaders.settings),
         Effect.map((settings) =>
           Option.isNone(settings) &&
@@ -138,15 +152,21 @@ export const readSettingsOrDefault = (
     Effect.map(Option.getOrElse(() => createDefaultSettings())),
   );
 
-/** The lockfile of one runtime directory, empty when absent. */
+/**
+ * The lockfile of one runtime directory, empty when absent. `loaders`
+ * replaces the fresh or phase-owned loaders for a caller that owns them.
+ */
 export const readLockfileCell = (
   cells: StateCellPaths,
   dir: string,
   sharedScope?: WorkspaceScope,
+  loaders?: ScopeLoaders,
 ): Effect.Effect<Lockfile, WorkspaceLockfileReadFailure, FileSystem.FileSystem | Path.Path> =>
   cells.observationView?.kind === "git-index" && scopeForDir(cells, dir, sharedScope) === "user"
     ? Effect.sync(createEmptyLockfile)
-    : stateLoadersFor(cells, scopeForDir(cells, dir, sharedScope)).pipe(
+    : (loaders ?? ((scope) => stateLoadersFor(cells, scope)))(
+        scopeForDir(cells, dir, sharedScope),
+      ).pipe(
         Effect.flatMap((loaders) => loaders.lockfile),
         Effect.map(Option.getOrElse(createEmptyLockfile)),
       );

@@ -10,9 +10,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 
 import {
@@ -28,10 +26,6 @@ import {
 } from "@agentxm/registry-client";
 
 import type { Settings, SourceHostConfig } from "../desired/settings/index.js";
-import type { WorkspaceSettingsReadFailure } from "./contracts.js";
-import { WorkspaceDocuments } from "./documents.js";
-import { resolveUserWorkspaceLayout } from "./layout.js";
-import { WorkspaceLocation } from "./location.js";
 
 /** One settings document an invocation's Registry selection reads. */
 interface SettingsDocumentSnapshot {
@@ -67,20 +61,17 @@ export const defaultRegistrySelection = (
       ? { name: user.defaultRegistry, scope: "user" }
       : { name: BUILT_IN_REGISTRY_NAME, scope: "built-in" };
 
-/** Read the applicable project and user settings of a project-scoped workspace. */
-export const readSourceConfigurationSnapshot: Effect.Effect<
-  SourceConfigurationSnapshot,
-  WorkspaceSettingsReadFailure,
-  WorkspaceLocation | WorkspaceDocuments | Path.Path
-> = Effect.gen(function* () {
-  const location = yield* WorkspaceLocation;
-  const documents = yield* WorkspaceDocuments;
-  const userLayout = yield* resolveUserWorkspaceLayout(location.userHome);
-  return {
-    project: { path: location.settingsPath, settings: yield* documents.settings("project") },
-    user: { path: userLayout.settingsPath, settings: yield* documents.settings("user") },
-    builtInSources: location.builtInSources,
-  } satisfies SourceConfigurationSnapshot;
+/** The selection snapshot of already-read project and user settings documents. */
+export const sourceConfigurationSnapshotFrom = (documents: {
+  readonly projectPath: string;
+  readonly project: Settings;
+  readonly userPath: string;
+  readonly user: Settings;
+  readonly builtInSources: ReadonlyArray<SourceHostConfig>;
+}): SourceConfigurationSnapshot => ({
+  project: { path: documents.projectPath, settings: documents.project },
+  user: { path: documents.userPath, settings: documents.user },
+  builtInSources: documents.builtInSources,
 });
 
 /**

@@ -127,6 +127,10 @@ const inspectBundledAxmSkillReadiness = Effect.gen(function* () {
       blocker: "authored",
     } satisfies BundledAxmSkillReadiness;
   const agents = yield* (yield* CodingAgentRepository).getConfiguredAgents();
+  // Agents often share one skills directory, and nothing writes between their
+  // read-only inspections, so an exact repeat of an inspected spelling is
+  // skipped. Other spellings, aliases included, are inspected on their own.
+  const inspectedDirs = new Set<string>();
   for (const agent of agents) {
     const target = yield* agent.resolveEffectiveSkillsDir({
       workspaceRoot: location.baseDir,
@@ -139,7 +143,7 @@ const inspectBundledAxmSkillReadiness = Effect.gen(function* () {
         errorMessage: `Agent ${agent.id} has invalid skills directory settings`,
         blocker: "native-artifact",
       } satisfies BundledAxmSkillReadiness;
-    if (target._tag !== "supported") continue;
+    if (target._tag !== "supported" || inspectedDirs.has(target.dir)) continue;
     const inspection = yield* inspectSkillAgentArtifact({
       nativeRoots: nativeAuthorityRoots(
         path,
@@ -160,6 +164,7 @@ const inspectBundledAxmSkillReadiness = Effect.gen(function* () {
           "detail" in inspection.failure ? inspection.failure.detail : inspection.failure.message,
         blocker: "native-artifact",
       } satisfies BundledAxmSkillReadiness;
+    inspectedDirs.add(target.dir);
   }
   return { readiness: "ready", canonicalPath } satisfies BundledAxmSkillReadiness;
 });

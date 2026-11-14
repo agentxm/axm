@@ -662,7 +662,7 @@ export const runObservabilityBenchmark = (repoRoot: string) =>
           ...(strace === undefined
             ? {}
             : {
-                physicalWork: {
+                physicalWorkCapture: {
                   ...physicalWorkMethod,
                   executable: strace.executable,
                   version: strace.version,
